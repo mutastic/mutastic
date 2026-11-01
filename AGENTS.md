@@ -8,8 +8,11 @@ build failure.
 ## Build
 
 ```sh
-./gradlew build          # compile, format check, every test
+./gradlew build          # compile, Error Prone and NullAway, format, Checkstyle, tests, ArchUnit,
+                         # and the branch-coverage floor (65%)
 ./gradlew spotlessApply  # format the code
+./gradlew coverageReport # build/reports/jacoco/coverageReport/html, over every module's tests
+./gradlew lockDependencies --write-locks  # after changing a version: rewrites gradle.lockfile
 ./gradlew :mutastic-cli:installDist && ./mutastic-cli/build/install/mutastic/bin/mutastic run samples/pricing
 ```
 
