@@ -24,7 +24,8 @@ dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj)
-    testRuntimeOnly(libs.junit.platform.launcher)
+    // Compiled against too: some tests drive a launcher over fixture classes.
+    testImplementation(libs.junit.platform.launcher)
 }
 
 tasks.jar {
@@ -37,7 +38,8 @@ tasks.jar {
 }
 
 tasks.test {
-    useJUnitPlatform()
+    // Fixtures are test classes the worker's own tests run through a launcher, not tests.
+    useJUnitPlatform { excludeTags("fixture") }
     // On 17, the oldest JDK a project under test can use: what the worker promises.
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(17) }
 }

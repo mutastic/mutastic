@@ -68,17 +68,22 @@ final class Progress implements Listener {
     }
   }
 
+  /// `1 test`, `3 tests`.
+  private static String count(int number, String noun) {
+    return number + " " + noun + (number == 1 ? "" : "s");
+  }
+
   @Override
   public void coverageFinished(CoveragePass pass) {
     total = pass.mutants();
     if (mode != Mode.NONE) {
       err.printf(
-          "coverage  %d tests on JDK %d in %s%s · %d mutants%n",
-          pass.tests(),
+          "coverage  %s on JDK %d in %s%s · %s%n",
+          count(pass.tests(), "test"),
           pass.jdk(),
           io.mutastic.report.HumanText.seconds(pass.took()),
           pass.flaky().isEmpty() ? "" : " (%d flaky, left out)".formatted(pass.flaky().size()),
-          pass.mutants());
+          count(pass.mutants(), "mutant"));
     }
   }
 

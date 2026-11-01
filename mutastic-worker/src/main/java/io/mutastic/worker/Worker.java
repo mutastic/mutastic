@@ -208,26 +208,12 @@ public final class Worker {
         "DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
   }
 
-  /// Starts each test's probes and answers `TEST` with how long it took.
+  /// Starts each test's probes and answers `TEST` with how long it takes alone (see [TestTimes]).
   private TestExecutionListener timingTests() {
-    var startedAt = new HashMap<String, Long>();
-    return new TestExecutionListener() {
-      @Override
-      public void executionStarted(TestIdentifier test) {
-        if (test.isTest()) {
-          Probes.startTest(id(test));
-          startedAt.put(id(test), System.nanoTime());
-        }
-      }
-
-      @Override
-      public void executionFinished(TestIdentifier test, TestExecutionResult result) {
-        if (test.isTest()) {
-          long started = startedAt.getOrDefault(id(test), System.nanoTime());
-          protocol.println("TEST\t" + id(test) + "\t" + (System.nanoTime() - started));
-        }
-      }
-    };
+    return new TestTimes(
+        Worker::id,
+        Probes::startTest,
+        (test, nanos) -> protocol.println("TEST\t" + test + "\t" + nanos));
   }
 
   private void reportLines() {
@@ -402,7 +388,7 @@ public final class Worker {
   /// `com.example.PricingTest#discount(java.nio.file.Path)`, under the name the build gave the
   /// class. Parameter types too: `selectMethod(class, "name")` finds only a no-argument method, so
   /// a test taking a `@TempDir Path` would select nothing.
-  private static String id(TestIdentifier test) {
+  static String id(TestIdentifier test) {
     return Renamer.original(
         test.getSource()
             .filter(MethodSource.class::isInstance)
