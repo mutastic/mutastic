@@ -66,6 +66,13 @@ final class Suspects {
   record UnrelatedCatches(String test, String failure, List<String> mutants, long methods) {}
 
   static List<UnrelatedCatches> unrelatedCatches(Report report) {
+    return catchesFromTestCodeByTest(report).entrySet().stream()
+        .flatMap(entry -> unrelatedCatches(entry.getKey(), entry.getValue()).stream())
+        .toList();
+  }
+
+  /// Each test's catches whose exception was thrown in the test's own code, in report order.
+  private static Map<String, List<MutantResult>> catchesFromTestCodeByTest(Report report) {
     var byTest = new LinkedHashMap<String, List<MutantResult>>();
     report.results().stream()
         .filter(
@@ -77,29 +84,28 @@ final class Suspects {
                 byTest
                     .computeIfAbsent(result.caughtBy().orElseThrow(), ignored -> new ArrayList<>())
                     .add(result));
-    return byTest.entrySet().stream()
-        .flatMap(
-            entry -> {
-              var catches = entry.getValue();
-              var failures =
-                  catches.stream().map(result -> result.failure().orElse("")).distinct().toList();
-              long methods =
-                  catches.stream()
-                      .map(
-                          result ->
-                              result.mutant().className() + "#" + result.mutant().methodName())
-                      .distinct()
-                      .count();
-              return failures.size() == 1 && methods >= UNRELATED_METHODS
-                  ? java.util.stream.Stream.of(
-                      new UnrelatedCatches(
-                          entry.getKey(),
-                          failures.getFirst(),
-                          catches.stream().map(result -> result.mutant().id()).toList(),
-                          methods))
-                  : java.util.stream.Stream.empty();
-            })
-        .toList();
+    return byTest;
+  }
+
+  private static Optional<UnrelatedCatches> unrelatedCatches(
+      String test, List<MutantResult> catches) {
+    var failures = catches.stream().map(result -> result.failure().orElse("")).distinct().toList();
+    long methods = distinctMethods(catches);
+    return failures.size() == 1 && methods >= UNRELATED_METHODS
+        ? Optional.of(
+            new UnrelatedCatches(
+                test,
+                failures.getFirst(),
+                catches.stream().map(result -> result.mutant().id()).toList(),
+                methods))
+        : Optional.empty();
+  }
+
+  private static long distinctMethods(List<MutantResult> catches) {
+    return catches.stream()
+        .map(result -> result.mutant().className() + "#" + result.mutant().methodName())
+        .distinct()
+        .count();
   }
 
   /// One entry per likely flaky test, with every mutant it changed and which signals named it:

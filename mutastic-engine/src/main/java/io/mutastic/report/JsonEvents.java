@@ -42,55 +42,75 @@ public final class JsonEvents {
     fields.put("fingerprint", mutant.fingerprint());
     fields.put("status", result.status().schemaName());
     fields.put("operator", mutant.operator().id());
+    fields.put("location", location(mutant));
+    fields.put("mutation", mutation(mutant));
+    mutant.skipped().ifPresent(reason -> putSkipReason(fields, reason));
+    fields.put("coveredBy", result.coveredBy());
+    putCatch(fields, result);
+    if (!result.inputs().isEmpty()) {
+      fields.put("inputs", result.inputs());
+    }
+    SuggestedTest.of(result, sources)
+        .ifPresent(test -> fields.put("suggestedTest", suggestedTest(test, result)));
+    fields.put("testsRun", result.testsRun());
+    fields.put("durationMs", result.took().toMillis());
+    if (result.status() == Status.MISSED) {
+      putMissedHelp(fields, result);
+    }
+    emit("mutant-finished", fields);
+  }
+
+  private Map<String, Object> location(io.mutastic.engine.Mutant mutant) {
     var location = new LinkedHashMap<String, Object>();
     location.put("file", sources.file(mutant));
     location.put("line", sources.place(mutant).line());
     location.put("class", mutant.binaryName());
     location.put("method", mutant.methodName() + mutant.descriptor());
-    fields.put("location", location);
+    return location;
+  }
+
+  private Map<String, Object> mutation(io.mutastic.engine.Mutant mutant) {
     var advice = sources.advice(mutant);
     var mutation = new LinkedHashMap<String, Object>();
     advice.before().ifPresent(before -> mutation.put("original", before));
     advice.after().ifPresent(after -> mutation.put("replacement", after));
     mutation.put("description", advice.change());
     mutation.put("bytecode", mutant.original() + " -> " + mutant.replacement());
-    fields.put("mutation", mutation);
-    mutant
-        .skipped()
-        .ifPresent(
-            reason -> {
-              fields.put("statusReason", reason);
-              fields.put("skipKind", reason.substring(0, reason.indexOf(':')));
-            });
-    fields.put("coveredBy", result.coveredBy());
+    return mutation;
+  }
+
+  /// Why it was skipped, and the kind of reason: its first word.
+  private static void putSkipReason(Map<String, Object> fields, String reason) {
+    fields.put("statusReason", reason);
+    fields.put("skipKind", reason.substring(0, reason.indexOf(':')));
+  }
+
+  /// Which test caught it, with what, from where; or whose catch didn't repeat.
+  private static void putCatch(Map<String, Object> fields, MutantResult result) {
     result.caughtBy().ifPresent(test -> fields.put("killedBy", test));
     result.failure().ifPresent(failure -> fields.put("killedWith", failure));
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
     result.unconfirmed().ifPresent(test -> fields.put("unconfirmedCatchBy", test));
-    if (!result.inputs().isEmpty()) {
-      fields.put("inputs", result.inputs());
+  }
+
+  private static Map<String, Object> suggestedTest(SuggestedTest test, MutantResult result) {
+    var found = result.suggestion().orElseThrow();
+    var suggestion = new LinkedHashMap<String, Object>();
+    suggestion.put("testClass", test.testClass());
+    suggestion.put("name", test.name());
+    suggestion.put("code", String.join("\n", test.lines()));
+    suggestion.put("call", found.call());
+    suggestion.put("today", found.today());
+    suggestion.put("withMutant", found.mutated());
+    return suggestion;
+  }
+
+  /// The commands to work on a missed mutant, and its entry as the agent text has it.
+  private void putMissedHelp(Map<String, Object> fields, MutantResult result) {
+    for (MutantCommand command : MutantCommand.values()) {
+      fields.put(command.key(), command.text(result.mutant().id(), sources.target()));
     }
-    SuggestedTest.of(result, sources)
-        .ifPresent(
-            test -> {
-              var suggestion = new LinkedHashMap<String, Object>();
-              suggestion.put("testClass", test.testClass());
-              suggestion.put("name", test.name());
-              suggestion.put("code", String.join("\n", test.lines()));
-              suggestion.put("call", result.suggestion().orElseThrow().call());
-              suggestion.put("today", result.suggestion().orElseThrow().today());
-              suggestion.put("withMutant", result.suggestion().orElseThrow().mutated());
-              fields.put("suggestedTest", suggestion);
-            });
-    fields.put("testsRun", result.testsRun());
-    fields.put("durationMs", result.took().toMillis());
-    if (result.status() == Status.MISSED) {
-      for (MutantCommand command : MutantCommand.values()) {
-        fields.put(command.key(), command.text(mutant.id(), sources.target()));
-      }
-      fields.put("rendered", text.entry(0, result));
-    }
-    emit("mutant-finished", fields);
+    fields.put("rendered", text.entry(0, result));
   }
 
   public void runFinished(Report report) {
@@ -114,6 +134,19 @@ public final class JsonEvents {
     for (Status status : Status.values()) {
       fields.put(status.schemaName(), report.count(status));
     }
+    putVerdict(fields, report, oneMutant);
+    fields.put("tests", report.tests());
+    fields.put("flaky", report.flaky());
+    comparison.ifPresent(found -> putComparison(fields, found));
+    fields.put("likelyFlaky", Suspects.json(comparison, report));
+    fields.put("unrelatedCatches", unrelatedCatches(report));
+    fields.put("reports", reports);
+    fields.put("durationMs", report.took().toMillis());
+    emit("run-finished", fields);
+  }
+
+  /// The score, the threshold, and whether the run passed.
+  private void putVerdict(Map<String, Object> fields, Report report, boolean oneMutant) {
     fields.put("score", Math.round(report.score() * 10) / 10.0);
     fields.put("threshold", threshold);
     fields.put(
@@ -125,43 +158,40 @@ public final class JsonEvents {
       fields.put(
           "only", report.results().isEmpty() ? null : report.results().getFirst().mutant().id());
     }
-    fields.put("tests", report.tests());
-    fields.put("flaky", report.flaky());
-    comparison.ifPresent(
-        found -> {
-          fields.put("previousScore", Math.round(found.previousScore() * 10) / 10.0);
-          fields.put("sameCodeAsLastRun", found.sameCode());
-          fields.put("sameMutasticAsLastRun", found.sameTool());
-          fields.put(
-              "changedSinceLastRun",
-              found.flips().stream()
-                  .map(
-                      flip -> {
-                        var entry = new LinkedHashMap<String, Object>();
-                        entry.put("id", flip.id());
-                        entry.put("before", flip.before().schemaName());
-                        entry.put("after", flip.after().schemaName());
-                        flip.caughtBy().ifPresent(test -> entry.put("caughtBy", test));
-                        return entry;
-                      })
-                  .toList());
-        });
-    fields.put("likelyFlaky", Suspects.json(comparison, report));
-    fields.put(
-        "unrelatedCatches",
-        Suspects.unrelatedCatches(report).stream()
-            .map(
-                note -> {
-                  var entry = new LinkedHashMap<String, Object>();
-                  entry.put("test", note.test());
-                  entry.put("failure", note.failure());
-                  entry.put("mutants", note.mutants());
-                  return entry;
-                })
-            .toList());
-    fields.put("reports", reports);
-    fields.put("durationMs", report.took().toMillis());
-    emit("run-finished", fields);
+  }
+
+  private static void putComparison(Map<String, Object> fields, Comparison found) {
+    fields.put("previousScore", Math.round(found.previousScore() * 10) / 10.0);
+    fields.put("sameCodeAsLastRun", found.sameCode());
+    fields.put("sameMutasticAsLastRun", found.sameTool());
+    fields.put("changedSinceLastRun", changedSinceLastRun(found));
+  }
+
+  private static List<Map<String, Object>> changedSinceLastRun(Comparison found) {
+    return found.flips().stream()
+        .<Map<String, Object>>map(
+            flip -> {
+              var entry = new LinkedHashMap<String, Object>();
+              entry.put("id", flip.id());
+              entry.put("before", flip.before().schemaName());
+              entry.put("after", flip.after().schemaName());
+              flip.caughtBy().ifPresent(test -> entry.put("caughtBy", test));
+              return entry;
+            })
+        .toList();
+  }
+
+  private static List<Map<String, Object>> unrelatedCatches(Report report) {
+    return Suspects.unrelatedCatches(report).stream()
+        .<Map<String, Object>>map(
+            note -> {
+              var entry = new LinkedHashMap<String, Object>();
+              entry.put("test", note.test());
+              entry.put("failure", note.failure());
+              entry.put("mutants", note.mutants());
+              return entry;
+            })
+        .toList();
   }
 
   private void emit(String reason, Map<String, Object> fields) {

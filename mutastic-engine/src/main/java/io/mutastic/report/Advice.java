@@ -72,112 +72,134 @@ public record Advice(
   ///
   /// @param asWritten the jump tests the source's own condition, not its opposite
   static Advice of(Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
+    return switch (mutant.operator()) {
+      case BOUNDARY -> boundary(mutant, seen, asWritten);
+      case NEGATE_CONDITIONAL -> negateConditional(mutant, seen, asWritten);
+      case MATH -> math(mutant, seen);
+      case RETURN_DEFAULT -> returnDefault(mutant, seen);
+      case REMOVE_VOID_CALL -> removeVoidCall(mutant, seen);
+    };
+  }
+
+  private static Advice boundary(Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
+    var method = method(mutant);
+    var before = jump(mutant.original(), asWritten).orElseThrow();
+    var after = jump(mutant.replacement(), asWritten).orElseThrow();
+    var comparison = Comparison.of(mutant.operands());
+    return new Advice(
+        Optional.of(before),
+        Optional.of(after),
+        "`%s` becomes `%s`".formatted(before, after),
+        "changed to " + after,
+        boundaryHeadline(method, comparison, before),
+        boundaryNotes(method, comparison, seen),
+        boundaryFix(method, comparison, before, after));
+  }
+
+  /// That every test stays away from the boundary, when the inputs show it; else the inputs seen.
+  private static List<String> boundaryNotes(
+      String method, Optional<Comparison> comparison, Map<String, List<Long>> seen) {
+    return comparison
+        .flatMap(
+            found ->
+                found
+                    .boundary(seen)
+                    .map(
+                        values ->
+                            List.of(
+                                "every test calls %s away from the boundary".formatted(method),
+                                "inputs seen: %s (none is %s)"
+                                    .formatted(join(values), found.value()))))
+        .orElseGet(() -> inputsSeen(seen));
+  }
+
+  private static String boundaryHeadline(
+      String method, Optional<Comparison> comparison, String before) {
+    return comparison
+        .map(
+            found ->
+                "no test checks %s at `%s == %s`".formatted(method, found.name(), found.value()))
+        .orElse("no test checks the boundary of `%s` in %s".formatted(before, method));
+  }
+
+  private static String boundaryFix(
+      String method, Optional<Comparison> comparison, String before, String after) {
+    return comparison
+        .map(
+            found ->
+                "test %s with `%s = %s` and assert the result"
+                    .formatted(method, found.name(), found.value()))
+        .orElse(
+            "add a test at the boundary value, where `%s` and `%s` disagree, and assert the result"
+                .formatted(before, after));
+  }
+
+  private static Advice negateConditional(
+      Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
+    var method = method(mutant);
+    var before = jump(mutant.original(), asWritten);
+    var after = jump(mutant.replacement(), asWritten);
+    var condition = condition(mutant.operands(), before);
+    return new Advice(
+        before,
+        after,
+        before.isPresent()
+            ? "`%s` becomes `%s`".formatted(before.get(), after.get())
+            : "the condition is reversed",
+        before.map(token -> "changed to " + after.get()).orElse("reversed"),
+        "%s behaves the same with %s reversed".formatted(capitalised(method), condition),
+        inputsSeen(seen),
+        "assert the result on both sides of " + condition);
+  }
+
+  private static Advice math(Mutant mutant, Map<String, List<Long>> seen) {
     var method = method(mutant);
     var operands = mutant.operands();
+    var before = arithmetic(mutant.original());
+    var after = arithmetic(mutant.replacement());
+    boolean known = operands.size() == 2;
+    var original =
+        known
+            ? "`%s %s %s`".formatted(operands.get(0), before, operands.get(1))
+            : "`" + before + "`";
+    var swapped =
+        known ? "`%s %s %s`".formatted(operands.get(0), after, operands.get(1)) : "`" + after + "`";
+    return new Advice(
+        Optional.of(before),
+        Optional.of(after),
+        "`%s` becomes `%s`".formatted(before, after),
+        "changed to " + after,
+        "tests pass even when `%s` becomes `%s` in %s".formatted(before, after, method),
+        inputsSeen(seen),
+        "use inputs where %s and %s differ, and assert the result".formatted(original, swapped));
+  }
+
+  private static Advice returnDefault(Mutant mutant, Map<String, List<Long>> seen) {
+    var method = method(mutant);
+    var value = defaultValue(mutant.descriptor());
     var notes = new ArrayList<String>();
-    return switch (mutant.operator()) {
-      case BOUNDARY -> {
-        var before = jump(mutant.original(), asWritten).orElseThrow();
-        var after = jump(mutant.replacement(), asWritten).orElseThrow();
-        var comparison = Comparison.of(operands);
-        comparison
-            .flatMap(found -> found.boundary(seen))
-            .ifPresent(
-                values -> {
-                  notes.add("every test calls %s away from the boundary".formatted(method));
-                  notes.add(
-                      "inputs seen: %s (none is %s)"
-                          .formatted(join(values), comparison.get().value()));
-                });
-        if (notes.isEmpty()) {
-          notes.addAll(inputsSeen(seen));
-        }
-        yield new Advice(
-            Optional.of(before),
-            Optional.of(after),
-            "`%s` becomes `%s`".formatted(before, after),
-            "changed to " + after,
-            comparison
-                .map(
-                    found ->
-                        "no test checks %s at `%s == %s`"
-                            .formatted(method, found.name(), found.value()))
-                .orElse("no test checks the boundary of `%s` in %s".formatted(before, method)),
-            notes,
-            comparison
-                .map(
-                    found ->
-                        "test %s with `%s = %s` and assert the result"
-                            .formatted(method, found.name(), found.value()))
-                .orElse(
-                    "add a test at the boundary value, where `%s` and `%s` disagree, and assert the result"
-                        .formatted(before, after)));
-      }
-      case NEGATE_CONDITIONAL -> {
-        var before = jump(mutant.original(), asWritten);
-        var after = jump(mutant.replacement(), asWritten);
-        var condition = condition(operands, before);
-        notes.addAll(inputsSeen(seen));
-        yield new Advice(
-            before,
-            after,
-            before.isPresent()
-                ? "`%s` becomes `%s`".formatted(before.get(), after.get())
-                : "the condition is reversed",
-            before.map(token -> "changed to " + after.get()).orElse("reversed"),
-            "%s behaves the same with %s reversed".formatted(capitalised(method), condition),
-            notes,
-            "assert the result on both sides of " + condition);
-      }
-      case MATH -> {
-        var before = arithmetic(mutant.original());
-        var after = arithmetic(mutant.replacement());
-        boolean known = operands.size() == 2;
-        var original =
-            known
-                ? "`%s %s %s`".formatted(operands.get(0), before, operands.get(1))
-                : "`" + before + "`";
-        var swapped =
-            known
-                ? "`%s %s %s`".formatted(operands.get(0), after, operands.get(1))
-                : "`" + after + "`";
-        notes.addAll(inputsSeen(seen));
-        yield new Advice(
-            Optional.of(before),
-            Optional.of(after),
-            "`%s` becomes `%s`".formatted(before, after),
-            "changed to " + after,
-            "tests pass even when `%s` becomes `%s` in %s".formatted(before, after, method),
-            notes,
-            "use inputs where %s and %s differ, and assert the result"
-                .formatted(original, swapped));
-      }
-      case RETURN_DEFAULT -> {
-        var value = defaultValue(mutant.descriptor());
-        notes.add("tests reach this return but never assert its value");
-        notes.addAll(inputsSeen(seen));
-        yield new Advice(
-            Optional.empty(),
-            Optional.of("return " + value + ";"),
-            "returns `%s` instead".formatted(value),
-            "now returns " + value,
-            "no test checks what %s returns here".formatted(method),
-            notes,
-            "assert the value %s returns on this path".formatted(method));
-      }
-      case REMOVE_VOID_CALL -> {
-        var called = "`%s()`".formatted(SourceView.calledName(mutant.original()));
-        notes.addAll(inputsSeen(seen));
-        yield new Advice(
-            Optional.empty(),
-            Optional.empty(),
-            "the call to %s is removed".formatted(called),
-            "call removed",
-            "no test checks the effect of calling %s in %s".formatted(called, method),
-            notes,
-            "assert what %s does: the state it changes or the call it makes".formatted(called));
-      }
-    };
+    notes.add("tests reach this return but never assert its value");
+    notes.addAll(inputsSeen(seen));
+    return new Advice(
+        Optional.empty(),
+        Optional.of("return " + value + ";"),
+        "returns `%s` instead".formatted(value),
+        "now returns " + value,
+        "no test checks what %s returns here".formatted(method),
+        notes,
+        "assert the value %s returns on this path".formatted(method));
+  }
+
+  private static Advice removeVoidCall(Mutant mutant, Map<String, List<Long>> seen) {
+    var called = "`%s()`".formatted(SourceView.calledName(mutant.original()));
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        "the call to %s is removed".formatted(called),
+        "call removed",
+        "no test checks the effect of calling %s in %s".formatted(called, method(mutant)),
+        inputsSeen(seen),
+        "assert what %s does: the state it changes or the call it makes".formatted(called));
   }
 
   /// A comparison of a name with a value, the name first however the source has it: `total >= 100`

@@ -70,34 +70,6 @@ public final class ReportFiles {
   /// The report-schema document. Statuses are the schema's (`Killed`, `Survived`, …); locations are
   /// 1-based with an exclusive end.
   Map<String, Object> json(Report report) {
-    var files = new TreeMap<String, SourceFile>();
-    var tests = new TreeMap<String, List<String>>(); // test class → test ids
-    for (MutantResult result : report.results()) {
-      var mutant = result.mutant();
-      var file =
-          files.computeIfAbsent(
-              sources.file(mutant),
-              path -> new SourceFile(sources.text(mutant).orElse(""), new ArrayList<>()));
-      file.mutants().add(mutant(result));
-      result
-          .coveredBy()
-          .forEach(
-              test -> tests.computeIfAbsent(testClass(test), name -> new ArrayList<>()).add(test));
-    }
-    var testFiles = new TreeMap<String, Map<String, Object>>();
-    tests.forEach(
-        (testClass, ids) -> {
-          var definitions =
-              ids.stream()
-                  .distinct()
-                  .sorted()
-                  .map(id -> Map.<String, Object>of("id", id, "name", testName(id)))
-                  .toList();
-          var entry = new LinkedHashMap<String, Object>();
-          sources.testSource(testClass).ifPresent(source -> entry.put("source", source));
-          entry.put("tests", definitions);
-          testFiles.put(sources.testFile(testClass).orElse(testClass), entry);
-        });
     var document = new LinkedHashMap<String, Object>();
     document.put(
         "$schema",
@@ -106,17 +78,68 @@ public final class ReportFiles {
     // One threshold in mutastic: at or above it is good; the warning band is the 20 points below.
     document.put("thresholds", Map.of("high", threshold, "low", Math.max(0, threshold - 20)));
     document.put("projectRoot", root.toAbsolutePath().normalize().toString());
+    document.put("files", files(report));
+    document.put("testFiles", testFiles(report));
+    document.put("framework", Map.of("name", "mutastic", "version", version));
+    document.put("performance", performance(report));
+    return document;
+  }
+
+  /// Each source file's entry, by its path.
+  private Map<String, Map<String, Object>> files(Report report) {
+    var files = new TreeMap<String, SourceFile>();
+    for (MutantResult result : report.results()) {
+      var mutant = result.mutant();
+      var file =
+          files.computeIfAbsent(
+              sources.file(mutant),
+              path -> new SourceFile(sources.text(mutant).orElse(""), new ArrayList<>()));
+      file.mutants().add(mutant(result));
+    }
     var fileEntries = new TreeMap<String, Map<String, Object>>();
     files.forEach((path, file) -> fileEntries.put(path, file.json()));
-    document.put("files", fileEntries);
-    document.put("testFiles", testFiles);
-    document.put("framework", Map.of("name", "mutastic", "version", version));
+    return fileEntries;
+  }
+
+  /// Each test class's entry, its source and the tests in it, by its path.
+  private Map<String, Map<String, Object>> testFiles(Report report) {
+    var testFiles = new TreeMap<String, Map<String, Object>>();
+    testIdsByClass(report)
+        .forEach(
+            (testClass, ids) -> {
+              var entry = new LinkedHashMap<String, Object>();
+              sources.testSource(testClass).ifPresent(source -> entry.put("source", source));
+              entry.put("tests", testDefinitions(ids));
+              testFiles.put(sources.testFile(testClass).orElse(testClass), entry);
+            });
+    return testFiles;
+  }
+
+  private static Map<String, List<String>> testIdsByClass(Report report) {
+    var tests = new TreeMap<String, List<String>>(); // test class → test ids
+    for (MutantResult result : report.results()) {
+      result
+          .coveredBy()
+          .forEach(
+              test -> tests.computeIfAbsent(testClass(test), name -> new ArrayList<>()).add(test));
+    }
+    return tests;
+  }
+
+  private static List<Map<String, Object>> testDefinitions(List<String> ids) {
+    return ids.stream()
+        .distinct()
+        .sorted()
+        .map(id -> Map.<String, Object>of("id", id, "name", testName(id)))
+        .toList();
+  }
+
+  private static Map<String, Object> performance(Report report) {
     var performance = new LinkedHashMap<String, Object>();
     performance.put("setup", 0);
     performance.put("initialRun", report.coverage().toMillis());
     performance.put("mutation", report.took().minus(report.coverage()).toMillis());
-    document.put("performance", performance);
-    return document;
+    return performance;
   }
 
   private Map<String, Object> mutant(MutantResult result) {
@@ -134,14 +157,7 @@ public final class ReportFiles {
             "start", Map.of("line", place.line(), "column", place.start()),
             "end", Map.of("line", place.line(), "column", place.end())));
     entry.put("status", result.status().schemaName());
-    var reason =
-        switch (result.status()) {
-          case SKIPPED -> mutant.skipped().orElse("");
-          case CAUGHT -> result.failure().orElse("");
-          case MISSED -> advice.headline();
-          case TIMED_OUT -> "the tests didn't finish in time";
-          case NOT_COVERED -> "no test reaches this line";
-        };
+    var reason = statusReason(result, advice);
     if (!reason.isEmpty()) {
       entry.put("statusReason", reason);
     }
@@ -150,6 +166,17 @@ public final class ReportFiles {
     entry.put("testsCompleted", result.testsRun());
     entry.put("duration", result.took().toMillis());
     return entry;
+  }
+
+  /// Why the mutant has its status, or empty when there's nothing to say.
+  private static String statusReason(MutantResult result, Advice advice) {
+    return switch (result.status()) {
+      case SKIPPED -> result.mutant().skipped().orElse("");
+      case CAUGHT -> result.failure().orElse("");
+      case MISSED -> advice.headline();
+      case TIMED_OUT -> "the tests didn't finish in time";
+      case NOT_COVERED -> "no test reaches this line";
+    };
   }
 
   /// The JSON in the schema's viewer, embedded with the viewer itself, so the page needs no
@@ -186,37 +213,42 @@ public final class ReportFiles {
         new StringBuilder(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<mutations partial=\"false\">\n");
     for (MutantResult result : report.results()) {
-      if (result.status() == Status.SKIPPED) {
-        continue;
+      if (result.status() != Status.SKIPPED) {
+        mutation(out, result);
       }
-      var mutant = result.mutant();
-      var status =
-          switch (result.status()) {
-            case CAUGHT -> "KILLED";
-            case MISSED -> "SURVIVED";
-            case TIMED_OUT -> "TIMED_OUT";
-            default -> "NO_COVERAGE";
-          };
-      out.append(
-          "<mutation detected='%s' status='%s' numberOfTestsRun='%d'>"
-              .formatted(result.status().detected(), status, result.testsRun()));
-      element(out, "sourceFile", Path.of(sources.file(mutant)).getFileName().toString());
-      element(out, "mutatedClass", mutant.binaryName());
-      element(out, "mutatedMethod", mutant.methodName());
-      element(out, "methodDescription", mutant.descriptor());
-      element(out, "lineNumber", String.valueOf(sources.place(mutant).line()));
-      element(out, "mutator", mutator(mutant));
-      out.append("<indexes><index>").append(mutant.ordinal()).append("</index></indexes>");
-      out.append("<blocks><block>0</block></blocks>");
-      element(out, "killingTest", result.caughtBy().orElse(""));
-      element(
-          out,
-          "succeedingTests",
-          result.status() == Status.MISSED ? String.join("|", result.coveredBy()) : "");
-      element(out, "description", sources.advice(mutant).change());
-      out.append("</mutation>\n");
     }
     return out.append("</mutations>\n").toString();
+  }
+
+  private void mutation(StringBuilder out, MutantResult result) {
+    var mutant = result.mutant();
+    out.append(
+        "<mutation detected='%s' status='%s' numberOfTestsRun='%d'>"
+            .formatted(result.status().detected(), xmlStatus(result.status()), result.testsRun()));
+    element(out, "sourceFile", Path.of(sources.file(mutant)).getFileName().toString());
+    element(out, "mutatedClass", mutant.binaryName());
+    element(out, "mutatedMethod", mutant.methodName());
+    element(out, "methodDescription", mutant.descriptor());
+    element(out, "lineNumber", String.valueOf(sources.place(mutant).line()));
+    element(out, "mutator", mutator(mutant));
+    out.append("<indexes><index>").append(mutant.ordinal()).append("</index></indexes>");
+    out.append("<blocks><block>0</block></blocks>");
+    element(out, "killingTest", result.caughtBy().orElse(""));
+    element(
+        out,
+        "succeedingTests",
+        result.status() == Status.MISSED ? String.join("|", result.coveredBy()) : "");
+    element(out, "description", sources.advice(mutant).change());
+    out.append("</mutation>\n");
+  }
+
+  private static String xmlStatus(Status status) {
+    return switch (status) {
+      case CAUGHT -> "KILLED";
+      case MISSED -> "SURVIVED";
+      case TIMED_OUT -> "TIMED_OUT";
+      default -> "NO_COVERAGE";
+    };
   }
 
   private static String mutator(Mutant mutant) {

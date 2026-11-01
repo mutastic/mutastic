@@ -77,25 +77,7 @@ public final class HumanText {
       switch (detail) {
         case GROUPED -> out.append(groupedLines(missed));
         case CONCISE -> missed.forEach(result -> out.append(line(result)).append('\n'));
-        default -> {
-          String file = null;
-          for (MutantResult result : missed.stream().limit(CARDS).toList()) {
-            var here = sources.file(result.mutant());
-            if (!here.equals(file)) {
-              out.append('\n').append(fileHeader(here, result.mutant(), missed)).append('\n');
-              file = here;
-            }
-            out.append(detail == Detail.BRIEF ? briefCard(result) : card(result));
-          }
-          if (missed.size() > CARDS) {
-            out.append('\n')
-                .append(
-                    style.dim(
-                        " … and %d more %s mutants (--format=concise lists them all)"
-                            .formatted(missed.size() - CARDS, words.undetected)))
-                .append('\n');
-          }
-        }
+        default -> out.append(cards(missed));
       }
     }
     notCovered(report, out);
@@ -104,13 +86,47 @@ public final class HumanText {
     return out.toString();
   }
 
+  /// The first [#CARDS] missed mutants as cards under their files, and how many more there are.
+  private String cards(List<MutantResult> missed) {
+    var out = new StringBuilder();
+    String file = null;
+    for (MutantResult result : missed.stream().limit(CARDS).toList()) {
+      var here = sources.file(result.mutant());
+      if (!here.equals(file)) {
+        out.append('\n').append(fileHeader(here, result.mutant(), missed)).append('\n');
+        file = here;
+      }
+      out.append(detail == Detail.BRIEF ? briefCard(result) : card(result));
+    }
+    if (missed.size() > CARDS) {
+      out.append('\n')
+          .append(
+              style.dim(
+                  " … and %d more %s mutants (--format=concise lists them all)"
+                      .formatted(missed.size() - CARDS, words.undetected)))
+          .append('\n');
+    }
+    return out.toString();
+  }
+
   /// One file's results, as they finish: `✓` and a count when nothing was missed; `❯` with each
   /// miss and each line no test reaches otherwise.
   public String fileFinished(String project, List<MutantResult> results) {
-    var first = results.getFirst().mutant();
     var missed = results.stream().filter(result -> result.status() == Status.MISSED).toList();
     var uncovered =
         results.stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
+    var lines = new ArrayList<String>(List.of(" " + fileHead(project, results, missed, uncovered)));
+    missed.forEach(result -> lines.add(missedLine(result)));
+    uncoveredByLine(uncovered).forEach((where, count) -> lines.add(uncoveredLine(where, count)));
+    return String.join("\n", lines) + "\n";
+  }
+
+  /// `✓ project src/…/Pricing.java (12 mutants) 1.2s`: the file, its counts and how long it took.
+  private String fileHead(
+      String project,
+      List<MutantResult> results,
+      List<MutantResult> missed,
+      List<MutantResult> uncovered) {
     var counts = new ArrayList<String>(List.of(style.dim("%d mutants".formatted(results.size()))));
     if (!missed.isEmpty()) {
       counts.add(style.red("%d %s".formatted(missed.size(), words.undetected)));
@@ -119,24 +135,26 @@ public final class HumanText {
       counts.add(style.amber("%d %s".formatted(uncovered.size(), words.notCovered)));
     }
     var took = results.stream().map(MutantResult::took).reduce(Duration.ZERO, Duration::plus);
-    var head =
-        "%s %s %s %s %s"
-            .formatted(
-                missed.isEmpty() && uncovered.isEmpty() ? style.green("✓") : style.red("❯"),
-                style.label(project, Style.CYAN),
-                sources.file(first),
-                style.dim("(") + String.join(style.dim(" | "), counts) + style.dim(")"),
-                style.dim(HumanText.seconds(took)));
-    var lines = new ArrayList<String>(List.of(" " + head));
-    for (MutantResult result : missed) {
-      lines.add(
-          "   %s %s %s %s"
-              .formatted(
-                  style.red("×"),
-                  plain(Advice.method(result.mutant())),
-                  style.dim(":" + sources.place(result.mutant()).line()),
-                  code(sources.advice(result.mutant()).change())));
-    }
+    return "%s %s %s %s %s"
+        .formatted(
+            missed.isEmpty() && uncovered.isEmpty() ? style.green("✓") : style.red("❯"),
+            style.label(project, Style.CYAN),
+            sources.file(results.getFirst().mutant()),
+            style.dim("(") + String.join(style.dim(" | "), counts) + style.dim(")"),
+            style.dim(HumanText.seconds(took)));
+  }
+
+  private String missedLine(MutantResult result) {
+    return "   %s %s %s %s"
+        .formatted(
+            style.red("×"),
+            plain(Advice.method(result.mutant())),
+            style.dim(":" + sources.place(result.mutant()).line()),
+            code(sources.advice(result.mutant()).change()));
+  }
+
+  /// `discount() :17` to how many mutants no test reaches there, in the order found.
+  private Map<String, Long> uncoveredByLine(List<MutantResult> uncovered) {
     var byLine = new LinkedHashMap<String, Long>();
     uncovered.forEach(
         result ->
@@ -146,20 +164,18 @@ public final class HumanText {
                     + sources.place(result.mutant()).line(),
                 1L,
                 Long::sum));
-    byLine.forEach(
-        (where, count) -> {
-          int colon = where.lastIndexOf(" :");
-          lines.add(
-              "   %s %s %s %s"
-                  .formatted(
-                      style.amber("○"),
-                      where.substring(0, colon),
-                      style.dim(where.substring(colon + 1)),
-                      style.dim(
-                          "no test reaches this line"
-                              + (count > 1 ? " (%d mutants)".formatted(count) : ""))));
-        });
-    return String.join("\n", lines) + "\n";
+    return byLine;
+  }
+
+  private String uncoveredLine(String where, long count) {
+    int colon = where.lastIndexOf(" :");
+    return "   %s %s %s %s"
+        .formatted(
+            style.amber("○"),
+            where.substring(0, colon),
+            style.dim(where.substring(colon + 1)),
+            style.dim(
+                "no test reaches this line" + (count > 1 ? " (%d mutants)".formatted(count) : "")));
   }
 
   /// ` Missed ──────`
@@ -202,26 +218,28 @@ public final class HumanText {
               .sorted(
                   Comparator.comparingInt((List<MutantResult> inMethod) -> inMethod.size())
                       .reversed())
-              .forEach(
-                  inMethod -> {
-                    out.append(
-                        "   %s %s%n"
-                            .formatted(
-                                plain(Advice.method(inMethod.getFirst().mutant())),
-                                style.red("%d %s".formatted(inMethod.size(), words.undetected))));
-                    for (MutantResult result : inMethod) {
-                      var place = sources.place(result.mutant());
-                      out.append(
-                          "     %s %s %s %s%n"
-                              .formatted(
-                                  style.dim("%-7s".formatted(place.line() + ":" + place.start())),
-                                  style.red("✗"),
-                                  code(sources.advice(result).headline()),
-                                  style.dim(result.mutant().id())));
-                    }
-                  });
+              .forEach(inMethod -> appendMethodMisses(out, inMethod));
         });
     return out.toString();
+  }
+
+  /// A method and its count of misses, then each miss: `line:column ✗ headline id`.
+  private void appendMethodMisses(StringBuilder out, List<MutantResult> inMethod) {
+    out.append(
+        "   %s %s%n"
+            .formatted(
+                plain(Advice.method(inMethod.getFirst().mutant())),
+                style.red("%d %s".formatted(inMethod.size(), words.undetected))));
+    for (MutantResult result : inMethod) {
+      var place = sources.place(result.mutant());
+      out.append(
+          "     %s %s %s %s%n"
+              .formatted(
+                  style.dim("%-7s".formatted(place.line() + ":" + place.start())),
+                  style.red("✗"),
+                  code(sources.advice(result).headline()),
+                  style.dim(result.mutant().id())));
+    }
   }
 
   /// Missed mutants by file, files in the order found; in each file, methods with the most misses
@@ -296,37 +314,68 @@ public final class HumanText {
     var place = sources.place(mutant);
     int width = String.valueOf(place.line() + 1).length();
     var gutter = " ".repeat(width);
-    var bar = style.dim("│");
     var lines = new ArrayList<String>();
     lines.add("");
+    addHead(lines, advice, mutant, gutter);
+    lines.addAll(frame(mutant, advice, place, width));
+    addBeforeAndAfter(lines, mutant, advice, gutter);
+    addNotes(lines, gutter, cardNotes(result, advice));
+    lines.add(annotation(gutter, style.green(style.bold("help")) + ": " + code(advice.fix())));
+    var indent = " " + gutter + "         ";
+    SuggestedTest.of(result, sources).ifPresent(test -> addSuggestedTest(lines, test, indent));
+    lines.add("");
+    for (MutantCommand command : MutantCommand.values()) {
+      lines.add(command(gutter, command.label(), command.text(mutant.id(), sources.target())));
+    }
+    return String.join("\n", lines) + "\n";
+  }
+
+  /// `✗ MISSED headline`, then `┌─ src/…/Pricing.java:17`.
+  private void addHead(List<String> lines, Advice advice, Mutant mutant, String gutter) {
     lines.add(
         " %s %s"
             .formatted(
                 style.label("✗ " + words.undetected.toUpperCase(Locale.ROOT), Style.RED),
                 style.bold(code(advice.headline()))));
     lines.add(" %s %s %s".formatted(gutter, style.dim("┌─"), location(mutant)));
-    var file = sources.lines(mutant);
-    if (file.isPresent() && place.line() >= 1 && place.line() <= file.get().size()) {
-      var source = file.get();
-      lines.add(" %s %s".formatted(gutter, bar));
-      for (int number = Math.max(1, place.line() - 1);
-          number <= Math.min(source.size(), place.line() + 1);
-          number++) {
-        lines.add(
-            " %s %s %s".formatted(style.dim(pad(number, width)), bar, source.get(number - 1)));
-        if (number == place.line()) {
-          lines.add(
-              " %s %s %s"
-                  .formatted(
-                      gutter,
-                      bar,
-                      " ".repeat(place.start() - 1)
-                          + style.red(
-                              "^".repeat(place.end() - place.start()) + " " + advice.changedTo())));
-        }
-      }
-      lines.add(" %s %s".formatted(gutter, bar));
+  }
+
+  /// The changed line between the lines either side, the change marked under it; nothing when the
+  /// source isn't there.
+  private List<String> frame(Mutant mutant, Advice advice, SourceView.Place place, int width) {
+    var file = sources.lines(mutant).filter(all -> place.line() >= 1 && place.line() <= all.size());
+    if (file.isEmpty()) {
+      return List.of();
     }
+    var source = file.get();
+    var gutter = " ".repeat(width);
+    var bar = style.dim("│");
+    var lines = new ArrayList<String>();
+    lines.add(" %s %s".formatted(gutter, bar));
+    for (int number = Math.max(1, place.line() - 1);
+        number <= Math.min(source.size(), place.line() + 1);
+        number++) {
+      lines.add(" %s %s %s".formatted(style.dim(pad(number, width)), bar, source.get(number - 1)));
+      if (number == place.line()) {
+        lines.add(caret(gutter, place, advice));
+      }
+    }
+    lines.add(" %s %s".formatted(gutter, bar));
+    return lines;
+  }
+
+  /// `^^ changed to >`, under the change.
+  private String caret(String gutter, SourceView.Place place, Advice advice) {
+    return " %s %s %s"
+        .formatted(
+            gutter,
+            style.dim("│"),
+            " ".repeat(place.start() - 1)
+                + style.red("^".repeat(place.end() - place.start()) + " " + advice.changedTo()));
+  }
+
+  /// `= mutant - the line` and `+ the line mutated`, when it can be shown exactly.
+  private void addBeforeAndAfter(List<String> lines, Mutant mutant, Advice advice, String gutter) {
     var mutated = sources.mutatedLine(mutant, advice);
     var before = sources.line(mutant);
     if (mutated.isPresent() && before.isPresent()) {
@@ -334,7 +383,10 @@ public final class HumanText {
           " %s %s mutant  %s".formatted(gutter, style.dim("="), style.red("- ") + before.get()));
       lines.add(" %s           %s".formatted(gutter, style.green("+ ") + mutated.get()));
     }
-    var indent = " " + gutter + "         ";
+  }
+
+  /// The advice's evidence, then which tests cover it and that they still pass.
+  private static List<String> cardNotes(MutantResult result, Advice advice) {
     var notes = new ArrayList<>(advice.notes());
     notes.add(
         "covered by %s (%s)".formatted(AgentText.covering(result.coveredBy()), stillPass(result))
@@ -344,38 +396,31 @@ public final class HumanText {
                     test ->
                         "; %s failed once, then passed: flaky".formatted(AgentText.shortName(test)))
                 .orElse(""));
-    lines.add(
-        " %s %s %s"
-            .formatted(
-                gutter,
-                style.dim("="),
-                style.blue(style.bold("note")) + ": " + code(notes.getFirst())));
-    notes.stream().skip(1).forEach(note -> lines.add(indent + style.dim(code(note))));
-    lines.add(
-        " %s %s %s"
-            .formatted(
-                gutter,
-                style.dim("="),
-                style.green(style.bold("help")) + ": " + code(advice.fix())));
-    SuggestedTest.of(result, sources)
-        .ifPresent(
-            test -> {
-              lines.add("");
-              lines.add(indent + style.dim("// in " + test.testClass()));
-              test.lines()
-                  .forEach(
-                      line ->
-                          lines.add(indent + (line.startsWith("  ") ? style.green(line) : line)));
-              lines.add(
-                  indent
-                      + style.dim(
-                          "check today's value is the one you intend: the test pins what the code does now"));
-            });
+    return notes;
+  }
+
+  /// `= note: the first`, the rest dim under it.
+  private void addNotes(List<String> lines, String gutter, List<String> notes) {
+    lines.add(annotation(gutter, style.blue(style.bold("note")) + ": " + code(notes.getFirst())));
+    notes.stream()
+        .skip(1)
+        .forEach(note -> lines.add(" " + gutter + "         " + style.dim(code(note))));
+  }
+
+  /// ` │ = text`, a line the card adds below the code.
+  private String annotation(String gutter, String text) {
+    return " %s %s %s".formatted(gutter, style.dim("="), text);
+  }
+
+  private void addSuggestedTest(List<String> lines, SuggestedTest test, String indent) {
     lines.add("");
-    for (MutantCommand command : MutantCommand.values()) {
-      lines.add(command(gutter, command.label(), command.text(mutant.id(), sources.target())));
-    }
-    return String.join("\n", lines) + "\n";
+    lines.add(indent + style.dim("// in " + test.testClass()));
+    test.lines()
+        .forEach(line -> lines.add(indent + (line.startsWith("  ") ? style.green(line) : line)));
+    lines.add(
+        indent
+            + style.dim(
+                "check today's value is the one you intend: the test pins what the code does now"));
   }
 
   /// The card cut down: the gap, the changed line, the evidence and the id.
@@ -385,63 +430,43 @@ public final class HumanText {
     var place = sources.place(mutant);
     int width = String.valueOf(place.line()).length();
     var gutter = " ".repeat(width);
-    var bar = style.dim("│");
     var lines = new ArrayList<String>();
     lines.add("");
-    lines.add(
-        " %s %s"
-            .formatted(
-                style.label("✗ " + words.undetected.toUpperCase(Locale.ROOT), Style.RED),
-                style.bold(code(advice.headline()))));
-    lines.add(" %s %s %s".formatted(gutter, style.dim("┌─"), location(mutant)));
+    addHead(lines, advice, mutant, gutter);
     sources
         .lines(mutant)
         .filter(all -> place.line() >= 1 && place.line() <= all.size())
-        .ifPresent(
-            source -> {
-              lines.add(" %s %s".formatted(gutter, bar));
-              lines.add(
-                  " %s %s %s"
-                      .formatted(
-                          style.dim(String.valueOf(place.line())),
-                          bar,
-                          source.get(place.line() - 1)));
-              lines.add(
-                  " %s %s %s"
-                      .formatted(
-                          gutter,
-                          bar,
-                          " ".repeat(place.start() - 1)
-                              + style.red(
-                                  "^".repeat(place.end() - place.start())
-                                      + " "
-                                      + advice.changedTo())));
-              lines.add(" %s %s".formatted(gutter, bar));
-            });
+        .ifPresent(source -> lines.addAll(changedLine(source, place, advice, gutter)));
     var evidence =
         advice.notes().isEmpty()
             ? List.of("covered by " + AgentText.covering(result.coveredBy()))
             : advice.notes();
-    lines.add(
-        " %s %s %s"
-            .formatted(
-                gutter,
-                style.dim("="),
-                style.blue(style.bold("note")) + ": " + code(evidence.getFirst())));
-    evidence.stream()
-        .skip(1)
-        .forEach(note -> lines.add(" " + gutter + "         " + style.dim(code(note))));
-    lines.add(
-        " %s %s %s %s"
-            .formatted(
-                gutter,
-                style.dim("="),
-                style.dim("id:") + " " + mutant.id(),
-                style.dim(
-                    "· %s --format=full for the whole card"
-                        .formatted(
-                            MutantCommand.REPRODUCE.command(mutant.id(), sources.target())))));
+    addNotes(lines, gutter, evidence);
+    lines.add(annotation(gutter, idAndFullCard(mutant)));
     return String.join("\n", lines) + "\n";
+  }
+
+  /// `id: m855c8e3c · mutastic run … --format=full for the whole card`
+  private String idAndFullCard(Mutant mutant) {
+    return style.dim("id:")
+        + " "
+        + mutant.id()
+        + " "
+        + style.dim(
+            "· %s --format=full for the whole card"
+                .formatted(MutantCommand.REPRODUCE.command(mutant.id(), sources.target())));
+  }
+
+  /// Just the changed line, the change marked under it.
+  private List<String> changedLine(
+      List<String> source, SourceView.Place place, Advice advice, String gutter) {
+    var bar = style.dim("│");
+    return List.of(
+        " %s %s".formatted(gutter, bar),
+        " %s %s %s"
+            .formatted(style.dim(String.valueOf(place.line())), bar, source.get(place.line() - 1)),
+        caret(gutter, place, advice),
+        " %s %s".formatted(gutter, bar));
   }
 
   private String command(String gutter, String label, String text) {
@@ -456,6 +481,35 @@ public final class HumanText {
   }
 
   private void notCovered(Report report, StringBuilder out) {
+    var byLine = notCoveredByLine(report);
+    if (byLine.isEmpty()) {
+      return;
+    }
+    out.append('\n')
+        .append(style.amber(style.bold(" " + capitalise(words.notCovered) + " ")))
+        .append(
+            style.dim(
+                "(no test reaches these lines%s)"
+                    .formatted(report.flaky().isEmpty() ? "" : ", or only a flaky one does")))
+        .append('\n');
+    byLine.entrySet().stream()
+        .limit(CARDS)
+        .forEach(entry -> out.append(notCoveredLine(entry.getKey(), entry.getValue())));
+    if (byLine.size() > CARDS) {
+      out.append(style.dim("   … and %d more lines%n".formatted(byLine.size() - CARDS)));
+    }
+  }
+
+  private String notCoveredLine(String where, long count) {
+    return "   %s %s %s%n"
+        .formatted(
+            style.amber("○"),
+            where,
+            style.dim("(%d mutant%s)".formatted(count, count == 1 ? "" : "s")));
+  }
+
+  /// `src/…/Pricing.java:17 discount()` to how many mutants no test reaches there, in report order.
+  private Map<String, Long> notCoveredByLine(Report report) {
     var byLine = new LinkedHashMap<String, Long>();
     report.results().stream()
         .filter(result -> result.status() == Status.NOT_COVERED)
@@ -469,170 +523,90 @@ public final class HumanText {
                             plain(Advice.method(result.mutant()))),
                     1L,
                     Long::sum));
-    if (byLine.isEmpty()) {
-      return;
-    }
-    out.append('\n')
-        .append(style.amber(style.bold(" " + capitalise(words.notCovered) + " ")))
-        .append(
-            style.dim(
-                "(no test reaches these lines%s)"
-                    .formatted(report.flaky().isEmpty() ? "" : ", or only a flaky one does")))
-        .append('\n');
-    byLine.entrySet().stream()
-        .limit(CARDS)
-        .forEach(
-            entry ->
-                out.append(
-                    "   %s %s %s%n"
-                        .formatted(
-                            style.amber("○"),
-                            entry.getKey(),
-                            style.dim(
-                                "(%d mutant%s)"
-                                    .formatted(
-                                        entry.getValue(), entry.getValue() == 1 ? "" : "s")))));
-    if (byLine.size() > CARDS) {
-      out.append(style.dim("   … and %d more lines%n".formatted(byLine.size() - CARDS)));
-    }
+    return byLine;
   }
 
   private void warnings(Report report, Optional<Comparison> comparison, StringBuilder out) {
     var lines = new ArrayList<String>();
-    report
-        .flaky()
-        .forEach(
-            test ->
-                lines.add(
-                    " %s %s failed, then passed when run again; left out of this run"
-                        .formatted(style.amber("! flaky:"), AgentText.shortName(test))));
+    report.flaky().forEach(test -> lines.add(flakyWarning(test)));
     Suspects.changedBetweenRuns(comparison)
-        .forEach(
-            suspect ->
-                lines.add(
-                    " %s %s; with the code unchanged, whether it catches %s changed since the last run"
-                        .formatted(
-                            style.amber("! likely flaky:"),
-                            AgentText.shortName(suspect.test()),
-                            String.join(", ", suspect.mutants()))));
-    Suspects.unconfirmed(report)
-        .forEach(
-            suspect ->
-                lines.add(
-                    " %s %s; its %s of %s didn't repeat when run again"
-                        .formatted(
-                            style.amber("! likely flaky:"),
-                            AgentText.shortName(suspect.test()),
-                            suspect.mutants().size() == 1 ? "catch" : "catches",
-                            String.join(", ", suspect.mutants()))));
-    Suspects.unrelatedCatches(report)
-        .forEach(
-            note ->
-                lines.add(
-                    " %s %s caught %d mutants in %d different methods, each with %s thrown in the test itself"
-                        .formatted(
-                            style.dim("note:"),
-                            AgentText.shortName(note.test()),
-                            note.mutants().size(),
-                            note.methods(),
-                            note.failure().substring(note.failure().lastIndexOf('.') + 1))));
+        .forEach(suspect -> lines.add(changedBetweenRunsWarning(suspect)));
+    Suspects.unconfirmed(report).forEach(suspect -> lines.add(unconfirmedWarning(suspect)));
+    Suspects.unrelatedCatches(report).forEach(note -> lines.add(unrelatedCatchesNote(note)));
     if (!lines.isEmpty()) {
       out.append('\n');
       lines.forEach(line -> out.append(line).append('\n'));
     }
   }
 
+  private String flakyWarning(String test) {
+    return " %s %s failed, then passed when run again; left out of this run"
+        .formatted(style.amber("! flaky:"), AgentText.shortName(test));
+  }
+
+  private String changedBetweenRunsWarning(Suspects.Suspect suspect) {
+    return " %s %s; with the code unchanged, whether it catches %s changed since the last run"
+        .formatted(
+            style.amber("! likely flaky:"),
+            AgentText.shortName(suspect.test()),
+            String.join(", ", suspect.mutants()));
+  }
+
+  private String unconfirmedWarning(Suspects.Suspect suspect) {
+    return " %s %s; its %s of %s didn't repeat when run again"
+        .formatted(
+            style.amber("! likely flaky:"),
+            AgentText.shortName(suspect.test()),
+            suspect.mutants().size() == 1 ? "catch" : "catches",
+            String.join(", ", suspect.mutants()));
+  }
+
+  private String unrelatedCatchesNote(Suspects.UnrelatedCatches note) {
+    return " %s %s caught %d mutants in %d different methods, each with %s thrown in the test itself"
+        .formatted(
+            style.dim("note:"),
+            AgentText.shortName(note.test()),
+            note.mutants().size(),
+            note.methods(),
+            note.failure().substring(note.failure().lastIndexOf('.') + 1));
+  }
+
   private void summary(Report report, Optional<Comparison> comparison, Run run, StringBuilder out) {
-    long caught = report.count(Status.CAUGHT);
-    long missed = report.count(Status.MISSED);
-    long timedOut = report.count(Status.TIMED_OUT);
-    long notCovered = report.count(Status.NOT_COVERED);
+    appendRows(out, rows(report, comparison, run));
+    out.append('\n');
+    out.append(verdict(report, run));
+    if (report.count(Status.MISSED) > 0 && !run.oneMutant()) {
+      out.append(style.dim(" Next: " + MutantCommand.next(sources.target()))).append('\n');
+    }
+  }
+
+  /// The summary's rows, label to value, in the order shown.
+  private Map<String, String> rows(Report report, Optional<Comparison> comparison, Run run) {
     var rows = new LinkedHashMap<String, String>();
-    var files = filesByOutcome(report);
-    rows.put(
-        "Classes",
-        String.join(
-                style.dim(" | "),
-                Stream.of(
-                        style.green(style.bold(files[0] + " clean")),
-                        files[1] == 0
-                            ? null
-                            : style.red(style.bold(files[1] + " " + words.classesWith)))
-                    .filter(java.util.Objects::nonNull)
-                    .toList())
-            + style.dim(" (" + (files[0] + files[1]) + ")"));
-    rows.put(
-        "Mutants",
-        String.join(
-                style.dim(" · "),
-                Stream.of(
-                        style.green("✓ " + style.bold(caught + " " + words.detected)),
-                        missed == 0
-                            ? null
-                            : style.red("✗ " + style.bold(missed + " " + words.undetected)),
-                        timedOut == 0 ? null : style.amber("⏱ " + timedOut + " timed out"),
-                        notCovered == 0
-                            ? null
-                            : style.amber("○ " + notCovered + " " + words.notCovered),
-                        report.count(Status.SKIPPED) == 0 ? null : style.dim(skippedByKind(report)))
-                    .filter(java.util.Objects::nonNull)
-                    .toList())
-            + style.dim(" (" + report.results().size() + ")"));
+    rows.put("Classes", classesRow(report));
+    rows.put("Mutants", mutantsRow(report));
     var worst = worstMethods(report);
     if (!worst.isEmpty()) {
       rows.put("Worst at", worst);
     }
     if (!report.flaky().isEmpty()) {
-      rows.put(
-          "Flaky",
-          "%d test%s left out"
-              .formatted(report.flaky().size(), report.flaky().size() == 1 ? "" : "s"));
+      rows.put("Flaky", flakyRow(report));
     }
-    long runs = report.results().stream().mapToLong(MutantResult::testsRun).sum();
-    long ran =
-        report.results().stream()
-            .filter(
-                result ->
-                    result.status() != Status.SKIPPED && result.status() != Status.NOT_COVERED)
-            .count();
-    rows.put(
-        "Test runs",
-        runs + style.dim(" (%d without coverage selection)".formatted(ran * report.tests())));
+    rows.put("Test runs", testRunsRow(report));
     rows.put("Start at", run.startedAt().format(DateTimeFormatter.ofPattern("HH:mm:ss")));
-    rows.put(
-        "Duration",
-        "%s %s"
-            .formatted(
-                seconds(run.setup().plus(report.took())),
-                style.dim(
-                    "(setup %s, coverage %s, mutants %s)"
-                        .formatted(
-                            seconds(run.setup()),
-                            seconds(report.coverage()),
-                            seconds(report.took().minus(report.coverage()))))));
-    rows.put(
-        "Tests",
-        "%d on JDK %d · %d worker%s%s"
-            .formatted(
-                report.tests(),
-                report.jdk(),
-                report.workers(),
-                report.workers() == 1 ? "" : "s",
-                report.replaced() == 0
-                    ? ""
-                    : style.dim(" (%d replaced after a timeout)".formatted(report.replaced()))));
+    rows.put("Duration", durationRow(report, run));
+    rows.put("Tests", testsRow(report));
     if (!run.reports().isEmpty()) {
       rows.put("Reports", String.join(style.dim(" · "), run.reports()));
     }
-    var score = "%.1f%%".formatted(report.score());
-    boolean passed = report.score() >= threshold;
     if (!run.oneMutant()) { // one mutant has a fate, not a score
-      rows.put(
-          "Score",
-          (passed ? style.green(style.bold(score)) : style.red(style.bold(score)))
-              + delta(report, comparison)
-              + style.dim("  threshold " + threshold));
+      rows.put("Score", scoreRow(report, comparison));
     }
+    return rows;
+  }
+
+  /// Each row, its label right-aligned to the longest.
+  private void appendRows(StringBuilder out, Map<String, String> rows) {
     int width = rows.keySet().stream().mapToInt(String::length).max().orElse(0);
     out.append('\n');
     rows.forEach(
@@ -640,31 +614,119 @@ public final class HumanText {
             out.append(
                 " %s  %s%n"
                     .formatted(style.dim(" ".repeat(width - label.length()) + label), value)));
-    out.append('\n');
+  }
+
+  private String classesRow(Report report) {
+    var files = filesByOutcome(report);
+    return String.join(
+            style.dim(" | "),
+            Stream.of(
+                    style.green(style.bold(files[0] + " clean")),
+                    files[1] == 0
+                        ? null
+                        : style.red(style.bold(files[1] + " " + words.classesWith)))
+                .filter(java.util.Objects::nonNull)
+                .toList())
+        + style.dim(" (" + (files[0] + files[1]) + ")");
+  }
+
+  private String mutantsRow(Report report) {
+    long caught = report.count(Status.CAUGHT);
+    long missed = report.count(Status.MISSED);
+    long timedOut = report.count(Status.TIMED_OUT);
+    long notCovered = report.count(Status.NOT_COVERED);
+    return String.join(
+            style.dim(" · "),
+            Stream.of(
+                    style.green("✓ " + style.bold(caught + " " + words.detected)),
+                    missed == 0
+                        ? null
+                        : style.red("✗ " + style.bold(missed + " " + words.undetected)),
+                    timedOut == 0 ? null : style.amber("⏱ " + timedOut + " timed out"),
+                    notCovered == 0
+                        ? null
+                        : style.amber("○ " + notCovered + " " + words.notCovered),
+                    report.count(Status.SKIPPED) == 0 ? null : style.dim(skippedByKind(report)))
+                .filter(java.util.Objects::nonNull)
+                .toList())
+        + style.dim(" (" + report.results().size() + ")");
+  }
+
+  /// The test runs made, and how many there would have been running every test on every mutant.
+  private String testRunsRow(Report report) {
+    long runs = report.results().stream().mapToLong(MutantResult::testsRun).sum();
+    long ran =
+        report.results().stream()
+            .filter(
+                result ->
+                    result.status() != Status.SKIPPED && result.status() != Status.NOT_COVERED)
+            .count();
+    return runs + style.dim(" (%d without coverage selection)".formatted(ran * report.tests()));
+  }
+
+  private String durationRow(Report report, Run run) {
+    return "%s %s"
+        .formatted(
+            seconds(run.setup().plus(report.took())),
+            style.dim(
+                "(setup %s, coverage %s, mutants %s)"
+                    .formatted(
+                        seconds(run.setup()),
+                        seconds(report.coverage()),
+                        seconds(report.took().minus(report.coverage())))));
+  }
+
+  private static String flakyRow(Report report) {
+    return "%d test%s left out"
+        .formatted(report.flaky().size(), report.flaky().size() == 1 ? "" : "s");
+  }
+
+  private String testsRow(Report report) {
+    return "%d on JDK %d · %d worker%s%s"
+        .formatted(
+            report.tests(),
+            report.jdk(),
+            report.workers(),
+            report.workers() == 1 ? "" : "s",
+            report.replaced() == 0
+                ? ""
+                : style.dim(" (%d replaced after a timeout)".formatted(report.replaced())));
+  }
+
+  private String scoreRow(Report report, Optional<Comparison> comparison) {
+    var score = "%.1f%%".formatted(report.score());
+    return (report.score() >= threshold
+            ? style.green(style.bold(score))
+            : style.red(style.bold(score)))
+        + delta(report, comparison)
+        + style.dim("  threshold " + threshold);
+  }
+
+  /// The last line: the one mutant's fate, or PASS or FAIL with why.
+  private String verdict(Report report, Run run) {
+    long missed = report.count(Status.MISSED);
     if (run.oneMutant() && !report.results().isEmpty()) {
-      out.append(" %s%n".formatted(fate(report.results().getFirst())));
-    } else if (passed) {
-      out.append(
-          " %s %s%n"
-              .formatted(
-                  style.label("PASS", Style.GREEN),
-                  style.green(
-                      missed == 0
-                          ? words.allDetected
-                          : "%d %s, above the threshold.".formatted(missed, words.undetected))));
-    } else {
-      out.append(
-          " %s %s%n"
-              .formatted(
-                  style.label("FAIL", Style.RED),
-                  style.red(
-                      "Score below %d: %d %s, %d %s."
-                          .formatted(
-                              threshold, missed, words.undetected, notCovered, words.notCovered))));
+      return " %s%n".formatted(fate(report.results().getFirst()));
     }
-    if (missed > 0 && !run.oneMutant()) {
-      out.append(style.dim(" Next: " + MutantCommand.next(sources.target()))).append('\n');
+    if (report.score() >= threshold) {
+      return " %s %s%n"
+          .formatted(
+              style.label("PASS", Style.GREEN),
+              style.green(
+                  missed == 0
+                      ? words.allDetected
+                      : "%d %s, above the threshold.".formatted(missed, words.undetected)));
     }
+    return failed(missed, report.count(Status.NOT_COVERED));
+  }
+
+  private String failed(long missed, long notCovered) {
+    return " %s %s%n"
+        .formatted(
+            style.label("FAIL", Style.RED),
+            style.red(
+                "Score below %d: %d %s, %d %s."
+                    .formatted(threshold, missed, words.undetected, notCovered, words.notCovered)));
   }
 
   /// `[MISSED] m855c8e3c is still missed`: one mutant's verdict, for a run that asked for it.
@@ -672,37 +734,35 @@ public final class HumanText {
     var id = result.mutant().id();
     return switch (result.status()) {
       case CAUGHT ->
-          style.label(words.detected.toUpperCase(Locale.ROOT), Style.GREEN)
-              + " "
-              + style.green(
-                  "%s is %s by %s"
-                      .formatted(
-                          id,
-                          words.detected,
-                          AgentText.shortName(result.caughtBy().orElse("a test"))));
+          detectedFate(
+              "%s is %s by %s"
+                  .formatted(
+                      id, words.detected, AgentText.shortName(result.caughtBy().orElse("a test"))));
       case TIMED_OUT ->
-          style.label(words.detected.toUpperCase(Locale.ROOT), Style.GREEN)
-              + " "
-              + style.green(
-                  "%s is %s: its tests stopped finishing in time".formatted(id, words.detected));
+          detectedFate(
+              "%s is %s: its tests stopped finishing in time".formatted(id, words.detected));
       case MISSED ->
-          style.label(words.undetected.toUpperCase(Locale.ROOT), Style.RED)
-              + " "
-              + style.red(
-                  "%s is still %s · done when %s"
-                      .formatted(
-                          id,
-                          words.undetected,
-                          MutantCommand.DONE_WHEN.text(id, sources.target())));
-      case NOT_COVERED ->
-          style.label(words.notCovered.toUpperCase(Locale.ROOT), Style.RED)
-              + " "
-              + style.red("%s: no test reaches its line".formatted(id));
+          redFate(
+              words.undetected,
+              "%s is still %s · done when %s"
+                  .formatted(
+                      id, words.undetected, MutantCommand.DONE_WHEN.text(id, sources.target())));
+      case NOT_COVERED -> redFate(words.notCovered, "%s: no test reaches its line".formatted(id));
       case SKIPPED ->
           style.label("SKIPPED", Style.CYAN)
               + " "
               + "%s is skipped: %s".formatted(id, result.mutant().skipped().orElse(""));
     };
+  }
+
+  private String detectedFate(String text) {
+    return style.label(words.detected.toUpperCase(Locale.ROOT), Style.GREEN)
+        + " "
+        + style.green(text);
+  }
+
+  private String redFate(String label, String text) {
+    return style.label(label.toUpperCase(Locale.ROOT), Style.RED) + " " + style.red(text);
   }
 
   /// {clean, with misses}: source files with mutants, by whether any was missed or not covered.

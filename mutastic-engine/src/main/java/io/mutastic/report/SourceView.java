@@ -156,14 +156,22 @@ public final class SourceView {
     if (first < 1 || first > all.size()) {
       return List.of();
     }
+    return all.subList(first - 1, statementEnd(all, first));
+  }
+
+  /// The line that ends the statement starting on `first`, at most [#STATEMENT_LINES] on.
+  private static int statementEnd(List<String> all, int first) {
     int last = first;
     while (last < all.size()
         && last - first < STATEMENT_LINES
         && !endsStatement(all.get(last - 1))) {
       last++;
     }
-    return all.subList(first - 1, last);
+    return last;
   }
+
+  /// The lines `first` to `last` of a source file, 1-based and inclusive.
+  private record Statement(List<String> all, int first, int last) {}
 
   /// The longest statement searched for the changed operator.
   private static final int STATEMENT_LINES = 12;
@@ -182,37 +190,37 @@ public final class SourceView {
     if (first < 1 || first > all.size() || all.get(first - 1).isBlank()) {
       return new Place(Math.max(1, first), 1, 2);
     }
-    int last = first;
-    while (last < all.size()
-        && last - first < STATEMENT_LINES
-        && !endsStatement(all.get(last - 1))) {
-      last++;
-    }
-    var token = token(mutant);
-    if (token.isPresent()) {
-      @Nullable Place found = null;
-      int count = 0;
-      for (int number = first; number <= last; number++) {
-        var text = all.get(number - 1);
-        for (int at = text.indexOf(token.get()); at >= 0; at = text.indexOf(token.get(), at + 1)) {
-          count++;
-          found =
-              switch (mutant.operator()) {
-                case REMOVE_VOID_CALL -> new Place(number, at + 1, at + token.get().length());
-                case RETURN_DEFAULT -> new Place(number, at + 1, text.stripTrailing().length() + 1);
-                default ->
-                    new Place(
-                        number, at + 2, at + token.get().length()); // inside the spaces around it
-              };
-        }
-      }
-      if (count == 1 && found != null) {
-        return found;
+    var statement = new Statement(all, first, statementEnd(all, first));
+    return token(mutant)
+        .flatMap(token -> onlyPlaceOf(token, mutant.operator(), statement))
+        .orElseGet(() -> wholeLine(all.get(first - 1), first));
+  }
+
+  /// Where the token is in the statement, if it's there exactly once.
+  private static Optional<Place> onlyPlaceOf(
+      String token, io.mutastic.engine.Operator operator, Statement statement) {
+    @Nullable Place found = null;
+    int count = 0;
+    for (int number = statement.first(); number <= statement.last(); number++) {
+      var text = statement.all().get(number - 1);
+      for (int at = text.indexOf(token); at >= 0; at = text.indexOf(token, at + 1)) {
+        count++;
+        found =
+            switch (operator) {
+              case REMOVE_VOID_CALL -> new Place(number, at + 1, at + token.length());
+              case RETURN_DEFAULT -> new Place(number, at + 1, text.stripTrailing().length() + 1);
+              default ->
+                  new Place(number, at + 2, at + token.length()); // inside the spaces around it
+            };
       }
     }
-    var line = all.get(first - 1);
+    return count == 1 && found != null ? Optional.of(found) : Optional.empty();
+  }
+
+  /// The whole line, from its first non-blank character to its end.
+  private static Place wholeLine(String line, int number) {
     int indent = line.length() - line.stripLeading().length();
-    return new Place(first, indent + 1, line.stripTrailing().length() + 1);
+    return new Place(number, indent + 1, line.stripTrailing().length() + 1);
   }
 
   /// The source text the change is to: ` >= ` with its spaces, `record(` for a removed call,

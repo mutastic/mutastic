@@ -7,6 +7,7 @@ import io.mutastic.engine.Status;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -45,36 +46,70 @@ public final class AgentText {
   ///
   /// @param oneMutant the run was one mutant asked for by id: its fate is the verdict, not a score
   public String render(Report report, Optional<Comparison> comparison, boolean oneMutant) {
-    var out = new StringBuilder();
     if (oneMutant && !report.results().isEmpty()) {
-      var result = report.results().getFirst();
-      out.append(
-          "mutastic: %s %s%n"
-              .formatted(
-                  result.mutant().id(),
-                  switch (result.status()) {
-                    case CAUGHT ->
-                        "is %s by %s".formatted(words.detected, result.caughtBy().orElse("a test"));
-                    case TIMED_OUT ->
-                        "is %s: its tests stopped finishing in time".formatted(words.detected);
-                    case MISSED -> "is still %s".formatted(words.undetected);
-                    case NOT_COVERED -> "isn't reached by any test";
-                    case SKIPPED -> "is skipped: " + result.mutant().skipped().orElse("");
-                  }));
-      if (result.status() == Status.MISSED) {
-        out.append(
-            "rules: %s; a fix counts when `%s`%n%n"
-                .formatted(
-                    MutantCommand.RULE,
-                    MutantCommand.DONE_WHEN.text(result.mutant().id(), sources.target())));
-        out.append(entry(0, result));
-      }
-      return out.toString();
+      return oneMutant(report.results().getFirst());
     }
     var missed =
         report.results().stream().filter(result -> result.status() == Status.MISSED).toList();
     var notCovered =
         report.results().stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
+    var out = new StringBuilder();
+    appendVerdict(out, report, missed.size(), notCovered.size());
+    appendFlaky(out, report);
+    comparison.ifPresent(found -> appendVsLastRun(out, report, found));
+    appendSuspects(out, report, comparison);
+    appendUnrelatedCatches(out, report);
+    if (!missed.isEmpty() || !notCovered.isEmpty()) {
+      appendGaps(out, report, missed, notCovered);
+    }
+    return out.toString();
+  }
+
+  private static void appendVsLastRun(StringBuilder out, Report report, Comparison found) {
+    out.append(
+        "vs last run: %.1f%% → %.1f%% (%s)%n"
+            .formatted(found.previousScore(), report.score(), found.sameness()));
+  }
+
+  /// The rules, each missed mutant's entry, then the lines no test reaches.
+  private void appendGaps(
+      StringBuilder out, Report report, List<MutantResult> missed, List<MutantResult> notCovered) {
+    out.append(
+        "rules: %s; a fix counts when `%s`%n"
+            .formatted(MutantCommand.RULE, MutantCommand.DONE_WHEN.text("<id>", sources.target())));
+    appendMissed(out, missed);
+    if (!notCovered.isEmpty()) {
+      appendNotCovered(out, report, notCovered, missed.isEmpty());
+    }
+  }
+
+  /// The one mutant's fate, and for a missed one the rules and its entry.
+  private String oneMutant(MutantResult result) {
+    var out = new StringBuilder();
+    out.append("mutastic: %s %s%n".formatted(result.mutant().id(), fate(result)));
+    if (result.status() == Status.MISSED) {
+      out.append(
+          "rules: %s; a fix counts when `%s`%n%n"
+              .formatted(
+                  MutantCommand.RULE,
+                  MutantCommand.DONE_WHEN.text(result.mutant().id(), sources.target())));
+      out.append(entry(0, result));
+    }
+    return out.toString();
+  }
+
+  private String fate(MutantResult result) {
+    return switch (result.status()) {
+      case CAUGHT -> "is %s by %s".formatted(words.detected, result.caughtBy().orElse("a test"));
+      case TIMED_OUT -> "is %s: its tests stopped finishing in time".formatted(words.detected);
+      case MISSED -> "is still %s".formatted(words.undetected);
+      case NOT_COVERED -> "isn't reached by any test";
+      case SKIPPED -> "is skipped: " + result.mutant().skipped().orElse("");
+    };
+  }
+
+  /// `mutastic: FAIL · score …`: the verdict line, first so a truncated read still has it.
+  private void appendVerdict(StringBuilder out, Report report, int missed, int notCovered) {
     var skipped = report.count(Status.SKIPPED);
     out.append(
         "mutastic: %s · score %.1f%% (threshold %d) · %d %s, %d %s, %d %s of %d mutants%s%n"
@@ -82,14 +117,17 @@ public final class AgentText {
                 report.score() >= threshold ? "PASS" : "FAIL",
                 report.score(),
                 threshold,
-                missed.size(),
+                missed,
                 words.undetected,
-                notCovered.size(),
+                notCovered,
                 words.notCovered,
                 report.count(Status.CAUGHT) + report.count(Status.TIMED_OUT),
                 words.detected,
                 report.scored(),
                 skipped == 0 ? "" : " (%d more skipped)".formatted(skipped)));
+  }
+
+  private static void appendFlaky(StringBuilder out, Report report) {
     if (!report.flaky().isEmpty()) {
       out.append(
           "flaky: %s failed, then passed when run again; left out of this run, so %s catches don't count. "
@@ -101,11 +139,11 @@ public final class AgentText {
                       report.flaky().size() == 1 ? "it" : "them",
                       report.flaky().size() == 1 ? "it depends" : "they depend"));
     }
-    comparison.ifPresent(
-        found ->
-            out.append(
-                "vs last run: %.1f%% → %.1f%% (%s)%n"
-                    .formatted(found.previousScore(), report.score(), found.sameness())));
+  }
+
+  /// The tests whose catches can't be trusted, strongest signal first.
+  private static void appendSuspects(
+      StringBuilder out, Report report, Optional<Comparison> comparison) {
     for (var suspect : Suspects.changedBetweenRuns(comparison)) {
       out.append(
           "likely flaky: %s; with the code unchanged, whether it catches %s changed since the last run. "
@@ -120,6 +158,9 @@ public final class AgentText {
                   suspect.mutants().size() == 1 ? "catch" : "catches",
                   String.join(", ", suspect.mutants())));
     }
+  }
+
+  private static void appendUnrelatedCatches(StringBuilder out, Report report) {
     for (var note : Suspects.unrelatedCatches(report)) {
       out.append(
           ("note: %s caught %d mutants in %d different methods, each with %s thrown in the test itself; "
@@ -130,12 +171,10 @@ public final class AgentText {
                   note.methods(),
                   note.failure().substring(note.failure().lastIndexOf('.') + 1)));
     }
-    if (missed.isEmpty() && notCovered.isEmpty()) {
-      return out.toString();
-    }
-    out.append(
-        "rules: %s; a fix counts when `%s`%n"
-            .formatted(MutantCommand.RULE, MutantCommand.DONE_WHEN.text("<id>", sources.target())));
+  }
+
+  /// The first [#LIMIT] missed mutants' entries, and how many more there are.
+  private void appendMissed(StringBuilder out, List<MutantResult> missed) {
     int number = 0;
     for (MutantResult result : missed.stream().limit(LIMIT).toList()) {
       out.append(System.lineSeparator()).append(entry(++number, result));
@@ -145,31 +184,36 @@ public final class AgentText {
           "%n%d more %s mutants: run again after fixing these%n"
               .formatted(missed.size() - LIMIT, words.undetected));
     }
-    if (!notCovered.isEmpty()) {
-      out.append(
-          "%n%s (no test reaches these lines%s%s):%n"
-              .formatted(
-                  words.notCovered,
-                  report.flaky().isEmpty() ? "" : ", or only a flaky one does",
-                  missed.isEmpty()
-                      ? ""
-                      : "; fix the %s mutants first".formatted(words.undetected)));
-      var byLine = new LinkedHashMap<String, Long>();
-      notCovered.forEach(
-          result ->
-              byLine.merge(
-                  "%s:%d %s"
-                      .formatted(
-                          sources.file(result.mutant()),
-                          sources.place(result.mutant()).line(),
-                          Advice.method(result.mutant()).replace("`", "")),
-                  1L,
-                  Long::sum));
-      byLine.forEach(
-          (where, count) ->
-              out.append("- %s (%d mutant%s)%n".formatted(where, count, count == 1 ? "" : "s")));
-    }
-    return out.toString();
+  }
+
+  private void appendNotCovered(
+      StringBuilder out, Report report, List<MutantResult> notCovered, boolean noneMissed) {
+    out.append(
+        "%n%s (no test reaches these lines%s%s):%n"
+            .formatted(
+                words.notCovered,
+                report.flaky().isEmpty() ? "" : ", or only a flaky one does",
+                noneMissed ? "" : "; fix the %s mutants first".formatted(words.undetected)));
+    notCoveredByLine(notCovered)
+        .forEach(
+            (where, count) ->
+                out.append("- %s (%d mutant%s)%n".formatted(where, count, count == 1 ? "" : "s")));
+  }
+
+  /// `src/…/Pricing.java:12 discount()` to how many mutants no test reaches there, in report order.
+  private Map<String, Long> notCoveredByLine(List<MutantResult> notCovered) {
+    var byLine = new LinkedHashMap<String, Long>();
+    notCovered.forEach(
+        result ->
+            byLine.merge(
+                "%s:%d %s"
+                    .formatted(
+                        sources.file(result.mutant()),
+                        sources.place(result.mutant()).line(),
+                        Advice.method(result.mutant()).replace("`", "")),
+                1L,
+                Long::sum));
+    return byLine;
   }
 
   /// One missed mutant, numbered, or unnumbered (0) where it stands alone.
@@ -187,29 +231,32 @@ public final class AgentText {
     lines.add("   at %s:%d".formatted(sources.file(mutant), sources.place(mutant).line()));
     sources.line(mutant).ifPresent(line -> lines.add("   - " + line));
     lines.add("   + " + sources.mutatedLine(mutant, advice).orElse("(" + advice.change() + ")"));
-    lines.add(
-        "   covered by: %s; all still pass with the change%s"
-            .formatted(
-                covering(result.coveredBy()),
-                result
-                    .unconfirmed()
-                    .map(test -> " (%s failed once, then passed: flaky)".formatted(shortName(test)))
-                    .orElse("")));
+    lines.add(coveredBy(result));
     advice.notes().forEach(note -> lines.add("   evidence: " + note));
     lines.add("   fix: " + advice.fix());
-    SuggestedTest.of(result, sources)
-        .ifPresent(
-            test -> {
-              lines.add("   test to add in %s:".formatted(test.testClass()));
-              test.lines().forEach(line -> lines.add("     " + line));
-              lines.add(
-                  "     // check today's value is the one you intend: the test pins what the code does now");
-            });
+    SuggestedTest.of(result, sources).ifPresent(test -> addSuggestedTest(lines, test));
     for (MutantCommand command : MutantCommand.values()) {
       lines.add(
           "   %s: %s".formatted(command.label(), command.text(mutant.id(), sources.target())));
     }
     return String.join(System.lineSeparator(), lines) + System.lineSeparator();
+  }
+
+  private static String coveredBy(MutantResult result) {
+    return "   covered by: %s; all still pass with the change%s"
+        .formatted(
+            covering(result.coveredBy()),
+            result
+                .unconfirmed()
+                .map(test -> " (%s failed once, then passed: flaky)".formatted(shortName(test)))
+                .orElse(""));
+  }
+
+  private static void addSuggestedTest(List<String> lines, SuggestedTest test) {
+    lines.add("   test to add in %s:".formatted(test.testClass()));
+    test.lines().forEach(line -> lines.add("     " + line));
+    lines.add(
+        "     // check today's value is the one you intend: the test pins what the code does now");
   }
 
   /// `PricingTest#bigOrders` for `com.example.PricingTest#bigOrders`.

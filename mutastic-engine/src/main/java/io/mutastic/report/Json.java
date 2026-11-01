@@ -23,34 +23,38 @@ final class Json {
       case String text -> string(text, out);
       case Number number -> out.append(number);
       case Boolean flag -> out.append(flag);
-      case Map<?, ?> map -> {
-        out.append('{');
-        boolean first = true;
-        for (var entry : map.entrySet()) {
-          if (!first) {
-            out.append(',');
-          }
-          first = false;
-          string(String.valueOf(entry.getKey()), out);
-          out.append(':');
-          write(entry.getValue(), out);
-        }
-        out.append('}');
-      }
+      case Map<?, ?> map -> object(map, out);
       case java.util.Collection<?> collection when !(collection instanceof List<?>) ->
           write(List.copyOf(collection), out);
-      case List<?> list -> {
-        out.append('[');
-        for (int i = 0; i < list.size(); i++) {
-          if (i > 0) {
-            out.append(',');
-          }
-          write(list.get(i), out);
-        }
-        out.append(']');
-      }
+      case List<?> list -> array(list, out);
       default -> string(value.toString(), out);
     }
+  }
+
+  private static void object(Map<?, ?> map, StringBuilder out) {
+    out.append('{');
+    boolean first = true;
+    for (var entry : map.entrySet()) {
+      if (!first) {
+        out.append(',');
+      }
+      first = false;
+      string(String.valueOf(entry.getKey()), out);
+      out.append(':');
+      write(entry.getValue(), out);
+    }
+    out.append('}');
+  }
+
+  private static void array(List<?> list, StringBuilder out) {
+    out.append('[');
+    for (int i = 0; i < list.size(); i++) {
+      if (i > 0) {
+        out.append(',');
+      }
+      write(list.get(i), out);
+    }
+    out.append(']');
   }
 
   private static void string(String text, StringBuilder out) {

@@ -53,9 +53,7 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
           : "assertThrows(%s.class, () -> %s);".formatted(thrown, call);
     }
     if (today.equals("true") || today.equals("false")) {
-      return assertJ
-          ? "assertThat(%s).is%s();".formatted(call, today.equals("true") ? "True" : "False")
-          : "assert%s(%s);".formatted(today.equals("true") ? "True" : "False", call);
+      return booleanAssertion(call, today, assertJ);
     }
     if (today.equals("null")) {
       return assertJ
@@ -65,6 +63,13 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
     return assertJ
         ? "assertThat(%s).isEqualTo(%s);".formatted(call, today)
         : "assertEquals(%s, %s);".formatted(today, call);
+  }
+
+  private static String booleanAssertion(String call, String today, boolean assertJ) {
+    var truth = today.equals("true") ? "True" : "False";
+    return assertJ
+        ? "assertThat(%s).is%s();".formatted(call, truth)
+        : "assert%s(%s);".formatted(truth, call);
   }
 
   static String outcomes(Suggestion suggestion) {
@@ -93,13 +98,18 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
           .append(number(value));
     }
     if (!suggestion.receiverArguments().isEmpty()) {
-      name.append("For").append(suggestion.receiverType());
-      for (int index = 0; index < suggestion.receiverArguments().size(); index++) {
-        name.append(index == 0 ? "" : "And")
-            .append(number(suggestion.receiverArguments().get(index)));
-      }
+      appendReceiver(name, suggestion);
     }
     return name.toString();
+  }
+
+  /// `For` the receiver's type and its arguments: `ForWindow5And10`.
+  private static void appendReceiver(StringBuilder name, Suggestion suggestion) {
+    name.append("For").append(suggestion.receiverType());
+    for (int index = 0; index < suggestion.receiverArguments().size(); index++) {
+      name.append(index == 0 ? "" : "And")
+          .append(number(suggestion.receiverArguments().get(index)));
+    }
   }
 
   private static String number(long value) {
