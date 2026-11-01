@@ -89,7 +89,7 @@ class HumanTextTest {
         " Test runs  1 (3 without coverage selection)", "  Start at  09:30:05");
     assertThat(lines.get(lines.size() - 4)).isEqualTo("     Score  0.0%  threshold 80");
     assertThat(lines.get(lines.size() - 2)).isEqualTo(" [FAIL] Score below 80: 1 missed, 0 not covered.");
-    assertThat(lines.getLast()).isEqualTo(" Next: mutastic run --only=<id> · mutastic verify <id>");
+    assertThat(lines.getLast()).isEqualTo(" Next: mutastic verify <id> · mutastic run --only=<id>");
   }
 
   @Test

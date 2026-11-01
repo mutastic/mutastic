@@ -72,8 +72,7 @@ public final class AgentText {
     if (missed.isEmpty() && notCovered.isEmpty()) {
       return out.toString();
     }
-    out.append("rules: add or change tests only, never production code; "
-        + "a fix counts when `mutastic verify <id>` passes%n".formatted());
+    out.append("rules: %s; a fix counts when `%s`%n".formatted(MutantCommand.RULE, MutantCommand.DONE_WHEN.text("<id>")));
     int number = 0;
     for (MutantResult result : missed.stream().limit(LIMIT).toList()) {
       out.append(System.lineSeparator()).append(entry(++number, result));
@@ -111,8 +110,9 @@ public final class AgentText {
       test.lines().forEach(line -> lines.add("     " + line));
       lines.add("     // check today's value is the one you intend: the test pins what the code does now");
     });
-    lines.add("   reproduce: mutastic run --only=" + mutant.id());
-    lines.add("   done when: mutastic verify %s passes".formatted(mutant.id()));
+    for (MutantCommand command : MutantCommand.values()) {
+      lines.add("   %s: %s".formatted(command.label(), command.text(mutant.id())));
+    }
     return String.join(System.lineSeparator(), lines) + System.lineSeparator();
   }
 

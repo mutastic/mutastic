@@ -252,8 +252,9 @@ public final class HumanText {
       lines.add(indent + style.dim("check today's value is the one you intend: the test pins what the code does now"));
     });
     lines.add("");
-    lines.add(command(gutter, "done when", "mutastic verify %s passes".formatted(mutant.id())));
-    lines.add(command(gutter, "reproduce", "mutastic run --only=" + mutant.id()));
+    for (MutantCommand command : MutantCommand.values()) {
+      lines.add(command(gutter, command.label(), command.text(mutant.id())));
+    }
     return String.join("\n", lines) + "\n";
   }
 
@@ -280,7 +281,7 @@ public final class HumanText {
     lines.add(" %s %s %s".formatted(gutter, style.dim("="), style.blue(style.bold("note")) + ": " + code(evidence.getFirst())));
     evidence.stream().skip(1).forEach(note -> lines.add(" " + gutter + "         " + style.dim(code(note))));
     lines.add(" %s %s %s %s".formatted(gutter, style.dim("="), style.dim("id:") + " " + mutant.id(),
-        style.dim("· mutastic run --only=%s --format=full for the whole card".formatted(mutant.id()))));
+        style.dim("· %s --format=full for the whole card".formatted(MutantCommand.REPRODUCE.command(mutant.id())))));
     return String.join("\n", lines) + "\n";
   }
 
@@ -385,7 +386,7 @@ public final class HumanText {
           threshold, missed, words.undetected, notCovered, words.notCovered))));
     }
     if (missed > 0) {
-      out.append(style.dim(" Next: mutastic run --only=<id> · mutastic verify <id>")).append('\n');
+      out.append(style.dim(" Next: " + MutantCommand.next())).append('\n');
     }
   }
 

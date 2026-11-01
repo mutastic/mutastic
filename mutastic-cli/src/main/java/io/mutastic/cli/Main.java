@@ -230,6 +230,27 @@ public final class Main {
     }
   }
 
+  /// The commands, and whether each works on one mutant. Every one that does must be offered
+  /// for each mutant in the output (`MutantCommand`), and its tests check that.
+  enum Subcommand {
+    RUN(false),
+    VERIFY(true);
+
+    final boolean takesMutantId;
+
+    Subcommand(boolean takesMutantId) {
+      this.takesMutantId = takesMutantId;
+    }
+
+    String word() {
+      return name().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    static Optional<Subcommand> of(String word) {
+      return java.util.Arrays.stream(values()).filter(command -> command.word().equals(word)).findFirst();
+    }
+  }
+
   static final class UsageException extends RuntimeException {
     UsageException(String message) {
       super(message);
@@ -250,10 +271,11 @@ public final class Main {
       Optional<String> only, boolean confirmCatches, Optional<Integer> workers, String colour, String links,
       String progress, boolean suggestions, List<RequestedReport> reports, Optional<String> vocabulary) {
     static Command parse(String[] args) {
-      if (args.length == 0 || !List.of("run", "verify").contains(args[0])) {
+      if (args.length == 0 || Subcommand.of(args[0]).isEmpty()) {
         throw new UsageException(args.length == 0 ? "no command" : "unknown command " + args[0]);
       }
-      boolean verify = args[0].equals("verify");
+      var subcommand = Subcommand.of(args[0]).orElseThrow();
+      boolean verify = subcommand == Subcommand.VERIFY;
       var positional = new ArrayList<String>();
       Optional<String> format = Optional.empty();
       int threshold = DEFAULT_THRESHOLD;

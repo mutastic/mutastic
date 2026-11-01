@@ -29,7 +29,10 @@ public final class JsonEvents {
   }
 
   public void runStarted(String project) {
-    emit("run-started", Map.of("project", project));
+    var fields = new LinkedHashMap<String, Object>();
+    fields.put("project", project);
+    fields.put("rules", MutantCommand.RULE);
+    emit("run-started", fields);
   }
 
   public void mutantFinished(MutantResult result) {
@@ -77,8 +80,9 @@ public final class JsonEvents {
     fields.put("testsRun", result.testsRun());
     fields.put("durationMs", result.took().toMillis());
     if (result.status() == Status.MISSED) {
-      fields.put("reproduce", "mutastic run --only=" + mutant.id());
-      fields.put("doneWhen", "mutastic verify %s passes; no production files changed".formatted(mutant.id()));
+      for (MutantCommand command : MutantCommand.values()) {
+        fields.put(command.key(), command.text(mutant.id()));
+      }
       fields.put("rendered", text.entry(0, result));
     }
     emit("mutant-finished", fields);
