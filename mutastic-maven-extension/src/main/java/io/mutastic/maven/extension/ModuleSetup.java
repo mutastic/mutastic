@@ -49,6 +49,7 @@ final class ModuleSetup {
     setup.put("sources", joined(project.getCompileSourceRoots()));
     setup.put("testSources", joined(project.getTestCompileSourceRoots()));
     setup.put("dependencies", joined(dependencies()));
+    setup.put("outputs", joined(outputs()));
     putTests(setup);
     Files.createDirectories(file.getParent());
     try (OutputStream out = Files.newOutputStream(file)) {
@@ -101,6 +102,14 @@ final class ModuleSetup {
 
   private static String lines(List<String> values) {
     return String.join("\n", values);
+  }
+
+  /// What another module sees of this one: its classes, or its jar once packaged.
+  private List<String> outputs() {
+    var build = project.getBuild();
+    return List.of(
+        build.getOutputDirectory(),
+        Path.of(build.getDirectory(), build.getFinalName() + ".jar").toString());
   }
 
   /// The test classpath without the module's own directories, which the worker loads itself.

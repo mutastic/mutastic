@@ -28,7 +28,8 @@ class CommandTest {
                 "auto",
                 true,
                 Main.DEFAULT_REPORTS,
-                Optional.empty()));
+                Optional.empty(),
+                java.util.List.of()));
   }
 
   @Test
@@ -53,7 +54,8 @@ class CommandTest {
                 "auto",
                 true,
                 Main.DEFAULT_REPORTS,
-                Optional.empty()));
+                Optional.empty(),
+                java.util.List.of()));
   }
 
   @Test
@@ -90,6 +92,16 @@ class CommandTest {
     assertThat(Main.Command.parse(new String[] {"run", "--report=none"}).reports()).isEmpty();
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--report=pdf"}))
         .hasMessage("unknown report pdf (one of json, html, xml, none)");
+  }
+
+  @Test
+  void readsOtherModulesWhoseTestsRun() {
+    var command =
+        Main.Command.parse(new String[] {"run", ":core", "--tests-from=:app", "--tests-from=:web"});
+
+    assertThat(command.testsFrom()).containsExactly(":app", ":web");
+    assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--tests-from=app"}))
+        .hasMessageContaining("--tests-from takes a module, as :app");
   }
 
   @Test

@@ -69,7 +69,7 @@ mutastic verify m855c8e3c samples/pricing
 ## Usage
 
 ```
-mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N] [--only=ID]
+mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N] [--only=ID] [--tests-from=:module]...
              [--confirm-catches] [--workers=N] [--color=auto|always|never]
              [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none] [--no-suggestions]
              [--report=json|html|xml|none[:path]]... [--vocabulary=plain|classic]
@@ -103,6 +103,8 @@ The result goes to stdout and progress to stderr, so `mutastic run > result.txt`
 To see what the arid skips hide, `MUTASTIC_ARID=audit` runs them anyway and adds an `Arid audit` row: how many ran, how many were caught and how many of those by a test's own assertion (a check on what the code returns, which may make it a contract worth `@DoMutate`), and where.
 
 ### Report files
+
+A module's own tests are often not all that test it: another module that uses it may test it more. `--tests-from=:app` (as often as needed) runs `:app`'s tests over the mutants the module's own tests leave uncaught, as `:app`'s build runs them, with this module's mutated classes in place of its jar; a mutant caught by either is caught. `mutastic run :core --tests-from=:app`.
 
 A full run also writes report files to `build/mutastic/` (for a Gradle module, `build/mutastic/<module>/`; for Maven, the module's own `target/mutastic/`), by default `mutation.json` and `mutation.html`. `--report` chooses (it can be given more than once, and replaces the defaults): `--report=xml` adds `mutations.xml`, `--report=json:reports/m.json` writes somewhere else, and `--report=none` writes nothing.
 

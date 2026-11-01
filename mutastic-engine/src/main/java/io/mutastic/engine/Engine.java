@@ -96,13 +96,21 @@ public final class Engine {
   ///
   /// @param auditArid run the mutants the arid filters skip anyway, and report what happened to
   ///   them apart: what the filters hide, and whether any of it was caught
+  /// @param among only these mutants, by id, when not empty: those an earlier run left uncaught
   public record Options(
       Optional<String> only,
       boolean confirmCatches,
       int workers,
       boolean suggestions,
-      boolean auditArid) {
+      boolean auditArid,
+      java.util.Set<String> among) {
+    /// The same options, for only the mutants with these ids.
+    public Options among(java.util.Set<String> ids) {
+      return new Options(only, confirmCatches, workers, suggestions, auditArid, ids);
+    }
+
     public Options {
+      among = java.util.Set.copyOf(among);
       if (workers < 1) {
         throw new IllegalArgumentException("workers must be at least 1, not " + workers);
       }
@@ -147,7 +155,10 @@ public final class Engine {
     var mutations = new Mutations(context);
     var models = classesIn(project.classes(), context);
     mutations.prepare(models.values());
-    var mutants = mutantsIn(models, mutations, options.only(), project.name());
+    var mutants =
+        mutantsIn(models, mutations, options.only(), project.name()).stream()
+            .filter(mutant -> options.among().isEmpty() || options.among().contains(mutant.id()))
+            .toList();
     var coverage = new Coverage(context);
     var instrumented = instrumentMutated(models, mutants, coverage, options.auditArid());
     var mutantRun =

@@ -61,6 +61,16 @@ final class Progress implements Listener {
     err.flush();
   }
 
+  /// Another module's tests are about to run over the mutants still uncaught.
+  void testsFrom(String module) {
+    if (mode == Mode.BAR) {
+      err.print("\r\u001b[2K");
+    }
+    if (mode != Mode.NONE) {
+      err.printf("tests from %s · reading its build…%n", module);
+    }
+  }
+
   /// The first line, before anything slow: within 100 ms of starting.
   void started(String version, String buildTool) {
     if (mode != Mode.NONE) {
@@ -76,6 +86,7 @@ final class Progress implements Listener {
   @Override
   public void coverageFinished(CoveragePass pass) {
     total = pass.mutants();
+    done = 0; // a pass over another module's tests counts its own
     if (mode != Mode.NONE && pass.tests() == 0) {
       err.printf("coverage  no tests found · %s%n", count(pass.mutants(), "mutant"));
     } else if (mode != Mode.NONE) {

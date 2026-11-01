@@ -18,6 +18,10 @@ import java.util.Map;
 /// @param sources the main source directories, for showing code
 /// @param testSources the test source directories, for writing suggested tests in their style
 /// @param dependencies the rest of the test runtime classpath, which brings JUnit
+/// @param alongside production classes loaded with the mutated ones but not mutated: another
+///   module's own code, when its tests run over this module's mutants
+/// @param outputs what another module's classpath has of this one (its class directories, its jar),
+///   taken off that classpath when its tests run over this module's mutants
 /// @param tests which tests the build runs
 /// @param environment the environment variables the build sets for its tests, beyond its own
 public record Project(
@@ -32,8 +36,36 @@ public record Project(
     List<Path> sources,
     List<Path> testSources,
     List<Path> dependencies,
+    List<Path> alongside,
+    List<Path> outputs,
     TestSelection tests,
     Map<String, String> environment) {
+
+  /// The project whose mutants are this one's, run by `runner`'s tests, as `runner`'s build runs
+  /// them: its JDK, JVM arguments, working directory, tests, environment and classpath, with this
+  /// module's outputs taken off it and its own code loaded beside the mutated classes.
+  public Project runningTestsOf(Project runner) {
+    var mine = new java.util.HashSet<>(outputs);
+    var dependencies = runner.dependencies().stream().filter(path -> !mine.contains(path)).toList();
+    var beside = new java.util.ArrayList<>(runner.classes());
+    beside.addAll(runner.resources());
+    return new Project(
+        name,
+        runner.java(),
+        runner.jvmArgs(),
+        runner.workingDirectory(),
+        classes,
+        resources,
+        runner.testClasses(),
+        runner.testResources(),
+        sources,
+        runner.testSources(),
+        dependencies,
+        beside,
+        outputs,
+        runner.tests(),
+        runner.environment());
+  }
 
   public Project {
     jvmArgs = List.copyOf(jvmArgs);
@@ -44,6 +76,8 @@ public record Project(
     sources = List.copyOf(sources);
     testSources = List.copyOf(testSources);
     dependencies = List.copyOf(dependencies);
+    alongside = List.copyOf(alongside);
+    outputs = List.copyOf(outputs);
     environment = Map.copyOf(environment);
   }
 }

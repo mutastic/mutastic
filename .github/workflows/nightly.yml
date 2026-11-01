@@ -1,8 +1,8 @@
 # mutastic on its own modules, every night: the tool's tests held to what it asks of everyone
-# else's. The threshold is a floor under today's scores (engine 52.3%, report 55.7% on 1 Nov 2026),
-# raised as tests are added, so a real drop fails the run. The api has its own row but no floor:
-# its records are used, and tested, in the other modules. Only each module's own tests count: the
-# CLI's end-to-end tests are in another module.
+# else's. The threshold is a floor under today's scores (engine 52.3%, report 55.7%, api 46.8% on
+# 1 Nov 2026), raised as tests are added, so a real drop fails the run. The api is used, and
+# tested, in the other modules, so their tests count for it (--tests-from); for the engine, the
+# CLI's end-to-end tests would too, but run whole Gradle builds per mutant, so not nightly yet.
 #
 # Each night adds a row to score-history.tsv, kept in the Actions cache and attached to the run.
 name: Nightly
@@ -40,11 +40,13 @@ jobs:
       - name: mutastic run, on each module
         run: |
           failed=0
-          for module in mutastic-engine:50 mutastic-report:50 mutastic-api:0; do
-            name="${module%%:*}"
-            mutastic-cli/build/install/mutastic/bin/mutastic run ":$name" \
-              --format=jsonl --threshold="${module##*:}" > "$name.jsonl" || failed=1
-          done
+          run() {
+            mutastic-cli/build/install/mutastic/bin/mutastic run ":$1" --format=jsonl \
+              --threshold="$2" "${@:3}" > "$1.jsonl" || failed=1
+          }
+          run mutastic-engine 50
+          run mutastic-report 50
+          run mutastic-api 40 --tests-from=:mutastic-engine --tests-from=:mutastic-report
           exit $failed
       - name: Score history
         if: always()

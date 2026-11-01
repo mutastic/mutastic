@@ -111,9 +111,7 @@ public final class Main {
     progress.started(version(), tool.name());
     var prepared = prepare(command, tool);
     var human = humanText(command, output, prepared.sources());
-    if (PEOPLE.contains(output.format())) {
-      progress.showFiles(results -> human.fileFinished(prepared.project().name(), results));
-    }
+    showFileLines(command, output, human, prepared);
     var engine = new Engine(workerJar(), prepared.work().resolve("worker.log"));
     var options = options(command, terminal);
     if (command.verify()) {
@@ -122,18 +120,89 @@ public final class Main {
       return verified(report.results().getFirst(), out);
     }
     var display = display(command, prepared, output, human);
-    Report report = engine.run(prepared.project(), options, display.listener());
+    var tested = new Passes(engine, options, progress, tool).run(command, prepared, display);
     progress.finished();
     // Only full runs compare, are kept and write reports: one mutant says nothing about the rest.
-    var kept = command.only().isEmpty() ? keep(command, prepared, report) : Kept.NOTHING;
-    display.printer().print(report, kept.comparison(), kept.written());
-    return exitCode(command, report);
+    var kept =
+        command.only().isEmpty()
+            ? keep(command, prepared, tested.report(), tested.otherTests())
+            : Kept.NOTHING;
+    display.printer().print(tested.report(), kept.comparison(), kept.written());
+    return exitCode(command, tested.report());
+  }
+
+  /// Each source file's line as it finishes, for people. With other modules' tests, a mutant's
+  /// result is known only once they've run too, so not then.
+  private static void showFileLines(
+      Command command, Output output, HumanText human, Prepared prepared) {
+    if (PEOPLE.contains(output.format()) && command.testsFrom().isEmpty()) {
+      output
+          .progress()
+          .showFiles(results -> human.fileFinished(prepared.project().name(), results));
+    }
+  }
+
+  /// The merged result, and the other modules' test directories that ran.
+  private record Tested(Report report, List<Path> otherTests) {}
+
+  /// The run: the module's own tests, then each `--tests-from` module's over the mutants still
+  /// uncaught, as that module's own build runs them (its classpath, with this module's mutated
+  /// classes in place of its jar), merged.
+  private record Passes(Engine engine, Engine.Options options, Progress progress, BuildTool tool) {
+    Tested run(Command command, Prepared prepared, Display display) {
+      var merged = engine.run(prepared.project(), options, display.listener());
+      var otherTests = new ArrayList<Path>();
+      for (String module : command.testsFrom()) {
+        var uncaught = uncaught(merged);
+        if (uncaught.isEmpty()) {
+          break;
+        }
+        var runner = runner(prepared, module);
+        otherTests.addAll(runner.testClasses());
+        progress.testsFrom(module);
+        var pass =
+            engine.run(
+                prepared.project().runningTestsOf(runner), options.among(uncaught), counting());
+        merged = merged.merge(pass);
+      }
+      return new Tested(merged, otherTests);
+    }
+
+    /// The other module, read into a directory of its own below this module's.
+    private Project runner(Prepared prepared, String module) {
+      var work =
+          prepared.work().resolve("tests-from").resolve(module.substring(1).replace(':', '/'));
+      return tool.read(prepared.directory(), module, work, prepared.directory().toString());
+    }
+
+    private static java.util.Set<String> uncaught(Report report) {
+      return report.results().stream()
+          .filter(result -> !result.status().detected() && result.status() != Status.SKIPPED)
+          .map(result -> result.mutant().id())
+          .collect(java.util.stream.Collectors.toSet());
+    }
+
+    /// Progress only: each result is shown once every module's tests have run.
+    private Listener counting() {
+      return new Listener() {
+        @Override
+        public void coverageFinished(CoveragePass found) {
+          progress.coverageFinished(found);
+        }
+
+        @Override
+        public void mutantFinished(MutantResult result) {
+          progress.mutantFinished(result);
+        }
+      };
+    }
   }
 
   private static void printUsage(PrintStream err) {
     err.println(
         "usage: mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N]");
-    err.println("                    [--only=ID] [--vocabulary=plain|classic]");
+    err.println(
+        "                    [--only=ID] [--tests-from=:module]... [--vocabulary=plain|classic]");
     err.println(
         "                    [--confirm-catches] [--workers=N] [--color=auto|always|never]");
     err.println(
@@ -209,7 +278,8 @@ public final class Main {
         command.confirmCatches(),
         command.workers().orElse(Engine.defaultWorkers()),
         command.suggestions() && !command.verify(),
-        terminal.auditArid());
+        terminal.auditArid(),
+        java.util.Set.of());
   }
 
   /// What `verify` says of its mutant, and whether it passed.
@@ -263,6 +333,15 @@ public final class Main {
   private static Display jsonl(Command command, Prepared prepared, Output output) {
     var events = new JsonEvents(output.out(), prepared.sources(), command.threshold());
     events.runStarted(prepared.project().name());
+    if (!command.testsFrom().isEmpty()) {
+      // Each mutant's result is known only once every module's tests have run: all at the end.
+      return new Display(
+          output.progress(),
+          (report, comparison, written) -> {
+            report.results().forEach(events::mutantFinished);
+            events.runFinished(report, comparison, written, command.only().isPresent());
+          });
+    }
     return new Display(
         progressAndEvents(output.progress(), events),
         (report, comparison, written) ->
@@ -295,11 +374,13 @@ public final class Main {
   }
 
   /// Compares with `last-run.tsv` before replacing it, then writes the report files.
-  private static Kept keep(Command command, Prepared prepared, Report report) {
+  private static Kept keep(
+      Command command, Prepared prepared, Report report, List<Path> otherTests) {
     var lastRun = prepared.work().resolve("last-run.tsv");
     var record =
         RunRecord.of(
             prepared.project(),
+            otherTests,
             RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())),
             report);
     var comparison = RunRecord.read(lastRun).map(record::against);
@@ -457,7 +538,8 @@ public final class Main {
       String progress,
       boolean suggestions,
       List<RequestedReport> reports,
-      Optional<String> vocabulary) {
+      Optional<String> vocabulary,
+      List<String> testsFrom) {
     static Command parse(String[] args) {
       if (args.length == 0 || Subcommand.of(args[0]).isEmpty()) {
         throw new UsageException(args.length == 0 ? "no command" : "unknown command " + args[0]);
@@ -490,6 +572,7 @@ public final class Main {
       private boolean suggestions = true;
       private @Nullable List<RequestedReport> reports = null;
       private Optional<String> vocabulary = Optional.empty();
+      private final List<String> testsFrom = new ArrayList<>();
 
       void read(String arg) {
         switch (option(arg)) {
@@ -500,6 +583,7 @@ public final class Main {
           case "--no-suggestions" -> suggestions = false;
           case "--confirm-catches" -> confirmCatches = true;
           case "--only=" -> only = Optional.of(arg.substring("--only=".length()));
+          case "--tests-from=" -> testsFrom.add(module(arg.substring("--tests-from=".length())));
           case "--workers=" -> workers = Optional.of(workerCount(arg));
           case "--color=" -> colour = choice(arg, List.of("auto", "always", "never"));
           case "--hyperlinks=" -> links = choice(arg, List.of("auto", "always", "never"));
@@ -563,7 +647,16 @@ public final class Main {
             progress,
             suggestions,
             reports == null ? DEFAULT_REPORTS : List.copyOf(reports),
-            vocabulary);
+            vocabulary,
+            List.copyOf(testsFrom));
+      }
+
+      /// `:app`: another module, named as the module run is.
+      private static String module(String value) {
+        if (!value.startsWith(":") || value.length() < 2) {
+          throw new UsageException("--tests-from takes a module, as :app, not " + value);
+        }
+        return value;
       }
 
       private String module() {

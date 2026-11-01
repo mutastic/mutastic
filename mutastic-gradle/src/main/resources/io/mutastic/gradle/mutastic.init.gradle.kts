@@ -46,6 +46,11 @@ allprojects {
                 // The module's own directories are left out: the worker loads those itself, so
                 // mutants can replace them.
                 setup["dependencies"] = task.classpath.files.map { it.absolutePath }.filterNot { it in own }.joinToString(separator)
+                // What another module sees of this one: taken off its classpath when its tests run
+                // over this module's mutants, so the mutated classes are the ones loaded.
+                val jar = (tasks.findByName("jar") as? org.gradle.jvm.tasks.Jar)?.archiveFile?.get()?.asFile
+                setup["outputs"] = (main.output.classesDirs.files + listOfNotNull(main.output.resourcesDir, jar))
+                    .joinToString(separator) { it.absolutePath }
                 // Which tests the task runs, so mutastic runs the same ones.
                 setup["testIncludes"] = task.includes.joinToString("\n")
                 setup["testExcludes"] = task.excludes.joinToString("\n")

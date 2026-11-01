@@ -3,6 +3,7 @@ package io.mutastic.api;
 import java.time.Duration;
 import java.util.List;
 import java.util.OptionalDouble;
+import org.jspecify.annotations.Nullable;
 
 /// A finished run: every mutant's result, in the order they were found.
 ///
@@ -44,6 +45,41 @@ public record Report(
       int started,
       Duration took) {
     this(project, jdk, results, tests, flaky, coverage, workers, started, took, List.of());
+  }
+
+  /// This run's results with `other`'s, a run of other tests (another module's) over the same
+  /// mutants: a mutant is caught if either caught it, missed rather than not covered if either
+  /// reached it, and covered by the tests of both.
+  public Report merge(Report other) {
+    var theirs = new java.util.HashMap<String, MutantResult>();
+    other.results().forEach(result -> theirs.put(result.mutant().id(), result));
+    var merged =
+        results.stream().map(mine -> combined(mine, theirs.get(mine.mutant().id()))).toList();
+    var allFlaky = new java.util.ArrayList<>(flaky);
+    allFlaky.addAll(other.flaky());
+    return new Report(
+        project,
+        jdk,
+        merged,
+        tests + other.tests(),
+        allFlaky,
+        coverage.plus(other.coverage()),
+        Math.max(workers, other.workers()),
+        started + other.started(),
+        took.plus(other.took()),
+        audited);
+  }
+
+  private static MutantResult combined(MutantResult mine, @Nullable MutantResult theirs) {
+    if (theirs == null || mine.status() == Status.SKIPPED || mine.status().detected()) {
+      return mine;
+    }
+    boolean theirsTells =
+        theirs.status().detected()
+            || (theirs.status() == Status.MISSED && mine.status() == Status.NOT_COVERED);
+    return theirsTells
+        ? theirs.alsoCoveredBy(mine.coveredBy())
+        : mine.alsoCoveredBy(theirs.coveredBy());
   }
 
   /// Workers started again after one was killed for taking too long.

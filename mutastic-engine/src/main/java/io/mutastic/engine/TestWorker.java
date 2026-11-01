@@ -329,7 +329,9 @@ final class TestWorker implements AutoCloseable {
             join(Stream.concat(Stream.of(workerJar), project.dependencies().stream())),
             "io.mutastic.worker.Worker",
             "--production="
-                + join(Stream.concat(project.classes().stream(), project.resources().stream())),
+                + join(
+                    Stream.of(project.classes(), project.alongside(), project.resources())
+                        .flatMap(List::stream)),
             "--tests="
                 + join(
                     Stream.concat(

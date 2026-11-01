@@ -38,13 +38,22 @@ public record RunRecord(
   }
 
   public static RunRecord of(Project project, String tool, Report report) {
+    return of(project, List.of(), tool, report);
+  }
+
+  /// A run that also ran the tests in `otherTests`, another module's: they're part of the code it
+  /// ran, so a run with other tests is never "the same code".
+  public static RunRecord of(Project project, List<Path> otherTests, String tool, Report report) {
     var results = new LinkedHashMap<String, Entry>();
     report
         .results()
         .forEach(
             result ->
                 results.put(result.mutant().id(), new Entry(result.status(), result.caughtBy())));
-    return new RunRecord(codeOf(project), tool, report.score(), results);
+    var roots = new java.util.ArrayList<>(project.classes());
+    roots.addAll(project.testClasses());
+    roots.addAll(otherTests);
+    return new RunRecord(codeOf(roots), tool, report.score(), results);
   }
 
   /// The hash of the files mutastic runs from: its engine and worker jars (or class directories),
@@ -152,10 +161,14 @@ public record RunRecord(
 
   /// SHA-256 over every class file's path and bytes, in a stable order.
   static String codeOf(Project project) {
+    return codeOf(
+        Stream.of(project.classes(), project.testClasses()).flatMap(List::stream).toList());
+  }
+
+  private static String codeOf(List<Path> roots) {
     try {
       var digest = MessageDigest.getInstance("SHA-256");
-      for (Path root :
-          Stream.of(project.classes(), project.testClasses()).flatMap(List::stream).toList()) {
+      for (Path root : roots) {
         if (!Files.isDirectory(root)) {
           continue;
         }

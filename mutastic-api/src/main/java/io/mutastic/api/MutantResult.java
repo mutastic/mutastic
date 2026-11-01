@@ -64,6 +64,24 @@ public record MutantResult(
         Duration.ZERO);
   }
 
+  /// The same result, reached by `tests` too: another run's, over the same mutant.
+  public MutantResult alsoCoveredBy(List<String> tests) {
+    var all = new java.util.LinkedHashSet<>(coveredBy);
+    all.addAll(tests);
+    return new MutantResult(
+        mutant,
+        status,
+        List.copyOf(all),
+        caughtBy,
+        failure,
+        failureOrigin,
+        testsRun,
+        unconfirmed,
+        inputs,
+        suggestion,
+        took);
+  }
+
   /// The same result with a suggested test.
   public MutantResult withSuggestion(Optional<Suggestion> found) {
     return new MutantResult(
