@@ -4,7 +4,7 @@
 
 mutastic is a mutation-testing tool for Java. It makes small changes to your compiled code, such as `>=` to `>`, and runs your tests against each one. A change that no test notices is a **missed mutant**: a place where your tests run the code but don't check what it does.
 
-> **Status: early.** Five operators (boundaries, negated conditions, arithmetic, returned defaults, removed void calls), Gradle projects with JUnit Platform tests, parallel workers, suggested tests, flaky-test detection, and output for people, agents and tools (JSON, HTML and XML reports). Expect everything to change. Expect everything to change.
+> **Status: early.** Five operators (boundaries, negated conditions, arithmetic, returned defaults, removed void calls), Gradle projects with JUnit Platform tests, parallel workers, suggested tests, flaky-test detection, and output for people, agents and tools (JSON, HTML and XML reports). Expect everything to change.
 
 ## Try it
 
