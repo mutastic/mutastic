@@ -31,6 +31,7 @@ class MutationsTest {
     var found = mutations.find(model);
 
     assertThat(found).hasSizeGreaterThan(10);
+    assertThat(found).anyMatch(mutant -> !mutant.copies().isEmpty());
     for (Mutant mutant : found) {
       assertThat(mutations.verify(mutations.apply(model, mutant))).as(mutant.toString()).isEmpty();
     }
@@ -102,6 +103,38 @@ class MutationsTest {
     // The void-call operator doesn't move instruction sites: discount()'s branch is still site 0.
     assertThat(only("discount", Operator.BOUNDARY).ordinal()).isZero();
     assertThat(mutantsOf("checkout")).extracting(Mutant::ordinal).containsExactly(0, 1);
+  }
+
+  @Test
+  void aFinallyBlocksCopiesAreOneMutant() throws Exception {
+    var unlocks = mutantsOf("withLock").stream().filter(found -> found.original().contains(".unlock(")).toList();
+
+    assertThat(unlocks).singleElement().satisfies(unlock -> assertThat(unlock.copies()).hasSize(1));
+  }
+
+  @Test
+  void theMergedMutantChangesEveryWayOut() throws Exception {
+    var unlock = mutantsOf("withLock").stream().filter(found -> found.original().contains(".unlock(")).findFirst().orElseThrow();
+    var pricing = mutated(unlock);
+    var withLock = pricing.getClass().getMethod("withLock", java.util.concurrent.locks.ReentrantLock.class,
+        java.util.function.IntSupplier.class);
+
+    var normal = new java.util.concurrent.locks.ReentrantLock();
+    withLock.invoke(pricing, normal, (java.util.function.IntSupplier) () -> 1);
+    var exceptional = new java.util.concurrent.locks.ReentrantLock();
+    try {
+      withLock.invoke(pricing, exceptional, (java.util.function.IntSupplier) () -> { throw new IllegalStateException(); });
+    } catch (java.lang.reflect.InvocationTargetException expected) {
+      // the action threw, as intended
+    }
+
+    assertThat(normal.isHeldByCurrentThread()).isTrue();
+    assertThat(exceptional.isHeldByCurrentThread()).isTrue();
+  }
+
+  @Test
+  void theSameCallTwiceWithoutAFinallyIsTwoMutants() throws Exception {
+    assertThat(mutantsOf("clearTwice")).hasSize(2).allSatisfy(mutant -> assertThat(mutant.copies()).isEmpty());
   }
 
   @Test

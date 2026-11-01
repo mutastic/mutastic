@@ -48,7 +48,11 @@ final class Mutations {
     var mutants = new ArrayList<Mutant>();
     for (MethodModel method : model.methods()) {
       if (mutable(model, method)) {
-        method.code().ifPresent(code -> findIn(model, method, code.elementList(), mutants));
+        method.code().ifPresent(code -> {
+          var found = new ArrayList<Mutant>();
+          findIn(model, method, code.elementList(), found);
+          mutants.addAll(mergeFinallyCopies(found, code));
+        });
       }
     }
     return mutants;
@@ -108,8 +112,8 @@ final class Mutations {
         }
         if (element instanceof Instruction instruction) {
           boolean target = instruction instanceof InvokeInstruction
-              ? mutant.operator().onCalls() && callOrdinal++ == mutant.ordinal()
-              : isSite(instruction) && !mutant.operator().onCalls() && ordinal++ == mutant.ordinal();
+              ? mutant.operator().onCalls() && mutant.changes(callOrdinal++)
+              : isSite(instruction) && !mutant.operator().onCalls() && mutant.changes(ordinal++);
           if (target) {
             emit(builder, instruction, mutant.operator());
             return;
@@ -164,6 +168,59 @@ final class Mutations {
     } else {
       builder.pop();
     }
+  }
+
+  /// One mutant for each change javac copied with a `finally` block.
+  ///
+  /// javac compiles `finally` by copying its code onto every way out of the `try`: once on the
+  /// normal path, and once in a catch-anything handler for exceptions. Mutating one copy alone
+  /// is a different, weaker change than the source suggests (removing only the exception
+  /// path's `unlock()` goes unnoticed unless a test throws), and counts one source change as
+  /// several mutants. So the same change on the same line, with a copy on each side of a
+  /// catch-anything handler's start, becomes one mutant that changes every copy.
+  private static List<Mutant> mergeFinallyCopies(List<Mutant> found, java.lang.classfile.CodeModel code) {
+    var handlerStarts = code.exceptionHandlers().stream()
+        .filter(handler -> handler.catchType().isEmpty())
+        .map(java.lang.classfile.instruction.ExceptionCatch::handler)
+        .collect(java.util.stream.Collectors.toSet());
+    if (handlerStarts.isEmpty()) {
+      return found;
+    }
+    // Where each catch-anything handler starts, counted in each kind of site.
+    var siteStarts = new ArrayList<Integer>();
+    var callStarts = new ArrayList<Integer>();
+    int ordinal = 0;
+    int callOrdinal = 0;
+    for (CodeElement element : code) {
+      if (element instanceof LabelTarget target && handlerStarts.contains(target.label())) {
+        siteStarts.add(ordinal);
+        callStarts.add(callOrdinal);
+      } else if (element instanceof InvokeInstruction) {
+        callOrdinal++;
+      } else if (element instanceof Instruction instruction && isSite(instruction)) {
+        ordinal++;
+      }
+    }
+    var groups = new java.util.LinkedHashMap<List<Object>, List<Mutant>>();
+    for (Mutant mutant : found) {
+      groups.computeIfAbsent(List.of(mutant.line(), mutant.operator(), mutant.original(), mutant.replacement()),
+          key -> new ArrayList<>()).add(mutant);
+    }
+    var merged = new ArrayList<Mutant>();
+    for (Mutant mutant : found) {
+      var group = groups.get(List.of(mutant.line(), mutant.operator(), mutant.original(), mutant.replacement()));
+      var starts = mutant.operator().onCalls() ? callStarts : siteStarts;
+      boolean straddles = group.size() > 1 && starts.stream().anyMatch(start ->
+          group.stream().anyMatch(copy -> copy.ordinal() < start) && group.stream().anyMatch(copy -> copy.ordinal() >= start));
+      if (!straddles) {
+        merged.add(mutant);
+      } else if (mutant == group.getFirst()) { // the later copies go into this one, in its place
+        merged.add(new Mutant(mutant.className(), mutant.methodName(), mutant.descriptor(), mutant.ordinal(), mutant.line(),
+            mutant.operator(), mutant.original(), mutant.replacement(), mutant.skipped(),
+            group.stream().skip(1).map(Mutant::ordinal).toList()));
+      }
+    }
+    return merged;
   }
 
   /// Why a mutant shouldn't run, if it shouldn't: the reason's first word is its kind.

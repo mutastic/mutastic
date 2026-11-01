@@ -34,6 +34,19 @@ public class Pricing {
     return audit;
   }
 
+  public int withLock(java.util.concurrent.locks.ReentrantLock lock, java.util.function.IntSupplier action) {
+    lock.lock();
+    try {
+      return action.getAsInt();
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  public void clearTwice(List<String> items) {
+    items.clear(); items.clear();
+  }
+
   public enum Tier { GOLD, SILVER }
 
   public record Line(String item, int price) {}
