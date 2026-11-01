@@ -1,0 +1,56 @@
+# mutastic on its own engine, every night: the tool's tests held to what it asks of everyone
+# else's. The threshold is a floor under today's score (52.3-52.4% on 1 Nov 2026: one mutant near
+# a timeout changes between runs), raised as tests are added, so a real drop fails the run. Only
+# the engine module's own tests count: the CLI's end-to-end tests are in another module.
+name: Nightly
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mutastic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            25
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - run: ./gradlew :mutastic-cli:installDist
+      # Last night's run record, so tonight's summary says what changed since.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/mutastic/mutastic-engine/last-run.tsv
+          key: mutastic-last-run-${{ github.run_id }}
+          restore-keys: mutastic-last-run-
+      - name: mutastic run :mutastic-engine
+        env:
+          NO_COLOR: "1"
+        run: |
+          set -o pipefail
+          mutastic-cli/build/install/mutastic/bin/mutastic run :mutastic-engine \
+            --format=brief --threshold=50 2>&1 | tee mutastic.txt
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo '```'
+            sed -n '/^ *Classes/,$p' mutastic.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: mutastic-report
+          path: |
+            mutastic.txt
+            build/mutastic/mutastic-engine/
