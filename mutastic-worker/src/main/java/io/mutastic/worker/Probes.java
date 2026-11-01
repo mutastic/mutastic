@@ -1,0 +1,69 @@
+package io.mutastic.worker;
+
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+/// What instrumented code calls during the coverage pass. The engine instruments every project
+/// class to call `Probes.line(id)` at the start of each source line.
+///
+/// Probes run on every executed line, so they must be nearly free: a line probe sets one
+/// element of the running test's `boolean[]`, as JaCoCo does, and the array is filed under the
+/// test when the next one starts.
+public final class Probes {
+  private static final String OUTSIDE = "(outside any test)";
+  private static final Map<String, Set<Integer>> LINES_BY_TEST = new ConcurrentHashMap<>();
+  private static volatile String test = OUTSIDE;
+  private static volatile boolean[] hits = new boolean[1 << 12];
+
+  private Probes() {}
+
+  /// Called at the start of every source line of the project's code.
+  public static void line(int lineId) {
+    var current = hits;
+    if (lineId < current.length) {
+      current[lineId] = true;
+    } else {
+      grow(lineId)[lineId] = true;
+    }
+  }
+
+  /// Files the running test's lines, and starts recording for `name`.
+  static synchronized void startTest(String name) {
+    flush();
+    test = name;
+  }
+
+  /// Files the running test's lines: at a test's start, and at the end of the coverage pass.
+  static synchronized void flush() {
+    var current = hits;
+    Set<Integer> lines = LINES_BY_TEST.computeIfAbsent(test, name -> ConcurrentHashMap.newKeySet());
+    for (int id = 0; id < current.length; id++) {
+      if (current[id]) {
+        lines.add(id);
+      }
+    }
+    hits = new boolean[current.length];
+  }
+
+  static synchronized void reset() {
+    LINES_BY_TEST.clear();
+    test = OUTSIDE;
+    hits = new boolean[hits.length];
+  }
+
+  static Map<String, Set<Integer>> linesByTest() {
+    return LINES_BY_TEST;
+  }
+
+  private static synchronized boolean[] grow(int lineId) {
+    var current = hits;
+    if (lineId >= current.length) {
+      var bigger = new boolean[Math.max(current.length * 2, lineId + 1)];
+      System.arraycopy(current, 0, bigger, 0, current.length);
+      hits = bigger;
+      return bigger;
+    }
+    return current;
+  }
+}
