@@ -32,7 +32,7 @@ final class TrivialAccessors implements Filter {
   @Override
   public Optional<Skip> skip(ClassModel owner, MethodModel method) {
     var code = method.code();
-    if (code.isEmpty() || Annotations.has(owner, method, "DoMutate")) {
+    if (code.isEmpty()) {
       return Optional.empty();
     }
     var instructions =

@@ -5,6 +5,8 @@ import static java.util.Objects.requireNonNull;
 import io.mutastic.api.Filter;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Operator;
+import io.mutastic.api.Policy;
+import io.mutastic.api.Rule;
 import io.mutastic.api.Skip;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
@@ -52,14 +54,26 @@ final class Mutations {
           "org/apache/commons/logging/Log",
           "java/io/PrintStream");
 
-  /// The method-level filters, built in, most specific first; the first with a reason decides.
-  private final List<Filter> filters =
-      List.of(new AnnotatedSkips(), new TrivialAccessors(), new DebugRepresentations());
-
   private final ClassFile context;
+  private final Policy policy;
+  private final AnnotatedSkips annotated = new AnnotatedSkips();
+
+  /// The filters that judge code arid or the like, built in first, then the project's own; the
+  /// first with a reason decides.
+  private final List<Filter> judges;
 
   Mutations(ClassFile context) {
+    this(context, Policy.NONE);
+  }
+
+  Mutations(ClassFile context, Policy policy) {
     this.context = context;
+    this.policy = policy;
+    var all =
+        new ArrayList<Filter>(
+            List.of(new TrivialAccessors(), new DebugRepresentations(this::kept)));
+    all.addAll(policy.filters());
+    this.judges = List.copyOf(all);
   }
 
   List<Mutant> find(ClassModel model) {
@@ -83,16 +97,49 @@ final class Mutations {
   /// Lets the filters see the whole module, before any of its mutants are found.
   void prepare(java.util.Collection<ClassModel> module) {
     var classes = List.copyOf(module);
-    filters.forEach(filter -> filter.prepare(classes));
+    judges.forEach(filter -> filter.prepare(classes));
   }
 
-  /// Why a filter skips the method's mutants, if one does.
+  /// Why the method's mutants shouldn't run, if they shouldn't. Most specific first: an annotation
+  /// on the code, then a rule in `mutastic.yaml`, then the filters. `@DoMutate` or a `mutate:` rule
+  /// keeps code a filter would call arid, never code that is generated or equivalent.
   private Optional<String> filtered(ClassModel model, MethodModel method) {
-    return filters.stream()
+    var decided = annotated.skip(model, method).or(() -> skippedByRule(model, method));
+    if (decided.isPresent()) {
+      return decided.map(Skip::toString);
+    }
+    boolean kept = kept(model, method);
+    return judges.stream()
         .map(filter -> filter.skip(model, method))
         .flatMap(Optional::stream)
+        .filter(skip -> !(kept && skip.kind() == Skip.Kind.ARID))
         .findFirst()
         .map(Skip::toString);
+  }
+
+  /// A `skip:` rule's, unless the code itself says `@DoMutate`.
+  private Optional<Skip> skippedByRule(ClassModel model, MethodModel method) {
+    if (Annotations.has(model, method, "DoMutate")) {
+      return Optional.empty();
+    }
+    return rule(model, method, false)
+        .map(
+            rule ->
+                new Skip(
+                    Skip.Kind.USER, "%s (rule `%s`)".formatted(rule.reason(), rule.written())));
+  }
+
+  /// Whether the project keeps the method's mutants even if a filter calls the code arid.
+  private boolean kept(ClassModel model, MethodModel method) {
+    return Annotations.has(model, method, "DoMutate") || rule(model, method, true).isPresent();
+  }
+
+  private Optional<Rule> rule(ClassModel model, MethodModel method, boolean mutate) {
+    var className = model.thisClass().asInternalName().replace('/', '.');
+    var name = method.methodName().stringValue();
+    return policy.rules().stream()
+        .filter(rule -> rule.mutate() == mutate && rule.covers(className, name))
+        .findFirst();
   }
 
   /// Walks one method's code in order, counting its sites and finding the mutants at each. A skip

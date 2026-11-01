@@ -35,6 +35,14 @@ final class DebugRepresentations implements Filter {
   /// Each arid method, `owner#name(descriptor)`, and the root it serves: `toString`.
   private final Map<String, String> arid = new HashMap<>();
 
+  /// Code the project keeps (`@DoMutate`, a `mutate:` rule): neither arid nor a reason to call its
+  /// helpers arid.
+  private final java.util.function.BiPredicate<ClassModel, MethodModel> kept;
+
+  DebugRepresentations(java.util.function.BiPredicate<ClassModel, MethodModel> kept) {
+    this.kept = kept;
+  }
+
   @Override
   public String id() {
     return "mutastic:debug-representations";
@@ -74,10 +82,10 @@ final class DebugRepresentations implements Filter {
     return Optional.of(new Skip(Skip.Kind.ARID, reason));
   }
 
-  private static boolean isRoot(ClassModel owner, MethodModel method) {
+  private boolean isRoot(ClassModel owner, MethodModel method) {
     return ROOTS.containsKey(method.methodName().stringValue() + method.methodType().stringValue())
         && !method.flags().has(AccessFlag.STATIC)
-        && !Annotations.has(owner, method, "DoMutate");
+        && !kept.test(owner, method);
   }
 
   /// Marks helpers arid until no more are: each pass may make another's every caller arid.
@@ -91,7 +99,7 @@ final class DebugRepresentations implements Filter {
         var from = callers.getOrDefault(key, Set.of());
         if (!arid.containsKey(key)
             && isHelper(method.model())
-            && !Annotations.has(method.owner(), method.model(), "DoMutate")
+            && !kept.test(method.owner(), method.model())
             && !from.isEmpty()
             && arid.keySet().containsAll(from)) {
           arid.put(key, arid.getOrDefault(from.iterator().next(), "toString"));

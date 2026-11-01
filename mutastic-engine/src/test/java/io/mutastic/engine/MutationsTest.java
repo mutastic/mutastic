@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Operator;
+import io.mutastic.api.Policy;
+import io.mutastic.api.Rule;
 import io.mutastic.engine.fixture.Accessors;
 import io.mutastic.engine.fixture.Annotated;
 import io.mutastic.engine.fixture.Board;
@@ -102,6 +104,29 @@ class MutationsTest {
         .containsEntry("capped", "user: @DoNotMutate on `capped()`: tested elsewhere")
         .containsEntry("generated", "generated: @Generated on `generated()`")
         .containsEntry("toString", "");
+  }
+
+  /// `mutastic.yaml`'s rules: `skip:` is the project's own decision, `mutate:` keeps what a filter
+  /// would call arid (and so what only served it), and the code's own `@DoMutate` beats a rule.
+  @Test
+  void rulesSkipOrKeepAndTheCodesOwnSayComesFirst() throws Exception {
+    var policy =
+        new Policy(
+            List.of(
+                new Rule(false, "io.mutastic.engine.fixture.Accessors#getLast", "named oddly"),
+                new Rule(true, "io.mutastic.engine.fixture.Board#toString", "shown to people"),
+                new Rule(false, "io.mutastic.engine.fixture.Annotated", "not this class")),
+            List.of());
+    var ruled = new Mutations(ClassFile.of(), policy);
+
+    assertThat(skipsIn(ruled, Accessors.class))
+        .containsEntry(
+            "getLast",
+            "user: named oddly (rule `skip: io.mutastic.engine.fixture.Accessors#getLast`)");
+    assertThat(skipsIn(ruled, Board.class)).containsEntry("toString", "").containsEntry("cell", "");
+    assertThat(skipsIn(ruled, Annotated.class))
+        .containsEntry("toString", "")
+        .containsEntry("generated", "generated: @Generated on `generated()`");
   }
 
   /// No dependency on mutastic needed: a team's own annotation of the name works the same.
@@ -357,6 +382,10 @@ class MutationsTest {
 
   /// Each method's skip reason ("" when its mutants run), for methods with a mutant.
   private Map<String, String> skipsIn(Class<?> type) throws Exception {
+    return skipsIn(mutations, type);
+  }
+
+  private static Map<String, String> skipsIn(Mutations mutations, Class<?> type) throws Exception {
     var skips = new java.util.TreeMap<String, String>();
     var model = model(type);
     mutations.prepare(List.of(model));

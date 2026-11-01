@@ -100,6 +100,22 @@ The result goes to stdout and progress to stderr, so `mutastic run > result.txt`
 - A mutant's id comes from its class, method, position and change, not its line number, so it stays the same while code around it moves.
 - Some mutants are skipped, with the reason given: a change that can't be told apart from the original (`return 0` becoming "return the default"), code the compiler wrote (a `switch` on a `String`, a record's `equals()`), calls that only write output (logging, `System.out`), and trivial accessors: a getter that only returns one of its class's fields, or a setter that only stores its argument in one, named for that field. An accessor with any logic (a copy, a check, lazy set-up, a notification) is mutated like any code, and `@DoMutate` (any annotation of that name) on a method or class brings its trivial accessors back. Every `toString()` is a debug representation and every `hashCode()` may return any value consistent with `equals()`, so both are skipped too, with the lambdas they define and the helpers only they call; `@DoMutate` keeps one that's a contract. `@DoNotMutate` or `@CoverageIgnore` skips a method or class, with its `value()` or `reason()` as the reason, and `@Generated` marks code a tool wrote. Annotations are matched by simple name, so your own work; or depend on `io.mutastic:mutastic-annotations`, a small jar with `@DoNotMutate` and `@DoMutate` and nothing else, read from the class files and never needed at run time. Skipped mutants don't count towards the score.
 
+A project's own say goes in `mutastic.yaml`, in its directory:
+
+```yaml
+rules:
+  - skip: com.acme.generated.**      # ** any depth, * one name, Class#method one method
+    reason: protobuf output
+  - mutate: com.acme.Money#toString  # brings back what mutastic would skip as arid
+    reason: shown to customers
+plugins:
+  - build/libs/acme-filters.jar      # jars with filters of your own (io.mutastic.api.Filter)
+filters:
+  - acme:no-metrics                  # a plugin's filter runs only when named here
+```
+
+An annotation on the code comes first, then a rule, then mutastic's own filters. A `mutate:` rule, like `@DoMutate`, brings back only what mutastic would call arid, never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
+
 To see what the arid skips hide, `MUTASTIC_ARID=audit` runs them anyway and adds an `Arid audit` row: how many ran, how many were caught and how many of those by a test's own assertion (a check on what the code returns, which may make it a contract worth `@DoMutate`), and where.
 
 ### Report files

@@ -6,6 +6,7 @@ import io.mutastic.api.CoveragePass;
 import io.mutastic.api.Listener;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
+import io.mutastic.api.Policy;
 import io.mutastic.api.Project;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
@@ -97,16 +98,18 @@ public final class Engine {
   /// @param auditArid run the mutants the arid filters skip anyway, and report what happened to
   ///   them apart: what the filters hide, and whether any of it was caught
   /// @param among only these mutants, by id, when not empty: those an earlier run left uncaught
+  /// @param policy the project's own rules and filters
   public record Options(
       Optional<String> only,
       boolean confirmCatches,
       int workers,
       boolean suggestions,
       boolean auditArid,
-      java.util.Set<String> among) {
+      java.util.Set<String> among,
+      Policy policy) {
     /// The same options, for only the mutants with these ids.
     public Options among(java.util.Set<String> ids) {
-      return new Options(only, confirmCatches, workers, suggestions, auditArid, ids);
+      return new Options(only, confirmCatches, workers, suggestions, auditArid, ids, policy);
     }
 
     public Options {
@@ -152,7 +155,7 @@ public final class Engine {
 
   private static Plan plan(Project project, Options options) {
     var context = contextFor(project);
-    var mutations = new Mutations(context);
+    var mutations = new Mutations(context, options.policy());
     var models = classesIn(project.classes(), context);
     mutations.prepare(models.values());
     var mutants =
