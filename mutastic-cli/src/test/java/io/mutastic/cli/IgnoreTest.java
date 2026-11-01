@@ -43,6 +43,25 @@ class IgnoreTest {
     assertThat(Files.readString(project.resolve(".mutastic/ignores.yaml"))).doesNotContain(ID);
   }
 
+  /// Each says where it wrote, and how to undo it.
+  @Test
+  void anIgnoreAndItsRemovalEachSayHowToUndoThem() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+    var file = project.resolve(".mutastic/ignores.yaml");
+
+    var ignored = Samples.mutastic("ignore", ID, project.toString(), "--reason=checked by hand");
+    var removed = Samples.mutastic("ignore", "--remove", ID, project.toString());
+
+    assertThat(ignored.out())
+        .contains("recorded in " + file)
+        .contains("to undo: mutastic ignore --remove " + ID + " " + project);
+    assertThat(removed.out())
+        .contains(ID + " is no longer ignored")
+        .contains("removed from " + file)
+        .contains("to undo: mutastic ignore " + ID + " '--reason=checked by hand' " + project);
+    assertThat(Files.readString(file)).doesNotContain(ID);
+  }
+
   @Test
   void anIgnoreSaysWhy() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("pricing"));

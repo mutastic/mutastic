@@ -6,8 +6,9 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/// `mutastic explain`: everything known of one mutant, running no test, with how the last full run
-/// went once there is one.
+/// `mutastic explain`: the mutant's card as a run would show it, then what it is: the bytecode
+/// change opcode by opcode and how the jump relates to the source, the operator, the id, the site,
+/// and how the last full run went.
 class ExplainTest {
   private static final Path SAMPLE = Path.of(System.getProperty("mutastic.samples"), "pricing");
   private static final String ID = "m855c8e3c";
@@ -15,7 +16,7 @@ class ExplainTest {
   @TempDir Path work;
 
   @Test
-  void explainsTheChangeTheGapAndTheLastRun() throws Exception {
+  void theCardThenWhatTheMutantIs() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("pricing"));
 
     var before = Samples.mutastic("explain", ID, project.toString());
@@ -24,12 +25,15 @@ class ExplainTest {
 
     assertThat(before.exit()).isEqualTo(Main.PASSED);
     assertThat(before.out())
-        .startsWith(ID + " · mutastic/boundary · src/main/java/com/example/pricing/Pricing.java:17")
-        .contains("   - if (total >= 100) {", "   + if (total > 100) {")
-        .contains("   if missed: no test checks `discount()` at `total == 100`")
-        .contains("   last run: none yet");
-    assertThat(after.out())
-        .contains("   last run: missed: every covering test still passed")
-        .contains("   or ignore: mutastic ignore " + ID);
+        .contains("[✗ MISSED] no test checks discount() at total == 100")
+        .contains("void discountWithTotal100()")
+        .contains("About this mutant")
+        .contains("= bytecode  IF_ICMPLT → IF_ICMPLE")
+        .contains("IF_ICMPLT: jump if the first int is less than the second")
+        .contains(
+            "javac compiles `total >= 100` to IF_ICMPLT, a jump past the body when `total < 100`")
+        .contains("= id        " + ID + ": `m` and the first 8 hex digits of its fingerprint")
+        .contains("= last run  none yet");
+    assertThat(after.out()).contains("= last run  missed: every covering test still passed");
   }
 }

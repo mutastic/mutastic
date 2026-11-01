@@ -121,7 +121,7 @@ public final class Main {
     var options = options(command, terminal, prepared.directory());
     var passes = new Passes(engine, options, progress, tool);
     if (command.subcommand() != Subcommand.RUN) {
-      return single(command, prepared, passes, out);
+      return single(command, prepared, passes, output);
     }
     var display = display(command, prepared, output, human);
     var tested = passes.run(command, prepared, display);
@@ -137,17 +137,25 @@ public final class Main {
 
   /// `verify`, which runs one mutant's tests and says whether it's caught; or `ignore`, which runs
   /// none and records a decision.
-  private static int single(Command command, Prepared prepared, Passes passes, PrintStream out) {
+  private static int single(Command command, Prepared prepared, Passes passes, Output output) {
+    var out = output.out();
     if (command.explain()) {
-      return explained(prepared, passes.engine().find(prepared.project(), passes.options()), out);
+      return explained(command, prepared, passes, output);
     }
     if (command.ignore().isPresent()) {
-      var found = passes.engine().find(prepared.project(), passes.options());
-      return IgnoreCommand.run(
-          command.ignore().get(),
-          new IgnoreCommand.Where(prepared.directory(), prepared.sources()),
-          found,
-          out);
+      var where =
+          new IgnoreCommand.Where(
+              prepared.directory(),
+              prepared.sources(),
+              shown(prepared.directory().resolve(Ignores.FILE)));
+      // Removing needs no mutant: its code may be gone.
+      return command.ignore().get().remove()
+          ? IgnoreCommand.remove(command.only().orElseThrow(), where, out)
+          : IgnoreCommand.run(
+              command.ignore().get(),
+              where,
+              passes.engine().find(prepared.project(), passes.options()),
+              out);
     }
     var report = passes.engine().run(prepared.project(), passes.options(), passes.progress());
     passes.progress().finished();
@@ -155,18 +163,38 @@ public final class Main {
   }
 
   /// `explain`: everything known of one mutant, with how the last full run went.
-  private static int explained(Prepared prepared, Engine.Mutants found, PrintStream out) {
-    var mutant = found.all().getFirst();
-    var lastRun =
-        RunRecord.read(prepared.work().resolve("last-run.tsv"))
-            .flatMap(record -> Optional.ofNullable(record.results().get(mutant.id())))
-            .map(entry -> new Explanation.LastRun(entry.status(), entry.caughtBy()));
-    out.print(new Explanation(prepared.sources()).render(mutant, lastRun));
+  private static int explained(Command command, Prepared prepared, Passes passes, Output output) {
+    var lastRun = lastRun(prepared, command.only().orElseThrow());
+    var report = passes.engine().run(prepared.project(), passes.options(), passes.progress());
+    passes.progress().finished();
+    var result = report.results().getFirst();
+    output.out().print(humanText(command, output, prepared.sources()).explained(result));
+    output
+        .out()
+        .print(
+            new Explanation(prepared.sources(), output.style()).render(result.mutant(), lastRun));
     return PASSED;
   }
 
-  /// `ignore`'s own: remove what no longer holds, or the reason for a new ignore.
-  record Ignoring(boolean prune, String reason) {}
+  /// How the last full run of this project went for the mutant `id`, if there was one.
+  private static Optional<Explanation.LastRun> lastRun(Prepared prepared, String id) {
+    return RunRecord.read(prepared.work().resolve("last-run.tsv"))
+        .filter(record -> record.isOf(prepared.project()))
+        .flatMap(record -> Optional.ofNullable(record.results().get(id)))
+        .map(entry -> new Explanation.LastRun(entry.status(), entry.caughtBy()));
+  }
+
+  /// `ignore`'s own: `--prune` what no longer holds, `--remove` one by id, or else ignore one, for
+  /// `reason`.
+  record Ignoring(boolean prune, boolean remove, String reason) {}
+
+  /// A file as the person would type it from where mutastic ran: relative if it's below, else
+  /// absolute.
+  private static String shown(Path file) {
+    var here = Path.of("").toAbsolutePath().normalize();
+    var absolute = file.toAbsolutePath().normalize();
+    return absolute.startsWith(here) ? here.relativize(absolute).toString() : absolute.toString();
+  }
 
   /// Each source file's line as it finishes, for people. With other modules' tests, a mutant's
   /// result is known only once they've run too, so not then.
@@ -268,8 +296,7 @@ public final class Main {
     err.println("                    [--no-suggestions] [--report=json|html|xml|none[:path]]...");
     err.println("       mutastic verify ID [dir] [:module]");
     err.println("       mutastic explain ID [dir] [:module]");
-    err.println(
-        "       mutastic ignore ID [dir] [:module] --reason=WHY | ignore --prune [dir] [:module]");
+    err.println("       mutastic ignore ID [dir] [:module] --reason=WHY | --remove ID | --prune");
   }
 
   /// Where and how the result is shown: stdout and progress, the format, the words for results and
@@ -453,7 +480,8 @@ public final class Main {
             otherTests,
             RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())),
             report);
-    var comparison = RunRecord.read(lastRun).map(record::against);
+    // Only an earlier run of the same project, in the same place, says anything about this one.
+    var comparison = RunRecord.read(lastRun).filter(record::sameProjectAs).map(record::against);
     record.write(lastRun);
     return new Kept(comparison, writeReports(command, prepared, report));
   }
@@ -680,6 +708,7 @@ public final class Main {
       private Optional<String> since = Optional.empty();
       private String reason = "";
       private boolean prune = false;
+      private boolean remove = false;
 
       void read(String arg) {
         switch (option(arg)) {
@@ -694,6 +723,7 @@ public final class Main {
           case "--since" -> since = Optional.of("");
           case "--reason=" -> reason = arg.substring("--reason=".length()).strip();
           case "--prune" -> prune = true;
+          case "--remove" -> remove = true;
           case "--since=" -> since = Optional.of(arg.substring("--since=".length()));
           case "--workers=" -> workers = Optional.of(workerCount(arg));
           case "--color=" -> colour = choice(arg, List.of("auto", "always", "never"));
@@ -751,12 +781,12 @@ public final class Main {
       private Command ignoring() {
         if (!prune) {
           only = Optional.of(mutantId("ignore"));
-          if (reason.isBlank()) {
+          if (!remove && reason.isBlank()) {
             throw new UsageException(
                 "ignore needs a reason, which every ignore says: --reason=\"…\"");
           }
         }
-        return built(Subcommand.IGNORE).ignoring(new Ignoring(prune, reason));
+        return built(Subcommand.IGNORE).ignoring(new Ignoring(prune, remove, reason));
       }
 
       private String mutantId(String subcommand) {

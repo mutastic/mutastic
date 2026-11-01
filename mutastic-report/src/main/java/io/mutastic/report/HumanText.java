@@ -328,10 +328,86 @@ public final class HumanText {
     var indent = " " + gutter + "         ";
     SuggestedTest.of(result, sources).ifPresent(test -> addSuggestedTest(lines, test, indent));
     lines.add("");
-    for (MutantCommand command : MutantCommand.withAMutant()) {
-      lines.add(command(gutter, command.label(), command.text(mutant.id(), sources.target())));
-    }
+    addCommands(lines, mutant, gutter, MutantCommand.withAMutant());
     return String.join("\n", lines) + "\n";
+  }
+
+  /// One mutant in full whatever became of it, for `explain`: a miss gets its card; anything else a
+  /// card that says what happened instead, without help or a test to add.
+  public String explained(MutantResult result) {
+    if (result.status() == Status.MISSED) {
+      return card(result);
+    }
+    var mutant = result.mutant();
+    var advice = sources.advice(result);
+    var place = sources.place(mutant);
+    int width = String.valueOf(place.line() + 1).length();
+    var gutter = " ".repeat(width);
+    var lines = new ArrayList<String>();
+    lines.add("");
+    lines.add(" %s %s".formatted(outcomeLabel(result), style.bold(code(outcome(result)))));
+    lines.add(" %s %s %s".formatted(gutter, style.dim("┌─"), location(mutant)));
+    lines.addAll(frame(mutant, advice, place, width));
+    addBeforeAndAfter(lines, mutant, advice, gutter);
+    var notes = explainedNotes(result, advice);
+    if (!notes.isEmpty()) {
+      addNotes(lines, gutter, notes);
+    }
+    lines.add("");
+    // Caught, or not to be caught: done when and ignore don't apply.
+    addCommands(lines, mutant, gutter, List.of(MutantCommand.REPRODUCE));
+    return String.join("\n", lines) + "\n";
+  }
+
+  private static List<String> explainedNotes(MutantResult result, Advice advice) {
+    var notes = new ArrayList<>(advice.notes());
+    if (!result.coveredBy().isEmpty()) {
+      notes.add("covered by " + AgentText.covering(result.coveredBy()));
+    }
+    return notes;
+  }
+
+  private String outcomeLabel(MutantResult result) {
+    return switch (result.status()) {
+      case CAUGHT, TIMED_OUT ->
+          style.label("✓ " + words.detected.toUpperCase(Locale.ROOT), Style.GREEN);
+      case NOT_COVERED -> style.label("○ NOT COVERED", Style.CYAN);
+      default -> style.label("SKIPPED", Style.CYAN);
+    };
+  }
+
+  private static String outcome(MutantResult result) {
+    return switch (result.status()) {
+      case CAUGHT ->
+          "caught by %s%s"
+              .formatted(
+                  AgentText.shortName(result.caughtBy().orElse("a test")),
+                  result
+                      .failureOrigin()
+                      .map(
+                          origin ->
+                              origin.equals("assertion")
+                                  ? ", by an assertion"
+                                  : ", by a crash in the " + origin)
+                      .orElse(""));
+      case TIMED_OUT -> "its tests stopped finishing in time, which counts as caught";
+      case NOT_COVERED -> "no test reaches this line";
+      case SKIPPED -> "skipped: " + result.mutant().skipped().orElse("");
+      case MISSED -> "missed";
+    };
+  }
+
+  /// `done when`, `reproduce`, `or ignore`: the commands for one mutant, its outcome styled like
+  /// its label, so `passes` doesn't read as part of what to type.
+  private void addCommands(
+      List<String> lines, Mutant mutant, String gutter, List<MutantCommand> commands) {
+    for (MutantCommand command : commands) {
+      lines.add(
+          command(
+              gutter,
+              command.label(),
+              command.command(mutant.id(), sources.target()) + style.dim(command.outcome())));
+    }
   }
 
   /// `✗ MISSED headline`, then `┌─ src/…/Pricing.java:17`.

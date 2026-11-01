@@ -58,6 +58,11 @@ public enum MutantCommand {
     return label;
   }
 
+  /// ` passes`: what the command shows when it applies, after it; not part of the command.
+  public String outcome() {
+    return outcome;
+  }
+
   /// `doneWhen`: its field in the event stream.
   public String key() {
     return key;
@@ -88,6 +93,12 @@ public enum MutantCommand {
         .filter(command -> command.shown != Shown.WITH_A_MUTANT)
         .map(command -> command.command("<id>", target))
         .collect(Collectors.joining(" · "));
+  }
+
+  /// `mutastic ignore --remove m855c8e3c samples/pricing`: words joined as a shell reads them, each
+  /// quoted if it needs to be.
+  public static String shell(List<String> words) {
+    return words.stream().map(MutantCommand::quoted).collect(Collectors.joining(" "));
   }
 
   /// A path with a space or a quote, quoted for a shell.

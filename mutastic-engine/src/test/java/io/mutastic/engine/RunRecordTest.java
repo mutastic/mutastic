@@ -58,10 +58,25 @@ class RunRecordTest {
         .isEqualTo("same code");
   }
 
+  /// Runs one after the other of two projects say nothing about each other.
+  @Test
+  void onlyARunOfTheSameProjectCompares() {
+    var mine = record("abc", Map.of());
+    var theirs =
+        new RunRecord(
+            "/other/classes", "abc", "tool-1", java.util.OptionalDouble.of(50.0), Map.of());
+    var unknown = new RunRecord("", "abc", "tool-1", java.util.OptionalDouble.of(50.0), Map.of());
+
+    assertThat(mine.sameProjectAs(record("def", Map.of()))).isTrue();
+    assertThat(mine.sameProjectAs(theirs)).isFalse();
+    assertThat(mine.sameProjectAs(unknown)).isFalse();
+  }
+
   @Test
   void aRunWithNothingToScoreIsRecordedWithoutAScore() throws Exception {
     var file = work.resolve("last-run.tsv");
-    new RunRecord("abc", "tool-1", java.util.OptionalDouble.empty(), Map.of()).write(file);
+    new RunRecord("/app/classes", "abc", "tool-1", java.util.OptionalDouble.empty(), Map.of())
+        .write(file);
 
     assertThat(RunRecord.read(file).orElseThrow().score()).isEmpty();
     assertThat(java.nio.file.Files.readString(file)).contains("score\t-\n");
@@ -112,7 +127,7 @@ class RunRecordTest {
   }
 
   private static RunRecord record(String code, String tool, Map<String, RunRecord.Entry> results) {
-    return new RunRecord(code, tool, java.util.OptionalDouble.of(50.0), results);
+    return new RunRecord("/app/classes", code, tool, java.util.OptionalDouble.of(50.0), results);
   }
 
   private static RunRecord.Entry caught(Optional<String> by) {
