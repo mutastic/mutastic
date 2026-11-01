@@ -16,10 +16,14 @@ import java.util.List;
 /// from the worker's own classpath, through the parent.
 abstract class RootsLoader extends ClassLoader {
   private final List<Path> roots;
+  private final List<Path> resourceRoots;
 
-  RootsLoader(String name, List<Path> roots, ClassLoader parent) {
+  /// `roots` hold the classes it defines; `resourceRoots` are where it finds resources itself,
+  /// before its parent.
+  RootsLoader(String name, List<Path> roots, List<Path> resourceRoots, ClassLoader parent) {
     super(name, parent);
     this.roots = List.copyOf(roots);
+    this.resourceRoots = List.copyOf(resourceRoots);
   }
 
   /// The bytes to define for `name`, or null to ask the parent.
@@ -56,7 +60,7 @@ abstract class RootsLoader extends ClassLoader {
 
   @Override
   public Enumeration<URL> getResources(String name) throws IOException {
-    var found = resourcesIn(roots, name);
+    var found = resourcesIn(resourceRoots, name);
     found.addAll(Collections.list(getParent().getResources(name)));
     return Collections.enumeration(found);
   }
@@ -65,13 +69,13 @@ abstract class RootsLoader extends ClassLoader {
   /// resource: both come from the roots.
   @Override
   protected URL findResource(String name) {
-    var found = resourcesIn(roots, name);
+    var found = resourcesIn(resourceRoots, name);
     return found.isEmpty() ? null : found.get(0);
   }
 
   @Override
   protected Enumeration<URL> findResources(String name) {
-    return Collections.enumeration(resourcesIn(roots, name));
+    return Collections.enumeration(resourcesIn(resourceRoots, name));
   }
 
   /// The class file for `name` from the roots, or null if none has it.

@@ -3,7 +3,7 @@ package io.mutastic.engine;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.engine.fixture.Pricing;
-import io.mutastic.worker.Probes;
+import io.mutastic.engine.fixture.RecordingProbes;
 import java.lang.classfile.ClassFile;
 import java.util.List;
 import java.util.Map;
@@ -13,13 +13,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class CoverageTest {
-  private final Coverage coverage = new Coverage(ClassFile.of());
+  private final Coverage coverage = new Coverage(ClassFile.of(), java.lang.constant.ClassDesc.of(RecordingProbes.class.getName()));
   private Object pricing;
 
   @BeforeEach
   void instrumentedPricing() throws Exception {
-    Probes.LINES.clear();
-    Probes.VALUES.clear();
+    RecordingProbes.LINES.clear();
+    RecordingProbes.VALUES.clear();
     var bytes = coverage.instrument(MutationsTest.model(Pricing.class));
     assertThat(ClassFile.of().verify(bytes)).isEmpty();
     var type = new MutationsTest.SingleClassLoader(Pricing.class.getName(), bytes).loadClass(Pricing.class.getName());
@@ -30,13 +30,13 @@ class CoverageTest {
   void recordsWholeNumberArgumentsLongsIncluded() throws Exception {
     pricing.getClass().getMethod("total", long.class, int.class).invoke(pricing, 7_000_000_000L, 3);
 
-    assertThat(Probes.VALUES).extracting(value -> value[1]).containsExactly(7_000_000_000L, 3L);
+    assertThat(RecordingProbes.VALUES).extracting(value -> value[1]).containsExactly(7_000_000_000L, 3L);
   }
 
   @Test
   void namesInputsForTheMutantsMethodFromTheTestsThatRanIt() throws Exception {
     pricing.getClass().getMethod("total", long.class, int.class).invoke(pricing, 10L, 3);
-    var ids = Probes.VALUES.stream().map(value -> (int) value[0]).toList();
+    var ids = RecordingProbes.VALUES.stream().map(value -> (int) value[0]).toList();
     coverage.recordValues("PricingTest#small", ids.get(0), Set.of(10L));
     coverage.recordValues("PricingTest#small", ids.get(1), Set.of(3L));
     coverage.recordValues("PricingTest#big", ids.get(0), Set.of(900L));
@@ -52,7 +52,7 @@ class CoverageTest {
   void booleansAndObjectsAreNotRecorded() throws Exception {
     pricing.getClass().getMethod("isFree", String.class).invoke(pricing, "FREE");
 
-    assertThat(Probes.VALUES).isEmpty();
-    assertThat(Probes.LINES).isNotEmpty();
+    assertThat(RecordingProbes.VALUES).isEmpty();
+    assertThat(RecordingProbes.LINES).isNotEmpty();
   }
 }

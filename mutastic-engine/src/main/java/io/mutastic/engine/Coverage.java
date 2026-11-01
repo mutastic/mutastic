@@ -25,7 +25,8 @@ import java.util.Set;
 /// The coverage pass: which tests reach which lines, what whole numbers they pass to each
 /// method, and how long each test takes. It doubles as the baseline, since every test runs.
 final class Coverage {
-  private static final ClassDesc PROBES = ClassDesc.of("io.mutastic.worker.Probes");
+  /// What instrumented code calls: the worker's probes.
+  static final ClassDesc WORKER_PROBES = ClassDesc.of("io.mutastic.worker.Probes");
   private static final MethodTypeDesc LINE = MethodTypeDesc.of(CD_void, CD_int);
   private static final MethodTypeDesc VALUE = MethodTypeDesc.of(CD_void, CD_int, CD_long);
 
@@ -36,12 +37,19 @@ final class Coverage {
   private final Map<String, Map<Integer, Set<Long>>> valuesByTest = new HashMap<>();
 
   private final ClassFile context;
+  private final ClassDesc probes;
   private final Map<String, Integer> lineIds = new HashMap<>();
   private final Map<String, Set<Integer>> linesByTest = new HashMap<>();
   private final Map<String, Duration> durations = new HashMap<>();
 
   Coverage(ClassFile context) {
+    this(context, WORKER_PROBES);
+  }
+
+  /// `probes` is the class instrumented code calls; tests pass their own stand-in.
+  Coverage(ClassFile context, ClassDesc probes) {
     this.context = context;
+    this.probes = probes;
   }
 
   /// The class with a probe at every line of every method that can have mutants.
@@ -149,7 +157,7 @@ final class Coverage {
           } else {
             builder.iload(parameter[1]).i2l();
           }
-          builder.invokestatic(PROBES, "value", VALUE);
+          builder.invokestatic(probes, "value", VALUE);
         }
       }
 
@@ -158,7 +166,7 @@ final class Coverage {
         builder.with(element);
         if (element instanceof LineNumber lineNumber) {
           builder.loadConstant(lineId(key(className, methodKey, lineNumber.line())));
-          builder.invokestatic(PROBES, "line", LINE);
+          builder.invokestatic(probes, "line", LINE);
         }
       }
     };

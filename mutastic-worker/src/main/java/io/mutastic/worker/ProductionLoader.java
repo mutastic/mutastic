@@ -11,6 +11,10 @@ import java.util.stream.Collectors;
 /// The project's production classes, loaded once for the worker's life. Each mutant is swapped
 /// in by redefinition and swapped back after its tests.
 ///
+/// Gradle runs tests with code and tests on one classpath, so this loader also finds what a
+/// test copy defined here needs from the tests: helper classes in packages of their own
+/// (fixtures, builders), and every resource, test resources first as Gradle orders them.
+///
 /// One loader per mutant would be simpler, and wrong: JVM-wide registries keep the first copy
 /// of a class. `Security.addProvider` keeps the first loader's provider, so later mutants of
 /// that class never run, and look missed.
@@ -25,7 +29,7 @@ final class ProductionLoader extends RootsLoader {
   /// are defined here, renamed per run (see [Renamer]).
   ProductionLoader(List<Path> roots, Map<String, byte[]> replacements, List<Path> testRoots,
       Set<String> splitTests, ClassLoader parent) {
-    super("mutastic-production", roots, parent);
+    super("mutastic-production", roots, concat(testRoots, roots), parent);
     this.replacements = new HashMap<>(replacements);
     this.testRoots = List.copyOf(testRoots);
     this.splitTests = Set.copyOf(splitTests);
@@ -41,7 +45,22 @@ final class ProductionLoader extends RootsLoader {
       var internalNames = splitTests.stream().map(test -> test.replace('.', '/')).collect(Collectors.toSet());
       return Renamer.rename(original, internalNames, Renamer.runOf(name));
     }
-    return replacements.containsKey(name) ? replacements.get(name) : classFile(name);
+    if (replacements.containsKey(name)) {
+      return replacements.get(name);
+    }
+    var production = classFile(name);
+    if (production != null) {
+      return production;
+    }
+    // A test-only class a test copy uses. Tests in a production package are only ever defined
+    // here renamed, so their original names stay out.
+    return splitTopLevel(name) == null ? classFile(testRoots, name) : null;
+  }
+
+  private static List<Path> concat(List<Path> first, List<Path> second) {
+    var all = new java.util.ArrayList<>(first);
+    all.addAll(second);
+    return all;
   }
 
   @Override
