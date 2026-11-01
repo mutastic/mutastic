@@ -195,9 +195,15 @@ public final class Engine {
     return log.resolveSibling(dot < 0 ? name + "-" + number : name.substring(0, dot) + "-" + number + name.substring(dot));
   }
 
-  /// The tests that failed in the coverage pass, if every one passes when run again on its own:
-  /// they're flaky, and the run goes on without them. A test that fails twice means the tests
-  /// are red, and nothing a mutant does can be judged against them.
+  /// How many times a test that failed the coverage pass is run again on its own before it
+  /// counts as failing. One rerun wasn't enough: on spec-tictactoe a test that fails about half
+  /// the time under mutastic failed its single rerun too in 1 run of 10, stopping the run.
+  static final int RERUNS = 3;
+
+  /// The tests that failed in the coverage pass, if every one passes when run again on its own
+  /// (within [#RERUNS] tries): they're flaky, and the run goes on without them. A test that
+  /// fails every try means the tests are red, and nothing a mutant does can be judged against
+  /// them.
   ///
   /// A flaky test left in would fail at random against mutants too, and its failures would
   /// count as catches it never made.
@@ -206,12 +212,21 @@ public final class Engine {
     // can't be run again on its own.
     boolean rerunnable = failing.stream().allMatch(test -> test.contains("#"));
     var stillFailing = rerunnable
-        ? failing.stream().filter(test -> !worker.passes(test, timeoutFor(coverage.timeOf(test)))).toList()
+        ? failing.stream().filter(test -> !passesWithin(RERUNS, test, coverage, worker)).toList()
         : failing;
     if (!stillFailing.isEmpty()) {
       throw new BaselineFailed(stillFailing, log);
     }
     return failing;
+  }
+
+  private static boolean passesWithin(int tries, String test, Coverage coverage, TestWorker worker) {
+    for (int attempt = 0; attempt < tries; attempt++) {
+      if (worker.passes(test, timeoutFor(coverage.timeOf(test)))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static Duration timeoutFor(Duration normal) {

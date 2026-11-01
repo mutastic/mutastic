@@ -29,7 +29,7 @@ class BaselineTest {
   }
 
   @Test
-  void aTestThatFailsTwiceStopsTheRun() throws Exception {
+  void aTestThatFailsEveryTryStopsTheRun() throws Exception {
     var project = Samples.copy(SAMPLES.resolve("pricing"), work.resolve("pricing"));
     var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
     Files.writeString(test, Files.readString(test).replace("assertEquals(25, ", "assertEquals(26, "));
