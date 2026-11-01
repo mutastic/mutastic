@@ -51,7 +51,8 @@ mutastic verify m855c8e3c samples/pricing
 
 ```
 mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]
-             [--confirm-catches] [--color=auto|always|never] [--progress=auto|bar|counter|none]
+             [--confirm-catches] [--workers=N] [--color=auto|always|never]
+             [--progress=auto|bar|counter|none]
 mutastic verify ID [dir] [:module]
 ```
 
@@ -98,7 +99,9 @@ A test that catches mutants in several unrelated methods, each time with the sam
 1. **Setup.** mutastic runs your Gradle build with an init script, which compiles the code and tests and records what the `test` task would use: its JDK, JVM arguments, working directory and classpath. Your build files are not changed.
 2. **Mutants.** The engine reads your class files with the JDK's ClassFile API (`java.lang.classfile`, final in JDK 24) and finds every mutation site.
 3. **Coverage.** A test worker starts on your project's JDK and runs every test once, with each line instrumented. This records which tests reach which lines, and doubles as a check that the tests pass.
-4. **Mutants, one at a time.** For each mutant, the engine sends the changed class to the worker. The worker runs only the tests that reach that line, fastest first, and stops at the first failure. Classes load once per worker and each mutant is swapped in with class redefinition, so nothing is restarted between mutants. A worker that takes too long is killed and replaced: a mutant can turn a loop into one that never ends.
+4. **Mutants, side by side.** For each mutant, the engine sends the changed class to a worker. The worker runs only the tests that reach that line, fastest first, and stops at the first failure. Classes load once per worker and each mutant is swapped in with class redefinition, so nothing is restarted between mutants. A worker that takes too long is killed and replaced: a mutant can turn a loop into one that never ends.
+
+   Several workers run at once (`--workers`, by default half the cores, at most 4), each its own JVM, as Gradle's parallel test forks are. Results are reported in source order whatever order they finish in. Tests that use a fixed port can collide across workers, so a catch caused by a port in use is never trusted: that mutant runs again on its own once the others are done. Suites that share other fixed resources (a database, a file) should use `--workers=1`.
 
 Code is in three modules:
 

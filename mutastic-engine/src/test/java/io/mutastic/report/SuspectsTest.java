@@ -49,7 +49,7 @@ class SuspectsTest {
   }
 
   private static Report report(MutantResult... results) {
-    return new Report("sample", 17, List.of(results), 10, List.of(), Duration.ZERO, 1, Duration.ZERO);
+    return new Report("sample", 17, List.of(results), 10, List.of(), Duration.ZERO, 1, 1, Duration.ZERO);
   }
 
   private static int ordinal;

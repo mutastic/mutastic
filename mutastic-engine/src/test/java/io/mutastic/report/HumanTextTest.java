@@ -112,6 +112,6 @@ class HumanTextTest {
   }
 
   private static Report report(MutantResult... results) {
-    return new Report("sample", 17, List.of(results), 3, List.of(), Duration.ofMillis(200), 1, Duration.ofMillis(400));
+    return new Report("sample", 17, List.of(results), 3, List.of(), Duration.ofMillis(200), 1, 1, Duration.ofMillis(400));
   }
 }

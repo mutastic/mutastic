@@ -7,7 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /// A flaky test that passes the coverage pass: `StockTest#restockingWorks` checks nothing and
-/// fails every second time it runs in a JVM, so it "catches" a mutant by luck.
+/// fails every second time it runs in a JVM, so it "catches" a mutant by luck. One worker, so
+/// which runs it fails is the same every time.
 class FlakyRunsTest {
   private static final Path SAMPLE = Path.of(System.getProperty("mutastic.samples"), "flaky");
 
@@ -18,8 +19,8 @@ class FlakyRunsTest {
   void confirmingCatchesAndComparingRunsBothNameIt() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("flaky"));
 
-    var first = Samples.mutastic("run", project.toString(), "--format=agent");
-    var second = Samples.mutastic("run", project.toString(), "--format=agent", "--confirm-catches");
+    var first = Samples.mutastic("run", project.toString(), "--format=agent", "--workers=1");
+    var second = Samples.mutastic("run", project.toString(), "--format=agent", "--workers=1", "--confirm-catches");
 
     // The first run takes its lucky catch at face value; there's nothing to compare with yet.
     assertThat(first.out()).doesNotContain("vs last run", "likely flaky");
@@ -35,8 +36,8 @@ class FlakyRunsTest {
   void theEventStreamCarriesTheSameEvidence() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("flaky"));
 
-    Samples.mutastic("run", project.toString(), "--format=agent");
-    var second = Samples.mutastic("run", project.toString(), "--format=jsonl", "--confirm-catches");
+    Samples.mutastic("run", project.toString(), "--format=agent", "--workers=1");
+    var second = Samples.mutastic("run", project.toString(), "--format=jsonl", "--workers=1", "--confirm-catches");
 
     var finished = second.out().lines().filter(line -> line.contains("\"reason\":\"run-finished\"")).findFirst().orElseThrow();
     assertThat(finished).contains("\"sameCodeAsLastRun\":true", "\"before\":\"Killed\",\"after\":\"Survived\"",

@@ -9,13 +9,19 @@ import java.util.List;
 /// @param flaky tests that failed in the coverage pass and passed when run again: left out of
 ///     every mutant's run, so their catches don't count
 /// @param coverage how long the coverage pass took, of `took`
-/// @param workers how many worker JVMs started: one, plus one after each kill
+/// @param workers how many workers ran side by side
+/// @param started how many worker JVMs started: one per worker, plus one after each kill
 public record Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage,
-    int workers, Duration took) {
+    int workers, int started, Duration took) {
 
   public Report {
     results = List.copyOf(results);
     flaky = List.copyOf(flaky);
+  }
+
+  /// Workers started again after one was killed for taking too long.
+  public int replaced() {
+    return started - workers;
   }
 
   public long count(Status status) {

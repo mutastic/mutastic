@@ -46,7 +46,7 @@ import org.junit.platform.launcher.core.LauncherFactory;
 /// |---|---|
 /// | `CLASS <name> <base64>`: use these bytes for the next command | nothing |
 /// | `COVER <test>...`: run every test, recording lines | `TEST <id> <nanos>` and `LINE <id> <ids>` lines, then `DONE PASSED` or `DONE FAILED <id>...` |
-/// | `RUN <test>...`: run in order until one fails | `RESULT PASSED <ran>`, `RESULT FAILED <ran> <test> <exception> <origin>` or `RESULT ERROR <why>` |
+/// | `RUN <test>...`: run in order until one fails | `RESULT PASSED <ran>`, `RESULT FAILED <ran> <test> <exception> <origin> <port-clash or ->` or `RESULT ERROR <why>` |
 /// | `EXIT` | nothing; the worker exits |
 ///
 /// A test is `com.example.PricingTest#method` or a class name. The engine kills the worker if it
@@ -62,6 +62,7 @@ public final class Worker {
   private int runs;
   private String lastFailure = "unknown";
   private String lastOrigin = "unknown";
+  private boolean lastPortClash;
 
   private Worker(List<Path> productionRoots, List<Path> testRoots, PrintStream protocol) throws IOException {
     this.productionRoots = productionRoots;
@@ -171,7 +172,8 @@ public final class Worker {
         return;
       }
       if (!failing.isEmpty()) {
-        protocol.println("RESULT\tFAILED\t" + ran + "\t" + test + "\t" + lastFailure + "\t" + lastOrigin);
+        protocol.println("RESULT\tFAILED\t" + ran + "\t" + test + "\t" + lastFailure + "\t" + lastOrigin
+            + "\t" + (lastPortClash ? "port-clash" : "-"));
         return;
       }
     }
@@ -201,6 +203,7 @@ public final class Worker {
             failing.add(id(test));
             lastFailure = result.getThrowable().map(thrown -> thrown.getClass().getName()).orElse("unknown");
             lastOrigin = result.getThrowable().map(Worker.this::origin).orElse("unknown");
+            lastPortClash = result.getThrowable().map(Worker::portClash).orElse(false);
             System.err.println("FAILED\t" + id(test));
             result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
           }
@@ -212,6 +215,22 @@ public final class Worker {
     } finally {
       thread.setContextClassLoader(previous);
     }
+  }
+
+  /// Whether a port in use caused it, anywhere in its causes: with workers running side by side,
+  /// that can be another worker's test holding the port, not the mutant.
+  private static boolean portClash(Throwable thrown) {
+    for (Throwable cause = thrown; cause != null; cause = cause.getCause() == cause ? null : cause.getCause()) {
+      if (cause instanceof java.net.BindException) {
+        return true;
+      }
+      for (Throwable suppressed : cause.getSuppressed()) {
+        if (suppressed instanceof java.net.BindException) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /// Where a failure came from: `assertion` (a check failed), `test` (the test's own code threw,

@@ -24,7 +24,8 @@ import java.util.Optional;
 ///
 /// ```
 /// mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]
-///              [--confirm-catches] [--color=auto|always|never] [--progress=auto|bar|counter|none]
+///              [--confirm-catches] [--workers=N] [--color=auto|always|never]
+///              [--progress=auto|bar|counter|none]
 /// mutastic verify ID [dir] [:module]
 /// ```
 ///
@@ -67,7 +68,8 @@ public final class Main {
       var setup = Duration.ofNanos(System.nanoTime() - start);
       var sources = new SourceView(directory, project.sources());
       var engine = new Engine(workerJar(), work.resolve("worker.log"));
-      var options = new Engine.Options(command.only(), command.confirmCatches());
+      var options = new Engine.Options(command.only(), command.confirmCatches(),
+          command.workers().orElse(Engine.defaultWorkers()));
       if (command.verify()) {
         var report = engine.run(project, options, progress);
         progress.finished();
@@ -115,7 +117,8 @@ public final class Main {
     } catch (UsageException e) {
       err.println("mutastic: " + e.getMessage());
       err.println("usage: mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]");
-      err.println("                    [--confirm-catches] [--color=auto|always|never] [--progress=auto|bar|counter|none]");
+      err.println("                    [--confirm-catches] [--workers=N] [--color=auto|always|never]");
+      err.println("                    [--progress=auto|bar|counter|none]");
       err.println("       mutastic verify ID [dir] [:module]");
       return USAGE;
     } catch (GradleSetup.SetupFailed | IllegalArgumentException e) {
@@ -164,8 +167,9 @@ public final class Main {
   }
 
   /// @param format empty for the default, which depends on where output goes
+  /// @param workers empty for the default, which depends on the machine
   record Command(boolean verify, Path directory, String module, Optional<String> format, int threshold,
-      Optional<String> only, boolean confirmCatches, String colour, String progress) {
+      Optional<String> only, boolean confirmCatches, Optional<Integer> workers, String colour, String progress) {
     static Command parse(String[] args) {
       if (args.length == 0 || !List.of("run", "verify").contains(args[0])) {
         throw new UsageException(args.length == 0 ? "no command" : "unknown command " + args[0]);
@@ -176,17 +180,23 @@ public final class Main {
       int threshold = DEFAULT_THRESHOLD;
       Optional<String> only = Optional.empty();
       boolean confirmCatches = false;
+      Optional<Integer> workers = Optional.empty();
       String colour = "auto";
       String progress = "auto";
       for (String arg : List.of(args).subList(1, args.length)) {
         if (arg.startsWith("--format=")) {
           format = Optional.of(choice(arg, FORMATS));
         } else if (arg.startsWith("--threshold=")) {
-          threshold = Integer.parseInt(arg.substring("--threshold=".length()));
+          threshold = number(arg);
         } else if (arg.equals("--confirm-catches")) {
           confirmCatches = true;
         } else if (arg.startsWith("--only=")) {
           only = Optional.of(arg.substring("--only=".length()));
+        } else if (arg.startsWith("--workers=")) {
+          workers = Optional.of(number(arg));
+          if (workers.get() < 1) {
+            throw new UsageException("--workers must be at least 1");
+          }
         } else if (arg.startsWith("--color=")) {
           colour = choice(arg, List.of("auto", "always", "never"));
         } else if (arg.startsWith("--progress=")) {
@@ -205,7 +215,17 @@ public final class Main {
       }
       var module = positional.stream().filter(arg -> arg.startsWith(":")).findFirst().orElse(":");
       var directory = positional.stream().filter(arg -> !arg.startsWith(":")).findFirst().map(Path::of).orElse(Path.of("."));
-      return new Command(verify, directory, module, format, threshold, only, confirmCatches, colour, progress);
+      return new Command(verify, directory, module, format, threshold, only, confirmCatches, workers, colour, progress);
+    }
+
+    /// The whole number in `--name=value`.
+    private static int number(String arg) {
+      var value = arg.substring(arg.indexOf('=') + 1);
+      try {
+        return Integer.parseInt(value);
+      } catch (NumberFormatException e) {
+        throw new UsageException("%s needs a whole number, not %s".formatted(arg.substring(0, arg.indexOf('=')), value));
+      }
     }
 
     /// The value of `--name=value`, if it's one of `allowed`.

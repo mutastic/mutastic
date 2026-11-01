@@ -74,7 +74,15 @@ final class TestWorker implements AutoCloseable {
 
   /// The outcome of `tests`, run in order until one fails, with `bytes` in place of `className`.
   /// @param origin where the failure came from: `assertion`, `test` or `code`
-  record Run(Status status, Optional<String> failedTest, Optional<String> failure, Optional<String> origin, int testsRun) {}
+  /// @param portClash whether a port in use caused the failure, which with workers side by side
+  ///     can be another worker's doing
+  record Run(Status status, Optional<String> failedTest, Optional<String> failure, Optional<String> origin, int testsRun,
+      boolean portClash) {
+
+    Run(Status status, int testsRun) {
+      this(status, Optional.empty(), Optional.empty(), Optional.empty(), testsRun, false);
+    }
+  }
 
   Run run(String className, byte[] bytes, List<String> tests, Duration timeout) {
     stage(className, bytes);
@@ -82,13 +90,13 @@ final class TestWorker implements AutoCloseable {
     var answer = await(timeout);
     if (answer.isEmpty()) {
       kill();
-      return new Run(Status.TIMED_OUT, Optional.empty(), Optional.empty(), Optional.empty(), tests.size());
+      return new Run(Status.TIMED_OUT, tests.size());
     }
     var parts = answer.get().split("\t");
     return switch (parts[1]) {
-      case "PASSED" -> new Run(Status.MISSED, Optional.empty(), Optional.empty(), Optional.empty(), Integer.parseInt(parts[2]));
+      case "PASSED" -> new Run(Status.MISSED, Integer.parseInt(parts[2]));
       case "FAILED" -> new Run(Status.CAUGHT, Optional.of(parts[3]), Optional.of(parts[4]), Optional.of(parts[5]),
-          Integer.parseInt(parts[2]));
+          Integer.parseInt(parts[2]), parts[6].equals("port-clash"));
       default -> throw new IllegalStateException("the worker said: " + answer.get());
     };
   }

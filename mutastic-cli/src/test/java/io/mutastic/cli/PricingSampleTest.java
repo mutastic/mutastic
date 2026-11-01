@@ -67,6 +67,7 @@ class PricingSampleTest {
     assertThat(run.out()).startsWith("✗ src/main/java/com/example/pricing/Pricing.java:17 m855c8e3c no test checks the edge");
     assertThat(run.out().strip().lines().filter(line -> line.contains("Score")).findFirst().orElseThrow())
         .isEqualTo("    Score  85.7%  threshold 80 ✓");
+    assertThat(run.out()).contains("    Tests  3 on JDK 17 · ");
     // Progress goes to stderr, as counter lines, so stdout is only the result.
     assertThat(run.err()).contains("mutastic dev · reading the Gradle build…", "coverage  3 tests on JDK 17", "[9/9]");
   }

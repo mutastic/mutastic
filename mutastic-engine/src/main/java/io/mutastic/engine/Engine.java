@@ -16,7 +16,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /// One mutation-testing run of one project: find every mutant, run the tests once with coverage,
-/// then run each mutant against only the tests that reach it, fastest first.
+/// then run each mutant against only the tests that reach it, fastest first, on several worker
+/// JVMs side by side.
 public final class Engine {
   /// How much slower than in the coverage pass a mutant's tests may run before they count as
   /// stuck, and the fixed allowance on top, for JIT warm-up and GC pauses.
@@ -26,10 +27,17 @@ public final class Engine {
   private final Path workerJar;
   private final Path log;
 
-  /// `workerJar` is the test worker, `mutastic-worker.jar`; `log` collects the tests' output.
+  /// `workerJar` is the test worker, `mutastic-worker.jar`; `log` collects the tests' output
+  /// (`worker.log`, and `worker-2.log` and so on for the other workers).
   public Engine(Path workerJar, Path log) {
     this.workerJar = workerJar;
     this.log = log;
+  }
+
+  /// Workers to run side by side when not told: half the cores, as tests often use more than
+  /// one thread, and at most 4, since each worker holds its own copy of the app.
+  public static int defaultWorkers() {
+    return Math.clamp(Runtime.getRuntime().availableProcessors() / 2, 1, 4);
   }
 
   /// The tests failed before any mutant: nothing a mutant does can be judged against them.
@@ -50,8 +58,13 @@ public final class Engine {
   /// @param confirmCatches run a catching test once more against its mutant: a catch that
   ///     doesn't repeat came from a flaky test, and the mutant's other covering tests decide.
   ///     One more test run per catch.
-  public record Options(Optional<String> only, boolean confirmCatches) {
-    public static final Options DEFAULT = new Options(Optional.empty(), false);
+  /// @param workers how many worker JVMs run mutants side by side
+  public record Options(Optional<String> only, boolean confirmCatches, int workers) {
+    public Options {
+      if (workers < 1) {
+        throw new IllegalArgumentException("workers must be at least 1, not " + workers);
+      }
+    }
   }
 
   /// Runs the mutants. Each result goes to `finished` as soon as it's known.
@@ -80,25 +93,104 @@ public final class Engine {
       }
     });
 
-    try (var worker = new TestWorker(project, workerJar, log)) {
+    var workers = new ArrayList<TestWorker>();
+    for (int number = 1; number <= Math.min(options.workers(), Math.max(1, mutants.size())); number++) {
+      workers.add(new TestWorker(project, workerJar, number == 1 ? log : numbered(log, number)));
+    }
+    try {
+      var first = workers.getFirst();
       long coverageStart = System.nanoTime();
-      var baseline = worker.cover(instrumented, testClassesIn(project.testClasses()), coverage);
-      var flaky = baseline.passed() ? List.<String>of() : flakyOrFail(baseline.failing(), coverage, worker);
+      var baseline = first.cover(instrumented, testClassesIn(project.testClasses()), coverage);
+      var flaky = baseline.passed() ? List.<String>of() : flakyOrFail(baseline.failing(), coverage, first);
       coverage.exclude(flaky);
       var coverageTook = Duration.ofNanos(System.nanoTime() - coverageStart);
       if (coverage.testCount() == 0) {
         throw new IllegalStateException("no tests ran in " + project.name() + "; mutastic runs JUnit Platform tests");
       }
-      listener.coverageFinished(worker.jdk(), coverage.testCount(), coverageTook, mutants.size(), flaky);
-      var results = new ArrayList<MutantResult>();
-      for (Mutant mutant : mutants) {
-        var result = run(mutant, models.get(mutant.binaryName()), mutations, coverage, worker, options.confirmCatches());
-        results.add(result);
-        listener.mutantFinished(result);
-      }
-      return new Report(project.name(), worker.jdk(), results, coverage.testCount(), flaky, coverageTook, worker.started(),
-          Duration.ofNanos(System.nanoTime() - start));
+      listener.coverageFinished(first.jdk(), coverage.testCount(), coverageTook, mutants.size(), flaky);
+      var mutantRun = new MutantRun(models, mutations, coverage, options.confirmCatches());
+      var results = runAll(mutants, mutantRun, workers, listener);
+      return new Report(project.name(), first.jdk(), results, coverage.testCount(), flaky, coverageTook, workers.size(),
+          workers.stream().mapToInt(TestWorker::started).sum(), Duration.ofNanos(System.nanoTime() - start));
+    } finally {
+      workers.forEach(TestWorker::close);
     }
+  }
+
+  /// Every mutant, on the workers side by side, in the order they were found. A catch that a port
+  /// in use caused may be another worker's test holding the port: those mutants run again
+  /// afterwards on one worker, with the others stopped, and are reported then.
+  private static List<MutantResult> runAll(List<Mutant> mutants, MutantRun mutantRun, List<TestWorker> workers,
+      Listener listener) {
+    var results = new MutantResult[mutants.size()];
+    var clashed = new java.util.concurrent.ConcurrentLinkedQueue<Integer>();
+    var idle = new java.util.concurrent.LinkedBlockingQueue<TestWorker>(workers);
+    var report = new Object();
+    try (var executor = java.util.concurrent.Executors.newFixedThreadPool(workers.size(),
+        Thread.ofPlatform().name("mutastic-", 1).daemon().factory())) {
+      var futures = new ArrayList<java.util.concurrent.Future<?>>();
+      for (int index = 0; index < mutants.size(); index++) {
+        int at = index;
+        futures.add(executor.submit(() -> {
+          var worker = take(idle);
+          try {
+            var result = mutantRun.run(mutants.get(at), worker);
+            if (result.portClash() && workers.size() > 1) {
+              clashed.add(at);
+              return;
+            }
+            results[at] = result.result();
+            synchronized (report) {
+              listener.mutantFinished(result.result());
+            }
+          } finally {
+            idle.add(worker);
+          }
+        }));
+      }
+      for (var future : futures) {
+        await(future);
+      }
+    }
+    if (!clashed.isEmpty()) {
+      workers.stream().skip(1).forEach(TestWorker::close); // nothing else holds a port now
+      for (int at : clashed.stream().sorted().toList()) {
+        results[at] = mutantRun.run(mutants.get(at), workers.getFirst()).result();
+        listener.mutantFinished(results[at]);
+      }
+    }
+    return List.of(results);
+  }
+
+  private static TestWorker take(java.util.concurrent.BlockingQueue<TestWorker> idle) {
+    try {
+      return idle.take();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("interrupted", e);
+    }
+  }
+
+  /// Waits for one mutant, passing on what went wrong in it as if it had happened here.
+  private static void await(java.util.concurrent.Future<?> future) {
+    try {
+      future.get();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("interrupted", e);
+    } catch (java.util.concurrent.ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException runtime) {
+        throw runtime;
+      }
+      throw new IllegalStateException(e.getCause());
+    }
+  }
+
+  /// `worker-2.log` beside `worker.log`.
+  private static Path numbered(Path log, int number) {
+    var name = log.getFileName().toString();
+    int dot = name.lastIndexOf('.');
+    return log.resolveSibling(dot < 0 ? name + "-" + number : name.substring(0, dot) + "-" + number + name.substring(dot));
   }
 
   /// The tests that failed in the coverage pass, if every one passes when run again on its own:
@@ -124,42 +216,52 @@ public final class Engine {
     return Duration.ofNanos((long) (normal.toNanos() * TIMEOUT_FACTOR)).plus(TIMEOUT_ALLOWANCE);
   }
 
-  private static MutantResult run(Mutant mutant, ClassModel model, Mutations mutations, Coverage coverage, TestWorker worker,
-      boolean confirmCatches) {
-    if (mutant.skipped().isPresent()) {
-      return MutantResult.skipped(mutant);
-    }
-    var covering = coverage.coveringTests(mutant);
-    if (covering.isEmpty()) {
-      return MutantResult.notCovered(mutant);
-    }
-    var bytes = mutations.apply(model, mutant);
-    var errors = mutations.verify(bytes);
-    if (!errors.isEmpty()) {
-      // A mutant that won't load proves nothing, and counting it as caught would flatter the
-      // score: this is mutastic's bug, not the user's.
-      throw new IllegalStateException("mutant " + mutant.id() + " doesn't verify: " + errors.getFirst().getMessage());
-    }
-    var timeout = timeoutFor(coverage.timeOf(covering));
-    long start = System.nanoTime();
-    var run = worker.run(mutant.binaryName(), bytes, covering, timeout);
-    Optional<String> unconfirmed = Optional.empty();
-    if (confirmCatches && run.status() == Status.CAUGHT) {
-      var catcher = run.failedTest().orElseThrow();
-      var again = worker.run(mutant.binaryName(), bytes, List.of(catcher), timeoutFor(coverage.timeOf(catcher)));
-      if (again.status() == Status.MISSED) {
-        // Not a catch: the tests after it decide, as if it had passed the first time.
-        unconfirmed = Optional.of(catcher);
-        var rest = covering.subList(covering.indexOf(catcher) + 1, covering.size());
-        var ran = run.testsRun();
-        run = rest.isEmpty()
-            ? new TestWorker.Run(Status.MISSED, Optional.empty(), Optional.empty(), Optional.empty(), ran)
-            : worker.run(mutant.binaryName(), bytes, rest, timeoutFor(coverage.timeOf(rest)));
-        run = new TestWorker.Run(run.status(), run.failedTest(), run.failure(), run.origin(), ran + (rest.isEmpty() ? 0 : run.testsRun()));
+  /// What one mutant needs from the run, shared by every worker's thread. Applying and
+  /// verifying a mutant share the ClassFile context's caches, so they take turns; only the
+  /// tests run side by side. Coverage is only read once the coverage pass is over.
+  private record MutantRun(Map<String, ClassModel> models, Mutations mutations, Coverage coverage, boolean confirmCatches) {
+    record Outcome(MutantResult result, boolean portClash) {}
+
+    Outcome run(Mutant mutant, TestWorker worker) {
+      if (mutant.skipped().isPresent()) {
+        return new Outcome(MutantResult.skipped(mutant), false);
       }
+      var covering = coverage.coveringTests(mutant);
+      if (covering.isEmpty()) {
+        return new Outcome(MutantResult.notCovered(mutant), false);
+      }
+      byte[] bytes;
+      synchronized (mutations) {
+        bytes = mutations.apply(models.get(mutant.binaryName()), mutant);
+        var errors = mutations.verify(bytes);
+        if (!errors.isEmpty()) {
+          // A mutant that won't load proves nothing, and counting it as caught would flatter the
+          // score: this is mutastic's bug, not the user's.
+          throw new IllegalStateException("mutant " + mutant.id() + " doesn't verify: " + errors.getFirst().getMessage());
+        }
+      }
+      long start = System.nanoTime();
+      var run = worker.run(mutant.binaryName(), bytes, covering, timeoutFor(coverage.timeOf(covering)));
+      Optional<String> unconfirmed = Optional.empty();
+      if (confirmCatches && run.status() == Status.CAUGHT) {
+        var catcher = run.failedTest().orElseThrow();
+        var again = worker.run(mutant.binaryName(), bytes, List.of(catcher), timeoutFor(coverage.timeOf(catcher)));
+        if (again.status() == Status.MISSED) {
+          // Not a catch: the tests after it decide, as if it had passed the first time.
+          unconfirmed = Optional.of(catcher);
+          var rest = covering.subList(covering.indexOf(catcher) + 1, covering.size());
+          int ran = run.testsRun();
+          var after = rest.isEmpty()
+              ? new TestWorker.Run(Status.MISSED, 0)
+              : worker.run(mutant.binaryName(), bytes, rest, timeoutFor(coverage.timeOf(rest)));
+          run = new TestWorker.Run(after.status(), after.failedTest(), after.failure(), after.origin(),
+              ran + after.testsRun(), after.portClash());
+        }
+      }
+      var result = new MutantResult(mutant, run.status(), covering, run.failedTest(), run.failure(), run.origin(),
+          run.testsRun(), unconfirmed, Duration.ofNanos(System.nanoTime() - start));
+      return new Outcome(result, run.portClash());
     }
-    return new MutantResult(mutant, run.status(), covering, run.failedTest(), run.failure(), run.origin(), run.testsRun(),
-        unconfirmed, Duration.ofNanos(System.nanoTime() - start));
   }
 
   /// Every class in the directories, by binary name, in a stable order.

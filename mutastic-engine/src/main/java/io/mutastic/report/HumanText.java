@@ -173,9 +173,9 @@ public final class HumanText {
     var mutantsTook = report.took().minus(report.coverage());
     rows.put("Duration", "%s %s".formatted(seconds(setup.plus(report.took())), style.dim("(setup %s, coverage %s, mutants %s)"
         .formatted(seconds(setup), seconds(report.coverage()), seconds(mutantsTook)))));
-    rows.put("Tests", "%d on JDK %d%s".formatted(report.tests(), report.jdk(), report.workers() > 1
-        ? style.dim(" · %d workers started (%d replaced after a timeout)".formatted(report.workers(), report.workers() - 1))
-        : ""));
+    rows.put("Tests", "%d on JDK %d · %d worker%s%s".formatted(report.tests(), report.jdk(), report.workers(),
+        report.workers() == 1 ? "" : "s", report.replaced() == 0 ? ""
+            : style.dim(" (%d replaced after a timeout)".formatted(report.replaced()))));
     var score = "%.1f%%".formatted(report.score());
     boolean passed = report.score() >= threshold;
     rows.put("Score", "%s%s  %s".formatted(passed ? style.green(style.bold(score)) : style.red(score), delta(report, comparison),

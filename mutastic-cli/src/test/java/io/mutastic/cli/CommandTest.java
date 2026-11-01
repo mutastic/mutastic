@@ -12,14 +12,14 @@ class CommandTest {
   void runDefaultsToTheCurrentDirectoryAndRootProject() {
     var command = Main.Command.parse(new String[] {"run"});
 
-    assertThat(command).isEqualTo(new Main.Command(false, Path.of("."), ":", Optional.empty(), 80, Optional.empty(), false, "auto", "auto"));
+    assertThat(command).isEqualTo(new Main.Command(false, Path.of("."), ":", Optional.empty(), 80, Optional.empty(), false, Optional.empty(), "auto", "auto"));
   }
 
   @Test
   void readsDirectoryModuleAndOptionsInAnyOrder() {
     var command = Main.Command.parse(new String[] {"run", ":api", "--format=jsonl", "../app", "--threshold=60"});
 
-    assertThat(command).isEqualTo(new Main.Command(false, Path.of("../app"), ":api", Optional.of("jsonl"), 60, Optional.empty(), false, "auto", "auto"));
+    assertThat(command).isEqualTo(new Main.Command(false, Path.of("../app"), ":api", Optional.of("jsonl"), 60, Optional.empty(), false, Optional.empty(), "auto", "auto"));
   }
 
   @Test
@@ -36,5 +36,13 @@ class CommandTest {
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--fast"})).hasMessage("unknown option --fast");
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--format=xml"})).hasMessage("unknown format xml (one of full, concise, agent, jsonl)");
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"verify"})).hasMessage("verify needs a mutant id");
+    assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--workers=0"})).hasMessage("--workers must be at least 1");
+    assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--threshold=high"}))
+        .hasMessage("--threshold needs a whole number, not high");
+  }
+
+  @Test
+  void readsTheWorkerCount() {
+    assertThat(Main.Command.parse(new String[] {"run", "--workers=3"}).workers()).contains(3);
   }
 }
