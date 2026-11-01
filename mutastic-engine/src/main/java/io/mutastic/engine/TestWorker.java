@@ -333,16 +333,17 @@ final class TestWorker implements AutoCloseable {
             "--tests="
                 + join(
                     Stream.concat(
-                        project.testClasses().stream(), project.testResources().stream()))));
+                        project.testClasses().stream(), project.testResources().stream())),
+            "--include-tags=" + String.join(",", project.tests().includeTags()),
+            "--exclude-tags=" + String.join(",", project.tests().excludeTags())));
     return command;
   }
 
   private Process launch(List<String> command) {
     try {
-      return new ProcessBuilder(command)
-          .directory(project.workingDirectory().toFile())
-          .redirectError(ProcessBuilder.Redirect.appendTo(log.toFile()))
-          .start();
+      var builder = new ProcessBuilder(command).directory(project.workingDirectory().toFile());
+      builder.environment().putAll(project.environment());
+      return builder.redirectError(ProcessBuilder.Redirect.appendTo(log.toFile())).start();
     } catch (IOException e) {
       throw new UncheckedIOException("couldn't start " + project.java(), e);
     }

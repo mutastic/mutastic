@@ -205,7 +205,8 @@ public final class Engine {
   /// module with no test classes has nothing to run: every mutant is not covered, and no worker
   /// starts (one couldn't, with no JUnit on the classpath).
   private CoveragePass coveragePass(Project project, Plan plan, TestWorker first) {
-    var testClasses = testClassesIn(project.testClasses());
+    var testClasses =
+        testClassesIn(project.testClasses()).stream().filter(project.tests()::runs).toList();
     if (testClasses.isEmpty()) {
       return new CoveragePass(0, 0, Duration.ZERO, plan.mutants().size(), List.of());
     }

@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -28,6 +29,7 @@ import org.jspecify.annotations.Nullable;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.support.descriptor.MethodSource;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
+import org.junit.platform.launcher.TagFilter;
 import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestIdentifier;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
@@ -57,6 +59,7 @@ import org.junit.platform.launcher.core.LauncherFactory;
 public final class Worker {
   private final List<Path> productionRoots;
   private final List<Path> testRoots;
+  private final Tags tags;
   private final Set<String> splitTests;
   private final Set<String> testClassNames;
   private final PrintStream protocol;
@@ -70,10 +73,35 @@ public final class Worker {
   private String lastOrigin = "unknown";
   private boolean lastPortClash;
 
-  private Worker(List<Path> productionRoots, List<Path> testRoots, PrintStream protocol)
+  /// The JUnit tags the build's test task runs by: every run here is filtered the same way.
+  record Tags(List<String> include, List<String> exclude) {
+    static Tags of(String[] args) {
+      return new Tags(values(args, "--include-tags="), values(args, "--exclude-tags="));
+    }
+
+    void filter(LauncherDiscoveryRequestBuilder request) {
+      if (!include.isEmpty()) {
+        request.filters(TagFilter.includeTags(include));
+      }
+      if (!exclude.isEmpty()) {
+        request.filters(TagFilter.excludeTags(exclude));
+      }
+    }
+
+    private static List<String> values(String[] args, String flag) {
+      return Arrays.stream(args)
+          .filter(arg -> arg.startsWith(flag))
+          .flatMap(arg -> Arrays.stream(arg.substring(flag.length()).split(",", -1)))
+          .filter(tag -> !tag.isBlank())
+          .toList();
+    }
+  }
+
+  private Worker(List<Path> productionRoots, List<Path> testRoots, Tags tags, PrintStream protocol)
       throws IOException {
     this.productionRoots = productionRoots;
     this.testRoots = testRoots;
+    this.tags = tags;
     this.protocol = protocol;
     this.splitTests = splitTests(productionRoots, testRoots);
     this.testClassNames = classNamesIn(testRoots);
@@ -82,26 +110,9 @@ public final class Worker {
   public static void main(String[] args) throws Exception {
     var protocol = new PrintStream(new FileOutputStream(FileDescriptor.out), true, UTF_8);
     System.setOut(System.err);
-    var worker = new Worker(roots(args, "--production="), roots(args, "--tests="), protocol);
-    var commands = new LinkedBlockingQueue<String>();
-    var reader =
-        new Thread(
-            () -> {
-              try (var in = new BufferedReader(new InputStreamReader(System.in, UTF_8))) {
-                for (String line = in.readLine(); line != null; line = in.readLine()) {
-                  commands.add(line);
-                }
-              } catch (IOException e) {
-                // the engine went away
-              }
-              // No engine, no reason to live: halt now, even mid-test. Otherwise a worker outlives
-              // a
-              // killed engine and keeps its ports for the next run to trip on.
-              Runtime.getRuntime().halt(0);
-            },
-            "mutastic-protocol");
-    reader.setDaemon(true);
-    reader.start();
+    var worker =
+        new Worker(roots(args, "--production="), roots(args, "--tests="), Tags.of(args), protocol);
+    var commands = readCommands();
     protocol.println("READY\t" + Runtime.version().feature());
     for (String line = commands.take(); !line.equals("EXIT"); line = commands.take()) {
       worker.handle(line.split("\t", -1));
@@ -311,9 +322,10 @@ public final class Worker {
   }
 
   /// Selects each test, a class or a method, as loaded for this run.
-  private static LauncherDiscoveryRequest request(TestLoader loader, List<String> tests)
+  private LauncherDiscoveryRequest request(TestLoader loader, List<String> tests)
       throws ClassNotFoundException {
     var request = LauncherDiscoveryRequestBuilder.request();
+    tags.filter(request);
     for (String test : tests) {
       int hash = test.indexOf('#');
       request.selectors(
@@ -451,6 +463,29 @@ public final class Worker {
 
   private static String packageOf(String name) {
     return name.lastIndexOf('.') < 0 ? "" : name.substring(0, name.lastIndexOf('.'));
+  }
+
+  /// The engine's commands, as they come, read on a thread of their own.
+  private static BlockingQueue<String> readCommands() {
+    var commands = new LinkedBlockingQueue<String>();
+    var reader =
+        new Thread(
+            () -> {
+              try (var in = new BufferedReader(new InputStreamReader(System.in, UTF_8))) {
+                for (String line = in.readLine(); line != null; line = in.readLine()) {
+                  commands.add(line);
+                }
+              } catch (IOException e) {
+                // the engine went away
+              }
+              // No engine, no reason to live: halt now, even mid-test. Otherwise a worker
+              // outlives a killed engine and keeps its ports for the next run to trip on.
+              Runtime.getRuntime().halt(0);
+            },
+            "mutastic-protocol");
+    reader.setDaemon(true);
+    reader.start();
+    return commands;
   }
 
   private static List<Path> roots(String[] args, String flag) {

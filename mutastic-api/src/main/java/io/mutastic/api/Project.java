@@ -2,6 +2,7 @@ package io.mutastic.api;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 /// One module's code and tests, and how its build runs them: what a build-tool integration reads
 /// from the module's test task.
@@ -17,6 +18,8 @@ import java.util.List;
 /// @param sources the main source directories, for showing code
 /// @param testSources the test source directories, for writing suggested tests in their style
 /// @param dependencies the rest of the test runtime classpath, which brings JUnit
+/// @param tests which tests the build runs
+/// @param environment the environment variables the build sets for its tests, beyond its own
 public record Project(
     String name,
     Path java,
@@ -28,7 +31,9 @@ public record Project(
     List<Path> testResources,
     List<Path> sources,
     List<Path> testSources,
-    List<Path> dependencies) {
+    List<Path> dependencies,
+    TestSelection tests,
+    Map<String, String> environment) {
 
   public Project {
     jvmArgs = List.copyOf(jvmArgs);
@@ -39,5 +44,6 @@ public record Project(
     sources = List.copyOf(sources);
     testSources = List.copyOf(testSources);
     dependencies = List.copyOf(dependencies);
+    environment = Map.copyOf(environment);
   }
 }

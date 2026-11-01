@@ -6,7 +6,9 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 /// The setup file a build tool's own code writes from inside the build (Gradle's init script,
@@ -16,6 +18,9 @@ import java.util.Properties;
 /// Keys: `java`, `jvmArgs` (one per line), `workingDirectory`, and path lists joined with the
 /// platform's separator: `classes`, `resources`, `testClasses`, `testResources`, `sources`,
 /// `testSources`, `dependencies` (the test runtime classpath without the module's own directories).
+/// Which tests run: `testIncludes` and `testExcludes` (one class-file pattern per line, see
+/// [TestSelection]), `includeTags` and `excludeTags` (one per line). `environment`: one
+/// `NAME=value` per line. Keys a build doesn't set are empty.
 public final class ProjectSetup {
   private ProjectSetup() {}
 
@@ -36,7 +41,33 @@ public final class ProjectSetup {
         paths(setup.getProperty("testResources")),
         paths(setup.getProperty("sources")),
         paths(setup.getProperty("testSources")),
-        paths(setup.getProperty("dependencies")));
+        paths(setup.getProperty("dependencies")),
+        new TestSelection(
+            lines(setup, "testIncludes"),
+            lines(setup, "testExcludes"),
+            lines(setup, "includeTags"),
+            lines(setup, "excludeTags")),
+        environment(lines(setup, "environment")));
+  }
+
+  private static List<String> lines(Properties setup, String key) {
+    return setup
+        .getProperty(key, "")
+        .lines()
+        .map(String::strip)
+        .filter(line -> !line.isEmpty())
+        .toList();
+  }
+
+  private static Map<String, String> environment(List<String> lines) {
+    var environment = new LinkedHashMap<String, String>();
+    for (String line : lines) {
+      int equals = line.indexOf('=');
+      if (equals > 0) {
+        environment.put(line.substring(0, equals), line.substring(equals + 1));
+      }
+    }
+    return environment;
   }
 
   private static String required(Properties setup, String key) {

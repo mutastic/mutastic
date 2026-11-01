@@ -46,6 +46,18 @@ allprojects {
                 // The module's own directories are left out: the worker loads those itself, so
                 // mutants can replace them.
                 setup["dependencies"] = task.classpath.files.map { it.absolutePath }.filterNot { it in own }.joinToString(separator)
+                // Which tests the task runs, so mutastic runs the same ones.
+                setup["testIncludes"] = task.includes.joinToString("\n")
+                setup["testExcludes"] = task.excludes.joinToString("\n")
+                val platform = task.options as? org.gradle.api.tasks.testing.junitplatform.JUnitPlatformOptions
+                setup["includeTags"] = platform?.includeTags.orEmpty().joinToString("\n")
+                setup["excludeTags"] = platform?.excludeTags.orEmpty().joinToString("\n")
+                // The task's environment starts as Gradle's own: only what it sets beyond that.
+                val inherited = System.getenv()
+                setup["environment"] = task.environment
+                    .filter { (name, value) -> inherited[name] != value.toString() }
+                    .map { (name, value) -> "$name=$value" }
+                    .joinToString("\n")
                 out.parentFile.mkdirs()
                 out.outputStream().use { setup.store(it, "mutastic setup for ${project.path}") }
             }

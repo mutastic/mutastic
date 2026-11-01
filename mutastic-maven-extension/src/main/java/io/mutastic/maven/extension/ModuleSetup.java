@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.maven.project.MavenProject;
+import org.jspecify.annotations.Nullable;
 
 /// One module's setup file, in the format every mutastic build tool writes. Maven copies resources
 /// into the class directories, so there are no resource directories of their own.
@@ -19,6 +20,8 @@ final class ModuleSetup {
   private static final Pattern LATE = Pattern.compile("@\\{(?<name>[^}]+)}");
 
   private static final Pattern WORDS = Pattern.compile("\\s+");
+
+  private static final Pattern COMMA = Pattern.compile(",");
 
   private final MavenProject project;
   private final Surefire surefire;
@@ -46,10 +49,58 @@ final class ModuleSetup {
     setup.put("sources", joined(project.getCompileSourceRoots()));
     setup.put("testSources", joined(project.getTestCompileSourceRoots()));
     setup.put("dependencies", joined(dependencies()));
+    putTests(setup);
     Files.createDirectories(file.getParent());
     try (OutputStream out = Files.newOutputStream(file)) {
       setup.store(out, "mutastic setup for " + project.getId());
     }
+  }
+
+  /// Surefire's defaults, when a build names no includes of its own.
+  private static final List<String> DEFAULT_INCLUDES =
+      List.of("**/Test*.class", "**/*Test.class", "**/*Tests.class", "**/*TestCase.class");
+
+  /// Which tests Surefire runs, and the environment it gives them.
+  private void putTests(Properties setup) throws Exception {
+    var includes = patterns(surefire.list("includes"));
+    setup.put("testIncludes", lines(includes.isEmpty() ? DEFAULT_INCLUDES : includes));
+    var excludes = patterns(surefire.list("excludes"));
+    setup.put("testExcludes", lines(excludes.isEmpty() ? List.of("**/*$*") : excludes));
+    setup.put("includeTags", lines(commaSeparated(surefire.value("groups"))));
+    setup.put("excludeTags", lines(commaSeparated(surefire.value("excludedGroups"))));
+    var environment = new ArrayList<String>();
+    surefire
+        .map("environmentVariables")
+        .forEach((name, value) -> environment.add(name + "=" + value));
+    setup.put("environment", lines(environment));
+  }
+
+  /// Surefire's patterns as class-file patterns: `**/*Test.java` and `**/*Test` become
+  /// `**/*Test.class`, a pattern with no directory matches in any, and `%regex[…]` is a regex.
+  private static List<String> patterns(List<String> surefirePatterns) {
+    var patterns = new ArrayList<String>();
+    for (String pattern : surefirePatterns) {
+      for (String each : COMMA.splitAsStream(pattern).toList()) {
+        var trimmed = each.strip();
+        if (trimmed.startsWith("%regex[") && trimmed.endsWith("]")) {
+          patterns.add("regex:" + trimmed.substring("%regex[".length(), trimmed.length() - 1));
+        } else if (!trimmed.isEmpty()) {
+          var classFile = trimmed.replaceAll("\\.java$", "").replaceAll("\\.class$", "") + ".class";
+          patterns.add(classFile.contains("/") ? classFile : "**/" + classFile);
+        }
+      }
+    }
+    return patterns;
+  }
+
+  private static List<String> commaSeparated(@Nullable String value) {
+    return value == null
+        ? List.of()
+        : COMMA.splitAsStream(value).map(String::strip).filter(tag -> !tag.isEmpty()).toList();
+  }
+
+  private static String lines(List<String> values) {
+    return String.join("\n", values);
   }
 
   /// The test classpath without the module's own directories, which the worker loads itself.
