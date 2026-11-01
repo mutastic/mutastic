@@ -91,6 +91,22 @@ public record Mutant(
         List.of());
   }
 
+  /// The same mutant, skipped for `reason` (`user: …`).
+  public Mutant skippedFor(String reason) {
+    return new Mutant(
+        className,
+        methodName,
+        descriptor,
+        ordinal,
+        line,
+        operator,
+        original,
+        replacement,
+        Optional.of(reason),
+        copies,
+        operands);
+  }
+
   /// The same mutant, to run: for an audit of what a filter skips.
   public Mutant unskipped() {
     return new Mutant(

@@ -146,6 +146,8 @@ public final class JsonEvents {
     fields.put("reports", reports);
     putAudit(fields, AridAudit.of(report));
     report.scope().ifPresent(scope -> fields.put("scope", scopeOf(scope)));
+    fields.put(
+        "staleIgnores", report.staleIgnores().stream().map(io.mutastic.api.Ignore::id).toList());
     fields.put("durationMs", report.took().toMillis());
     emit("run-finished", fields);
   }

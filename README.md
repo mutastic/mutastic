@@ -74,6 +74,7 @@ mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [
              [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none] [--no-suggestions]
              [--report=json|html|xml|none[:path]]... [--vocabulary=plain|classic]
 mutastic verify ID [dir] [:module]
+mutastic ignore ID [dir] [:module] --reason="…" | mutastic ignore --prune [dir] [:module]
 ```
 
 | Exit code | Meaning |
@@ -115,6 +116,8 @@ filters:
 ```
 
 An annotation on the code comes first, then a rule, then mutastic's own filters. A `mutate:` rule, like `@DoMutate`, brings back only what mutastic would call arid, never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
+
+For one mutant no test should catch, `mutastic ignore ID [dir] [:module] --reason="…"` records the decision in `.mutastic/ignores.yaml`, with where the mutant is, what it changes, the line it's on and the reason. Commit it: each entry is a decision someone reviews. An ignore holds until its line changes; then the mutant runs again, and the run says the ignore no longer holds (`mutastic ignore --prune` removes those). Every missed mutant's card offers the command (`or ignore`), and an ignore never hides code the compiler wrote or a change that can't be told apart from the original.
 
 To see what the arid skips hide, `MUTASTIC_ARID=audit` runs them anyway and adds an `Arid audit` row: how many ran, how many were caught and how many of those by a test's own assertion (a check on what the code returns, which may make it a contract worth `@DoMutate`), and where.
 

@@ -74,6 +74,7 @@ class HumanTextTest {
 
            done when  mutastic verify %1$s passes
            reproduce  mutastic run --only=%1$s
+           or ignore  mutastic ignore %1$s --reason="<why>"
         """
                 .formatted(boundary().id()));
   }

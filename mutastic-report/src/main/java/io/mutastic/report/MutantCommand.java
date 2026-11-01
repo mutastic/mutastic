@@ -13,7 +13,9 @@ public enum MutantCommand {
   /// How to prove a fix: the mutant is caught.
   DONE_WHEN("done when", "doneWhen", "verify %s", " passes"),
   /// How to see it again on its own.
-  REPRODUCE("reproduce", "reproduce", "run --only=%s", "");
+  REPRODUCE("reproduce", "reproduce", "run --only=%s", ""),
+  /// How to decide it isn't worth a test: recorded, with the reason, for review.
+  IGNORE("or ignore", "ignore", "ignore %s --reason=\"<why>\"", "");
 
   /// The rule a fix follows, wherever an agent reads the commands.
   public static final String RULE = "add or change tests only, never production code";
@@ -59,9 +61,10 @@ public enum MutantCommand {
     return List.of(arguments.formatted(id).split(" ", -1));
   }
 
-  /// `mutastic verify <id> · mutastic run --only=<id>`: every command, for the summary.
+  /// `mutastic verify <id> · mutastic run --only=<id>`: the commands that lead to a fix, for the
+  /// summary. Ignoring isn't one.
   public static String next(List<String> target) {
-    return List.of(values()).stream()
+    return List.of(DONE_WHEN, REPRODUCE).stream()
         .map(command -> command.command("<id>", target))
         .collect(Collectors.joining(" · "));
   }

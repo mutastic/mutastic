@@ -4,6 +4,7 @@ import static java.util.Objects.requireNonNull;
 
 import io.mutastic.api.ChangedLines;
 import io.mutastic.api.CoveragePass;
+import io.mutastic.api.Ignore;
 import io.mutastic.api.Listener;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
@@ -130,13 +131,12 @@ public final class Engine {
     var plan = plan(project, options);
     var workers = workersFor(project, options.workers(), plan.mutants().size());
     try {
-      var first = workers.getFirst();
-      var pass = coveragePass(project, plan, first);
+      var pass = coveragePass(project, plan, workers.getFirst());
       listener.coverageFinished(pass);
       var results = new SideBySide(plan.mutants(), plan.mutantRun(), workers, listener).runAll();
       return new Report(
           project.name(),
-          first.jdk(),
+          workers.getFirst().jdk(),
           results,
           plan.mutantRun().coverage().testCount(),
           pass.flaky(),
@@ -145,7 +145,8 @@ public final class Engine {
           workers.stream().mapToInt(TestWorker::started).sum(),
           Duration.ofNanos(System.nanoTime() - start),
           inOrderFound(plan.mutantRun().audited(), plan.mutants()),
-          options.changed().map(changed -> changed.within(project.sources())));
+          options.changed().map(changed -> changed.within(project.sources())),
+          plan.stale());
     } finally {
       workers.forEach(TestWorker::close);
     }
@@ -154,19 +155,48 @@ public final class Engine {
   /// A run's mutants and what running them needs, before any test has run.
   ///
   /// @param instrumented each class with a mutant to run, instrumented for the coverage pass
+  /// @param stale the project's ignores that no longer hold
   private record Plan(
-      List<Mutant> mutants, MutantRun mutantRun, Map<String, byte[]> instrumented) {}
+      List<Mutant> mutants,
+      MutantRun mutantRun,
+      Map<String, byte[]> instrumented,
+      List<Ignore> stale) {}
 
-  private static Plan plan(Project project, Options options) {
+  /// A project's mutants as a run would have them, and the ignores that no longer hold.
+  public record Mutants(List<Mutant> all, List<Ignore> stale) {}
+
+  /// The mutants a run would have, as it would have them, without running a test: for `ignore` and
+  /// `explain`.
+  public Mutants find(Project project, Options options) {
     var context = contextFor(project);
+    var found = found(project, options, context, classesIn(project.classes(), context));
+    return new Mutants(found.mutants(), found.stale());
+  }
+
+  /// The mutants found, the filters that judged them, and the ignores that no longer hold.
+  private record Found(List<Mutant> mutants, Mutations mutations, List<Ignore> stale) {}
+
+  private static Found found(
+      Project project, Options options, ClassFile context, Map<String, ClassModel> models) {
     var mutations = new Mutations(context, options.policy());
-    var models = classesIn(project.classes(), context);
     mutations.prepare(models.values());
     var mutants =
         mutantsIn(models, mutations, options.only(), project.name()).stream()
             .filter(mutant -> options.among().isEmpty() || options.among().contains(mutant.id()))
             .filter(inScope(models, project, options.changed()))
             .toList();
+    var ignored = new Ignored(options.policy().ignores(), models, project);
+    boolean complete =
+        options.only().isEmpty() && options.among().isEmpty() && options.changed().isEmpty();
+    return new Found(ignored.apply(mutants, complete), mutations, ignored.stale());
+  }
+
+  private static Plan plan(Project project, Options options) {
+    var context = contextFor(project);
+    var models = classesIn(project.classes(), context);
+    var found = found(project, options, context, models);
+    var mutants = found.mutants();
+    var mutations = found.mutations();
     var coverage = new Coverage(context);
     var instrumented = instrumentMutated(models, mutants, coverage, options.auditArid());
     var mutantRun =
@@ -178,7 +208,7 @@ public final class Engine {
             options.suggestions(),
             options.auditArid(),
             java.util.Collections.synchronizedList(new ArrayList<>()));
-    return new Plan(mutants, mutantRun, instrumented);
+    return new Plan(mutants, mutantRun, instrumented, found.stale());
   }
 
   /// Classes resolve from the project's own, its tests' and its dependencies'.

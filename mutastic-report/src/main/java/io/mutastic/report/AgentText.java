@@ -57,6 +57,7 @@ public final class AgentText {
     var out = new StringBuilder();
     appendVerdict(out, report, missed.size(), notCovered.size());
     appendFlaky(out, report);
+    appendStaleIgnores(out, report);
     comparison.ifPresent(found -> appendVsLastRun(out, report, found));
     appendSuspects(out, report, comparison);
     appendUnrelatedCatches(out, report);
@@ -131,6 +132,18 @@ public final class AgentText {
                 words.detected,
                 report.scored(),
                 skipped == 0 ? "" : " (%d more skipped)".formatted(skipped)));
+  }
+
+  /// Decisions the code has outgrown: say so, since the mutants they covered ran.
+  private static void appendStaleIgnores(StringBuilder out, Report report) {
+    if (!report.staleIgnores().isEmpty()) {
+      out.append(
+          "stale ignores: %s no longer match their code, so their mutants ran; ask before removing them (mutastic ignore --prune)%n"
+              .formatted(
+                  String.join(
+                      ", ",
+                      report.staleIgnores().stream().map(io.mutastic.api.Ignore::id).toList())));
+    }
   }
 
   private static void appendFlaky(StringBuilder out, Report report) {

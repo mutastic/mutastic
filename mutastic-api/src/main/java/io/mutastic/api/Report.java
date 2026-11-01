@@ -17,6 +17,8 @@ import org.jspecify.annotations.Nullable;
 /// @param audited in an audit of the arid filters, each arid mutant's result when run anyway; the
 ///   mutant itself is in `results` as skipped, as in any run
 /// @param scope the change the run was scoped to, when it was: only mutants on its lines ran
+/// @param staleIgnores the ignores whose line has changed since: they no longer hold, and their
+///   mutants ran
 public record Report(
     String project,
     int jdk,
@@ -28,9 +30,11 @@ public record Report(
     int started,
     Duration took,
     List<MutantResult> audited,
-    Optional<ChangedLines> scope) {
+    Optional<ChangedLines> scope,
+    List<Ignore> staleIgnores) {
 
   public Report {
+    staleIgnores = List.copyOf(staleIgnores);
     results = List.copyOf(results);
     flaky = List.copyOf(flaky);
     audited = List.copyOf(audited);
@@ -58,7 +62,8 @@ public record Report(
         started,
         took,
         List.of(),
-        Optional.empty());
+        Optional.empty(),
+        List.of());
   }
 
   /// This run's results with `other`'s, a run of other tests (another module's) over the same
@@ -82,7 +87,8 @@ public record Report(
         started + other.started(),
         took.plus(other.took()),
         audited,
-        scope);
+        scope,
+        staleIgnores);
   }
 
   private static MutantResult combined(MutantResult mine, @Nullable MutantResult theirs) {

@@ -537,10 +537,25 @@ public final class HumanText {
         .forEach(suspect -> lines.add(changedBetweenRunsWarning(suspect)));
     Suspects.unconfirmed(report).forEach(suspect -> lines.add(unconfirmedWarning(suspect)));
     Suspects.unrelatedCatches(report).forEach(note -> lines.add(unrelatedCatchesNote(note)));
+    if (!report.staleIgnores().isEmpty()) {
+      lines.add(staleIgnoresWarning(report));
+    }
     if (!lines.isEmpty()) {
       out.append('\n');
       lines.forEach(line -> out.append(line).append('\n'));
     }
+  }
+
+  private String staleIgnoresWarning(Report report) {
+    var ids = report.staleIgnores().stream().map(io.mutastic.api.Ignore::id).toList();
+    return " %s %s: %s code changed or is gone, so %s mutant%s ran; remove with `mutastic ignore --prune`"
+        .formatted(
+            style.amber(
+                ids.size() == 1 ? "! an ignore no longer holds:" : "! ignores no longer hold:"),
+            String.join(", ", ids),
+            ids.size() == 1 ? "its" : "their",
+            ids.size() == 1 ? "its" : "their",
+            ids.size() == 1 ? "" : "s");
   }
 
   private String flakyWarning(String test) {

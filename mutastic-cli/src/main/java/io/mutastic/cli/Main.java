@@ -118,13 +118,12 @@ public final class Main {
     showFileLines(command, output, human, prepared);
     var engine = new Engine(workerJar(), prepared.work().resolve("worker.log"));
     var options = options(command, terminal, prepared.directory());
-    if (command.verify()) {
-      var report = engine.run(prepared.project(), options, progress);
-      progress.finished();
-      return verified(report.results().getFirst(), out);
+    var passes = new Passes(engine, options, progress, tool);
+    if (command.verify() || command.ignore().isPresent()) {
+      return single(command, prepared, passes, out);
     }
     var display = display(command, prepared, output, human);
-    var tested = new Passes(engine, options, progress, tool).run(command, prepared, display);
+    var tested = passes.run(command, prepared, display);
     progress.finished();
     // Only full runs compare, are kept and write reports: one mutant says nothing about the rest.
     var kept =
@@ -134,6 +133,25 @@ public final class Main {
     display.printer().print(tested.report(), kept.comparison(), kept.written());
     return exitCode(command, tested.report());
   }
+
+  /// `verify`, which runs one mutant's tests and says whether it's caught; or `ignore`, which runs
+  /// none and records a decision.
+  private static int single(Command command, Prepared prepared, Passes passes, PrintStream out) {
+    if (command.ignore().isPresent()) {
+      var found = passes.engine().find(prepared.project(), passes.options());
+      return IgnoreCommand.run(
+          command.ignore().get(),
+          new IgnoreCommand.Where(prepared.directory(), prepared.sources()),
+          found,
+          out);
+    }
+    var report = passes.engine().run(prepared.project(), passes.options(), passes.progress());
+    passes.progress().finished();
+    return verified(report.results().getFirst(), out);
+  }
+
+  /// `ignore`'s own: remove what no longer holds, or the reason for a new ignore.
+  record Ignoring(boolean prune, String reason) {}
 
   /// Each source file's line as it finishes, for people. With other modules' tests, a mutant's
   /// result is known only once they've run too, so not then.
@@ -234,6 +252,8 @@ public final class Main {
         "                    [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none]");
     err.println("                    [--no-suggestions] [--report=json|html|xml|none[:path]]...");
     err.println("       mutastic verify ID [dir] [:module]");
+    err.println(
+        "       mutastic ignore ID [dir] [:module] --reason=WHY | ignore --prune [dir] [:module]");
   }
 
   /// Where and how the result is shown: stdout and progress, the format, the words for results and
@@ -306,7 +326,9 @@ public final class Main {
         command.suggestions() && !command.verify(),
         terminal.auditArid(),
         java.util.Set.of(),
-        Configuration.read(directory).policy(directory),
+        Configuration.read(directory)
+            .policy(directory)
+            .withIgnores(Ignores.read(directory).stream().map(Ignores.Entry::ignore).toList()),
         command.since().map(since -> new Git(directory).changedSince(since)));
   }
 
@@ -515,7 +537,8 @@ public final class Main {
   /// each mutant in the output (`MutantCommand`), and its tests check that.
   enum Subcommand {
     RUN(false),
-    VERIFY(true);
+    VERIFY(true),
+    IGNORE(true);
 
     final boolean takesMutantId;
 
@@ -572,7 +595,30 @@ public final class Main {
       List<RequestedReport> reports,
       Optional<String> vocabulary,
       List<String> testsFrom,
-      Optional<String> since) {
+      Optional<String> since,
+      Optional<Ignoring> ignore) {
+    /// The same command, for `ignore`.
+    Command ignoring(Ignoring how) {
+      return new Command(
+          verify,
+          directory,
+          module,
+          format,
+          threshold,
+          only,
+          confirmCatches,
+          workers,
+          colour,
+          links,
+          progress,
+          suggestions,
+          reports,
+          vocabulary,
+          testsFrom,
+          since,
+          Optional.of(how));
+    }
+
     static Command parse(String[] args) {
       if (args.length == 0 || Subcommand.of(args[0]).isEmpty()) {
         throw new UsageException(args.length == 0 ? "no command" : "unknown command " + args[0]);
@@ -582,7 +628,7 @@ public final class Main {
       for (String arg : List.of(args).subList(1, args.length)) {
         parser.read(arg);
       }
-      return parser.command(subcommand == Subcommand.VERIFY);
+      return parser.command(subcommand);
     }
 
     /// `--name=` for an option with a value; the whole argument otherwise.
@@ -607,6 +653,8 @@ public final class Main {
       private Optional<String> vocabulary = Optional.empty();
       private final List<String> testsFrom = new ArrayList<>();
       private Optional<String> since = Optional.empty();
+      private String reason = "";
+      private boolean prune = false;
 
       void read(String arg) {
         switch (option(arg)) {
@@ -619,6 +667,8 @@ public final class Main {
           case "--only=" -> only = Optional.of(arg.substring("--only=".length()));
           case "--tests-from=" -> testsFrom.add(module(arg.substring("--tests-from=".length())));
           case "--since" -> since = Optional.of("");
+          case "--reason=" -> reason = arg.substring("--reason=".length()).strip();
+          case "--prune" -> prune = true;
           case "--since=" -> since = Optional.of(arg.substring("--since=".length()));
           case "--workers=" -> workers = Optional.of(workerCount(arg));
           case "--color=" -> colour = choice(arg, List.of("auto", "always", "never"));
@@ -662,13 +712,38 @@ public final class Main {
         positional.add(arg);
       }
 
-      Command command(boolean verify) {
-        if (verify) {
-          if (positional.isEmpty()) {
-            throw new UsageException("verify needs a mutant id");
-          }
-          only = Optional.of(positional.removeFirst());
+      Command command(Subcommand subcommand) {
+        if (subcommand == Subcommand.IGNORE) {
+          return ignoring();
         }
+        boolean verify = subcommand == Subcommand.VERIFY;
+        if (verify) {
+          only = Optional.of(mutantId("verify"));
+        }
+        return command(verify);
+      }
+
+      /// `ignore ID --reason=…`, or `ignore --prune`.
+      private Command ignoring() {
+        if (!prune) {
+          only = Optional.of(mutantId("ignore"));
+          if (reason.isBlank()) {
+            throw new UsageException(
+                "ignore needs a reason, which every ignore says: --reason=\"…\"");
+          }
+        }
+        var command = command(false);
+        return command.ignoring(new Ignoring(prune, reason));
+      }
+
+      private String mutantId(String subcommand) {
+        if (positional.isEmpty()) {
+          throw new UsageException(subcommand + " needs a mutant id");
+        }
+        return positional.removeFirst();
+      }
+
+      private Command command(boolean verify) {
         return new Command(
             verify,
             directory(),
@@ -685,7 +760,8 @@ public final class Main {
             reports == null ? DEFAULT_REPORTS : List.copyOf(reports),
             vocabulary,
             List.copyOf(testsFrom),
-            since);
+            since,
+            Optional.empty());
       }
 
       /// `:app`: another module, named as the module run is; or `dependents`, every module that
