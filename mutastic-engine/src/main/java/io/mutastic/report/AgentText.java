@@ -47,7 +47,7 @@ public final class AgentText {
               report.flaky().size() == 1 ? "it" : "them", report.flaky().size() == 1 ? "it depends" : "they depend"));
     }
     comparison.ifPresent(found -> out.append("vs last run: %.1f%% → %.1f%% (%s)%n".formatted(
-        found.previousScore(), report.score(), found.sameCode() ? "same code" : "code changed")));
+        found.previousScore(), report.score(), found.sameness())));
     for (var suspect : Suspects.changedBetweenRuns(comparison)) {
       out.append("likely flaky: %s; with the code unchanged, whether it catches %s changed since the last run. "
           .formatted(shortName(suspect.test()), String.join(", ", suspect.mutants()))

@@ -106,7 +106,7 @@ public final class Main {
       var written = new ArrayList<String>();
       if (command.only().isEmpty()) {
         var lastRun = work.resolve("last-run.tsv");
-        var record = RunRecord.of(project, report);
+        var record = RunRecord.of(project, RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())), report);
         comparison = RunRecord.read(lastRun).map(record::against);
         record.write(lastRun);
         var files = new ReportFiles(directory, sources, command.threshold(), version());
@@ -177,6 +177,14 @@ public final class Main {
   private static String version() {
     var version = Main.class.getPackage().getImplementationVersion();
     return version == null ? "dev" : version;
+  }
+
+  private static Path codeSource(Class<?> type) {
+    try {
+      return Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI());
+    } catch (URISyntaxException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   /// The worker jar ships on mutastic's own classpath; the engine starts it in its own process.

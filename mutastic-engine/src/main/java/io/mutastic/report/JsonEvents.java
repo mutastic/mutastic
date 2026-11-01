@@ -108,6 +108,7 @@ public final class JsonEvents {
     comparison.ifPresent(found -> {
       fields.put("previousScore", Math.round(found.previousScore() * 10) / 10.0);
       fields.put("sameCodeAsLastRun", found.sameCode());
+      fields.put("sameMutasticAsLastRun", found.sameTool());
       fields.put("changedSinceLastRun", found.flips().stream().map(flip -> {
         var entry = new LinkedHashMap<String, Object>();
         entry.put("id", flip.id());

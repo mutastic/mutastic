@@ -261,7 +261,7 @@ public final class HumanText {
       double change = Math.round((report.score() - found.previousScore()) * 10) / 10.0;
       var arrow = change > 0 ? "▲" : change < 0 ? "▼" : "=";
       return "  %s vs last run%s".formatted(style.dim(change == 0 ? arrow : "%s %+.1f".formatted(arrow, change)),
-          style.dim(found.sameCode() ? " (same code)" : ""));
+          style.dim(" (" + found.sameness() + ")"));
     }).orElse("");
   }
 
