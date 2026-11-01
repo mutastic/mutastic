@@ -217,7 +217,7 @@ public final class Engine {
   }
 
   /// Every mutant, on the workers side by side, in the order they were found. A catch that a port
-  /// in use caused may be another worker's test holding the port: those mutants run again
+  /// in use caused, or a timeout, may be the other workers' doing: those mutants run again
   /// afterwards on one worker, with the others stopped, and are reported then.
   private static final class SideBySide {
     private final List<Mutant> mutants;
@@ -226,8 +226,11 @@ public final class Engine {
     private final Listener listener;
     private final MutantResult[] results;
     private final SourceFiles files;
-    private final java.util.Queue<Integer> clashed =
+
+    /// Mutants whose result side by side may be another worker's doing, to run again alone.
+    private final java.util.Queue<Integer> again =
         new java.util.concurrent.ConcurrentLinkedQueue<>();
+
     private final java.util.concurrent.BlockingQueue<TestWorker> idle;
     private final Object report = new Object();
 
@@ -255,8 +258,8 @@ public final class Engine {
           await(future);
         }
       }
-      if (!clashed.isEmpty()) {
-        runClashedAlone();
+      if (!again.isEmpty()) {
+        runAgainAlone();
       }
       return List.of(results);
     }
@@ -265,8 +268,8 @@ public final class Engine {
       var worker = take(idle);
       try {
         var result = mutantRun.run(mutants.get(at), worker);
-        if (result.portClash() && workers.size() > 1) {
-          clashed.add(at);
+        if (workers.size() > 1 && mayBeContention(result)) {
+          again.add(at);
           return;
         }
         results[at] = result.result();
@@ -279,9 +282,17 @@ public final class Engine {
       }
     }
 
-    private void runClashedAlone() {
-      workers.stream().skip(1).forEach(TestWorker::close); // nothing else holds a port now
-      for (int at : clashed.stream().sorted().toList()) {
+    /// A port in use may be another worker's test holding it. A timeout may be the workers
+    /// competing (for CPU, a lock, a database, each starting a Spring context) while the limit came
+    /// from a coverage pass that ran alone: a timeout counts as a catch, so it must be the
+    /// mutant's.
+    private static boolean mayBeContention(MutantRun.Outcome outcome) {
+      return outcome.portClash() || outcome.result().status() == Status.TIMED_OUT;
+    }
+
+    private void runAgainAlone() {
+      workers.stream().skip(1).forEach(TestWorker::close); // nothing else competes now
+      for (int at : again.stream().sorted().toList()) {
         results[at] = mutantRun.run(mutants.get(at), workers.getFirst()).result();
         listener.mutantFinished(results[at]);
         files.finished(at, results, listener);
