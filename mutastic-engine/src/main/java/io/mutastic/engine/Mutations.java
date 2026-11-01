@@ -16,6 +16,7 @@ import java.lang.classfile.instruction.InvokeDynamicInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.LabelTarget;
 import java.lang.classfile.instruction.LineNumber;
+import java.lang.classfile.instruction.LoadInstruction;
 import java.lang.classfile.instruction.LocalVariable;
 import java.lang.classfile.instruction.LocalVariableType;
 import java.lang.classfile.instruction.OperatorInstruction;
@@ -59,6 +60,7 @@ final class Mutations {
   }
 
   private static void findIn(ClassModel model, MethodModel method, List<CodeElement> code, List<Mutant> mutants) {
+    var tryWithResources = tryWithResources(code);
     var stringSwitchLines = new HashSet<Integer>();
     int line = -1;
     int ordinal = 0;
@@ -76,7 +78,9 @@ final class Mutations {
             boolean call = instruction instanceof InvokeInstruction;
             for (Operator operator : Operator.values()) {
               if (operator.onCalls() == call && operator.applies(instruction)) {
-                var skipped = skipReason(operator, instruction, previous, line, stringSwitchLines);
+                var skipped = tryWithResources.contains(instruction)
+                    ? Optional.of("generated: closes a try-with-resources resource")
+                    : skipReason(operator, instruction, previous, line, stringSwitchLines);
                 mutants.add(new Mutant(model.thisClass().asInternalName(), method.methodName().stringValue(),
                     method.methodType().stringValue(), call ? callOrdinal : ordinal, line, operator,
                     describe(instruction), operator.replacement(instruction), skipped));
@@ -93,6 +97,47 @@ final class Mutations {
         default -> {}
       }
     }
+  }
+
+  /// The instructions javac writes to close a try-with-resources resource: on the normal path
+  /// `aload r; ifnull; aload r; close()`, and again in a `catch Throwable` handler that adds a
+  /// failure to close as suppressed. No test can see them, so their mutants would all be
+  /// missed. Found only in a method that calls `Throwable.addSuppressed`: the `addSuppressed`
+  /// calls, each `close()` on a local slot javac guards with `ifnull` or closes on both paths,
+  /// and those `ifnull` guards.
+  private static java.util.Set<Instruction> tryWithResources(List<CodeElement> code) {
+    var instructions = code.stream().filter(Instruction.class::isInstance).map(Instruction.class::cast).toList();
+    var generated = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Instruction, Boolean>());
+    if (instructions.stream().noneMatch(instruction -> isCall(instruction, "java/lang/Throwable", "addSuppressed"))) {
+      return generated;
+    }
+    var closesBySlot = new java.util.HashMap<Integer, List<Integer>>();
+    var guardedSlots = new HashSet<Integer>();
+    for (int at = 1; at < instructions.size(); at++) {
+      var instruction = instructions.get(at);
+      if (isCall(instruction, "java/lang/Throwable", "addSuppressed")) {
+        generated.add(instruction);
+      }
+      if (isClose(instruction) && instructions.get(at - 1) instanceof LoadInstruction load) {
+        closesBySlot.computeIfAbsent(load.slot(), slot -> new ArrayList<>()).add(at);
+        if (at >= 3 && instructions.get(at - 2).opcode() == Opcode.IFNULL
+            && instructions.get(at - 3) instanceof LoadInstruction guarded && guarded.slot() == load.slot()) {
+          guardedSlots.add(load.slot());
+          generated.add(instructions.get(at - 2));
+        }
+      }
+    }
+    closesBySlot.forEach((slot, closes) -> {
+      if (closes.size() >= 2 || guardedSlots.contains(slot)) {
+        closes.forEach(at -> generated.add(instructions.get(at)));
+      }
+    });
+    return generated;
+  }
+
+  private static boolean isClose(Instruction instruction) {
+    return instruction instanceof InvokeInstruction call && call.name().equalsString("close")
+        && call.type().equalsString("()V");
   }
 
   /// The class with exactly one instruction changed. `CodeBuilder` regenerates the stack maps.

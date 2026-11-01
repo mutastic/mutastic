@@ -281,10 +281,20 @@ public final class Engine {
       var inputs = coverage.inputs(mutant, covering);
       var result = new MutantResult(mutant, run.status(), covering, run.failedTest(), run.failure(), run.origin(),
           run.testsRun(), unconfirmed, inputs, Optional.empty(), Duration.ofNanos(System.nanoTime() - start));
-      if (suggestions && run.status() == Status.MISSED) {
+      if (suggestions && run.status() == Status.MISSED && callableFromTest(mutant, covering.getFirst())) {
         result = result.withSuggestion(suggest(mutant, bytes, inputs, worker));
       }
       return new Outcome(result, run.portClash());
+    }
+
+    /// Whether the test class a suggestion would go into, the fastest covering test's, could
+    /// write its call.
+    private boolean callableFromTest(Mutant mutant, String fastestTest) {
+      int hash = fastestTest.indexOf('#');
+      var testClass = hash < 0 ? fastestTest : fastestTest.substring(0, hash);
+      synchronized (mutations) {
+        return Access.callableFrom(models.get(mutant.binaryName()), mutant, testClass);
+      }
     }
 
     private Optional<Suggestion> suggest(Mutant mutant, byte[] bytes, Map<String, List<Long>> inputs, TestWorker worker) {

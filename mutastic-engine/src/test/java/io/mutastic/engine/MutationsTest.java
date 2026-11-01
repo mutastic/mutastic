@@ -138,6 +138,25 @@ class MutationsTest {
   }
 
   @Test
+  void tryWithResourcesClosingIsSkippedButTheBodyIsNot() throws Exception {
+    var found = mutantsOf("firstLine");
+    var generated = found.stream().filter(mutant -> mutant.skipped().isPresent()).toList();
+    var userCode = found.stream().filter(mutant -> mutant.skipped().isEmpty()).toList();
+
+    assertThat(generated).isNotEmpty().allSatisfy(mutant ->
+        assertThat(mutant.skipped()).contains("generated: closes a try-with-resources resource"));
+    assertThat(generated).extracting(Mutant::original).anyMatch(original -> original.contains(".close()V"))
+        .anyMatch(original -> original.contains("addSuppressed")).anyMatch(original -> original.equals("IFNULL"));
+    // `return reader.readLine()` is the user's: its mutants still run.
+    assertThat(userCode).extracting(Mutant::operator).containsExactly(Operator.RETURN_DEFAULT);
+  }
+
+  @Test
+  void aCloseTheUserWroteIsStillMutated() throws Exception {
+    assertThat(mutantsOf("closeTwice")).hasSize(2).allSatisfy(mutant -> assertThat(mutant.skipped()).isEmpty());
+  }
+
+  @Test
   void leavesCompilerWrittenCodeAlone() throws Exception {
     assertThat(mutations.find(model(Pricing.Tier.class))).isEmpty();
     assertThat(mutations.find(model(Pricing.Line.class))).extracting(Mutant::methodName).containsOnly("item", "price");

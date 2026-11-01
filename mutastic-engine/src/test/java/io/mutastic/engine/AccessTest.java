@@ -1,0 +1,42 @@
+package io.mutastic.engine;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import io.mutastic.engine.fixture.Visibility;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+
+class AccessTest {
+  private static final String ELSEWHERE = "io.mutastic.engine.SomeTest";
+  private static final String SAME_PACKAGE = "io.mutastic.engine.fixture.SomeTest";
+
+  @Test
+  void publicMethodsFromAnywhere() throws Exception {
+    assertThat(callable(Visibility.class, "open", ELSEWHERE)).isTrue();
+    assertThat(callable(Visibility.class, "onInstance", ELSEWHERE)).isTrue();
+    assertThat(callable(Visibility.Nested.class, "open", ELSEWHERE)).isTrue();
+  }
+
+  @Test
+  void packagePrivateOnlyFromTheSamePackage() throws Exception {
+    assertThat(callable(Visibility.class, "packageOnly", SAME_PACKAGE)).isTrue();
+    assertThat(callable(Visibility.class, "packageOnly", ELSEWHERE)).isFalse();
+  }
+
+  @Test
+  void privateNeverAndNeitherIsWhatAPrivateThingHolds() throws Exception {
+    assertThat(callable(Visibility.class, "hidden", SAME_PACKAGE)).isFalse();
+    assertThat(callable(Class.forName(Visibility.class.getName() + "$Hidden"), "open", SAME_PACKAGE)).isFalse();
+    assertThat(callable(Visibility.NoPublicConstructor.class, "onInstance", SAME_PACKAGE)).isFalse();
+    assertThat(callable(Visibility.Inner.class, "onInstance", SAME_PACKAGE)).isFalse(); // needs an outer instance
+  }
+
+  private static boolean callable(Class<?> type, String method, String testClass) throws Exception {
+    var model = MutationsTest.model(type);
+    var descriptor = model.methods().stream().filter(found -> found.methodName().equalsString(method))
+        .findFirst().orElseThrow().methodType().stringValue();
+    var mutant = new Mutant(model.thisClass().asInternalName(), method, descriptor, 0, 1, Operator.MATH, "IADD", "ISUB",
+        Optional.empty());
+    return Access.callableFrom(model, mutant, testClass);
+  }
+}

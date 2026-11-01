@@ -47,6 +47,17 @@ public class Pricing {
     items.clear(); items.clear();
   }
 
+  public String firstLine(java.util.function.Supplier<java.io.BufferedReader> open) throws java.io.IOException {
+    try (var reader = open.get()) {
+      return reader.readLine();
+    }
+  }
+
+  public void closeTwice(java.io.Closeable resource) throws java.io.IOException {
+    resource.close();
+    resource.close();
+  }
+
   public enum Tier { GOLD, SILVER }
 
   public record Line(String item, int price) {}
