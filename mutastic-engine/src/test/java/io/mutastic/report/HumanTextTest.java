@@ -161,7 +161,7 @@ class HumanTextTest {
     assertThat(line)
         .isEqualTo(
             """
-         ❯ [pricing] src/main/java/com/example/Pricing.java (1 mutants | 1 missed) 5ms
+         ❯ [pricing] src/main/java/com/example/Pricing.java (1 mutant | 1 missed) 5ms
            × discount() :5 >= becomes >
         """);
   }

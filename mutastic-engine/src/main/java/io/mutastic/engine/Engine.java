@@ -43,6 +43,18 @@ public final class Engine {
     return Math.clamp(Runtime.getRuntime().availableProcessors() / 2, 1, 4);
   }
 
+  /// `--only` named a mutant the project doesn't have.
+  public static final class UnknownMutant extends RuntimeException {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    UnknownMutant(String id, String projectName) {
+      super(
+          ("no mutant %s in %s. A mutant's id belongs to the project its run was on: "
+                  + "run the command as that run printed it, with the project's directory and module")
+              .formatted(id, projectName));
+    }
+  }
+
   /// The tests failed before any mutant: nothing a mutant does can be judged against them.
   public static final class BaselineFailed extends RuntimeException {
     @java.io.Serial private static final long serialVersionUID = 1L;
@@ -146,10 +158,7 @@ public final class Engine {
             .filter(mutant -> only.map(mutant.id()::equals).orElse(true))
             .toList();
     if (only.isPresent() && mutants.isEmpty()) {
-      throw new IllegalArgumentException(
-          ("no mutant %s in %s. A mutant's id belongs to the project its run was on: "
-                  + "run the command as that run printed it, with the project's directory and module")
-              .formatted(only.get(), projectName));
+      throw new UnknownMutant(only.get(), projectName);
     }
     return mutants;
   }

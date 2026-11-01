@@ -127,7 +127,11 @@ public final class HumanText {
       List<MutantResult> results,
       List<MutantResult> missed,
       List<MutantResult> uncovered) {
-    var counts = new ArrayList<String>(List.of(style.dim("%d mutants".formatted(results.size()))));
+    var counts =
+        new ArrayList<String>(
+            List.of(
+                style.dim(
+                    "%d mutant%s".formatted(results.size(), results.size() == 1 ? "" : "s"))));
     if (!missed.isEmpty()) {
       counts.add(style.red("%d %s".formatted(missed.size(), words.undetected)));
     }

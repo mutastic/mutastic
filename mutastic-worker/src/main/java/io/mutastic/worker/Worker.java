@@ -153,7 +153,7 @@ public final class Worker {
   }
 
   /// `1;2|3;4` → `[[1, 2], [3, 4]]`; `-` is an input with no values.
-  private static List<List<Long>> candidates(String encoded) {
+  static List<List<Long>> candidates(String encoded) {
     return Arrays.stream(encoded.split("\\|", -1))
         .map(
             inputs ->
@@ -163,13 +163,21 @@ public final class Worker {
         .toList();
   }
 
+  /// `[1, 2]` → `1;2`, and `-` for no values: a method with no parameters on a receiver made with
+  /// no arguments.
+  static String encoded(List<Long> inputs) {
+    return inputs.isEmpty()
+        ? "-"
+        : inputs.stream().map(String::valueOf).collect(Collectors.joining(";"));
+  }
+
   private static String suggested(Suggester.Found found) {
     return found
         .inputs()
         .map(
             inputs ->
                 "SUGGESTED\t"
-                    + inputs.stream().map(String::valueOf).collect(Collectors.joining(";"))
+                    + encoded(inputs)
                     + "\t"
                     + found.today()
                     + "\t"

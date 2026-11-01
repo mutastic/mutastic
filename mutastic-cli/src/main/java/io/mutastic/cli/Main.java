@@ -91,7 +91,7 @@ public final class Main {
       err.println("mutastic: " + e.getMessage());
       printUsage(err);
       return USAGE;
-    } catch (GradleSetup.SetupFailed | IllegalArgumentException e) {
+    } catch (GradleSetup.SetupFailed | Engine.UnknownMutant e) {
       err.println("mutastic: " + e.getMessage());
       return USAGE;
     } catch (Engine.BaselineFailed e) {
