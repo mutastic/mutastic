@@ -4,7 +4,7 @@
 
 mutastic is a mutation-testing tool for Java. It makes small changes to your compiled code, such as `>=` to `>`, and runs your tests against each one. A change that no test notices is a **missed mutant**: a place where your tests run the code but don't check what it does.
 
-> **Status: early.** Five operators (boundaries, negated conditions, arithmetic, returned defaults, removed void calls), Gradle projects with JUnit Platform tests, and output for people, agents and tools. Expect everything to change.
+> **Status: early.** Five operators (boundaries, negated conditions, arithmetic, returned defaults, removed void calls), Gradle projects with JUnit Platform tests, parallel workers, suggested tests, flaky-test detection, and output for people, agents and tools (JSON, HTML and XML reports). Expect everything to change. Expect everything to change.
 
 ## Try it
 
@@ -16,6 +16,7 @@ You need JDK 25 to build and run mutastic. Your project can be on JDK 17 or late
 ```
 
 ```
+❯ src/main/java/com/example/pricing/Pricing.java  1 missed in 1 method
 ✗ missed[boundary] m855c8e3c no test checks the edge of `>=` in `discount()`
   --> src/main/java/com/example/pricing/Pricing.java:17
    |
@@ -27,24 +28,32 @@ You need JDK 25 to build and run mutastic. Your project can be on JDK 17 or late
    = mutant  - if (total >= 100) {
              + if (total > 100) {
    = note: covered by PricingTest#bigOrdersGetTenPercentOff, PricingTest#smallOrdersPayFullPrice
+   = note: inputs seen: total = 50, 250
    = help: add a test with the values where `>=` and `>` disagree (both sides equal), and assert the result
+           // in PricingTest
+           @Test
+           void discountWithTotal100() {
+             assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0
+           }
+           check today's value is the one you intend: the test pins what the code does now
    = reproduce: mutastic run --only=m855c8e3c
    = done when: mutastic verify m855c8e3c passes
 
   Mutants  ✓ 6 caught · ✗ 1 missed · ○ 0 not covered · ⏱ 0 timed out (7) · 2 skipped
  Worst at  Pricing.discount() 1 ✗
- Duration  914ms (setup 505ms, coverage 292ms, mutants 115ms)
-    Tests  3 on JDK 17
+ Duration  1.2s (setup 626ms, coverage 219ms, mutants 334ms)
+    Tests  3 on JDK 17 · 4 workers
+  Reports  build/mutastic/mutation.json · build/mutastic/mutation.html
     Score  85.7%  threshold 80 ✓
 
 Next: mutastic run --only=<id> · mutastic verify <id>
 ```
 
-Add a test for an order of exactly 100, then:
+Add the suggested test (after checking 10 is the discount you mean for an order of exactly 100), then:
 
 ```sh
 mutastic verify m855c8e3c samples/pricing
-# mutastic: m855c8e3c is caught by com.example.pricing.PricingTest#anOrderOfExactlyOneHundredGetsTheDiscount
+# mutastic: m855c8e3c is caught by com.example.pricing.PricingTest#discountWithTotal100
 ```
 
 ## Usage
