@@ -10,13 +10,17 @@ import io.mutastic.engine.Status;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class HumanTextTest {
+  private static final HumanText.Run RUN = new HumanText.Run(LocalTime.of(9, 30, 5), Duration.ofMillis(500), List.of());
+
   @TempDir
   Path project;
 
@@ -42,97 +46,134 @@ class HumanTextTest {
   }
 
   @Test
-  void aCardMarksTheOperatorInItsLine() {
-    var card = text(false).card(missed(boundary()));
+  void aCardNamesTheGapAndMarksTheChange() {
+    var card = text(HumanText.Detail.FULL, Vocabulary.PLAIN).card(missed(boundary(), Map.of("total", List.of(50L, 250L))));
 
     assertThat(card).isEqualTo("""
-        ✗ missed[boundary] m855c8e3c no test checks the edge of `>=` in `discount()`
-          --> src/main/java/com/example/Pricing.java:5
-          |
-        4 |   public int discount(int total) {
-        5 |     if (total >= 100) {
-          |               ^^ `>=` becomes `>` and its covering test still passes
-        6 |       return total / 10;
-          |
-          = mutant  - if (total >= 100) {
-                    + if (total > 100) {
-          = note: covered by PricingTest#bigOrders
-          = help: add a test with the values where `>=` and `>` disagree (both sides equal), and assert the result
-          = reproduce: mutastic run --only=m855c8e3c
-          = done when: mutastic verify m855c8e3c passes
-        """.replace("m855c8e3c", boundary().id()));
+
+         [✗ MISSED] no test checks discount() at total == 100
+           ┌─ src/main/java/com/example/Pricing.java:5
+           │
+         4 │   public int discount(int total) {
+         5 │     if (total >= 100) {
+           │               ^^ changed to >
+         6 │       return total / 10;
+           │
+           = mutant  - if (total >= 100) {
+                     + if (total > 100) {
+           = note: every test calls discount() away from the boundary
+                   inputs seen: 50, 250 (none is 100)
+                   covered by PricingTest#bigOrders (its 1 covering test still passes)
+           = help: test discount() with total = 100 and assert the result
+
+           done when  mutastic verify %1$s passes
+           reproduce  mutastic run --only=%1$s
+        """.formatted(boundary().id()));
   }
 
   @Test
-  void theSummaryEndsOnTheScore() {
-    var output = text(false).render(report(missed(boundary())), Optional.empty(), Duration.ofMillis(500));
+  void briefKeepsTheGapTheLineAndTheEvidence() {
+    var card = text(HumanText.Detail.BRIEF, Vocabulary.PLAIN).briefCard(missed(boundary(), Map.of("total", List.of(50L))));
+
+    assertThat(card).contains(" 5 │     if (total >= 100) {", "^^ changed to >", "= note: every test calls discount() away",
+        "inputs seen: 50 (none is 100)", "= id: " + boundary().id());
+    assertThat(card).doesNotContain("help:", "done when", " 4 │");
+  }
+
+  @Test
+  void theSummaryEndsOnTheScoreThenTheVerdict() {
+    var output = text(HumanText.Detail.FULL, Vocabulary.PLAIN).render(report(missed(boundary(), Map.of())), Optional.empty(), RUN);
     var lines = output.strip().lines().toList();
 
-    assertThat(lines.get(lines.size() - 3)).isEqualTo("    Score  0.0%  threshold 80 ✗");
-    assertThat(lines.getLast()).isEqualTo("Next: mutastic run --only=<id> · mutastic verify <id>");
-    assertThat(output).contains("  Mutants  ✓ 0 caught · ✗ 1 missed · ○ 0 not covered · ⏱ 0 timed out (1)",
-        " Worst at  Pricing.discount() 1 ✗");
+    assertThat(output).contains("   Classes  0 clean | 1 with misses (1)", "   Mutants  ✓ 0 caught · ✗ 1 missed (1)",
+        " Test runs  1 (3 without coverage selection)", "  Start at  09:30:05");
+    assertThat(lines.get(lines.size() - 4)).isEqualTo("     Score  0.0%  threshold 80");
+    assertThat(lines.get(lines.size() - 2)).isEqualTo(" [FAIL] Score below 80: 1 missed, 0 not covered.");
+    assertThat(lines.getLast()).isEqualTo(" Next: mutastic run --only=<id> · mutastic verify <id>");
   }
 
   @Test
-  void conciseIsOneLinePerMiss() {
-    var output = text(true).render(report(missed(boundary())), Optional.empty(), Duration.ZERO);
+  void conciseAndGroupedAreOneLinePerMiss() {
+    var report = report(missed(boundary(), Map.of()));
 
-    assertThat(output.lines().findFirst().orElseThrow()).isEqualTo(
-        "✗ src/main/java/com/example/Pricing.java:5 %s no test checks the edge of `>=` in `discount()`".formatted(boundary().id()));
+    assertThat(text(HumanText.Detail.CONCISE, Vocabulary.PLAIN).render(report, Optional.empty(), RUN))
+        .contains(" ✗ src/main/java/com/example/Pricing.java:5 no test checks discount() at total == 100 " + boundary().id());
+    assertThat(text(HumanText.Detail.GROUPED, Vocabulary.PLAIN).render(report, Optional.empty(), RUN)).contains(
+        "\n src/main/java/com/example/Pricing.java\n"
+            + "   discount() 1 missed\n"
+            + "     5:15    ✗ no test checks discount() at total == 100 " + boundary().id() + "\n");
   }
 
   @Test
-  void plainOutputHasNoEscapes() {
-    var output = text(false).render(report(missed(boundary())), Optional.empty(), Duration.ZERO);
+  void classicVocabularySaysKilledAndSurvived() {
+    var output = text(HumanText.Detail.FULL, Vocabulary.CLASSIC).render(report(missed(boundary(), Map.of())), Optional.empty(), RUN);
 
-    assertThat(output).doesNotContain("\u001b[");
+    assertThat(output).contains(" Survivors ", "[✗ SURVIVED]", "✗ 1 survived", "1 with survivors");
   }
 
   @Test
-  void colourGoesOnlyOnTheMissAndTheScore() {
-    var card = new HumanText(sources, 80, Style.COLOUR, false).card(missed(boundary()));
+  void aFileLineAsItFinishes() {
+    var line = text(HumanText.Detail.FULL, Vocabulary.PLAIN).fileFinished("pricing", List.of(missed(boundary(), Map.of())));
 
-    assertThat(card).contains("\u001b[1;31m✗ missed[boundary]\u001b[0m");
-    assertThat(card).contains("note: covered by PricingTest#bigOrders"); // the evidence stays plain
+    assertThat(line).isEqualTo("""
+         ❯ [pricing] src/main/java/com/example/Pricing.java (1 mutants | 1 missed) 5ms
+           × discount() :5 >= becomes >
+        """);
   }
 
   @Test
-  void cardsAreGroupedByFileWorstMethodFirst() {
-    var once = missed(new Mutant("com/example/Pricing", "total", "(I)I", 0, 9, Operator.MATH, "IADD", "ISUB", Optional.empty()));
-    var twiceA = missed(boundary());
-    var twiceB = missed(new Mutant("com/example/Pricing", "discount", "(I)I", 1, 6, Operator.MATH, "IDIV", "IMUL",
-        Optional.empty()));
-    var nested = missed(new Mutant("com/example/Pricing$Tier", "rate", "()I", 0, 7, Operator.RETURN_DEFAULT, "IRETURN",
-        "return default", Optional.empty()));
+  void labelsAreBlocksInColourAndRoundOnlyWhenAsked() {
+    var square = new HumanText(sources, 80, Style.COLOUR, HumanText.Detail.FULL, Vocabulary.PLAIN).card(missed(boundary(), Map.of()));
+    var rounded = new HumanText(sources, 80, Style.COLOUR.withRoundedLabels(), HumanText.Detail.FULL, Vocabulary.PLAIN)
+        .card(missed(boundary(), Map.of()));
 
-    assertThat(HumanText.grouped(List.of(once, twiceA, nested, twiceB))).containsExactly(twiceA, twiceB, once, nested);
-
-    var output = text(false).render(report(once, twiceA, nested, twiceB), Optional.empty(), Duration.ZERO);
-    assertThat(output).startsWith("❯ src/main/java/com/example/Pricing.java  4 missed in 3 methods\n");
-    assertThat(output.lines().filter(line -> line.startsWith("❯"))).hasSize(1);
+    assertThat(square).contains("\u001b[41;30;1m ✗ MISSED \u001b[0m").doesNotContain("");
+    assertThat(rounded).contains("").contains("");
   }
 
   @Test
   void locationsLinkToTheFileWhenAsked() throws Exception {
-    var card = new HumanText(sources, 80, Style.PLAIN.withLinks(), false).card(missed(boundary()));
+    var card = new HumanText(sources, 80, Style.PLAIN.withLinks(), HumanText.Detail.FULL, Vocabulary.PLAIN)
+        .card(missed(boundary(), Map.of()));
     var uri = project.resolve("src/main/java/com/example/Pricing.java").toRealPath().toUri();
 
-    assertThat(card).contains("--> \u001b]8;;" + uri + "\u001b\\src/main/java/com/example/Pricing.java:5\u001b]8;;\u001b\\");
+    assertThat(card).contains("┌─ \u001b]8;;" + uri + "\u001b\\src/main/java/com/example/Pricing.java:5\u001b]8;;\u001b\\");
   }
 
-  private HumanText text(boolean concise) {
-    return new HumanText(sources, 80, Style.PLAIN, concise);
+  @Test
+  void cardsAreGroupedByFileWorstMethodFirst() {
+    var once = missed(new Mutant("com/example/Pricing", "total", "(I)I", 0, 9, Operator.MATH, "IADD", "ISUB", Optional.empty()), Map.of());
+    var twiceA = missed(boundary(), Map.of());
+    var twiceB = missed(new Mutant("com/example/Pricing", "discount", "(I)I", 1, 6, Operator.MATH, "IDIV", "IMUL",
+        Optional.empty()), Map.of());
+    var nested = missed(new Mutant("com/example/Pricing$Tier", "rate", "()I", 0, 7, Operator.RETURN_DEFAULT, "IRETURN",
+        "return default", Optional.empty()), Map.of());
+
+    assertThat(HumanText.grouped(List.of(once, twiceA, nested, twiceB))).containsExactly(twiceA, twiceB, once, nested);
+    var output = text(HumanText.Detail.FULL, Vocabulary.PLAIN).render(report(once, twiceA, nested, twiceB), Optional.empty(), RUN);
+    assertThat(output.lines().filter(line -> line.startsWith(" ❯"))).containsExactly(
+        " ❯ src/main/java/com/example/Pricing.java  4 missed in 3 methods");
+  }
+
+  @Test
+  void plainOutputHasNoEscapes() {
+    var output = text(HumanText.Detail.FULL, Vocabulary.PLAIN).render(report(missed(boundary(), Map.of())), Optional.empty(), RUN);
+
+    assertThat(output).doesNotContain("\u001b[");
+  }
+
+  private HumanText text(HumanText.Detail detail, Vocabulary words) {
+    return new HumanText(sources, 80, Style.PLAIN, detail, words);
   }
 
   private static Mutant boundary() {
     return new Mutant("com/example/Pricing", "discount", "(I)I", 0, 5, Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE",
-        Optional.empty());
+        Optional.empty(), List.of(), List.of("total", "100"));
   }
 
-  private static MutantResult missed(Mutant mutant) {
+  private static MutantResult missed(Mutant mutant, Map<String, List<Long>> inputs) {
     return new MutantResult(mutant, Status.MISSED, List.of("com.example.PricingTest#bigOrders"), Optional.empty(),
-        Optional.empty(), Optional.empty(), 1, Optional.empty(), java.util.Map.of(), Optional.empty(), Duration.ofMillis(5));
+        Optional.empty(), Optional.empty(), 1, Optional.empty(), inputs, Optional.empty(), Duration.ofMillis(5));
   }
 
   private static Report report(MutantResult... results) {

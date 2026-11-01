@@ -34,8 +34,23 @@ record Terminal(boolean interactive, Map<String, String> env) {
     };
   }
 
-  /// `full` for people, `concise` for logs, `agent` when an agent says so.
+  /// `MUTASTIC_FORMAT` if set; else `agent` when an agent says so (`MUTASTIC_AGENT=1`); else
+  /// `full` for people at a terminal and `concise` for logs.
   String defaultFormat() {
+    var chosen = env.get("MUTASTIC_FORMAT");
+    if (chosen != null && !chosen.isBlank()) {
+      return chosen;
+    }
     return "1".equals(env.get("MUTASTIC_AGENT")) ? "agent" : interactive ? "full" : "concise";
+  }
+
+  /// `MUTASTIC_VOCABULARY`, `plain` unless set.
+  String defaultVocabulary() {
+    return env.getOrDefault("MUTASTIC_VOCABULARY", "plain");
+  }
+
+  /// `MUTASTIC_PILLS=rounded`: label ends drawn round, for terminals with a Nerd Font.
+  boolean roundedLabels() {
+    return "rounded".equals(env.get("MUTASTIC_PILLS"));
   }
 }

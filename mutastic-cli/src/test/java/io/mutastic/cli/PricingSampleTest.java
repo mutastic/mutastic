@@ -65,12 +65,14 @@ class PricingSampleTest {
 
     var run = Samples.mutastic("run", project.toString());
 
-    assertThat(run.out()).startsWith("✗ src/main/java/com/example/pricing/Pricing.java:17 m855c8e3c no test checks the edge");
+    assertThat(run.out()).contains(
+        " ✗ src/main/java/com/example/pricing/Pricing.java:17 no test checks discount() at total == 100 m855c8e3c");
     assertThat(run.out().strip().lines().filter(line -> line.contains("Score")).findFirst().orElseThrow())
-        .isEqualTo("    Score  85.7%  threshold 80 ✓");
-    assertThat(run.out()).contains("    Tests  3 on JDK 17 · ");
-    // Progress goes to stderr, as counter lines, so stdout is only the result.
-    assertThat(run.err()).contains("mutastic dev · reading the Gradle build…", "coverage  3 tests on JDK 17", "[9/9]");
+        .isEqualTo("     Score  85.7%  threshold 80");
+    assertThat(run.out().strip().lines().toList()).contains(" [PASS] 1 missed, above the threshold.");
+    // Progress goes to stderr, so stdout is only the result: in a log, a line per file as it finishes.
+    assertThat(run.err()).contains("mutastic dev · reading the Gradle build…", "coverage  3 tests on JDK 17",
+        " ❯ [pricing] src/main/java/com/example/pricing/Pricing.java (9 mutants | 1 missed)", "   × discount() :17 >= becomes >");
   }
 
   @Test

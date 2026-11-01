@@ -45,7 +45,7 @@ public final class JsonEvents {
     location.put("class", mutant.binaryName());
     location.put("method", mutant.methodName() + mutant.descriptor());
     fields.put("location", location);
-    var advice = Advice.of(mutant);
+    var advice = sources.advice(mutant);
     var mutation = new LinkedHashMap<String, Object>();
     advice.before().ifPresent(before -> mutation.put("original", before));
     advice.after().ifPresent(after -> mutation.put("replacement", after));

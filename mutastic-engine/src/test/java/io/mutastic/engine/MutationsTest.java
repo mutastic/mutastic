@@ -26,6 +26,15 @@ class MutationsTest {
   }
 
   @Test
+  void readsWhatTheChangeWorksOnFromTheBytecode() throws Exception {
+    assertThat(only("discount", Operator.BOUNDARY).operands()).containsExactly("total", "100");
+    assertThat(only("discount", Operator.MATH).operands()).containsExactly("total", "10");
+    // longs compare with LCMP first: the operands are what went into it.
+    assertThat(only("overdue", Operator.BOUNDARY).operands()).containsExactly("days", "30");
+    assertThat(only("total", Operator.MATH).operands()).containsExactly("price", "quantity");
+  }
+
+  @Test
   void everyMutantVerifies() throws Exception {
     var model = model(Pricing.class);
     var found = mutations.find(model);

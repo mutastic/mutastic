@@ -14,7 +14,7 @@ class AdviceTest {
 
     assertThat(advice.before()).contains(">=");
     assertThat(advice.after()).contains(">");
-    assertThat(advice.headline()).isEqualTo("no test checks the edge of `>=` in `discount()`");
+    assertThat(advice.headline()).isEqualTo("no test checks the boundary of `>=` in `discount()`");
   }
 
   @Test
@@ -24,7 +24,7 @@ class AdviceTest {
     assertThat(Advice.of(mutant(Operator.NEGATE_CONDITIONAL, "IFNULL", "IFNONNULL", "(I)I")).change())
         .isEqualTo("`!=` becomes `==`");
     assertThat(Advice.of(mutant(Operator.NEGATE_CONDITIONAL, "IFEQ", "IFNE", "(I)I")).headline())
-        .isEqualTo("no test checks both outcomes of the condition in `discount()`");
+        .isEqualTo("`discount()` behaves the same with the condition reversed");
   }
 
   @Test

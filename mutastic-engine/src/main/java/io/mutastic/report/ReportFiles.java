@@ -102,7 +102,7 @@ public final class ReportFiles {
 
   private Map<String, Object> mutant(MutantResult result) {
     var mutant = result.mutant();
-    var advice = Advice.of(mutant);
+    var advice = sources.advice(mutant);
     var place = sources.place(mutant);
     var entry = new LinkedHashMap<String, Object>();
     entry.put("id", mutant.id());
@@ -183,7 +183,7 @@ public final class ReportFiles {
       out.append("<blocks><block>0</block></blocks>");
       element(out, "killingTest", result.caughtBy().orElse(""));
       element(out, "succeedingTests", result.status() == Status.MISSED ? String.join("|", result.coveredBy()) : "");
-      element(out, "description", Advice.of(mutant).change());
+      element(out, "description", sources.advice(mutant).change());
       out.append("</mutation>\n");
     }
     return out.append("</mutations>\n").toString();

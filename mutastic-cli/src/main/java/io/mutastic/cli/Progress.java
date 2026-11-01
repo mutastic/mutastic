@@ -19,6 +19,8 @@ final class Progress implements Listener {
 
   private final PrintStream err;
   private final Mode mode;
+  /// Prints each source file's line as it finishes, for people; null for agents and JSONL.
+  private java.util.function.Function<List<MutantResult>, String> fileLines;
   private final Map<Status, Integer> counts = new EnumMap<>(Status.class);
   private final long start = System.nanoTime();
   private long lastPrinted = System.nanoTime();
@@ -28,6 +30,27 @@ final class Progress implements Listener {
   Progress(PrintStream err, Mode mode) {
     this.err = err;
     this.mode = mode;
+  }
+
+  /// From now on, each source file's line as it finishes: once the sources are known.
+  void showFiles(java.util.function.Function<List<MutantResult>, String> lines) {
+    this.fileLines = lines;
+  }
+
+  /// A source file's line, and its misses under it, as soon as its last mutant is done.
+  @Override
+  public void fileFinished(String topLevelClass, List<MutantResult> results) {
+    if (mode == Mode.NONE || fileLines == null) {
+      return;
+    }
+    if (mode == Mode.BAR) {
+      err.print("\r\u001b[2K"); // the in-place line goes, the file's line takes its place
+    }
+    err.print(fileLines.apply(results));
+    if (mode == Mode.BAR) {
+      err.print(counter());
+    }
+    err.flush();
   }
 
   /// The first line, before anything slow: within 100 ms of starting.
@@ -53,7 +76,8 @@ final class Progress implements Listener {
     switch (mode) {
       case BAR -> err.print("\r\u001b[2K" + counter());
       case COUNTER -> {
-        if (System.nanoTime() - lastPrinted >= EVERY.toNanos() || done == total) {
+        // With file lines, those are the progress; without, a counter line now and then.
+        if (fileLines == null && (System.nanoTime() - lastPrinted >= EVERY.toNanos() || done == total)) {
           err.println(counter());
           lastPrinted = System.nanoTime();
         }

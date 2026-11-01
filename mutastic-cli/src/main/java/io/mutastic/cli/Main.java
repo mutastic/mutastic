@@ -13,6 +13,7 @@ import io.mutastic.report.JsonEvents;
 import io.mutastic.report.ReportFiles;
 import io.mutastic.report.SourceView;
 import io.mutastic.report.Style;
+import io.mutastic.report.Vocabulary;
 import java.io.PrintStream;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
@@ -24,15 +25,17 @@ import java.util.Optional;
 /// `mutastic`: mutation testing for a Gradle project.
 ///
 /// ```
-/// mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]
+/// mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N] [--only=ID]
 ///              [--confirm-catches] [--workers=N] [--color=auto|always|never]
 ///              [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none] [--no-suggestions]
-///              [--report=json|html|xml|none[:path]]...
+///              [--report=json|html|xml|none[:path]]... [--vocabulary=plain|classic]
 /// mutastic verify ID [dir] [:module]
 /// ```
 ///
-/// The result goes to stdout, progress to stderr. The format is `full` on a terminal, `concise`
-/// elsewhere, and `agent` when `MUTASTIC_AGENT=1`. A full run also writes report files, by
+/// The result goes to stdout, progress to stderr. The format is `--format`, else
+/// `MUTASTIC_FORMAT`, else `agent` when `MUTASTIC_AGENT=1`, else `full` on a terminal and
+/// `concise` elsewhere. `MUTASTIC_VOCABULARY=classic` says killed and survived;
+/// `MUTASTIC_PILLS=rounded` draws round label ends for a Nerd Font. A full run also writes report files, by
 /// default `build/mutastic/mutation.json` and `mutation.html`.
 ///
 /// A full run keeps its results in `build/mutastic/last-run.tsv`, and the next full run compares
@@ -50,7 +53,19 @@ public final class Main {
   static final int INTERNAL = 4;
 
   private static final int DEFAULT_THRESHOLD = 80;
-  private static final List<String> FORMATS = List.of("full", "concise", "agent", "jsonl");
+  private static final List<String> FORMATS = List.of("full", "brief", "concise", "grouped", "agent", "jsonl");
+  /// The formats for people: they get each file's line as it finishes.
+  private static final List<String> PEOPLE = List.of("full", "brief", "concise", "grouped");
+  private static final List<String> VOCABULARIES = List.of("plain", "classic");
+
+  private static HumanText.Detail detail(String format) {
+    return switch (format) {
+      case "brief" -> HumanText.Detail.BRIEF;
+      case "concise" -> HumanText.Detail.CONCISE;
+      case "grouped" -> HumanText.Detail.GROUPED;
+      default -> HumanText.Detail.FULL;
+    };
+  }
 
   private Main() {}
 
@@ -62,14 +77,30 @@ public final class Main {
     try {
       var command = Command.parse(args);
       var format = command.format().orElse(terminal.defaultFormat());
+      if (!FORMATS.contains(format)) {
+        throw new UsageException("unknown format %s in MUTASTIC_FORMAT (one of %s)".formatted(format, String.join(", ", FORMATS)));
+      }
+      var vocabulary = command.vocabulary().orElse(terminal.defaultVocabulary());
+      if (!VOCABULARIES.contains(vocabulary)) {
+        throw new UsageException("unknown vocabulary %s in MUTASTIC_VOCABULARY (one of plain, classic)".formatted(vocabulary));
+      }
+      var words = Vocabulary.valueOf(vocabulary.toUpperCase(java.util.Locale.ROOT));
       var progress = new Progress(err, progressMode(command.progress(), format, terminal));
       progress.started(version());
       long start = System.nanoTime();
+      var startedAt = java.time.LocalTime.now();
       var directory = command.directory().toAbsolutePath().normalize();
       var work = workDirectory(directory, command.module());
       var project = GradleSetup.read(directory, command.module(), work);
       var setup = Duration.ofNanos(System.nanoTime() - start);
       var sources = new SourceView(directory, project.sources(), project.testSources());
+      var style = terminal.colour(command.colour()) ? Style.COLOUR : Style.PLAIN;
+      style = terminal.links(command.links()) ? style.withLinks() : style;
+      style = terminal.roundedLabels() ? style.withRoundedLabels() : style;
+      var human = new HumanText(sources, command.threshold(), style, detail(format), words);
+      if (PEOPLE.contains(format)) {
+        progress.showFiles(results -> human.fileFinished(project.name(), results));
+      }
       var engine = new Engine(workerJar(), work.resolve("worker.log"));
       var options = new Engine.Options(command.only(), command.confirmCatches(),
           command.workers().orElse(Engine.defaultWorkers()), command.suggestions() && !command.verify());
@@ -97,6 +128,11 @@ public final class Main {
             progress.mutantFinished(result);
             events.mutantFinished(result);
           }
+
+          @Override
+          public void fileFinished(String topLevelClass, List<MutantResult> results) {
+            progress.fileFinished(topLevelClass, results);
+          }
         };
       }
       Report report = engine.run(project, options, listener);
@@ -118,17 +154,14 @@ public final class Main {
       }
       switch (format) {
         case "jsonl" -> events.runFinished(report, comparison, written);
-        case "agent" -> out.print(new AgentText(sources, command.threshold()).render(report, comparison));
-        default -> {
-          var style = terminal.colour(command.colour()) ? Style.COLOUR : Style.PLAIN;
-          out.print(new HumanText(sources, command.threshold(), terminal.links(command.links()) ? style.withLinks() : style,
-              format.equals("concise")).render(report, comparison, setup, written));
-        }
+        case "agent" -> out.print(new AgentText(sources, command.threshold(), words).render(report, comparison));
+        default -> out.print(human.render(report, comparison, new HumanText.Run(startedAt, setup, written)));
       }
       return report.score() >= command.threshold() ? PASSED : FAILED;
     } catch (UsageException e) {
       err.println("mutastic: " + e.getMessage());
-      err.println("usage: mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]");
+      err.println("usage: mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N]");
+      err.println("                    [--only=ID] [--vocabulary=plain|classic]");
       err.println("                    [--confirm-catches] [--workers=N] [--color=auto|always|never]");
       err.println("                    [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none]");
       err.println("                    [--no-suggestions] [--report=json|html|xml|none[:path]]...");
@@ -215,7 +248,7 @@ public final class Main {
   /// @param reports the report files to write after a full run
   record Command(boolean verify, Path directory, String module, Optional<String> format, int threshold,
       Optional<String> only, boolean confirmCatches, Optional<Integer> workers, String colour, String links,
-      String progress, boolean suggestions, List<RequestedReport> reports) {
+      String progress, boolean suggestions, List<RequestedReport> reports, Optional<String> vocabulary) {
     static Command parse(String[] args) {
       if (args.length == 0 || !List.of("run", "verify").contains(args[0])) {
         throw new UsageException(args.length == 0 ? "no command" : "unknown command " + args[0]);
@@ -232,6 +265,7 @@ public final class Main {
       String progress = "auto";
       boolean suggestions = true;
       List<RequestedReport> reports = null;
+      Optional<String> vocabulary = Optional.empty();
       for (String arg : List.of(args).subList(1, args.length)) {
         if (arg.startsWith("--format=")) {
           format = Optional.of(choice(arg, FORMATS));
@@ -250,6 +284,8 @@ public final class Main {
           if (!kind.equals("none")) {
             reports.add(new RequestedReport(kind, colon < 0 ? Optional.empty() : Optional.of(Path.of(value.substring(colon + 1)))));
           }
+        } else if (arg.startsWith("--vocabulary=")) {
+          vocabulary = Optional.of(choice(arg, VOCABULARIES));
         } else if (arg.equals("--no-suggestions")) {
           suggestions = false;
         } else if (arg.equals("--confirm-catches")) {
@@ -282,7 +318,7 @@ public final class Main {
       var module = positional.stream().filter(arg -> arg.startsWith(":")).findFirst().orElse(":");
       var directory = positional.stream().filter(arg -> !arg.startsWith(":")).findFirst().map(Path::of).orElse(Path.of("."));
       return new Command(verify, directory, module, format, threshold, only, confirmCatches, workers, colour, links,
-          progress, suggestions, reports == null ? DEFAULT_REPORTS : List.copyOf(reports));
+          progress, suggestions, reports == null ? DEFAULT_REPORTS : List.copyOf(reports), vocabulary);
     }
 
     /// The whole number in `--name=value`.

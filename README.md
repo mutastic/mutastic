@@ -16,37 +16,47 @@ You need JDK 25 to build and run mutastic. Your project can be on JDK 17 or late
 ```
 
 ```
-❯ src/main/java/com/example/pricing/Pricing.java  1 missed in 1 method
-✗ missed[boundary] m855c8e3c no test checks the edge of `>=` in `discount()`
-  --> src/main/java/com/example/pricing/Pricing.java:17
-   |
-16 |   public int discount(int total) {
-17 |     if (total >= 100) {
-   |               ^^ `>=` becomes `>` and all 2 covering tests still pass
-18 |       return total / 10;
-   |
-   = mutant  - if (total >= 100) {
-             + if (total > 100) {
-   = note: covered by PricingTest#bigOrdersGetTenPercentOff, PricingTest#smallOrdersPayFullPrice
-   = note: inputs seen: total = 50, 250
-   = help: add a test with the values where `>=` and `>` disagree (both sides equal), and assert the result
-           // in PricingTest
-           @Test
-           void discountWithTotal100() {
-             assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0
-           }
-           check today's value is the one you intend: the test pins what the code does now
-   = reproduce: mutastic run --only=m855c8e3c
-   = done when: mutastic verify m855c8e3c passes
+ Missed ────────────────────────────────────────────────────────────
 
-  Mutants  ✓ 6 caught · ✗ 1 missed · ○ 0 not covered · ⏱ 0 timed out (7) · 2 skipped
- Worst at  Pricing.discount() 1 ✗
- Duration  1.2s (setup 626ms, coverage 219ms, mutants 334ms)
-    Tests  3 on JDK 17 · 4 workers
-  Reports  build/mutastic/mutation.json · build/mutastic/mutation.html
-    Score  85.7%  threshold 80 ✓
+ ❯ src/main/java/com/example/pricing/Pricing.java  1 missed in 1 method
 
-Next: mutastic run --only=<id> · mutastic verify <id>
+ [✗ MISSED] no test checks discount() at total == 100
+    ┌─ src/main/java/com/example/pricing/Pricing.java:17
+    │
+ 16 │   public int discount(int total) {
+ 17 │     if (total >= 100) {
+    │               ^^ changed to >
+ 18 │       return total / 10;
+    │
+    = mutant  - if (total >= 100) {
+              + if (total > 100) {
+    = note: every test calls discount() away from the boundary
+            inputs seen: 50, 250 (none is 100)
+            covered by PricingTest#bigOrdersGetTenPercentOff, PricingTest#smallOrdersPayFullPrice (all 2 covering tests still pass)
+    = help: test discount() with total = 100 and assert the result
+
+            // in PricingTest
+            @Test
+            void discountWithTotal100() {
+              assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m855c8e3c passes
+    reproduce  mutastic run --only=m855c8e3c
+
+   Classes  0 clean | 1 with misses (1)
+   Mutants  ✓ 6 caught · ✗ 1 missed · 2 skipped (2 equivalent) (9)
+  Worst at  Pricing.discount() 1 ✗
+ Test runs  8 (21 without coverage selection)
+  Start at  08:47:29
+  Duration  1.0s (setup 487ms, coverage 197ms, mutants 363ms)
+     Tests  3 on JDK 17 · 4 workers
+   Reports  build/mutastic/mutation.json · build/mutastic/mutation.html
+     Score  85.7%  threshold 80
+
+ [PASS] 1 missed, above the threshold.
+ Next: mutastic run --only=<id> · mutastic verify <id>
 ```
 
 Add the suggested test (after checking 10 is the discount you mean for an order of exactly 100), then:
@@ -59,10 +69,10 @@ mutastic verify m855c8e3c samples/pricing
 ## Usage
 
 ```
-mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]
+mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N] [--only=ID]
              [--confirm-catches] [--workers=N] [--color=auto|always|never]
              [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none] [--no-suggestions]
-             [--report=json|html|xml|none[:path]]...
+             [--report=json|html|xml|none[:path]]... [--vocabulary=plain|classic]
 mutastic verify ID [dir] [:module]
 ```
 
@@ -76,10 +86,12 @@ mutastic verify ID [dir] [:module]
 
 The result goes to stdout and progress to stderr, so `mutastic run > result.txt` keeps only the result.
 
-- `--format=full` (the default on a terminal) shows each missed mutant as a card: the code with the change marked, the tests that run it, the test to write, and how to prove it. Cards are grouped by file, and in each file the method with the most misses comes first. On a terminal, file locations are links (`--hyperlinks`) that terminals supporting OSC 8 open; others show the text. The summary comes last and ends on the score, with the change since the last run.
-- `--format=concise` (the default elsewhere, such as CI logs) is one line per missed mutant, then the summary.
-- `--format=agent` (the default when `MUTASTIC_AGENT=1`) is plain text for coding agents: the verdict first, so a truncated read still has it, then each missed mutant with the change, the fix and how to prove it.
-- Colour follows the usual rules: only on a terminal, never with `NO_COLOR` or `TERM=dumb`, always with `FORCE_COLOR`. Every colour has a symbol beside it (✓ caught, ✗ missed, ○ not covered, ⏱ timed out), so nothing is lost without it.
+- `--format=full` (the default on a terminal) shows each missed mutant as a card: the gap in the tests, the code with the change marked, the evidence (what the tests passed in, and which tests run it), the test to add, and how to prove it. Cards are grouped by file, and in each file the method with the most misses comes first. On a terminal, file locations are links (`--hyperlinks`) that terminals supporting OSC 8 open; others show the text.
+- `--format=brief` keeps the gap, the changed line and the evidence; `--format=concise` (the default elsewhere, such as CI logs) is one line per missed mutant; `--format=grouped` is one line each under its file and method.
+- `--format=agent` (the default when `MUTASTIC_AGENT=1`) is plain text for coding agents: the verdict first, so a truncated read still has it, then each missed mutant with the change, the fix and how to prove it, and the rule that a fix changes tests, never production code.
+- `MUTASTIC_FORMAT` sets the format when `--format` isn't given. While it runs, each source file gets a line as it finishes, on stderr, with its misses under it.
+- `--vocabulary=classic` (or `MUTASTIC_VOCABULARY=classic`) says killed and survived instead of caught and missed. JSON and the report files always use the standard statuses.
+- Colour follows the usual rules: only on a terminal, never with `NO_COLOR` or `TERM=dumb`, always with `FORCE_COLOR`. Every colour has a symbol beside it (✓ caught, ✗ missed, ○ not covered, ⏱ timed out), so nothing is lost without it. Labels such as `MISSED` and `PASS` are coloured blocks, `[MISSED]` without colour, and have rounded ends with `MUTASTIC_PILLS=rounded` for terminals with a Nerd Font.
 - `--format=jsonl` is one JSON event per line, written as each mutant finishes (`mutastic.events/v1`). Statuses follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`, `NoCoverage`.
 - A mutant's id comes from its class, method, position and change, not its line number, so it stays the same while code around it moves.
 - Some mutants are skipped, with the reason given: a change that can't be told apart from the original (`return 0` becoming "return the default"), code the compiler wrote (a `switch` on a `String`, a record's `equals()`), and calls that only write output (logging, `System.out`). Skipped mutants don't count towards the score.

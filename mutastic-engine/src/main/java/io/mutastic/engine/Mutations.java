@@ -61,6 +61,7 @@ final class Mutations {
 
   private static void findIn(ClassModel model, MethodModel method, List<CodeElement> code, List<Mutant> mutants) {
     var tryWithResources = tryWithResources(code);
+    var operands = method.code().map(Operands::new).orElseThrow();
     var stringSwitchLines = new HashSet<Integer>();
     int line = -1;
     int ordinal = 0;
@@ -69,8 +70,12 @@ final class Mutations {
     for (CodeElement element : code) {
       switch (element) {
         case LineNumber lineNumber -> line = lineNumber.line();
-        case LabelTarget _ -> previous = null; // a jump lands here: the instruction before isn't the only way in
+        case LabelTarget _ -> {
+          previous = null; // a jump lands here: the instruction before isn't the only way in
+          operands.jumpTarget();
+        }
         case Instruction instruction -> {
+          var workedOn = operands.of(instruction);
           if (isSwitch(instruction) && isCall(previous, "java/lang/String", "hashCode")) {
             stringSwitchLines.add(line); // javac's switch on a String: hashCode, then equals
           }
@@ -83,7 +88,7 @@ final class Mutations {
                     : skipReason(operator, instruction, previous, line, stringSwitchLines);
                 mutants.add(new Mutant(model.thisClass().asInternalName(), method.methodName().stringValue(),
                     method.methodType().stringValue(), call ? callOrdinal : ordinal, line, operator,
-                    describe(instruction), operator.replacement(instruction), skipped));
+                    describe(instruction), operator.replacement(instruction), skipped, List.of(), workedOn));
               }
             }
             if (call) {
@@ -298,7 +303,7 @@ final class Mutations {
       } else if (mutant == group.getFirst()) { // the later copies go into this one, in its place
         merged.add(new Mutant(mutant.className(), mutant.methodName(), mutant.descriptor(), mutant.ordinal(), mutant.line(),
             mutant.operator(), mutant.original(), mutant.replacement(), mutant.skipped(),
-            group.stream().skip(1).map(Mutant::ordinal).toList()));
+            group.stream().skip(1).map(Mutant::ordinal).toList(), mutant.operands()));
       }
     }
     return merged;

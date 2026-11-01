@@ -43,6 +43,10 @@ public class Pricing {
     }
   }
 
+  public boolean overdue(long days) {
+    return days > 30L;
+  }
+
   public void clearTwice(List<String> items) {
     items.clear(); items.clear();
   }

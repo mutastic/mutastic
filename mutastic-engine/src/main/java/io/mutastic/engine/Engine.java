@@ -125,6 +125,7 @@ public final class Engine {
   private static List<MutantResult> runAll(List<Mutant> mutants, MutantRun mutantRun, List<TestWorker> workers,
       Listener listener) {
     var results = new MutantResult[mutants.size()];
+    var files = new SourceFiles(mutants);
     var clashed = new java.util.concurrent.ConcurrentLinkedQueue<Integer>();
     var idle = new java.util.concurrent.LinkedBlockingQueue<TestWorker>(workers);
     var report = new Object();
@@ -144,6 +145,7 @@ public final class Engine {
             results[at] = result.result();
             synchronized (report) {
               listener.mutantFinished(result.result());
+              files.finished(at, results, listener);
             }
           } finally {
             idle.add(worker);
@@ -159,9 +161,37 @@ public final class Engine {
       for (int at : clashed.stream().sorted().toList()) {
         results[at] = mutantRun.run(mutants.get(at), workers.getFirst()).result();
         listener.mutantFinished(results[at]);
+        files.finished(at, results, listener);
       }
     }
     return List.of(results);
+  }
+
+  /// Which mutants belong to each source file (a top-level class and its nested classes), to
+  /// say when a file's last one is done.
+  private static final class SourceFiles {
+    private final List<String> fileOf = new ArrayList<>();
+    private final Map<String, List<Integer>> members = new LinkedHashMap<>();
+    private final Map<String, Integer> remaining = new java.util.HashMap<>();
+
+    SourceFiles(List<Mutant> mutants) {
+      for (int at = 0; at < mutants.size(); at++) {
+        var name = mutants.get(at).binaryName();
+        int dollar = name.indexOf('$', name.lastIndexOf('.') + 1);
+        var file = dollar < 0 ? name : name.substring(0, dollar);
+        fileOf.add(file);
+        members.computeIfAbsent(file, ignored -> new ArrayList<>()).add(at);
+        remaining.merge(file, 1, Integer::sum);
+      }
+    }
+
+    /// Mutant `at` has its final result; called with the caller holding the listener's lock.
+    void finished(int at, MutantResult[] results, Listener listener) {
+      var file = fileOf.get(at);
+      if (remaining.merge(file, -1, Integer::sum) == 0) {
+        listener.fileFinished(file, members.get(file).stream().map(index -> results[index]).toList());
+      }
+    }
   }
 
   private static TestWorker take(java.util.concurrent.BlockingQueue<TestWorker> idle) {

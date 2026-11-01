@@ -88,6 +88,48 @@ public final class SourceView {
   /// Where a change is: its line, and 1-based columns on it with the end exclusive.
   public record Place(int line, int start, int end) {}
 
+  /// The advice for a mutant, its jump read the way the source has it.
+  public Advice advice(Mutant mutant) {
+    return Advice.of(mutant, java.util.Map.of(), asWritten(mutant));
+  }
+
+  /// The advice with the inputs the covering tests passed, its jump read the way the source has it.
+  public Advice advice(io.mutastic.engine.MutantResult result) {
+    return Advice.of(result.mutant(), result.inputs(), asWritten(result.mutant()));
+  }
+
+  /// Whether the mutant's jump tests the condition as written: the statement has the written
+  /// form of the jump's condition and not its opposite. When it has both or neither, javac's
+  /// usual inverted jump.
+  boolean asWritten(Mutant mutant) {
+    var operator = mutant.operator();
+    if (operator != io.mutastic.engine.Operator.BOUNDARY && operator != io.mutastic.engine.Operator.NEGATE_CONDITIONAL) {
+      return false;
+    }
+    var inverted = Advice.jump(mutant.original(), false);
+    var written = Advice.jump(mutant.original(), true);
+    if (inverted.isEmpty() || written.isEmpty()) {
+      return false;
+    }
+    var statement = String.join("\n", statement(mutant));
+    return statement.contains(" " + written.get() + " ") && !statement.contains(" " + inverted.get() + " ");
+  }
+
+  /// The lines of the statement javac gives the mutant's line to: from that line to the one
+  /// that ends it.
+  private List<String> statement(Mutant mutant) {
+    var all = lines(mutant).orElse(List.of());
+    int first = mutant.line();
+    if (first < 1 || first > all.size()) {
+      return List.of();
+    }
+    int last = first;
+    while (last < all.size() && last - first < STATEMENT_LINES && !endsStatement(all.get(last - 1))) {
+      last++;
+    }
+    return all.subList(first - 1, last);
+  }
+
   /// The longest statement searched for the changed operator.
   private static final int STATEMENT_LINES = 12;
 
@@ -135,8 +177,8 @@ public final class SourceView {
 
   /// The source text the change is to: ` >= ` with its spaces, `record(` for a removed call,
   /// `return ` for a returned default.
-  private static Optional<String> token(Mutant mutant) {
-    var advice = Advice.of(mutant);
+  private Optional<String> token(Mutant mutant) {
+    var advice = advice(mutant);
     return advice.before().map(before -> " " + before + " ").or(() -> Optional.ofNullable(switch (mutant.operator()) {
       case REMOVE_VOID_CALL -> calledName(mutant.original()) + "(";
       case RETURN_DEFAULT -> "return ";

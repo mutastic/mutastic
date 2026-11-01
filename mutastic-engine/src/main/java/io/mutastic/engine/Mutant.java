@@ -21,6 +21,8 @@ import java.util.Optional;
 /// @param skipped why it doesn't run, `equivalent: already returns the default`, if it doesn't
 /// @param copies more sites (of the same kind) that get the same change at the same time: the
 ///     copies javac makes of a `finally` block, one per way out of the `try`
+/// @param operands what the instruction works on, as the source names it (`total`, `100`),
+///     when the bytecode before it says; not part of the fingerprint
 public record Mutant(
     String className,
     String methodName,
@@ -31,10 +33,18 @@ public record Mutant(
     String original,
     String replacement,
     Optional<String> skipped,
-    List<Integer> copies) {
+    List<Integer> copies,
+    List<String> operands) {
 
   public Mutant {
     copies = List.copyOf(copies);
+    operands = List.copyOf(operands);
+  }
+
+  /// A mutant whose operands aren't known.
+  public Mutant(String className, String methodName, String descriptor, int ordinal, int line, Operator operator,
+      String original, String replacement, Optional<String> skipped, List<Integer> copies) {
+    this(className, methodName, descriptor, ordinal, line, operator, original, replacement, skipped, copies, List.of());
   }
 
   /// A mutant of one site.

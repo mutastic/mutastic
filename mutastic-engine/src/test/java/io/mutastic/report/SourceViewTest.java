@@ -46,6 +46,13 @@ class SourceViewTest {
           private boolean free(int location) {
             return true;
           }
+
+          public boolean slice(int c0, int length) {
+            if (c0 < 0 || length < 2) {
+              return false;
+            }
+            return true;
+          }
         }
         """);
     sources = new SourceView(project, List.of(project.resolve("src/main/java")));
@@ -71,6 +78,21 @@ class SourceViewTest {
   void neverLooksPastTheEndOfTheStatement() {
     // Line 17 ends its statement, so line 18's `<` isn't taken for it.
     assertThat(sources.place(boundary("next", 17, "IF_ICMPGE", "IF_ICMPGT"))).isEqualTo(new SourceView.Place(17, 25, 26));
+  }
+
+  @Test
+  void readsEachJumpTheWayTheSourceHasIt() {
+    // `c0 < 0 || …`: javac jumps into the body when the first test holds, so IFLT is `<` as
+    // written. `length < 2`: the usual jump past it, IF_ICMPGE, inverted to `<`.
+    var first = new Mutant("com/example/Board", "slice", "(II)Z", 0, 26, Operator.BOUNDARY, "IFLT", "IFLE",
+        Optional.empty(), List.of(), List.of("c0", "0"));
+    var second = new Mutant("com/example/Board", "slice", "(II)Z", 1, 26, Operator.BOUNDARY, "IF_ICMPGE", "IF_ICMPGT",
+        Optional.empty(), List.of(), List.of("length", "2"));
+
+    assertThat(sources.advice(first).change()).isEqualTo("`<` becomes `<=`");
+    assertThat(sources.advice(second).change()).isEqualTo("`<` becomes `<=`");
+    assertThat(sources.place(first)).isEqualTo(new SourceView.Place(26, 5, 32)); // `<` occurs twice: the statement
+    assertThat(sources.mutatedLine(first, sources.advice(first))).isEmpty(); // so no rewrite either
   }
 
   private static Mutant boundary(String method, int line, String original, String replacement) {

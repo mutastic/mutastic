@@ -20,10 +20,16 @@ public final class AgentText {
 
   private final SourceView sources;
   private final int threshold;
+  private final Vocabulary words;
 
   public AgentText(SourceView sources, int threshold) {
+    this(sources, threshold, Vocabulary.PLAIN);
+  }
+
+  public AgentText(SourceView sources, int threshold, Vocabulary words) {
     this.sources = sources;
     this.threshold = threshold;
+    this.words = words;
   }
 
   public String render(Report report) {
@@ -36,10 +42,10 @@ public final class AgentText {
     var missed = report.results().stream().filter(result -> result.status() == Status.MISSED).toList();
     var notCovered = report.results().stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
     var skipped = report.count(Status.SKIPPED);
-    out.append("mutastic: %s · score %.1f%% (threshold %d) · %d missed, %d not covered, %d caught of %d mutants%s%n"
-        .formatted(report.score() >= threshold ? "PASS" : "FAIL", report.score(), threshold, missed.size(),
-            notCovered.size(), report.count(Status.CAUGHT) + report.count(Status.TIMED_OUT), report.scored(),
-            skipped == 0 ? "" : " (%d more skipped)".formatted(skipped)));
+    out.append("mutastic: %s · score %.1f%% (threshold %d) · %d %s, %d %s, %d %s of %d mutants%s%n"
+        .formatted(report.score() >= threshold ? "PASS" : "FAIL", report.score(), threshold, missed.size(), words.undetected,
+            notCovered.size(), words.notCovered, report.count(Status.CAUGHT) + report.count(Status.TIMED_OUT), words.detected,
+            report.scored(), skipped == 0 ? "" : " (%d more skipped)".formatted(skipped)));
     if (!report.flaky().isEmpty()) {
       out.append("flaky: %s failed, then passed when run again; left out of this run, so %s catches don't count. "
           .formatted(String.join(", ", shortNames(report.flaky())), report.flaky().size() == 1 ? "its" : "their")
@@ -73,15 +79,15 @@ public final class AgentText {
       out.append(System.lineSeparator()).append(entry(++number, result));
     }
     if (missed.size() > LIMIT) {
-      out.append("%n%d more missed mutants: run again after fixing these%n".formatted(missed.size() - LIMIT));
+      out.append("%n%d more %s mutants: run again after fixing these%n".formatted(missed.size() - LIMIT, words.undetected));
     }
     if (!notCovered.isEmpty()) {
-      out.append("%nnot covered (no test reaches these lines%s%s):%n".formatted(
+      out.append("%n%s (no test reaches these lines%s%s):%n".formatted(words.notCovered,
           report.flaky().isEmpty() ? "" : ", or only a flaky one does",
-          missed.isEmpty() ? "" : "; fix the missed mutants first"));
+          missed.isEmpty() ? "" : "; fix the %s mutants first".formatted(words.undetected)));
       var byLine = new LinkedHashMap<String, Long>();
-      notCovered.forEach(result -> byLine.merge("%s:%d %s()".formatted(sources.file(result.mutant()),
-          sources.place(result.mutant()).line(), result.mutant().methodName()), 1L, Long::sum));
+      notCovered.forEach(result -> byLine.merge("%s:%d %s".formatted(sources.file(result.mutant()),
+          sources.place(result.mutant()).line(), Advice.method(result.mutant()).replace("`", "")), 1L, Long::sum));
       byLine.forEach((where, count) -> out.append("- %s (%d mutant%s)%n".formatted(where, count, count == 1 ? "" : "s")));
     }
     return out.toString();
@@ -90,17 +96,15 @@ public final class AgentText {
   /// One missed mutant, numbered, or unnumbered (0) where it stands alone.
   public String entry(int number, MutantResult result) {
     var mutant = result.mutant();
-    var advice = Advice.of(mutant);
+    var advice = sources.advice(result);
     var lines = new ArrayList<String>();
-    lines.add("%smissed %s: %s".formatted(number == 0 ? "" : number + ". ", mutant.id(), advice.headline()));
+    lines.add("%s%s %s: %s".formatted(number == 0 ? "" : number + ". ", words.undetected, mutant.id(), advice.headline()));
     lines.add("   at %s:%d".formatted(sources.file(mutant), sources.place(mutant).line()));
     sources.line(mutant).ifPresent(line -> lines.add("   - " + line));
     lines.add("   + " + sources.mutatedLine(mutant, advice).orElse("(" + advice.change() + ")"));
     lines.add("   covered by: %s; all still pass with the change%s".formatted(covering(result.coveredBy()),
         result.unconfirmed().map(test -> " (%s failed once, then passed: flaky)".formatted(shortName(test))).orElse("")));
-    if (!result.inputs().isEmpty()) {
-      lines.add("   evidence: inputs seen: " + inputs(result.inputs()));
-    }
+    advice.notes().forEach(note -> lines.add("   evidence: " + note));
     lines.add("   fix: " + advice.fix());
     SuggestedTest.of(result, sources).ifPresent(test -> {
       lines.add("   test to add in %s:".formatted(test.testClass()));
