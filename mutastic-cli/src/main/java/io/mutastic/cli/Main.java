@@ -25,7 +25,7 @@ import java.util.Optional;
 /// ```
 /// mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]
 ///              [--confirm-catches] [--workers=N] [--color=auto|always|never]
-///              [--progress=auto|bar|counter|none]
+///              [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none]
 /// mutastic verify ID [dir] [:module]
 /// ```
 ///
@@ -109,16 +109,18 @@ public final class Main {
       switch (format) {
         case "jsonl" -> events.runFinished(report, comparison);
         case "agent" -> out.print(new AgentText(sources, command.threshold()).render(report, comparison));
-        default -> out.print(new HumanText(sources, command.threshold(),
-            terminal.colour(command.colour()) ? Style.COLOUR : Style.PLAIN, format.equals("concise"))
-            .render(report, comparison, setup));
+        default -> {
+          var style = terminal.colour(command.colour()) ? Style.COLOUR : Style.PLAIN;
+          out.print(new HumanText(sources, command.threshold(), terminal.links(command.links()) ? style.withLinks() : style,
+              format.equals("concise")).render(report, comparison, setup));
+        }
       }
       return report.score() >= command.threshold() ? PASSED : FAILED;
     } catch (UsageException e) {
       err.println("mutastic: " + e.getMessage());
       err.println("usage: mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]");
       err.println("                    [--confirm-catches] [--workers=N] [--color=auto|always|never]");
-      err.println("                    [--progress=auto|bar|counter|none]");
+      err.println("                    [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none]");
       err.println("       mutastic verify ID [dir] [:module]");
       return USAGE;
     } catch (GradleSetup.SetupFailed | IllegalArgumentException e) {
@@ -169,7 +171,8 @@ public final class Main {
   /// @param format empty for the default, which depends on where output goes
   /// @param workers empty for the default, which depends on the machine
   record Command(boolean verify, Path directory, String module, Optional<String> format, int threshold,
-      Optional<String> only, boolean confirmCatches, Optional<Integer> workers, String colour, String progress) {
+      Optional<String> only, boolean confirmCatches, Optional<Integer> workers, String colour, String links,
+      String progress) {
     static Command parse(String[] args) {
       if (args.length == 0 || !List.of("run", "verify").contains(args[0])) {
         throw new UsageException(args.length == 0 ? "no command" : "unknown command " + args[0]);
@@ -182,6 +185,7 @@ public final class Main {
       boolean confirmCatches = false;
       Optional<Integer> workers = Optional.empty();
       String colour = "auto";
+      String links = "auto";
       String progress = "auto";
       for (String arg : List.of(args).subList(1, args.length)) {
         if (arg.startsWith("--format=")) {
@@ -199,6 +203,8 @@ public final class Main {
           }
         } else if (arg.startsWith("--color=")) {
           colour = choice(arg, List.of("auto", "always", "never"));
+        } else if (arg.startsWith("--hyperlinks=")) {
+          links = choice(arg, List.of("auto", "always", "never"));
         } else if (arg.startsWith("--progress=")) {
           progress = choice(arg, List.of("auto", "bar", "counter", "none"));
         } else if (arg.startsWith("--")) {
@@ -215,7 +221,8 @@ public final class Main {
       }
       var module = positional.stream().filter(arg -> arg.startsWith(":")).findFirst().orElse(":");
       var directory = positional.stream().filter(arg -> !arg.startsWith(":")).findFirst().map(Path::of).orElse(Path.of("."));
-      return new Command(verify, directory, module, format, threshold, only, confirmCatches, workers, colour, progress);
+      return new Command(verify, directory, module, format, threshold, only, confirmCatches, workers, colour, links,
+          progress);
     }
 
     /// The whole number in `--name=value`.

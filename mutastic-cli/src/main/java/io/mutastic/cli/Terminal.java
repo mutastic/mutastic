@@ -24,6 +24,16 @@ record Terminal(boolean interactive, Map<String, String> env) {
     };
   }
 
+  /// `--hyperlinks=auto`: file locations become links where a person is reading a terminal
+  /// that isn't `TERM=dumb`; terminals that don't know links show the text.
+  boolean links(String choice) {
+    return switch (choice) {
+      case "always" -> true;
+      case "never" -> false;
+      default -> interactive && !"dumb".equals(env.get("TERM"));
+    };
+  }
+
   /// `full` for people, `concise` for logs, `agent` when an agent says so.
   String defaultFormat() {
     return "1".equals(env.get("MUTASTIC_AGENT")) ? "agent" : interactive ? "full" : "concise";

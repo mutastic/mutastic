@@ -25,6 +25,11 @@ public final class SourceView {
     return sourceFile(mutant).map(this::relative).orElse(expectedPath(mutant));
   }
 
+  /// The source file itself, for linking to, if it's there.
+  public Optional<Path> path(Mutant mutant) {
+    return sourceFile(mutant).map(SourceView::real);
+  }
+
   /// The source file's lines as written, if it's there.
   public Optional<List<String>> lines(Mutant mutant) {
     return sourceFile(mutant).map(file -> {

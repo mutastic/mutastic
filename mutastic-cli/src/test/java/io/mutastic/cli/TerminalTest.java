@@ -26,4 +26,12 @@ class TerminalTest {
     assertThat(PIPE.colour("always")).isTrue();
     assertThat(TTY.colour("never")).isFalse();
   }
+
+  @Test
+  void linksOnlyWhereAPersonCanClickThem() {
+    assertThat(TTY.links("auto")).isTrue();
+    assertThat(PIPE.links("auto")).isFalse();
+    assertThat(new Terminal(true, Map.of("TERM", "dumb")).links("auto")).isFalse();
+    assertThat(PIPE.links("always")).isTrue();
+  }
 }

@@ -7,13 +7,27 @@ package io.mutastic.report;
 /// Watermelon colours, used sparingly: green for caught, red only on a missed mutant's glyph,
 /// label and caret, never a whole card.
 public final class Style {
-  public static final Style PLAIN = new Style(false);
-  public static final Style COLOUR = new Style(true);
+  public static final Style PLAIN = new Style(false, false);
+  public static final Style COLOUR = new Style(true, false);
 
   private final boolean colour;
+  private final boolean links;
 
-  private Style(boolean colour) {
+  private Style(boolean colour, boolean links) {
     this.colour = colour;
+    this.links = links;
+  }
+
+  /// The same style, with file locations as terminal hyperlinks (OSC 8): terminals that know
+  /// them open the file, and others show the text.
+  public Style withLinks() {
+    return new Style(colour, true);
+  }
+
+  /// `text` linking to `file`, when links are on. The line number stays in the text: whether
+  /// terminals honour one in a `file:` URI varies.
+  String link(java.nio.file.Path file, String text) {
+    return links ? "\u001b]8;;" + file.toUri() + "\u001b\\" + text + "\u001b]8;;\u001b\\" : text;
   }
 
   String red(String text) {

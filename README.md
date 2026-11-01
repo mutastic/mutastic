@@ -52,7 +52,7 @@ mutastic verify m855c8e3c samples/pricing
 ```
 mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]
              [--confirm-catches] [--workers=N] [--color=auto|always|never]
-             [--progress=auto|bar|counter|none]
+             [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none]
 mutastic verify ID [dir] [:module]
 ```
 
@@ -66,7 +66,7 @@ mutastic verify ID [dir] [:module]
 
 The result goes to stdout and progress to stderr, so `mutastic run > result.txt` keeps only the result.
 
-- `--format=full` (the default on a terminal) shows each missed mutant as a card: the code with the change marked, the tests that run it, the test to write, and how to prove it. The summary comes last and ends on the score, with the change since the last run.
+- `--format=full` (the default on a terminal) shows each missed mutant as a card: the code with the change marked, the tests that run it, the test to write, and how to prove it. Cards are grouped by file, and in each file the method with the most misses comes first. On a terminal, file locations are links (`--hyperlinks`) that terminals supporting OSC 8 open; others show the text. The summary comes last and ends on the score, with the change since the last run.
 - `--format=concise` (the default elsewhere, such as CI logs) is one line per missed mutant, then the summary.
 - `--format=agent` (the default when `MUTASTIC_AGENT=1`) is plain text for coding agents: the verdict first, so a truncated read still has it, then each missed mutant with the change, the fix and how to prove it.
 - Colour follows the usual rules: only on a terminal, never with `NO_COLOR` or `TERM=dumb`, always with `FORCE_COLOR`. Every colour has a symbol beside it (✓ caught, ✗ missed, ○ not covered, ⏱ timed out), so nothing is lost without it.

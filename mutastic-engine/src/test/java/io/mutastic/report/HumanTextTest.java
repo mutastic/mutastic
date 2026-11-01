@@ -97,6 +97,30 @@ class HumanTextTest {
     assertThat(card).contains("note: covered by PricingTest#bigOrders"); // the evidence stays plain
   }
 
+  @Test
+  void cardsAreGroupedByFileWorstMethodFirst() {
+    var once = missed(new Mutant("com/example/Pricing", "total", "(I)I", 0, 9, Operator.MATH, "IADD", "ISUB", Optional.empty()));
+    var twiceA = missed(boundary());
+    var twiceB = missed(new Mutant("com/example/Pricing", "discount", "(I)I", 1, 6, Operator.MATH, "IDIV", "IMUL",
+        Optional.empty()));
+    var nested = missed(new Mutant("com/example/Pricing$Tier", "rate", "()I", 0, 7, Operator.RETURN_DEFAULT, "IRETURN",
+        "return default", Optional.empty()));
+
+    assertThat(HumanText.grouped(List.of(once, twiceA, nested, twiceB))).containsExactly(twiceA, twiceB, once, nested);
+
+    var output = text(false).render(report(once, twiceA, nested, twiceB), Optional.empty(), Duration.ZERO);
+    assertThat(output).startsWith("❯ src/main/java/com/example/Pricing.java  4 missed in 3 methods\n");
+    assertThat(output.lines().filter(line -> line.startsWith("❯"))).hasSize(1);
+  }
+
+  @Test
+  void locationsLinkToTheFileWhenAsked() throws Exception {
+    var card = new HumanText(sources, 80, Style.PLAIN.withLinks(), false).card(missed(boundary()));
+    var uri = project.resolve("src/main/java/com/example/Pricing.java").toRealPath().toUri();
+
+    assertThat(card).contains("--> \u001b]8;;" + uri + "\u001b\\src/main/java/com/example/Pricing.java:5\u001b]8;;\u001b\\");
+  }
+
   private HumanText text(boolean concise) {
     return new HumanText(sources, 80, Style.PLAIN, concise);
   }

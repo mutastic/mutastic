@@ -37,8 +37,14 @@ public final class HumanText {
   /// @param setup how long reading the build took, before the engine started
   public String render(Report report, Optional<Comparison> comparison, Duration setup) {
     var out = new StringBuilder();
-    var missed = report.results().stream().filter(result -> result.status() == Status.MISSED).toList();
+    var missed = grouped(report.results().stream().filter(result -> result.status() == Status.MISSED).toList());
+    String file = null;
     for (MutantResult result : missed.stream().limit(CARDS).toList()) {
+      var here = sources.file(result.mutant());
+      if (!concise && !here.equals(file)) {
+        out.append(fileHeader(here, result.mutant(), missed)).append(System.lineSeparator());
+        file = here;
+      }
       out.append(concise ? line(result) : card(result)).append(System.lineSeparator());
     }
     if (concise && !missed.isEmpty()) {
@@ -57,8 +63,51 @@ public final class HumanText {
   /// One missed mutant on one line: `✗ path:line id method(): headline`.
   String line(MutantResult result) {
     var mutant = result.mutant();
-    return "%s %s:%d %s %s".formatted(style.red("✗"), sources.file(mutant), mutant.line(), style.dim(mutant.id()),
-        Advice.of(mutant).headline());
+    return "%s %s %s %s".formatted(style.red("✗"), location(mutant), style.dim(mutant.id()), Advice.of(mutant).headline());
+  }
+
+  /// Missed mutants by file, files in the order found; in each file, methods with the most
+  /// misses first (where to start), then in source order.
+  static List<MutantResult> grouped(List<MutantResult> missed) {
+    var byFile = new LinkedHashMap<String, List<MutantResult>>();
+    missed.forEach(result -> byFile.computeIfAbsent(outerClass(result.mutant()), file -> new ArrayList<>()).add(result));
+    var ordered = new ArrayList<MutantResult>();
+    for (var inFile : byFile.values()) {
+      var perMethod = inFile.stream().collect(Collectors.groupingBy(HumanText::methodKey, Collectors.counting()));
+      var firstSeen = new LinkedHashMap<String, Integer>();
+      inFile.forEach(result -> firstSeen.putIfAbsent(methodKey(result), firstSeen.size()));
+      inFile.stream()
+          .sorted(Comparator.comparing((MutantResult result) -> -perMethod.get(methodKey(result)))
+              .thenComparing(result -> firstSeen.get(methodKey(result))))
+          .forEach(ordered::add);
+    }
+    return ordered;
+  }
+
+  /// `❯ src/…/Pricing.java  2 missed in 1 method`
+  private String fileHeader(String file, Mutant mutant, List<MutantResult> missed) {
+    var inFile = missed.stream().filter(result -> outerClass(result.mutant()).equals(outerClass(mutant))).toList();
+    long methods = inFile.stream().map(HumanText::methodKey).distinct().count();
+    var linked = sources.path(mutant).map(path -> style.link(path, file)).orElse(file);
+    return "%s %s  %s".formatted(style.blue("❯"), style.bold(linked), style.dim("%d missed in %d method%s".formatted(
+        inFile.size(), methods, methods == 1 ? "" : "s")));
+  }
+
+  /// `src/…/Pricing.java:17`, linked to the file when links are on.
+  private String location(Mutant mutant) {
+    var text = "%s:%d".formatted(sources.file(mutant), mutant.line());
+    return sources.path(mutant).map(path -> style.link(path, text)).orElse(text);
+  }
+
+  private static String methodKey(MutantResult result) {
+    return result.mutant().className() + "#" + result.mutant().methodName() + result.mutant().descriptor();
+  }
+
+  /// The class a source file is named for: nested classes share their outer class's file.
+  private static String outerClass(Mutant mutant) {
+    var name = mutant.className();
+    int dollar = name.indexOf('$', name.lastIndexOf('/') + 1);
+    return dollar < 0 ? name : name.substring(0, dollar);
   }
 
   /// A missed mutant as a card, rustc style.
@@ -68,7 +117,7 @@ public final class HumanText {
     var lines = new ArrayList<String>();
     lines.add("%s %s %s".formatted(style.red("✗ missed[" + shortOperator(mutant) + "]"), style.dim(mutant.id()),
         style.bold(advice.headline())));
-    lines.add("  %s %s:%d".formatted(style.blue("-->"), sources.file(mutant), mutant.line()));
+    lines.add("  %s %s".formatted(style.blue("-->"), location(mutant)));
     var file = sources.lines(mutant);
     int width = String.valueOf(mutant.line() + 1).length();
     var bar = style.blue(" ".repeat(width) + " |");
