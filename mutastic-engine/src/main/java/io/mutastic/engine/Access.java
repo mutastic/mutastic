@@ -1,5 +1,6 @@
 package io.mutastic.engine;
 
+import io.mutastic.api.Mutant;
 import java.lang.classfile.Attributes;
 import java.lang.classfile.ClassModel;
 import java.lang.classfile.MethodModel;

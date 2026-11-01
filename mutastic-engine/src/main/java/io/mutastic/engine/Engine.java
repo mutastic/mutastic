@@ -2,6 +2,14 @@ package io.mutastic.engine;
 
 import static java.util.Objects.requireNonNull;
 
+import io.mutastic.api.CoveragePass;
+import io.mutastic.api.Listener;
+import io.mutastic.api.Mutant;
+import io.mutastic.api.MutantResult;
+import io.mutastic.api.Project;
+import io.mutastic.api.Report;
+import io.mutastic.api.Status;
+import io.mutastic.api.Suggestion;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.classfile.ClassFile;

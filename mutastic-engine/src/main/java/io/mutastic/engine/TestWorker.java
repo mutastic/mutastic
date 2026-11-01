@@ -2,6 +2,9 @@ package io.mutastic.engine;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import io.mutastic.api.Mutant;
+import io.mutastic.api.Project;
+import io.mutastic.api.Status;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;

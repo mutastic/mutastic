@@ -2,6 +2,8 @@ package io.mutastic.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.api.Comparison;
+import io.mutastic.api.Status;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;

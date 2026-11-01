@@ -1,5 +1,9 @@
 package io.mutastic.engine;
 
+import io.mutastic.api.Comparison;
+import io.mutastic.api.Project;
+import io.mutastic.api.Report;
+import io.mutastic.api.Status;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;

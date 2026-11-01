@@ -151,14 +151,16 @@ A test that catches mutants in several unrelated methods, each time with the sam
 3. **Coverage.** A test worker starts on your project's JDK and runs every test once, with each line instrumented. This records which tests reach which lines, and doubles as a check that the tests pass.
 4. **Mutants, side by side.** For each mutant, the engine sends the changed class to a worker. The worker runs only the tests that reach that line, fastest first, and stops at the first failure. Classes load once per worker and each mutant is swapped in with class redefinition, so nothing is restarted between mutants. A worker that takes too long is killed and replaced: a mutant can turn a loop into one that never ends.
 
-   Several workers run at once (`--workers`, by default half the cores, at most 4), each its own JVM, as Gradle's parallel test forks are. Results are reported in source order whatever order they finish in. Tests that use a fixed port can collide across workers, so a catch caused by a port in use is never trusted: that mutant runs again on its own once the others are done. Suites that share other fixed resources (a database, a file) should use `--workers=1`.
+   Several workers run at once (`--workers`, by default half the cores, at most 4), each its own JVM, as Gradle's parallel test forks are. Results are reported in source order whatever order they finish in. Workers side by side can get in each other's way: tests that use a fixed port collide, and tests that share a lock, a database or a slow start (a Spring context) run slower than they did alone. So neither a catch caused by a port in use nor a timeout is trusted: that mutant runs again on its own once the others are done.
 
-Code is in three modules:
+Code is in five modules:
 
 | Module | JDK | What it does |
 |---|---|---|
-| `mutastic-engine` | 25 | Finds, applies and verifies mutants; coverage; runs the worker; reports |
+| `mutastic-api` | 25 | The result model every other module shares: a project, its mutants and their results |
+| `mutastic-engine` | 25 | Finds, applies and verifies mutants; coverage; runs the worker |
 | `mutastic-worker` | 17 | Runs your tests on your JDK; a Java agent for swapping classes |
+| `mutastic-report` | 25 | The formats: for people, for agents, JSON Lines, and the report files |
 | `mutastic-cli` | 25 | The `mutastic` command and the Gradle integration |
 
 ## Building

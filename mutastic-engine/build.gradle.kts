@@ -11,6 +11,8 @@ java {
 }
 
 dependencies {
+    api(project(":mutastic-api"))
+
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj)

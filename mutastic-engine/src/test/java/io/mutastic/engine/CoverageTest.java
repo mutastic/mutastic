@@ -2,6 +2,8 @@ package io.mutastic.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.api.Mutant;
+import io.mutastic.api.Operator;
 import io.mutastic.engine.fixture.Pricing;
 import io.mutastic.engine.fixture.RecordingProbes;
 import java.lang.classfile.ClassFile;

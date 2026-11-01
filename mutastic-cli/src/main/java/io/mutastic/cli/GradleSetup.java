@@ -1,6 +1,6 @@
 package io.mutastic.cli;
 
-import io.mutastic.engine.Project;
+import io.mutastic.api.Project;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;

@@ -5,4 +5,4 @@ plugins {
 
 rootProject.name = "mutastic"
 
-include("mutastic-worker", "mutastic-engine", "mutastic-cli")
+include("mutastic-api", "mutastic-worker", "mutastic-engine", "mutastic-report", "mutastic-cli")

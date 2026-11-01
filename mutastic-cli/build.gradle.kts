@@ -11,6 +11,7 @@ java {
 
 dependencies {
     implementation(project(":mutastic-engine"))
+    implementation(project(":mutastic-report"))
     // Not called, but shipped: the engine starts it as its own process, as a Java agent.
     runtimeOnly(project(":mutastic-worker"))
 

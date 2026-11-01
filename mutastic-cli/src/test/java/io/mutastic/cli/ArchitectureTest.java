@@ -23,6 +23,20 @@ class ArchitectureTest {
           .dependOnClassesThat()
           .resideInAnyPackage("io.mutastic.engine..", "io.mutastic.report..", "io.mutastic.cli..");
 
+  /// The result model and extension points that every module shares depend on nothing of ours.
+  @ArchTest
+  static final ArchRule apiStandsAlone =
+      noClasses()
+          .that()
+          .resideInAPackage("io.mutastic.api..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage(
+              "io.mutastic.engine..",
+              "io.mutastic.report..",
+              "io.mutastic.cli..",
+              "io.mutastic.worker..");
+
   /// The engine finds and runs mutants; how they're shown is the report's.
   @ArchTest
   static final ArchRule engineKnowsNothingOfOutput =
@@ -33,15 +47,15 @@ class ArchitectureTest {
           .dependOnClassesThat()
           .resideInAnyPackage("io.mutastic.report..", "io.mutastic.cli..");
 
-  /// The report renders a run, whoever asked for it.
+  /// The report renders a run from the result model, whoever ran it and however.
   @ArchTest
-  static final ArchRule reportKnowsNothingOfTheCommandLine =
+  static final ArchRule reportKnowsOnlyTheResultModel =
       noClasses()
           .that()
           .resideInAPackage("io.mutastic.report..")
           .should()
           .dependOnClassesThat()
-          .resideInAPackage("io.mutastic.cli..");
+          .resideInAnyPackage("io.mutastic.engine..", "io.mutastic.cli..");
 
   /// A group is read by its name: `group(2)` breaks silently when the pattern gains a group.
   @ArchTest

@@ -2,6 +2,8 @@ package io.mutastic.engine;
 
 import static java.util.Objects.requireNonNull;
 
+import io.mutastic.api.Mutant;
+import io.mutastic.api.Operator;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.lang.classfile.ClassTransform;
@@ -115,7 +117,7 @@ final class Mutations {
       if (isSite(instruction) || instruction instanceof InvokeInstruction) {
         boolean call = instruction instanceof InvokeInstruction;
         for (Operator operator : Operator.values()) {
-          if (operator.onCalls() == call && operator.applies(instruction)) {
+          if (operator.onCalls() == call && Operators.applies(operator, instruction)) {
             mutants.add(mutant(operator, instruction, call, workedOn));
           }
         }
@@ -142,7 +144,7 @@ final class Mutations {
           line,
           operator,
           describe(instruction),
-          operator.replacement(instruction),
+          Operators.replacement(operator, instruction),
           skipped,
           List.of(),
           workedOn);
@@ -348,9 +350,10 @@ final class Mutations {
   private static void emit(CodeBuilder builder, Instruction instruction, Operator operator) {
     switch (instruction) {
       case BranchInstruction branch ->
-          builder.with(BranchInstruction.of(operator.replace(branch.opcode()), branch.target()));
+          builder.with(
+              BranchInstruction.of(Operators.replace(operator, branch.opcode()), branch.target()));
       case OperatorInstruction arithmetic ->
-          builder.with(OperatorInstruction.of(operator.replace(arithmetic.opcode())));
+          builder.with(OperatorInstruction.of(Operators.replace(operator, arithmetic.opcode())));
       case ReturnInstruction returning -> returnDefault(builder, returning.typeKind());
       case InvokeInstruction call -> removeCall(builder, call);
       default -> throw new IllegalStateException("not a mutation site: " + instruction);

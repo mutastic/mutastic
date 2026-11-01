@@ -1,9 +1,9 @@
 package io.mutastic.cli;
 
-import io.mutastic.engine.CoveragePass;
-import io.mutastic.engine.Listener;
-import io.mutastic.engine.MutantResult;
-import io.mutastic.engine.Status;
+import io.mutastic.api.CoveragePass;
+import io.mutastic.api.Listener;
+import io.mutastic.api.MutantResult;
+import io.mutastic.api.Status;
 import java.io.PrintStream;
 import java.time.Duration;
 import java.util.EnumMap;

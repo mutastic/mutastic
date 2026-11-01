@@ -1,14 +1,14 @@
 package io.mutastic.cli;
 
-import io.mutastic.engine.Comparison;
-import io.mutastic.engine.CoveragePass;
+import io.mutastic.api.Comparison;
+import io.mutastic.api.CoveragePass;
+import io.mutastic.api.Listener;
+import io.mutastic.api.MutantResult;
+import io.mutastic.api.Project;
+import io.mutastic.api.Report;
+import io.mutastic.api.Status;
 import io.mutastic.engine.Engine;
-import io.mutastic.engine.Listener;
-import io.mutastic.engine.MutantResult;
-import io.mutastic.engine.Project;
-import io.mutastic.engine.Report;
 import io.mutastic.engine.RunRecord;
-import io.mutastic.engine.Status;
 import io.mutastic.report.AgentText;
 import io.mutastic.report.HumanText;
 import io.mutastic.report.JsonEvents;
