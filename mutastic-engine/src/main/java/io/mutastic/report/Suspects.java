@@ -4,11 +4,14 @@ import io.mutastic.engine.Comparison;
 import io.mutastic.engine.MutantResult;
 import io.mutastic.engine.Report;
 import io.mutastic.engine.Status;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SortedSet;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 /// Tests whose catches can't be trusted, and why. Three signals, strongest first:
 ///
@@ -49,7 +52,7 @@ final class Suspects {
                     .ifPresent(
                         test ->
                             byTest
-                                .computeIfAbsent(test, ignored -> new java.util.ArrayList<>())
+                                .computeIfAbsent(test, ignored -> new ArrayList<>())
                                 .add(result.mutant().id())));
     return byTest.entrySet().stream()
         .map(entry -> new Suspect(entry.getKey(), entry.getValue()))
@@ -72,8 +75,7 @@ final class Suspects {
         .forEach(
             result ->
                 byTest
-                    .computeIfAbsent(
-                        result.caughtBy().orElseThrow(), ignored -> new java.util.ArrayList<>())
+                    .computeIfAbsent(result.caughtBy().orElseThrow(), ignored -> new ArrayList<>())
                     .add(result));
     return byTest.entrySet().stream()
         .flatMap(
@@ -103,28 +105,30 @@ final class Suspects {
   /// One entry per likely flaky test, with every mutant it changed and which signals named it:
   /// `changed-since-last-run`, `catch-not-repeated`.
   static List<Map<String, Object>> json(Optional<Comparison> comparison, Report report) {
-    var byTest = new LinkedHashMap<String, Map<String, Object>>();
+    var byTest = new LinkedHashMap<String, Accused>();
     add(byTest, changedBetweenRuns(comparison), "changed-since-last-run");
     add(byTest, unconfirmed(report), "catch-not-repeated");
-    return List.copyOf(byTest.values());
+    return byTest.values().stream().map(Accused::json).toList();
   }
 
-  @SuppressWarnings("unchecked")
-  private static void add(
-      Map<String, Map<String, Object>> byTest, List<Suspect> suspects, String reason) {
+  /// A test some signal named: the mutants it changed and the signals that named it.
+  private record Accused(String test, SortedSet<String> mutants, List<String> reasons) {
+    Map<String, Object> json() {
+      var entry = new LinkedHashMap<String, Object>();
+      entry.put("test", test);
+      entry.put("mutants", mutants);
+      entry.put("reasons", reasons);
+      return entry;
+    }
+  }
+
+  private static void add(Map<String, Accused> byTest, List<Suspect> suspects, String reason) {
     for (var suspect : suspects) {
-      var entry =
+      var accused =
           byTest.computeIfAbsent(
-              suspect.test(),
-              test -> {
-                var fresh = new LinkedHashMap<String, Object>();
-                fresh.put("test", test);
-                fresh.put("mutants", new java.util.TreeSet<String>());
-                fresh.put("reasons", new java.util.ArrayList<String>());
-                return fresh;
-              });
-      ((java.util.TreeSet<String>) entry.get("mutants")).addAll(suspect.mutants());
-      ((List<String>) entry.get("reasons")).add(reason);
+              suspect.test(), test -> new Accused(test, new TreeSet<>(), new ArrayList<>()));
+      accused.mutants().addAll(suspect.mutants());
+      accused.reasons().add(reason);
     }
   }
 }

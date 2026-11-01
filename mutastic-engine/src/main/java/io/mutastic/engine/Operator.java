@@ -24,6 +24,7 @@ import static java.lang.classfile.Opcode.LADD;
 import static java.lang.classfile.Opcode.LDIV;
 import static java.lang.classfile.Opcode.LMUL;
 import static java.lang.classfile.Opcode.LSUB;
+import static java.util.Objects.requireNonNull;
 
 import java.lang.classfile.Instruction;
 import java.lang.classfile.Opcode;
@@ -125,7 +126,8 @@ public enum Operator {
     };
   }
 
+  /// What the opcode becomes; only for an instruction [#applies(Instruction)] accepts.
   Opcode replace(Opcode opcode) {
-    return replacements.get(opcode);
+    return requireNonNull(replacements.get(opcode), () -> name() + " doesn't apply to " + opcode);
   }
 }

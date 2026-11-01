@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /// A mutant as the user wrote it: its source file and line, and the line as the mutant has it.
 public final class SourceView {
@@ -189,7 +190,7 @@ public final class SourceView {
     }
     var token = token(mutant);
     if (token.isPresent()) {
-      Place found = null;
+      @Nullable Place found = null;
       int count = 0;
       for (int number = first; number <= last; number++) {
         var text = all.get(number - 1);
@@ -205,7 +206,7 @@ public final class SourceView {
               };
         }
       }
-      if (count == 1) {
+      if (count == 1 && found != null) {
         return found;
       }
     }

@@ -1,5 +1,7 @@
 package io.mutastic.report;
 
+import static java.util.Objects.requireNonNull;
+
 import io.mutastic.engine.Mutant;
 import io.mutastic.engine.MutantResult;
 import java.lang.constant.MethodTypeDesc;
@@ -128,8 +130,8 @@ public record Advice(
             "assert the result on both sides of " + condition);
       }
       case MATH -> {
-        var before = ARITHMETIC.get(mutant.original().substring(1));
-        var after = ARITHMETIC.get(mutant.replacement().substring(1));
+        var before = arithmetic(mutant.original());
+        var after = arithmetic(mutant.replacement());
         boolean known = operands.size() == 2;
         var original =
             known
@@ -236,6 +238,11 @@ public record Advice(
 
   private static String join(List<Long> values) {
     return values.stream().map(String::valueOf).collect(Collectors.joining(", "));
+  }
+
+  /// `+` for `IADD` or `LADD`: the math operator only changes these.
+  private static String arithmetic(String opcode) {
+    return requireNonNull(ARITHMETIC.get(opcode.substring(1)), opcode);
   }
 
   private static String capitalised(String text) {

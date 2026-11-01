@@ -1,5 +1,7 @@
 package io.mutastic.engine;
 
+import static java.util.Objects.requireNonNull;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.classfile.ClassFile;
@@ -230,7 +232,7 @@ public final class Engine {
       var file = fileOf.get(at);
       if (remaining.merge(file, -1, Integer::sum) == 0) {
         listener.fileFinished(
-            file, members.get(file).stream().map(index -> results[index]).toList());
+            file, requireNonNull(members.get(file)).stream().map(index -> results[index]).toList());
       }
     }
   }
@@ -324,6 +326,11 @@ public final class Engine {
 
     record Outcome(MutantResult result, boolean portClash) {}
 
+    /// The class a mutant was found in: every mutant comes from one of these models.
+    private ClassModel model(Mutant mutant) {
+      return requireNonNull(models.get(mutant.binaryName()), mutant.binaryName());
+    }
+
     Outcome run(Mutant mutant, TestWorker worker) {
       if (mutant.skipped().isPresent()) {
         return new Outcome(MutantResult.skipped(mutant), false);
@@ -334,7 +341,7 @@ public final class Engine {
       }
       byte[] bytes;
       synchronized (mutations) {
-        bytes = mutations.apply(models.get(mutant.binaryName()), mutant);
+        bytes = mutations.apply(model(mutant), mutant);
         var errors = mutations.verify(bytes);
         if (!errors.isEmpty()) {
           // A mutant that won't load proves nothing, and counting it as caught would flatter the
@@ -400,7 +407,7 @@ public final class Engine {
       int hash = fastestTest.indexOf('#');
       var testClass = hash < 0 ? fastestTest : fastestTest.substring(0, hash);
       synchronized (mutations) {
-        return Access.receiver(models.get(mutant.binaryName()), mutant, testClass);
+        return Access.receiver(model(mutant), mutant, testClass);
       }
     }
 
@@ -424,7 +431,7 @@ public final class Engine {
       }
       List<Long> constants;
       synchronized (mutations) {
-        constants = mutations.constantsNear(models.get(mutant.binaryName()), mutant);
+        constants = mutations.constantsNear(model(mutant), mutant);
       }
       var values = new java.util.LinkedHashSet<Long>();
       constants.forEach(constant -> values.addAll(List.of(constant, constant - 1, constant + 1)));

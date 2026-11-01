@@ -21,6 +21,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.jspecify.annotations.Nullable;
 
 /// A worker process on the project's own JDK, which runs the project's tests (the protocol is
 /// documented on `io.mutastic.worker.Worker`). One worker serves every mutant. A worker that
@@ -33,10 +34,10 @@ final class TestWorker implements AutoCloseable {
   private final Project project;
   private final Path workerJar;
   private final Path log;
-  private Process process;
-  private Thread shutdownHook;
-  private PrintStream commands;
-  private BlockingQueue<String> answers;
+
+  /// The worker process while one is running: none before the first command, or after a kill.
+  private @Nullable Running running;
+
   private int jdk;
   private int workersStarted;
 
@@ -195,13 +196,20 @@ final class TestWorker implements AutoCloseable {
     return jdk;
   }
 
+  /// A running worker: its process, what's sent to it, what it has said, and the hook that ends it
+  /// if the engine exits first. A queue per process, so nothing a killed worker was still saying
+  /// reaches the next one.
+  private record Running(
+      Process process, PrintStream commands, BlockingQueue<String> answers, Thread shutdownHook) {}
+
   @Override
   public void close() {
-    if (process != null) {
-      commands.println("EXIT");
-      commands.flush();
-      process.destroy();
-      forget();
+    var current = running;
+    if (current != null) {
+      current.commands().println("EXIT");
+      current.commands().flush();
+      current.process().destroy();
+      forget(current);
     }
   }
 
@@ -210,14 +218,19 @@ final class TestWorker implements AutoCloseable {
   }
 
   private void send(String command) {
-    ensureStarted();
+    var commands = running().commands();
     commands.println(command);
     commands.flush();
   }
 
+  /// The running worker's next answer, or empty if it gave none in time (or none is running).
   private Optional<String> await(Duration timeout) {
+    var current = running;
+    if (current == null) {
+      return Optional.empty();
+    }
     try {
-      return Optional.ofNullable(answers.poll(timeout.toNanos(), TimeUnit.NANOSECONDS));
+      return Optional.ofNullable(current.answers().poll(timeout.toNanos(), TimeUnit.NANOSECONDS));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       return Optional.empty();
@@ -225,23 +238,29 @@ final class TestWorker implements AutoCloseable {
   }
 
   private void kill() {
-    process.destroyForcibly();
-    forget();
+    var current = running;
+    if (current != null) {
+      current.process().destroyForcibly();
+      forget(current);
+    }
   }
 
-  private void forget() {
+  private void forget(Running current) {
     try {
-      Runtime.getRuntime().removeShutdownHook(shutdownHook);
+      Runtime.getRuntime().removeShutdownHook(current.shutdownHook());
     } catch (IllegalStateException e) {
       // already shutting down: the hook is running
     }
-    process = null;
+    running = null;
   }
 
-  private void ensureStarted() {
-    if (process != null) {
-      return;
-    }
+  /// The running worker, started if none is.
+  private Running running() {
+    var current = running;
+    return current != null ? current : start();
+  }
+
+  private Running start() {
     var command = new ArrayList<String>();
     command.add(project.java().toString());
     command.addAll(project.jvmArgs());
@@ -257,6 +276,7 @@ final class TestWorker implements AutoCloseable {
                 + join(
                     Stream.concat(
                         project.testClasses().stream(), project.testResources().stream()))));
+    Process process;
     try {
       process =
           new ProcessBuilder(command)
@@ -266,14 +286,14 @@ final class TestWorker implements AutoCloseable {
     } catch (IOException e) {
       throw new UncheckedIOException("couldn't start " + project.java(), e);
     }
-    commands = new PrintStream(process.getOutputStream(), false, UTF_8);
     // However the engine exits, its workers go too.
-    var started = process;
-    shutdownHook = new Thread(started::destroyForcibly);
+    var shutdownHook = new Thread(process::destroyForcibly);
     Runtime.getRuntime().addShutdownHook(shutdownHook);
-    // A queue per process, so nothing a killed worker was still saying reaches the next one.
     var queue = new LinkedBlockingQueue<String>();
-    answers = queue;
+    var started =
+        new Running(
+            process, new PrintStream(process.getOutputStream(), false, UTF_8), queue, shutdownHook);
+    running = started;
     var reader = new BufferedReader(new InputStreamReader(process.getInputStream(), UTF_8));
     Thread.ofVirtual()
         .start(
@@ -295,6 +315,7 @@ final class TestWorker implements AutoCloseable {
                         "the test worker didn't start; its output is in " + log));
     jdk = Integer.parseInt(ready.substring("READY\t".length()));
     workersStarted++;
+    return started;
   }
 
   private static String join(Stream<Path> paths) {

@@ -242,8 +242,9 @@ public final class HumanText {
       inFile.forEach(result -> firstSeen.putIfAbsent(methodKey(result), firstSeen.size()));
       inFile.stream()
           .sorted(
-              Comparator.comparingLong((MutantResult result) -> -perMethod.get(methodKey(result)))
-                  .thenComparingInt(result -> firstSeen.get(methodKey(result))))
+              Comparator.comparingLong(
+                      (MutantResult result) -> -perMethod.getOrDefault(methodKey(result), 0L))
+                  .thenComparingInt(result -> firstSeen.getOrDefault(methodKey(result), 0)))
           .forEach(ordered::add);
     }
     return ordered;

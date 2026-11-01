@@ -3,6 +3,7 @@ package io.mutastic.report;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /// Just enough JSON for the event stream: maps, lists, strings, numbers, booleans. Keys keep the
 /// map's order, so events read the same every run.
@@ -15,7 +16,7 @@ final class Json {
     return out.toString();
   }
 
-  private static void write(Object value, StringBuilder out) {
+  private static void write(@Nullable Object value, StringBuilder out) {
     switch (value) {
       case null -> out.append("null");
       case Optional<?> optional -> write(optional.orElse(null), out);

@@ -8,6 +8,8 @@ import java.time.Duration;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /// What's happening, on stderr, so stdout stays the result. On a terminal one line is rewritten in
 /// place; elsewhere (CI logs, pipes) a counter line is appended every [#EVERY], never an animation.
@@ -23,8 +25,8 @@ final class Progress implements Listener {
   private final PrintStream err;
   private final Mode mode;
 
-  /// Prints each source file's line as it finishes, for people; null for agents and JSONL.
-  private java.util.function.Function<List<MutantResult>, String> fileLines;
+  /// Prints each source file's line as it finishes, for people; none for agents and JSONL.
+  private @Nullable Function<List<MutantResult>, String> fileLines;
 
   private final Map<Status, Integer> counts = new EnumMap<>(Status.class);
   private final long start = System.nanoTime();
@@ -38,7 +40,7 @@ final class Progress implements Listener {
   }
 
   /// From now on, each source file's line as it finishes: once the sources are known.
-  void showFiles(java.util.function.Function<List<MutantResult>, String> lines) {
+  void showFiles(Function<List<MutantResult>, String> lines) {
     this.fileLines = lines;
   }
 

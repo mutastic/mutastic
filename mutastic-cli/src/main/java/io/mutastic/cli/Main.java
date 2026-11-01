@@ -1,5 +1,7 @@
 package io.mutastic.cli;
 
+import static java.util.Objects.requireNonNull;
+
 import io.mutastic.engine.Comparison;
 import io.mutastic.engine.Engine;
 import io.mutastic.engine.Listener;
@@ -21,6 +23,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /// `mutastic`: mutation testing for a Gradle project.
 ///
@@ -139,7 +142,7 @@ public final class Main {
                     : "isn't reached by any test");
         return result.status().detected() ? PASSED : FAILED;
       }
-      JsonEvents events =
+      @Nullable JsonEvents events =
           format.equals("jsonl") ? new JsonEvents(out, sources, command.threshold()) : null;
       Listener listener = progress;
       if (events != null) {
@@ -189,7 +192,9 @@ public final class Main {
         }
       }
       switch (format) {
-        case "jsonl" -> events.runFinished(report, comparison, written, command.only().isPresent());
+        case "jsonl" ->
+            requireNonNull(events)
+                .runFinished(report, comparison, written, command.only().isPresent());
         case "agent" ->
             out.print(
                 new AgentText(sources, command.threshold(), words)

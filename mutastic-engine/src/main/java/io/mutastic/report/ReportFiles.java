@@ -11,6 +11,7 @@ import java.lang.constant.MethodTypeDesc;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,33 +56,33 @@ public final class ReportFiles {
     }
   }
 
+  /// A source file's entry: its text and the mutants in it.
+  private record SourceFile(String source, List<Map<String, Object>> mutants) {
+    Map<String, Object> json() {
+      var entry = new LinkedHashMap<String, Object>();
+      entry.put("language", "java");
+      entry.put("source", source);
+      entry.put("mutants", mutants);
+      return entry;
+    }
+  }
+
   /// The report-schema document. Statuses are the schema's (`Killed`, `Survived`, …); locations are
   /// 1-based with an exclusive end.
   Map<String, Object> json(Report report) {
-    var files = new TreeMap<String, Map<String, Object>>();
+    var files = new TreeMap<String, SourceFile>();
     var tests = new TreeMap<String, List<String>>(); // test class → test ids
     for (MutantResult result : report.results()) {
       var mutant = result.mutant();
       var file =
           files.computeIfAbsent(
               sources.file(mutant),
-              path -> {
-                var entry = new LinkedHashMap<String, Object>();
-                entry.put("language", "java");
-                entry.put("source", sources.text(mutant).orElse(""));
-                entry.put("mutants", new java.util.ArrayList<Map<String, Object>>());
-                return entry;
-              });
-      @SuppressWarnings("unchecked")
-      var mutants = (List<Map<String, Object>>) file.get("mutants");
-      mutants.add(mutant(result));
+              path -> new SourceFile(sources.text(mutant).orElse(""), new ArrayList<>()));
+      file.mutants().add(mutant(result));
       result
           .coveredBy()
           .forEach(
-              test ->
-                  tests
-                      .computeIfAbsent(testClass(test), name -> new java.util.ArrayList<>())
-                      .add(test));
+              test -> tests.computeIfAbsent(testClass(test), name -> new ArrayList<>()).add(test));
     }
     var testFiles = new TreeMap<String, Map<String, Object>>();
     tests.forEach(
@@ -105,7 +106,9 @@ public final class ReportFiles {
     // One threshold in mutastic: at or above it is good; the warning band is the 20 points below.
     document.put("thresholds", Map.of("high", threshold, "low", Math.max(0, threshold - 20)));
     document.put("projectRoot", root.toAbsolutePath().normalize().toString());
-    document.put("files", files);
+    var fileEntries = new TreeMap<String, Map<String, Object>>();
+    files.forEach((path, file) -> fileEntries.put(path, file.json()));
+    document.put("files", fileEntries);
     document.put("testFiles", testFiles);
     document.put("framework", Map.of("name", "mutastic", "version", version));
     var performance = new LinkedHashMap<String, Object>();

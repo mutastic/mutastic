@@ -14,6 +14,7 @@ import java.lang.classfile.instruction.OperatorInstruction;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /// What a comparison or calculation works on, as the source names it: `total` and `100` in `total
 /// >= 100`, `element.length()` and `2` in `element.length() < 2`, read back from the instructions
@@ -84,22 +85,23 @@ final class Operands {
         };
     var names = new ArrayList<String>();
     int end = before.size();
-    Operand operand = null;
+    boolean predicate = false;
     for (int i = 0; i < wanted; i++) {
-      operand = endingAt(before, end);
+      var operand = endingAt(before, end);
       if (operand == null || (operand.start() < 0 && i < wanted - 1)) {
         return List.of();
       }
       names.addFirst(operand.text());
       end = operand.start();
+      predicate = operand.predicate();
     }
-    if (wanted == 1 && !operand.predicate()) {
+    if (wanted == 1 && !predicate) {
       names.add("0");
     }
     return names;
   }
 
-  private Operand endingAt(List<Instruction> before, int end) {
+  private @Nullable Operand endingAt(List<Instruction> before, int end) {
     if (end <= 0) {
       return null;
     }

@@ -54,9 +54,14 @@ subprojects {
                 "RedundantOverride",
                 "UnnecessaryStaticImport",
             )
-            error("NullAway")
-            option("NullAway:OnlyNullMarked", "true")
-            option("NullAway:JSpecifyMode", "true")
+            // Production code only: in a test, a null where a value belongs fails the test anyway.
+            if (name.contains("Test")) {
+                disable("NullAway")
+            } else {
+                error("NullAway")
+                option("NullAway:OnlyNullMarked", "true")
+                option("NullAway:JSpecifyMode", "true")
+            }
         }
     }
 

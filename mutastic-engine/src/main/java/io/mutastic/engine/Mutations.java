@@ -1,5 +1,7 @@
 package io.mutastic.engine;
 
+import static java.util.Objects.requireNonNull;
+
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.lang.classfile.ClassTransform;
@@ -27,6 +29,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /// Finds the mutants in a class and applies one at a time, with only `java.lang.classfile`.
 final class Mutations {
@@ -345,8 +348,10 @@ final class Mutations {
     var merged = new ArrayList<Mutant>();
     for (Mutant mutant : found) {
       var group =
-          groups.get(
-              List.of(mutant.line(), mutant.operator(), mutant.original(), mutant.replacement()));
+          requireNonNull(
+              groups.get(
+                  List.of(
+                      mutant.line(), mutant.operator(), mutant.original(), mutant.replacement())));
       var starts = mutant.operator().onCalls() ? callStarts : siteStarts;
       boolean straddles =
           group.size() > 1
@@ -381,7 +386,7 @@ final class Mutations {
   private static Optional<String> skipReason(
       Operator operator,
       Instruction instruction,
-      Instruction previous,
+      @Nullable Instruction previous,
       int line,
       Set<Integer> stringSwitchLines) {
     if (operator == Operator.RETURN_DEFAULT
@@ -426,7 +431,7 @@ final class Mutations {
         || instruction.opcode() == Opcode.TABLESWITCH;
   }
 
-  private static boolean isCall(Instruction instruction, String owner, String name) {
+  private static boolean isCall(@Nullable Instruction instruction, String owner, String name) {
     return instruction instanceof InvokeInstruction call
         && call.owner().asInternalName().equals(owner)
         && call.name().equalsString(name);
