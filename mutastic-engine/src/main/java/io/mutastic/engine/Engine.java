@@ -75,9 +75,8 @@ public final class Engine {
 
     try (var worker = new TestWorker(project, workerJar, log)) {
       var baseline = worker.cover(instrumented, testClassesIn(project.testClasses()), coverage);
-      if (!baseline.passed()) {
-        throw new BaselineFailed(baseline.failing(), log);
-      }
+      var flaky = baseline.passed() ? List.<String>of() : flakyOrFail(baseline.failing(), coverage, worker);
+      coverage.exclude(flaky);
       if (coverage.testCount() == 0) {
         throw new IllegalStateException("no tests ran in " + project.name() + "; mutastic runs JUnit Platform tests");
       }
@@ -87,8 +86,32 @@ public final class Engine {
         results.add(result);
         finished.accept(result);
       }
-      return new Report(project.name(), worker.jdk(), results, coverage.testCount(), Duration.ofNanos(System.nanoTime() - start));
+      return new Report(project.name(), worker.jdk(), results, coverage.testCount(), flaky,
+          Duration.ofNanos(System.nanoTime() - start));
     }
+  }
+
+  /// The tests that failed in the coverage pass, if every one passes when run again on its own:
+  /// they're flaky, and the run goes on without them. A test that fails twice means the tests
+  /// are red, and nothing a mutant does can be judged against them.
+  ///
+  /// A flaky test left in would fail at random against mutants too, and its failures would
+  /// count as catches it never made.
+  private List<String> flakyOrFail(List<String> failing, Coverage coverage, TestWorker worker) {
+    // A test class that failed as a whole (a `@BeforeAll`) is reported by its unique id, which
+    // can't be run again on its own.
+    boolean rerunnable = failing.stream().allMatch(test -> test.contains("#"));
+    var stillFailing = rerunnable
+        ? failing.stream().filter(test -> !worker.passes(test, timeoutFor(coverage.timeOf(test)))).toList()
+        : failing;
+    if (!stillFailing.isEmpty()) {
+      throw new BaselineFailed(stillFailing, log);
+    }
+    return failing;
+  }
+
+  private static Duration timeoutFor(Duration normal) {
+    return Duration.ofNanos((long) (normal.toNanos() * TIMEOUT_FACTOR)).plus(TIMEOUT_ALLOWANCE);
   }
 
   private static MutantResult run(Mutant mutant, ClassModel model, Mutations mutations, Coverage coverage, TestWorker worker) {
@@ -106,8 +129,7 @@ public final class Engine {
       // score: this is mutastic's bug, not the user's.
       throw new IllegalStateException("mutant " + mutant.id() + " doesn't verify: " + errors.getFirst().getMessage());
     }
-    var normal = coverage.timeOf(covering);
-    var timeout = Duration.ofNanos((long) (normal.toNanos() * TIMEOUT_FACTOR)).plus(TIMEOUT_ALLOWANCE);
+    var timeout = timeoutFor(coverage.timeOf(covering));
     long start = System.nanoTime();
     var run = worker.run(mutant.binaryName(), bytes, covering, timeout);
     return new MutantResult(mutant, run.status(), covering, run.failedTest(), run.failure(), run.testsRun(),

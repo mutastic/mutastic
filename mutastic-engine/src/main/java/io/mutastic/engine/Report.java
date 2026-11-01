@@ -6,10 +6,13 @@ import java.util.List;
 /// A finished run: every mutant's result, in the order they were found.
 ///
 /// @param jdk the feature version the tests ran on
-public record Report(String project, int jdk, List<MutantResult> results, int tests, Duration took) {
+/// @param flaky tests that failed in the coverage pass and passed when run again: left out of
+///     every mutant's run, so their catches don't count
+public record Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration took) {
 
   public Report {
     results = List.copyOf(results);
+    flaky = List.copyOf(flaky);
   }
 
   public long count(Status status) {

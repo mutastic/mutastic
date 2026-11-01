@@ -77,6 +77,7 @@ public final class JsonEvents {
     fields.put("threshold", threshold);
     fields.put("passed", report.score() >= threshold);
     fields.put("tests", report.tests());
+    fields.put("flaky", report.flaky());
     fields.put("durationMs", report.took().toMillis());
     emit("run-finished", fields);
   }

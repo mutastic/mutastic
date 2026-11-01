@@ -33,6 +33,12 @@ public final class AgentText {
         .formatted(report.score() >= threshold ? "PASS" : "FAIL", report.score(), threshold, missed.size(),
             notCovered.size(), report.count(Status.CAUGHT) + report.count(Status.TIMED_OUT), report.scored(),
             skipped == 0 ? "" : " (%d more skipped)".formatted(skipped)));
+    if (!report.flaky().isEmpty()) {
+      out.append("flaky: %s failed, then passed when run again; left out of this run, so %s catches don't count. "
+          .formatted(String.join(", ", shortNames(report.flaky())), report.flaky().size() == 1 ? "its" : "their")
+          + "Fix %s first: %s on something that changes from run to run%n".formatted(
+              report.flaky().size() == 1 ? "it" : "them", report.flaky().size() == 1 ? "it depends" : "they depend"));
+    }
     if (missed.isEmpty() && notCovered.isEmpty()) {
       return out.toString();
     }
@@ -46,7 +52,9 @@ public final class AgentText {
       out.append("%n%d more missed mutants: run again after fixing these%n".formatted(missed.size() - LIMIT));
     }
     if (!notCovered.isEmpty()) {
-      out.append("%nnot covered (no test reaches these lines; fix the missed mutants first):%n".formatted());
+      out.append("%nnot covered (no test reaches these lines%s%s):%n".formatted(
+          report.flaky().isEmpty() ? "" : ", or only a flaky one does",
+          missed.isEmpty() ? "" : "; fix the missed mutants first"));
       var byLine = new LinkedHashMap<String, Long>();
       notCovered.forEach(result -> byLine.merge("%s:%d %s()".formatted(sources.file(result.mutant()),
           result.mutant().line(), result.mutant().methodName()), 1L, Long::sum));
@@ -76,6 +84,10 @@ public final class AgentText {
     int hash = test.indexOf('#');
     var className = hash < 0 ? test : test.substring(0, hash);
     return className.substring(className.lastIndexOf('.') + 1) + (hash < 0 ? "" : test.substring(hash));
+  }
+
+  static List<String> shortNames(List<String> tests) {
+    return tests.stream().map(AgentText::shortName).toList();
   }
 
   /// The fastest few, which are the ones to read first, and how many more there are.

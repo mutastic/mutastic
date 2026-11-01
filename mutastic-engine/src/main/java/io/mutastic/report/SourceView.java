@@ -67,8 +67,18 @@ public final class SourceView {
   }
 
   private String relative(Path file) {
-    var absolute = file.toAbsolutePath().normalize();
-    var base = root.toAbsolutePath().normalize();
+    var absolute = real(file);
+    var base = real(root);
     return absolute.startsWith(base) ? base.relativize(absolute).toString() : absolute.toString();
+  }
+
+  /// Links resolved: the build may name a directory through one (macOS's `/var` is
+  /// `/private/var`) and the user through the other.
+  private static Path real(Path path) {
+    try {
+      return path.toRealPath();
+    } catch (IOException e) {
+      return path.toAbsolutePath().normalize();
+    }
   }
 }

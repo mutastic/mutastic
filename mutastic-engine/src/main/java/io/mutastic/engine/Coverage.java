@@ -54,6 +54,18 @@ final class Coverage {
     linesByTest.computeIfAbsent(test, ignored -> new HashSet<>()).addAll(lines);
   }
 
+  /// Leaves `tests` out: no mutant runs them.
+  void exclude(List<String> tests) {
+    tests.forEach(test -> {
+      durations.remove(test);
+      linesByTest.remove(test);
+    });
+  }
+
+  Duration timeOf(String test) {
+    return durations.getOrDefault(test, Duration.ZERO);
+  }
+
   int testCount() {
     return durations.size();
   }

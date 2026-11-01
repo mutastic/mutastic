@@ -90,6 +90,17 @@ final class TestWorker implements AutoCloseable {
     };
   }
 
+  /// Whether `test` passes on its own with no mutant in, within `timeout`.
+  boolean passes(String test, Duration timeout) {
+    send("RUN\t" + test);
+    var answer = await(timeout);
+    if (answer.isEmpty()) {
+      kill();
+      return false;
+    }
+    return answer.get().startsWith("RESULT\tPASSED");
+  }
+
   /// The JDK feature version the tests run on, once a worker has started.
   int jdk() {
     return jdk;
