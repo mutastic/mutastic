@@ -24,7 +24,7 @@ class BaselineTest {
     assertThat(run.exit()).as(run.err()).isEqualTo(Main.FAILED);
     assertThat(run.out()).contains("flaky: StockTest#aSaleReducesStock failed, then passed when run again");
     // Only the flaky test reaches afterSale(): without it, nothing does, and nothing is caught by it.
-    assertThat(run.out()).contains("not covered (no test reaches these lines, or only a flaky one does):",
+    assertThat(run.out()).contains("not covered (no test reaches these lines, or only a flaky one does;",
         "- src/main/java/com/example/stock/Stock.java:10 afterSale() (2 mutants)");
   }
 

@@ -9,4 +9,8 @@ public class Stock {
   public int afterSale(int onHand, int sold) {
     return onHand - sold;
   }
+
+  public int restock(int onHand, int delivered) {
+    return onHand + delivered;
+  }
 }

@@ -24,4 +24,16 @@ class StockTest {
     }
     assertEquals(7, new Stock().afterSale(10, 3));
   }
+
+  // Weak and flaky on purpose: checks nothing about the result, and fails every second time it
+  // runs in a JVM, like a test that races a background thread. Any catch it makes is luck.
+  @Test
+  void restockingWorks() {
+    int runs = Integer.getInteger("stock.restock.runs", 0) + 1;
+    System.setProperty("stock.restock.runs", String.valueOf(runs));
+    if (runs % 2 == 0) {
+      throw new IllegalStateException("lost the race");
+    }
+    new Stock().restock(10, 5);
+  }
 }

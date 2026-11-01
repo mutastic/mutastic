@@ -72,7 +72,8 @@ final class TestWorker implements AutoCloseable {
   }
 
   /// The outcome of `tests`, run in order until one fails, with `bytes` in place of `className`.
-  record Run(Status status, Optional<String> failedTest, Optional<String> failure, int testsRun) {}
+  /// @param origin where the failure came from: `assertion`, `test` or `code`
+  record Run(Status status, Optional<String> failedTest, Optional<String> failure, Optional<String> origin, int testsRun) {}
 
   Run run(String className, byte[] bytes, List<String> tests, Duration timeout) {
     stage(className, bytes);
@@ -80,12 +81,13 @@ final class TestWorker implements AutoCloseable {
     var answer = await(timeout);
     if (answer.isEmpty()) {
       kill();
-      return new Run(Status.TIMED_OUT, Optional.empty(), Optional.empty(), tests.size());
+      return new Run(Status.TIMED_OUT, Optional.empty(), Optional.empty(), Optional.empty(), tests.size());
     }
     var parts = answer.get().split("\t");
     return switch (parts[1]) {
-      case "PASSED" -> new Run(Status.MISSED, Optional.empty(), Optional.empty(), Integer.parseInt(parts[2]));
-      case "FAILED" -> new Run(Status.CAUGHT, Optional.of(parts[3]), Optional.of(parts[4]), Integer.parseInt(parts[2]));
+      case "PASSED" -> new Run(Status.MISSED, Optional.empty(), Optional.empty(), Optional.empty(), Integer.parseInt(parts[2]));
+      case "FAILED" -> new Run(Status.CAUGHT, Optional.of(parts[3]), Optional.of(parts[4]), Optional.of(parts[5]),
+          Integer.parseInt(parts[2]));
       default -> throw new IllegalStateException("the worker said: " + answer.get());
     };
   }

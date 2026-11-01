@@ -47,9 +47,17 @@ public final class Engine {
     }
   }
 
-  /// Runs every mutant, or only the one with id `only`. Each result goes to `finished` as soon
-  /// as it's known.
-  public Report run(Project project, Optional<String> only, Consumer<MutantResult> finished) {
+  /// @param only run just the mutant with this id
+  /// @param confirmCatches run a catching test once more against its mutant: a catch that
+  ///     doesn't repeat came from a flaky test, and the mutant's other covering tests decide.
+  ///     One more test run per catch.
+  public record Options(Optional<String> only, boolean confirmCatches) {
+    public static final Options DEFAULT = new Options(Optional.empty(), false);
+  }
+
+  /// Runs the mutants. Each result goes to `finished` as soon as it's known.
+  public Report run(Project project, Options options, Consumer<MutantResult> finished) {
+    var only = options.only();
     long start = System.nanoTime();
     var context = ClassFiles.resolvingFrom(Stream.of(project.classes(), project.testClasses(), project.dependencies())
         .flatMap(List::stream).toList());
@@ -82,7 +90,7 @@ public final class Engine {
       }
       var results = new ArrayList<MutantResult>();
       for (Mutant mutant : mutants) {
-        var result = run(mutant, models.get(mutant.binaryName()), mutations, coverage, worker);
+        var result = run(mutant, models.get(mutant.binaryName()), mutations, coverage, worker, options.confirmCatches());
         results.add(result);
         finished.accept(result);
       }
@@ -114,7 +122,8 @@ public final class Engine {
     return Duration.ofNanos((long) (normal.toNanos() * TIMEOUT_FACTOR)).plus(TIMEOUT_ALLOWANCE);
   }
 
-  private static MutantResult run(Mutant mutant, ClassModel model, Mutations mutations, Coverage coverage, TestWorker worker) {
+  private static MutantResult run(Mutant mutant, ClassModel model, Mutations mutations, Coverage coverage, TestWorker worker,
+      boolean confirmCatches) {
     if (mutant.skipped().isPresent()) {
       return MutantResult.skipped(mutant);
     }
@@ -132,8 +141,23 @@ public final class Engine {
     var timeout = timeoutFor(coverage.timeOf(covering));
     long start = System.nanoTime();
     var run = worker.run(mutant.binaryName(), bytes, covering, timeout);
-    return new MutantResult(mutant, run.status(), covering, run.failedTest(), run.failure(), run.testsRun(),
-        Duration.ofNanos(System.nanoTime() - start));
+    Optional<String> unconfirmed = Optional.empty();
+    if (confirmCatches && run.status() == Status.CAUGHT) {
+      var catcher = run.failedTest().orElseThrow();
+      var again = worker.run(mutant.binaryName(), bytes, List.of(catcher), timeoutFor(coverage.timeOf(catcher)));
+      if (again.status() == Status.MISSED) {
+        // Not a catch: the tests after it decide, as if it had passed the first time.
+        unconfirmed = Optional.of(catcher);
+        var rest = covering.subList(covering.indexOf(catcher) + 1, covering.size());
+        var ran = run.testsRun();
+        run = rest.isEmpty()
+            ? new TestWorker.Run(Status.MISSED, Optional.empty(), Optional.empty(), Optional.empty(), ran)
+            : worker.run(mutant.binaryName(), bytes, rest, timeoutFor(coverage.timeOf(rest)));
+        run = new TestWorker.Run(run.status(), run.failedTest(), run.failure(), run.origin(), ran + (rest.isEmpty() ? 0 : run.testsRun()));
+      }
+    }
+    return new MutantResult(mutant, run.status(), covering, run.failedTest(), run.failure(), run.origin(), run.testsRun(),
+        unconfirmed, Duration.ofNanos(System.nanoTime() - start));
   }
 
   /// Every class in the directories, by binary name, in a stable order.

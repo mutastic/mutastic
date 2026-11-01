@@ -39,7 +39,7 @@ mutastic verify m855c8e3c samples/pricing
 ## Usage
 
 ```
-mutastic run [dir] [:module] [--format=agent|jsonl] [--threshold=N] [--only=ID]
+mutastic run [dir] [:module] [--format=agent|jsonl] [--threshold=N] [--only=ID] [--confirm-catches]
 mutastic verify ID [dir] [:module]
 ```
 
@@ -53,6 +53,18 @@ mutastic verify ID [dir] [:module]
 - `--format=jsonl` is one JSON event per line, written as each mutant finishes (`mutastic.events/v1`). Statuses follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`, `NoCoverage`.
 - A mutant's id comes from its class, method, position and change, not its line number, so it stays the same while code around it moves.
 - Some mutants are skipped, with the reason given: a change that can't be told apart from the original (`return 0` becoming "return the default"), code the compiler wrote (a `switch` on a `String`, a record's `equals()`), and calls that only write output (logging, `System.out`). Skipped mutants don't count towards the score.
+
+### Flaky tests
+
+A flaky test fails at random, so against mutants it "catches" changes it never checked, and the score goes up and down with no change to the code. mutastic looks for them in three ways:
+
+- **Before any mutant.** A test that fails in the first run is run again on its own. If it passes, mutastic leaves it out of the run and names it (`flaky: …`). A test that fails twice stops the run: the tests are red.
+- **Between runs.** Each full run keeps its results in `build/mutastic/last-run.tsv`. If the code and tests are unchanged and a mutant's result changed, the test that caught it is named (`likely flaky: …`).
+- **With `--confirm-catches`.** Each catching test runs once more against its mutant. A catch that doesn't repeat doesn't count; the other covering tests decide. This costs one more test run per catch.
+
+A test that catches mutants in several unrelated methods, each time with the same exception thrown in its own code, also gets a `note:`. It may be flaky, or it may just call a lot of code.
+
+### Operators
 
 | Operator | Change |
 |---|---|

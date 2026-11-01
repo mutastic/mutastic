@@ -46,7 +46,7 @@ import org.junit.platform.launcher.core.LauncherFactory;
 /// |---|---|
 /// | `CLASS <name> <base64>`: use these bytes for the next command | nothing |
 /// | `COVER <test>...`: run every test, recording lines | `TEST <id> <nanos>` and `LINE <id> <ids>` lines, then `DONE PASSED` or `DONE FAILED <id>...` |
-/// | `RUN <test>...`: run in order until one fails | `RESULT PASSED <ran>`, `RESULT FAILED <ran> <test> <exception>` or `RESULT ERROR <why>` |
+/// | `RUN <test>...`: run in order until one fails | `RESULT PASSED <ran>`, `RESULT FAILED <ran> <test> <exception> <origin>` or `RESULT ERROR <why>` |
 /// | `EXIT` | nothing; the worker exits |
 ///
 /// A test is `com.example.PricingTest#method` or a class name. The engine kills the worker if it
@@ -55,17 +55,20 @@ public final class Worker {
   private final List<Path> productionRoots;
   private final List<Path> testRoots;
   private final Set<String> splitTests;
+  private final Set<String> testClassNames;
   private final PrintStream protocol;
   private final Map<String, byte[]> staged = new HashMap<>();
   private ProductionLoader production;
   private int runs;
   private String lastFailure = "unknown";
+  private String lastOrigin = "unknown";
 
   private Worker(List<Path> productionRoots, List<Path> testRoots, PrintStream protocol) throws IOException {
     this.productionRoots = productionRoots;
     this.testRoots = testRoots;
     this.protocol = protocol;
     this.splitTests = splitTests(productionRoots, testRoots);
+    this.testClassNames = classNamesIn(testRoots);
   }
 
   public static void main(String[] args) throws Exception {
@@ -168,7 +171,7 @@ public final class Worker {
         return;
       }
       if (!failing.isEmpty()) {
-        protocol.println("RESULT\tFAILED\t" + ran + "\t" + test + "\t" + lastFailure);
+        protocol.println("RESULT\tFAILED\t" + ran + "\t" + test + "\t" + lastFailure + "\t" + lastOrigin);
         return;
       }
     }
@@ -197,6 +200,7 @@ public final class Worker {
           if (result.getStatus() != TestExecutionResult.Status.SUCCESSFUL) {
             failing.add(id(test));
             lastFailure = result.getThrowable().map(thrown -> thrown.getClass().getName()).orElse("unknown");
+            lastOrigin = result.getThrowable().map(Worker.this::origin).orElse("unknown");
             System.err.println("FAILED\t" + id(test));
             result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
           }
@@ -208,6 +212,25 @@ public final class Worker {
     } finally {
       thread.setContextClassLoader(previous);
     }
+  }
+
+  /// Where a failure came from: `assertion` (a check failed), `test` (the test's own code threw,
+  /// like a null it didn't expect) or `code` (the code under test threw).
+  private String origin(Throwable thrown) {
+    if (thrown instanceof AssertionError) {
+      return "assertion";
+    }
+    for (StackTraceElement frame : thrown.getStackTrace()) {
+      var name = Renamer.original(frame.getClassName());
+      int dollar = name.indexOf('$');
+      if (testClassNames.contains(dollar < 0 ? name : name.substring(0, dollar)) || testClassNames.contains(name)) {
+        return "test";
+      }
+      if (production.classFile(name) != null) {
+        return "code";
+      }
+    }
+    return "unknown";
   }
 
   /// `com.example.PricingTest#discount(java.nio.file.Path)`, under the name the build gave the

@@ -1,8 +1,10 @@
 package io.mutastic.cli;
 
+import io.mutastic.engine.Comparison;
 import io.mutastic.engine.Engine;
 import io.mutastic.engine.MutantResult;
 import io.mutastic.engine.Report;
+import io.mutastic.engine.RunRecord;
 import io.mutastic.engine.Status;
 import io.mutastic.report.AgentText;
 import io.mutastic.report.JsonEvents;
@@ -18,12 +20,15 @@ import java.util.function.Consumer;
 /// `mutastic`: mutation testing for a Gradle project.
 ///
 /// ```
-/// mutastic run [dir] [:module] [--format=agent|jsonl] [--threshold=N] [--only=ID]
+/// mutastic run [dir] [:module] [--format=agent|jsonl] [--threshold=N] [--only=ID] [--confirm-catches]
 /// mutastic verify ID [dir] [:module]
 /// ```
 ///
 /// Exit codes: 0 when the score reaches the threshold (for `verify`, when the mutant is caught),
 /// 1 when it doesn't, 2 when mutastic couldn't run.
+///
+/// A full run keeps its results in `build/mutastic/last-run.tsv`, and the next full run compares
+/// against them: with the code unchanged, a mutant that changed result names a flaky test.
 public final class Main {
   static final int PASSED = 0;
   static final int FAILED = 1;
@@ -44,8 +49,9 @@ public final class Main {
       var project = GradleSetup.read(directory, command.module(), work);
       var sources = new SourceView(directory, project.sources());
       var engine = new Engine(workerJar(), work.resolve("worker.log"));
+      var options = new Engine.Options(command.only(), command.confirmCatches());
       if (command.verify()) {
-        var report = engine.run(project, command.only(), result -> {});
+        var report = engine.run(project, options, result -> {});
         var result = report.results().getFirst();
         out.printf("mutastic: %s %s%n", result.mutant().id(), result.status().detected()
             ? "is caught by " + result.caughtBy().orElse("a timeout")
@@ -59,16 +65,24 @@ public final class Main {
         events.runStarted(project.name());
         progress = events::mutantFinished;
       }
-      Report report = engine.run(project, command.only(), progress);
+      Report report = engine.run(project, options, progress);
+      // Only full runs compare and are kept: one mutant says nothing about the rest.
+      Optional<Comparison> comparison = Optional.empty();
+      if (command.only().isEmpty()) {
+        var lastRun = work.resolve("last-run.tsv");
+        var record = RunRecord.of(project, report);
+        comparison = RunRecord.read(lastRun).map(record::against);
+        record.write(lastRun);
+      }
       if (events != null) {
-        events.runFinished(report);
+        events.runFinished(report, comparison);
       } else {
-        out.print(new AgentText(sources, command.threshold()).render(report));
+        out.print(new AgentText(sources, command.threshold()).render(report, comparison));
       }
       return report.score() >= command.threshold() ? PASSED : FAILED;
     } catch (UsageException e) {
       err.println("mutastic: " + e.getMessage());
-      err.println("usage: mutastic run [dir] [:module] [--format=agent|jsonl] [--threshold=N] [--only=ID]");
+      err.println("usage: mutastic run [dir] [:module] [--format=agent|jsonl] [--threshold=N] [--only=ID] [--confirm-catches]");
       err.println("       mutastic verify ID [dir] [:module]");
       return ERROR;
     } catch (RuntimeException e) {
@@ -93,7 +107,8 @@ public final class Main {
     }
   }
 
-  record Command(boolean verify, Path directory, String module, String format, int threshold, Optional<String> only) {
+  record Command(boolean verify, Path directory, String module, String format, int threshold, Optional<String> only,
+      boolean confirmCatches) {
     static Command parse(String[] args) {
       if (args.length == 0 || !List.of("run", "verify").contains(args[0])) {
         throw new UsageException(args.length == 0 ? "no command" : "unknown command " + args[0]);
@@ -103,6 +118,7 @@ public final class Main {
       String format = "agent";
       int threshold = DEFAULT_THRESHOLD;
       Optional<String> only = Optional.empty();
+      boolean confirmCatches = false;
       for (String arg : List.of(args).subList(1, args.length)) {
         if (arg.startsWith("--format=")) {
           format = arg.substring("--format=".length());
@@ -111,6 +127,8 @@ public final class Main {
           }
         } else if (arg.startsWith("--threshold=")) {
           threshold = Integer.parseInt(arg.substring("--threshold=".length()));
+        } else if (arg.equals("--confirm-catches")) {
+          confirmCatches = true;
         } else if (arg.startsWith("--only=")) {
           only = Optional.of(arg.substring("--only=".length()));
         } else if (arg.startsWith("--")) {
@@ -127,7 +145,7 @@ public final class Main {
       }
       var module = positional.stream().filter(arg -> arg.startsWith(":")).findFirst().orElse(":");
       var directory = positional.stream().filter(arg -> !arg.startsWith(":")).findFirst().map(Path::of).orElse(Path.of("."));
-      return new Command(verify, directory, module, format, threshold, only);
+      return new Command(verify, directory, module, format, threshold, only, confirmCatches);
     }
   }
 }

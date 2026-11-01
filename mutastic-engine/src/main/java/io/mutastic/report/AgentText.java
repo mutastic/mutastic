@@ -1,11 +1,13 @@
 package io.mutastic.report;
 
+import io.mutastic.engine.Comparison;
 import io.mutastic.engine.MutantResult;
 import io.mutastic.engine.Report;
 import io.mutastic.engine.Status;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /// `--format agent`: what a coding agent needs to close each gap, and nothing it would have to
@@ -25,6 +27,11 @@ public final class AgentText {
   }
 
   public String render(Report report) {
+    return render(report, Optional.empty());
+  }
+
+  /// With `comparison`, the score against the last run and the tests whose catches changed.
+  public String render(Report report, Optional<Comparison> comparison) {
     var out = new StringBuilder();
     var missed = report.results().stream().filter(result -> result.status() == Status.MISSED).toList();
     var notCovered = report.results().stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
@@ -38,6 +45,23 @@ public final class AgentText {
           .formatted(String.join(", ", shortNames(report.flaky())), report.flaky().size() == 1 ? "its" : "their")
           + "Fix %s first: %s on something that changes from run to run%n".formatted(
               report.flaky().size() == 1 ? "it" : "them", report.flaky().size() == 1 ? "it depends" : "they depend"));
+    }
+    comparison.ifPresent(found -> out.append("vs last run: %.1f%% → %.1f%% (%s)%n".formatted(
+        found.previousScore(), report.score(), found.sameCode() ? "same code" : "code changed")));
+    for (var suspect : Suspects.changedBetweenRuns(comparison)) {
+      out.append("likely flaky: %s; with the code unchanged, whether it catches %s changed since the last run. "
+          .formatted(shortName(suspect.test()), String.join(", ", suspect.mutants()))
+          + "Its catches can't be trusted until it's fixed%n".formatted());
+    }
+    for (var suspect : Suspects.unconfirmed(report)) {
+      out.append("likely flaky: %s; its %s of %s didn't repeat when run again, so the other covering tests decided%n"
+          .formatted(shortName(suspect.test()), suspect.mutants().size() == 1 ? "catch" : "catches",
+              String.join(", ", suspect.mutants())));
+    }
+    for (var note : Suspects.unrelatedCatches(report)) {
+      out.append(("note: %s caught %d mutants in %d different methods, each with %s thrown in the test itself; "
+          + "if it fails that way whatever changes, it may be flaky%n").formatted(shortName(note.test()),
+          note.mutants().size(), note.methods(), note.failure().substring(note.failure().lastIndexOf('.') + 1)));
     }
     if (missed.isEmpty() && notCovered.isEmpty()) {
       return out.toString();
@@ -72,7 +96,8 @@ public final class AgentText {
     lines.add("   at %s:%d".formatted(sources.file(mutant), mutant.line()));
     sources.line(mutant).ifPresent(line -> lines.add("   - " + line));
     lines.add("   + " + sources.mutatedLine(mutant, advice).orElse("(" + advice.change() + ")"));
-    lines.add("   covered by: %s; all still pass with the change".formatted(covering(result.coveredBy())));
+    lines.add("   covered by: %s; all still pass with the change%s".formatted(covering(result.coveredBy()),
+        result.unconfirmed().map(test -> " (%s failed once, then passed: flaky)".formatted(shortName(test))).orElse("")));
     lines.add("   fix: " + advice.fix());
     lines.add("   reproduce: mutastic run --only=" + mutant.id());
     lines.add("   done when: mutastic verify %s passes".formatted(mutant.id()));

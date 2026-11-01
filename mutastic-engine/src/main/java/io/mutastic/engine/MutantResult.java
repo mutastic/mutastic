@@ -8,15 +8,20 @@ import java.util.Optional;
 ///
 /// @param coveredBy the tests that reach the mutant's line, fastest first
 /// @param caughtBy the test that failed, if one did
-/// @param failure what it failed with: an assertion, or the code under test throwing
+/// @param failure what it failed with: the exception's class
+/// @param failureOrigin where that came from: `assertion` (a check failed), `test` (the test's
+///     own code threw) or `code` (the code under test threw)
 /// @param testsRun how many covering tests ran before the result was known
+/// @param unconfirmed a test whose catch didn't repeat when run again, if catches were confirmed
 public record MutantResult(
     Mutant mutant,
     Status status,
     List<String> coveredBy,
     Optional<String> caughtBy,
     Optional<String> failure,
+    Optional<String> failureOrigin,
     int testsRun,
+    Optional<String> unconfirmed,
     Duration took) {
 
   public MutantResult {
@@ -24,10 +29,12 @@ public record MutantResult(
   }
 
   static MutantResult notCovered(Mutant mutant) {
-    return new MutantResult(mutant, Status.NOT_COVERED, List.of(), Optional.empty(), Optional.empty(), 0, Duration.ZERO);
+    return new MutantResult(mutant, Status.NOT_COVERED, List.of(), Optional.empty(), Optional.empty(), Optional.empty(), 0,
+        Optional.empty(), Duration.ZERO);
   }
 
   static MutantResult skipped(Mutant mutant) {
-    return new MutantResult(mutant, Status.SKIPPED, List.of(), Optional.empty(), Optional.empty(), 0, Duration.ZERO);
+    return new MutantResult(mutant, Status.SKIPPED, List.of(), Optional.empty(), Optional.empty(), Optional.empty(), 0,
+        Optional.empty(), Duration.ZERO);
   }
 }
