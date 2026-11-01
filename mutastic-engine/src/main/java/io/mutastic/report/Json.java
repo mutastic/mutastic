@@ -56,18 +56,18 @@ final class Json {
   private static void string(String text, StringBuilder out) {
     out.append('"');
     for (int at = 0; at < text.length(); at++) {
-      char c = text.charAt(at);
-      switch (c) {
+      char character = text.charAt(at);
+      switch (character) {
         case '"' -> out.append("\\\"");
         case '\\' -> out.append("\\\\");
         case '\n' -> out.append("\\n");
         case '\r' -> out.append("\\r");
         case '\t' -> out.append("\\t");
         default -> {
-          if (c < 0x20) {
-            out.append("\\u%04x".formatted((int) c));
+          if (character < 0x20) {
+            out.append("\\u%04x".formatted((int) character));
           } else {
-            out.append(c);
+            out.append(character);
           }
         }
       }

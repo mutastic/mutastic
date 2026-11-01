@@ -1,5 +1,6 @@
 package io.mutastic.cli;
 
+import io.mutastic.engine.CoveragePass;
 import io.mutastic.engine.Listener;
 import io.mutastic.engine.MutantResult;
 import io.mutastic.engine.Status;
@@ -68,16 +69,16 @@ final class Progress implements Listener {
   }
 
   @Override
-  public void coverageFinished(int jdk, int tests, Duration took, int mutants, List<String> flaky) {
-    total = mutants;
+  public void coverageFinished(CoveragePass pass) {
+    total = pass.mutants();
     if (mode != Mode.NONE) {
       err.printf(
           "coverage  %d tests on JDK %d in %s%s · %d mutants%n",
-          tests,
-          jdk,
-          io.mutastic.report.HumanText.seconds(took),
-          flaky.isEmpty() ? "" : " (%d flaky, left out)".formatted(flaky.size()),
-          mutants);
+          pass.tests(),
+          pass.jdk(),
+          io.mutastic.report.HumanText.seconds(pass.took()),
+          pass.flaky().isEmpty() ? "" : " (%d flaky, left out)".formatted(pass.flaky().size()),
+          pass.mutants());
     }
   }
 

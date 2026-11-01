@@ -46,7 +46,10 @@ class ParallelTest {
     var byChange = new TreeMap<String, String>();
     statuses.forEach(
         (key, status) ->
-            byChange.merge(key.substring(0, key.lastIndexOf(' ')), status, (a, b) -> a + "," + b));
+            byChange.merge(
+                key.substring(0, key.lastIndexOf(' ')),
+                status,
+                (earlier, later) -> earlier + "," + later));
     return byChange;
   }
 }

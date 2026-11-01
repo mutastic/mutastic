@@ -138,7 +138,7 @@ public final class Engine {
             "no tests ran in " + project.name() + "; mutastic runs JUnit Platform tests");
       }
       listener.coverageFinished(
-          first.jdk(), coverage.testCount(), coverageTook, mutants.size(), flaky);
+          new CoveragePass(first.jdk(), coverage.testCount(), coverageTook, mutants.size(), flaky));
       var mutantRun =
           new MutantRun(
               models, mutations, coverage, options.confirmCatches(), options.suggestions());

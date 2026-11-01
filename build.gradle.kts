@@ -65,6 +65,13 @@ subprojects {
         }
     }
 
+    apply(plugin = "checkstyle")
+    configure<CheckstyleExtension> {
+        toolVersion = "14.3.0"
+        configFile = rootProject.file("config/checkstyle/checkstyle.xml")
+        isIgnoreFailures = true
+    }
+
     apply(plugin = "com.diffplug.spotless")
     configure<com.diffplug.gradle.spotless.SpotlessExtension> {
         java {

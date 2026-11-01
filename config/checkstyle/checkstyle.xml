@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<!-- The size limits from AGENTS.md. Formatting is Spotless's; names and nullness are Error Prone's. -->
+<module name="Checker">
+  <!-- Sizes are for production code: a test's fixture is often a text block, read as one thing. -->
+  <module name="SuppressionSingleFilter">
+    <property name="files" value="[/\\]src[/\\]test[/\\]"/>
+    <property name="checks" value="MethodLength|ParameterNumber|CyclomaticComplexity"/>
+  </module>
+  <module name="TreeWalker">
+    <!-- A method reads in one screen: 25 lines of code, comments and blank lines not counted. -->
+    <module name="MethodLength">
+      <property name="max" value="25"/>
+      <property name="countEmpty" value="false"/>
+    </module>
+    <!-- Past 4, the parameters are a type waiting to be named. -->
+    <module name="ParameterNumber">
+      <property name="max" value="4"/>
+      <property name="ignoreOverriddenMethods" value="true"/>
+      <!-- Methods only: a record's constructors take its components, which are data. -->
+      <property name="tokens" value="METHOD_DEF"/>
+    </module>
+    <module name="CyclomaticComplexity">
+      <property name="max" value="10"/>
+      <property name="switchBlockAsSingleDecisionPoint" value="true"/>
+    </module>
+    <!-- Names read as words: no single letters, except a loop index. -->
+    <module name="LocalVariableName">
+      <property name="format" value="^[a-z][a-zA-Z0-9]+$"/>
+      <property name="allowOneCharVarInForLoop" value="true"/>
+    </module>
+    <module name="LambdaParameterName">
+      <property name="format" value="^([a-z][a-zA-Z0-9]+|_)$"/>
+    </module>
+    <module name="PatternVariableName">
+      <property name="format" value="^([a-z][a-zA-Z0-9]+|_)$"/>
+    </module>
+    <module name="CatchParameterName">
+      <property name="format" value="^(e|[a-z][a-zA-Z0-9]+)$"/>
+    </module>
+  </module>
+</module>

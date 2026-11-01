@@ -3,6 +3,7 @@ package io.mutastic.cli;
 import static java.util.Objects.requireNonNull;
 
 import io.mutastic.engine.Comparison;
+import io.mutastic.engine.CoveragePass;
 import io.mutastic.engine.Engine;
 import io.mutastic.engine.Listener;
 import io.mutastic.engine.MutantResult;
@@ -150,9 +151,8 @@ public final class Main {
         listener =
             new Listener() {
               @Override
-              public void coverageFinished(
-                  int jdk, int tests, Duration took, int mutants, List<String> flaky) {
-                progress.coverageFinished(jdk, tests, took, mutants, flaky);
+              public void coverageFinished(CoveragePass pass) {
+                progress.coverageFinished(pass);
               }
 
               @Override
