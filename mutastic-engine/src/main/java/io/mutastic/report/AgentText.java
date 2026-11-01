@@ -81,7 +81,7 @@ public final class AgentText {
           missed.isEmpty() ? "" : "; fix the missed mutants first"));
       var byLine = new LinkedHashMap<String, Long>();
       notCovered.forEach(result -> byLine.merge("%s:%d %s()".formatted(sources.file(result.mutant()),
-          result.mutant().line(), result.mutant().methodName()), 1L, Long::sum));
+          sources.place(result.mutant()).line(), result.mutant().methodName()), 1L, Long::sum));
       byLine.forEach((where, count) -> out.append("- %s (%d mutant%s)%n".formatted(where, count, count == 1 ? "" : "s")));
     }
     return out.toString();
@@ -93,7 +93,7 @@ public final class AgentText {
     var advice = Advice.of(mutant);
     var lines = new ArrayList<String>();
     lines.add("%smissed %s: %s".formatted(number == 0 ? "" : number + ". ", mutant.id(), advice.headline()));
-    lines.add("   at %s:%d".formatted(sources.file(mutant), mutant.line()));
+    lines.add("   at %s:%d".formatted(sources.file(mutant), sources.place(mutant).line()));
     sources.line(mutant).ifPresent(line -> lines.add("   - " + line));
     lines.add("   + " + sources.mutatedLine(mutant, advice).orElse("(" + advice.change() + ")"));
     lines.add("   covered by: %s; all still pass with the change%s".formatted(covering(result.coveredBy()),

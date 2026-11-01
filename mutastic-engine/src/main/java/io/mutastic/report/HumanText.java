@@ -102,7 +102,7 @@ public final class HumanText {
 
   /// `src/…/Pricing.java:17`, linked to the file when links are on.
   private String location(Mutant mutant) {
-    var text = "%s:%d".formatted(sources.file(mutant), mutant.line());
+    var text = "%s:%d".formatted(sources.file(mutant), sources.place(mutant).line());
     return sources.path(mutant).map(path -> style.link(path, text)).orElse(text);
   }
 
@@ -126,18 +126,19 @@ public final class HumanText {
         style.bold(advice.headline())));
     lines.add("  %s %s".formatted(style.blue("-->"), location(mutant)));
     var file = sources.lines(mutant);
-    int width = String.valueOf(mutant.line() + 1).length();
+    var place = sources.place(mutant);
+    int width = String.valueOf(place.line() + 1).length();
     var bar = style.blue(" ".repeat(width) + " |");
     var stillPass = result.coveredBy().size() == 1
         ? "its covering test still passes"
         : "all %d covering tests still pass".formatted(result.coveredBy().size());
-    if (file.isPresent() && mutant.line() >= 1 && mutant.line() <= file.get().size()) {
+    if (file.isPresent() && place.line() >= 1 && place.line() <= file.get().size()) {
       var source = file.get();
       lines.add(bar);
-      for (int number = Math.max(1, mutant.line() - 1); number <= Math.min(source.size(), mutant.line() + 1); number++) {
+      for (int number = Math.max(1, place.line() - 1); number <= Math.min(source.size(), place.line() + 1); number++) {
         lines.add("%s %s".formatted(style.blue(pad(number, width) + " |"), source.get(number - 1)));
-        if (number == mutant.line()) {
-          lines.add("%s %s %s".formatted(bar, style.red(carets(source.get(number - 1), advice)),
+        if (number == place.line()) {
+          lines.add("%s %s %s".formatted(bar, style.red(" ".repeat(place.start() - 1) + "^".repeat(place.end() - place.start())),
               "%s and %s".formatted(advice.change(), stillPass)));
         }
       }
@@ -167,23 +168,10 @@ public final class HumanText {
     return String.join(System.lineSeparator(), lines) + System.lineSeparator();
   }
 
-  /// Under the changed operator when the line has it once, else under the whole statement.
-  private static String carets(String line, Advice advice) {
-    int indent = line.length() - line.stripLeading().length();
-    if (advice.before().isPresent()) {
-      var token = " " + advice.before().get() + " ";
-      int at = line.indexOf(token);
-      if (at >= 0 && at == line.lastIndexOf(token)) {
-        return " ".repeat(at + 1) + "^".repeat(advice.before().get().length());
-      }
-    }
-    return " ".repeat(indent) + "^".repeat(Math.max(1, line.strip().length()));
-  }
-
   private void notCovered(Report report, StringBuilder out) {
     var byLine = new LinkedHashMap<String, Long>();
     report.results().stream().filter(result -> result.status() == Status.NOT_COVERED).forEach(result ->
-        byLine.merge("%s:%d %s()".formatted(sources.file(result.mutant()), result.mutant().line(),
+        byLine.merge("%s:%d %s()".formatted(sources.file(result.mutant()), sources.place(result.mutant()).line(),
             result.mutant().methodName()), 1L, Long::sum));
     if (byLine.isEmpty()) {
       return;

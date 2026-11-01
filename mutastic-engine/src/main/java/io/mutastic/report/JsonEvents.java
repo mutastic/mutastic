@@ -41,7 +41,7 @@ public final class JsonEvents {
     fields.put("operator", mutant.operator().id());
     var location = new LinkedHashMap<String, Object>();
     location.put("file", sources.file(mutant));
-    location.put("line", mutant.line());
+    location.put("line", sources.place(mutant).line());
     location.put("class", mutant.binaryName());
     location.put("method", mutant.methodName() + mutant.descriptor());
     fields.put("location", location);

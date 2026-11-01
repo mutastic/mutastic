@@ -103,15 +103,15 @@ public final class ReportFiles {
   private Map<String, Object> mutant(MutantResult result) {
     var mutant = result.mutant();
     var advice = Advice.of(mutant);
-    var columns = sources.columns(mutant, advice);
+    var place = sources.place(mutant);
     var entry = new LinkedHashMap<String, Object>();
     entry.put("id", mutant.id());
     entry.put("mutatorName", mutant.operator().id().substring("mutastic/".length()));
     entry.put("replacement", advice.after().orElse(advice.change()));
     entry.put("description", advice.change());
     entry.put("location", Map.of(
-        "start", Map.of("line", mutant.line(), "column", columns[0]),
-        "end", Map.of("line", mutant.line(), "column", columns[1])));
+        "start", Map.of("line", place.line(), "column", place.start()),
+        "end", Map.of("line", place.line(), "column", place.end())));
     entry.put("status", result.status().schemaName());
     var reason = switch (result.status()) {
       case SKIPPED -> mutant.skipped().orElse("");
@@ -177,7 +177,7 @@ public final class ReportFiles {
       element(out, "mutatedClass", mutant.binaryName());
       element(out, "mutatedMethod", mutant.methodName());
       element(out, "methodDescription", mutant.descriptor());
-      element(out, "lineNumber", String.valueOf(mutant.line()));
+      element(out, "lineNumber", String.valueOf(sources.place(mutant).line()));
       element(out, "mutator", mutator(mutant));
       out.append("<indexes><index>").append(mutant.ordinal()).append("</index></indexes>");
       out.append("<blocks><block>0</block></blocks>");

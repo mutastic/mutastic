@@ -78,48 +78,77 @@ public final class SourceView {
     });
   }
 
-  /// The line's text, stripped, if the source is there.
+  /// The changed line's text, stripped, if the source is there.
   public Optional<String> line(Mutant mutant) {
-    return sourceFile(mutant).flatMap(file -> {
-      try {
-        var lines = Files.readAllLines(file);
-        return mutant.line() >= 1 && mutant.line() <= lines.size()
-            ? Optional.of(lines.get(mutant.line() - 1).strip())
-            : Optional.empty();
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
-    });
+    var place = place(mutant);
+    return lines(mutant).filter(all -> place.line() >= 1 && place.line() <= all.size())
+        .map(all -> all.get(place.line() - 1).strip());
   }
 
-  /// Where on its line the change is, as 1-based columns, end exclusive: the operator when the
-  /// line has it once, the method name for a removed call, the `return` statement for a
-  /// returned default, else the whole statement. Columns 1 to 2 when the source isn't there.
-  public int[] columns(Mutant mutant, Advice advice) {
-    var text = lines(mutant).filter(all -> mutant.line() >= 1 && mutant.line() <= all.size())
-        .map(all -> all.get(mutant.line() - 1));
-    if (text.isEmpty() || text.get().isBlank()) {
-      return new int[] {1, 2};
+  /// Where a change is: its line, and 1-based columns on it with the end exclusive.
+  public record Place(int line, int start, int end) {}
+
+  /// The longest statement searched for the changed operator.
+  private static final int STATEMENT_LINES = 12;
+
+  /// Where the mutant's change is in the source.
+  ///
+  /// javac gives a whole statement the line it starts on, so `return !over && location < 9`
+  /// split over three lines is all "line 57", though the `<` is on line 59. So the operator is
+  /// looked for on every line of the statement (up to the line that ends it): found exactly
+  /// once, that's the place, to the column. Otherwise the place is the statement on javac's
+  /// line, start to end. For a removed call it's the method's name; for a returned default,
+  /// the `return` statement. Columns 1 to 2 of javac's line when the source isn't there.
+  public Place place(Mutant mutant) {
+    var all = lines(mutant).orElse(List.of());
+    int first = mutant.line();
+    if (first < 1 || first > all.size() || all.get(first - 1).isBlank()) {
+      return new Place(Math.max(1, first), 1, 2);
     }
-    var line = text.get();
-    var token = advice.before().map(before -> " " + before + " ")
-        .or(() -> Optional.ofNullable(switch (mutant.operator()) {
-          case REMOVE_VOID_CALL -> calledName(mutant.original()) + "(";
-          case RETURN_DEFAULT -> "return ";
-          default -> null;
-        }));
+    int last = first;
+    while (last < all.size() && last - first < STATEMENT_LINES && !endsStatement(all.get(last - 1))) {
+      last++;
+    }
+    var token = token(mutant);
     if (token.isPresent()) {
-      int at = line.indexOf(token.get());
-      if (at >= 0 && at == line.lastIndexOf(token.get())) {
-        return switch (mutant.operator()) {
-          case REMOVE_VOID_CALL -> new int[] {at + 1, at + token.get().length()};
-          case RETURN_DEFAULT -> new int[] {at + 1, line.stripTrailing().length() + 1};
-          default -> new int[] {at + 2, at + token.get().length()}; // inside the spaces around it
-        };
+      Place found = null;
+      int count = 0;
+      for (int number = first; number <= last; number++) {
+        var text = all.get(number - 1);
+        for (int at = text.indexOf(token.get()); at >= 0; at = text.indexOf(token.get(), at + 1)) {
+          count++;
+          found = switch (mutant.operator()) {
+            case REMOVE_VOID_CALL -> new Place(number, at + 1, at + token.get().length());
+            case RETURN_DEFAULT -> new Place(number, at + 1, text.stripTrailing().length() + 1);
+            default -> new Place(number, at + 2, at + token.get().length()); // inside the spaces around it
+          };
+        }
+      }
+      if (count == 1) {
+        return found;
       }
     }
+    var line = all.get(first - 1);
     int indent = line.length() - line.stripLeading().length();
-    return new int[] {indent + 1, line.stripTrailing().length() + 1};
+    return new Place(first, indent + 1, line.stripTrailing().length() + 1);
+  }
+
+  /// The source text the change is to: ` >= ` with its spaces, `record(` for a removed call,
+  /// `return ` for a returned default.
+  private static Optional<String> token(Mutant mutant) {
+    var advice = Advice.of(mutant);
+    return advice.before().map(before -> " " + before + " ").or(() -> Optional.ofNullable(switch (mutant.operator()) {
+      case REMOVE_VOID_CALL -> calledName(mutant.original()) + "(";
+      case RETURN_DEFAULT -> "return ";
+      default -> null;
+    }));
+  }
+
+  /// A line that ends a statement or opens or closes a block: the statement can't run past it.
+  private static boolean endsStatement(String line) {
+    var code = line.contains("//") ? line.substring(0, line.indexOf("//")) : line;
+    var end = code.stripTrailing();
+    return end.endsWith(";") || end.endsWith("{") || end.endsWith("}");
   }
 
   /// `record` for `INVOKEVIRTUAL com/example/Audit.record(Ljava/lang/String;)V`.
