@@ -30,3 +30,9 @@ tasks.test {
     // The end-to-end tests run mutastic against the sample projects, each its own Gradle build.
     systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
 }
+
+tasks.jar {
+    manifest {
+        attributes("Implementation-Version" to project.version)
+    }
+}

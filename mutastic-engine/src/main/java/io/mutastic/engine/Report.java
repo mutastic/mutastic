@@ -8,7 +8,10 @@ import java.util.List;
 /// @param jdk the feature version the tests ran on
 /// @param flaky tests that failed in the coverage pass and passed when run again: left out of
 ///     every mutant's run, so their catches don't count
-public record Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration took) {
+/// @param coverage how long the coverage pass took, of `took`
+/// @param workers how many worker JVMs started: one, plus one after each kill
+public record Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage,
+    int workers, Duration took) {
 
   public Report {
     results = List.copyOf(results);

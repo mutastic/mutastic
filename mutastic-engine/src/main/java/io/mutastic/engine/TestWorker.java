@@ -38,6 +38,7 @@ final class TestWorker implements AutoCloseable {
   private PrintStream commands;
   private BlockingQueue<String> answers;
   private int jdk;
+  private int workersStarted;
 
   /// `log` collects the tests' own output, for when a baseline fails for reasons only the
   /// tests' output explains.
@@ -101,6 +102,11 @@ final class TestWorker implements AutoCloseable {
       return false;
     }
     return answer.get().startsWith("RESULT\tPASSED");
+  }
+
+  /// How many worker JVMs have started: one, plus one after each kill.
+  int started() {
+    return workersStarted;
   }
 
   /// The JDK feature version the tests run on, once a worker has started.
@@ -192,6 +198,7 @@ final class TestWorker implements AutoCloseable {
     var ready = await(STARTUP).filter(line -> line.startsWith("READY\t")).orElseThrow(() ->
         new IllegalStateException("the test worker didn't start; its output is in " + log));
     jdk = Integer.parseInt(ready.substring("READY\t".length()));
+    workersStarted++;
   }
 
   private static String join(Stream<Path> paths) {

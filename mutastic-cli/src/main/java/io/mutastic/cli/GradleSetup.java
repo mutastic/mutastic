@@ -17,6 +17,13 @@ import java.util.Properties;
 final class GradleSetup {
   private GradleSetup() {}
 
+  /// The build couldn't be read: it failed, or isn't a Java build.
+  static final class SetupFailed extends RuntimeException {
+    SetupFailed(String message) {
+      super(message);
+    }
+  }
+
   /// `module` is a Gradle project path, `:` for the root project.
   static Project read(Path directory, String module, Path workDirectory) {
     var init = workDirectory.resolve("mutastic.init.gradle.kts");
@@ -37,7 +44,7 @@ final class GradleSetup {
           .start()
           .waitFor();
       if (exit != 0 || !Files.exists(out)) {
-        throw new IllegalStateException("Gradle couldn't build " + directory + " for mutastic (exit " + exit + "):\n"
+        throw new SetupFailed("Gradle couldn't build " + directory + " for mutastic (exit " + exit + "):\n"
             + Files.readString(log).strip());
       }
       var setup = new Properties();

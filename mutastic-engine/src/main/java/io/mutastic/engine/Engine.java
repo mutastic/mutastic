@@ -12,7 +12,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -56,7 +55,7 @@ public final class Engine {
   }
 
   /// Runs the mutants. Each result goes to `finished` as soon as it's known.
-  public Report run(Project project, Options options, Consumer<MutantResult> finished) {
+  public Report run(Project project, Options options, Listener listener) {
     var only = options.only();
     long start = System.nanoTime();
     var context = ClassFiles.resolvingFrom(Stream.of(project.classes(), project.testClasses(), project.dependencies())
@@ -82,19 +81,22 @@ public final class Engine {
     });
 
     try (var worker = new TestWorker(project, workerJar, log)) {
+      long coverageStart = System.nanoTime();
       var baseline = worker.cover(instrumented, testClassesIn(project.testClasses()), coverage);
       var flaky = baseline.passed() ? List.<String>of() : flakyOrFail(baseline.failing(), coverage, worker);
       coverage.exclude(flaky);
+      var coverageTook = Duration.ofNanos(System.nanoTime() - coverageStart);
       if (coverage.testCount() == 0) {
         throw new IllegalStateException("no tests ran in " + project.name() + "; mutastic runs JUnit Platform tests");
       }
+      listener.coverageFinished(worker.jdk(), coverage.testCount(), coverageTook, mutants.size(), flaky);
       var results = new ArrayList<MutantResult>();
       for (Mutant mutant : mutants) {
         var result = run(mutant, models.get(mutant.binaryName()), mutations, coverage, worker, options.confirmCatches());
         results.add(result);
-        finished.accept(result);
+        listener.mutantFinished(result);
       }
-      return new Report(project.name(), worker.jdk(), results, coverage.testCount(), flaky,
+      return new Report(project.name(), worker.jdk(), results, coverage.testCount(), flaky, coverageTook, worker.started(),
           Duration.ofNanos(System.nanoTime() - start));
     }
   }

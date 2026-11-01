@@ -18,8 +18,8 @@ class FlakyRunsTest {
   void confirmingCatchesAndComparingRunsBothNameIt() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("flaky"));
 
-    var first = Samples.mutastic("run", project.toString());
-    var second = Samples.mutastic("run", project.toString(), "--confirm-catches");
+    var first = Samples.mutastic("run", project.toString(), "--format=agent");
+    var second = Samples.mutastic("run", project.toString(), "--format=agent", "--confirm-catches");
 
     // The first run takes its lucky catch at face value; there's nothing to compare with yet.
     assertThat(first.out()).doesNotContain("vs last run", "likely flaky");
@@ -35,7 +35,7 @@ class FlakyRunsTest {
   void theEventStreamCarriesTheSameEvidence() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("flaky"));
 
-    Samples.mutastic("run", project.toString());
+    Samples.mutastic("run", project.toString(), "--format=agent");
     var second = Samples.mutastic("run", project.toString(), "--format=jsonl", "--confirm-catches");
 
     var finished = second.out().lines().filter(line -> line.contains("\"reason\":\"run-finished\"")).findFirst().orElseThrow();

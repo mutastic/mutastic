@@ -51,10 +51,34 @@ class PricingSampleTest {
   void agentTextLeadsWithTheVerdict() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("pricing"));
 
-    var run = Samples.mutastic("run", project.toString());
+    var run = Samples.mutastic("run", project.toString(), "--format=agent");
 
     assertThat(run.out().lines().findFirst().orElseThrow())
         .isEqualTo("mutastic: PASS · score 85.7% (threshold 80) · 1 missed, 0 not covered, 6 caught of 7 mutants (2 more skipped)");
     assertThat(run.out()).contains("   - if (total >= 100) {", "   + if (total > 100) {");
+  }
+
+  @Test
+  void theDefaultOffATerminalIsOneLinePerMissAndASummary() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+
+    var run = Samples.mutastic("run", project.toString());
+
+    assertThat(run.out()).startsWith("✗ src/main/java/com/example/pricing/Pricing.java:17 m855c8e3c no test checks the edge");
+    assertThat(run.out().strip().lines().filter(line -> line.contains("Score")).findFirst().orElseThrow())
+        .isEqualTo("    Score  85.7%  threshold 80 ✓");
+    // Progress goes to stderr, as counter lines, so stdout is only the result.
+    assertThat(run.err()).contains("mutastic dev · reading the Gradle build…", "coverage  3 tests on JDK 17", "[9/9]");
+  }
+
+  @Test
+  void aBrokenBuildIsAUsageErrorNotACrash() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+    java.nio.file.Files.writeString(project.resolve("build.gradle.kts"), "this is not kotlin");
+
+    var run = Samples.mutastic("run", project.toString());
+
+    assertThat(run.exit()).isEqualTo(Main.USAGE);
+    assertThat(run.err()).contains("Gradle couldn't build");
   }
 }

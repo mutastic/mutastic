@@ -19,7 +19,7 @@ class BaselineTest {
   void aFlakyTestIsLeftOutAndNamed() throws Exception {
     var project = Samples.copy(SAMPLES.resolve("flaky"), work.resolve("flaky"));
 
-    var run = Samples.mutastic("run", project.toString());
+    var run = Samples.mutastic("run", project.toString(), "--format=agent");
 
     assertThat(run.exit()).as(run.err()).isEqualTo(Main.FAILED);
     assertThat(run.out()).contains("flaky: StockTest#aSaleReducesStock failed, then passed when run again");
@@ -34,9 +34,9 @@ class BaselineTest {
     var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
     Files.writeString(test, Files.readString(test).replace("assertEquals(25, ", "assertEquals(26, "));
 
-    var run = Samples.mutastic("run", project.toString());
+    var run = Samples.mutastic("run", project.toString(), "--format=agent");
 
-    assertThat(run.exit()).isEqualTo(Main.ERROR);
+    assertThat(run.exit()).isEqualTo(Main.TESTS_FAIL);
     assertThat(run.err()).startsWith(
         "mutastic: the tests fail without any mutant: com.example.pricing.PricingTest#bigOrdersGetTenPercentOff");
   }

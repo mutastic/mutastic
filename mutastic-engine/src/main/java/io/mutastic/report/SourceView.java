@@ -25,6 +25,17 @@ public final class SourceView {
     return sourceFile(mutant).map(this::relative).orElse(expectedPath(mutant));
   }
 
+  /// The source file's lines as written, if it's there.
+  public Optional<List<String>> lines(Mutant mutant) {
+    return sourceFile(mutant).map(file -> {
+      try {
+        return Files.readAllLines(file);
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
+    });
+  }
+
   /// The line's text, stripped, if the source is there.
   public Optional<String> line(Mutant mutant) {
     return sourceFile(mutant).flatMap(file -> {

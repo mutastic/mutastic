@@ -18,7 +18,8 @@ final class Samples {
   static Result mutastic(String... args) {
     var out = new ByteArrayOutputStream();
     var err = new ByteArrayOutputStream();
-    int exit = Main.run(args, new PrintStream(out, true, StandardCharsets.UTF_8), new PrintStream(err, true, StandardCharsets.UTF_8));
+    int exit = Main.run(args, new PrintStream(out, true, StandardCharsets.UTF_8), new PrintStream(err, true, StandardCharsets.UTF_8),
+        new Terminal(false, java.util.Map.of()));
     return new Result(exit, out.toString(StandardCharsets.UTF_8), err.toString(StandardCharsets.UTF_8));
   }
 
