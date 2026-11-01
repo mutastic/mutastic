@@ -9,7 +9,7 @@ build failure.
 
 ```sh
 ./gradlew build          # compile, Error Prone and NullAway, format, Checkstyle, tests, ArchUnit,
-                         # and the branch-coverage floor (65%)
+                         # and the branch-coverage floor (64%)
 ./gradlew spotlessApply  # format the code
 ./gradlew coverageReport # build/reports/jacoco/coverageReport/html, over every module's tests
 ./gradlew lockDependencies --write-locks  # after changing a version: rewrites gradle.lockfile
