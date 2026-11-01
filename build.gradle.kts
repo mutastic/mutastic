@@ -29,6 +29,24 @@ subprojects {
     dependencies {
         "errorprone"("com.google.errorprone:error_prone_core:2.50.0")
     }
+    tasks.withType<JavaCompile>().configureEach {
+        (options as ExtensionAware).extensions.configure<net.ltgt.gradle.errorprone.ErrorProneOptions> {
+            // Off by default in Error Prone, on here because each holds one of AGENTS.md's
+            // conventions. Each was tried alone over the whole tree first: none found anything,
+            // because the code was written to the conventions before the build checked them. They
+            // stay as guards, not clean-ups, against code written after.
+            error(
+                "Varifier", // 11: `var` when the right-hand side names the type
+                "IdentifierName", // 11: names read as words
+                "ConstantPatternCompile", // a Pattern is compiled once, and named
+                "ImmutableSetForContains",
+                "StatementSwitchToExpressionSwitch",
+                "MissingDefault",
+                "RedundantOverride",
+                "UnnecessaryStaticImport",
+            )
+        }
+    }
 
     apply(plugin = "com.diffplug.spotless")
     configure<com.diffplug.gradle.spotless.SpotlessExtension> {
