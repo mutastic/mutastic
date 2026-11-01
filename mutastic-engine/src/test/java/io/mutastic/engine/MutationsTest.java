@@ -8,6 +8,7 @@ import io.mutastic.engine.fixture.Accessors;
 import io.mutastic.engine.fixture.Annotated;
 import io.mutastic.engine.fixture.Board;
 import io.mutastic.engine.fixture.Kept;
+import io.mutastic.engine.fixture.OwnAnnotations;
 import io.mutastic.engine.fixture.Point;
 import io.mutastic.engine.fixture.Pricing;
 import io.mutastic.engine.fixture.Window;
@@ -98,10 +99,16 @@ class MutationsTest {
     var skips = skipsIn(Annotated.class);
 
     assertThat(skips)
-        .containsEntry(
-            "retries", "user: @DoNotMutate on `retries()`: measured in the load test, not here")
+        .containsEntry("capped", "user: @DoNotMutate on `capped()`: tested elsewhere")
         .containsEntry("generated", "generated: @Generated on `generated()`")
         .containsEntry("toString", "");
+  }
+
+  /// No dependency on mutastic needed: a team's own annotation of the name works the same.
+  @Test
+  void aTeamsOwnAnnotationWorksTheSame() throws Exception {
+    assertThat(skipsIn(OwnAnnotations.class))
+        .containsEntry("capped", "user: @DoNotMutate on `capped()`: tested elsewhere");
   }
 
   @Test

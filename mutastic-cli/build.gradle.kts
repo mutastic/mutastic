@@ -22,6 +22,8 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj)
     testImplementation(libs.archunit)
+    // Only so ArchUnit sees the annotations module; the CLI never uses it.
+    testRuntimeOnly(project(":mutastic-annotations"))
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

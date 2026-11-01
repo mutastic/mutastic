@@ -6,6 +6,7 @@ plugins {
 rootProject.name = "mutastic"
 
 include(
+    "mutastic-annotations",
     "mutastic-api",
     "mutastic-worker",
     "mutastic-engine",

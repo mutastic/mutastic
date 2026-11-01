@@ -16,6 +16,8 @@ dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj)
+    // The fixtures use mutastic's own annotations as a project would; the engine itself never does.
+    testImplementation(project(":mutastic-annotations"))
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

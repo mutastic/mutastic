@@ -23,6 +23,26 @@ class ArchitectureTest {
           .dependOnClassesThat()
           .resideInAnyPackage("io.mutastic.engine..", "io.mutastic.report..", "io.mutastic.cli..");
 
+  /// The annotations a project puts in its own code bring nothing else of mutastic's with them, and
+  /// mutastic reads them by simple name, so no part of it depends on them either.
+  @ArchTest
+  static final ArchRule annotationsStandAlone =
+      noClasses()
+          .that()
+          .resideInAPackage("io.mutastic.annotations..")
+          .should()
+          .dependOnClassesThat()
+          .resideOutsideOfPackages("io.mutastic.annotations..", "java..", "org.jspecify..");
+
+  @ArchTest
+  static final ArchRule nothingNeedsTheAnnotations =
+      noClasses()
+          .that()
+          .resideOutsideOfPackage("io.mutastic.annotations..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("io.mutastic.annotations..");
+
   /// The result model and extension points that every module shares depend on nothing of ours.
   @ArchTest
   static final ArchRule apiStandsAlone =
