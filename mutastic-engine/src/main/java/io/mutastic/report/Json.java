@@ -54,7 +54,8 @@ final class Json {
 
   private static void string(String text, StringBuilder out) {
     out.append('"');
-    for (char c : text.toCharArray()) {
+    for (int at = 0; at < text.length(); at++) {
+      char c = text.charAt(at);
       switch (c) {
         case '"' -> out.append("\\\"");
         case '\\' -> out.append("\\\\");

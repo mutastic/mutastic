@@ -72,7 +72,7 @@ public record RunRecord(String code, String tool, double score, Map<String, Entr
       double score = 0;
       var results = new LinkedHashMap<String, Entry>();
       for (String line : Files.readAllLines(file)) {
-        var parts = line.split("\t");
+        var parts = line.split("\t", -1);
         switch (parts[0]) {
           case "code" -> code = parts[1];
           case "tool" -> tool = parts[1];

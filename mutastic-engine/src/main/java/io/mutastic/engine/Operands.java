@@ -14,7 +14,6 @@ import java.lang.classfile.instruction.OperatorInstruction;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 
 /// What a comparison or calculation works on, as the source names it: `total` and `100` in `total
 /// >= 100`, `element.length()` and `2` in `element.length() < 2`, read back from the instructions
@@ -30,7 +29,7 @@ final class Operands {
   private record Operand(String text, int start, boolean predicate) {}
 
   private final List<Local> locals = new ArrayList<>();
-  private final Map<Instruction, Integer> positions = new IdentityHashMap<>();
+  private final IdentityHashMap<Instruction, Integer> positions = new IdentityHashMap<>();
   private final List<Instruction> recent = new ArrayList<>();
   private int position;
 
@@ -88,7 +87,7 @@ final class Operands {
     Operand operand = null;
     for (int i = 0; i < wanted; i++) {
       operand = endingAt(before, end);
-      if (operand == null || operand.start() < 0 && i < wanted - 1) {
+      if (operand == null || (operand.start() < 0 && i < wanted - 1)) {
         return List.of();
       }
       names.addFirst(operand.text());

@@ -32,6 +32,7 @@ import java.lang.classfile.instruction.BranchInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.OperatorInstruction;
 import java.lang.classfile.instruction.ReturnInstruction;
+import java.util.Locale;
 import java.util.Map;
 
 /// The mutation operators, and what each instruction can become.
@@ -80,6 +81,9 @@ public enum Operator {
   /// A call that returns nothing is removed. Survives when no test checks the call's effect.
   REMOVE_VOID_CALL(Map.of());
 
+  // Error Prone's ImmutableEnumChecker wants Guava's ImmutableMap here. The field holds a Map.of,
+  // which is already unmodifiable; a dependency for a type name isn't worth it.
+  @SuppressWarnings("ImmutableEnumChecker")
   private final Map<Opcode, Opcode> replacements;
 
   Operator(Map<Opcode, Opcode> replacements) {
@@ -88,7 +92,7 @@ public enum Operator {
 
   /// `mutastic/boundary`: how reports and rules name it.
   public String id() {
-    return "mutastic/" + name().toLowerCase().replace('_', '-');
+    return "mutastic/" + name().toLowerCase(Locale.ROOT).replace('_', '-');
   }
 
   /// Whether it works on call sites rather than instruction sites.

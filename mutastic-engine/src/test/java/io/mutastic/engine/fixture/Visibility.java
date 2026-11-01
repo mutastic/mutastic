@@ -1,6 +1,8 @@
 package io.mutastic.engine.fixture;
 
-/// Methods and classes a test elsewhere can and can't call.
+/// Methods and classes a test elsewhere can and can't call. Unused private methods, a non-static
+/// inner class and needlessly public members are the point: they're the shapes `AccessTest` reads.
+@SuppressWarnings({"UnusedMethod", "EffectivelyPrivate", "ClassCanBeStatic", "unused"})
 public class Visibility {
   public static int open(int value) {
     return value + 1;

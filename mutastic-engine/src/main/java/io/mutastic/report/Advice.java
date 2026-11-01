@@ -66,6 +66,8 @@ public record Advice(
     return of(result.mutant(), result.inputs(), false);
   }
 
+  /// The advice, its jump read as written in the source or inverted as javac usually compiles it.
+  ///
   /// @param asWritten the jump tests the source's own condition, not its opposite
   static Advice of(Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
     var method = method(mutant);

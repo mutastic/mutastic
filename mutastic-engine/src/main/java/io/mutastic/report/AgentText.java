@@ -41,6 +41,8 @@ public final class AgentText {
     return render(report, comparison, false);
   }
 
+  /// The whole run for an agent: the verdict, then each missed mutant, then what no test reaches.
+  ///
   /// @param oneMutant the run was one mutant asked for by id: its fate is the verdict, not a score
   public String render(Report report, Optional<Comparison> comparison, boolean oneMutant) {
     var out = new StringBuilder();

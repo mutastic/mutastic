@@ -357,7 +357,8 @@ final class Mutations {
                               && group.stream().anyMatch(copy -> copy.ordinal() >= start));
       if (!straddles) {
         merged.add(mutant);
-      } else if (mutant == group.getFirst()) { // the later copies go into this one, in its place
+      } else if (mutant.equals(
+          group.getFirst())) { // the later copies go into this one, in its place
         merged.add(
             new Mutant(
                 mutant.className(),
@@ -446,8 +447,8 @@ final class Mutations {
     var self = "L" + model.thisClass().asInternalName() + ";";
     var descriptor = method.methodType().stringValue();
     boolean enumMethod =
-        name.equals("values") && descriptor.equals("()[" + self)
-            || name.equals("valueOf") && descriptor.equals("(Ljava/lang/String;)" + self);
+        (name.equals("values") && descriptor.equals("()[" + self))
+            || (name.equals("valueOf") && descriptor.equals("(Ljava/lang/String;)" + self));
     if (model.flags().has(AccessFlag.ENUM) && enumMethod) {
       return false;
     }

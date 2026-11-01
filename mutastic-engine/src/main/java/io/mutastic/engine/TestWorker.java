@@ -65,20 +65,22 @@ final class TestWorker implements AutoCloseable {
                             + COVERAGE_LIMIT.toMinutes()
                             + " minutes");
                   });
-      var parts = answer.split("\t");
+      var parts = answer.split("\t", -1);
       switch (parts[0]) {
         case "TEST" -> coverage.recordTest(parts[1], Duration.ofNanos(Long.parseLong(parts[2])));
         case "LINE" ->
             coverage.recordLines(
                 parts[1],
-                Arrays.stream(parts[2].split(","))
+                Arrays.stream(parts[2].split(",", -1))
                     .map(Integer::valueOf)
                     .collect(Collectors.toSet()));
         case "VALUE" ->
             coverage.recordValues(
                 parts[1],
                 Integer.parseInt(parts[2]),
-                Arrays.stream(parts[3].split(",")).map(Long::valueOf).collect(Collectors.toSet()));
+                Arrays.stream(parts[3].split(",", -1))
+                    .map(Long::valueOf)
+                    .collect(Collectors.toSet()));
         case "DONE" -> {
           return new Baseline(
               parts[1].equals("PASSED"),
@@ -115,7 +117,7 @@ final class TestWorker implements AutoCloseable {
       kill();
       return new Run(Status.TIMED_OUT, tests.size());
     }
-    var parts = answer.get().split("\t");
+    var parts = answer.get().split("\t", -1);
     return switch (parts[1]) {
       case "PASSED" -> new Run(Status.MISSED, Integer.parseInt(parts[2]));
       case "FAILED" ->
@@ -160,7 +162,7 @@ final class TestWorker implements AutoCloseable {
       kill();
       return Optional.empty();
     }
-    var parts = answer.get().split("\t");
+    var parts = answer.get().split("\t", -1);
     if (!parts[0].equals("SUGGESTED")) {
       throw new IllegalStateException("the worker said: " + answer.get());
     }

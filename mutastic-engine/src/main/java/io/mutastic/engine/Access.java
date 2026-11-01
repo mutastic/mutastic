@@ -63,7 +63,8 @@ final class Access {
 
   /// Public from anywhere; package-private and protected from the same package; private never.
   private static boolean reachable(java.util.Set<AccessFlag> flags, boolean samePackage) {
-    return flags.contains(AccessFlag.PUBLIC) || !flags.contains(AccessFlag.PRIVATE) && samePackage;
+    return flags.contains(AccessFlag.PUBLIC)
+        || (!flags.contains(AccessFlag.PRIVATE) && samePackage);
   }
 
   /// A top-level class by its own flags; a nested one by the access it was declared with, which

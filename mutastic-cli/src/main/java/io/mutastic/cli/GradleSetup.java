@@ -180,7 +180,10 @@ final class GradleSetup {
   private static List<Path> paths(String joined) {
     return joined == null || joined.isBlank()
         ? List.of()
-        : Arrays.stream(joined.split(File.pathSeparator)).map(Path::of).toList();
+        : Arrays.stream(joined.split(File.pathSeparator, -1))
+            .filter(entry -> !entry.isBlank()) // an empty entry would be the current directory
+            .map(Path::of)
+            .toList();
   }
 
   /// The project's wrapper, as its own build runs; `gradle` on the PATH without one.

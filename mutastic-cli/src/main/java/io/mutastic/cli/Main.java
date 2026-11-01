@@ -99,7 +99,8 @@ public final class Main {
       var progress = new Progress(err, progressMode(command.progress(), format, terminal));
       progress.started(version());
       long start = System.nanoTime();
-      var startedAt = java.time.LocalTime.now();
+      var startedAt =
+          java.time.LocalTime.now(java.time.ZoneId.systemDefault()); // the reader's clock
       var directory = command.directory().toAbsolutePath().normalize();
       var work = workDirectory(directory, command.module());
       var here = Path.of("").toAbsolutePath().normalize();
@@ -341,6 +342,8 @@ public final class Main {
           new RequestedReport("json", Optional.empty()),
           new RequestedReport("html", Optional.empty()));
 
+  /// A command line, read.
+  ///
   /// @param format empty for the default, which depends on where output goes
   /// @param workers empty for the default, which depends on the machine
   /// @param reports the report files to write after a full run

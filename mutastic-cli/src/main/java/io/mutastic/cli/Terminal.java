@@ -7,8 +7,10 @@ import java.util.Map;
 /// @param interactive whether a person is likely watching: stdout is a terminal
 /// @param env the environment, for `NO_COLOR`, `FORCE_COLOR`, `TERM` and `MUTASTIC_AGENT`
 record Terminal(boolean interactive, Map<String, String> env) {
+  // Since JDK 22 System.console() is there even when output is redirected, so isTerminal() is what
+  // answers. The null check stays: -Djdk.console can still leave no console at all.
+  @SuppressWarnings("SystemConsoleNull")
   static Terminal current() {
-    // Since JDK 22 System.console() is there even when output is redirected: ask it.
     var console = System.console();
     return new Terminal(console != null && console.isTerminal(), System.getenv());
   }
@@ -21,7 +23,7 @@ record Terminal(boolean interactive, Map<String, String> env) {
       case "never" -> false;
       default ->
           env.containsKey("FORCE_COLOR")
-              || interactive && !env.containsKey("NO_COLOR") && !"dumb".equals(env.get("TERM"));
+              || (interactive && !env.containsKey("NO_COLOR") && !"dumb".equals(env.get("TERM")));
     };
   }
 

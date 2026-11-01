@@ -52,7 +52,7 @@ final class Suggester {
     var method = method(owner, methodName, descriptor, receiver.equals("-"));
     var constructor =
         receiver.equals("-") ? Optional.<Constructor<?>>empty() : constructor(owner, receiver);
-    if (method.isEmpty() || !receiver.equals("-") && constructor.isEmpty()) {
+    if (method.isEmpty() || (!receiver.equals("-") && constructor.isEmpty())) {
       return none;
     }
     var call = new Call(method.get(), constructor.orElse(null));

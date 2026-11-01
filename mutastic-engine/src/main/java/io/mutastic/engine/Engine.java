@@ -62,6 +62,8 @@ public final class Engine {
     }
   }
 
+  /// What a run does beyond finding and running every mutant.
+  ///
   /// @param only run just the mutant with this id
   /// @param confirmCatches run a catching test once more against its mutant: a catch that doesn't
   ///   repeat came from a flaky test, and the mutant's other covering tests decide. One more test
@@ -442,7 +444,9 @@ public final class Engine {
                 var all =
                     found[0].equals("-")
                         ? List.<Long>of()
-                        : java.util.Arrays.stream(found[0].split(";")).map(Long::valueOf).toList();
+                        : java.util.Arrays.stream(found[0].split(";", -1))
+                            .map(Long::valueOf)
+                            .toList();
                 var receiverArguments = all.subList(0, receiverCount);
                 var arguments = all.subList(receiverCount, all.size());
                 var names = coverage.parameterNames(mutant);

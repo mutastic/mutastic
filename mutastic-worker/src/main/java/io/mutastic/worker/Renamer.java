@@ -93,7 +93,8 @@ final class Renamer {
         // `L` opens a descriptor's class (`(ILcom/example/FooTest;)V`); a package named
         // `Lcom` is the only way that misfires.
         char before = at == 0 ? ' ' : result.charAt(at - 1);
-        boolean starts = before == 'L' || !Character.isJavaIdentifierPart(before) && before != '/';
+        boolean starts =
+            before == 'L' || (!Character.isJavaIdentifierPart(before) && before != '/');
         boolean ends = end == result.length() || ";<$".indexOf(result.charAt(end)) >= 0;
         if (starts && ends) {
           result = result.substring(0, end) + suffix + result.substring(end);

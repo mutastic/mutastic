@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -241,8 +242,8 @@ public final class HumanText {
       inFile.forEach(result -> firstSeen.putIfAbsent(methodKey(result), firstSeen.size()));
       inFile.stream()
           .sorted(
-              Comparator.comparing((MutantResult result) -> -perMethod.get(methodKey(result)))
-                  .thenComparing(result -> firstSeen.get(methodKey(result))))
+              Comparator.comparingLong((MutantResult result) -> -perMethod.get(methodKey(result)))
+                  .thenComparingInt(result -> firstSeen.get(methodKey(result))))
           .forEach(ordered::add);
     }
     return ordered;
@@ -300,7 +301,7 @@ public final class HumanText {
     lines.add(
         " %s %s"
             .formatted(
-                style.label("✗ " + words.undetected.toUpperCase(), Style.RED),
+                style.label("✗ " + words.undetected.toUpperCase(Locale.ROOT), Style.RED),
                 style.bold(code(advice.headline()))));
     lines.add(" %s %s %s".formatted(gutter, style.dim("┌─"), location(mutant)));
     var file = sources.lines(mutant);
@@ -389,7 +390,7 @@ public final class HumanText {
     lines.add(
         " %s %s"
             .formatted(
-                style.label("✗ " + words.undetected.toUpperCase(), Style.RED),
+                style.label("✗ " + words.undetected.toUpperCase(Locale.ROOT), Style.RED),
                 style.bold(code(advice.headline()))));
     lines.add(" %s %s %s".formatted(gutter, style.dim("┌─"), location(mutant)));
     sources
@@ -670,7 +671,7 @@ public final class HumanText {
     var id = result.mutant().id();
     return switch (result.status()) {
       case CAUGHT ->
-          style.label(words.detected.toUpperCase(), Style.GREEN)
+          style.label(words.detected.toUpperCase(Locale.ROOT), Style.GREEN)
               + " "
               + style.green(
                   "%s is %s by %s"
@@ -679,12 +680,12 @@ public final class HumanText {
                           words.detected,
                           AgentText.shortName(result.caughtBy().orElse("a test"))));
       case TIMED_OUT ->
-          style.label(words.detected.toUpperCase(), Style.GREEN)
+          style.label(words.detected.toUpperCase(Locale.ROOT), Style.GREEN)
               + " "
               + style.green(
                   "%s is %s: its tests stopped finishing in time".formatted(id, words.detected));
       case MISSED ->
-          style.label(words.undetected.toUpperCase(), Style.RED)
+          style.label(words.undetected.toUpperCase(Locale.ROOT), Style.RED)
               + " "
               + style.red(
                   "%s is still %s · done when %s"
@@ -693,7 +694,7 @@ public final class HumanText {
                           words.undetected,
                           MutantCommand.DONE_WHEN.text(id, sources.target())));
       case NOT_COVERED ->
-          style.label(words.notCovered.toUpperCase(), Style.RED)
+          style.label(words.notCovered.toUpperCase(Locale.ROOT), Style.RED)
               + " "
               + style.red("%s: no test reaches its line".formatted(id));
       case SKIPPED ->

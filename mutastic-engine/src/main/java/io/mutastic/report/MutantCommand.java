@@ -56,7 +56,7 @@ public enum MutantCommand {
 
   /// The arguments after `mutastic`, for checking they parse: `verify m855c8e3c`.
   public List<String> arguments(String id) {
-    return List.of(arguments.formatted(id).split(" "));
+    return List.of(arguments.formatted(id).split(" ", -1));
   }
 
   /// `mutastic verify <id> · mutastic run --only=<id>`: every command, for the summary.

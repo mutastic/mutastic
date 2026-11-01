@@ -3,6 +3,7 @@ package io.mutastic.cli;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Path;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -30,7 +31,7 @@ class ParallelTest {
   }
 
   /// Each mutant's status by its change, in a stable order.
-  private static TreeMap<String, String> statuses(String jsonl) {
+  private static SortedMap<String, String> statuses(String jsonl) {
     var statuses = new TreeMap<String, String>();
     jsonl
         .lines()

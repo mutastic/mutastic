@@ -56,6 +56,9 @@ final class Suspects {
         .toList();
   }
 
+  /// A test that caught mutants in several unrelated methods with the same exception from its own
+  /// code.
+  ///
   /// @param failure the exception every one of these catches failed with
   record UnrelatedCatches(String test, String failure, List<String> mutants, long methods) {}
 

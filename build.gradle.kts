@@ -4,6 +4,7 @@ plugins {
     // Google style, 2 spaces, 100 columns. Pinned to an exact version: a floating formatter makes
     // the diff depend on who ran it last.
     id("com.diffplug.spotless") version "8.10.4"
+    id("net.ltgt.errorprone") version "4.1.0" apply false
 }
 
 repositories {
@@ -21,6 +22,12 @@ subprojects {
     // Every warning fails the build: a warning nobody acts on hides the next one.
     tasks.withType<JavaCompile>().configureEach {
         options.compilerArgs.addAll(listOf("-Werror", "-Xlint:all"))
+    }
+
+    // Correctness you didn't think to check.
+    apply(plugin = "net.ltgt.errorprone")
+    dependencies {
+        "errorprone"("com.google.errorprone:error_prone_core:2.50.0")
     }
 
     apply(plugin = "com.diffplug.spotless")

@@ -19,6 +19,8 @@ import java.util.Optional;
 public record Comparison(
     double previousScore, boolean sameCode, boolean sameTool, List<Flip> flips) {
 
+  /// A mutant caught in one run and not the other.
+  ///
   /// @param caughtBy the test that caught it, in whichever run it was caught; empty for a timeout
   public record Flip(String id, Status before, Status after, Optional<String> caughtBy) {}
 

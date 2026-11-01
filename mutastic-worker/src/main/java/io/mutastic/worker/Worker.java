@@ -99,7 +99,7 @@ public final class Worker {
     reader.start();
     protocol.println("READY\t" + Runtime.version().feature());
     for (String line = commands.take(); !line.equals("EXIT"); line = commands.take()) {
-      worker.handle(line.split("\t"));
+      worker.handle(line.split("\t", -1));
     }
     Runtime.getRuntime().halt(0); // even if a test left non-daemon threads behind
   }
@@ -137,12 +137,12 @@ public final class Worker {
                   productionRoots, Map.of(), testRoots, splitTests, getClass().getClassLoader());
         }
         var candidates =
-            Arrays.stream(command[5].split("\\|"))
+            Arrays.stream(command[5].split("\\|", -1))
                 .map(
                     inputs ->
                         inputs.equals("-")
                             ? List.<Long>of()
-                            : Arrays.stream(inputs.split(";")).map(Long::valueOf).toList())
+                            : Arrays.stream(inputs.split(";", -1)).map(Long::valueOf).toList())
                 .toList();
         var found =
             Suggester.find(
@@ -315,11 +315,12 @@ public final class Worker {
   }
 
   /// Whether a port in use caused it, anywhere in its causes: with workers running side by side,
-  /// that can be another worker's test holding the port, not the mutant.
+  /// that can be another worker's test holding the port, not the mutant. Each cause is visited
+  /// once, so a chain that loops back on itself still ends.
   private static boolean portClash(Throwable thrown) {
-    for (Throwable cause = thrown;
-        cause != null;
-        cause = cause.getCause() == cause ? null : cause.getCause()) {
+    var visited =
+        java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Throwable, Boolean>());
+    for (Throwable cause = thrown; cause != null && visited.add(cause); cause = cause.getCause()) {
       if (cause instanceof java.net.BindException) {
         return true;
       }
@@ -421,7 +422,7 @@ public final class Worker {
   private static List<Path> roots(String[] args, String flag) {
     return Arrays.stream(args)
         .filter(arg -> arg.startsWith(flag))
-        .flatMap(arg -> Arrays.stream(arg.substring(flag.length()).split(File.pathSeparator)))
+        .flatMap(arg -> Arrays.stream(arg.substring(flag.length()).split(File.pathSeparator, -1)))
         .filter(entry -> !entry.isEmpty())
         .map(Path::of)
         .toList();
