@@ -16,12 +16,13 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /// One mutation-testing run of one project: find every mutant, run the tests once with coverage,
-/// then run each mutant against only the tests that reach it, fastest first, on several worker
-/// JVMs side by side.
+/// then run each mutant against only the tests that reach it, fastest first, on several worker JVMs
+/// side by side.
 public final class Engine {
-  /// How much slower than in the coverage pass a mutant's tests may run before they count as
-  /// stuck, and the fixed allowance on top, for JIT warm-up and GC pauses.
+  /// How much slower than in the coverage pass a mutant's tests may run before they count as stuck,
+  /// and the fixed allowance on top, for JIT warm-up and GC pauses.
   private static final double TIMEOUT_FACTOR = 1.25;
+
   private static final Duration TIMEOUT_ALLOWANCE = Duration.ofSeconds(4);
 
   private final Path workerJar;
@@ -34,8 +35,8 @@ public final class Engine {
     this.log = log;
   }
 
-  /// Workers to run side by side when not told: half the cores, as tests often use more than
-  /// one thread, and at most 4, since each worker holds its own copy of the app.
+  /// Workers to run side by side when not told: half the cores, as tests often use more than one
+  /// thread, and at most 4, since each worker holds its own copy of the app.
   public static int defaultWorkers() {
     return Math.clamp(Runtime.getRuntime().availableProcessors() / 2, 1, 4);
   }
@@ -45,7 +46,11 @@ public final class Engine {
     private final List<String> failing;
 
     BaselineFailed(List<String> failing, Path log) {
-      super("the tests fail without any mutant: " + String.join(", ", failing) + "; their output is in " + log);
+      super(
+          "the tests fail without any mutant: "
+              + String.join(", ", failing)
+              + "; their output is in "
+              + log);
       this.failing = List.copyOf(failing);
     }
 
@@ -55,13 +60,14 @@ public final class Engine {
   }
 
   /// @param only run just the mutant with this id
-  /// @param confirmCatches run a catching test once more against its mutant: a catch that
-  ///     doesn't repeat came from a flaky test, and the mutant's other covering tests decide.
-  ///     One more test run per catch.
+  /// @param confirmCatches run a catching test once more against its mutant: a catch that doesn't
+  ///   repeat came from a flaky test, and the mutant's other covering tests decide. One more test
+  ///   run per catch.
   /// @param workers how many worker JVMs run mutants side by side
-  /// @param suggestions look for a test that catches each missed mutant, by calling its method
-  ///     with candidate inputs, today and with the mutant: user code runs outside its tests
-  public record Options(Optional<String> only, boolean confirmCatches, int workers, boolean suggestions) {
+  /// @param suggestions look for a test that catches each missed mutant, by calling its method with
+  ///   candidate inputs, today and with the mutant: user code runs outside its tests
+  public record Options(
+      Optional<String> only, boolean confirmCatches, int workers, boolean suggestions) {
     public Options {
       if (workers < 1) {
         throw new IllegalArgumentException("workers must be at least 1, not " + workers);
@@ -73,49 +79,73 @@ public final class Engine {
   public Report run(Project project, Options options, Listener listener) {
     var only = options.only();
     long start = System.nanoTime();
-    var context = ClassFiles.resolvingFrom(Stream.of(project.classes(), project.testClasses(), project.dependencies())
-        .flatMap(List::stream).toList());
+    var context =
+        ClassFiles.resolvingFrom(
+            Stream.of(project.classes(), project.testClasses(), project.dependencies())
+                .flatMap(List::stream)
+                .toList());
     var mutations = new Mutations(context);
     var models = classesIn(project.classes(), context);
-    var mutants = models.values().stream()
-        .flatMap(model -> mutations.find(model).stream())
-        .filter(mutant -> only.map(mutant.id()::equals).orElse(true))
-        .toList();
+    var mutants =
+        models.values().stream()
+            .flatMap(model -> mutations.find(model).stream())
+            .filter(mutant -> only.map(mutant.id()::equals).orElse(true))
+            .toList();
     if (only.isPresent() && mutants.isEmpty()) {
-      throw new IllegalArgumentException(("no mutant %s in %s. A mutant's id belongs to the project its run was on: "
-          + "run the command as that run printed it, with the project's directory and module").formatted(only.get(),
-          project.name()));
+      throw new IllegalArgumentException(
+          ("no mutant %s in %s. A mutant's id belongs to the project its run was on: "
+                  + "run the command as that run printed it, with the project's directory and module")
+              .formatted(only.get(), project.name()));
     }
 
     var coverage = new Coverage(context);
-    var mutated = mutants.stream().filter(mutant -> mutant.skipped().isEmpty()).map(Mutant::binaryName)
-        .collect(Collectors.toSet());
+    var mutated =
+        mutants.stream()
+            .filter(mutant -> mutant.skipped().isEmpty())
+            .map(Mutant::binaryName)
+            .collect(Collectors.toSet());
     var instrumented = new LinkedHashMap<String, byte[]>();
-    models.forEach((name, model) -> {
-      if (mutated.contains(name)) {
-        instrumented.put(name, coverage.instrument(model));
-      }
-    });
+    models.forEach(
+        (name, model) -> {
+          if (mutated.contains(name)) {
+            instrumented.put(name, coverage.instrument(model));
+          }
+        });
 
     var workers = new ArrayList<TestWorker>();
-    for (int number = 1; number <= Math.min(options.workers(), Math.max(1, mutants.size())); number++) {
+    for (int number = 1;
+        number <= Math.min(options.workers(), Math.max(1, mutants.size()));
+        number++) {
       workers.add(new TestWorker(project, workerJar, number == 1 ? log : numbered(log, number)));
     }
     try {
       var first = workers.getFirst();
       long coverageStart = System.nanoTime();
       var baseline = first.cover(instrumented, testClassesIn(project.testClasses()), coverage);
-      var flaky = baseline.passed() ? List.<String>of() : flakyOrFail(baseline.failing(), coverage, first);
+      var flaky =
+          baseline.passed() ? List.<String>of() : flakyOrFail(baseline.failing(), coverage, first);
       coverage.exclude(flaky);
       var coverageTook = Duration.ofNanos(System.nanoTime() - coverageStart);
       if (coverage.testCount() == 0) {
-        throw new IllegalStateException("no tests ran in " + project.name() + "; mutastic runs JUnit Platform tests");
+        throw new IllegalStateException(
+            "no tests ran in " + project.name() + "; mutastic runs JUnit Platform tests");
       }
-      listener.coverageFinished(first.jdk(), coverage.testCount(), coverageTook, mutants.size(), flaky);
-      var mutantRun = new MutantRun(models, mutations, coverage, options.confirmCatches(), options.suggestions());
+      listener.coverageFinished(
+          first.jdk(), coverage.testCount(), coverageTook, mutants.size(), flaky);
+      var mutantRun =
+          new MutantRun(
+              models, mutations, coverage, options.confirmCatches(), options.suggestions());
       var results = runAll(mutants, mutantRun, workers, listener);
-      return new Report(project.name(), first.jdk(), results, coverage.testCount(), flaky, coverageTook, workers.size(),
-          workers.stream().mapToInt(TestWorker::started).sum(), Duration.ofNanos(System.nanoTime() - start));
+      return new Report(
+          project.name(),
+          first.jdk(),
+          results,
+          coverage.testCount(),
+          flaky,
+          coverageTook,
+          workers.size(),
+          workers.stream().mapToInt(TestWorker::started).sum(),
+          Duration.ofNanos(System.nanoTime() - start));
     } finally {
       workers.forEach(TestWorker::close);
     }
@@ -124,35 +154,38 @@ public final class Engine {
   /// Every mutant, on the workers side by side, in the order they were found. A catch that a port
   /// in use caused may be another worker's test holding the port: those mutants run again
   /// afterwards on one worker, with the others stopped, and are reported then.
-  private static List<MutantResult> runAll(List<Mutant> mutants, MutantRun mutantRun, List<TestWorker> workers,
-      Listener listener) {
+  private static List<MutantResult> runAll(
+      List<Mutant> mutants, MutantRun mutantRun, List<TestWorker> workers, Listener listener) {
     var results = new MutantResult[mutants.size()];
     var files = new SourceFiles(mutants);
     var clashed = new java.util.concurrent.ConcurrentLinkedQueue<Integer>();
     var idle = new java.util.concurrent.LinkedBlockingQueue<TestWorker>(workers);
     var report = new Object();
-    try (var executor = java.util.concurrent.Executors.newFixedThreadPool(workers.size(),
-        Thread.ofPlatform().name("mutastic-", 1).daemon().factory())) {
+    try (var executor =
+        java.util.concurrent.Executors.newFixedThreadPool(
+            workers.size(), Thread.ofPlatform().name("mutastic-", 1).daemon().factory())) {
       var futures = new ArrayList<java.util.concurrent.Future<?>>();
       for (int index = 0; index < mutants.size(); index++) {
         int at = index;
-        futures.add(executor.submit(() -> {
-          var worker = take(idle);
-          try {
-            var result = mutantRun.run(mutants.get(at), worker);
-            if (result.portClash() && workers.size() > 1) {
-              clashed.add(at);
-              return;
-            }
-            results[at] = result.result();
-            synchronized (report) {
-              listener.mutantFinished(result.result());
-              files.finished(at, results, listener);
-            }
-          } finally {
-            idle.add(worker);
-          }
-        }));
+        futures.add(
+            executor.submit(
+                () -> {
+                  var worker = take(idle);
+                  try {
+                    var result = mutantRun.run(mutants.get(at), worker);
+                    if (result.portClash() && workers.size() > 1) {
+                      clashed.add(at);
+                      return;
+                    }
+                    results[at] = result.result();
+                    synchronized (report) {
+                      listener.mutantFinished(result.result());
+                      files.finished(at, results, listener);
+                    }
+                  } finally {
+                    idle.add(worker);
+                  }
+                }));
       }
       for (var future : futures) {
         await(future);
@@ -169,8 +202,8 @@ public final class Engine {
     return List.of(results);
   }
 
-  /// Which mutants belong to each source file (a top-level class and its nested classes), to
-  /// say when a file's last one is done.
+  /// Which mutants belong to each source file (a top-level class and its nested classes), to say
+  /// when a file's last one is done.
   private static final class SourceFiles {
     private final List<String> fileOf = new ArrayList<>();
     private final Map<String, List<Integer>> members = new LinkedHashMap<>();
@@ -191,7 +224,8 @@ public final class Engine {
     void finished(int at, MutantResult[] results, Listener listener) {
       var file = fileOf.get(at);
       if (remaining.merge(file, -1, Integer::sum) == 0) {
-        listener.fileFinished(file, members.get(file).stream().map(index -> results[index]).toList());
+        listener.fileFinished(
+            file, members.get(file).stream().map(index -> results[index]).toList());
       }
     }
   }
@@ -224,35 +258,41 @@ public final class Engine {
   private static Path numbered(Path log, int number) {
     var name = log.getFileName().toString();
     int dot = name.lastIndexOf('.');
-    return log.resolveSibling(dot < 0 ? name + "-" + number : name.substring(0, dot) + "-" + number + name.substring(dot));
+    return log.resolveSibling(
+        dot < 0
+            ? name + "-" + number
+            : name.substring(0, dot) + "-" + number + name.substring(dot));
   }
 
-  /// How many times a test that failed the coverage pass is run again on its own before it
-  /// counts as failing. One rerun wasn't enough: on spec-tictactoe a test that fails about half
-  /// the time under mutastic failed its single rerun too in 1 run of 10, stopping the run.
+  /// How many times a test that failed the coverage pass is run again on its own before it counts
+  /// as failing. One rerun wasn't enough: on spec-tictactoe a test that fails about half the time
+  /// under mutastic failed its single rerun too in 1 run of 10, stopping the run.
   static final int RERUNS = 3;
 
   /// The tests that failed in the coverage pass, if every one passes when run again on its own
-  /// (within [#RERUNS] tries): they're flaky, and the run goes on without them. A test that
-  /// fails every try means the tests are red, and nothing a mutant does can be judged against
-  /// them.
+  /// (within [#RERUNS] tries): they're flaky, and the run goes on without them. A test that fails
+  /// every try means the tests are red, and nothing a mutant does can be judged against them.
   ///
-  /// A flaky test left in would fail at random against mutants too, and its failures would
-  /// count as catches it never made.
+  /// A flaky test left in would fail at random against mutants too, and its failures would count as
+  /// catches it never made.
   private List<String> flakyOrFail(List<String> failing, Coverage coverage, TestWorker worker) {
     // A test class that failed as a whole (a `@BeforeAll`) is reported by its unique id, which
     // can't be run again on its own.
     boolean rerunnable = failing.stream().allMatch(test -> test.contains("#"));
-    var stillFailing = rerunnable
-        ? failing.stream().filter(test -> !passesWithin(RERUNS, test, coverage, worker)).toList()
-        : failing;
+    var stillFailing =
+        rerunnable
+            ? failing.stream()
+                .filter(test -> !passesWithin(RERUNS, test, coverage, worker))
+                .toList()
+            : failing;
     if (!stillFailing.isEmpty()) {
       throw new BaselineFailed(stillFailing, log);
     }
     return failing;
   }
 
-  private static boolean passesWithin(int tries, String test, Coverage coverage, TestWorker worker) {
+  private static boolean passesWithin(
+      int tries, String test, Coverage coverage, TestWorker worker) {
     for (int attempt = 0; attempt < tries; attempt++) {
       if (worker.passes(test, timeoutFor(coverage.timeOf(test)))) {
         return true;
@@ -265,13 +305,18 @@ public final class Engine {
     return Duration.ofNanos((long) (normal.toNanos() * TIMEOUT_FACTOR)).plus(TIMEOUT_ALLOWANCE);
   }
 
-  /// What one mutant needs from the run, shared by every worker's thread. Applying and
-  /// verifying a mutant share the ClassFile context's caches, so they take turns; only the
-  /// tests run side by side. Coverage is only read once the coverage pass is over.
-  private record MutantRun(Map<String, ClassModel> models, Mutations mutations, Coverage coverage, boolean confirmCatches,
+  /// What one mutant needs from the run, shared by every worker's thread. Applying and verifying a
+  /// mutant share the ClassFile context's caches, so they take turns; only the tests run side by
+  /// side. Coverage is only read once the coverage pass is over.
+  private record MutantRun(
+      Map<String, ClassModel> models,
+      Mutations mutations,
+      Coverage coverage,
+      boolean confirmCatches,
       boolean suggestions) {
     /// At most this many sets of arguments to try per mutant.
     static final int CANDIDATES = 400;
+
     record Outcome(MutantResult result, boolean portClash) {}
 
     Outcome run(Mutant mutant, TestWorker worker) {
@@ -289,30 +334,52 @@ public final class Engine {
         if (!errors.isEmpty()) {
           // A mutant that won't load proves nothing, and counting it as caught would flatter the
           // score: this is mutastic's bug, not the user's.
-          throw new IllegalStateException("mutant " + mutant.id() + " doesn't verify: " + errors.getFirst().getMessage());
+          throw new IllegalStateException(
+              "mutant " + mutant.id() + " doesn't verify: " + errors.getFirst().getMessage());
         }
       }
       long start = System.nanoTime();
-      var run = worker.run(mutant.binaryName(), bytes, covering, timeoutFor(coverage.timeOf(covering)));
+      var run =
+          worker.run(mutant.binaryName(), bytes, covering, timeoutFor(coverage.timeOf(covering)));
       Optional<String> unconfirmed = Optional.empty();
       if (confirmCatches && run.status() == Status.CAUGHT) {
         var catcher = run.failedTest().orElseThrow();
-        var again = worker.run(mutant.binaryName(), bytes, List.of(catcher), timeoutFor(coverage.timeOf(catcher)));
+        var again =
+            worker.run(
+                mutant.binaryName(), bytes, List.of(catcher), timeoutFor(coverage.timeOf(catcher)));
         if (again.status() == Status.MISSED) {
           // Not a catch: the tests after it decide, as if it had passed the first time.
           unconfirmed = Optional.of(catcher);
           var rest = covering.subList(covering.indexOf(catcher) + 1, covering.size());
           int ran = run.testsRun();
-          var after = rest.isEmpty()
-              ? new TestWorker.Run(Status.MISSED, 0)
-              : worker.run(mutant.binaryName(), bytes, rest, timeoutFor(coverage.timeOf(rest)));
-          run = new TestWorker.Run(after.status(), after.failedTest(), after.failure(), after.origin(),
-              ran + after.testsRun(), after.portClash());
+          var after =
+              rest.isEmpty()
+                  ? new TestWorker.Run(Status.MISSED, 0)
+                  : worker.run(mutant.binaryName(), bytes, rest, timeoutFor(coverage.timeOf(rest)));
+          run =
+              new TestWorker.Run(
+                  after.status(),
+                  after.failedTest(),
+                  after.failure(),
+                  after.origin(),
+                  ran + after.testsRun(),
+                  after.portClash());
         }
       }
       var inputs = coverage.inputs(mutant, covering);
-      var result = new MutantResult(mutant, run.status(), covering, run.failedTest(), run.failure(), run.origin(),
-          run.testsRun(), unconfirmed, inputs, Optional.empty(), Duration.ofNanos(System.nanoTime() - start));
+      var result =
+          new MutantResult(
+              mutant,
+              run.status(),
+              covering,
+              run.failedTest(),
+              run.failure(),
+              run.origin(),
+              run.testsRun(),
+              unconfirmed,
+              inputs,
+              Optional.empty(),
+              Duration.ofNanos(System.nanoTime() - start));
       if (suggestions && run.status() == Status.MISSED) {
         var receiver = receiverFor(mutant, covering.getFirst());
         if (receiver.isPresent()) {
@@ -322,9 +389,8 @@ public final class Engine {
       return new Outcome(result, run.portClash());
     }
 
-    /// How the test class a suggestion would go into, the fastest covering test's, could write
-    /// its call: `-` for a static method, else the constructor for the receiver. Empty if it
-    /// can't.
+    /// How the test class a suggestion would go into, the fastest covering test's, could write its
+    /// call: `-` for a static method, else the constructor for the receiver. Empty if it can't.
     private Optional<String> receiverFor(Mutant mutant, String fastestTest) {
       int hash = fastestTest.indexOf('#');
       var testClass = hash < 0 ? fastestTest : fastestTest.substring(0, hash);
@@ -334,13 +400,20 @@ public final class Engine {
     }
 
     /// Each candidate is the receiver's constructor arguments, if any, then the method's.
-    private Optional<Suggestion> suggest(Mutant mutant, String receiver, byte[] bytes, Map<String, List<Long>> inputs,
+    private Optional<Suggestion> suggest(
+        Mutant mutant,
+        String receiver,
+        byte[] bytes,
+        Map<String, List<Long>> inputs,
         TestWorker worker) {
       var type = java.lang.constant.MethodTypeDesc.ofDescriptor(mutant.descriptor());
-      var constructor = receiver.equals("-") ? java.lang.constant.MethodTypeDesc.of(java.lang.constant.ConstantDescs.CD_void)
-          : java.lang.constant.MethodTypeDesc.ofDescriptor(receiver);
-      boolean wholeNumbers = type.parameterList().stream()
-          .allMatch(parameter -> Access.WHOLE_NUMBERS.contains(parameter.descriptorString()));
+      var constructor =
+          receiver.equals("-")
+              ? java.lang.constant.MethodTypeDesc.of(java.lang.constant.ConstantDescs.CD_void)
+              : java.lang.constant.MethodTypeDesc.ofDescriptor(receiver);
+      boolean wholeNumbers =
+          type.parameterList().stream()
+              .allMatch(parameter -> Access.WHOLE_NUMBERS.contains(parameter.descriptorString()));
       if (!wholeNumbers) {
         return Optional.empty();
       }
@@ -354,29 +427,55 @@ public final class Engine {
       values.addAll(List.of(0L, 1L, 2L, 3L, -1L, 10L));
       int receiverCount = constructor.parameterCount();
       var candidates = new ArrayList<List<Long>>();
-      combine(List.copyOf(values), receiverCount + type.parameterCount(), new ArrayList<>(), candidates);
-      return worker.suggest(mutant, receiver, bytes, candidates).map(found -> {
-        var all = found[0].equals("-") ? List.<Long>of()
-            : java.util.Arrays.stream(found[0].split(";")).map(Long::valueOf).toList();
-        var receiverArguments = all.subList(0, receiverCount);
-        var arguments = all.subList(receiverCount, all.size());
-        var names = coverage.parameterNames(mutant);
-        if (names.size() != arguments.size()) {
-          names = java.util.stream.IntStream.range(0, arguments.size()).mapToObj(index -> "arg" + index).toList();
-        }
-        var simple = mutant.className().substring(mutant.className().lastIndexOf('/') + 1);
-        return new Suggestion(call(mutant, receiver, constructor, receiverArguments, type, arguments), names, arguments,
-            simple.substring(simple.lastIndexOf('$') + 1), receiverArguments, found[1], found[2]);
-      });
+      combine(
+          List.copyOf(values),
+          receiverCount + type.parameterCount(),
+          new ArrayList<>(),
+          candidates);
+      return worker
+          .suggest(mutant, receiver, bytes, candidates)
+          .map(
+              found -> {
+                var all =
+                    found[0].equals("-")
+                        ? List.<Long>of()
+                        : java.util.Arrays.stream(found[0].split(";")).map(Long::valueOf).toList();
+                var receiverArguments = all.subList(0, receiverCount);
+                var arguments = all.subList(receiverCount, all.size());
+                var names = coverage.parameterNames(mutant);
+                if (names.size() != arguments.size()) {
+                  names =
+                      java.util.stream.IntStream.range(0, arguments.size())
+                          .mapToObj(index -> "arg" + index)
+                          .toList();
+                }
+                var simple = mutant.className().substring(mutant.className().lastIndexOf('/') + 1);
+                return new Suggestion(
+                    call(mutant, receiver, constructor, receiverArguments, type, arguments),
+                    names,
+                    arguments,
+                    simple.substring(simple.lastIndexOf('$') + 1),
+                    receiverArguments,
+                    found[1],
+                    found[2]);
+              });
     }
 
-    /// `Pricing.discount(100)` for a static method, `new Pricing().discount(100)`, or
-    /// `new GoldenScorer.Score(1, 1).hitAt(1)` when the receiver needs arguments.
-    private static String call(Mutant mutant, String receiver, java.lang.constant.MethodTypeDesc constructor,
-        List<Long> receiverArguments, java.lang.constant.MethodTypeDesc type, List<Long> arguments) {
-      var simple = mutant.className().substring(mutant.className().lastIndexOf('/') + 1).replace('$', '.');
-      var on = receiver.equals("-") ? simple
-          : "new %s(%s)".formatted(simple, literals(constructor, receiverArguments));
+    /// `Pricing.discount(100)` for a static method, `new Pricing().discount(100)`, or `new
+    /// GoldenScorer.Score(1, 1).hitAt(1)` when the receiver needs arguments.
+    private static String call(
+        Mutant mutant,
+        String receiver,
+        java.lang.constant.MethodTypeDesc constructor,
+        List<Long> receiverArguments,
+        java.lang.constant.MethodTypeDesc type,
+        List<Long> arguments) {
+      var simple =
+          mutant.className().substring(mutant.className().lastIndexOf('/') + 1).replace('$', '.');
+      var on =
+          receiver.equals("-")
+              ? simple
+              : "new %s(%s)".formatted(simple, literals(constructor, receiverArguments));
       return "%s.%s(%s)".formatted(on, mutant.methodName(), literals(type, arguments));
     }
 
@@ -385,14 +484,17 @@ public final class Engine {
       var written = new ArrayList<String>();
       for (int index = 0; index < values.size(); index++) {
         var descriptor = type.parameterType(index).descriptorString();
-        written.add(values.get(index) + (descriptor.equals("J") || descriptor.equals("Ljava/lang/Long;") ? "L" : ""));
+        written.add(
+            values.get(index)
+                + (descriptor.equals("J") || descriptor.equals("Ljava/lang/Long;") ? "L" : ""));
       }
       return String.join(", ", written);
     }
 
     /// Every way to pick one of `values` per parameter, the earlier values first, up to
     /// [#CANDIDATES].
-    private static void combine(List<Long> values, int arity, List<Long> prefix, List<List<Long>> out) {
+    private static void combine(
+        List<Long> values, int arity, List<Long> prefix, List<List<Long>> out) {
       if (out.size() >= CANDIDATES) {
         return;
       }
@@ -428,8 +530,14 @@ public final class Engine {
     var names = new ArrayList<String>();
     for (Path root : roots) {
       for (Path file : classFiles(List.of(root))) {
-        var name = root.relativize(file).toString().replace(java.io.File.separatorChar, '.').replaceAll("\\.class$", "");
-        if (name.indexOf('$') < 0 && !name.endsWith("module-info") && !name.endsWith("package-info")) {
+        var name =
+            root.relativize(file)
+                .toString()
+                .replace(java.io.File.separatorChar, '.')
+                .replaceAll("\\.class$", "");
+        if (name.indexOf('$') < 0
+            && !name.endsWith("module-info")
+            && !name.endsWith("package-info")) {
           names.add(name);
         }
       }

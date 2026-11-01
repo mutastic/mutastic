@@ -11,8 +11,8 @@ import java.util.Map;
 import java.util.Optional;
 
 /// `--format jsonl`: one self-describing JSON object per line, written as each mutant finishes so
-/// an editor or agent can follow the run. Statuses are the mutation-testing report schema's, so
-/// the stream folds into tools that read that schema. Nothing else goes to stdout.
+/// an editor or agent can follow the run. Statuses are the mutation-testing report schema's, so the
+/// stream folds into tools that read that schema. Nothing else goes to stdout.
 public final class JsonEvents {
   public static final String SCHEMA = "mutastic.events/v1";
 
@@ -55,10 +55,13 @@ public final class JsonEvents {
     mutation.put("description", advice.change());
     mutation.put("bytecode", mutant.original() + " -> " + mutant.replacement());
     fields.put("mutation", mutation);
-    mutant.skipped().ifPresent(reason -> {
-      fields.put("statusReason", reason);
-      fields.put("skipKind", reason.substring(0, reason.indexOf(':')));
-    });
+    mutant
+        .skipped()
+        .ifPresent(
+            reason -> {
+              fields.put("statusReason", reason);
+              fields.put("skipKind", reason.substring(0, reason.indexOf(':')));
+            });
     fields.put("coveredBy", result.coveredBy());
     result.caughtBy().ifPresent(test -> fields.put("killedBy", test));
     result.failure().ifPresent(failure -> fields.put("killedWith", failure));
@@ -67,16 +70,18 @@ public final class JsonEvents {
     if (!result.inputs().isEmpty()) {
       fields.put("inputs", result.inputs());
     }
-    SuggestedTest.of(result, sources).ifPresent(test -> {
-      var suggestion = new LinkedHashMap<String, Object>();
-      suggestion.put("testClass", test.testClass());
-      suggestion.put("name", test.name());
-      suggestion.put("code", String.join("\n", test.lines()));
-      suggestion.put("call", result.suggestion().orElseThrow().call());
-      suggestion.put("today", result.suggestion().orElseThrow().today());
-      suggestion.put("withMutant", result.suggestion().orElseThrow().mutated());
-      fields.put("suggestedTest", suggestion);
-    });
+    SuggestedTest.of(result, sources)
+        .ifPresent(
+            test -> {
+              var suggestion = new LinkedHashMap<String, Object>();
+              suggestion.put("testClass", test.testClass());
+              suggestion.put("name", test.name());
+              suggestion.put("code", String.join("\n", test.lines()));
+              suggestion.put("call", result.suggestion().orElseThrow().call());
+              suggestion.put("today", result.suggestion().orElseThrow().today());
+              suggestion.put("withMutant", result.suggestion().orElseThrow().mutated());
+              fields.put("suggestedTest", suggestion);
+            });
     fields.put("testsRun", result.testsRun());
     fields.put("durationMs", result.took().toMillis());
     if (result.status() == Status.MISSED) {
@@ -98,8 +103,9 @@ public final class JsonEvents {
 
   /// @param reports the report files written
   /// @param oneMutant the run was one mutant asked for by id: `passed` says whether it's caught,
-  ///     not whether a score reaches the threshold
-  public void runFinished(Report report, Optional<Comparison> comparison, List<String> reports, boolean oneMutant) {
+  ///   not whether a score reaches the threshold
+  public void runFinished(
+      Report report, Optional<Comparison> comparison, List<String> reports, boolean oneMutant) {
     var fields = new LinkedHashMap<String, Object>();
     fields.put("jdk", report.jdk());
     fields.put("mutants", report.results().size());
@@ -108,35 +114,49 @@ public final class JsonEvents {
     }
     fields.put("score", Math.round(report.score() * 10) / 10.0);
     fields.put("threshold", threshold);
-    fields.put("passed", oneMutant
-        ? report.results().stream().allMatch(result -> result.status().detected())
-        : report.score() >= threshold);
+    fields.put(
+        "passed",
+        oneMutant
+            ? report.results().stream().allMatch(result -> result.status().detected())
+            : report.score() >= threshold);
     if (oneMutant) {
-      fields.put("only", report.results().isEmpty() ? null : report.results().getFirst().mutant().id());
+      fields.put(
+          "only", report.results().isEmpty() ? null : report.results().getFirst().mutant().id());
     }
     fields.put("tests", report.tests());
     fields.put("flaky", report.flaky());
-    comparison.ifPresent(found -> {
-      fields.put("previousScore", Math.round(found.previousScore() * 10) / 10.0);
-      fields.put("sameCodeAsLastRun", found.sameCode());
-      fields.put("sameMutasticAsLastRun", found.sameTool());
-      fields.put("changedSinceLastRun", found.flips().stream().map(flip -> {
-        var entry = new LinkedHashMap<String, Object>();
-        entry.put("id", flip.id());
-        entry.put("before", flip.before().schemaName());
-        entry.put("after", flip.after().schemaName());
-        flip.caughtBy().ifPresent(test -> entry.put("caughtBy", test));
-        return entry;
-      }).toList());
-    });
+    comparison.ifPresent(
+        found -> {
+          fields.put("previousScore", Math.round(found.previousScore() * 10) / 10.0);
+          fields.put("sameCodeAsLastRun", found.sameCode());
+          fields.put("sameMutasticAsLastRun", found.sameTool());
+          fields.put(
+              "changedSinceLastRun",
+              found.flips().stream()
+                  .map(
+                      flip -> {
+                        var entry = new LinkedHashMap<String, Object>();
+                        entry.put("id", flip.id());
+                        entry.put("before", flip.before().schemaName());
+                        entry.put("after", flip.after().schemaName());
+                        flip.caughtBy().ifPresent(test -> entry.put("caughtBy", test));
+                        return entry;
+                      })
+                  .toList());
+        });
     fields.put("likelyFlaky", Suspects.json(comparison, report));
-    fields.put("unrelatedCatches", Suspects.unrelatedCatches(report).stream().map(note -> {
-      var entry = new LinkedHashMap<String, Object>();
-      entry.put("test", note.test());
-      entry.put("failure", note.failure());
-      entry.put("mutants", note.mutants());
-      return entry;
-    }).toList());
+    fields.put(
+        "unrelatedCatches",
+        Suspects.unrelatedCatches(report).stream()
+            .map(
+                note -> {
+                  var entry = new LinkedHashMap<String, Object>();
+                  entry.put("test", note.test());
+                  entry.put("failure", note.failure());
+                  entry.put("mutants", note.mutants());
+                  return entry;
+                })
+            .toList());
     fields.put("reports", reports);
     fields.put("durationMs", report.took().toMillis());
     emit("run-finished", fields);

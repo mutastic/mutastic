@@ -16,12 +16,17 @@ class MutationsTest {
   void findsEveryOperatorInDiscount() throws Exception {
     var found = mutantsOf("discount");
 
-    assertThat(found).extracting(Mutant::operator, Mutant::original, Mutant::replacement, Mutant::line).containsExactly(
-        org.assertj.core.groups.Tuple.tuple(Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", 10),
-        org.assertj.core.groups.Tuple.tuple(Operator.NEGATE_CONDITIONAL, "IF_ICMPLT", "IF_ICMPGE", 10),
-        org.assertj.core.groups.Tuple.tuple(Operator.MATH, "IDIV", "IMUL", 11),
-        org.assertj.core.groups.Tuple.tuple(Operator.RETURN_DEFAULT, "IRETURN", "return default", 11),
-        org.assertj.core.groups.Tuple.tuple(Operator.RETURN_DEFAULT, "IRETURN", "return default", 13));
+    assertThat(found)
+        .extracting(Mutant::operator, Mutant::original, Mutant::replacement, Mutant::line)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple(Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", 10),
+            org.assertj.core.groups.Tuple.tuple(
+                Operator.NEGATE_CONDITIONAL, "IF_ICMPLT", "IF_ICMPGE", 10),
+            org.assertj.core.groups.Tuple.tuple(Operator.MATH, "IDIV", "IMUL", 11),
+            org.assertj.core.groups.Tuple.tuple(
+                Operator.RETURN_DEFAULT, "IRETURN", "return default", 11),
+            org.assertj.core.groups.Tuple.tuple(
+                Operator.RETURN_DEFAULT, "IRETURN", "return default", 13));
     assertThat(found.getLast().skipped()).contains("equivalent: already returns the default");
   }
 
@@ -71,9 +76,12 @@ class MutationsTest {
 
   @Test
   void returnDefaultReturnsZero() throws Exception {
-    var mutant = mutantsOf("discount").stream()
-        .filter(found -> found.operator() == Operator.RETURN_DEFAULT && found.skipped().isEmpty())
-        .findFirst().orElseThrow();
+    var mutant =
+        mutantsOf("discount").stream()
+            .filter(
+                found -> found.operator() == Operator.RETURN_DEFAULT && found.skipped().isEmpty())
+            .findFirst()
+            .orElseThrow();
     var pricing = mutated(mutant);
 
     assertThat(call(pricing, "discount", 250)).isEqualTo(0);
@@ -81,28 +89,43 @@ class MutationsTest {
 
   @Test
   void longArithmeticAndReferenceReturnsToo() throws Exception {
-    var total = mutated(mutantsOf("total").stream().filter(found -> found.original().equals("LADD")).findFirst().orElseThrow());
+    var total =
+        mutated(
+            mutantsOf("total").stream()
+                .filter(found -> found.original().equals("LADD"))
+                .findFirst()
+                .orElseThrow());
     var audit = mutated(only("audit", Operator.RETURN_DEFAULT));
 
-    assertThat(total.getClass().getMethod("total", long.class, int.class).invoke(total, 10L, 3)).isEqualTo(25L); // was 35
+    assertThat(total.getClass().getMethod("total", long.class, int.class).invoke(total, 10L, 3))
+        .isEqualTo(25L); // was 35
     assertThat(audit.getClass().getMethod("audit").invoke(audit)).isNull();
   }
 
   @Test
   void removingAVoidCallDropsItsEffect() throws Exception {
     var calls = mutantsOf("checkout");
-    var record = calls.stream().filter(found -> found.original().contains(".record(")).findFirst().orElseThrow();
+    var record =
+        calls.stream()
+            .filter(found -> found.original().contains(".record("))
+            .findFirst()
+            .orElseThrow();
     var pricing = mutated(record);
 
     pricing.getClass().getMethod("checkout", String.class).invoke(pricing, "order-1");
 
     assertThat(pricing.getClass().getMethod("audit").invoke(pricing)).isEqualTo(List.of());
-    assertThat(record.original()).isEqualTo("INVOKEVIRTUAL io/mutastic/engine/fixture/Pricing.record(Ljava/lang/String;)V");
+    assertThat(record.original())
+        .isEqualTo("INVOKEVIRTUAL io/mutastic/engine/fixture/Pricing.record(Ljava/lang/String;)V");
   }
 
   @Test
   void outputOnlyCallsAreSkipped() throws Exception {
-    var println = mutantsOf("checkout").stream().filter(found -> found.original().contains("PrintStream")).findFirst().orElseThrow();
+    var println =
+        mutantsOf("checkout").stream()
+            .filter(found -> found.original().contains("PrintStream"))
+            .findFirst()
+            .orElseThrow();
 
     assertThat(println.skipped()).contains("arid: only writes output");
   }
@@ -116,23 +139,41 @@ class MutationsTest {
 
   @Test
   void aFinallyBlocksCopiesAreOneMutant() throws Exception {
-    var unlocks = mutantsOf("withLock").stream().filter(found -> found.original().contains(".unlock(")).toList();
+    var unlocks =
+        mutantsOf("withLock").stream()
+            .filter(found -> found.original().contains(".unlock("))
+            .toList();
 
     assertThat(unlocks).singleElement().satisfies(unlock -> assertThat(unlock.copies()).hasSize(1));
   }
 
   @Test
   void theMergedMutantChangesEveryWayOut() throws Exception {
-    var unlock = mutantsOf("withLock").stream().filter(found -> found.original().contains(".unlock(")).findFirst().orElseThrow();
+    var unlock =
+        mutantsOf("withLock").stream()
+            .filter(found -> found.original().contains(".unlock("))
+            .findFirst()
+            .orElseThrow();
     var pricing = mutated(unlock);
-    var withLock = pricing.getClass().getMethod("withLock", java.util.concurrent.locks.ReentrantLock.class,
-        java.util.function.IntSupplier.class);
+    var withLock =
+        pricing
+            .getClass()
+            .getMethod(
+                "withLock",
+                java.util.concurrent.locks.ReentrantLock.class,
+                java.util.function.IntSupplier.class);
 
     var normal = new java.util.concurrent.locks.ReentrantLock();
     withLock.invoke(pricing, normal, (java.util.function.IntSupplier) () -> 1);
     var exceptional = new java.util.concurrent.locks.ReentrantLock();
     try {
-      withLock.invoke(pricing, exceptional, (java.util.function.IntSupplier) () -> { throw new IllegalStateException(); });
+      withLock.invoke(
+          pricing,
+          exceptional,
+          (java.util.function.IntSupplier)
+              () -> {
+                throw new IllegalStateException();
+              });
     } catch (java.lang.reflect.InvocationTargetException expected) {
       // the action threw, as intended
     }
@@ -143,7 +184,9 @@ class MutationsTest {
 
   @Test
   void theSameCallTwiceWithoutAFinallyIsTwoMutants() throws Exception {
-    assertThat(mutantsOf("clearTwice")).hasSize(2).allSatisfy(mutant -> assertThat(mutant.copies()).isEmpty());
+    assertThat(mutantsOf("clearTwice"))
+        .hasSize(2)
+        .allSatisfy(mutant -> assertThat(mutant.copies()).isEmpty());
   }
 
   @Test
@@ -152,47 +195,94 @@ class MutationsTest {
     var generated = found.stream().filter(mutant -> mutant.skipped().isPresent()).toList();
     var userCode = found.stream().filter(mutant -> mutant.skipped().isEmpty()).toList();
 
-    assertThat(generated).isNotEmpty().allSatisfy(mutant ->
-        assertThat(mutant.skipped()).contains("generated: closes a try-with-resources resource"));
-    assertThat(generated).extracting(Mutant::original).anyMatch(original -> original.contains(".close()V"))
-        .anyMatch(original -> original.contains("addSuppressed")).anyMatch(original -> original.equals("IFNULL"));
+    assertThat(generated)
+        .isNotEmpty()
+        .allSatisfy(
+            mutant ->
+                assertThat(mutant.skipped())
+                    .contains("generated: closes a try-with-resources resource"));
+    assertThat(generated)
+        .extracting(Mutant::original)
+        .anyMatch(original -> original.contains(".close()V"))
+        .anyMatch(original -> original.contains("addSuppressed"))
+        .anyMatch(original -> original.equals("IFNULL"));
     // `return reader.readLine()` is the user's: its mutants still run.
     assertThat(userCode).extracting(Mutant::operator).containsExactly(Operator.RETURN_DEFAULT);
   }
 
   @Test
   void aCloseTheUserWroteIsStillMutated() throws Exception {
-    assertThat(mutantsOf("closeTwice")).hasSize(2).allSatisfy(mutant -> assertThat(mutant.skipped()).isEmpty());
+    assertThat(mutantsOf("closeTwice"))
+        .hasSize(2)
+        .allSatisfy(mutant -> assertThat(mutant.skipped()).isEmpty());
   }
 
   @Test
   void leavesCompilerWrittenCodeAlone() throws Exception {
     assertThat(mutations.find(model(Pricing.Tier.class))).isEmpty();
-    assertThat(mutations.find(model(Pricing.Line.class))).extracting(Mutant::methodName).containsOnly("item", "price");
+    assertThat(mutations.find(model(Pricing.Line.class)))
+        .extracting(Mutant::methodName)
+        .containsOnly("item", "price");
   }
 
   @Test
   void theIdIgnoresTheLine() {
-    var here = new Mutant("com/example/Pricing", "discount", "(I)I", 0, 5, Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", Optional.empty());
-    var moved = new Mutant("com/example/Pricing", "discount", "(I)I", 0, 9, Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", Optional.empty());
-    var otherSite = new Mutant("com/example/Pricing", "discount", "(I)I", 1, 5, Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", Optional.empty());
+    var here =
+        new Mutant(
+            "com/example/Pricing",
+            "discount",
+            "(I)I",
+            0,
+            5,
+            Operator.BOUNDARY,
+            "IF_ICMPLT",
+            "IF_ICMPLE",
+            Optional.empty());
+    var moved =
+        new Mutant(
+            "com/example/Pricing",
+            "discount",
+            "(I)I",
+            0,
+            9,
+            Operator.BOUNDARY,
+            "IF_ICMPLT",
+            "IF_ICMPLE",
+            Optional.empty());
+    var otherSite =
+        new Mutant(
+            "com/example/Pricing",
+            "discount",
+            "(I)I",
+            1,
+            5,
+            Operator.BOUNDARY,
+            "IF_ICMPLT",
+            "IF_ICMPLE",
+            Optional.empty());
 
     assertThat(moved.id()).isEqualTo(here.id()).matches("m[0-9a-f]{8}");
     assertThat(otherSite.id()).isNotEqualTo(here.id());
   }
 
   private List<Mutant> mutantsOf(String method) throws Exception {
-    return mutations.find(model(Pricing.class)).stream().filter(mutant -> mutant.methodName().equals(method)).toList();
+    return mutations.find(model(Pricing.class)).stream()
+        .filter(mutant -> mutant.methodName().equals(method))
+        .toList();
   }
 
   private Mutant only(String method, Operator operator) throws Exception {
-    return mutantsOf(method).stream().filter(mutant -> mutant.operator() == operator).findFirst().orElseThrow();
+    return mutantsOf(method).stream()
+        .filter(mutant -> mutant.operator() == operator)
+        .findFirst()
+        .orElseThrow();
   }
 
   /// A new instance of `Pricing` with the mutant in.
   private Object mutated(Mutant mutant) throws Exception {
     var bytes = mutations.apply(model(Pricing.class), mutant);
-    var type = new SingleClassLoader(Pricing.class.getName(), bytes).loadClass(Pricing.class.getName());
+    var type =
+        new SingleClassLoader(Pricing.class.getName(), bytes).loadClass(Pricing.class.getName());
     return type.getConstructor().newInstance();
   }
 
@@ -201,7 +291,9 @@ class MutationsTest {
   }
 
   static ClassModel model(Class<?> type) throws Exception {
-    try (var in = type.getResourceAsStream(type.getName().substring(type.getName().lastIndexOf('.') + 1) + ".class")) {
+    try (var in =
+        type.getResourceAsStream(
+            type.getName().substring(type.getName().lastIndexOf('.') + 1) + ".class")) {
       return ClassFile.of().parse(in.readAllBytes());
     }
   }

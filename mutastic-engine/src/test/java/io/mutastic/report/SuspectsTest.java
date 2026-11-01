@@ -17,47 +17,74 @@ class SuspectsTest {
 
   @Test
   void theSameExceptionInTheTestAcrossUnrelatedMethodsIsWorthANote() {
-    var report = report(
-        caught("GameService", "now", "java.lang.NullPointerException", "test"),
-        caught("ApiError", "code", "java.lang.NullPointerException", "test"),
-        caught("RulesEngine", "isLegalMove", "java.lang.NullPointerException", "test"));
+    var report =
+        report(
+            caught("GameService", "now", "java.lang.NullPointerException", "test"),
+            caught("ApiError", "code", "java.lang.NullPointerException", "test"),
+            caught("RulesEngine", "isLegalMove", "java.lang.NullPointerException", "test"));
 
-    assertThat(Suspects.unrelatedCatches(report)).singleElement().satisfies(note -> {
-      assertThat(note.test()).isEqualTo(TEST);
-      assertThat(note.methods()).isEqualTo(3);
-    });
+    assertThat(Suspects.unrelatedCatches(report))
+        .singleElement()
+        .satisfies(
+            note -> {
+              assertThat(note.test()).isEqualTo(TEST);
+              assertThat(note.methods()).isEqualTo(3);
+            });
   }
 
   @Test
   void assertionsAndCrashesInTheCodeAreOrdinaryCatches() {
-    var report = report(
-        caught("GameService", "now", "org.opentest4j.AssertionFailedError", "assertion"),
-        caught("ApiError", "code", "java.lang.NullPointerException", "code"),
-        caught("RulesEngine", "isLegalMove", "java.lang.NullPointerException", "test"));
+    var report =
+        report(
+            caught("GameService", "now", "org.opentest4j.AssertionFailedError", "assertion"),
+            caught("ApiError", "code", "java.lang.NullPointerException", "code"),
+            caught("RulesEngine", "isLegalMove", "java.lang.NullPointerException", "test"));
 
     assertThat(Suspects.unrelatedCatches(report)).isEmpty();
   }
 
   @Test
   void manyCatchesInOneMethodAreOrdinary() {
-    var report = report(
-        caught("RulesEngine", "isLegalMove", "java.lang.NullPointerException", "test"),
-        caught("RulesEngine", "isLegalMove", "java.lang.NullPointerException", "test"),
-        caught("RulesEngine", "isLegalMove", "java.lang.NullPointerException", "test"));
+    var report =
+        report(
+            caught("RulesEngine", "isLegalMove", "java.lang.NullPointerException", "test"),
+            caught("RulesEngine", "isLegalMove", "java.lang.NullPointerException", "test"),
+            caught("RulesEngine", "isLegalMove", "java.lang.NullPointerException", "test"));
 
     assertThat(Suspects.unrelatedCatches(report)).isEmpty();
   }
 
   private static Report report(MutantResult... results) {
-    return new Report("sample", 17, List.of(results), 10, List.of(), Duration.ZERO, 1, 1, Duration.ZERO);
+    return new Report(
+        "sample", 17, List.of(results), 10, List.of(), Duration.ZERO, 1, 1, Duration.ZERO);
   }
 
   private static int ordinal;
 
-  private static MutantResult caught(String className, String method, String failure, String origin) {
-    var mutant = new Mutant("com/example/" + className, method, "()I", ordinal++, 1, Operator.RETURN_DEFAULT, "IRETURN",
-        "return default", Optional.empty());
-    return new MutantResult(mutant, Status.CAUGHT, List.of(TEST), Optional.of(TEST), Optional.of(failure),
-        Optional.of(origin), 1, Optional.empty(), java.util.Map.of(), Optional.empty(), Duration.ZERO);
+  private static MutantResult caught(
+      String className, String method, String failure, String origin) {
+    var mutant =
+        new Mutant(
+            "com/example/" + className,
+            method,
+            "()I",
+            ordinal++,
+            1,
+            Operator.RETURN_DEFAULT,
+            "IRETURN",
+            "return default",
+            Optional.empty());
+    return new MutantResult(
+        mutant,
+        Status.CAUGHT,
+        List.of(TEST),
+        Optional.of(TEST),
+        Optional.of(failure),
+        Optional.of(origin),
+        1,
+        Optional.empty(),
+        java.util.Map.of(),
+        Optional.empty(),
+        Duration.ZERO);
   }
 }

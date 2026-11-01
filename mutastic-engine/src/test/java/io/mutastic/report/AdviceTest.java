@@ -19,9 +19,12 @@ class AdviceTest {
 
   @Test
   void negatesComparisonsAndNullChecks() {
-    assertThat(Advice.of(mutant(Operator.NEGATE_CONDITIONAL, "IF_ICMPNE", "IF_ICMPEQ", "(I)I")).change())
+    assertThat(
+            Advice.of(mutant(Operator.NEGATE_CONDITIONAL, "IF_ICMPNE", "IF_ICMPEQ", "(I)I"))
+                .change())
         .isEqualTo("`==` becomes `!=`");
-    assertThat(Advice.of(mutant(Operator.NEGATE_CONDITIONAL, "IFNULL", "IFNONNULL", "(I)I")).change())
+    assertThat(
+            Advice.of(mutant(Operator.NEGATE_CONDITIONAL, "IFNULL", "IFNONNULL", "(I)I")).change())
         .isEqualTo("`!=` becomes `==`");
     assertThat(Advice.of(mutant(Operator.NEGATE_CONDITIONAL, "IFEQ", "IFNE", "(I)I")).headline())
         .isEqualTo("`discount()` behaves the same with the condition reversed");
@@ -29,21 +32,45 @@ class AdviceTest {
 
   @Test
   void returnsTheDefaultForTheReturnType() {
-    assertThat(Advice.of(mutant(Operator.RETURN_DEFAULT, "IRETURN", "return default", "(I)Z")).after()).contains("return false;");
-    assertThat(Advice.of(mutant(Operator.RETURN_DEFAULT, "LRETURN", "return default", "(I)J")).after()).contains("return 0L;");
-    assertThat(Advice.of(mutant(Operator.RETURN_DEFAULT, "ARETURN", "return default", "()Ljava/util/List;")).change())
+    assertThat(
+            Advice.of(mutant(Operator.RETURN_DEFAULT, "IRETURN", "return default", "(I)Z")).after())
+        .contains("return false;");
+    assertThat(
+            Advice.of(mutant(Operator.RETURN_DEFAULT, "LRETURN", "return default", "(I)J")).after())
+        .contains("return 0L;");
+    assertThat(
+            Advice.of(
+                    mutant(
+                        Operator.RETURN_DEFAULT, "ARETURN", "return default", "()Ljava/util/List;"))
+                .change())
         .isEqualTo("returns `null` instead");
   }
 
   @Test
   void namesTheRemovedCall() {
-    var advice = Advice.of(mutant(Operator.REMOVE_VOID_CALL,
-        "INVOKEVIRTUAL com/example/Audit.record(Ljava/lang/String;)V", "remove call", "(I)I"));
+    var advice =
+        Advice.of(
+            mutant(
+                Operator.REMOVE_VOID_CALL,
+                "INVOKEVIRTUAL com/example/Audit.record(Ljava/lang/String;)V",
+                "remove call",
+                "(I)I"));
 
-    assertThat(advice.headline()).isEqualTo("no test checks the effect of calling `record()` in `discount()`");
+    assertThat(advice.headline())
+        .isEqualTo("no test checks the effect of calling `record()` in `discount()`");
   }
 
-  private static Mutant mutant(Operator operator, String original, String replacement, String descriptor) {
-    return new Mutant("com/example/Pricing", "discount", descriptor, 0, 5, operator, original, replacement, Optional.empty());
+  private static Mutant mutant(
+      Operator operator, String original, String replacement, String descriptor) {
+    return new Mutant(
+        "com/example/Pricing",
+        "discount",
+        descriptor,
+        0,
+        5,
+        operator,
+        original,
+        replacement,
+        Optional.empty());
   }
 }

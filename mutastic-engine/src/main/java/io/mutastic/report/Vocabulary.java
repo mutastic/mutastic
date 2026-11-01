@@ -5,7 +5,13 @@ package io.mutastic.report;
 /// literature's. Machine formats always use the standard statuses, whatever this says.
 public enum Vocabulary {
   PLAIN("caught", "missed", "Missed", "with misses", "Every mutant was caught.", "not covered"),
-  CLASSIC("killed", "survived", "Survivors", "with survivors", "Every mutant was killed.", "no coverage");
+  CLASSIC(
+      "killed",
+      "survived",
+      "Survivors",
+      "with survivors",
+      "Every mutant was killed.",
+      "no coverage");
 
   final String detected;
   final String undetected;
@@ -14,7 +20,12 @@ public enum Vocabulary {
   final String allDetected;
   final String notCovered;
 
-  Vocabulary(String detected, String undetected, String heading, String classesWith, String allDetected,
+  Vocabulary(
+      String detected,
+      String undetected,
+      String heading,
+      String classesWith,
+      String allDetected,
       String notCovered) {
     this.detected = detected;
     this.undetected = undetected;

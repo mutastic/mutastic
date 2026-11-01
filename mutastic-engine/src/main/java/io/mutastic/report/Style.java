@@ -1,21 +1,23 @@
 package io.mutastic.report;
 
-/// Colour for people reading a terminal, and nothing for anyone else. Every colour also has a
-/// glyph or word beside it, so the output reads the same without colour, for colour-blind
-/// readers, and when copied.
+/// Colour for people reading a terminal, and nothing for anyone else. Every colour also has a glyph
+/// or word beside it, so the output reads the same without colour, for colour-blind readers, and
+/// when copied.
 ///
-/// Watermelon colours, used sparingly: green for caught, red only on a missed mutant's glyph,
-/// label and caret, never a whole card.
+/// Watermelon colours, used sparingly: green for caught, red only on a missed mutant's glyph, label
+/// and caret, never a whole card.
 public final class Style {
   public static final Style PLAIN = new Style(false, false, false);
   public static final Style COLOUR = new Style(true, false, false);
 
   /// Nerd Font half-circles, for rounded label ends.
   private static final String ROUND_LEFT = "\ue0b6";
+
   private static final String ROUND_RIGHT = "\ue0b4";
 
   /// Label backgrounds.
   static final String RED = "41";
+
   static final String GREEN = "42";
   static final String CYAN = "46";
 
@@ -29,14 +31,14 @@ public final class Style {
     this.rounded = rounded;
   }
 
-  /// The same style, with file locations as terminal hyperlinks (OSC 8): terminals that know
-  /// them open the file, and others show the text.
+  /// The same style, with file locations as terminal hyperlinks (OSC 8): terminals that know them
+  /// open the file, and others show the text.
   public Style withLinks() {
     return new Style(colour, true, rounded);
   }
 
-  /// The same style with rounded label ends (`MUTASTIC_PILLS=rounded`). They need a Nerd Font,
-  /// so square is the default: without one, the ends show as boxes.
+  /// The same style with rounded label ends (`MUTASTIC_PILLS=rounded`). They need a Nerd Font, so
+  /// square is the default: without one, the ends show as boxes.
   public Style withRoundedLabels() {
     return new Style(colour, links, true);
   }
@@ -50,8 +52,15 @@ public final class Style {
     if (!rounded) {
       return body;
     }
-    var edge = String.valueOf(Integer.parseInt(background) - 10); // 41 (red background) → 31 (red text)
-    return paint(edge, ROUND_LEFT) + "\u001b[" + background + ";30;1m" + text + "\u001b[0m" + paint(edge, ROUND_RIGHT);
+    var edge =
+        String.valueOf(Integer.parseInt(background) - 10); // 41 (red background) → 31 (red text)
+    return paint(edge, ROUND_LEFT)
+        + "\u001b["
+        + background
+        + ";30;1m"
+        + text
+        + "\u001b[0m"
+        + paint(edge, ROUND_RIGHT);
   }
 
   /// `text` linking to `file`, when links are on. The line number stays in the text: whether

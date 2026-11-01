@@ -2,9 +2,9 @@ package io.mutastic.worker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.worker.fixture.CounterTest;
 import java.util.Set;
 import java.util.function.IntSupplier;
-import io.mutastic.worker.fixture.CounterTest;
 import org.junit.jupiter.api.Test;
 
 class RenamerTest {
@@ -39,7 +39,8 @@ class RenamerTest {
 
   @Test
   void reportsTheOriginalName() {
-    assertThat(Renamer.original("com.example.FooTest__m12$Nested")).isEqualTo("com.example.FooTest$Nested");
+    assertThat(Renamer.original("com.example.FooTest__m12$Nested"))
+        .isEqualTo("com.example.FooTest$Nested");
     assertThat(Renamer.runOf("com.example.FooTest__m12$Nested")).isEqualTo(12);
     assertThat(Renamer.runOf("com.example.FooTest")).isEqualTo(-1);
   }

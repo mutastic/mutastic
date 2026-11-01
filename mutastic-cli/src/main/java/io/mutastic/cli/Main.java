@@ -32,30 +32,37 @@ import java.util.Optional;
 /// mutastic verify ID [dir] [:module]
 /// ```
 ///
-/// The result goes to stdout, progress to stderr. The format is `--format`, else
-/// `MUTASTIC_FORMAT`, else `agent` when `MUTASTIC_AGENT=1`, else `full` on a terminal and
-/// `concise` elsewhere. `MUTASTIC_VOCABULARY=classic` says killed and survived;
-/// `MUTASTIC_PILLS=rounded` draws round label ends for a Nerd Font. A full run also writes report files, by
-/// default `build/mutastic/mutation.json` and `mutation.html`.
+/// The result goes to stdout, progress to stderr. The format is `--format`, else `MUTASTIC_FORMAT`,
+/// else `agent` when `MUTASTIC_AGENT=1`, else `full` on a terminal and `concise` elsewhere.
+/// `MUTASTIC_VOCABULARY=classic` says killed and survived; `MUTASTIC_PILLS=rounded` draws round
+/// label ends for a Nerd Font. A full run also writes report files, by default
+/// `build/mutastic/mutation.json` and `mutation.html`.
 ///
 /// A full run keeps its results in `build/mutastic/last-run.tsv`, and the next full run compares
 /// against them: with the code unchanged, a mutant that changed result names a flaky test.
 public final class Main {
   /// The score reaches the threshold; for `verify`, the mutant is caught.
   static final int PASSED = 0;
+
   /// The score is below the threshold; for `verify`, the mutant isn't caught.
   static final int FAILED = 1;
+
   /// A usage error, or a build mutastic couldn't read.
   static final int USAGE = 2;
+
   /// The tests fail without any mutant.
   static final int TESTS_FAIL = 3;
+
   /// mutastic itself went wrong.
   static final int INTERNAL = 4;
 
   private static final int DEFAULT_THRESHOLD = 80;
-  private static final List<String> FORMATS = List.of("full", "brief", "concise", "grouped", "agent", "jsonl");
+  private static final List<String> FORMATS =
+      List.of("full", "brief", "concise", "grouped", "agent", "jsonl");
+
   /// The formats for people: they get each file's line as it finishes.
   private static final List<String> PEOPLE = List.of("full", "brief", "concise", "grouped");
+
   private static final List<String> VOCABULARIES = List.of("plain", "classic");
 
   private static HumanText.Detail detail(String format) {
@@ -78,11 +85,15 @@ public final class Main {
       var command = Command.parse(args);
       var format = command.format().orElse(terminal.defaultFormat());
       if (!FORMATS.contains(format)) {
-        throw new UsageException("unknown format %s in MUTASTIC_FORMAT (one of %s)".formatted(format, String.join(", ", FORMATS)));
+        throw new UsageException(
+            "unknown format %s in MUTASTIC_FORMAT (one of %s)"
+                .formatted(format, String.join(", ", FORMATS)));
       }
       var vocabulary = command.vocabulary().orElse(terminal.defaultVocabulary());
       if (!VOCABULARIES.contains(vocabulary)) {
-        throw new UsageException("unknown vocabulary %s in MUTASTIC_VOCABULARY (one of plain, classic)".formatted(vocabulary));
+        throw new UsageException(
+            "unknown vocabulary %s in MUTASTIC_VOCABULARY (one of plain, classic)"
+                .formatted(vocabulary));
       }
       var words = Vocabulary.valueOf(vocabulary.toUpperCase(java.util.Locale.ROOT));
       var progress = new Progress(err, progressMode(command.progress(), format, terminal));
@@ -93,9 +104,12 @@ public final class Main {
       var work = workDirectory(directory, command.module());
       var here = Path.of("").toAbsolutePath().normalize();
       var target = target(here, directory, command.module());
-      var project = GradleSetup.read(directory, command.module(), work, String.join(" ", target(here, directory, ":")));
+      var project =
+          GradleSetup.read(
+              directory, command.module(), work, String.join(" ", target(here, directory, ":")));
       var setup = Duration.ofNanos(System.nanoTime() - start);
-      var sources = new SourceView(directory, project.sources(), project.testSources()).withTarget(target);
+      var sources =
+          new SourceView(directory, project.sources(), project.testSources()).withTarget(target);
       var style = terminal.colour(command.colour()) ? Style.COLOUR : Style.PLAIN;
       style = terminal.links(command.links()) ? style.withLinks() : style;
       style = terminal.roundedLabels() ? style.withRoundedLabels() : style;
@@ -104,38 +118,50 @@ public final class Main {
         progress.showFiles(results -> human.fileFinished(project.name(), results));
       }
       var engine = new Engine(workerJar(), work.resolve("worker.log"));
-      var options = new Engine.Options(command.only(), command.confirmCatches(),
-          command.workers().orElse(Engine.defaultWorkers()), command.suggestions() && !command.verify());
+      var options =
+          new Engine.Options(
+              command.only(),
+              command.confirmCatches(),
+              command.workers().orElse(Engine.defaultWorkers()),
+              command.suggestions() && !command.verify());
       if (command.verify()) {
         var report = engine.run(project, options, progress);
         progress.finished();
         var result = report.results().getFirst();
-        out.printf("mutastic: %s %s%n", result.mutant().id(), result.status().detected()
-            ? "is caught by " + result.caughtBy().orElse("a timeout")
-            : result.status() == Status.MISSED ? "is still missed" : "isn't reached by any test");
+        out.printf(
+            "mutastic: %s %s%n",
+            result.mutant().id(),
+            result.status().detected()
+                ? "is caught by " + result.caughtBy().orElse("a timeout")
+                : result.status() == Status.MISSED
+                    ? "is still missed"
+                    : "isn't reached by any test");
         return result.status().detected() ? PASSED : FAILED;
       }
-      JsonEvents events = format.equals("jsonl") ? new JsonEvents(out, sources, command.threshold()) : null;
+      JsonEvents events =
+          format.equals("jsonl") ? new JsonEvents(out, sources, command.threshold()) : null;
       Listener listener = progress;
       if (events != null) {
         events.runStarted(project.name());
-        listener = new Listener() {
-          @Override
-          public void coverageFinished(int jdk, int tests, Duration took, int mutants, List<String> flaky) {
-            progress.coverageFinished(jdk, tests, took, mutants, flaky);
-          }
+        listener =
+            new Listener() {
+              @Override
+              public void coverageFinished(
+                  int jdk, int tests, Duration took, int mutants, List<String> flaky) {
+                progress.coverageFinished(jdk, tests, took, mutants, flaky);
+              }
 
-          @Override
-          public void mutantFinished(MutantResult result) {
-            progress.mutantFinished(result);
-            events.mutantFinished(result);
-          }
+              @Override
+              public void mutantFinished(MutantResult result) {
+                progress.mutantFinished(result);
+                events.mutantFinished(result);
+              }
 
-          @Override
-          public void fileFinished(String topLevelClass, List<MutantResult> results) {
-            progress.fileFinished(topLevelClass, results);
-          }
-        };
+              @Override
+              public void fileFinished(String topLevelClass, List<MutantResult> results) {
+                progress.fileFinished(topLevelClass, results);
+              }
+            };
       }
       Report report = engine.run(project, options, listener);
       progress.finished();
@@ -144,34 +170,53 @@ public final class Main {
       var written = new ArrayList<String>();
       if (command.only().isEmpty()) {
         var lastRun = work.resolve("last-run.tsv");
-        var record = RunRecord.of(project, RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())), report);
+        var record =
+            RunRecord.of(
+                project, RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())), report);
         comparison = RunRecord.read(lastRun).map(record::against);
         record.write(lastRun);
         var files = new ReportFiles(directory, sources, command.threshold(), version());
         for (var requested : command.reports()) {
-          var file = requested.path().map(directory::resolve).orElse(work.resolve(defaultName(requested.kind())));
+          var file =
+              requested
+                  .path()
+                  .map(directory::resolve)
+                  .orElse(work.resolve(defaultName(requested.kind())));
           files.write(requested.kind(), report, file);
-          written.add(file.startsWith(directory) ? directory.relativize(file).toString() : file.toString());
+          written.add(
+              file.startsWith(directory) ? directory.relativize(file).toString() : file.toString());
         }
       }
       switch (format) {
         case "jsonl" -> events.runFinished(report, comparison, written, command.only().isPresent());
-        case "agent" -> out.print(new AgentText(sources, command.threshold(), words)
-            .render(report, comparison, command.only().isPresent()));
-        default -> out.print(human.render(report, comparison,
-            new HumanText.Run(startedAt, setup, written, command.only().isPresent())));
+        case "agent" ->
+            out.print(
+                new AgentText(sources, command.threshold(), words)
+                    .render(report, comparison, command.only().isPresent()));
+        default ->
+            out.print(
+                human.render(
+                    report,
+                    comparison,
+                    new HumanText.Run(startedAt, setup, written, command.only().isPresent())));
       }
-      // One mutant asked for by id passes when it's caught, as `verify` does; a whole run, on its score.
+      // One mutant asked for by id passes when it's caught, as `verify` does; a whole run, on its
+      // score.
       if (command.only().isPresent()) {
-        return report.results().stream().allMatch(result -> result.status().detected()) ? PASSED : FAILED;
+        return report.results().stream().allMatch(result -> result.status().detected())
+            ? PASSED
+            : FAILED;
       }
       return report.score() >= command.threshold() ? PASSED : FAILED;
     } catch (UsageException e) {
       err.println("mutastic: " + e.getMessage());
-      err.println("usage: mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N]");
+      err.println(
+          "usage: mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N]");
       err.println("                    [--only=ID] [--vocabulary=plain|classic]");
-      err.println("                    [--confirm-catches] [--workers=N] [--color=auto|always|never]");
-      err.println("                    [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none]");
+      err.println(
+          "                    [--confirm-catches] [--workers=N] [--color=auto|always|never]");
+      err.println(
+          "                    [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none]");
       err.println("                    [--no-suggestions] [--report=json|html|xml|none[:path]]...");
       err.println("       mutastic verify ID [dir] [:module]");
       return USAGE;
@@ -187,8 +232,8 @@ public final class Main {
     }
   }
 
-  /// `build/mutastic` for the root project; `build/mutastic/data` for `:data`, so each module
-  /// keeps its own run record, logs and reports.
+  /// `build/mutastic` for the root project; `build/mutastic/data` for `:data`, so each module keeps
+  /// its own run record, logs and reports.
   static Path workDirectory(Path directory, String module) {
     var work = directory.resolve("build/mutastic");
     return module.equals(":") ? work : work.resolve(module.substring(1).replace(':', '/'));
@@ -208,7 +253,10 @@ public final class Main {
   static List<String> target(Path here, Path directory, String module) {
     var words = new ArrayList<String>();
     if (!directory.equals(here)) {
-      words.add(directory.startsWith(here) ? here.relativize(directory).toString() : directory.toString());
+      words.add(
+          directory.startsWith(here)
+              ? here.relativize(directory).toString()
+              : directory.toString());
     }
     if (!module.equals(":")) {
       words.add(module);
@@ -216,15 +264,17 @@ public final class Main {
     return words;
   }
 
-  /// A bar on a terminal for people; counter lines in logs; nothing for agents and JSONL
-  /// readers, who only want the result.
+  /// A bar on a terminal for people; counter lines in logs; nothing for agents and JSONL readers,
+  /// who only want the result.
   private static Progress.Mode progressMode(String choice, String format, Terminal terminal) {
     return switch (choice) {
       case "bar" -> Progress.Mode.BAR;
       case "counter" -> Progress.Mode.COUNTER;
       case "none" -> Progress.Mode.NONE;
-      default -> format.equals("agent") || format.equals("jsonl") ? Progress.Mode.NONE
-          : terminal.interactive() ? Progress.Mode.BAR : Progress.Mode.COUNTER;
+      default ->
+          format.equals("agent") || format.equals("jsonl")
+              ? Progress.Mode.NONE
+              : terminal.interactive() ? Progress.Mode.BAR : Progress.Mode.COUNTER;
     };
   }
 
@@ -251,8 +301,8 @@ public final class Main {
     }
   }
 
-  /// The commands, and whether each works on one mutant. Every one that does must be offered
-  /// for each mutant in the output (`MutantCommand`), and its tests check that.
+  /// The commands, and whether each works on one mutant. Every one that does must be offered for
+  /// each mutant in the output (`MutantCommand`), and its tests check that.
   enum Subcommand {
     RUN(false),
     VERIFY(true);
@@ -268,7 +318,9 @@ public final class Main {
     }
 
     static Optional<Subcommand> of(String word) {
-      return java.util.Arrays.stream(values()).filter(command -> command.word().equals(word)).findFirst();
+      return java.util.Arrays.stream(values())
+          .filter(command -> command.word().equals(word))
+          .findFirst();
     }
   }
 
@@ -283,14 +335,28 @@ public final class Main {
 
   /// `json` and `html`, unless `--report` says otherwise.
   static final List<RequestedReport> DEFAULT_REPORTS =
-      List.of(new RequestedReport("json", Optional.empty()), new RequestedReport("html", Optional.empty()));
+      List.of(
+          new RequestedReport("json", Optional.empty()),
+          new RequestedReport("html", Optional.empty()));
 
   /// @param format empty for the default, which depends on where output goes
   /// @param workers empty for the default, which depends on the machine
   /// @param reports the report files to write after a full run
-  record Command(boolean verify, Path directory, String module, Optional<String> format, int threshold,
-      Optional<String> only, boolean confirmCatches, Optional<Integer> workers, String colour, String links,
-      String progress, boolean suggestions, List<RequestedReport> reports, Optional<String> vocabulary) {
+  record Command(
+      boolean verify,
+      Path directory,
+      String module,
+      Optional<String> format,
+      int threshold,
+      Optional<String> only,
+      boolean confirmCatches,
+      Optional<Integer> workers,
+      String colour,
+      String links,
+      String progress,
+      boolean suggestions,
+      List<RequestedReport> reports,
+      Optional<String> vocabulary) {
     static Command parse(String[] args) {
       if (args.length == 0 || Subcommand.of(args[0]).isEmpty()) {
         throw new UsageException(args.length == 0 ? "no command" : "unknown command " + args[0]);
@@ -319,13 +385,19 @@ public final class Main {
           int colon = value.indexOf(':');
           var kind = colon < 0 ? value : value.substring(0, colon);
           if (!kind.equals("none") && !ReportFiles.KINDS.contains(kind)) {
-            throw new UsageException("unknown report %s (one of json, html, xml, none)".formatted(kind));
+            throw new UsageException(
+                "unknown report %s (one of json, html, xml, none)".formatted(kind));
           }
           if (reports == null) {
             reports = new ArrayList<>(); // the first --report replaces the defaults
           }
           if (!kind.equals("none")) {
-            reports.add(new RequestedReport(kind, colon < 0 ? Optional.empty() : Optional.of(Path.of(value.substring(colon + 1)))));
+            reports.add(
+                new RequestedReport(
+                    kind,
+                    colon < 0
+                        ? Optional.empty()
+                        : Optional.of(Path.of(value.substring(colon + 1)))));
           }
         } else if (arg.startsWith("--vocabulary=")) {
           vocabulary = Optional.of(choice(arg, VOCABULARIES));
@@ -359,9 +431,27 @@ public final class Main {
         only = Optional.of(positional.removeFirst());
       }
       var module = positional.stream().filter(arg -> arg.startsWith(":")).findFirst().orElse(":");
-      var directory = positional.stream().filter(arg -> !arg.startsWith(":")).findFirst().map(Path::of).orElse(Path.of("."));
-      return new Command(verify, directory, module, format, threshold, only, confirmCatches, workers, colour, links,
-          progress, suggestions, reports == null ? DEFAULT_REPORTS : List.copyOf(reports), vocabulary);
+      var directory =
+          positional.stream()
+              .filter(arg -> !arg.startsWith(":"))
+              .findFirst()
+              .map(Path::of)
+              .orElse(Path.of("."));
+      return new Command(
+          verify,
+          directory,
+          module,
+          format,
+          threshold,
+          only,
+          confirmCatches,
+          workers,
+          colour,
+          links,
+          progress,
+          suggestions,
+          reports == null ? DEFAULT_REPORTS : List.copyOf(reports),
+          vocabulary);
     }
 
     /// The whole number in `--name=value`.
@@ -370,7 +460,8 @@ public final class Main {
       try {
         return Integer.parseInt(value);
       } catch (NumberFormatException e) {
-        throw new UsageException("%s needs a whole number, not %s".formatted(arg.substring(0, arg.indexOf('=')), value));
+        throw new UsageException(
+            "%s needs a whole number, not %s".formatted(arg.substring(0, arg.indexOf('=')), value));
       }
     }
 
@@ -379,7 +470,8 @@ public final class Main {
       var name = arg.substring(2, arg.indexOf('='));
       var value = arg.substring(arg.indexOf('=') + 1);
       if (!allowed.contains(value)) {
-        throw new UsageException("unknown %s %s (one of %s)".formatted(name, value, String.join(", ", allowed)));
+        throw new UsageException(
+            "unknown %s %s (one of %s)".formatted(name, value, String.join(", ", allowed)));
       }
       return value;
     }

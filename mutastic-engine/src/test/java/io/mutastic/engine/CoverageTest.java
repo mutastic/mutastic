@@ -13,7 +13,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class CoverageTest {
-  private final Coverage coverage = new Coverage(ClassFile.of(), java.lang.constant.ClassDesc.of(RecordingProbes.class.getName()));
+  private final Coverage coverage =
+      new Coverage(
+          ClassFile.of(), java.lang.constant.ClassDesc.of(RecordingProbes.class.getName()));
   private Object pricing;
 
   @BeforeEach
@@ -22,7 +24,9 @@ class CoverageTest {
     RecordingProbes.VALUES.clear();
     var bytes = coverage.instrument(MutationsTest.model(Pricing.class));
     assertThat(ClassFile.of().verify(bytes)).isEmpty();
-    var type = new MutationsTest.SingleClassLoader(Pricing.class.getName(), bytes).loadClass(Pricing.class.getName());
+    var type =
+        new MutationsTest.SingleClassLoader(Pricing.class.getName(), bytes)
+            .loadClass(Pricing.class.getName());
     pricing = type.getConstructor().newInstance();
   }
 
@@ -30,7 +34,9 @@ class CoverageTest {
   void recordsWholeNumberArgumentsLongsIncluded() throws Exception {
     pricing.getClass().getMethod("total", long.class, int.class).invoke(pricing, 7_000_000_000L, 3);
 
-    assertThat(RecordingProbes.VALUES).extracting(value -> value[1]).containsExactly(7_000_000_000L, 3L);
+    assertThat(RecordingProbes.VALUES)
+        .extracting(value -> value[1])
+        .containsExactly(7_000_000_000L, 3L);
   }
 
   @Test
@@ -40,12 +46,23 @@ class CoverageTest {
     coverage.recordValues("PricingTest#small", ids.get(0), Set.of(10L));
     coverage.recordValues("PricingTest#small", ids.get(1), Set.of(3L));
     coverage.recordValues("PricingTest#big", ids.get(0), Set.of(900L));
-    var mutant = new Mutant("io/mutastic/engine/fixture/Pricing", "total", "(JI)J", 0, 18, Operator.MATH, "LMUL", "LDIV",
-        Optional.empty());
+    var mutant =
+        new Mutant(
+            "io/mutastic/engine/fixture/Pricing",
+            "total",
+            "(JI)J",
+            0,
+            18,
+            Operator.MATH,
+            "LMUL",
+            "LDIV",
+            Optional.empty());
 
     assertThat(coverage.inputs(mutant, List.of("PricingTest#small", "PricingTest#big")))
-        .containsExactly(Map.entry("price", List.of(10L, 900L)), Map.entry("quantity", List.of(3L)));
-    assertThat(coverage.inputs(mutant, List.of("PricingTest#big"))).containsExactly(Map.entry("price", List.of(900L)));
+        .containsExactly(
+            Map.entry("price", List.of(10L, 900L)), Map.entry("quantity", List.of(3L)));
+    assertThat(coverage.inputs(mutant, List.of("PricingTest#big")))
+        .containsExactly(Map.entry("price", List.of(900L)));
   }
 
   @Test

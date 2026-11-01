@@ -9,17 +9,17 @@ import java.io.UncheckedIOException;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-/// Fresh copies of test classes that share a package with production code. A runtime package is
-/// a package name *and* the loader that defined it, so a test in a child loader can't call its
+/// Fresh copies of test classes that share a package with production code. A runtime package is a
+/// package name *and* the loader that defined it, so a test in a child loader can't call its
 /// production class's package-private test seam (`GameStore(rules, timeout, clock)`):
 /// `IllegalAccessError`. Defining the test in the production loader fixes access, but a loader
-/// defines a name once, so its statics would live across runs (a port picked once in a static).
-/// So each run defines a renamed copy, `GameStoreTest__m7`, in the production loader: package
-/// access, and statics that start clean.
+/// defines a name once, so its statics would live across runs (a port picked once in a static). So
+/// each run defines a renamed copy, `GameStoreTest__m7`, in the production loader: package access,
+/// and statics that start clean.
 ///
-/// The worker runs on the project's JDK (17+), so no ClassFile API: a class's names all live in
-/// its constant pool's UTF-8 entries (class refs, descriptors, signatures, annotations), and
-/// renaming is rewriting those.
+/// The worker runs on the project's JDK (17+), so no ClassFile API: a class's names all live in its
+/// constant pool's UTF-8 entries (class refs, descriptors, signatures, annotations), and renaming
+/// is rewriting those.
 final class Renamer {
   private static final Pattern SUFFIX = Pattern.compile("__m\\d+");
 
@@ -38,11 +38,13 @@ final class Renamer {
   /// The run a renamed name belongs to, or -1 if it isn't one.
   static int runOf(String name) {
     var matcher = SUFFIX.matcher(name);
-    return matcher.find() ? Integer.parseInt(name.substring(matcher.start() + 3, matcher.end())) : -1;
+    return matcher.find()
+        ? Integer.parseInt(name.substring(matcher.start() + 3, matcher.end()))
+        : -1;
   }
 
-  /// Every reference to one of `topLevels` (internal names, `com/example/FooTest`), or to a
-  /// class nested in one, gets the run's suffix.
+  /// Every reference to one of `topLevels` (internal names, `com/example/FooTest`), or to a class
+  /// nested in one, gets the run's suffix.
   static byte[] rename(byte[] bytes, Set<String> topLevels, int run) {
     try {
       var in = new DataInputStream(new ByteArrayInputStream(bytes));
@@ -77,8 +79,8 @@ final class Renamer {
     }
   }
 
-  /// Inserts `suffix` after each whole top-level name: followed by the end, `;` (a descriptor),
-  /// `<` (a signature) or `$` (a nested class), and not part of a longer name.
+  /// Inserts `suffix` after each whole top-level name: followed by the end, `;` (a descriptor), `<`
+  /// (a signature) or `$` (a nested class), and not part of a longer name.
   private static String renameIn(String text, Set<String> topLevels, String suffix) {
     if (text.indexOf('/') < 0) {
       return text;

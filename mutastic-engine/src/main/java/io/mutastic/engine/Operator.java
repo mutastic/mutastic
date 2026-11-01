@@ -36,29 +36,42 @@ import java.util.Map;
 
 /// The mutation operators, and what each instruction can become.
 ///
-/// Operators work on two kinds of site, counted apart: instructions (arithmetic, branches,
-/// returns) and calls. A new operator on calls never shifts the ids of instruction mutants.
+/// Operators work on two kinds of site, counted apart: instructions (arithmetic, branches, returns)
+/// and calls. A new operator on calls never shifts the ids of instruction mutants.
 public enum Operator {
-  /// `<` becomes `<=` and the other way round: the off-by-one at the edge of a range, which
-  /// tests that only check values far from the edge never notice.
-  BOUNDARY(Map.of(
-      IF_ICMPLT, IF_ICMPLE, IF_ICMPLE, IF_ICMPLT, IF_ICMPGT, IF_ICMPGE, IF_ICMPGE, IF_ICMPGT,
-      IFLT, IFLE, IFLE, IFLT, IFGT, IFGE, IFGE, IFGT)),
+  /// `<` becomes `<=` and the other way round: the off-by-one at the edge of a range, which tests
+  /// that only check values far from the edge never notice.
+  BOUNDARY(
+      Map.of(
+          IF_ICMPLT, IF_ICMPLE, IF_ICMPLE, IF_ICMPLT, IF_ICMPGT, IF_ICMPGE, IF_ICMPGE, IF_ICMPGT,
+          IFLT, IFLE, IFLE, IFLT, IFGT, IFGE, IFGE, IFGT)),
 
   /// A condition goes the other way: `==` becomes `!=`, `<` becomes `>=`. Survives when no test
   /// checks what happens on one side of an `if`.
-  NEGATE_CONDITIONAL(Map.ofEntries(
-      Map.entry(IF_ICMPLT, IF_ICMPGE), Map.entry(IF_ICMPGE, IF_ICMPLT),
-      Map.entry(IF_ICMPGT, IF_ICMPLE), Map.entry(IF_ICMPLE, IF_ICMPGT),
-      Map.entry(IF_ICMPEQ, IF_ICMPNE), Map.entry(IF_ICMPNE, IF_ICMPEQ),
-      Map.entry(IFEQ, IFNE), Map.entry(IFNE, IFEQ), Map.entry(IFLT, IFGE), Map.entry(IFGE, IFLT),
-      Map.entry(IFGT, IFLE), Map.entry(IFLE, IFGT), Map.entry(IFNULL, IFNONNULL),
-      Map.entry(IFNONNULL, IFNULL), Map.entry(IF_ACMPEQ, IF_ACMPNE), Map.entry(IF_ACMPNE, IF_ACMPEQ))),
+  NEGATE_CONDITIONAL(
+      Map.ofEntries(
+          Map.entry(IF_ICMPLT, IF_ICMPGE),
+          Map.entry(IF_ICMPGE, IF_ICMPLT),
+          Map.entry(IF_ICMPGT, IF_ICMPLE),
+          Map.entry(IF_ICMPLE, IF_ICMPGT),
+          Map.entry(IF_ICMPEQ, IF_ICMPNE),
+          Map.entry(IF_ICMPNE, IF_ICMPEQ),
+          Map.entry(IFEQ, IFNE),
+          Map.entry(IFNE, IFEQ),
+          Map.entry(IFLT, IFGE),
+          Map.entry(IFGE, IFLT),
+          Map.entry(IFGT, IFLE),
+          Map.entry(IFLE, IFGT),
+          Map.entry(IFNULL, IFNONNULL),
+          Map.entry(IFNONNULL, IFNULL),
+          Map.entry(IF_ACMPEQ, IF_ACMPNE),
+          Map.entry(IF_ACMPNE, IF_ACMPEQ))),
 
   /// `+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`.
-  MATH(Map.of(
-      IADD, ISUB, ISUB, IADD, IMUL, IDIV, IDIV, IMUL,
-      LADD, LSUB, LSUB, LADD, LMUL, LDIV, LDIV, LMUL)),
+  MATH(
+      Map.of(
+          IADD, ISUB, ISUB, IADD, IMUL, IDIV, IDIV, IMUL, LADD, LSUB, LSUB, LADD, LMUL, LDIV, LDIV,
+          LMUL)),
 
   /// A method returns its type's default (`0`, `false`, `null`) instead of what it computed.
   /// Survives when tests call the method but never look at what it returns.
@@ -85,17 +98,21 @@ public enum Operator {
 
   boolean applies(Instruction instruction) {
     return switch (this) {
-      case RETURN_DEFAULT -> instruction instanceof ReturnInstruction returning && returning.typeKind() != TypeKind.VOID;
-      case REMOVE_VOID_CALL -> instruction instanceof InvokeInstruction call
-          && call.typeSymbol().returnType().descriptorString().equals("V")
-          && !call.name().equalsString("<init>");
-      default -> (instruction instanceof BranchInstruction || instruction instanceof OperatorInstruction)
-          && replacements.containsKey(instruction.opcode());
+      case RETURN_DEFAULT ->
+          instruction instanceof ReturnInstruction returning
+              && returning.typeKind() != TypeKind.VOID;
+      case REMOVE_VOID_CALL ->
+          instruction instanceof InvokeInstruction call
+              && call.typeSymbol().returnType().descriptorString().equals("V")
+              && !call.name().equalsString("<init>");
+      default ->
+          (instruction instanceof BranchInstruction || instruction instanceof OperatorInstruction)
+              && replacements.containsKey(instruction.opcode());
     };
   }
 
-  /// What the instruction becomes, as it appears in ids: an opcode, or what changed. These
-  /// labels are part of every mutant's fingerprint, so they never change.
+  /// What the instruction becomes, as it appears in ids: an opcode, or what changed. These labels
+  /// are part of every mutant's fingerprint, so they never change.
   String replacement(Instruction instruction) {
     return switch (this) {
       case RETURN_DEFAULT -> "return default";

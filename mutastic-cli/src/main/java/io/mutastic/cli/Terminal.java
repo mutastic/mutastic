@@ -13,19 +13,20 @@ record Terminal(boolean interactive, Map<String, String> env) {
     return new Terminal(console != null && console.isTerminal(), System.getenv());
   }
 
-  /// `--color=auto`: on a terminal, unless `NO_COLOR` is set or `TERM=dumb`; `FORCE_COLOR`
-  /// turns it on anywhere.
+  /// `--color=auto`: on a terminal, unless `NO_COLOR` is set or `TERM=dumb`; `FORCE_COLOR` turns it
+  /// on anywhere.
   boolean colour(String choice) {
     return switch (choice) {
       case "always" -> true;
       case "never" -> false;
-      default -> env.containsKey("FORCE_COLOR")
-          || interactive && !env.containsKey("NO_COLOR") && !"dumb".equals(env.get("TERM"));
+      default ->
+          env.containsKey("FORCE_COLOR")
+              || interactive && !env.containsKey("NO_COLOR") && !"dumb".equals(env.get("TERM"));
     };
   }
 
-  /// `--hyperlinks=auto`: file locations become links where a person is reading a terminal
-  /// that isn't `TERM=dumb`; terminals that don't know links show the text.
+  /// `--hyperlinks=auto`: file locations become links where a person is reading a terminal that
+  /// isn't `TERM=dumb`; terminals that don't know links show the text.
   boolean links(String choice) {
     return switch (choice) {
       case "always" -> true;
@@ -34,8 +35,8 @@ record Terminal(boolean interactive, Map<String, String> env) {
     };
   }
 
-  /// `MUTASTIC_FORMAT` if set; else `agent` when an agent says so (`MUTASTIC_AGENT=1`); else
-  /// `full` for people at a terminal and `concise` for logs.
+  /// `MUTASTIC_FORMAT` if set; else `agent` when an agent says so (`MUTASTIC_AGENT=1`); else `full`
+  /// for people at a terminal and `concise` for logs.
   String defaultFormat() {
     var chosen = env.get("MUTASTIC_FORMAT");
     if (chosen != null && !chosen.isBlank()) {

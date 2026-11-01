@@ -18,30 +18,39 @@ final class Samples {
   static Result mutastic(String... args) {
     var out = new ByteArrayOutputStream();
     var err = new ByteArrayOutputStream();
-    int exit = Main.run(args, new PrintStream(out, true, StandardCharsets.UTF_8), new PrintStream(err, true, StandardCharsets.UTF_8),
-        new Terminal(false, java.util.Map.of()));
-    return new Result(exit, out.toString(StandardCharsets.UTF_8), err.toString(StandardCharsets.UTF_8));
+    int exit =
+        Main.run(
+            args,
+            new PrintStream(out, true, StandardCharsets.UTF_8),
+            new PrintStream(err, true, StandardCharsets.UTF_8),
+            new Terminal(false, java.util.Map.of()));
+    return new Result(
+        exit, out.toString(StandardCharsets.UTF_8), err.toString(StandardCharsets.UTF_8));
   }
 
   /// The sample without its build output, so each test builds its own.
   static Path copy(Path from, Path to) throws IOException {
     try (Stream<Path> files = Files.walk(from)) {
-      files.filter(file -> {
-        var top = from.relativize(file).getName(0).toString();
-        return !top.equals("build") && !top.equals(".gradle");
-      }).forEach(file -> {
-        try {
-          var target = to.resolve(from.relativize(file).toString());
-          if (Files.isDirectory(file)) {
-            Files.createDirectories(target);
-          } else {
-            Files.copy(file, target);
-            target.toFile().setExecutable(file.toFile().canExecute());
-          }
-        } catch (IOException e) {
-          throw new UncheckedIOException(e);
-        }
-      });
+      files
+          .filter(
+              file -> {
+                var top = from.relativize(file).getName(0).toString();
+                return !top.equals("build") && !top.equals(".gradle");
+              })
+          .forEach(
+              file -> {
+                try {
+                  var target = to.resolve(from.relativize(file).toString());
+                  if (Files.isDirectory(file)) {
+                    Files.createDirectories(target);
+                  } else {
+                    Files.copy(file, target);
+                    target.toFile().setExecutable(file.toFile().canExecute());
+                  }
+                } catch (IOException e) {
+                  throw new UncheckedIOException(e);
+                }
+              });
     }
     return to;
   }

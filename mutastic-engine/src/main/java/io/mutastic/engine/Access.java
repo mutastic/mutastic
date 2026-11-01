@@ -6,20 +6,24 @@ import java.lang.classfile.MethodModel;
 import java.lang.reflect.AccessFlag;
 import java.util.Optional;
 
-/// Whether a test class could write the call a suggestion makes, and how. The worker calls methods by
-/// reflection and can reach anything; a test can only reach what Java's access rules allow
-/// from its package, and a suggested test that doesn't compile is worse than none.
+/// Whether a test class could write the call a suggestion makes, and how. The worker calls methods
+/// by reflection and can reach anything; a test can only reach what Java's access rules allow from
+/// its package, and a suggested test that doesn't compile is worse than none.
 final class Access {
   private Access() {}
 
   /// How code in `testClass` (a binary name) can call the mutant's method, if it can: `-` for a
   /// static method, else the descriptor of the constructor to make the receiver with. That's the
-  /// no-argument constructor when there's one it can reach, or else one whose parameters are
-  /// all whole numbers (`int`, `long`, `Integer`, `Long`), as a record of numbers has.
+  /// no-argument constructor when there's one it can reach, or else one whose parameters are all
+  /// whole numbers (`int`, `long`, `Integer`, `Long`), as a record of numbers has.
   static Optional<String> receiver(ClassModel model, Mutant mutant, String testClass) {
-    boolean samePackage = packageOf(model.thisClass().asInternalName().replace('/', '.')).equals(packageOf(testClass));
+    boolean samePackage =
+        packageOf(model.thisClass().asInternalName().replace('/', '.'))
+            .equals(packageOf(testClass));
     var method = method(model, mutant.methodName(), mutant.descriptor());
-    if (method.isEmpty() || !reachable(method.get().flags().flags(), samePackage) || !classReachable(model, samePackage)) {
+    if (method.isEmpty()
+        || !reachable(method.get().flags().flags(), samePackage)
+        || !classReachable(model, samePackage)) {
       return Optional.empty();
     }
     if (method.get().flags().has(AccessFlag.STATIC)) {
@@ -28,16 +32,23 @@ final class Access {
     if (model.flags().has(AccessFlag.ABSTRACT) || model.flags().has(AccessFlag.INTERFACE)) {
       return Optional.empty();
     }
-    var noArguments = method(model, "<init>", "()V").filter(constructor -> reachable(constructor.flags().flags(), samePackage));
+    var noArguments =
+        method(model, "<init>", "()V")
+            .filter(constructor -> reachable(constructor.flags().flags(), samePackage));
     if (noArguments.isPresent()) {
       return Optional.of("()V");
     }
     return model.methods().stream()
         .filter(constructor -> constructor.methodName().equalsString("<init>"))
         .filter(constructor -> reachable(constructor.flags().flags(), samePackage))
-        .filter(constructor -> constructor.methodTypeSymbol().parameterCount() > 0
-            && constructor.methodTypeSymbol().parameterList().stream().allMatch(type -> WHOLE_NUMBERS.contains(type.descriptorString())))
-        .min(java.util.Comparator.comparingInt((MethodModel constructor) -> constructor.methodTypeSymbol().parameterCount()))
+        .filter(
+            constructor ->
+                constructor.methodTypeSymbol().parameterCount() > 0
+                    && constructor.methodTypeSymbol().parameterList().stream()
+                        .allMatch(type -> WHOLE_NUMBERS.contains(type.descriptorString())))
+        .min(
+            java.util.Comparator.comparingInt(
+                (MethodModel constructor) -> constructor.methodTypeSymbol().parameterCount()))
         .map(constructor -> constructor.methodType().stringValue());
   }
 
@@ -47,7 +58,8 @@ final class Access {
   }
 
   /// Parameter types a suggestion can fill with a number.
-  static final java.util.Set<String> WHOLE_NUMBERS = java.util.Set.of("I", "J", "Ljava/lang/Integer;", "Ljava/lang/Long;");
+  static final java.util.Set<String> WHOLE_NUMBERS =
+      java.util.Set.of("I", "J", "Ljava/lang/Integer;", "Ljava/lang/Long;");
 
   /// Public from anywhere; package-private and protected from the same package; private never.
   private static boolean reachable(java.util.Set<AccessFlag> flags, boolean samePackage) {
@@ -58,10 +70,11 @@ final class Access {
   /// javac keeps in the InnerClasses attribute (its own flags say public or package only).
   private static boolean classReachable(ClassModel model, boolean samePackage) {
     var self = model.thisClass().asInternalName();
-    var declared = model.findAttribute(Attributes.innerClasses()).stream()
-        .flatMap(attribute -> attribute.classes().stream())
-        .filter(inner -> inner.innerClass().asInternalName().equals(self))
-        .findFirst();
+    var declared =
+        model.findAttribute(Attributes.innerClasses()).stream()
+            .flatMap(attribute -> attribute.classes().stream())
+            .filter(inner -> inner.innerClass().asInternalName().equals(self))
+            .findFirst();
     if (declared.isPresent()) {
       // A non-static inner class needs an outer instance: `new Outer().new Inner()` isn't written.
       boolean isStatic = declared.get().flags().contains(AccessFlag.STATIC);
@@ -72,7 +85,10 @@ final class Access {
 
   private static Optional<MethodModel> method(ClassModel model, String name, String descriptor) {
     return model.methods().stream()
-        .filter(method -> method.methodName().equalsString(name) && method.methodType().equalsString(descriptor))
+        .filter(
+            method ->
+                method.methodName().equalsString(name)
+                    && method.methodType().equalsString(descriptor))
         .findFirst();
   }
 

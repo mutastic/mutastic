@@ -10,12 +10,13 @@ public interface Listener {
   ///
   /// @param jdk the feature version the tests run on
   /// @param flaky tests left out because they failed and then passed
-  default void coverageFinished(int jdk, int tests, Duration took, int mutants, List<String> flaky) {}
+  default void coverageFinished(
+      int jdk, int tests, Duration took, int mutants, List<String> flaky) {}
 
   /// One mutant's result, as soon as it's known.
   void mutantFinished(MutantResult result);
 
-  /// Every mutant in one source file's classes has its result: a top-level class and the
-  /// classes nested in it, in the order found. Comes after their `mutantFinished` calls.
+  /// Every mutant in one source file's classes has its result: a top-level class and the classes
+  /// nested in it, in the order found. Comes after their `mutantFinished` calls.
   default void fileFinished(String topLevelClass, List<MutantResult> results) {}
 }

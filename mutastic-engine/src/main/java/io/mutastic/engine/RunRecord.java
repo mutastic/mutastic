@@ -15,11 +15,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-/// What a run found, kept for the next run to compare with: each mutant's status and catching
-/// test, the score, and a hash of the compiled code and tests.
+/// What a run found, kept for the next run to compare with: each mutant's status and catching test,
+/// the score, and a hash of the compiled code and tests.
 ///
-/// The file is one entry per line, tab-separated, so it diffs well:
-/// `code <hash>`, `tool <hash>`, `score <score>`, then `<id> <status> <caught by or ->`.
+/// The file is one entry per line, tab-separated, so it diffs well: `code <hash>`, `tool <hash>`,
+/// `score <score>`, then `<id> <status> <caught by or ->`.
 ///
 /// @param code the hash of every class file in the code and the tests
 /// @param tool the hash of the mutastic that ran: a new mutastic can change results too
@@ -33,12 +33,16 @@ public record RunRecord(String code, String tool, double score, Map<String, Entr
 
   public static RunRecord of(Project project, String tool, Report report) {
     var results = new LinkedHashMap<String, Entry>();
-    report.results().forEach(result -> results.put(result.mutant().id(), new Entry(result.status(), result.caughtBy())));
+    report
+        .results()
+        .forEach(
+            result ->
+                results.put(result.mutant().id(), new Entry(result.status(), result.caughtBy())));
     return new RunRecord(codeOf(project), tool, report.score(), results);
   }
 
-  /// The hash of the files mutastic runs from: its engine and worker jars (or class
-  /// directories), so a rebuilt mutastic counts as a different one even at the same version.
+  /// The hash of the files mutastic runs from: its engine and worker jars (or class directories),
+  /// so a rebuilt mutastic counts as a different one even at the same version.
   public static String toolOf(List<Path> files) {
     try {
       var digest = MessageDigest.getInstance("SHA-256");
@@ -73,11 +77,17 @@ public record RunRecord(String code, String tool, double score, Map<String, Entr
           case "code" -> code = parts[1];
           case "tool" -> tool = parts[1];
           case "score" -> score = Double.parseDouble(parts[1]);
-          default -> results.put(parts[0], new Entry(Status.valueOf(parts[1]),
-              parts[2].equals("-") ? Optional.empty() : Optional.of(parts[2])));
+          default ->
+              results.put(
+                  parts[0],
+                  new Entry(
+                      Status.valueOf(parts[1]),
+                      parts[2].equals("-") ? Optional.empty() : Optional.of(parts[2])));
         }
       }
-      return code == null ? Optional.empty() : Optional.of(new RunRecord(code, tool, score, results));
+      return code == null
+          ? Optional.empty()
+          : Optional.of(new RunRecord(code, tool, score, results));
     } catch (IOException | RuntimeException e) {
       return Optional.empty(); // an unreadable record is no record: the next run writes a new one
     }
@@ -85,8 +95,16 @@ public record RunRecord(String code, String tool, double score, Map<String, Entr
 
   public void write(Path file) {
     var lines = new ArrayList<String>(List.of("code\t" + code, "tool\t" + tool, "score\t" + score));
-    results.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry -> lines.add(
-        entry.getKey() + "\t" + entry.getValue().status().name() + "\t" + entry.getValue().caughtBy().orElse("-")));
+    results.entrySet().stream()
+        .sorted(Map.Entry.comparingByKey())
+        .forEach(
+            entry ->
+                lines.add(
+                    entry.getKey()
+                        + "\t"
+                        + entry.getValue().status().name()
+                        + "\t"
+                        + entry.getValue().caughtBy().orElse("-")));
     try {
       Files.createDirectories(file.getParent());
       Files.write(file, lines);
@@ -100,14 +118,17 @@ public record RunRecord(String code, String tool, double score, Map<String, Entr
     boolean sameCode = previous.code.equals(code);
     boolean sameTool = previous.tool.equals(tool);
     var flips = new ArrayList<Comparison.Flip>();
-    results.forEach((id, now) -> {
-      var before = previous.results.get(id);
-      if (before != null && before.status().detected() != now.status().detected()
-          && before.status() != Status.SKIPPED && now.status() != Status.SKIPPED) {
-        var caught = now.status().detected() ? now : before;
-        flips.add(new Comparison.Flip(id, before.status(), now.status(), caught.caughtBy()));
-      }
-    });
+    results.forEach(
+        (id, now) -> {
+          var before = previous.results.get(id);
+          if (before != null
+              && before.status().detected() != now.status().detected()
+              && before.status() != Status.SKIPPED
+              && now.status() != Status.SKIPPED) {
+            var caught = now.status().detected() ? now : before;
+            flips.add(new Comparison.Flip(id, before.status(), now.status(), caught.caughtBy()));
+          }
+        });
     flips.sort(java.util.Comparator.comparing(Comparison.Flip::id));
     return new Comparison(previous.score, sameCode, sameTool, flips);
   }
@@ -116,12 +137,14 @@ public record RunRecord(String code, String tool, double score, Map<String, Entr
   static String codeOf(Project project) {
     try {
       var digest = MessageDigest.getInstance("SHA-256");
-      for (Path root : Stream.of(project.classes(), project.testClasses()).flatMap(List::stream).toList()) {
+      for (Path root :
+          Stream.of(project.classes(), project.testClasses()).flatMap(List::stream).toList()) {
         if (!Files.isDirectory(root)) {
           continue;
         }
         try (Stream<Path> files = Files.walk(root)) {
-          for (Path file : files.filter(path -> path.toString().endsWith(".class")).sorted().toList()) {
+          for (Path file :
+              files.filter(path -> path.toString().endsWith(".class")).sorted().toList()) {
             digest.update(root.relativize(file).toString().getBytes(StandardCharsets.UTF_8));
             digest.update(Files.readAllBytes(file));
           }

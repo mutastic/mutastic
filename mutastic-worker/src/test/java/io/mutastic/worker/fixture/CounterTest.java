@@ -2,8 +2,8 @@ package io.mutastic.worker.fixture;
 
 import java.util.function.IntSupplier;
 
-/// Shaped like a test with state: a static counter, a nested class and a lambda that refer back
-/// to it by name.
+/// Shaped like a test with state: a static counter, a nested class and a lambda that refer back to
+/// it by name.
 public class CounterTest {
   static int created;
 

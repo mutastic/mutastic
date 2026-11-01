@@ -32,12 +32,12 @@ import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
 
 /// Runs the project's tests on the project's JDK, for an engine on a newer one. The engine sends
-/// finished classes (instrumented or mutated) and the tests to run; the worker loads them, runs
-/// the JUnit Platform, and answers on stdout. Test output goes to stderr, so a test that prints
-/// can't corrupt the protocol.
+/// finished classes (instrumented or mutated) and the tests to run; the worker loads them, runs the
+/// JUnit Platform, and answers on stdout. Test output goes to stderr, so a test that prints can't
+/// corrupt the protocol.
 ///
-/// Arguments: `--production=<dirs>` (main classes and resources) and `--tests=<dirs>` (test
-/// classes and resources), each separated by the platform's path separator.
+/// Arguments: `--production=<dirs>` (main classes and resources) and `--tests=<dirs>` (test classes
+/// and resources), each separated by the platform's path separator.
 ///
 /// Protocol, one command per line, fields separated by tabs (test ids can contain spaces:
 /// `#play(java.lang.String, int)`):
@@ -65,7 +65,8 @@ public final class Worker {
   private String lastOrigin = "unknown";
   private boolean lastPortClash;
 
-  private Worker(List<Path> productionRoots, List<Path> testRoots, PrintStream protocol) throws IOException {
+  private Worker(List<Path> productionRoots, List<Path> testRoots, PrintStream protocol)
+      throws IOException {
     this.productionRoots = productionRoots;
     this.testRoots = testRoots;
     this.protocol = protocol;
@@ -78,18 +79,22 @@ public final class Worker {
     System.setOut(System.err);
     var worker = new Worker(roots(args, "--production="), roots(args, "--tests="), protocol);
     var commands = new LinkedBlockingQueue<String>();
-    var reader = new Thread(() -> {
-      try (var in = new BufferedReader(new InputStreamReader(System.in, UTF_8))) {
-        for (String line = in.readLine(); line != null; line = in.readLine()) {
-          commands.add(line);
-        }
-      } catch (IOException e) {
-        // the engine went away
-      }
-      // No engine, no reason to live: halt now, even mid-test. Otherwise a worker outlives a
-      // killed engine and keeps its ports for the next run to trip on.
-      Runtime.getRuntime().halt(0);
-    }, "mutastic-protocol");
+    var reader =
+        new Thread(
+            () -> {
+              try (var in = new BufferedReader(new InputStreamReader(System.in, UTF_8))) {
+                for (String line = in.readLine(); line != null; line = in.readLine()) {
+                  commands.add(line);
+                }
+              } catch (IOException e) {
+                // the engine went away
+              }
+              // No engine, no reason to live: halt now, even mid-test. Otherwise a worker outlives
+              // a
+              // killed engine and keeps its ports for the next run to trip on.
+              Runtime.getRuntime().halt(0);
+            },
+            "mutastic-protocol");
     reader.setDaemon(true);
     reader.start();
     protocol.println("READY\t" + Runtime.version().feature());
@@ -104,14 +109,18 @@ public final class Worker {
     switch (command[0]) {
       case "CLASS" -> staged.put(command[1], Base64.getDecoder().decode(command[2]));
       case "COVER" -> {
-        production = new ProductionLoader(productionRoots, staged, testRoots, splitTests, getClass().getClassLoader());
+        production =
+            new ProductionLoader(
+                productionRoots, staged, testRoots, splitTests, getClass().getClassLoader());
         cover(tests);
         production.restoreAll();
         staged.clear();
       }
       case "RUN" -> {
         if (production == null) { // a new worker, after the last one was killed
-          production = new ProductionLoader(productionRoots, Map.of(), testRoots, splitTests, getClass().getClassLoader());
+          production =
+              new ProductionLoader(
+                  productionRoots, Map.of(), testRoots, splitTests, getClass().getClassLoader());
         }
         production.swapIn(staged);
         try {
@@ -123,17 +132,41 @@ public final class Worker {
       }
       case "SUGGEST" -> {
         if (production == null) { // a new worker, after the last one was killed
-          production = new ProductionLoader(productionRoots, Map.of(), testRoots, splitTests, getClass().getClassLoader());
+          production =
+              new ProductionLoader(
+                  productionRoots, Map.of(), testRoots, splitTests, getClass().getClassLoader());
         }
-        var candidates = Arrays.stream(command[5].split("\\|"))
-            .map(inputs -> inputs.equals("-") ? List.<Long>of() : Arrays.stream(inputs.split(";")).map(Long::valueOf).toList())
-            .toList();
-        var found = Suggester.find(production, command[1], command[2], command[3], Base64.getDecoder().decode(command[4]),
-            candidates, command[6]);
-        protocol.println(found.inputs()
-            .map(inputs -> "SUGGESTED\t" + inputs.stream().map(String::valueOf).collect(Collectors.joining(";"))
-                + "\t" + found.today() + "\t" + found.mutated() + "\t" + (found.stuck() ? "stuck" : "-"))
-            .orElse("SUGGESTED\t-"));
+        var candidates =
+            Arrays.stream(command[5].split("\\|"))
+                .map(
+                    inputs ->
+                        inputs.equals("-")
+                            ? List.<Long>of()
+                            : Arrays.stream(inputs.split(";")).map(Long::valueOf).toList())
+                .toList();
+        var found =
+            Suggester.find(
+                production,
+                command[1],
+                command[2],
+                command[3],
+                Base64.getDecoder().decode(command[4]),
+                candidates,
+                command[6]);
+        protocol.println(
+            found
+                .inputs()
+                .map(
+                    inputs ->
+                        "SUGGESTED\t"
+                            + inputs.stream().map(String::valueOf).collect(Collectors.joining(";"))
+                            + "\t"
+                            + found.today()
+                            + "\t"
+                            + found.mutated()
+                            + "\t"
+                            + (found.stuck() ? "stuck" : "-"))
+                .orElse("SUGGESTED\t-"));
       }
       default -> protocol.println("RESULT\tERROR\tunknown command " + command[0]);
     }
@@ -142,32 +175,55 @@ public final class Worker {
   private void cover(List<String> tests) {
     Probes.reset();
     var startedAt = new HashMap<String, Long>();
-    var failing = execute(tests, new TestExecutionListener() {
-      @Override
-      public void executionStarted(TestIdentifier test) {
-        if (test.isTest()) {
-          Probes.startTest(id(test));
-          startedAt.put(id(test), System.nanoTime());
-        }
-      }
+    var failing =
+        execute(
+            tests,
+            new TestExecutionListener() {
+              @Override
+              public void executionStarted(TestIdentifier test) {
+                if (test.isTest()) {
+                  Probes.startTest(id(test));
+                  startedAt.put(id(test), System.nanoTime());
+                }
+              }
 
-      @Override
-      public void executionFinished(TestIdentifier test, TestExecutionResult result) {
-        if (test.isTest()) {
-          protocol.println("TEST\t" + id(test) + "\t" + (System.nanoTime() - startedAt.get(id(test))));
-        }
-      }
-    });
+              @Override
+              public void executionFinished(TestIdentifier test, TestExecutionResult result) {
+                if (test.isTest()) {
+                  protocol.println(
+                      "TEST\t" + id(test) + "\t" + (System.nanoTime() - startedAt.get(id(test))));
+                }
+              }
+            });
     Probes.flush();
-    Probes.linesByTest().forEach((test, lines) -> {
-      if (!lines.isEmpty()) {
-        protocol.println("LINE\t" + test + "\t" + lines.stream().map(String::valueOf).collect(Collectors.joining(",")));
-      }
-    });
-    Probes.valuesByTest().forEach((test, byParameter) -> byParameter.forEach((parameter, values) ->
-        protocol.println("VALUE\t" + test + "\t" + parameter + "\t"
-            + values.stream().sorted().map(String::valueOf).collect(Collectors.joining(",")))));
-    protocol.println("DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
+    Probes.linesByTest()
+        .forEach(
+            (test, lines) -> {
+              if (!lines.isEmpty()) {
+                protocol.println(
+                    "LINE\t"
+                        + test
+                        + "\t"
+                        + lines.stream().map(String::valueOf).collect(Collectors.joining(",")));
+              }
+            });
+    Probes.valuesByTest()
+        .forEach(
+            (test, byParameter) ->
+                byParameter.forEach(
+                    (parameter, values) ->
+                        protocol.println(
+                            "VALUE\t"
+                                + test
+                                + "\t"
+                                + parameter
+                                + "\t"
+                                + values.stream()
+                                    .sorted()
+                                    .map(String::valueOf)
+                                    .collect(Collectors.joining(",")))));
+    protocol.println(
+        "DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
   }
 
   /// The engine orders tests fastest first; the worker stops at the first failure.
@@ -176,22 +232,34 @@ public final class Worker {
     for (String test : tests) {
       ran++;
       var started = new int[1];
-      var failing = execute(List.of(test), new TestExecutionListener() {
-        @Override
-        public void executionStarted(TestIdentifier identifier) {
-          if (identifier.isTest()) {
-            started[0]++;
-          }
-        }
-      });
+      var failing =
+          execute(
+              List.of(test),
+              new TestExecutionListener() {
+                @Override
+                public void executionStarted(TestIdentifier identifier) {
+                  if (identifier.isTest()) {
+                    started[0]++;
+                  }
+                }
+              });
       // A selector that matches nothing runs nothing and fails nothing: that's not a pass.
       if (started[0] == 0 && failing.isEmpty()) {
         protocol.println("RESULT\tERROR\tno test ran for " + test);
         return;
       }
       if (!failing.isEmpty()) {
-        protocol.println("RESULT\tFAILED\t" + ran + "\t" + test + "\t" + lastFailure + "\t" + lastOrigin
-            + "\t" + (lastPortClash ? "port-clash" : "-"));
+        protocol.println(
+            "RESULT\tFAILED\t"
+                + ran
+                + "\t"
+                + test
+                + "\t"
+                + lastFailure
+                + "\t"
+                + lastOrigin
+                + "\t"
+                + (lastPortClash ? "port-clash" : "-"));
         return;
       }
     }
@@ -207,26 +275,37 @@ public final class Worker {
       var request = LauncherDiscoveryRequestBuilder.request();
       for (String test : tests) {
         int hash = test.indexOf('#');
-        request.selectors(hash < 0
-            ? selectClass(loader.loadClass(test))
-            : selectMethod(loader.loadClass(test.substring(0, hash)), method(test), parameters(test)));
+        request.selectors(
+            hash < 0
+                ? selectClass(loader.loadClass(test))
+                : selectMethod(
+                    loader.loadClass(test.substring(0, hash)), method(test), parameters(test)));
       }
       var failing = new ArrayList<String>();
-      LauncherFactory.create().execute(request.build(), new TestExecutionListener() {
-        @Override
-        public void executionFinished(TestIdentifier test, TestExecutionResult result) {
-          // Containers too: a mutant that breaks a test class's set-up (a static initialiser,
-          // `@BeforeAll`) fails the class, and its tests never start.
-          if (result.getStatus() != TestExecutionResult.Status.SUCCESSFUL) {
-            failing.add(id(test));
-            lastFailure = result.getThrowable().map(thrown -> thrown.getClass().getName()).orElse("unknown");
-            lastOrigin = result.getThrowable().map(Worker.this::origin).orElse("unknown");
-            lastPortClash = result.getThrowable().map(Worker::portClash).orElse(false);
-            System.err.println("FAILED\t" + id(test));
-            result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
-          }
-        }
-      }, observer);
+      LauncherFactory.create()
+          .execute(
+              request.build(),
+              new TestExecutionListener() {
+                @Override
+                public void executionFinished(TestIdentifier test, TestExecutionResult result) {
+                  // Containers too: a mutant that breaks a test class's set-up (a static
+                  // initialiser,
+                  // `@BeforeAll`) fails the class, and its tests never start.
+                  if (result.getStatus() != TestExecutionResult.Status.SUCCESSFUL) {
+                    failing.add(id(test));
+                    lastFailure =
+                        result
+                            .getThrowable()
+                            .map(thrown -> thrown.getClass().getName())
+                            .orElse("unknown");
+                    lastOrigin = result.getThrowable().map(Worker.this::origin).orElse("unknown");
+                    lastPortClash = result.getThrowable().map(Worker::portClash).orElse(false);
+                    System.err.println("FAILED\t" + id(test));
+                    result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
+                  }
+                }
+              },
+              observer);
       return failing;
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException(e);
@@ -238,7 +317,9 @@ public final class Worker {
   /// Whether a port in use caused it, anywhere in its causes: with workers running side by side,
   /// that can be another worker's test holding the port, not the mutant.
   private static boolean portClash(Throwable thrown) {
-    for (Throwable cause = thrown; cause != null; cause = cause.getCause() == cause ? null : cause.getCause()) {
+    for (Throwable cause = thrown;
+        cause != null;
+        cause = cause.getCause() == cause ? null : cause.getCause()) {
       if (cause instanceof java.net.BindException) {
         return true;
       }
@@ -260,7 +341,8 @@ public final class Worker {
     for (StackTraceElement frame : thrown.getStackTrace()) {
       var name = Renamer.original(frame.getClassName());
       int dollar = name.indexOf('$');
-      if (testClassNames.contains(dollar < 0 ? name : name.substring(0, dollar)) || testClassNames.contains(name)) {
+      if (testClassNames.contains(dollar < 0 ? name : name.substring(0, dollar))
+          || testClassNames.contains(name)) {
         return "test";
       }
       if (production.classFile(name) != null) {
@@ -271,15 +353,22 @@ public final class Worker {
   }
 
   /// `com.example.PricingTest#discount(java.nio.file.Path)`, under the name the build gave the
-  /// class. Parameter types too: `selectMethod(class, "name")` finds only a no-argument method,
-  /// so a test taking a `@TempDir Path` would select nothing.
+  /// class. Parameter types too: `selectMethod(class, "name")` finds only a no-argument method, so
+  /// a test taking a `@TempDir Path` would select nothing.
   private static String id(TestIdentifier test) {
-    return Renamer.original(test.getSource()
-        .filter(MethodSource.class::isInstance)
-        .map(MethodSource.class::cast)
-        .map(source -> source.getClassName() + "#" + source.getMethodName()
-            + (source.getMethodParameterTypes().isEmpty() ? "" : "(" + source.getMethodParameterTypes() + ")"))
-        .orElse(test.getUniqueId()));
+    return Renamer.original(
+        test.getSource()
+            .filter(MethodSource.class::isInstance)
+            .map(MethodSource.class::cast)
+            .map(
+                source ->
+                    source.getClassName()
+                        + "#"
+                        + source.getMethodName()
+                        + (source.getMethodParameterTypes().isEmpty()
+                            ? ""
+                            : "(" + source.getMethodParameterTypes() + ")"))
+            .orElse(test.getUniqueId()));
   }
 
   /// `com.example.FooTest#bar(java.nio.file.Path)` → `bar`.
@@ -296,8 +385,10 @@ public final class Worker {
   }
 
   /// Top-level test classes whose package also holds production classes.
-  private static Set<String> splitTests(List<Path> productionRoots, List<Path> testRoots) throws IOException {
-    var packages = classNamesIn(productionRoots).stream().map(Worker::packageOf).collect(Collectors.toSet());
+  private static Set<String> splitTests(List<Path> productionRoots, List<Path> testRoots)
+      throws IOException {
+    var packages =
+        classNamesIn(productionRoots).stream().map(Worker::packageOf).collect(Collectors.toSet());
     return classNamesIn(testRoots).stream()
         .filter(name -> name.indexOf('$') < 0 && packages.contains(packageOf(name)))
         .collect(Collectors.toUnmodifiableSet());
@@ -308,8 +399,14 @@ public final class Worker {
     for (Path root : roots) {
       if (Files.isDirectory(root)) {
         try (Stream<Path> files = Files.walk(root)) {
-          files.filter(file -> file.toString().endsWith(".class"))
-              .map(file -> root.relativize(file).toString().replace(File.separatorChar, '.').replaceAll("\\.class$", ""))
+          files
+              .filter(file -> file.toString().endsWith(".class"))
+              .map(
+                  file ->
+                      root.relativize(file)
+                          .toString()
+                          .replace(File.separatorChar, '.')
+                          .replaceAll("\\.class$", ""))
               .forEach(names::add);
         }
       }

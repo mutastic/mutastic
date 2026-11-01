@@ -10,24 +10,23 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class RunRecordTest {
-  private static final Optional<String> FLAKY = Optional.of("com.example.StockTest#restockingWorks");
+  private static final Optional<String> FLAKY =
+      Optional.of("com.example.StockTest#restockingWorks");
   private static final Optional<String> SOLID = Optional.of("com.example.StockTest#reorders");
 
-  @TempDir
-  Path work;
+  @TempDir Path work;
 
   @Test
   void aMutantThatChangesResultOnTheSameCodeNamesItsCatcher() {
-    var last = record("abc", Map.of(
-        "m1", caught(FLAKY), "m2", caught(SOLID), "m3", missed()));
-    var now = record("abc", Map.of(
-        "m1", missed(), "m2", caught(SOLID), "m3", caught(FLAKY)));
+    var last = record("abc", Map.of("m1", caught(FLAKY), "m2", caught(SOLID), "m3", missed()));
+    var now = record("abc", Map.of("m1", missed(), "m2", caught(SOLID), "m3", caught(FLAKY)));
 
     var comparison = now.against(last);
 
     assertThat(comparison.sameCode()).isTrue();
     assertThat(comparison.flips()).extracting(Comparison.Flip::id).containsExactly("m1", "m3");
-    assertThat(comparison.likelyFlaky()).containsExactly(Map.entry(FLAKY.get(), List.of("m1", "m3")));
+    assertThat(comparison.likelyFlaky())
+        .containsExactly(Map.entry(FLAKY.get(), List.of("m1", "m3")));
   }
 
   @Test
@@ -51,16 +50,20 @@ class RunRecordTest {
     assertThat(comparison.flips()).hasSize(1);
     assertThat(comparison.likelyFlaky()).isEmpty();
     assertThat(comparison.sameness()).isEqualTo("mutastic changed");
-    assertThat(record("abc", Map.of()).against(record("abd", Map.of())).sameness()).isEqualTo("code changed");
-    assertThat(record("abc", Map.of()).against(record("abc", Map.of())).sameness()).isEqualTo("same code");
+    assertThat(record("abc", Map.of()).against(record("abd", Map.of())).sameness())
+        .isEqualTo("code changed");
+    assertThat(record("abc", Map.of()).against(record("abc", Map.of())).sameness())
+        .isEqualTo("same code");
   }
 
   @Test
   void aRecordFromBeforeToolHashesCountsAsAnotherMutastic() throws Exception {
     var file = work.resolve("last-run.tsv");
-    java.nio.file.Files.writeString(file, "code\tabc\nscore\t50.0\nm1\tCAUGHT\t" + FLAKY.get() + "\n");
+    java.nio.file.Files.writeString(
+        file, "code\tabc\nscore\t50.0\nm1\tCAUGHT\t" + FLAKY.get() + "\n");
 
-    var comparison = record("abc", Map.of("m1", missed())).against(RunRecord.read(file).orElseThrow());
+    var comparison =
+        record("abc", Map.of("m1", missed())).against(RunRecord.read(file).orElseThrow());
 
     assertThat(comparison.sameTool()).isFalse();
     assertThat(comparison.likelyFlaky()).isEmpty();

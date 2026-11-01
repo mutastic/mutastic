@@ -16,13 +16,13 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
-/// What a comparison or calculation works on, as the source names it: `total` and `100` in
-/// `total >= 100`, `element.length()` and `2` in `element.length() < 2`, read back from the
-/// instructions just before it. A branch on a `boolean` call gives one operand, the call:
+/// What a comparison or calculation works on, as the source names it: `total` and `100` in `total
+/// >= 100`, `element.length()` and `2` in `element.length() < 2`, read back from the instructions
+/// just before it. A branch on a `boolean` call gives one operand, the call:
 /// `Files.isRegularFile(git)`. Empty when the code is more involved than that.
 ///
-/// Fed every instruction in order, and told when a jump target is passed: what came before a
-/// jump target isn't the only way in, so it doesn't count.
+/// Fed every instruction in order, and told when a jump target is passed: what came before a jump
+/// target isn't the only way in, so it doesn't count.
 final class Operands {
   private record Local(int slot, String name, int from, int to) {}
 
@@ -35,12 +35,18 @@ final class Operands {
   private int position;
 
   Operands(CodeModel code) {
-    code.findAttribute(Attributes.localVariableTable()).ifPresent(table -> {
-      for (var variable : table.localVariables()) {
-        locals.add(new Local(variable.slot(), variable.name().stringValue(), variable.startPc(),
-            variable.startPc() + variable.length()));
-      }
-    });
+    code.findAttribute(Attributes.localVariableTable())
+        .ifPresent(
+            table -> {
+              for (var variable : table.localVariables()) {
+                locals.add(
+                    new Local(
+                        variable.slot(),
+                        variable.name().stringValue(),
+                        variable.startPc(),
+                        variable.startPc() + variable.length()));
+              }
+            });
   }
 
   /// A jump lands here.
@@ -64,16 +70,19 @@ final class Operands {
     if (afterCompare) {
       before = before.subList(0, before.size() - 1);
     }
-    int wanted = switch (instruction) {
-      case BranchInstruction branch when branch.opcode().name().startsWith("IF_ICMP") -> 2;
-      case BranchInstruction _ when afterCompare -> 2;
-      case BranchInstruction branch when branch.opcode() == Opcode.IFNULL || branch.opcode() == Opcode.IFNONNULL -> 0;
-      case BranchInstruction branch when branch.opcode().name().startsWith("IF_ACMP") -> 0;
-      case BranchInstruction branch when branch.opcode() == Opcode.GOTO -> 0;
-      case BranchInstruction _ -> 1; // compares with zero
-      case OperatorInstruction _ -> 2;
-      default -> 0;
-    };
+    int wanted =
+        switch (instruction) {
+          case BranchInstruction branch when branch.opcode().name().startsWith("IF_ICMP") -> 2;
+          case BranchInstruction _ when afterCompare -> 2;
+          case BranchInstruction branch
+              when branch.opcode() == Opcode.IFNULL || branch.opcode() == Opcode.IFNONNULL ->
+              0;
+          case BranchInstruction branch when branch.opcode().name().startsWith("IF_ACMP") -> 0;
+          case BranchInstruction branch when branch.opcode() == Opcode.GOTO -> 0;
+          case BranchInstruction _ -> 1; // compares with zero
+          case OperatorInstruction _ -> 2;
+          default -> 0;
+        };
     var names = new ArrayList<String>();
     int end = before.size();
     Operand operand = null;
@@ -97,20 +106,24 @@ final class Operands {
     }
     return switch (before.get(end - 1)) {
       case LoadInstruction load -> new Operand(nameOf(load), end - 1, false);
-      case ConstantInstruction constant -> new Operand(literal(constant.constantValue()), end - 1, false);
+      case ConstantInstruction constant ->
+          new Operand(literal(constant.constantValue()), end - 1, false);
       // `price * quantity` with a long and an int: javac widens `quantity` first. Still `quantity`.
       case ConvertInstruction _ -> endingAt(before, end - 1);
       case InvokeInstruction call -> call(before, end, call);
-      // An empty varargs array (`Files.isRegularFile(git)` passes `new LinkOption[0]`): no argument.
-      case NewReferenceArrayInstruction _ when end >= 2
-          && before.get(end - 2) instanceof ConstantInstruction size && Integer.valueOf(0).equals(size.constantValue()) ->
+      // An empty varargs array (`Files.isRegularFile(git)` passes `new LinkOption[0]`): no
+      // argument.
+      case NewReferenceArrayInstruction _
+          when end >= 2
+              && before.get(end - 2) instanceof ConstantInstruction size
+              && Integer.valueOf(0).equals(size.constantValue()) ->
           new Operand("", end - 2, false);
       default -> null;
     };
   }
 
-  /// `Files.isRegularFile(git)`, `head.startsWith("ref: ")`, or `startsWith(…)` when its
-  /// arguments or receiver are more than a load or a constant.
+  /// `Files.isRegularFile(git)`, `head.startsWith("ref: ")`, or `startsWith(…)` when its arguments
+  /// or receiver are more than a load or a constant.
   private Operand call(List<Instruction> before, int end, InvokeInstruction call) {
     var type = call.typeSymbol();
     boolean predicate = type.returnType().descriptorString().equals("Z");

@@ -8,27 +8,32 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-/// The project's production classes, loaded once for the worker's life. Each mutant is swapped
-/// in by redefinition and swapped back after its tests.
+/// The project's production classes, loaded once for the worker's life. Each mutant is swapped in
+/// by redefinition and swapped back after its tests.
 ///
-/// Gradle runs tests with code and tests on one classpath, so this loader also finds what a
-/// test copy defined here needs from the tests: helper classes in packages of their own
-/// (fixtures, builders), and every resource, test resources first as Gradle orders them.
+/// Gradle runs tests with code and tests on one classpath, so this loader also finds what a test
+/// copy defined here needs from the tests: helper classes in packages of their own (fixtures,
+/// builders), and every resource, test resources first as Gradle orders them.
 ///
-/// One loader per mutant would be simpler, and wrong: JVM-wide registries keep the first copy
-/// of a class. `Security.addProvider` keeps the first loader's provider, so later mutants of
-/// that class never run, and look missed.
+/// One loader per mutant would be simpler, and wrong: JVM-wide registries keep the first copy of a
+/// class. `Security.addProvider` keeps the first loader's provider, so later mutants of that class
+/// never run, and look missed.
 final class ProductionLoader extends RootsLoader {
   /// Bytes to use instead of the build's: instrumented classes, or a mutant not yet loaded.
   private final Map<String, byte[]> replacements;
+
   private final Map<String, Class<?>> loaded = new ConcurrentHashMap<>();
   private final List<Path> testRoots;
   private final Set<String> splitTests;
 
-  /// `splitTests` are the top-level test classes in a package production code also uses: they
-  /// are defined here, renamed per run (see [Renamer]).
-  ProductionLoader(List<Path> roots, Map<String, byte[]> replacements, List<Path> testRoots,
-      Set<String> splitTests, ClassLoader parent) {
+  /// `splitTests` are the top-level test classes in a package production code also uses: they are
+  /// defined here, renamed per run (see [Renamer]).
+  ProductionLoader(
+      List<Path> roots,
+      Map<String, byte[]> replacements,
+      List<Path> testRoots,
+      Set<String> splitTests,
+      ClassLoader parent) {
     super("mutastic-production", roots, concat(testRoots, roots), parent);
     this.replacements = new HashMap<>(replacements);
     this.testRoots = List.copyOf(testRoots);
@@ -42,7 +47,8 @@ final class ProductionLoader extends RootsLoader {
       if (original == null) {
         throw new ClassNotFoundException(name);
       }
-      var internalNames = splitTests.stream().map(test -> test.replace('.', '/')).collect(Collectors.toSet());
+      var internalNames =
+          splitTests.stream().map(test -> test.replace('.', '/')).collect(Collectors.toSet());
       return Renamer.rename(original, internalNames, Renamer.runOf(name));
     }
     if (replacements.containsKey(name)) {
@@ -77,8 +83,8 @@ final class ProductionLoader extends RootsLoader {
     return splitTests.contains(topLevel) ? topLevel : null;
   }
 
-  /// Puts mutants in: redefines classes already loaded, and leaves the rest to be defined with
-  /// the mutant's bytes if a test loads them.
+  /// Puts mutants in: redefines classes already loaded, and leaves the rest to be defined with the
+  /// mutant's bytes if a test loads them.
   void swapIn(Map<String, byte[]> mutants) throws Exception {
     for (var mutant : mutants.entrySet()) {
       var loadedClass = loaded.get(mutant.getKey());
@@ -101,8 +107,8 @@ final class ProductionLoader extends RootsLoader {
     }
   }
 
-  /// After the coverage pass: every instrumented class back to the build's bytes, so mutants
-  /// run without the probes' cost.
+  /// After the coverage pass: every instrumented class back to the build's bytes, so mutants run
+  /// without the probes' cost.
   void restoreAll() throws Exception {
     swapBack(Set.copyOf(replacements.keySet()));
   }

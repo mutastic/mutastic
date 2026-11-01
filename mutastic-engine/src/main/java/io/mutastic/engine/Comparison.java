@@ -9,14 +9,15 @@ import java.util.Optional;
 ///
 /// With the code and mutastic unchanged, a mutant is caught or missed the same way every time
 /// unless a test behaves differently between runs. So a mutant that was caught last run and is
-/// missed now, or the other way round, points at the test that caught it: likely flaky. With
-/// either changed, a flip is just the change at work.
+/// missed now, or the other way round, points at the test that caught it: likely flaky. With either
+/// changed, a flip is just the change at work.
 ///
 /// @param previousScore the last run's score
 /// @param sameCode whether the code and tests are byte for byte what the last run had
 /// @param sameTool whether the same mutastic ran
 /// @param flips mutants caught in one run and not the other
-public record Comparison(double previousScore, boolean sameCode, boolean sameTool, List<Flip> flips) {
+public record Comparison(
+    double previousScore, boolean sameCode, boolean sameTool, List<Flip> flips) {
 
   /// @param caughtBy the test that caught it, in whichever run it was caught; empty for a timeout
   public record Flip(String id, Status before, Status after, Optional<String> caughtBy) {}
@@ -35,8 +36,14 @@ public record Comparison(double previousScore, boolean sameCode, boolean sameToo
   public Map<String, List<String>> likelyFlaky() {
     var tests = new LinkedHashMap<String, List<String>>();
     if (sameCode && sameTool) {
-      flips.forEach(flip -> flip.caughtBy().ifPresent(test ->
-          tests.computeIfAbsent(test, ignored -> new java.util.ArrayList<>()).add(flip.id())));
+      flips.forEach(
+          flip ->
+              flip.caughtBy()
+                  .ifPresent(
+                      test ->
+                          tests
+                              .computeIfAbsent(test, ignored -> new java.util.ArrayList<>())
+                              .add(flip.id())));
     }
     return tests;
   }

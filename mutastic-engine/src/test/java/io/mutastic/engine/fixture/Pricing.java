@@ -34,7 +34,8 @@ public class Pricing {
     return audit;
   }
 
-  public int withLock(java.util.concurrent.locks.ReentrantLock lock, java.util.function.IntSupplier action) {
+  public int withLock(
+      java.util.concurrent.locks.ReentrantLock lock, java.util.function.IntSupplier action) {
     lock.lock();
     try {
       return action.getAsInt();
@@ -48,10 +49,12 @@ public class Pricing {
   }
 
   public void clearTwice(List<String> items) {
-    items.clear(); items.clear();
+    items.clear();
+    items.clear();
   }
 
-  public String firstLine(java.util.function.Supplier<java.io.BufferedReader> open) throws java.io.IOException {
+  public String firstLine(java.util.function.Supplier<java.io.BufferedReader> open)
+      throws java.io.IOException {
     try (var reader = open.get()) {
       return reader.readLine();
     }
@@ -62,7 +65,10 @@ public class Pricing {
     resource.close();
   }
 
-  public enum Tier { GOLD, SILVER }
+  public enum Tier {
+    GOLD,
+    SILVER
+  }
 
   public record Line(String item, int price) {}
 }

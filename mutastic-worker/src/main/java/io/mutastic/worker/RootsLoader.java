@@ -65,8 +65,8 @@ abstract class RootsLoader extends ClassLoader {
     return Collections.enumeration(found);
   }
 
-  /// Spring's component scan lists package directories, and `application.properties` is a
-  /// resource: both come from the roots.
+  /// Spring's component scan lists package directories, and `application.properties` is a resource:
+  /// both come from the roots.
   @Override
   protected URL findResource(String name) {
     var found = resourcesIn(resourceRoots, name);

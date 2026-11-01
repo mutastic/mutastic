@@ -36,7 +36,8 @@ final class Json {
         }
         out.append('}');
       }
-      case java.util.Collection<?> collection when !(collection instanceof List<?>) -> write(List.copyOf(collection), out);
+      case java.util.Collection<?> collection when !(collection instanceof List<?>) ->
+          write(List.copyOf(collection), out);
       case List<?> list -> {
         out.append('[');
         for (int i = 0; i < list.size(); i++) {

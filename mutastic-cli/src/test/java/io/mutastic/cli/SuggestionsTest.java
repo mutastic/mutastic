@@ -14,8 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 class SuggestionsTest {
   private static final Path SAMPLE = Path.of(System.getProperty("mutastic.samples"), "suggestions");
 
-  @TempDir
-  Path work;
+  @TempDir Path work;
 
   @Test
   void suggestionsPastedInCatchTheirMutantsAndRandomnessGetsNone() throws Exception {
@@ -23,32 +22,47 @@ class SuggestionsTest {
 
     var run = Samples.mutastic("run", project.toString(), "--format=jsonl");
     var suggested = new LinkedHashMap<String, String>(); // mutant id → test code
-    run.out().lines().filter(line -> line.contains("\"status\":\"Survived\"")).forEach(line -> {
-      if (line.contains("\"suggestedTest\"")) {
-        suggested.put(line.replaceAll(".*\"id\":\"(m[0-9a-f]{8})\".*", "$1"),
-            line.replaceAll(".*\"code\":\"((?:[^\"\\\\]|\\\\.)*)\".*", "$1").replace("\\n", "\n").replace("\\\"", "\""));
-      } else {
-        assertThat(line).as("only the random method goes without").contains("\"method\":\"jitter(I)I\"");
-      }
-    });
+    run.out()
+        .lines()
+        .filter(line -> line.contains("\"status\":\"Survived\""))
+        .forEach(
+            line -> {
+              if (line.contains("\"suggestedTest\"")) {
+                suggested.put(
+                    line.replaceAll(".*\"id\":\"(m[0-9a-f]{8})\".*", "$1"),
+                    line.replaceAll(".*\"code\":\"((?:[^\"\\\\]|\\\\.)*)\".*", "$1")
+                        .replace("\\n", "\n")
+                        .replace("\\\"", "\""));
+              } else {
+                assertThat(line)
+                    .as("only the random method goes without")
+                    .contains("\"method\":\"jitter(I)I\"");
+              }
+            });
 
-    assertThat(suggested.values()).containsExactlyInAnyOrder("""
+    assertThat(suggested.values())
+        .containsExactlyInAnyOrder(
+            """
         @Test
         void lateFeeWithDaysLate7() {
           assertThat(Rates.lateFee(7L)).isEqualTo(0L); // today 0L · with this mutant 5L
-        }""", """
+        }""",
+            """
         @Test
         void inCreditWithBalance0() {
           assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
-        }""", """
+        }""",
+            """
         @Test
         void openOnWithDay0ForWindow5And5() {
           assertThat(new Window(5, 5L).openOn(0)).isFalse(); // today false · with this mutant true
-        }""", """
+        }""",
+            """
         @Test
         void openOnWithDay5ForWindow5And5() {
           assertThat(new Window(5, 5L).openOn(5)).isFalse(); // today false · with this mutant true
-        }""", """
+        }""",
+            """
         @Test
         void openOnWithDay5ForWindow5And10() {
           assertThat(new Window(5, 10L).openOn(5)).isTrue(); // today true · with this mutant false
@@ -58,11 +72,14 @@ class SuggestionsTest {
     for (var code : suggested.values()) {
       var testClass = code.contains("new Window(") ? "WindowTest" : "RatesTest";
       var test = project.resolve("src/test/java/com/example/rates/" + testClass + ".java");
-      Files.writeString(test, Files.readString(test).replaceFirst("\\}\\s*$", "\n" + code.indent(2) + "}\n"));
+      Files.writeString(
+          test, Files.readString(test).replaceFirst("\\}\\s*$", "\n" + code.indent(2) + "}\n"));
     }
     for (Map.Entry<String, String> entry : suggested.entrySet()) {
       var verified = Samples.mutastic("verify", entry.getKey(), project.toString());
-      assertThat(verified.exit()).as(entry.getValue() + "\n" + verified.out() + verified.err()).isEqualTo(Main.PASSED);
+      assertThat(verified.exit())
+          .as(entry.getValue() + "\n" + verified.out() + verified.err())
+          .isEqualTo(Main.PASSED);
     }
   }
 }

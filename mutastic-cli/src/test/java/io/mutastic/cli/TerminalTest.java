@@ -13,7 +13,8 @@ class TerminalTest {
   void peopleGetCardsLogsGetLinesAgentsGetAgentText() {
     assertThat(TTY.defaultFormat()).isEqualTo("full");
     assertThat(PIPE.defaultFormat()).isEqualTo("concise");
-    assertThat(new Terminal(true, Map.of("MUTASTIC_AGENT", "1")).defaultFormat()).isEqualTo("agent");
+    assertThat(new Terminal(true, Map.of("MUTASTIC_AGENT", "1")).defaultFormat())
+        .isEqualTo("agent");
   }
 
   @Test

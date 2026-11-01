@@ -24,8 +24,8 @@ import java.util.stream.Stream;
 
 /// A worker process on the project's own JDK, which runs the project's tests (the protocol is
 /// documented on `io.mutastic.worker.Worker`). One worker serves every mutant. A worker that
-/// doesn't answer in time is killed, which is the only way to stop a mutant that loops forever,
-/// and the next mutant starts a new one.
+/// doesn't answer in time is killed, which is the only way to stop a mutant that loops forever, and
+/// the next mutant starts a new one.
 final class TestWorker implements AutoCloseable {
   private static final Duration STARTUP = Duration.ofSeconds(30);
   private static final Duration COVERAGE_LIMIT = Duration.ofMinutes(10);
@@ -40,8 +40,8 @@ final class TestWorker implements AutoCloseable {
   private int jdk;
   private int workersStarted;
 
-  /// `log` collects the tests' own output, for when a baseline fails for reasons only the
-  /// tests' output explains.
+  /// `log` collects the tests' own output, for when a baseline fails for reasons only the tests'
+  /// output explains.
   TestWorker(Project project, Path workerJar, Path log) {
     this.project = project;
     this.workerJar = workerJar;
@@ -55,19 +55,34 @@ final class TestWorker implements AutoCloseable {
     instrumented.forEach(this::stage);
     send("COVER\t" + String.join("\t", testClasses));
     while (true) {
-      var answer = await(COVERAGE_LIMIT).orElseThrow(() -> {
-        kill();
-        return new IllegalStateException("the tests didn't finish within " + COVERAGE_LIMIT.toMinutes() + " minutes");
-      });
+      var answer =
+          await(COVERAGE_LIMIT)
+              .orElseThrow(
+                  () -> {
+                    kill();
+                    return new IllegalStateException(
+                        "the tests didn't finish within "
+                            + COVERAGE_LIMIT.toMinutes()
+                            + " minutes");
+                  });
       var parts = answer.split("\t");
       switch (parts[0]) {
         case "TEST" -> coverage.recordTest(parts[1], Duration.ofNanos(Long.parseLong(parts[2])));
-        case "LINE" -> coverage.recordLines(parts[1],
-            Arrays.stream(parts[2].split(",")).map(Integer::valueOf).collect(Collectors.toSet()));
-        case "VALUE" -> coverage.recordValues(parts[1], Integer.parseInt(parts[2]),
-            Arrays.stream(parts[3].split(",")).map(Long::valueOf).collect(Collectors.toSet()));
+        case "LINE" ->
+            coverage.recordLines(
+                parts[1],
+                Arrays.stream(parts[2].split(","))
+                    .map(Integer::valueOf)
+                    .collect(Collectors.toSet()));
+        case "VALUE" ->
+            coverage.recordValues(
+                parts[1],
+                Integer.parseInt(parts[2]),
+                Arrays.stream(parts[3].split(",")).map(Long::valueOf).collect(Collectors.toSet()));
         case "DONE" -> {
-          return new Baseline(parts[1].equals("PASSED"), Arrays.asList(parts).subList(Math.min(2, parts.length), parts.length));
+          return new Baseline(
+              parts[1].equals("PASSED"),
+              Arrays.asList(parts).subList(Math.min(2, parts.length), parts.length));
         }
         default -> throw new IllegalStateException("the worker said: " + answer);
       }
@@ -75,10 +90,16 @@ final class TestWorker implements AutoCloseable {
   }
 
   /// The outcome of `tests`, run in order until one fails, with `bytes` in place of `className`.
+  ///
   /// @param origin where the failure came from: `assertion`, `test` or `code`
-  /// @param portClash whether a port in use caused the failure, which with workers side by side
-  ///     can be another worker's doing
-  record Run(Status status, Optional<String> failedTest, Optional<String> failure, Optional<String> origin, int testsRun,
+  /// @param portClash whether a port in use caused the failure, which with workers side by side can
+  ///   be another worker's doing
+  record Run(
+      Status status,
+      Optional<String> failedTest,
+      Optional<String> failure,
+      Optional<String> origin,
+      int testsRun,
       boolean portClash) {
 
     Run(Status status, int testsRun) {
@@ -97,23 +118,43 @@ final class TestWorker implements AutoCloseable {
     var parts = answer.get().split("\t");
     return switch (parts[1]) {
       case "PASSED" -> new Run(Status.MISSED, Integer.parseInt(parts[2]));
-      case "FAILED" -> new Run(Status.CAUGHT, Optional.of(parts[3]), Optional.of(parts[4]), Optional.of(parts[5]),
-          Integer.parseInt(parts[2]), parts[6].equals("port-clash"));
+      case "FAILED" ->
+          new Run(
+              Status.CAUGHT,
+              Optional.of(parts[3]),
+              Optional.of(parts[4]),
+              Optional.of(parts[5]),
+              Integer.parseInt(parts[2]),
+              parts[6].equals("port-clash"));
       default -> throw new IllegalStateException("the worker said: " + answer.get());
     };
   }
 
-  /// The first of `candidates` (one value per constructor parameter of `receiver`, then per
-  /// method parameter) where `bytes` changes what the method returns, with both results; empty
-  /// if none does in the worker's time budget. `receiver` is `-` for a static method, else the
-  /// constructor descriptor. A call that
-  /// never returned on the mutant leaves a thread running, so the worker is replaced.
-  Optional<String[]> suggest(Mutant mutant, String receiver, byte[] bytes, List<List<Long>> candidates) {
-    var encoded = candidates.stream()
-        .map(inputs -> inputs.isEmpty() ? "-" : inputs.stream().map(String::valueOf).collect(Collectors.joining(";")))
-        .collect(Collectors.joining("|"));
-    send(String.join("\t", "SUGGEST", mutant.binaryName(), mutant.methodName(), mutant.descriptor(),
-        Base64.getEncoder().encodeToString(bytes), encoded, receiver));
+  /// The first of `candidates` (one value per constructor parameter of `receiver`, then per method
+  /// parameter) where `bytes` changes what the method returns, with both results; empty if none
+  /// does in the worker's time budget. `receiver` is `-` for a static method, else the constructor
+  /// descriptor. A call that never returned on the mutant leaves a thread running, so the worker is
+  /// replaced.
+  Optional<String[]> suggest(
+      Mutant mutant, String receiver, byte[] bytes, List<List<Long>> candidates) {
+    var encoded =
+        candidates.stream()
+            .map(
+                inputs ->
+                    inputs.isEmpty()
+                        ? "-"
+                        : inputs.stream().map(String::valueOf).collect(Collectors.joining(";")))
+            .collect(Collectors.joining("|"));
+    send(
+        String.join(
+            "\t",
+            "SUGGEST",
+            mutant.binaryName(),
+            mutant.methodName(),
+            mutant.descriptor(),
+            Base64.getEncoder().encodeToString(bytes),
+            encoded,
+            receiver));
     var answer = await(Duration.ofSeconds(10));
     if (answer.isEmpty()) {
       kill();
@@ -126,7 +167,9 @@ final class TestWorker implements AutoCloseable {
     if (parts.length >= 5 && parts[4].equals("stuck")) {
       kill(); // a call that never returned: a timeout in all but name
     }
-    return parts[1].equals("-") ? Optional.empty() : Optional.of(new String[] {parts[1], parts[2], parts[3]});
+    return parts[1].equals("-")
+        ? Optional.empty()
+        : Optional.of(new String[] {parts[1], parts[2], parts[3]});
   }
 
   /// Whether `test` passes on its own with no mutant in, within `timeout`.
@@ -201,15 +244,23 @@ final class TestWorker implements AutoCloseable {
     command.add(project.java().toString());
     command.addAll(project.jvmArgs());
     command.add("-javaagent:" + workerJar);
-    command.addAll(List.of("-cp", join(Stream.concat(Stream.of(workerJar), project.dependencies().stream())),
-        "io.mutastic.worker.Worker",
-        "--production=" + join(Stream.concat(project.classes().stream(), project.resources().stream())),
-        "--tests=" + join(Stream.concat(project.testClasses().stream(), project.testResources().stream()))));
+    command.addAll(
+        List.of(
+            "-cp",
+            join(Stream.concat(Stream.of(workerJar), project.dependencies().stream())),
+            "io.mutastic.worker.Worker",
+            "--production="
+                + join(Stream.concat(project.classes().stream(), project.resources().stream())),
+            "--tests="
+                + join(
+                    Stream.concat(
+                        project.testClasses().stream(), project.testResources().stream()))));
     try {
-      process = new ProcessBuilder(command)
-          .directory(project.workingDirectory().toFile())
-          .redirectError(ProcessBuilder.Redirect.appendTo(log.toFile()))
-          .start();
+      process =
+          new ProcessBuilder(command)
+              .directory(project.workingDirectory().toFile())
+              .redirectError(ProcessBuilder.Redirect.appendTo(log.toFile()))
+              .start();
     } catch (IOException e) {
       throw new UncheckedIOException("couldn't start " + project.java(), e);
     }
@@ -222,17 +273,24 @@ final class TestWorker implements AutoCloseable {
     var queue = new LinkedBlockingQueue<String>();
     answers = queue;
     var reader = new BufferedReader(new InputStreamReader(process.getInputStream(), UTF_8));
-    Thread.ofVirtual().start(() -> {
-      try {
-        for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-          queue.add(line);
-        }
-      } catch (IOException e) {
-        // the worker was killed; whatever it was saying no longer matters
-      }
-    });
-    var ready = await(STARTUP).filter(line -> line.startsWith("READY\t")).orElseThrow(() ->
-        new IllegalStateException("the test worker didn't start; its output is in " + log));
+    Thread.ofVirtual()
+        .start(
+            () -> {
+              try {
+                for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+                  queue.add(line);
+                }
+              } catch (IOException e) {
+                // the worker was killed; whatever it was saying no longer matters
+              }
+            });
+    var ready =
+        await(STARTUP)
+            .filter(line -> line.startsWith("READY\t"))
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "the test worker didn't start; its output is in " + log));
     jdk = Integer.parseInt(ready.substring("READY\t".length()));
     workersStarted++;
   }
