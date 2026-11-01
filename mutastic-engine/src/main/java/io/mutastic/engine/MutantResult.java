@@ -26,4 +26,8 @@ public record MutantResult(
   static MutantResult notCovered(Mutant mutant) {
     return new MutantResult(mutant, Status.NOT_COVERED, List.of(), Optional.empty(), Optional.empty(), 0, Duration.ZERO);
   }
+
+  static MutantResult skipped(Mutant mutant) {
+    return new MutantResult(mutant, Status.SKIPPED, List.of(), Optional.empty(), Optional.empty(), 0, Duration.ZERO);
+  }
 }

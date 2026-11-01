@@ -3,61 +3,144 @@ package io.mutastic.engine;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.engine.fixture.Pricing;
-import io.mutastic.report.SourceView;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class MutationsTest {
   private final Mutations mutations = new Mutations(ClassFile.of());
 
   @Test
-  void findsTheBoundaryInAnIf() throws Exception {
-    var mutants = mutations.find(model(Pricing.class));
+  void findsEveryOperatorInDiscount() throws Exception {
+    var found = mutantsOf("discount");
 
-    assertThat(mutants).singleElement().satisfies(mutant -> {
-      assertThat(mutant.methodName()).isEqualTo("discount");
-      assertThat(mutant.line()).isEqualTo(5);
-      assertThat(mutant.original()).isEqualTo("IF_ICMPLT");
-      assertThat(mutant.replacement()).isEqualTo("IF_ICMPLE");
-      assertThat(SourceView.originalOperator(mutant)).isEqualTo(">=");
-      assertThat(SourceView.mutatedOperator(mutant)).isEqualTo(">");
-    });
+    assertThat(found).extracting(Mutant::operator, Mutant::original, Mutant::replacement, Mutant::line).containsExactly(
+        org.assertj.core.groups.Tuple.tuple(Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", 10),
+        org.assertj.core.groups.Tuple.tuple(Operator.NEGATE_CONDITIONAL, "IF_ICMPLT", "IF_ICMPGE", 10),
+        org.assertj.core.groups.Tuple.tuple(Operator.MATH, "IDIV", "IMUL", 11),
+        org.assertj.core.groups.Tuple.tuple(Operator.RETURN_DEFAULT, "IRETURN", "return default", 11),
+        org.assertj.core.groups.Tuple.tuple(Operator.RETURN_DEFAULT, "IRETURN", "return default", 13));
+    assertThat(found.getLast().skipped()).contains("equivalent: already returns the default");
   }
 
   @Test
-  void theMutantVerifiesAndMovesTheEdge() throws Exception {
+  void everyMutantVerifies() throws Exception {
     var model = model(Pricing.class);
-    var bytes = mutations.apply(model, mutations.find(model).getFirst());
+    var found = mutations.find(model);
 
-    assertThat(mutations.verify(bytes)).isEmpty();
-    var mutated = new SingleClassLoader(Pricing.class.getName(), bytes).loadClass(Pricing.class.getName());
-    var discount = mutated.getMethod("discount", int.class);
-    var pricing = mutated.getConstructor().newInstance();
-    assertThat(discount.invoke(pricing, 100)).isEqualTo(0); // was 10
-    assertThat(discount.invoke(pricing, 101)).isEqualTo(10); // unchanged
-    assertThat(new Pricing().discount(100)).isEqualTo(10);
+    assertThat(found).hasSizeGreaterThan(10);
+    for (Mutant mutant : found) {
+      assertThat(mutations.verify(mutations.apply(model, mutant))).as(mutant.toString()).isEmpty();
+    }
   }
 
   @Test
-  void leavesTheCompilersEnumMethodsAlone() throws Exception {
+  void boundaryMovesTheEdge() throws Exception {
+    var pricing = mutated(only("discount", Operator.BOUNDARY));
+
+    assertThat(call(pricing, "discount", 100)).isEqualTo(0); // was 10
+    assertThat(call(pricing, "discount", 101)).isEqualTo(10);
+  }
+
+  @Test
+  void negationSwapsTheBranches() throws Exception {
+    var pricing = mutated(only("discount", Operator.NEGATE_CONDITIONAL));
+
+    assertThat(call(pricing, "discount", 50)).isEqualTo(5); // was 0
+    assertThat(call(pricing, "discount", 250)).isEqualTo(0); // was 25
+  }
+
+  @Test
+  void mathSwapsTheOperator() throws Exception {
+    var pricing = mutated(only("discount", Operator.MATH));
+
+    assertThat(call(pricing, "discount", 250)).isEqualTo(2500); // was 25
+  }
+
+  @Test
+  void returnDefaultReturnsZero() throws Exception {
+    var mutant = mutantsOf("discount").stream()
+        .filter(found -> found.operator() == Operator.RETURN_DEFAULT && found.skipped().isEmpty())
+        .findFirst().orElseThrow();
+    var pricing = mutated(mutant);
+
+    assertThat(call(pricing, "discount", 250)).isEqualTo(0);
+  }
+
+  @Test
+  void longArithmeticAndReferenceReturnsToo() throws Exception {
+    var total = mutated(mutantsOf("total").stream().filter(found -> found.original().equals("LADD")).findFirst().orElseThrow());
+    var audit = mutated(only("audit", Operator.RETURN_DEFAULT));
+
+    assertThat(total.getClass().getMethod("total", long.class, int.class).invoke(total, 10L, 3)).isEqualTo(25L); // was 35
+    assertThat(audit.getClass().getMethod("audit").invoke(audit)).isNull();
+  }
+
+  @Test
+  void removingAVoidCallDropsItsEffect() throws Exception {
+    var calls = mutantsOf("checkout");
+    var record = calls.stream().filter(found -> found.original().contains(".record(")).findFirst().orElseThrow();
+    var pricing = mutated(record);
+
+    pricing.getClass().getMethod("checkout", String.class).invoke(pricing, "order-1");
+
+    assertThat(pricing.getClass().getMethod("audit").invoke(pricing)).isEqualTo(List.of());
+    assertThat(record.original()).isEqualTo("INVOKEVIRTUAL io/mutastic/engine/fixture/Pricing.record(Ljava/lang/String;)V");
+  }
+
+  @Test
+  void outputOnlyCallsAreSkipped() throws Exception {
+    var println = mutantsOf("checkout").stream().filter(found -> found.original().contains("PrintStream")).findFirst().orElseThrow();
+
+    assertThat(println.skipped()).contains("arid: only writes output");
+  }
+
+  @Test
+  void callsAreCountedApartFromInstructions() throws Exception {
+    // The void-call operator doesn't move instruction sites: discount()'s branch is still site 0.
+    assertThat(only("discount", Operator.BOUNDARY).ordinal()).isZero();
+    assertThat(mutantsOf("checkout")).extracting(Mutant::ordinal).containsExactly(0, 1);
+  }
+
+  @Test
+  void leavesCompilerWrittenCodeAlone() throws Exception {
     assertThat(mutations.find(model(Pricing.Tier.class))).isEmpty();
+    assertThat(mutations.find(model(Pricing.Line.class))).extracting(Mutant::methodName).containsOnly("item", "price");
   }
 
   @Test
   void theIdIgnoresTheLine() {
-    var here = new Mutant("com/example/Pricing", "discount", "(I)I", 0, 5, Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE");
-    var moved = new Mutant("com/example/Pricing", "discount", "(I)I", 0, 9, Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE");
-    var otherSite = new Mutant("com/example/Pricing", "discount", "(I)I", 1, 5, Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE");
+    var here = new Mutant("com/example/Pricing", "discount", "(I)I", 0, 5, Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", Optional.empty());
+    var moved = new Mutant("com/example/Pricing", "discount", "(I)I", 0, 9, Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", Optional.empty());
+    var otherSite = new Mutant("com/example/Pricing", "discount", "(I)I", 1, 5, Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", Optional.empty());
 
-    assertThat(moved.id()).isEqualTo(here.id());
+    assertThat(moved.id()).isEqualTo(here.id()).matches("m[0-9a-f]{8}");
     assertThat(otherSite.id()).isNotEqualTo(here.id());
-    assertThat(List.of(here.id())).allMatch(id -> id.matches("m[0-9a-f]{8}"));
+  }
+
+  private List<Mutant> mutantsOf(String method) throws Exception {
+    return mutations.find(model(Pricing.class)).stream().filter(mutant -> mutant.methodName().equals(method)).toList();
+  }
+
+  private Mutant only(String method, Operator operator) throws Exception {
+    return mutantsOf(method).stream().filter(mutant -> mutant.operator() == operator).findFirst().orElseThrow();
+  }
+
+  /// A new instance of `Pricing` with the mutant in.
+  private Object mutated(Mutant mutant) throws Exception {
+    var bytes = mutations.apply(model(Pricing.class), mutant);
+    var type = new SingleClassLoader(Pricing.class.getName(), bytes).loadClass(Pricing.class.getName());
+    return type.getConstructor().newInstance();
+  }
+
+  private static Object call(Object pricing, String method, int argument) throws Exception {
+    return pricing.getClass().getMethod(method, int.class).invoke(pricing, argument);
   }
 
   static ClassModel model(Class<?> type) throws Exception {
-    try (var in = type.getResourceAsStream(type.getName().substring(type.getName().lastIndexOf(".") + 1) + ".class")) {
+    try (var in = type.getResourceAsStream(type.getName().substring(type.getName().lastIndexOf('.') + 1) + ".class")) {
       return ClassFile.of().parse(in.readAllBytes());
     }
   }

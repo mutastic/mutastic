@@ -4,7 +4,7 @@
 
 mutastic is a mutation-testing tool for Java. It makes small changes to your compiled code, such as `>=` to `>`, and runs your tests against each one. A change that no test notices is a **missed mutant**: a place where your tests run the code but don't check what it does.
 
-> **Status: early.** This is the first end-to-end slice. It has one operator (boundaries), Gradle projects with JUnit Platform tests, and agent and JSONL output. Expect everything to change.
+> **Status: early.** Five operators (boundaries, negated conditions, arithmetic, returned defaults, removed void calls), Gradle projects with JUnit Platform tests, and agent and JSONL output. Expect everything to change.
 
 ## Try it
 
@@ -16,7 +16,7 @@ You need JDK 25 to build and run mutastic. Your project can be on JDK 17 or late
 ```
 
 ```
-mutastic: FAIL · score 50.0% (threshold 80) · 1 missed, 0 not covered, 1 caught of 2 mutants
+mutastic: PASS · score 85.7% (threshold 80) · 1 missed, 0 not covered, 6 caught of 7 mutants (2 more skipped)
 rules: add or change tests only, never production code; a fix counts when `mutastic verify <id>` passes
 
 1. missed m855c8e3c: no test checks the edge of `>=` in `discount()`
@@ -52,6 +52,15 @@ mutastic verify ID [dir] [:module]
 - `--format=agent` (the default) is plain text for coding agents and people: the verdict first, then each missed mutant with the change, the tests that run it, the fix and how to prove it.
 - `--format=jsonl` is one JSON event per line, written as each mutant finishes (`mutastic.events/v1`). Statuses follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`, `NoCoverage`.
 - A mutant's id comes from its class, method, position and change, not its line number, so it stays the same while code around it moves.
+- Some mutants are skipped, with the reason given: a change that can't be told apart from the original (`return 0` becoming "return the default"), code the compiler wrote (a `switch` on a `String`, a record's `equals()`), and calls that only write output (logging, `System.out`). Skipped mutants don't count towards the score.
+
+| Operator | Change |
+|---|---|
+| `mutastic/boundary` | `<` ↔ `<=`, `>` ↔ `>=` |
+| `mutastic/negate-conditional` | a condition goes the other way: `==` ↔ `!=`, `<` ↔ `>=`, `== null` ↔ `!= null` |
+| `mutastic/math` | `+` ↔ `-`, `*` ↔ `/` on `int` and `long` |
+| `mutastic/return-default` | return `0`, `false` or `null` instead |
+| `mutastic/remove-void-call` | a call that returns nothing is removed |
 
 ## How it works
 

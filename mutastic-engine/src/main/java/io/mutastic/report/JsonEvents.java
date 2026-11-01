@@ -42,11 +42,17 @@ public final class JsonEvents {
     location.put("class", mutant.binaryName());
     location.put("method", mutant.methodName() + mutant.descriptor());
     fields.put("location", location);
+    var advice = Advice.of(mutant);
     var mutation = new LinkedHashMap<String, Object>();
-    mutation.put("original", SourceView.originalOperator(mutant));
-    mutation.put("replacement", SourceView.mutatedOperator(mutant));
+    advice.before().ifPresent(before -> mutation.put("original", before));
+    advice.after().ifPresent(after -> mutation.put("replacement", after));
+    mutation.put("description", advice.change());
     mutation.put("bytecode", mutant.original() + " -> " + mutant.replacement());
     fields.put("mutation", mutation);
+    mutant.skipped().ifPresent(reason -> {
+      fields.put("statusReason", reason);
+      fields.put("skipKind", reason.substring(0, reason.indexOf(':')));
+    });
     fields.put("coveredBy", result.coveredBy());
     result.caughtBy().ifPresent(test -> fields.put("killedBy", test));
     result.failure().ifPresent(failure -> fields.put("killedWith", failure));

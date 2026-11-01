@@ -64,7 +64,8 @@ public final class Engine {
     }
 
     var coverage = new Coverage(context);
-    var mutated = mutants.stream().map(Mutant::binaryName).collect(Collectors.toSet());
+    var mutated = mutants.stream().filter(mutant -> mutant.skipped().isEmpty()).map(Mutant::binaryName)
+        .collect(Collectors.toSet());
     var instrumented = new LinkedHashMap<String, byte[]>();
     models.forEach((name, model) -> {
       if (mutated.contains(name)) {
@@ -91,6 +92,9 @@ public final class Engine {
   }
 
   private static MutantResult run(Mutant mutant, ClassModel model, Mutations mutations, Coverage coverage, TestWorker worker) {
+    if (mutant.skipped().isPresent()) {
+      return MutantResult.skipped(mutant);
+    }
     var covering = coverage.coveringTests(mutant);
     if (covering.isEmpty()) {
       return MutantResult.notCovered(mutant);

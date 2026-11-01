@@ -27,9 +27,10 @@ class PricingSampleTest {
 
     var run = mutastic("run", project.toString(), "--format=jsonl");
 
-    assertThat(run.exit()).as(run.err()).isEqualTo(Main.FAILED);
+    assertThat(run.exit()).as(run.err()).isEqualTo(Main.PASSED);
     assertThat(run.out()).contains("\"reason\":\"run-finished\",\"jdk\":17");
-    assertThat(run.out()).contains("\"Killed\":1,\"Survived\":1");
+    assertThat(run.out()).contains("\"Killed\":6,\"Survived\":1,\"Timeout\":0,\"NoCoverage\":0,\"Ignored\":2");
+    assertThat(run.out()).contains("\"statusReason\":\"equivalent: already returns the default\"");
     var missed = run.out().lines().filter(line -> line.contains("\"status\":\"Survived\"")).findFirst().orElseThrow();
     assertThat(missed).contains("\"line\":17").contains("\"original\":\">=\",\"replacement\":\">\"");
     var id = missed.replaceAll(".*\"id\":\"(m[0-9a-f]{8})\".*", "$1");
@@ -59,7 +60,7 @@ class PricingSampleTest {
     var run = mutastic("run", project.toString());
 
     assertThat(run.out().lines().findFirst().orElseThrow())
-        .isEqualTo("mutastic: FAIL · score 50.0% (threshold 80) · 1 missed, 0 not covered, 1 caught of 2 mutants");
+        .isEqualTo("mutastic: PASS · score 85.7% (threshold 80) · 1 missed, 0 not covered, 6 caught of 7 mutants (2 more skipped)");
     assertThat(run.out()).contains("   - if (total >= 100) {", "   + if (total > 100) {");
   }
 

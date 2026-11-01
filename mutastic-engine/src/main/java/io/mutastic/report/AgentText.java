@@ -28,9 +28,11 @@ public final class AgentText {
     var out = new StringBuilder();
     var missed = report.results().stream().filter(result -> result.status() == Status.MISSED).toList();
     var notCovered = report.results().stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
-    out.append("mutastic: %s · score %.1f%% (threshold %d) · %d missed, %d not covered, %d caught of %d mutants%n"
+    var skipped = report.count(Status.SKIPPED);
+    out.append("mutastic: %s · score %.1f%% (threshold %d) · %d missed, %d not covered, %d caught of %d mutants%s%n"
         .formatted(report.score() >= threshold ? "PASS" : "FAIL", report.score(), threshold, missed.size(),
-            notCovered.size(), report.count(Status.CAUGHT) + report.count(Status.TIMED_OUT), report.results().size()));
+            notCovered.size(), report.count(Status.CAUGHT) + report.count(Status.TIMED_OUT), report.scored(),
+            skipped == 0 ? "" : " (%d more skipped)".formatted(skipped)));
     if (missed.isEmpty() && notCovered.isEmpty()) {
       return out.toString();
     }
@@ -56,17 +58,14 @@ public final class AgentText {
   /// One missed mutant, numbered, or unnumbered (0) where it stands alone.
   public String entry(int number, MutantResult result) {
     var mutant = result.mutant();
-    var before = SourceView.originalOperator(mutant);
-    var after = SourceView.mutatedOperator(mutant);
+    var advice = Advice.of(mutant);
     var lines = new ArrayList<String>();
-    lines.add("%smissed %s: no test checks the edge of `%s` in `%s()`".formatted(
-        number == 0 ? "" : number + ". ", mutant.id(), before, mutant.methodName()));
+    lines.add("%smissed %s: %s".formatted(number == 0 ? "" : number + ". ", mutant.id(), advice.headline()));
     lines.add("   at %s:%d".formatted(sources.file(mutant), mutant.line()));
     sources.line(mutant).ifPresent(line -> lines.add("   - " + line));
-    lines.add("   + " + sources.mutatedLine(mutant).orElse("(`%s` becomes `%s`)".formatted(before, after)));
+    lines.add("   + " + sources.mutatedLine(mutant, advice).orElse("(" + advice.change() + ")"));
     lines.add("   covered by: %s; all still pass with the change".formatted(covering(result.coveredBy())));
-    lines.add("   fix: add a test with the values where `%s` and `%s` disagree (both sides equal), and assert the result"
-        .formatted(before, after));
+    lines.add("   fix: " + advice.fix());
     lines.add("   reproduce: mutastic run --only=" + mutant.id());
     lines.add("   done when: mutastic verify %s passes".formatted(mutant.id()));
     return String.join(System.lineSeparator(), lines) + System.lineSeparator();

@@ -10,7 +10,9 @@ public enum Status {
   /// The tests didn't finish in time, usually a loop that no longer ends. Counts as caught.
   TIMED_OUT("Timeout"),
   /// No test reaches the mutant's line.
-  NOT_COVERED("NoCoverage");
+  NOT_COVERED("NoCoverage"),
+  /// Never run, for the reason on the mutant: left out of the score.
+  SKIPPED("Ignored");
 
   private final String schemaName;
 

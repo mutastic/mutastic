@@ -16,8 +16,13 @@ public record Report(String project, int jdk, List<MutantResult> results, int te
     return results.stream().filter(result -> result.status() == status).count();
   }
 
-  /// Detected mutants as a share of all of them, from 0 to 100; 100 when there are none.
+  /// The mutants that ran or could have: all but the skipped ones.
+  public long scored() {
+    return results.size() - count(Status.SKIPPED);
+  }
+
+  /// Detected mutants as a share of the scored ones, from 0 to 100; 100 when there are none.
   public double score() {
-    return results.isEmpty() ? 100 : 100.0 * results.stream().filter(result -> result.status().detected()).count() / results.size();
+    return scored() == 0 ? 100 : 100.0 * results.stream().filter(result -> result.status().detected()).count() / scored();
   }
 }

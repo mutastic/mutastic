@@ -6,19 +6,10 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
-/// A mutant as the user wrote it: its source file and line, and the operator it changes.
-///
-/// javac compiles an `if` to a jump past its body, so the jump tests the opposite of the
-/// source: `if (total >= 100)` becomes `IF_ICMPLT`, "jump if less". The source operator is the
-/// negation of the jump's. Loops and `?:` compile the same way; a `do … while` doesn't, and its
-/// mutated line is then left out rather than shown wrong.
+/// A mutant as the user wrote it: its source file and line, and the line as the mutant has it.
 public final class SourceView {
-  private static final Map<String, String> JUMP_TO_SOURCE = Map.of(
-      "LT", ">=", "LE", ">", "GT", "<=", "GE", "<");
-
   private final Path root;
   private final List<Path> sources;
 
@@ -48,26 +39,20 @@ public final class SourceView {
     });
   }
 
-  /// The source operator before the change: `>=` for `IF_ICMPLT`.
-  public static String originalOperator(Mutant mutant) {
-    return JUMP_TO_SOURCE.get(condition(mutant.original()));
-  }
-
-  /// The source operator after the change: `>` for `IF_ICMPLE`.
-  public static String mutatedOperator(Mutant mutant) {
-    return JUMP_TO_SOURCE.get(condition(mutant.replacement()));
-  }
-
-  /// The line with the change made, when the operator appears on it exactly once.
-  public Optional<String> mutatedLine(Mutant mutant) {
-    var before = " " + originalOperator(mutant) + " ";
-    return line(mutant)
-        .filter(text -> text.indexOf(before) >= 0 && text.indexOf(before) == text.lastIndexOf(before))
-        .map(text -> text.replace(before, " " + mutatedOperator(mutant) + " "));
-  }
-
-  private static String condition(String opcode) {
-    return opcode.substring(opcode.length() - 2);
+  /// The line with the change made, when it can be shown exactly: the changed operator
+  /// appears on the line once, or the line is a single `return`.
+  public Optional<String> mutatedLine(Mutant mutant, Advice advice) {
+    return line(mutant).flatMap(text -> {
+      if (advice.before().isPresent()) {
+        var before = " " + advice.before().get() + " ";
+        int at = text.indexOf(before);
+        return at >= 0 && at == text.lastIndexOf(before)
+            ? Optional.of(text.replace(before, " " + advice.after().orElseThrow() + " "))
+            : Optional.empty();
+      }
+      boolean singleReturn = text.startsWith("return ") && text.endsWith(";") && text.indexOf("return ", 1) < 0;
+      return advice.after().filter(after -> singleReturn && after.startsWith("return "));
+    });
   }
 
   private Optional<Path> sourceFile(Mutant mutant) {

@@ -4,16 +4,20 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Optional;
 
 /// One mutation of one instruction: which method, which mutation site in it (counted in bytecode
-/// order), and what the instruction becomes.
+/// order), and what the instruction becomes. A skipped mutant never runs: the change can't be
+/// told apart from the original, or it's code no test is meant to pin.
 ///
 /// @param className the class's internal name, `com/example/Pricing`
-/// @param ordinal which mutation site in the method: every arithmetic, branch and return
-///     instruction counts, whichever operators apply to it, so a new operator never shifts the
-///     ids of existing mutants
-/// @param original the instruction's opcode, `IF_ICMPLT`
-/// @param replacement what it becomes, `IF_ICMPLE`
+/// @param ordinal which site in the method, counted per kind of site: every arithmetic, branch
+///     and return instruction counts as an instruction site, and every call as a call site,
+///     whichever operators apply, so a new operator never shifts the ids of existing mutants
+/// @param original the instruction: an opcode, `IF_ICMPLT`, or a call,
+///     `INVOKEVIRTUAL com/example/Audit.record(Ljava/lang/String;)V`
+/// @param replacement what it becomes: `IF_ICMPLE`, `return default` or `remove call`
+/// @param skipped why it doesn't run, `equivalent: already returns the default`, if it doesn't
 public record Mutant(
     String className,
     String methodName,
@@ -22,7 +26,8 @@ public record Mutant(
     int line,
     Operator operator,
     String original,
-    String replacement) {
+    String replacement,
+    Optional<String> skipped) {
 
   /// Stable across runs and line moves: class, method, site and replacement, but no line
   /// number, because code moves during review far more often than it changes.
