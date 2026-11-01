@@ -2,6 +2,9 @@
 # else's. The threshold is a floor under today's score (52.3-52.4% on 1 Nov 2026: one mutant near
 # a timeout changes between runs), raised as tests are added, so a real drop fails the run. Only
 # the engine module's own tests count: the CLI's end-to-end tests are in another module.
+#
+# Each night adds a row to score-history.tsv, kept in the Actions cache and attached to the run;
+# docs/own-score.md records the milestones and what moved the score.
 name: Nightly
 
 on:
@@ -26,31 +29,26 @@ jobs:
             25
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - run: ./gradlew :mutastic-cli:installDist
-      # Last night's run record, so tonight's summary says what changed since.
+      # Last night's run record, so tonight's says what changed since, and the score history.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: build/mutastic/mutastic-engine/last-run.tsv
-          key: mutastic-last-run-${{ github.run_id }}
-          restore-keys: mutastic-last-run-
+          path: |
+            build/mutastic/mutastic-engine/last-run.tsv
+            score-history.tsv
+          key: mutastic-nightly-${{ github.run_id }}
+          restore-keys: mutastic-nightly-
       - name: mutastic run :mutastic-engine
-        env:
-          NO_COLOR: "1"
         run: |
-          set -o pipefail
           mutastic-cli/build/install/mutastic/bin/mutastic run :mutastic-engine \
-            --format=brief --threshold=50 2>&1 | tee mutastic.txt
-      - name: Summary
+            --format=jsonl --threshold=50 > events.jsonl
+      - name: Score history
         if: always()
-        run: |
-          {
-            echo '```'
-            sed -n '/^ *Classes/,$p' mutastic.txt
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: .github/score-row.py events.jsonl score-history.tsv "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: mutastic-report
           path: |
-            mutastic.txt
+            events.jsonl
+            score-history.tsv
             build/mutastic/mutastic-engine/
