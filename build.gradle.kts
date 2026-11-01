@@ -69,7 +69,7 @@ subprojects {
     configure<CheckstyleExtension> {
         toolVersion = "14.3.0"
         configFile = rootProject.file("config/checkstyle/checkstyle.xml")
-        isIgnoreFailures = true
+        maxWarnings = 0
     }
 
     apply(plugin = "com.diffplug.spotless")
