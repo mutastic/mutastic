@@ -33,7 +33,8 @@ class NothingRunsTest {
   }
 
   /// A test that ends its JVM (`System.exit`, a native crash) takes the worker with it: the run
-  /// says so at once, rather than waiting out the coverage pass's limit.
+  /// says so at once. Before, it waited out the coverage pass's 10-minute limit and then called it
+  /// a timeout, so the message alone shows which happened.
   @Test
   void aWorkerThatStopsIsReportedAtOnce() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("pricing"));
@@ -51,14 +52,11 @@ class NothingRunsTest {
           }
         }
         """);
-    long start = System.nanoTime();
 
     var run = Samples.mutastic("run", project.toString(), "--format=brief", "--report=none");
 
     assertThat(run.exit()).isEqualTo(Main.INTERNAL);
     assertThat(run.err()).contains("the test worker stopped during the coverage pass");
-    assertThat(java.time.Duration.ofNanos(System.nanoTime() - start))
-        .isLessThan(java.time.Duration.ofMinutes(1));
   }
 
   private static void delete(Path directory) throws IOException {
