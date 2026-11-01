@@ -330,7 +330,7 @@ public final class Main {
           ? PASSED
           : FAILED;
     }
-    return report.score() >= command.threshold() ? PASSED : FAILED;
+    return report.passes(command.threshold()) ? PASSED : FAILED;
   }
 
   /// `build/mutastic` for the root project; `build/mutastic/data` for `:data`, so each module keeps

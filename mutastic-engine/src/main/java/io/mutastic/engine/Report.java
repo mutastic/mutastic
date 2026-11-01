@@ -2,6 +2,7 @@ package io.mutastic.engine;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.OptionalDouble;
 
 /// A finished run: every mutant's result, in the order they were found.
 ///
@@ -41,10 +42,19 @@ public record Report(
     return results.size() - count(Status.SKIPPED);
   }
 
-  /// Detected mutants as a share of the scored ones, from 0 to 100; 100 when there are none.
-  public double score() {
+  /// Detected mutants as a share of the scored ones, from 0 to 100; none when nothing was scored,
+  /// which is no evidence either way, not a perfect score.
+  public OptionalDouble score() {
     return scored() == 0
-        ? 100
-        : 100.0 * results.stream().filter(result -> result.status().detected()).count() / scored();
+        ? OptionalDouble.empty()
+        : OptionalDouble.of(
+            100.0
+                * results.stream().filter(result -> result.status().detected()).count()
+                / scored());
+  }
+
+  /// At or above `threshold`, or nothing to score: with no mutants there is nothing to fail.
+  public boolean passes(int threshold) {
+    return score().orElse(100) >= threshold;
   }
 }

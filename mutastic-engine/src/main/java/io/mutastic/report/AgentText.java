@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.stream.Collectors;
 
 /// `--format agent`: what a coding agent needs to close each gap, and nothing it would have to
@@ -65,10 +66,15 @@ public final class AgentText {
     return out.toString();
   }
 
+  /// `85.7%`, or `none` when there was nothing to score.
+  private static String percent(OptionalDouble score) {
+    return score.isPresent() ? "%.1f%%".formatted(score.getAsDouble()) : "none";
+  }
+
   private static void appendVsLastRun(StringBuilder out, Report report, Comparison found) {
     out.append(
-        "vs last run: %.1f%% → %.1f%% (%s)%n"
-            .formatted(found.previousScore(), report.score(), found.sameness()));
+        "vs last run: %s → %s (%s)%n"
+            .formatted(percent(found.previousScore()), percent(report.score()), found.sameness()));
   }
 
   /// The rules, each missed mutant's entry, then the lines no test reaches.
@@ -112,10 +118,10 @@ public final class AgentText {
   private void appendVerdict(StringBuilder out, Report report, int missed, int notCovered) {
     var skipped = report.count(Status.SKIPPED);
     out.append(
-        "mutastic: %s · score %.1f%% (threshold %d) · %d %s, %d %s, %d %s of %d mutants%s%n"
+        "mutastic: %s · score %s (threshold %d) · %d %s, %d %s, %d %s of %d mutants%s%n"
             .formatted(
-                report.score() >= threshold ? "PASS" : "FAIL",
-                report.score(),
+                report.passes(threshold) ? "PASS" : "FAIL",
+                report.score().isPresent() ? percent(report.score()) : "none (no mutants to score)",
                 threshold,
                 missed,
                 words.undetected,

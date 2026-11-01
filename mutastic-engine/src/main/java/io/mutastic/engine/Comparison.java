@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 
 /// This run against the last one.
 ///
@@ -12,12 +13,12 @@ import java.util.Optional;
 /// missed now, or the other way round, points at the test that caught it: likely flaky. With either
 /// changed, a flip is just the change at work.
 ///
-/// @param previousScore the last run's score
+/// @param previousScore the last run's score; none when it had no mutants to score
 /// @param sameCode whether the code and tests are byte for byte what the last run had
 /// @param sameTool whether the same mutastic ran
 /// @param flips mutants caught in one run and not the other
 public record Comparison(
-    double previousScore, boolean sameCode, boolean sameTool, List<Flip> flips) {
+    OptionalDouble previousScore, boolean sameCode, boolean sameTool, List<Flip> flips) {
 
   /// A mutant caught in one run and not the other.
   ///

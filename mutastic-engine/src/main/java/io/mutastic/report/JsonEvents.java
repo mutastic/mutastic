@@ -9,6 +9,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
+import org.jspecify.annotations.Nullable;
 
 /// `--format jsonl`: one self-describing JSON object per line, written as each mutant finishes so
 /// an editor or agent can follow the run. Statuses are the mutation-testing report schema's, so the
@@ -147,21 +149,26 @@ public final class JsonEvents {
 
   /// The score, the threshold, and whether the run passed.
   private void putVerdict(Map<String, Object> fields, Report report, boolean oneMutant) {
-    fields.put("score", Math.round(report.score() * 10) / 10.0);
+    fields.put("score", rounded(report.score()));
     fields.put("threshold", threshold);
     fields.put(
         "passed",
         oneMutant
             ? report.results().stream().allMatch(result -> result.status().detected())
-            : report.score() >= threshold);
+            : report.passes(threshold));
     if (oneMutant) {
       fields.put(
           "only", report.results().isEmpty() ? null : report.results().getFirst().mutant().id());
     }
   }
 
+  /// To one decimal place; null when there was nothing to score.
+  private static @Nullable Double rounded(OptionalDouble score) {
+    return score.isPresent() ? Math.round(score.getAsDouble() * 10) / 10.0 : null;
+  }
+
   private static void putComparison(Map<String, Object> fields, Comparison found) {
-    fields.put("previousScore", Math.round(found.previousScore() * 10) / 10.0);
+    fields.put("previousScore", rounded(found.previousScore()));
     fields.put("sameCodeAsLastRun", found.sameCode());
     fields.put("sameMutasticAsLastRun", found.sameTool());
     fields.put("changedSinceLastRun", changedSinceLastRun(found));

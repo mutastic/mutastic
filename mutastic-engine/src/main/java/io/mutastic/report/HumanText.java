@@ -701,8 +701,11 @@ public final class HumanText {
   }
 
   private String scoreRow(Report report, Optional<Comparison> comparison) {
-    var score = "%.1f%%".formatted(report.score());
-    return (report.score() >= threshold
+    if (report.score().isEmpty()) {
+      return style.bold("none") + style.dim(" (no mutants to score)  threshold " + threshold);
+    }
+    var score = "%.1f%%".formatted(report.score().getAsDouble());
+    return (report.passes(threshold)
             ? style.green(style.bold(score))
             : style.red(style.bold(score)))
         + delta(report, comparison)
@@ -715,7 +718,13 @@ public final class HumanText {
     if (run.oneMutant() && !report.results().isEmpty()) {
       return " %s%n".formatted(fate(report.results().getFirst()));
     }
-    if (report.score() >= threshold) {
+    if (report.score().isEmpty()) {
+      return " %s %s%n"
+          .formatted(
+              style.label("PASS", Style.GREEN),
+              style.dim("Nothing to measure: no mutants to score."));
+    }
+    if (report.passes(threshold)) {
       return " %s %s%n"
           .formatted(
               style.label("PASS", Style.GREEN),
@@ -809,10 +818,13 @@ public final class HumanText {
 
   /// ` ▲ 2.0 vs last run (same code)`, when there was one.
   private String delta(Report report, Optional<Comparison> comparison) {
+    var now = report.score();
     return comparison
+        .filter(found -> now.isPresent() && found.previousScore().isPresent())
         .map(
             found -> {
-              double change = Math.round((report.score() - found.previousScore()) * 10) / 10.0;
+              double change =
+                  Math.round((now.getAsDouble() - found.previousScore().getAsDouble()) * 10) / 10.0;
               var sameness = style.dim(" (" + found.sameness() + ")");
               if (change == 0) {
                 return style.dim("  = vs last run") + sameness;

@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.stream.Stream;
 
 /// What a run found, kept for the next run to compare with: each mutant's status and catching test,
@@ -23,7 +24,8 @@ import java.util.stream.Stream;
 ///
 /// @param code the hash of every class file in the code and the tests
 /// @param tool the hash of the mutastic that ran: a new mutastic can change results too
-public record RunRecord(String code, String tool, double score, Map<String, Entry> results) {
+public record RunRecord(
+    String code, String tool, OptionalDouble score, Map<String, Entry> results) {
 
   public record Entry(Status status, Optional<String> caughtBy) {}
 
@@ -69,14 +71,14 @@ public record RunRecord(String code, String tool, double score, Map<String, Entr
     try {
       String code = null;
       String tool = "";
-      double score = 0;
+      var score = OptionalDouble.empty();
       var results = new LinkedHashMap<String, Entry>();
       for (String line : Files.readAllLines(file)) {
         var parts = line.split("\t", -1);
         switch (parts[0]) {
           case "code" -> code = parts[1];
           case "tool" -> tool = parts[1];
-          case "score" -> score = Double.parseDouble(parts[1]);
+          case "score" -> score = score(parts[1]);
           default -> results.put(parts[0], entry(parts));
         }
       }
@@ -88,6 +90,11 @@ public record RunRecord(String code, String tool, double score, Map<String, Entr
     }
   }
 
+  /// `85.7`, or `-` for a run with nothing to score.
+  private static OptionalDouble score(String text) {
+    return text.equals("-") ? OptionalDouble.empty() : OptionalDouble.of(Double.parseDouble(text));
+  }
+
   /// A result from its line: the status, then the test that caught it, `-` for none.
   private static Entry entry(String[] parts) {
     return new Entry(
@@ -95,7 +102,12 @@ public record RunRecord(String code, String tool, double score, Map<String, Entr
   }
 
   public void write(Path file) {
-    var lines = new ArrayList<String>(List.of("code\t" + code, "tool\t" + tool, "score\t" + score));
+    var lines =
+        new ArrayList<String>(
+            List.of(
+                "code\t" + code,
+                "tool\t" + tool,
+                "score\t" + (score.isPresent() ? String.valueOf(score.getAsDouble()) : "-")));
     results.entrySet().stream()
         .sorted(Map.Entry.comparingByKey())
         .forEach(

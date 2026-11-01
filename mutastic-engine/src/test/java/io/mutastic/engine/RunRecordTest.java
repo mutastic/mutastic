@@ -57,6 +57,15 @@ class RunRecordTest {
   }
 
   @Test
+  void aRunWithNothingToScoreIsRecordedWithoutAScore() throws Exception {
+    var file = work.resolve("last-run.tsv");
+    new RunRecord("abc", "tool-1", java.util.OptionalDouble.empty(), Map.of()).write(file);
+
+    assertThat(RunRecord.read(file).orElseThrow().score()).isEmpty();
+    assertThat(java.nio.file.Files.readString(file)).contains("score\t-\n");
+  }
+
+  @Test
   void aRecordFromBeforeToolHashesCountsAsAnotherMutastic() throws Exception {
     var file = work.resolve("last-run.tsv");
     java.nio.file.Files.writeString(
@@ -101,7 +110,7 @@ class RunRecordTest {
   }
 
   private static RunRecord record(String code, String tool, Map<String, RunRecord.Entry> results) {
-    return new RunRecord(code, tool, 50.0, results);
+    return new RunRecord(code, tool, java.util.OptionalDouble.of(50.0), results);
   }
 
   private static RunRecord.Entry caught(Optional<String> by) {

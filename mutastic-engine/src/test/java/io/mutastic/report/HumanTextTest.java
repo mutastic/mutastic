@@ -113,6 +113,18 @@ class HumanTextTest {
     assertThat(lines.getLast()).isEqualTo(" Next: mutastic verify <id> · mutastic run --only=<id>");
   }
 
+  /// No mutants is no evidence either way: it passes, but never reads as a perfect score.
+  @Test
+  void nothingToScoreIsNeverAPerfectScore() {
+    var output =
+        text(HumanText.Detail.FULL, Vocabulary.PLAIN).render(report(), Optional.empty(), RUN);
+
+    assertThat(output)
+        .contains("     Score  none (no mutants to score)  threshold 80")
+        .contains(" [PASS] Nothing to measure: no mutants to score.")
+        .doesNotContain("100.0%");
+  }
+
   @Test
   void theTestsRowCountsWorkersAndReplacements() {
     var one = report(1, 1, missed(boundary(), Map.of()));
