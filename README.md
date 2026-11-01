@@ -53,6 +53,7 @@ mutastic verify m855c8e3c samples/pricing
 mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]
              [--confirm-catches] [--workers=N] [--color=auto|always|never]
              [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none] [--no-suggestions]
+             [--report=json|html|xml|none[:path]]...
 mutastic verify ID [dir] [:module]
 ```
 
@@ -73,6 +74,14 @@ The result goes to stdout and progress to stderr, so `mutastic run > result.txt`
 - `--format=jsonl` is one JSON event per line, written as each mutant finishes (`mutastic.events/v1`). Statuses follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`, `NoCoverage`.
 - A mutant's id comes from its class, method, position and change, not its line number, so it stays the same while code around it moves.
 - Some mutants are skipped, with the reason given: a change that can't be told apart from the original (`return 0` becoming "return the default"), code the compiler wrote (a `switch` on a `String`, a record's `equals()`), and calls that only write output (logging, `System.out`). Skipped mutants don't count towards the score.
+
+### Report files
+
+A full run also writes report files to `build/mutastic/`, by default `mutation.json` and `mutation.html`. `--report` chooses (it can be given more than once, and replaces the defaults): `--report=xml` adds `mutations.xml`, `--report=json:reports/m.json` writes somewhere else, and `--report=none` writes nothing.
+
+- `json` follows the open mutation-testing report schema (version 2), which report viewers, dashboards and badges read.
+- `html` is that report in the schema's own viewer, embedded in the page, so it opens from disk with no network.
+- `xml` is the `mutations.xml` format that many build-server and code-quality plugins read.
 
 ### Inputs seen and suggested tests
 

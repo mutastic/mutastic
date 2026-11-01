@@ -114,4 +114,18 @@ class PricingSampleTest {
 
     assertThat(run.out()).doesNotContain("suggestedTest");
   }
+
+  @Test
+  void aRunWritesTheReportFilesUnlessToldNot() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+
+    var run = Samples.mutastic("run", project.toString());
+    var none = Samples.copy(SAMPLE, work.resolve("quiet"));
+    Samples.mutastic("run", none.toString(), "--report=none");
+
+    assertThat(project.resolve("build/mutastic/mutation.json")).content().startsWith("{\"$schema\":");
+    assertThat(project.resolve("build/mutastic/mutation.html")).content().contains("<mutation-test-report-app");
+    assertThat(run.out()).contains("  Reports  build/mutastic/mutation.json · build/mutastic/mutation.html");
+    assertThat(none.resolve("build/mutastic/mutation.json")).doesNotExist();
+  }
 }

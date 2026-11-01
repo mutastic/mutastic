@@ -89,9 +89,7 @@ public record Advice(Optional<String> before, Optional<String> after, String cha
     };
   }
 
-  /// `record` for `INVOKEVIRTUAL com/example/Audit.record(Ljava/lang/String;)V`.
   private static String calledName(String call) {
-    var target = call.substring(call.indexOf(' ') + 1, call.indexOf('('));
-    return target.substring(target.lastIndexOf('.') + 1);
+    return SourceView.calledName(call);
   }
 }

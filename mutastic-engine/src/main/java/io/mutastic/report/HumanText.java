@@ -26,6 +26,7 @@ public final class HumanText {
   private final int threshold;
   private final Style style;
   private final boolean concise;
+  private List<String> reports = List.of();
 
   public HumanText(SourceView sources, int threshold, Style style, boolean concise) {
     this.sources = sources;
@@ -36,6 +37,12 @@ public final class HumanText {
 
   /// @param setup how long reading the build took, before the engine started
   public String render(Report report, Optional<Comparison> comparison, Duration setup) {
+    return render(report, comparison, setup, List.of());
+  }
+
+  /// @param reports the report files written, shown relative to the project
+  public String render(Report report, Optional<Comparison> comparison, Duration setup, List<String> reports) {
+    this.reports = reports;
     var out = new StringBuilder();
     var missed = grouped(report.results().stream().filter(result -> result.status() == Status.MISSED).toList());
     String file = null;
@@ -234,6 +241,9 @@ public final class HumanText {
     rows.put("Tests", "%d on JDK %d · %d worker%s%s".formatted(report.tests(), report.jdk(), report.workers(),
         report.workers() == 1 ? "" : "s", report.replaced() == 0 ? ""
             : style.dim(" (%d replaced after a timeout)".formatted(report.replaced()))));
+    if (!reports.isEmpty()) {
+      rows.put("Reports", String.join(" · ", reports));
+    }
     var score = "%.1f%%".formatted(report.score());
     boolean passed = report.score() >= threshold;
     rows.put("Score", "%s%s  %s".formatted(passed ? style.green(style.bold(score)) : style.red(score), delta(report, comparison),

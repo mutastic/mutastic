@@ -6,6 +6,7 @@ import io.mutastic.engine.Report;
 import io.mutastic.engine.Status;
 import java.io.PrintStream;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -88,6 +89,11 @@ public final class JsonEvents {
   }
 
   public void runFinished(Report report, Optional<Comparison> comparison) {
+    runFinished(report, comparison, List.of());
+  }
+
+  /// @param reports the report files written
+  public void runFinished(Report report, Optional<Comparison> comparison, List<String> reports) {
     var fields = new LinkedHashMap<String, Object>();
     fields.put("jdk", report.jdk());
     fields.put("mutants", report.results().size());
@@ -119,6 +125,7 @@ public final class JsonEvents {
       entry.put("mutants", note.mutants());
       return entry;
     }).toList());
+    fields.put("reports", reports);
     fields.put("durationMs", report.took().toMillis());
     emit("run-finished", fields);
   }

@@ -10,6 +10,7 @@ import io.mutastic.engine.Status;
 import io.mutastic.report.AgentText;
 import io.mutastic.report.HumanText;
 import io.mutastic.report.JsonEvents;
+import io.mutastic.report.ReportFiles;
 import io.mutastic.report.SourceView;
 import io.mutastic.report.Style;
 import java.io.PrintStream;
@@ -26,11 +27,13 @@ import java.util.Optional;
 /// mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]
 ///              [--confirm-catches] [--workers=N] [--color=auto|always|never]
 ///              [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none] [--no-suggestions]
+///              [--report=json|html|xml|none[:path]]...
 /// mutastic verify ID [dir] [:module]
 /// ```
 ///
 /// The result goes to stdout, progress to stderr. The format is `full` on a terminal, `concise`
-/// elsewhere, and `agent` when `MUTASTIC_AGENT=1`.
+/// elsewhere, and `agent` when `MUTASTIC_AGENT=1`. A full run also writes report files, by
+/// default `build/mutastic/mutation.json` and `mutation.html`.
 ///
 /// A full run keeps its results in `build/mutastic/last-run.tsv`, and the next full run compares
 /// against them: with the code unchanged, a mutant that changed result names a flaky test.
@@ -98,21 +101,28 @@ public final class Main {
       }
       Report report = engine.run(project, options, listener);
       progress.finished();
-      // Only full runs compare and are kept: one mutant says nothing about the rest.
+      // Only full runs compare, are kept and write reports: one mutant says nothing about the rest.
       Optional<Comparison> comparison = Optional.empty();
+      var written = new ArrayList<String>();
       if (command.only().isEmpty()) {
         var lastRun = work.resolve("last-run.tsv");
         var record = RunRecord.of(project, report);
         comparison = RunRecord.read(lastRun).map(record::against);
         record.write(lastRun);
+        var files = new ReportFiles(directory, sources, command.threshold(), version());
+        for (var requested : command.reports()) {
+          var file = requested.path().map(directory::resolve).orElse(work.resolve(defaultName(requested.kind())));
+          files.write(requested.kind(), report, file);
+          written.add(file.startsWith(directory) ? directory.relativize(file).toString() : file.toString());
+        }
       }
       switch (format) {
-        case "jsonl" -> events.runFinished(report, comparison);
+        case "jsonl" -> events.runFinished(report, comparison, written);
         case "agent" -> out.print(new AgentText(sources, command.threshold()).render(report, comparison));
         default -> {
           var style = terminal.colour(command.colour()) ? Style.COLOUR : Style.PLAIN;
           out.print(new HumanText(sources, command.threshold(), terminal.links(command.links()) ? style.withLinks() : style,
-              format.equals("concise")).render(report, comparison, setup));
+              format.equals("concise")).render(report, comparison, setup, written));
         }
       }
       return report.score() >= command.threshold() ? PASSED : FAILED;
@@ -121,7 +131,7 @@ public final class Main {
       err.println("usage: mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]");
       err.println("                    [--confirm-catches] [--workers=N] [--color=auto|always|never]");
       err.println("                    [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none]");
-      err.println("                    [--no-suggestions]");
+      err.println("                    [--no-suggestions] [--report=json|html|xml|none[:path]]...");
       err.println("       mutastic verify ID [dir] [:module]");
       return USAGE;
     } catch (GradleSetup.SetupFailed | IllegalArgumentException e) {
@@ -134,6 +144,15 @@ public final class Main {
       err.println("mutastic: internal error: " + e);
       return INTERNAL;
     }
+  }
+
+  /// Where a report goes unless told: beside the run record.
+  private static String defaultName(String kind) {
+    return switch (kind) {
+      case "json" -> "mutation.json";
+      case "html" -> "mutation.html";
+      default -> "mutations.xml";
+    };
   }
 
   /// A bar on a terminal for people; counter lines in logs; nothing for agents and JSONL
@@ -169,11 +188,19 @@ public final class Main {
     }
   }
 
+  /// A report file to write: `json`, `html` or `xml`, where the default isn't wanted.
+  record RequestedReport(String kind, Optional<Path> path) {}
+
+  /// `json` and `html`, unless `--report` says otherwise.
+  static final List<RequestedReport> DEFAULT_REPORTS =
+      List.of(new RequestedReport("json", Optional.empty()), new RequestedReport("html", Optional.empty()));
+
   /// @param format empty for the default, which depends on where output goes
   /// @param workers empty for the default, which depends on the machine
+  /// @param reports the report files to write after a full run
   record Command(boolean verify, Path directory, String module, Optional<String> format, int threshold,
       Optional<String> only, boolean confirmCatches, Optional<Integer> workers, String colour, String links,
-      String progress, boolean suggestions) {
+      String progress, boolean suggestions, List<RequestedReport> reports) {
     static Command parse(String[] args) {
       if (args.length == 0 || !List.of("run", "verify").contains(args[0])) {
         throw new UsageException(args.length == 0 ? "no command" : "unknown command " + args[0]);
@@ -189,11 +216,25 @@ public final class Main {
       String links = "auto";
       String progress = "auto";
       boolean suggestions = true;
+      List<RequestedReport> reports = null;
       for (String arg : List.of(args).subList(1, args.length)) {
         if (arg.startsWith("--format=")) {
           format = Optional.of(choice(arg, FORMATS));
         } else if (arg.startsWith("--threshold=")) {
           threshold = number(arg);
+        } else if (arg.startsWith("--report=")) {
+          var value = arg.substring("--report=".length());
+          int colon = value.indexOf(':');
+          var kind = colon < 0 ? value : value.substring(0, colon);
+          if (!kind.equals("none") && !ReportFiles.KINDS.contains(kind)) {
+            throw new UsageException("unknown report %s (one of json, html, xml, none)".formatted(kind));
+          }
+          if (reports == null) {
+            reports = new ArrayList<>(); // the first --report replaces the defaults
+          }
+          if (!kind.equals("none")) {
+            reports.add(new RequestedReport(kind, colon < 0 ? Optional.empty() : Optional.of(Path.of(value.substring(colon + 1)))));
+          }
         } else if (arg.equals("--no-suggestions")) {
           suggestions = false;
         } else if (arg.equals("--confirm-catches")) {
@@ -226,7 +267,7 @@ public final class Main {
       var module = positional.stream().filter(arg -> arg.startsWith(":")).findFirst().orElse(":");
       var directory = positional.stream().filter(arg -> !arg.startsWith(":")).findFirst().map(Path::of).orElse(Path.of("."));
       return new Command(verify, directory, module, format, threshold, only, confirmCatches, workers, colour, links,
-          progress, suggestions);
+          progress, suggestions, reports == null ? DEFAULT_REPORTS : List.copyOf(reports));
     }
 
     /// The whole number in `--name=value`.
