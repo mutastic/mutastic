@@ -318,9 +318,11 @@ public final class Worker {
       int hash = test.indexOf('#');
       request.selectors(
           hash < 0
-              ? selectClass(loader.loadClass(test))
+              ? selectClass(loader.loadClass(loader.copyOf(test)))
               : selectMethod(
-                  loader.loadClass(test.substring(0, hash)), method(test), parameters(test)));
+                  loader.loadClass(loader.copyOf(test.substring(0, hash))),
+                  method(test),
+                  parameters(test)));
     }
     return request.build();
   }

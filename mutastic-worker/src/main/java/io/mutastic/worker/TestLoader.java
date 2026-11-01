@@ -18,13 +18,20 @@ final class TestLoader extends RootsLoader {
     this.run = run;
   }
 
+  /// The class this run runs for the test class `name`: its renamed copy, if it's in a package
+  /// production code also uses.
+  String copyOf(String name) {
+    var topLevel = production.splitTopLevel(name);
+    return topLevel == null ? name : Renamer.renamed(name, topLevel, run);
+  }
+
+  /// A split test is the production loader's, by either name: a copy by its new name (TestNG looks
+  /// a copy up that way), or the class as the build has it by its original name. `Class.forName`
+  /// must get a class of the name it asked for, so the original name never gives a copy.
   @Override
   protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
-    var topLevel = production.splitTopLevel(Renamer.original(name));
-    if (topLevel != null) {
-      // By either name: a framework may look the copy up by its new name (TestNG does).
-      return production.loadClass(
-          Renamer.runOf(name) < 0 ? Renamer.renamed(name, topLevel, run) : name);
+    if (production.splitTopLevel(Renamer.original(name)) != null) {
+      return production.loadClass(name);
     }
     return super.loadClass(name, resolve);
   }

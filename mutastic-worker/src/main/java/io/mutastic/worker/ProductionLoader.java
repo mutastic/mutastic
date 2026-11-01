@@ -66,10 +66,10 @@ final class ProductionLoader extends RootsLoader {
       return production;
     }
     // A test-only class a test copy uses. A test in a production package is run as a renamed copy,
-    // and every class reference in a copy is renamed too, so only a string that names a class
-    // reaches here by its original name: `@MethodSource("com.example.UtilTest#cases")`, which
-    // JUnit loads through the copy's loader. That class is defined once, as the build has it, and
-    // its statics last across runs.
+    // and every class reference in a copy is renamed too, so only a lookup by name reaches here by
+    // its original name: a string (`@MethodSource("com.example.UtilTest#cases")`) or a framework's
+    // scan of the class files (Spring's, for a test `@Configuration`). That class is defined once,
+    // as the build has it, and its statics last across runs.
     return classFile(testRoots, name);
   }
 
