@@ -61,6 +61,16 @@ final class Progress implements Listener {
     err.flush();
   }
 
+  /// Something the run decided that the person should know, on a line of its own.
+  void note(String text) {
+    if (mode == Mode.BAR) {
+      err.print("\r\u001b[2K");
+    }
+    if (mode != Mode.NONE) {
+      err.println(text);
+    }
+  }
+
   /// Another module's tests are about to run over the mutants still uncaught.
   void testsFrom(String module) {
     if (mode == Mode.BAR) {

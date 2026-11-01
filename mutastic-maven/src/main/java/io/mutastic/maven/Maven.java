@@ -4,6 +4,7 @@ import io.mutastic.api.BuildTool;
 import io.mutastic.api.Project;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 /// Maven builds, read by running `mvn test-compile` with mutastic's extension (see [MavenSetup]). A
 /// module is named by its directory, as `-pl` takes it: `:services/api`.
@@ -27,6 +28,11 @@ public final class Maven implements BuildTool {
   @Override
   public Path workDirectory(Path directory, String module) {
     return MavenSetup.moduleDirectory(directory, module).resolve("target/mutastic");
+  }
+
+  @Override
+  public List<String> dependents(Path directory, String module, Path workDirectory) {
+    return MavenSetup.dependents(directory, module, workDirectory);
   }
 
   @Override

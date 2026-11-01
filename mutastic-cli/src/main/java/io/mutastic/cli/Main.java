@@ -62,6 +62,10 @@ public final class Main {
   static final int INTERNAL = 4;
 
   private static final int DEFAULT_THRESHOLD = 80;
+
+  /// `--tests-from=dependents`: every module that depends on the one run.
+  static final String DEPENDENTS = "dependents";
+
   private static final List<String> FORMATS =
       List.of("full", "brief", "concise", "grouped", "agent", "jsonl");
 
@@ -152,7 +156,7 @@ public final class Main {
     Tested run(Command command, Prepared prepared, Display display) {
       var merged = engine.run(prepared.project(), options, display.listener());
       var otherTests = new ArrayList<Path>();
-      for (String module : command.testsFrom()) {
+      for (String module : modules(command, prepared)) {
         var uncaught = uncaught(merged);
         if (uncaught.isEmpty()) {
           break;
@@ -166,6 +170,26 @@ public final class Main {
         merged = merged.merge(pass);
       }
       return new Tested(merged, otherTests);
+    }
+
+    /// The `--tests-from` modules, with `dependents` as the modules that depend on this one.
+    private List<String> modules(Command command, Prepared prepared) {
+      var modules = new java.util.LinkedHashSet<String>();
+      for (String named : command.testsFrom()) {
+        if (!named.equals(DEPENDENTS)) {
+          modules.add(named);
+          continue;
+        }
+        var found =
+            tool.dependents(
+                prepared.directory(), command.module(), prepared.work().resolve("dependents"));
+        if (found.isEmpty()) {
+          progress.note(
+              "no module depends on %s: only its own tests ran".formatted(command.module()));
+        }
+        modules.addAll(found);
+      }
+      return List.copyOf(modules);
     }
 
     /// The other module, read into a directory of its own below this module's.
@@ -202,7 +226,7 @@ public final class Main {
     err.println(
         "usage: mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N]");
     err.println(
-        "                    [--only=ID] [--tests-from=:module]... [--vocabulary=plain|classic]");
+        "                    [--only=ID] [--tests-from=:module|dependents]... [--vocabulary=plain|classic]");
     err.println(
         "                    [--confirm-catches] [--workers=N] [--color=auto|always|never]");
     err.println(
@@ -653,10 +677,12 @@ public final class Main {
             List.copyOf(testsFrom));
       }
 
-      /// `:app`: another module, named as the module run is.
+      /// `:app`: another module, named as the module run is; or `dependents`, every module that
+      /// depends on this one.
       private static String module(String value) {
-        if (!value.startsWith(":") || value.length() < 2) {
-          throw new UsageException("--tests-from takes a module, as :app, not " + value);
+        if (!value.equals(DEPENDENTS) && (!value.startsWith(":") || value.length() < 2)) {
+          throw new UsageException(
+              "--tests-from takes a module, as :app, or dependents; not " + value);
         }
         return value;
       }

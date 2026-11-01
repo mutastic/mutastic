@@ -21,6 +21,28 @@ allprojects {
     tasks.matching { it.name == "spotlessApply" }.configureEach { enabled = false }
 
     plugins.withType<JavaPlugin> {
+        // The Java modules whose tests can reach this one: its project on their resolved test
+        // classpath, directly or through others. Written one module path per line.
+        tasks.register("mutasticDependents") {
+            val out = File(project.findProperty("mutasticOut") as String)
+            val target = project.path
+            val dependents = project.provider {
+                rootProject.allprojects
+                    .filter { it.path != target && it.plugins.hasPlugin("java") }
+                    .filter { other ->
+                        other.configurations.findByName("testRuntimeClasspath")
+                            ?.incoming?.resolutionResult?.allComponents.orEmpty()
+                            .any { (it.id as? org.gradle.api.artifacts.component.ProjectComponentIdentifier)?.projectPath == target }
+                    }
+                    .map { it.path }
+                    .sorted()
+            }
+            doLast {
+                out.parentFile.mkdirs()
+                out.writeText(dependents.get().joinToString("\n"))
+            }
+        }
+
         tasks.register("mutasticSetup") {
             val sourceSets = project.extensions.getByType<SourceSetContainer>()
             val main = sourceSets["main"]

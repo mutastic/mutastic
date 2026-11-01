@@ -4,6 +4,7 @@ import io.mutastic.api.BuildTool;
 import io.mutastic.api.Project;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 /// Gradle builds, read by running the build with mutastic's init script (see [GradleSetup]).
 public final class Gradle implements BuildTool {
@@ -28,6 +29,11 @@ public final class Gradle implements BuildTool {
   public Path workDirectory(Path directory, String module) {
     var work = directory.resolve("build/mutastic");
     return module.equals(":") ? work : work.resolve(module.substring(1).replace(':', '/'));
+  }
+
+  @Override
+  public List<String> dependents(Path directory, String module, Path workDirectory) {
+    return GradleSetup.dependents(directory, module, workDirectory);
   }
 
   @Override

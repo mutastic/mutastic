@@ -30,4 +30,26 @@ class TestsFromTest {
         .contains("\"sameCodeAsLastRun\":false")
         .contains("\"likelyFlaky\":[]");
   }
+
+  /// `dependents`: every module that depends on this one, as each build tool's own graph says.
+  @Test
+  void dependentsAreFoundByGradle() throws Exception {
+    assertDependentsCatchTheBoundary(Samples.copy(SAMPLE, work.resolve("modules")), ":core");
+  }
+
+  @Test
+  void dependentsAreFoundByMaven() throws Exception {
+    assertDependentsCatchTheBoundary(
+        Samples.copy(SAMPLE.resolveSibling("maven-modules"), work.resolve("maven-modules")),
+        ":core");
+  }
+
+  private static void assertDependentsCatchTheBoundary(Path project, String module) {
+    var run =
+        Samples.mutastic(
+            "run", project.toString(), module, "--tests-from=dependents", "--format=jsonl");
+
+    assertThat(run.err()).doesNotContain("mutastic:");
+    assertThat(run.out()).contains(BOUNDARY.formatted("Killed"));
+  }
 }

@@ -1,6 +1,7 @@
 package io.mutastic.api;
 
 import java.nio.file.Path;
+import java.util.List;
 
 /// A build tool mutastic reads a project's setup from, found with [java.util.ServiceLoader]: each
 /// is asked in turn whether a directory is one of its builds.
@@ -18,6 +19,12 @@ public interface BuildTool {
   /// Where a module keeps mutastic's run record, logs and reports, so each module keeps its own:
   /// `build/mutastic` for the build in `directory`, `build/mutastic/data` for `:data`.
   Path workDirectory(Path directory, String module);
+
+  /// The modules whose tests can reach `module`'s code: the ones that depend on it, directly or
+  /// through others, in the tool's own names for them (`:app`).
+  default List<String> dependents(Path directory, String module, Path workDirectory) {
+    return List.of();
+  }
 
   /// The module's code and tests, and how its build runs them.
   ///

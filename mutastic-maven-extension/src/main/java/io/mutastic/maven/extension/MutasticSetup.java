@@ -16,7 +16,9 @@ import org.jspecify.annotations.Nullable;
 
 /// After the build, writes each Java module's setup (what Surefire's `test` would run it with) to
 /// the directory `-Dmutastic.out` names: `setup.properties` for the module the build ran in,
-/// `<path>/setup.properties` for one below it. Does nothing without `-Dmutastic.out`.
+/// `<path>/setup.properties` for one below it. With `-Dmutastic.dependents=<file>` and
+/// `-Dmutastic.module=<path>`, writes instead the modules that depend on that one, from the
+/// reactor's own graph. Does nothing without either.
 @Named
 @Singleton
 public class MutasticSetup extends AbstractMavenLifecycleParticipant {
@@ -34,6 +36,10 @@ public class MutasticSetup extends AbstractMavenLifecycleParticipant {
 
   @Override
   public void afterSessionEnd(MavenSession session) throws MavenExecutionException {
+    var dependents = session.getUserProperties().getProperty("mutastic.dependents");
+    if (dependents != null) {
+      Dependents.write(session, Path.of(dependents));
+    }
     var out = session.getUserProperties().getProperty("mutastic.out");
     if (out == null) {
       return;

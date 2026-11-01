@@ -47,6 +47,43 @@ final class MavenSetup {
     }
   }
 
+  /// The modules that depend on `module`, from the reactor's graph (a `validate` run, so quick).
+  static List<String> dependents(Path directory, String module, Path workDirectory) {
+    try {
+      Files.createDirectories(workDirectory);
+      var listed = workDirectory.resolve("dependents.txt");
+      Files.deleteIfExists(listed);
+      var log = workDirectory.resolve("maven-dependents.log");
+      var command = dependentsCommand(directory, module, listed);
+      if (mvn(directory, command, log) != 0 || !Files.exists(listed)) {
+        throw new SetupFailed(
+            "Maven couldn't list the modules that depend on %s; its output is in %s"
+                .formatted(module, log));
+      }
+      return Files.readAllLines(listed).stream()
+          .filter(line -> !line.isBlank())
+          .map(path -> ":" + path)
+          .toList();
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("interrupted while Maven ran", e);
+    }
+  }
+
+  /// `mvn validate` with the extension asked for `module`'s dependents, into `listed`.
+  private static List<String> dependentsCommand(Path directory, String module, Path listed) {
+    return List.of(
+        mvn(directory),
+        "-q",
+        "-B",
+        "validate",
+        "-Dmaven.ext.class.path=" + extensionJar(),
+        "-Dmutastic.dependents=" + listed,
+        "-Dmutastic.module=" + (module.equals(":") ? "" : module.substring(1)));
+  }
+
   private static List<String> command(Path directory, String module, Path out) {
     var command =
         new ArrayList<>(

@@ -84,6 +84,29 @@ final class GradleSetup {
     return javaElsewhere(where, modules, typed);
   }
 
+  /// The modules that depend on `module`, as its `mutasticDependents` task lists them.
+  static List<String> dependents(Path directory, String module, Path workDirectory) {
+    var build = new Build(directory, workDirectory.resolve("mutastic.init.gradle.kts"));
+    try {
+      Files.createDirectories(workDirectory);
+      writeInitScript(build.init());
+      var listed = workDirectory.resolve("dependents.txt");
+      Files.deleteIfExists(listed);
+      var task = (module.equals(":") ? "" : module) + ":mutasticDependents";
+      if (gradle(build, listed, workDirectory.resolve("gradle-dependents.log"), task) != 0) {
+        throw new SetupFailed(
+            "Gradle couldn't list the modules that depend on %s; its output is in %s"
+                .formatted(module, workDirectory.resolve("gradle-dependents.log")));
+      }
+      return Files.readAllLines(listed).stream().filter(line -> !line.isBlank()).toList();
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("interrupted while Gradle ran", e);
+    }
+  }
+
   /// The build's modules with Java code, as its `mutasticModules` task lists them.
   private static List<String> javaModules(Build build, Path workDirectory)
       throws IOException, InterruptedException {
