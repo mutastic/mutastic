@@ -1,0 +1,36 @@
+# The build on every push and pull request: format, Error Prone and NullAway, Checkstyle, the
+# tests (on JDK 25 for the engine and JDK 17 for the worker), ArchUnit and the coverage floor.
+# Actions are pinned to a commit: a tag can be moved.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The worker's tests run on 17, the oldest JDK mutastic supports; everything else on 25.
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            25
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - run: ./gradlew build cyclonedxBom
+      # The reports, kept when the build fails too: test results, Checkstyle, coverage, the SBOM.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: reports
+          path: |
+            build/reports/
+            */build/reports/

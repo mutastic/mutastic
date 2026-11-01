@@ -7,6 +7,8 @@ plugins {
     id("net.ltgt.errorprone") version "4.1.0" apply false
     base
     jacoco
+    // A bill of materials for what mutastic ships, for whoever installs it to check.
+    id("org.cyclonedx.bom") version "3.5.1"
 }
 
 repositories {
@@ -114,6 +116,35 @@ spotless {
         target("*.gradle.kts", "samples/*/*.gradle.kts")
         ktlint()
     }
+}
+
+// Every resolved version is written down (`gradle.lockfile`), so a build today and one next year
+// get the same jars: `./gradlew lockDependencies --write-locks` after changing a version.
+allprojects {
+    dependencyLocking {
+        lockAllConfigurations()
+    }
+    tasks.register("lockDependencies") {
+        description = "Resolves every configuration, so --write-locks records them all."
+        notCompatibleWithConfigurationCache("resolves configurations at execution")
+        doFirst {
+            require(gradle.startParameter.isWriteDependencyLocks) { "run with --write-locks" }
+        }
+        doLast {
+            configurations.filter { it.isCanBeResolved }.forEach { it.resolve() }
+        }
+    }
+}
+
+// What ships, not what builds it: the formatter, checkers and test libraries stay out.
+allprojects {
+    tasks.withType<org.cyclonedx.gradle.CyclonedxDirectTask>().configureEach {
+        includeConfigs = listOf("runtimeClasspath")
+    }
+}
+
+jacoco {
+    toolVersion = "0.8.14"
 }
 
 // Coverage over every module's tests at once: the CLI's end-to-end tests run the engine in
