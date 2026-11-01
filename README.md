@@ -153,7 +153,7 @@ A test that catches mutants in several unrelated methods, each time with the sam
 
    Several workers run at once (`--workers`, by default half the cores, at most 4), each its own JVM, as Gradle's parallel test forks are. Results are reported in source order whatever order they finish in. Workers side by side can get in each other's way: tests that use a fixed port collide, and tests that share a lock, a database or a slow start (a Spring context) run slower than they did alone. So neither a catch caused by a port in use nor a timeout is trusted: that mutant runs again on its own once the others are done.
 
-Code is in five modules:
+Code is in six modules:
 
 | Module | JDK | What it does |
 |---|---|---|
@@ -161,7 +161,8 @@ Code is in five modules:
 | `mutastic-engine` | 25 | Finds, applies and verifies mutants; coverage; runs the worker |
 | `mutastic-worker` | 17 | Runs your tests on your JDK; a Java agent for swapping classes |
 | `mutastic-report` | 25 | The formats: for people, for agents, JSON Lines, and the report files |
-| `mutastic-cli` | 25 | The `mutastic` command and the Gradle integration |
+| `mutastic-gradle` | 25 | Reads a Gradle build's setup, with an init script; a `BuildTool` |
+| `mutastic-cli` | 25 | The `mutastic` command: finds the build tool, runs the engine, picks the format |
 
 ## Building
 

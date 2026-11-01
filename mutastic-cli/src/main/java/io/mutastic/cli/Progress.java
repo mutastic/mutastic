@@ -62,9 +62,9 @@ final class Progress implements Listener {
   }
 
   /// The first line, before anything slow: within 100 ms of starting.
-  void started(String version) {
+  void started(String version, String buildTool) {
     if (mode != Mode.NONE) {
-      err.printf("mutastic %s · reading the Gradle build…%n", version);
+      err.printf("mutastic %s · reading the %s build…%n", version, buildTool);
     }
   }
 

@@ -1,0 +1,43 @@
+package io.mutastic.api;
+
+import java.nio.file.Path;
+
+/// A build tool mutastic reads a project's setup from, found with [java.util.ServiceLoader]: each
+/// is asked in turn whether a directory is one of its builds.
+public interface BuildTool {
+  /// `Gradle`: how messages name it.
+  String name();
+
+  /// The files that make a directory one of its builds, as a person would look for them:
+  /// `settings.gradle(.kts) or build.gradle(.kts)`.
+  String buildFiles();
+
+  /// Whether `directory` is one of its builds.
+  boolean recognises(Path directory);
+
+  /// Where a module keeps mutastic's run record, logs and reports, so each module keeps its own:
+  /// `build/mutastic` for the build in `directory`, `build/mutastic/data` for `:data`.
+  Path workDirectory(Path directory, String module);
+
+  /// The module's code and tests, and how its build runs them.
+  ///
+  /// @param module `:` for the build in `directory`, else the module as the tool names it
+  /// @param typed the directory as the person would type it, for the commands a failure suggests
+  /// @throws SetupFailed when the build can't be read, saying what to do instead
+  Project read(Path directory, String module, Path workDirectory, String typed);
+
+  /// The build couldn't be read: the message says what to do instead.
+  final class SetupFailed extends RuntimeException {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    /// For someone who ran a command that names a mutant from somewhere else.
+    public static final String ID_HINT =
+        "A mutant's id belongs to the project its run was on. If yours came from "
+            + "another project, run the command that run printed: it names the project's directory"
+            + " and module.";
+
+    public SetupFailed(String message) {
+      super(message);
+    }
+  }
+}

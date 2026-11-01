@@ -1,5 +1,6 @@
 package io.mutastic.cli;
 
+import io.mutastic.api.BuildTool;
 import io.mutastic.api.Comparison;
 import io.mutastic.api.CoveragePass;
 import io.mutastic.api.Listener;
@@ -91,7 +92,7 @@ public final class Main {
       err.println("mutastic: " + e.getMessage());
       printUsage(err);
       return USAGE;
-    } catch (GradleSetup.SetupFailed | Engine.UnknownMutant e) {
+    } catch (BuildTool.SetupFailed | Engine.UnknownMutant e) {
       err.println("mutastic: " + e.getMessage());
       return USAGE;
     } catch (Engine.BaselineFailed e) {
@@ -106,8 +107,9 @@ public final class Main {
   private static int run(Command command, PrintStream out, PrintStream err, Terminal terminal) {
     var output = output(command, out, err, terminal);
     var progress = output.progress();
-    progress.started(version());
-    var prepared = prepare(command);
+    var tool = BuildTools.of(command.directory().toAbsolutePath().normalize());
+    progress.started(version(), tool.name());
+    var prepared = prepare(command, tool);
     var human = humanText(command, output, prepared.sources());
     if (PEOPLE.contains(output.format())) {
       progress.showFiles(results -> human.fileFinished(prepared.project().name(), results));
@@ -180,15 +182,15 @@ public final class Main {
       LocalTime startedAt,
       Duration setup) {}
 
-  private static Prepared prepare(Command command) {
+  private static Prepared prepare(Command command, BuildTool tool) {
     long start = System.nanoTime();
     var startedAt = LocalTime.now(java.time.ZoneId.systemDefault()); // the reader's clock
     var directory = command.directory().toAbsolutePath().normalize();
-    var work = workDirectory(directory, command.module());
+    var work = tool.workDirectory(directory, command.module());
     var here = Path.of("").toAbsolutePath().normalize();
     var target = target(here, directory, command.module());
     var project =
-        GradleSetup.read(
+        tool.read(
             directory, command.module(), work, String.join(" ", target(here, directory, ":")));
     var setup = Duration.ofNanos(System.nanoTime() - start);
     var sources =
@@ -331,13 +333,6 @@ public final class Main {
           : FAILED;
     }
     return report.passes(command.threshold()) ? PASSED : FAILED;
-  }
-
-  /// `build/mutastic` for the root project; `build/mutastic/data` for `:data`, so each module keeps
-  /// its own run record, logs and reports.
-  static Path workDirectory(Path directory, String module) {
-    var work = directory.resolve("build/mutastic");
-    return module.equals(":") ? work : work.resolve(module.substring(1).replace(':', '/'));
   }
 
   /// Where a report goes unless told: beside the run record.

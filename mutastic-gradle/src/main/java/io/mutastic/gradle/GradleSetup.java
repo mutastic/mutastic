@@ -1,5 +1,6 @@
-package io.mutastic.cli;
+package io.mutastic.gradle;
 
+import io.mutastic.api.BuildTool.SetupFailed;
 import io.mutastic.api.Project;
 import java.io.File;
 import java.io.IOException;
@@ -16,19 +17,9 @@ import java.util.Properties;
 final class GradleSetup {
   private GradleSetup() {}
 
-  /// The build couldn't be read: it failed, or isn't a Java build.
-  static final class SetupFailed extends RuntimeException {
-    @java.io.Serial private static final long serialVersionUID = 1L;
-
-    SetupFailed(String message) {
-      super(message);
-    }
-  }
-
   /// `module` is a Gradle project path, `:` for the root project; `typed` is the directory as the
   /// person would type it, for the commands a failure suggests.
   static Project read(Path directory, String module, Path workDirectory, String typed) {
-    requireGradleBuild(directory);
     var build = new Build(directory, workDirectory.resolve("mutastic.init.gradle.kts"));
     try {
       return setUp(build, module, workDirectory, typed);
@@ -42,22 +33,6 @@ final class GradleSetup {
 
   /// A build to run, and mutastic's init script to run it with.
   private record Build(Path directory, Path init) {}
-
-  private static void requireGradleBuild(Path directory) {
-    if (!Files.isDirectory(directory)) {
-      throw new SetupFailed("there's no directory %s".formatted(directory));
-    }
-    if (BUILD_FILES.stream().noneMatch(name -> Files.isRegularFile(directory.resolve(name)))) {
-      throw new SetupFailed(
-          """
-          %s isn't a Gradle build: it has no settings.gradle(.kts) or build.gradle(.kts).
-          Run mutastic on a Gradle project, naming it if it's not where you are:
-            mutastic run <project directory> [:module]
-            mutastic run --only=<id> <project directory> [:module]
-          %s"""
-              .formatted(directory, ID_HINT));
-    }
-  }
 
   /// Runs the module's `mutasticSetup` task and reads the project from what it wrote.
   private static Project setUp(Build build, String module, Path workDirectory, String typed)
@@ -98,12 +73,7 @@ final class GradleSetup {
     return properties;
   }
 
-  /// For someone who ran a command that names a mutant from somewhere else.
-  private static final String ID_HINT =
-      "A mutant's id belongs to the project its run was on. If yours came from "
-          + "another project, run the command that run printed: it names the project's directory and module.";
-
-  private static final List<String> BUILD_FILES =
+  static final List<String> BUILD_FILES =
       List.of("settings.gradle.kts", "settings.gradle", "build.gradle.kts", "build.gradle");
 
   /// The module asked for has no Java code: say so, and name the modules that have some.
@@ -118,7 +88,7 @@ final class GradleSetup {
       return "%s has no Java code for mutastic to test, and no module of it has.%n".formatted(where)
           + "Run mutastic on the project with your Java code and tests:\n"
           + "  mutastic run <project directory> [:module]\n"
-          + ID_HINT;
+          + SetupFailed.ID_HINT;
     }
     return javaElsewhere(where, modules, typed);
   }
@@ -148,7 +118,13 @@ final class GradleSetup {
         %s
           mutastic run --only=<id>%s %s
         %s"""
-        .formatted(where, String.join(", ", modules), suggestions, on, modules.getFirst(), ID_HINT);
+        .formatted(
+            where,
+            String.join(", ", modules),
+            suggestions,
+            on,
+            modules.getFirst(),
+            SetupFailed.ID_HINT);
   }
 
   /// Runs the build's own Gradle with mutastic's init script; its output goes to `log`.

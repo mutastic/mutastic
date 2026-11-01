@@ -1,0 +1,37 @@
+package io.mutastic.gradle;
+
+import io.mutastic.api.BuildTool;
+import io.mutastic.api.Project;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+/// Gradle builds, read by running the build with mutastic's init script (see [GradleSetup]).
+public final class Gradle implements BuildTool {
+  @Override
+  public String name() {
+    return "Gradle";
+  }
+
+  @Override
+  public String buildFiles() {
+    return "settings.gradle(.kts) or build.gradle(.kts)";
+  }
+
+  @Override
+  public boolean recognises(Path directory) {
+    return GradleSetup.BUILD_FILES.stream()
+        .anyMatch(name -> Files.isRegularFile(directory.resolve(name)));
+  }
+
+  /// `module` is a Gradle project path: `:data` keeps its own under `build/mutastic/data`.
+  @Override
+  public Path workDirectory(Path directory, String module) {
+    var work = directory.resolve("build/mutastic");
+    return module.equals(":") ? work : work.resolve(module.substring(1).replace(':', '/'));
+  }
+
+  @Override
+  public Project read(Path directory, String module, Path workDirectory, String typed) {
+    return GradleSetup.read(directory, module, workDirectory, typed);
+  }
+}

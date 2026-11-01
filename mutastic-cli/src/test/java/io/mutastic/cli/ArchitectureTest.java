@@ -57,6 +57,31 @@ class ArchitectureTest {
           .dependOnClassesThat()
           .resideInAnyPackage("io.mutastic.engine..", "io.mutastic.cli..");
 
+  /// A build tool reads a project into the result model, and nothing else: no engine, no format.
+  @ArchTest
+  static final ArchRule buildToolsKnowOnlyTheApi =
+      noClasses()
+          .that()
+          .resideInAPackage("io.mutastic.gradle..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage(
+              "io.mutastic.engine..",
+              "io.mutastic.report..",
+              "io.mutastic.cli..",
+              "io.mutastic.worker..");
+
+  /// The CLI finds build tools as [io.mutastic.api.BuildTool]s: it names none of them, so a new one
+  /// is a module on the classpath, not a change here.
+  @ArchTest
+  static final ArchRule nothingNamesABuildTool =
+      noClasses()
+          .that()
+          .resideOutsideOfPackage("io.mutastic.gradle..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("io.mutastic.gradle..");
+
   /// A group is read by its name: `group(2)` breaks silently when the pattern gains a group.
   @ArchTest
   static final ArchRule groupsReadByName =

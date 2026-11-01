@@ -12,6 +12,8 @@ java {
 dependencies {
     implementation(project(":mutastic-engine"))
     implementation(project(":mutastic-report"))
+    // Found at run time as BuildTools: the CLI names none of them.
+    runtimeOnly(project(":mutastic-gradle"))
     // Not called, but shipped: the engine starts it as its own process, as a Java agent.
     runtimeOnly(project(":mutastic-worker"))
 
