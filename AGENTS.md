@@ -9,7 +9,7 @@ build failure.
 
 ```sh
 ./gradlew build          # compile, Error Prone and NullAway, format, Checkstyle, tests, ArchUnit,
-                         # and the branch-coverage floor (64%)
+                         # and the branch-coverage floor (65%)
 ./gradlew spotlessApply  # format the code
 ./gradlew coverageReport # build/reports/jacoco/coverageReport/html, over every module's tests
 ./gradlew lockDependencies --write-locks  # after changing a version: rewrites gradle.lockfile
@@ -30,7 +30,8 @@ applied by google-java-format through Spotless: that is the spec, not taste.
    chat, an article. Prefer the form that survives being torn out.
 4. Limits are set where the code already is, then held. A limit above the code is one you have
    already failed.
-5. When something exceeds a limit, split it and name the pieces. Do not raise the bar.
+5. When something exceeds a limit, split it and name the pieces. Do not raise the bar, and
+   never lower a floor (coverage, score) to make a build pass: fix what moved it.
 6. A check earns its place by finding something worth fixing. Turn it on, run it over
    everything, delete it if it found nothing.
 7. When you reject a rule, write the reason beside the rule — not in a suppressions file.

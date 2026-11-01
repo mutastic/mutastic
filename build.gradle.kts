@@ -167,14 +167,14 @@ val coverageReport by tasks.registering(JacocoReport::class) {
     }
 }
 
-// The floor is today's coverage: it can rise, but a change that drops it fails the build. 64%, not
-// the 65.0% measured locally: one branch in HumanText depends on the terminal, and CI misses it.
+// The floor is today's coverage: it can rise, but a change that drops it fails the build. It is
+// never lowered to pass: a branch whose coverage depends on the machine gets a test instead.
 val coverageCheck by tasks.registering(JacocoCoverageVerification::class) {
     violationRules {
         rule {
             limit {
                 counter = "BRANCH"
-                minimum = "0.64".toBigDecimal()
+                minimum = "0.65".toBigDecimal()
             }
         }
     }

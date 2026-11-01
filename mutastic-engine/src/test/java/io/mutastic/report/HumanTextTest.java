@@ -114,6 +114,17 @@ class HumanTextTest {
   }
 
   @Test
+  void theTestsRowCountsWorkersAndReplacements() {
+    var one = report(1, 1, missed(boundary(), Map.of()));
+    var several = report(4, 6, missed(boundary(), Map.of()));
+
+    assertThat(text(HumanText.Detail.FULL, Vocabulary.PLAIN).render(one, Optional.empty(), RUN))
+        .contains("     Tests  3 on JDK 17 · 1 worker\n");
+    assertThat(text(HumanText.Detail.FULL, Vocabulary.PLAIN).render(several, Optional.empty(), RUN))
+        .contains("     Tests  3 on JDK 17 · 4 workers (2 replaced after a timeout)\n");
+  }
+
+  @Test
   void conciseAndGroupedAreOneLinePerMiss() {
     var report = report(missed(boundary(), Map.of()));
 
@@ -283,6 +294,10 @@ class HumanTextTest {
   }
 
   private static Report report(MutantResult... results) {
+    return report(1, 1, results);
+  }
+
+  private static Report report(int workers, int started, MutantResult... results) {
     return new Report(
         "sample",
         17,
@@ -290,8 +305,8 @@ class HumanTextTest {
         3,
         List.of(),
         Duration.ofMillis(200),
-        1,
-        1,
+        workers,
+        started,
         Duration.ofMillis(400));
   }
 }
