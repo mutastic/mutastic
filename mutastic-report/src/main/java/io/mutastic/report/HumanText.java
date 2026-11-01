@@ -589,13 +589,7 @@ public final class HumanText {
     var rows = new LinkedHashMap<String, String>();
     rows.put("Classes", classesRow(report));
     rows.put("Mutants", mutantsRow(report));
-    var worst = worstMethods(report);
-    if (!worst.isEmpty()) {
-      rows.put("Worst at", worst);
-    }
-    if (!report.flaky().isEmpty()) {
-      rows.put("Flaky", flakyRow(report));
-    }
+    putWhenThere(rows, report);
     rows.put("Test runs", testRunsRow(report));
     rows.put("Start at", run.startedAt().format(DateTimeFormatter.ofPattern("HH:mm:ss")));
     rows.put("Duration", durationRow(report, run));
@@ -607,6 +601,21 @@ public final class HumanText {
       rows.put("Score", scoreRow(report, comparison));
     }
     return rows;
+  }
+
+  /// The rows only some runs have: an audit, where the misses are, flaky tests.
+  private void putWhenThere(Map<String, String> rows, Report report) {
+    var audit = AridAudit.of(report);
+    if (audit.happened()) {
+      rows.put("Arid audit", audit.summary());
+    }
+    var worst = worstMethods(report);
+    if (!worst.isEmpty()) {
+      rows.put("Worst at", worst);
+    }
+    if (!report.flaky().isEmpty()) {
+      rows.put("Flaky", flakyRow(report));
+    }
   }
 
   /// Each row, its label right-aligned to the longest.

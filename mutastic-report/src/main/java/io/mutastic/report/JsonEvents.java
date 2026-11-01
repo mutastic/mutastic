@@ -143,8 +143,23 @@ public final class JsonEvents {
     fields.put("likelyFlaky", Suspects.json(comparison, report));
     fields.put("unrelatedCatches", unrelatedCatches(report));
     fields.put("reports", reports);
+    putAudit(fields, AridAudit.of(report));
     fields.put("durationMs", report.took().toMillis());
     emit("run-finished", fields);
+  }
+
+  /// An audit of the arid filters, when the run was one.
+  private static void putAudit(Map<String, Object> fields, AridAudit audit) {
+    if (audit.happened()) {
+      var found = new LinkedHashMap<String, Object>();
+      found.put("ran", audit.ran());
+      found.put("caught", audit.caught());
+      found.put("caughtByAssertion", audit.byAssertion());
+      found.put("missed", audit.missed());
+      found.put("notCovered", audit.notCovered());
+      found.put("checkedIn", audit.caughtIn());
+      fields.put("aridAudit", found);
+    }
   }
 
   /// The score, the threshold, and whether the run passed.

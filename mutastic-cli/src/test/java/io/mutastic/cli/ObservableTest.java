@@ -30,4 +30,25 @@ class ObservableTest {
             "\"status\":\"Survived\"[^\\n]*\"method\":\"setEmail\\(Ljava/lang/String;\\)V\"[^\\n]*"
                 + "firePropertyChange");
   }
+
+  /// An audit runs what the arid filters skip: here the getters. The two the tests read back are
+  /// caught, and no test calls the third. Nothing else about the run changes.
+  @Test
+  void anAuditRunsTheAridMutantsAndSaysWhatHappened() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("observable"));
+
+    var run =
+        Samples.mutastic(
+            java.util.Map.of("MUTASTIC_ARID", "audit"),
+            "run",
+            project.toString(),
+            "--format=brief",
+            "--report=none");
+
+    assertThat(run.out())
+        .contains(
+            "Arid audit  3 ran anyway: 2 caught (2 by an assertion), 0 missed, 1 not covered;"
+                + " checked in Person.getName(), Person.getEmail()")
+        .contains("3 skipped (3 arid)");
+  }
 }

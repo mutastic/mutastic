@@ -93,8 +93,15 @@ public final class Engine {
   /// @param workers how many worker JVMs run mutants side by side
   /// @param suggestions look for a test that catches each missed mutant, by calling its method with
   ///   candidate inputs, today and with the mutant: user code runs outside its tests
+  ///
+  /// @param auditArid run the mutants the arid filters skip anyway, and report what happened to
+  ///   them apart: what the filters hide, and whether any of it was caught
   public record Options(
-      Optional<String> only, boolean confirmCatches, int workers, boolean suggestions) {
+      Optional<String> only,
+      boolean confirmCatches,
+      int workers,
+      boolean suggestions,
+      boolean auditArid) {
     public Options {
       if (workers < 1) {
         throw new IllegalArgumentException("workers must be at least 1, not " + workers);
@@ -122,7 +129,8 @@ public final class Engine {
           pass.took(),
           workers.size(),
           workers.stream().mapToInt(TestWorker::started).sum(),
-          Duration.ofNanos(System.nanoTime() - start));
+          Duration.ofNanos(System.nanoTime() - start),
+          inOrderFound(plan.mutantRun().audited(), mutants));
     } finally {
       workers.forEach(TestWorker::close);
     }
@@ -138,11 +146,19 @@ public final class Engine {
     var context = contextFor(project);
     var mutations = new Mutations(context);
     var models = classesIn(project.classes(), context);
+    mutations.prepare(models.values());
     var mutants = mutantsIn(models, mutations, options.only(), project.name());
     var coverage = new Coverage(context);
-    var instrumented = instrumentMutated(models, mutants, coverage);
+    var instrumented = instrumentMutated(models, mutants, coverage, options.auditArid());
     var mutantRun =
-        new MutantRun(models, mutations, coverage, options.confirmCatches(), options.suggestions());
+        new MutantRun(
+            models,
+            mutations,
+            coverage,
+            options.confirmCatches(),
+            options.suggestions(),
+            options.auditArid(),
+            java.util.Collections.synchronizedList(new ArrayList<>()));
     return new Plan(mutants, mutantRun, instrumented);
   }
 
@@ -172,8 +188,8 @@ public final class Engine {
   }
 
   private static Map<String, byte[]> instrumentMutated(
-      Map<String, ClassModel> models, List<Mutant> mutants, Coverage coverage) {
-    var mutated = classesToRun(mutants);
+      Map<String, ClassModel> models, List<Mutant> mutants, Coverage coverage, boolean auditArid) {
+    var mutated = classesToRun(mutants, auditArid);
     var instrumented = new LinkedHashMap<String, byte[]>();
     models.forEach(
         (name, model) -> {
@@ -185,9 +201,9 @@ public final class Engine {
   }
 
   /// The classes with a mutant that isn't skipped, by binary name.
-  private static java.util.Set<String> classesToRun(List<Mutant> mutants) {
+  private static java.util.Set<String> classesToRun(List<Mutant> mutants, boolean auditArid) {
     return mutants.stream()
-        .filter(mutant -> mutant.skipped().isEmpty())
+        .filter(mutant -> mutant.skipped().isEmpty() || (auditArid && isArid(mutant)))
         .map(Mutant::binaryName)
         .collect(Collectors.toSet());
   }
@@ -414,13 +430,35 @@ public final class Engine {
 
   /// What one mutant needs from the run, shared by every worker's thread. Applying and verifying a
   /// mutant share the ClassFile context's caches, so they take turns; only the tests run side by
-  /// side. Coverage is only read once the coverage pass is over.
+  /// side. Coverage is only read once the coverage pass is over. The results in the order their
+  /// mutants were found, whatever order they finished in.
+  private static List<MutantResult> inOrderFound(List<MutantResult> results, List<Mutant> mutants) {
+    var order = new java.util.HashMap<String, Integer>();
+    for (int at = 0; at < mutants.size(); at++) {
+      order.put(mutants.get(at).fingerprint(), at);
+    }
+    synchronized (results) {
+      return results.stream()
+          .sorted(
+              java.util.Comparator.comparing(
+                  result -> order.getOrDefault(result.mutant().fingerprint(), 0)))
+          .toList();
+    }
+  }
+
+  private static boolean isArid(Mutant mutant) {
+    return mutant.skipped().filter(reason -> reason.startsWith("arid:")).isPresent();
+  }
+
+  /// @param audited each arid mutant's result when run anyway, in an audit
   private record MutantRun(
       Map<String, ClassModel> models,
       Mutations mutations,
       Coverage coverage,
       boolean confirmCatches,
-      boolean suggestions) {
+      boolean suggestions,
+      boolean auditArid,
+      List<MutantResult> audited) {
     /// At most this many sets of arguments to try per mutant.
     static final int CANDIDATES = 400;
 
@@ -433,6 +471,9 @@ public final class Engine {
 
     Outcome run(Mutant mutant, TestWorker worker) {
       if (mutant.skipped().isPresent()) {
+        if (auditArid && isArid(mutant)) {
+          audited.add(run(mutant.unskipped(), worker).result());
+        }
         return new Outcome(MutantResult.skipped(mutant), false);
       }
       var covering = coverage.coveringTests(mutant);

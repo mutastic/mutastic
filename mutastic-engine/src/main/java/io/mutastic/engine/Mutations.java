@@ -52,8 +52,9 @@ final class Mutations {
           "org/apache/commons/logging/Log",
           "java/io/PrintStream");
 
-  /// The method-level filters, built in; the first with a reason decides.
-  private static final List<Filter> FILTERS = List.of(new TrivialAccessors());
+  /// The method-level filters, built in, most specific first; the first with a reason decides.
+  private final List<Filter> filters =
+      List.of(new AnnotatedSkips(), new TrivialAccessors(), new DebugRepresentations());
 
   private final ClassFile context;
 
@@ -79,9 +80,15 @@ final class Mutations {
     return mutants;
   }
 
+  /// Lets the filters see the whole module, before any of its mutants are found.
+  void prepare(java.util.Collection<ClassModel> module) {
+    var classes = List.copyOf(module);
+    filters.forEach(filter -> filter.prepare(classes));
+  }
+
   /// Why a filter skips the method's mutants, if one does.
-  private static Optional<String> filtered(ClassModel model, MethodModel method) {
-    return FILTERS.stream()
+  private Optional<String> filtered(ClassModel model, MethodModel method) {
+    return filters.stream()
         .map(filter -> filter.skip(model, method))
         .flatMap(Optional::stream)
         .findFirst()

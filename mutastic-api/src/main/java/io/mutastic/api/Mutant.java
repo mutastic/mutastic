@@ -91,6 +91,22 @@ public record Mutant(
         List.of());
   }
 
+  /// The same mutant, to run: for an audit of what a filter skips.
+  public Mutant unskipped() {
+    return new Mutant(
+        className,
+        methodName,
+        descriptor,
+        ordinal,
+        line,
+        operator,
+        original,
+        replacement,
+        Optional.empty(),
+        copies,
+        operands);
+  }
+
   /// Whether the change is made at `site` (counted in this mutant's kind of site).
   public boolean changes(int site) {
     return site == ordinal || copies.contains(site);

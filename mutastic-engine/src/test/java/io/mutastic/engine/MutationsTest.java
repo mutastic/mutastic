@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Operator;
 import io.mutastic.engine.fixture.Accessors;
+import io.mutastic.engine.fixture.Annotated;
+import io.mutastic.engine.fixture.Board;
 import io.mutastic.engine.fixture.Kept;
 import io.mutastic.engine.fixture.Point;
 import io.mutastic.engine.fixture.Pricing;
@@ -75,6 +77,31 @@ class MutationsTest {
         .containsEntry("getTags", "")
         .containsEntry("getCached", "")
         .containsEntry("getName", "");
+  }
+
+  @Test
+  void debugRepresentationsAndWhatOnlyServesThemAreArid() throws Exception {
+    var skips = skipsIn(Board.class);
+
+    assertThat(skips)
+        .containsEntry("toString", "arid: `toString()` is a debug representation")
+        .containsEntry("cell", "arid: `cell()` only serves `toString()`")
+        .containsEntry("lambda$toString$0", "arid: a lambda in `toString()`")
+        .containsEntry(
+            "hashCode", "arid: `hashCode()` may return any value consistent with `equals()`")
+        .containsEntry("rows", "")
+        .containsEntry("equals", "");
+  }
+
+  @Test
+  void annotationsSkipWithTheTeamsReasonOrKeep() throws Exception {
+    var skips = skipsIn(Annotated.class);
+
+    assertThat(skips)
+        .containsEntry(
+            "retries", "user: @DoNotMutate on `retries()`: measured in the load test, not here")
+        .containsEntry("generated", "generated: @Generated on `generated()`")
+        .containsEntry("toString", "");
   }
 
   @Test
@@ -324,7 +351,9 @@ class MutationsTest {
   /// Each method's skip reason ("" when its mutants run), for methods with a mutant.
   private Map<String, String> skipsIn(Class<?> type) throws Exception {
     var skips = new java.util.TreeMap<String, String>();
-    for (Mutant mutant : mutations.find(model(type))) {
+    var model = model(type);
+    mutations.prepare(List.of(model));
+    for (Mutant mutant : mutations.find(model)) {
       skips.merge(mutant.methodName(), mutant.skipped().orElse(""), (kept, ignored) -> kept);
     }
     return skips;

@@ -12,6 +12,8 @@ import java.util.OptionalDouble;
 /// @param coverage how long the coverage pass took, of `took`
 /// @param workers how many workers ran side by side
 /// @param started how many worker JVMs started: one per worker, plus one after each kill
+/// @param audited in an audit of the arid filters, each arid mutant's result when run anyway; the
+///   mutant itself is in `results` as skipped, as in any run
 public record Report(
     String project,
     int jdk,
@@ -21,11 +23,27 @@ public record Report(
     Duration coverage,
     int workers,
     int started,
-    Duration took) {
+    Duration took,
+    List<MutantResult> audited) {
 
   public Report {
     results = List.copyOf(results);
     flaky = List.copyOf(flaky);
+    audited = List.copyOf(audited);
+  }
+
+  /// A run without an audit.
+  public Report(
+      String project,
+      int jdk,
+      List<MutantResult> results,
+      int tests,
+      List<String> flaky,
+      Duration coverage,
+      int workers,
+      int started,
+      Duration took) {
+    this(project, jdk, results, tests, flaky, coverage, workers, started, took, List.of());
   }
 
   /// Workers started again after one was killed for taking too long.

@@ -52,6 +52,11 @@ record Terminal(boolean interactive, Map<String, String> env) {
     return env.getOrDefault("MUTASTIC_VOCABULARY", "plain");
   }
 
+  /// `MUTASTIC_ARID=audit`: run what the arid filters skip anyway, and say what happened to it.
+  boolean auditArid() {
+    return "audit".equals(env.get("MUTASTIC_ARID"));
+  }
+
   /// `MUTASTIC_PILLS=rounded`: label ends drawn round, for terminals with a Nerd Font.
   boolean roundedLabels() {
     return "rounded".equals(env.get("MUTASTIC_PILLS"));

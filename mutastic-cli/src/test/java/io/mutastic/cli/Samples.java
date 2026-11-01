@@ -16,6 +16,11 @@ final class Samples {
   record Result(int exit, String out, String err) {}
 
   static Result mutastic(String... args) {
+    return mutastic(java.util.Map.of(), args);
+  }
+
+  /// With `env` as the environment: `MUTASTIC_ARID=audit`, say.
+  static Result mutastic(java.util.Map<String, String> env, String... args) {
     var out = new ByteArrayOutputStream();
     var err = new ByteArrayOutputStream();
     int exit =
@@ -23,7 +28,7 @@ final class Samples {
             args,
             new PrintStream(out, true, StandardCharsets.UTF_8),
             new PrintStream(err, true, StandardCharsets.UTF_8),
-            new Terminal(false, java.util.Map.of()));
+            new Terminal(false, env));
     return new Result(
         exit, out.toString(StandardCharsets.UTF_8), err.toString(StandardCharsets.UTF_8));
   }

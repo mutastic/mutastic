@@ -115,7 +115,7 @@ public final class Main {
       progress.showFiles(results -> human.fileFinished(prepared.project().name(), results));
     }
     var engine = new Engine(workerJar(), prepared.work().resolve("worker.log"));
-    var options = options(command);
+    var options = options(command, terminal);
     if (command.verify()) {
       var report = engine.run(prepared.project(), options, progress);
       progress.finished();
@@ -203,12 +203,13 @@ public final class Main {
         sources, command.threshold(), output.style(), detail(output.format()), output.words());
   }
 
-  private static Engine.Options options(Command command) {
+  private static Engine.Options options(Command command, Terminal terminal) {
     return new Engine.Options(
         command.only(),
         command.confirmCatches(),
         command.workers().orElse(Engine.defaultWorkers()),
-        command.suggestions() && !command.verify());
+        command.suggestions() && !command.verify(),
+        terminal.auditArid());
   }
 
   /// What `verify` says of its mutant, and whether it passed.
