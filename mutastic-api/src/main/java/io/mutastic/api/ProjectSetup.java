@@ -1,0 +1,70 @@
+package io.mutastic.api;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
+
+/// The setup file a build tool's own code writes from inside the build (Gradle's init script,
+/// Maven's extension): a properties file with what the module's tests run with. One format, so
+/// every build tool reads it the same way.
+///
+/// Keys: `java`, `jvmArgs` (one per line), `workingDirectory`, and path lists joined with the
+/// platform's separator: `classes`, `resources`, `testClasses`, `testResources`, `sources`,
+/// `testSources`, `dependencies` (the test runtime classpath without the module's own directories).
+public final class ProjectSetup {
+  private ProjectSetup() {}
+
+  /// The project in `file`, named `name` in reports.
+  public static Project read(String name, Path file) throws IOException {
+    var setup = new Properties();
+    try (InputStream in = Files.newInputStream(file)) {
+      setup.load(in);
+    }
+    return new Project(
+        name,
+        Path.of(required(setup, "java")),
+        jvmArgs(setup.getProperty("jvmArgs", "")),
+        Path.of(required(setup, "workingDirectory")),
+        paths(setup.getProperty("classes")),
+        paths(setup.getProperty("resources")),
+        paths(setup.getProperty("testClasses")),
+        paths(setup.getProperty("testResources")),
+        paths(setup.getProperty("sources")),
+        paths(setup.getProperty("testSources")),
+        paths(setup.getProperty("dependencies")));
+  }
+
+  private static String required(Properties setup, String key) {
+    var value = setup.getProperty(key);
+    if (value == null) {
+      throw new IllegalStateException("the setup file has no " + key);
+    }
+    return value;
+  }
+
+  /// The tests' JVM arguments, without a JaCoCo agent: JaCoCo adds members as classes load, and a
+  /// class whose shape changed can't have mutants swapped in.
+  private static List<String> jvmArgs(String lines) {
+    return lines
+        .lines()
+        .map(String::strip)
+        .filter(
+            arg ->
+                !arg.isEmpty() && !(arg.startsWith("-javaagent:") && arg.contains("jacocoagent")))
+        .toList();
+  }
+
+  private static List<Path> paths(String joined) {
+    return joined == null || joined.isBlank()
+        ? List.of()
+        : Arrays.stream(joined.split(File.pathSeparator, -1))
+            .filter(entry -> !entry.isBlank()) // an empty entry would be the current directory
+            .map(Path::of)
+            .toList();
+  }
+}

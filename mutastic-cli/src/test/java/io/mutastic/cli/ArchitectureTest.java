@@ -77,10 +77,10 @@ class ArchitectureTest {
   static final ArchRule nothingNamesABuildTool =
       noClasses()
           .that()
-          .resideOutsideOfPackage("io.mutastic.gradle..")
+          .resideOutsideOfPackages("io.mutastic.gradle..", "io.mutastic.maven..")
           .should()
           .dependOnClassesThat()
-          .resideInAPackage("io.mutastic.gradle..");
+          .resideInAnyPackage("io.mutastic.gradle..", "io.mutastic.maven..");
 
   /// A group is read by its name: `group(2)` breaks silently when the pattern gains a group.
   @ArchTest

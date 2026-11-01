@@ -4,6 +4,7 @@ import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
@@ -19,7 +20,10 @@ final class BuildTools {
       throw new SetupFailed("there's no directory %s".formatted(directory));
     }
     var tools =
-        ServiceLoader.load(BuildTool.class).stream().map(ServiceLoader.Provider::get).toList();
+        ServiceLoader.load(BuildTool.class).stream()
+            .map(ServiceLoader.Provider::get)
+            .sorted(Comparator.comparing(BuildTool::name))
+            .toList();
     return tools.stream()
         .filter(tool -> tool.recognises(directory))
         .findFirst()

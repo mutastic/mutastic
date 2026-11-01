@@ -11,5 +11,7 @@ include(
     "mutastic-engine",
     "mutastic-report",
     "mutastic-gradle",
+    "mutastic-maven-extension",
+    "mutastic-maven",
     "mutastic-cli",
 )

@@ -2,15 +2,14 @@ package io.mutastic.gradle;
 
 import io.mutastic.api.BuildTool.SetupFailed;
 import io.mutastic.api.Project;
+import io.mutastic.api.ProjectSetup;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Properties;
 
 /// A Gradle module's setup, read by running its build with mutastic's init script: compiles the
 /// code and tests, and writes what the `test` task would use.
@@ -56,21 +55,13 @@ final class GradleSetup {
               + "):\n"
               + output);
     }
-    return project(build.directory(), module, properties(out));
+    return ProjectSetup.read(name(build.directory(), module), out);
   }
 
   private static void writeInitScript(Path init) throws IOException {
     try (InputStream script = GradleSetup.class.getResourceAsStream("mutastic.init.gradle.kts")) {
       Files.write(init, script.readAllBytes());
     }
-  }
-
-  private static Properties properties(Path file) throws IOException {
-    var properties = new Properties();
-    try (var in = Files.newInputStream(file)) {
-      properties.load(in);
-    }
-    return properties;
   }
 
   static final List<String> BUILD_FILES =
@@ -159,43 +150,10 @@ final class GradleSetup {
         task);
   }
 
-  private static Project project(Path directory, String module, Properties setup) {
-    var name =
-        directory.toAbsolutePath().normalize().getFileName()
-            + (module.equals(":") ? "" : module.replace(':', '/'));
-    return new Project(
-        name,
-        Path.of(setup.getProperty("java")),
-        jvmArgs(setup.getProperty("jvmArgs")),
-        Path.of(setup.getProperty("workingDirectory")),
-        paths(setup.getProperty("classes")),
-        paths(setup.getProperty("resources")),
-        paths(setup.getProperty("testClasses")),
-        paths(setup.getProperty("testResources")),
-        paths(setup.getProperty("sources")),
-        paths(setup.getProperty("testSources")),
-        paths(setup.getProperty("dependencies")));
-  }
-
-  /// The test task's JVM arguments, without a JaCoCo agent: JaCoCo adds members as classes load,
-  /// and a class whose shape changed can't have mutants swapped in.
-  private static List<String> jvmArgs(String lines) {
-    return lines
-        .lines()
-        .map(String::strip)
-        .filter(
-            arg ->
-                !arg.isEmpty() && !(arg.startsWith("-javaagent:") && arg.contains("jacocoagent")))
-        .toList();
-  }
-
-  private static List<Path> paths(String joined) {
-    return joined == null || joined.isBlank()
-        ? List.of()
-        : Arrays.stream(joined.split(File.pathSeparator, -1))
-            .filter(entry -> !entry.isBlank()) // an empty entry would be the current directory
-            .map(Path::of)
-            .toList();
+  /// `pricing`, or `app/data` for `:data`.
+  private static String name(Path directory, String module) {
+    return directory.toAbsolutePath().normalize().getFileName()
+        + (module.equals(":") ? "" : module.replace(':', '/'));
   }
 
   /// The project's wrapper, as its own build runs; `gradle` on the PATH without one.

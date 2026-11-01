@@ -4,7 +4,7 @@
 
 mutastic is a mutation-testing tool for Java. It makes small changes to your compiled code, such as `>=` to `>`, and runs your tests against each one. A change that no test notices is a **missed mutant**: a place where your tests run the code but don't check what it does.
 
-> **Status: early.** Five operators (boundaries, negated conditions, arithmetic, returned defaults, removed void calls), Gradle projects with JUnit Platform tests, parallel workers, suggested tests, flaky-test detection, and output for people, agents and tools (JSON, HTML and XML reports). Expect everything to change.
+> **Status: early.** Five operators (boundaries, negated conditions, arithmetic, returned defaults, removed void calls), Gradle and Maven projects with JUnit Platform tests, parallel workers, suggested tests, flaky-test detection, and output for people, agents and tools (JSON, HTML and XML reports). Expect everything to change.
 
 ## Try it
 
@@ -86,7 +86,7 @@ mutastic verify ID [dir] [:module]
 
 With `--only=<id>` the run is about one mutant, so it passes when that mutant is caught, as `verify` does, and says the mutant's fate rather than a score.
 
-The commands mutastic prints for a mutant name the project it ran on (`mutastic verify m855c8e3c samples/pricing`), so they work as copied. A mutant's id belongs to its project: run in a directory with no Java code, or one that isn't a Gradle build, mutastic says so and names the modules that have Java code.
+The commands mutastic prints for a mutant name the project it ran on (`mutastic verify m855c8e3c samples/pricing`), so they work as copied. A mutant's id belongs to its project: run in a directory with no Java code, or one that isn't a Gradle or Maven build, mutastic says so (for Gradle, it names the modules that have Java code). A Maven module is named by its directory, as `-pl` takes it: `mutastic run . :services/api`.
 
 The result goes to stdout and progress to stderr, so `mutastic run > result.txt` keeps only the result.
 
@@ -102,7 +102,7 @@ The result goes to stdout and progress to stderr, so `mutastic run > result.txt`
 
 ### Report files
 
-A full run also writes report files to `build/mutastic/` (for a module, `build/mutastic/<module>/`), by default `mutation.json` and `mutation.html`. `--report` chooses (it can be given more than once, and replaces the defaults): `--report=xml` adds `mutations.xml`, `--report=json:reports/m.json` writes somewhere else, and `--report=none` writes nothing.
+A full run also writes report files to `build/mutastic/` (for a Gradle module, `build/mutastic/<module>/`; for Maven, the module's own `target/mutastic/`), by default `mutation.json` and `mutation.html`. `--report` chooses (it can be given more than once, and replaces the defaults): `--report=xml` adds `mutations.xml`, `--report=json:reports/m.json` writes somewhere else, and `--report=none` writes nothing.
 
 - `json` follows the open mutation-testing report schema (version 2), which report viewers, dashboards and badges read.
 - `html` is that report in the schema's own viewer, embedded in the page, so it opens from disk with no network.
@@ -146,14 +146,14 @@ A test that catches mutants in several unrelated methods, each time with the sam
 
 ## How it works
 
-1. **Setup.** mutastic runs your Gradle build with an init script, which compiles the code and tests and records what the `test` task would use: its JDK, JVM arguments, working directory and classpath. Your build files are not changed.
+1. **Setup.** mutastic runs your build with its own code loaded, which compiles the code and tests and records what the tests would run with: their JDK, JVM arguments, working directory and classpath. For Gradle that's an init script reading the `test` task; for Maven, an extension (`-Dmaven.ext.class.path`) reading Surefire's settings after `mvn test-compile`. Your build files are not changed.
 2. **Mutants.** The engine reads your class files with the JDK's ClassFile API (`java.lang.classfile`, final in JDK 24) and finds every mutation site.
 3. **Coverage.** A test worker starts on your project's JDK and runs every test once, with each line instrumented. This records which tests reach which lines, and doubles as a check that the tests pass.
 4. **Mutants, side by side.** For each mutant, the engine sends the changed class to a worker. The worker runs only the tests that reach that line, fastest first, and stops at the first failure. Classes load once per worker and each mutant is swapped in with class redefinition, so nothing is restarted between mutants. A worker that takes too long is killed and replaced: a mutant can turn a loop into one that never ends.
 
    Several workers run at once (`--workers`, by default half the cores, at most 4), each its own JVM, as Gradle's parallel test forks are. Results are reported in source order whatever order they finish in. Workers side by side can get in each other's way: tests that use a fixed port collide, and tests that share a lock, a database or a slow start (a Spring context) run slower than they did alone. So neither a catch caused by a port in use nor a timeout is trusted: that mutant runs again on its own once the others are done.
 
-Code is in six modules:
+Code is in eight modules:
 
 | Module | JDK | What it does |
 |---|---|---|
@@ -162,6 +162,8 @@ Code is in six modules:
 | `mutastic-worker` | 17 | Runs your tests on your JDK; a Java agent for swapping classes |
 | `mutastic-report` | 25 | The formats: for people, for agents, JSON Lines, and the report files |
 | `mutastic-gradle` | 25 | Reads a Gradle build's setup, with an init script; a `BuildTool` |
+| `mutastic-maven` | 25 | Reads a Maven build's setup, with the extension; a `BuildTool` |
+| `mutastic-maven-extension` | 17 | Runs inside your Maven build and writes what Surefire would run |
 | `mutastic-cli` | 25 | The `mutastic` command: finds the build tool, runs the engine, picks the format |
 
 ## Building

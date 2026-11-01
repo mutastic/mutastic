@@ -79,7 +79,7 @@ class RunningElsewhereTest {
   }
 
   @Test
-  void aDirectoryThatIsNotAGradleBuildSaysSoAndIsLeftAlone() throws Exception {
+  void aDirectoryThatIsNotABuildSaysSoAndIsLeftAlone() throws Exception {
     var empty = Files.createDirectories(work.resolve("not-a-build"));
 
     var run = Samples.mutastic("run", "--only=" + ID, empty.toString());
@@ -87,7 +87,8 @@ class RunningElsewhereTest {
     assertThat(run.exit()).isEqualTo(Main.USAGE);
     assertThat(run.err())
         .contains(
-            empty + " isn't a Gradle build",
+            empty
+                + " isn't a Gradle or Maven build: it has no settings.gradle(.kts) or build.gradle(.kts) or pom.xml",
             "mutastic run --only=<id> <project directory> [:module]",
             "A mutant's id belongs to the project its run was on.");
     try (var files = Files.list(empty)) {
