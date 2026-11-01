@@ -3,6 +3,7 @@ package io.mutastic.engine;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.engine.fixture.Pricing;
+import io.mutastic.engine.fixture.Window;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.util.List;
@@ -37,6 +38,15 @@ class MutationsTest {
     // longs compare with LCMP first: the operands are what went into it.
     assertThat(only("overdue", Operator.BOUNDARY).operands()).containsExactly("days", "30");
     assertThat(only("total", Operator.MATH).operands()).containsExactly("price", "quantity");
+  }
+
+  @Test
+  void readsFieldsAndUnboxedValuesAsTheSourceNamesThem() throws Exception {
+    assertThat(operandsIn(Window.class, "after", Operator.BOUNDARY))
+        .containsExactly("start", "day");
+    assertThat(operandsIn(Window.class, "before", Operator.BOUNDARY)).containsExactly("day", "end");
+    assertThat(operandsIn(Window.class, "state", Operator.NEGATE_CONDITIONAL))
+        .containsExactly("open");
   }
 
   @Test
@@ -269,6 +279,15 @@ class MutationsTest {
     return mutations.find(model(Pricing.class)).stream()
         .filter(mutant -> mutant.methodName().equals(method))
         .toList();
+  }
+
+  private List<String> operandsIn(Class<?> type, String method, Operator operator)
+      throws Exception {
+    return mutations.find(model(type)).stream()
+        .filter(mutant -> mutant.methodName().equals(method) && mutant.operator() == operator)
+        .findFirst()
+        .orElseThrow()
+        .operands();
   }
 
   private Mutant only(String method, Operator operator) throws Exception {

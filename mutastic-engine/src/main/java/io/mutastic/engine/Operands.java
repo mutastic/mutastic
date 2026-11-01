@@ -7,6 +7,7 @@ import java.lang.classfile.Opcode;
 import java.lang.classfile.instruction.BranchInstruction;
 import java.lang.classfile.instruction.ConstantInstruction;
 import java.lang.classfile.instruction.ConvertInstruction;
+import java.lang.classfile.instruction.FieldInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.LoadInstruction;
 import java.lang.classfile.instruction.NewReferenceArrayInstruction;
@@ -14,6 +15,7 @@ import java.lang.classfile.instruction.OperatorInstruction;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /// What a comparison or calculation works on, as the source names it: `total` and `100` in `total
@@ -25,6 +27,17 @@ import org.jspecify.annotations.Nullable;
 /// target isn't the only way in, so it doesn't count.
 final class Operands {
   private record Local(int slot, String name, int from, int to) {}
+
+  private static final Set<String> BOXES =
+      Set.of(
+          "java/lang/Integer",
+          "java/lang/Long",
+          "java/lang/Short",
+          "java/lang/Byte",
+          "java/lang/Character",
+          "java/lang/Boolean",
+          "java/lang/Float",
+          "java/lang/Double");
 
   /// One value on the stack and where its instructions start; `start` is -1 when unknown.
   private record Operand(String text, int start, boolean predicate) {}
@@ -115,6 +128,10 @@ final class Operands {
           new Operand(literal(constant.constantValue()), end - 1, false);
       // `price * quantity` with a long and an int: javac widens `quantity` first. Still `quantity`.
       case ConvertInstruction _ -> endingAt(before, end - 1);
+      case FieldInstruction field when field.opcode() == Opcode.GETFIELD ->
+          field(before, end, field);
+      // `start <= day` with an `Integer start`: javac unboxes with `intValue()`. Still `start`.
+      case InvokeInstruction call when isUnboxing(call) -> unboxed(before, end, call);
       case InvokeInstruction call -> call(before, end, call);
       // An empty varargs array (`Files.isRegularFile(git)` passes `new LinkOption[0]`): no
       // argument.
@@ -125,6 +142,32 @@ final class Operands {
           new Operand("", end - 2, false);
       default -> null;
     };
+  }
+
+  /// `end` for a field of `this`, as the source usually writes it; `window.end` for another's.
+  private @Nullable Operand field(List<Instruction> before, int end, FieldInstruction field) {
+    var owner = endingAt(before, end - 1);
+    if (owner == null || owner.start() < 0) {
+      return null;
+    }
+    var name = field.name().stringValue();
+    return new Operand(
+        owner.text().equals("this") ? name : owner.text() + "." + name, owner.start(), false);
+  }
+
+  private @Nullable Operand unboxed(List<Instruction> before, int end, InvokeInstruction call) {
+    var boxed = endingAt(before, end - 1);
+    return boxed == null
+        ? null
+        : new Operand(boxed.text(), boxed.start(), call.name().equalsString("booleanValue"));
+  }
+
+  /// `Integer.intValue()` and the like: a call javac adds, not one the source makes.
+  private static boolean isUnboxing(InvokeInstruction call) {
+    return call.opcode() == Opcode.INVOKEVIRTUAL
+        && BOXES.contains(call.owner().asInternalName())
+        && call.name().stringValue().endsWith("Value")
+        && call.typeSymbol().parameterCount() == 0;
   }
 
   /// `Files.isRegularFile(git)`, `head.startsWith("ref: ")`, or `startsWith(…)` when its arguments
