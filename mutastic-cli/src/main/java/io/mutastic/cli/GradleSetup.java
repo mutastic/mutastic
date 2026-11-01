@@ -28,6 +28,22 @@ final class GradleSetup {
   /// `module` is a Gradle project path, `:` for the root project; `typed` is the directory as the
   /// person would type it, for the commands a failure suggests.
   static Project read(Path directory, String module, Path workDirectory, String typed) {
+    requireGradleBuild(directory);
+    var build = new Build(directory, workDirectory.resolve("mutastic.init.gradle.kts"));
+    try {
+      return setUp(build, module, workDirectory, typed);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("interrupted while Gradle ran", e);
+    }
+  }
+
+  /// A build to run, and mutastic's init script to run it with.
+  private record Build(Path directory, Path init) {}
+
+  private static void requireGradleBuild(Path directory) {
     if (!Files.isDirectory(directory)) {
       throw new SetupFailed("there's no directory %s".formatted(directory));
     }
@@ -41,36 +57,45 @@ final class GradleSetup {
           %s"""
               .formatted(directory, ID_HINT));
     }
-    var init = workDirectory.resolve("mutastic.init.gradle.kts");
+  }
+
+  /// Runs the module's `mutasticSetup` task and reads the project from what it wrote.
+  private static Project setUp(Build build, String module, Path workDirectory, String typed)
+      throws IOException, InterruptedException {
     var out = workDirectory.resolve("setup.properties");
-    try {
-      Files.createDirectories(workDirectory);
-      try (InputStream script = GradleSetup.class.getResourceAsStream("mutastic.init.gradle.kts")) {
-        Files.write(init, script.readAllBytes());
+    Files.createDirectories(workDirectory);
+    writeInitScript(build.init());
+    Files.deleteIfExists(out);
+    var log = workDirectory.resolve("gradle.log");
+    int exit = gradle(build, out, log, (module.equals(":") ? "" : module) + ":mutasticSetup");
+    if (exit != 0 || !Files.exists(out)) {
+      var output = Files.readString(log).strip();
+      if (output.contains("'mutasticSetup' not found")) {
+        throw new SetupFailed(noJava(build, module, workDirectory, typed));
       }
-      Files.deleteIfExists(out);
-      var log = workDirectory.resolve("gradle.log");
-      int exit =
-          gradle(directory, init, out, log, (module.equals(":") ? "" : module) + ":mutasticSetup");
-      if (exit != 0 || !Files.exists(out)) {
-        var output = Files.readString(log).strip();
-        if (output.contains("'mutasticSetup' not found")) {
-          throw new SetupFailed(noJava(directory, module, workDirectory, init, typed));
-        }
-        throw new SetupFailed(
-            "Gradle couldn't build " + directory + " for mutastic (exit " + exit + "):\n" + output);
-      }
-      var setup = new Properties();
-      try (var in = Files.newInputStream(out)) {
-        setup.load(in);
-      }
-      return project(directory, module, setup);
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IllegalStateException("interrupted while Gradle ran", e);
+      throw new SetupFailed(
+          "Gradle couldn't build "
+              + build.directory()
+              + " for mutastic (exit "
+              + exit
+              + "):\n"
+              + output);
     }
+    return project(build.directory(), module, properties(out));
+  }
+
+  private static void writeInitScript(Path init) throws IOException {
+    try (InputStream script = GradleSetup.class.getResourceAsStream("mutastic.init.gradle.kts")) {
+      Files.write(init, script.readAllBytes());
+    }
+  }
+
+  private static Properties properties(Path file) throws IOException {
+    var properties = new Properties();
+    try (var in = Files.newInputStream(file)) {
+      properties.load(in);
+    }
+    return properties;
   }
 
   /// For someone who ran a command that names a mutant from somewhere else.
@@ -82,27 +107,35 @@ final class GradleSetup {
       List.of("settings.gradle.kts", "settings.gradle", "build.gradle.kts", "build.gradle");
 
   /// The module asked for has no Java code: say so, and name the modules that have some.
-  private static String noJava(
-      Path directory, String module, Path workDirectory, Path init, String typed)
+  private static String noJava(Build build, String module, Path workDirectory, String typed)
       throws IOException, InterruptedException {
-    var listed = workDirectory.resolve("java-modules.txt");
-    Files.deleteIfExists(listed);
-    gradle(
-        directory, init, listed, workDirectory.resolve("gradle-modules.log"), ":mutasticModules");
-    var modules =
-        Files.exists(listed)
-            ? Files.readAllLines(listed).stream().filter(line -> !line.isBlank()).toList()
-            : List.<String>of();
+    var modules = javaModules(build, workDirectory);
     var where =
         module.equals(":")
-            ? "the root project of " + directory
-            : "module %s of %s".formatted(module, directory);
+            ? "the root project of " + build.directory()
+            : "module %s of %s".formatted(module, build.directory());
     if (modules.isEmpty()) {
       return "%s has no Java code for mutastic to test, and no module of it has.%n".formatted(where)
           + "Run mutastic on the project with your Java code and tests:\n"
           + "  mutastic run <project directory> [:module]\n"
           + ID_HINT;
     }
+    return javaElsewhere(where, modules, typed);
+  }
+
+  /// The build's modules with Java code, as its `mutasticModules` task lists them.
+  private static List<String> javaModules(Build build, Path workDirectory)
+      throws IOException, InterruptedException {
+    var listed = workDirectory.resolve("java-modules.txt");
+    Files.deleteIfExists(listed);
+    gradle(build, listed, workDirectory.resolve("gradle-modules.log"), ":mutasticModules");
+    return Files.exists(listed)
+        ? Files.readAllLines(listed).stream().filter(line -> !line.isBlank()).toList()
+        : List.<String>of();
+  }
+
+  /// `where` has no Java code but `modules` have: the commands to run on them instead.
+  private static String javaElsewhere(String where, List<String> modules, String typed) {
     var on = typed.isEmpty() ? "" : " " + typed;
     var suggestions =
         modules.stream()
@@ -119,20 +152,12 @@ final class GradleSetup {
   }
 
   /// Runs the build's own Gradle with mutastic's init script; its output goes to `log`.
-  private static int gradle(Path directory, Path init, Path out, Path log, String task)
+  private static int gradle(Build build, Path out, Path log, String task)
       throws IOException, InterruptedException {
-    var command =
-        List.of(
-            gradle(directory),
-            "-q",
-            "--no-configuration-cache",
-            "-I",
-            init.toString(),
-            "-PmutasticOut=" + out,
-            task);
+    var command = gradleCommand(build, out, task);
     try {
       return new ProcessBuilder(command)
-          .directory(directory.toFile())
+          .directory(build.directory().toFile())
           .redirectOutput(log.toFile())
           .redirectErrorStream(true)
           .start()
@@ -141,10 +166,21 @@ final class GradleSetup {
       if (command.getFirst().equals("gradle")) {
         throw new SetupFailed(
             "%s has no Gradle wrapper (gradlew), and there's no `gradle` to run instead"
-                .formatted(directory));
+                .formatted(build.directory()));
       }
       throw e;
     }
+  }
+
+  private static List<String> gradleCommand(Build build, Path out, String task) {
+    return List.of(
+        gradle(build.directory()),
+        "-q",
+        "--no-configuration-cache",
+        "-I",
+        build.init().toString(),
+        "-PmutasticOut=" + out,
+        task);
   }
 
   private static Project project(Path directory, String module, Properties setup) {
