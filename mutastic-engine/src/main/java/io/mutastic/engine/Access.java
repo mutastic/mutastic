@@ -38,6 +38,11 @@ final class Access {
     if (noArguments.isPresent()) {
       return Optional.of("()V");
     }
+    return wholeNumberConstructor(model, samePackage);
+  }
+
+  /// The reachable constructor with the fewest parameters, all of them whole numbers.
+  private static Optional<String> wholeNumberConstructor(ClassModel model, boolean samePackage) {
     return model.methods().stream()
         .filter(constructor -> constructor.methodName().equalsString("<init>"))
         .filter(constructor -> reachable(constructor.flags().flags(), samePackage))

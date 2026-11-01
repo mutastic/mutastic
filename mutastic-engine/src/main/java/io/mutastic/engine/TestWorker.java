@@ -16,9 +16,11 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
@@ -56,32 +58,14 @@ final class TestWorker implements AutoCloseable {
     instrumented.forEach(this::stage);
     send("COVER\t" + String.join("\t", testClasses));
     while (true) {
-      var answer =
-          await(COVERAGE_LIMIT)
-              .orElseThrow(
-                  () -> {
-                    kill();
-                    return new IllegalStateException(
-                        "the tests didn't finish within "
-                            + COVERAGE_LIMIT.toMinutes()
-                            + " minutes");
-                  });
+      var answer = coverageAnswer();
       var parts = answer.split("\t", -1);
       switch (parts[0]) {
         case "TEST" -> coverage.recordTest(parts[1], Duration.ofNanos(Long.parseLong(parts[2])));
-        case "LINE" ->
-            coverage.recordLines(
-                parts[1],
-                Arrays.stream(parts[2].split(",", -1))
-                    .map(Integer::valueOf)
-                    .collect(Collectors.toSet()));
+        case "LINE" -> coverage.recordLines(parts[1], commaSeparated(parts[2], Integer::valueOf));
         case "VALUE" ->
             coverage.recordValues(
-                parts[1],
-                Integer.parseInt(parts[2]),
-                Arrays.stream(parts[3].split(",", -1))
-                    .map(Long::valueOf)
-                    .collect(Collectors.toSet()));
+                parts[1], Integer.parseInt(parts[2]), commaSeparated(parts[3], Long::valueOf));
         case "DONE" -> {
           return new Baseline(
               parts[1].equals("PASSED"),
@@ -90,6 +74,22 @@ final class TestWorker implements AutoCloseable {
         default -> throw new IllegalStateException("the worker said: " + answer);
       }
     }
+  }
+
+  /// The worker's next answer in the coverage pass. A pass that outlasts its limit kills the
+  /// worker.
+  private String coverageAnswer() {
+    return await(COVERAGE_LIMIT)
+        .orElseThrow(
+            () -> {
+              kill();
+              return new IllegalStateException(
+                  "the tests didn't finish within " + COVERAGE_LIMIT.toMinutes() + " minutes");
+            });
+  }
+
+  private static <T> Set<T> commaSeparated(String values, Function<String, T> parse) {
+    return Arrays.stream(values.split(",", -1)).map(parse).collect(Collectors.toSet());
   }
 
   /// The outcome of `tests`, run in order until one fails, with `bytes` in place of `className`.
@@ -140,24 +140,7 @@ final class TestWorker implements AutoCloseable {
   /// replaced.
   Optional<String[]> suggest(
       Mutant mutant, String receiver, byte[] bytes, List<List<Long>> candidates) {
-    var encoded =
-        candidates.stream()
-            .map(
-                inputs ->
-                    inputs.isEmpty()
-                        ? "-"
-                        : inputs.stream().map(String::valueOf).collect(Collectors.joining(";")))
-            .collect(Collectors.joining("|"));
-    send(
-        String.join(
-            "\t",
-            "SUGGEST",
-            mutant.binaryName(),
-            mutant.methodName(),
-            mutant.descriptor(),
-            Base64.getEncoder().encodeToString(bytes),
-            encoded,
-            receiver));
+    send(suggestCommand(mutant, receiver, bytes, candidates));
     var answer = await(Duration.ofSeconds(10));
     if (answer.isEmpty()) {
       kill();
@@ -173,6 +156,30 @@ final class TestWorker implements AutoCloseable {
     return parts[1].equals("-")
         ? Optional.empty()
         : Optional.of(new String[] {parts[1], parts[2], parts[3]});
+  }
+
+  private static String suggestCommand(
+      Mutant mutant, String receiver, byte[] bytes, List<List<Long>> candidates) {
+    return String.join(
+        "\t",
+        "SUGGEST",
+        mutant.binaryName(),
+        mutant.methodName(),
+        mutant.descriptor(),
+        Base64.getEncoder().encodeToString(bytes),
+        encoded(candidates),
+        receiver);
+  }
+
+  /// `1;2|-|3`: each candidate's values joined by `;`, `-` for none, and the candidates by `|`.
+  private static String encoded(List<List<Long>> candidates) {
+    return candidates.stream()
+        .map(
+            inputs ->
+                inputs.isEmpty()
+                    ? "-"
+                    : inputs.stream().map(String::valueOf).collect(Collectors.joining(";")))
+        .collect(Collectors.joining("|"));
   }
 
   /// Whether `test` passes on its own with no mutant in, within `timeout`.
@@ -261,6 +268,30 @@ final class TestWorker implements AutoCloseable {
   }
 
   private Running start() {
+    var process = launch(command());
+    // However the engine exits, its workers go too.
+    var shutdownHook = new Thread(process::destroyForcibly);
+    Runtime.getRuntime().addShutdownHook(shutdownHook);
+    var queue = new LinkedBlockingQueue<String>();
+    var started =
+        new Running(
+            process, new PrintStream(process.getOutputStream(), false, UTF_8), queue, shutdownHook);
+    running = started;
+    forwardAnswers(process, queue);
+    var ready =
+        await(STARTUP)
+            .filter(line -> line.startsWith("READY\t"))
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "the test worker didn't start; its output is in " + log));
+    jdk = Integer.parseInt(ready.substring("READY\t".length()));
+    workersStarted++;
+    return started;
+  }
+
+  /// The worker's command line: the project's own JDK and JVM arguments, with the worker as agent.
+  private List<String> command() {
     var command = new ArrayList<String>();
     command.add(project.java().toString());
     command.addAll(project.jvmArgs());
@@ -276,24 +307,22 @@ final class TestWorker implements AutoCloseable {
                 + join(
                     Stream.concat(
                         project.testClasses().stream(), project.testResources().stream()))));
-    Process process;
+    return command;
+  }
+
+  private Process launch(List<String> command) {
     try {
-      process =
-          new ProcessBuilder(command)
-              .directory(project.workingDirectory().toFile())
-              .redirectError(ProcessBuilder.Redirect.appendTo(log.toFile()))
-              .start();
+      return new ProcessBuilder(command)
+          .directory(project.workingDirectory().toFile())
+          .redirectError(ProcessBuilder.Redirect.appendTo(log.toFile()))
+          .start();
     } catch (IOException e) {
       throw new UncheckedIOException("couldn't start " + project.java(), e);
     }
-    // However the engine exits, its workers go too.
-    var shutdownHook = new Thread(process::destroyForcibly);
-    Runtime.getRuntime().addShutdownHook(shutdownHook);
-    var queue = new LinkedBlockingQueue<String>();
-    var started =
-        new Running(
-            process, new PrintStream(process.getOutputStream(), false, UTF_8), queue, shutdownHook);
-    running = started;
+  }
+
+  /// Every line the worker writes goes on `queue`, read on a thread of its own.
+  private static void forwardAnswers(Process process, BlockingQueue<String> queue) {
     var reader = new BufferedReader(new InputStreamReader(process.getInputStream(), UTF_8));
     Thread.ofVirtual()
         .start(
@@ -306,16 +335,6 @@ final class TestWorker implements AutoCloseable {
                 // the worker was killed; whatever it was saying no longer matters
               }
             });
-    var ready =
-        await(STARTUP)
-            .filter(line -> line.startsWith("READY\t"))
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "the test worker didn't start; its output is in " + log));
-    jdk = Integer.parseInt(ready.substring("READY\t".length()));
-    workersStarted++;
-    return started;
   }
 
   private static String join(Stream<Path> paths) {

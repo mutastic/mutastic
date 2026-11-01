@@ -70,19 +70,7 @@ final class Operands {
     if (afterCompare) {
       before = before.subList(0, before.size() - 1);
     }
-    int wanted =
-        switch (instruction) {
-          case BranchInstruction branch when branch.opcode().name().startsWith("IF_ICMP") -> 2;
-          case BranchInstruction _ when afterCompare -> 2;
-          case BranchInstruction branch
-              when branch.opcode() == Opcode.IFNULL || branch.opcode() == Opcode.IFNONNULL ->
-              0;
-          case BranchInstruction branch when branch.opcode().name().startsWith("IF_ACMP") -> 0;
-          case BranchInstruction branch when branch.opcode() == Opcode.GOTO -> 0;
-          case BranchInstruction _ -> 1; // compares with zero
-          case OperatorInstruction _ -> 2;
-          default -> 0;
-        };
+    int wanted = operandCount(instruction, afterCompare);
     var names = new ArrayList<String>();
     int end = before.size();
     boolean predicate = false;
@@ -99,6 +87,22 @@ final class Operands {
       names.add("0");
     }
     return names;
+  }
+
+  /// How many values on the stack `instruction` works on, of the ones its operands can name.
+  private static int operandCount(Instruction instruction, boolean afterCompare) {
+    return switch (instruction) {
+      case BranchInstruction branch when branch.opcode().name().startsWith("IF_ICMP") -> 2;
+      case BranchInstruction _ when afterCompare -> 2;
+      case BranchInstruction branch
+          when branch.opcode() == Opcode.IFNULL || branch.opcode() == Opcode.IFNONNULL ->
+          0;
+      case BranchInstruction branch when branch.opcode().name().startsWith("IF_ACMP") -> 0;
+      case BranchInstruction branch when branch.opcode() == Opcode.GOTO -> 0;
+      case BranchInstruction _ -> 1; // compares with zero
+      case OperatorInstruction _ -> 2;
+      default -> 0;
+    };
   }
 
   private @Nullable Operand endingAt(List<Instruction> before, int end) {

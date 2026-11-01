@@ -77,12 +77,7 @@ public record RunRecord(String code, String tool, double score, Map<String, Entr
           case "code" -> code = parts[1];
           case "tool" -> tool = parts[1];
           case "score" -> score = Double.parseDouble(parts[1]);
-          default ->
-              results.put(
-                  parts[0],
-                  new Entry(
-                      Status.valueOf(parts[1]),
-                      parts[2].equals("-") ? Optional.empty() : Optional.of(parts[2])));
+          default -> results.put(parts[0], entry(parts));
         }
       }
       return code == null
@@ -91,6 +86,12 @@ public record RunRecord(String code, String tool, double score, Map<String, Entr
     } catch (IOException | RuntimeException e) {
       return Optional.empty(); // an unreadable record is no record: the next run writes a new one
     }
+  }
+
+  /// A result from its line: the status, then the test that caught it, `-` for none.
+  private static Entry entry(String[] parts) {
+    return new Entry(
+        Status.valueOf(parts[1]), parts[2].equals("-") ? Optional.empty() : Optional.of(parts[2]));
   }
 
   public void write(Path file) {

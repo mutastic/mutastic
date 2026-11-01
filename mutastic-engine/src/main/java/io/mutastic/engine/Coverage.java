@@ -167,15 +167,7 @@ final class Coverage {
     return new CodeTransform() {
       @Override
       public void atStart(CodeBuilder builder) {
-        for (int[] parameter : recorded) { // {id, slot, 1 if long}
-          builder.loadConstant(parameter[0]);
-          if (parameter[2] == 1) {
-            builder.lload(parameter[1]);
-          } else {
-            builder.iload(parameter[1]).i2l();
-          }
-          builder.invokestatic(probes, "value", VALUE);
-        }
+        passParameterValues(builder, recorded);
       }
 
       @Override
@@ -187,6 +179,19 @@ final class Coverage {
         }
       }
     };
+  }
+
+  /// Passes each recorded parameter's value to the probes, widened to a `long`.
+  private void passParameterValues(CodeBuilder builder, List<int[]> recorded) {
+    for (int[] parameter : recorded) { // {id, slot, 1 if long}
+      builder.loadConstant(parameter[0]);
+      if (parameter[2] == 1) {
+        builder.lload(parameter[1]);
+      } else {
+        builder.iload(parameter[1]).i2l();
+      }
+      builder.invokestatic(probes, "value", VALUE);
+    }
   }
 
   /// The method's `int`, `long`, `short`, `byte` and `char` parameters, each as {id, slot, 1 if

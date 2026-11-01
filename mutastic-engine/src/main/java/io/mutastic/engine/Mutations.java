@@ -62,8 +62,7 @@ final class Mutations {
             .code()
             .ifPresent(
                 code -> {
-                  var found = new ArrayList<Mutant>();
-                  findIn(model, method, code.elementList(), found);
+                  var found = new MethodScan(model, method, code.elementList()).mutants();
                   mutants.addAll(mergeFinallyCopies(found, code));
                 });
       }
@@ -71,60 +70,101 @@ final class Mutations {
     return mutants;
   }
 
-  private static void findIn(
-      ClassModel model, MethodModel method, List<CodeElement> code, List<Mutant> mutants) {
-    var tryWithResources = tryWithResources(code);
-    var operands = method.code().map(Operands::new).orElseThrow();
-    var stringSwitchLines = new HashSet<Integer>();
-    int line = -1;
-    int ordinal = 0;
-    int callOrdinal = 0;
-    Instruction previous = null;
-    for (CodeElement element : code) {
-      switch (element) {
-        case LineNumber lineNumber -> line = lineNumber.line();
-        case LabelTarget _ -> {
-          previous = null; // a jump lands here: the instruction before isn't the only way in
-          operands.jumpTarget();
-        }
-        case Instruction instruction -> {
-          var workedOn = operands.of(instruction);
-          if (isSwitch(instruction) && isCall(previous, "java/lang/String", "hashCode")) {
-            stringSwitchLines.add(line); // javac's switch on a String: hashCode, then equals
+  /// Walks one method's code in order, counting its sites and finding the mutants at each.
+  private static final class MethodScan {
+    private final ClassModel model;
+    private final MethodModel method;
+    private final List<CodeElement> code;
+    private final Set<Instruction> tryWithResources;
+    private final Operands operands;
+    private final Set<Integer> stringSwitchLines = new HashSet<>();
+    private final List<Mutant> mutants = new ArrayList<>();
+    private int line = -1;
+    private int ordinal;
+    private int callOrdinal;
+    private @Nullable Instruction previous;
+
+    MethodScan(ClassModel model, MethodModel method, List<CodeElement> code) {
+      this.model = model;
+      this.method = method;
+      this.code = code;
+      this.tryWithResources = tryWithResources(code);
+      this.operands = method.code().map(Operands::new).orElseThrow();
+    }
+
+    List<Mutant> mutants() {
+      for (CodeElement element : code) {
+        switch (element) {
+          case LineNumber lineNumber -> line = lineNumber.line();
+          case LabelTarget _ -> {
+            previous = null; // a jump lands here: the instruction before isn't the only way in
+            operands.jumpTarget();
           }
-          if (isSite(instruction) || instruction instanceof InvokeInstruction) {
-            boolean call = instruction instanceof InvokeInstruction;
-            for (Operator operator : Operator.values()) {
-              if (operator.onCalls() == call && operator.applies(instruction)) {
-                var skipped =
-                    tryWithResources.contains(instruction)
-                        ? Optional.of("generated: closes a try-with-resources resource")
-                        : skipReason(operator, instruction, previous, line, stringSwitchLines);
-                mutants.add(
-                    new Mutant(
-                        model.thisClass().asInternalName(),
-                        method.methodName().stringValue(),
-                        method.methodType().stringValue(),
-                        call ? callOrdinal : ordinal,
-                        line,
-                        operator,
-                        describe(instruction),
-                        operator.replacement(instruction),
-                        skipped,
-                        List.of(),
-                        workedOn));
-              }
-            }
-            if (call) {
-              callOrdinal++;
-            } else {
-              ordinal++;
-            }
-          }
-          previous = instruction;
+          case Instruction instruction -> scan(instruction);
+          default -> {}
         }
-        default -> {}
       }
+      return mutants;
+    }
+
+    private void scan(Instruction instruction) {
+      var workedOn = operands.of(instruction);
+      if (isSwitch(instruction) && isCall(previous, "java/lang/String", "hashCode")) {
+        stringSwitchLines.add(line); // javac's switch on a String: hashCode, then equals
+      }
+      if (isSite(instruction) || instruction instanceof InvokeInstruction) {
+        boolean call = instruction instanceof InvokeInstruction;
+        for (Operator operator : Operator.values()) {
+          if (operator.onCalls() == call && operator.applies(instruction)) {
+            mutants.add(mutant(operator, instruction, call, workedOn));
+          }
+        }
+        if (call) {
+          callOrdinal++;
+        } else {
+          ordinal++;
+        }
+      }
+      previous = instruction;
+    }
+
+    private Mutant mutant(
+        Operator operator, Instruction instruction, boolean call, List<String> workedOn) {
+      var skipped =
+          tryWithResources.contains(instruction)
+              ? Optional.of("generated: closes a try-with-resources resource")
+              : skipReason(operator, instruction);
+      return new Mutant(
+          model.thisClass().asInternalName(),
+          method.methodName().stringValue(),
+          method.methodType().stringValue(),
+          call ? callOrdinal : ordinal,
+          line,
+          operator,
+          describe(instruction),
+          operator.replacement(instruction),
+          skipped,
+          List.of(),
+          workedOn);
+    }
+
+    /// Why a mutant shouldn't run, if it shouldn't: the reason's first word is its kind.
+    private Optional<String> skipReason(Operator operator, Instruction instruction) {
+      if (operator == Operator.RETURN_DEFAULT
+          && previous instanceof ConstantInstruction constant
+          && DEFAULT_CONSTANTS.contains(constant.opcode())) {
+        return Optional.of("equivalent: already returns the default");
+      }
+      if (instruction instanceof BranchInstruction
+          && stringSwitchLines.contains(line)
+          && isCall(previous, "java/lang/String", "equals")) {
+        return Optional.of("generated: part of a switch on a String");
+      }
+      if (instruction instanceof InvokeInstruction call
+          && OUTPUT_OWNERS.contains(call.owner().asInternalName())) {
+        return Optional.of("arid: only writes output");
+      }
+      return Optional.empty();
     }
   }
 
@@ -135,39 +175,63 @@ final class Mutations {
   /// `close()` on a local slot javac guards with `ifnull` or closes on both paths, and those
   /// `ifnull` guards.
   private static java.util.Set<Instruction> tryWithResources(List<CodeElement> code) {
-    var instructions =
-        code.stream().filter(Instruction.class::isInstance).map(Instruction.class::cast).toList();
+    var instructions = instructionsIn(code);
     var generated =
         java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Instruction, Boolean>());
-    if (instructions.stream()
-        .noneMatch(instruction -> isCall(instruction, "java/lang/Throwable", "addSuppressed"))) {
+    if (instructions.stream().noneMatch(Mutations::isAddSuppressed)) {
       return generated;
     }
     var closesBySlot = new java.util.HashMap<Integer, List<Integer>>();
     var guardedSlots = new HashSet<Integer>();
     for (int at = 1; at < instructions.size(); at++) {
       var instruction = instructions.get(at);
-      if (isCall(instruction, "java/lang/Throwable", "addSuppressed")) {
+      if (isAddSuppressed(instruction)) {
         generated.add(instruction);
       }
       if (isClose(instruction) && instructions.get(at - 1) instanceof LoadInstruction load) {
         closesBySlot.computeIfAbsent(load.slot(), slot -> new ArrayList<>()).add(at);
-        if (at >= 3
-            && instructions.get(at - 2).opcode() == Opcode.IFNULL
-            && instructions.get(at - 3) instanceof LoadInstruction guarded
-            && guarded.slot() == load.slot()) {
+        if (isNullGuarded(instructions, at, load.slot())) {
           guardedSlots.add(load.slot());
           generated.add(instructions.get(at - 2));
         }
       }
     }
+    generated.addAll(resourceCloses(instructions, closesBySlot, guardedSlots));
+    return generated;
+  }
+
+  private static List<Instruction> instructionsIn(List<CodeElement> code) {
+    return code.stream()
+        .filter(Instruction.class::isInstance)
+        .map(Instruction.class::cast)
+        .toList();
+  }
+
+  /// Whether the `close()` at `at` follows javac's guard on its slot: `aload r; ifnull; aload r`.
+  private static boolean isNullGuarded(List<Instruction> instructions, int at, int slot) {
+    return at >= 3
+        && instructions.get(at - 2).opcode() == Opcode.IFNULL
+        && instructions.get(at - 3) instanceof LoadInstruction guarded
+        && guarded.slot() == slot;
+  }
+
+  /// The `close()` calls on each slot javac closes on both paths or guards with `ifnull`.
+  private static List<Instruction> resourceCloses(
+      List<Instruction> instructions,
+      java.util.Map<Integer, List<Integer>> closesBySlot,
+      Set<Integer> guardedSlots) {
+    var closes = new ArrayList<Instruction>();
     closesBySlot.forEach(
-        (slot, closes) -> {
-          if (closes.size() >= 2 || guardedSlots.contains(slot)) {
-            closes.forEach(at -> generated.add(instructions.get(at)));
+        (slot, positions) -> {
+          if (positions.size() >= 2 || guardedSlots.contains(slot)) {
+            positions.forEach(at -> closes.add(instructions.get(at)));
           }
         });
-    return generated;
+    return closes;
+  }
+
+  private static boolean isAddSuppressed(Instruction instruction) {
+    return isCall(instruction, "java/lang/Throwable", "addSuppressed");
   }
 
   private static boolean isClose(Instruction instruction) {
@@ -178,83 +242,99 @@ final class Mutations {
 
   /// The class with exactly one instruction changed. `CodeBuilder` regenerates the stack maps.
   byte[] apply(ClassModel model, Mutant mutant) {
-    var transform =
-        CodeTransform.ofStateful(
-            () ->
-                new CodeTransform() {
-                  private int ordinal;
-                  private int callOrdinal;
-
-                  @Override
-                  public void accept(CodeBuilder builder, CodeElement element) {
-                    // A mutant can leave code dead (a negated loop condition). The ClassFile API
-                    // patches
-                    // dead code and shrinks max_locals, but the debug table still names the dead
-                    // locals,
-                    // and the JVM rejects the class with a ClassFormatError that verification
-                    // doesn't
-                    // catch. Mutants run without local-variable debug info; line numbers stay.
-                    if (element instanceof LocalVariable || element instanceof LocalVariableType) {
-                      return;
-                    }
-                    if (element instanceof Instruction instruction) {
-                      boolean target =
-                          instruction instanceof InvokeInstruction
-                              ? mutant.operator().onCalls() && mutant.changes(callOrdinal++)
-                              : isSite(instruction)
-                                  && !mutant.operator().onCalls()
-                                  && mutant.changes(ordinal++);
-                      if (target) {
-                        emit(builder, instruction, mutant.operator());
-                        return;
-                      }
-                    }
-                    builder.with(element);
-                  }
-                });
+    var transform = CodeTransform.ofStateful(() -> new MutantTransform(mutant));
     return context.transformClass(
         model,
-        ClassTransform.transformingMethodBodies(
-            method ->
-                method.methodName().equalsString(mutant.methodName())
-                    && method.methodType().equalsString(mutant.descriptor()),
-            transform));
+        ClassTransform.transformingMethodBodies(method -> isMethodOf(mutant, method), transform));
+  }
+
+  /// Copies a method's code with the mutant's sites changed.
+  private static final class MutantTransform implements CodeTransform {
+    private final Mutant mutant;
+    private final SiteCounter sites = new SiteCounter();
+
+    MutantTransform(Mutant mutant) {
+      this.mutant = mutant;
+    }
+
+    @Override
+    public void accept(CodeBuilder builder, CodeElement element) {
+      // A mutant can leave code dead (a negated loop condition). The ClassFile API patches dead
+      // code and shrinks max_locals, but the debug table still names the dead locals, and the JVM
+      // rejects the class with a ClassFormatError that verification doesn't catch. Mutants run
+      // without local-variable debug info; line numbers stay.
+      if (element instanceof LocalVariable || element instanceof LocalVariableType) {
+        return;
+      }
+      if (element instanceof Instruction instruction && sites.changedBy(mutant, instruction)) {
+        emit(builder, instruction, mutant.operator());
+        return;
+      }
+      builder.with(element);
+    }
+  }
+
+  /// Counts a method's sites as its code is walked, each kind on its own, as a mutant's ordinal
+  /// does.
+  private static final class SiteCounter {
+    private int ordinal;
+    private int callOrdinal;
+
+    /// Whether the mutant changes `instruction`, counting it if it's a site of the mutant's kind.
+    boolean changedBy(Mutant mutant, Instruction instruction) {
+      return instruction instanceof InvokeInstruction
+          ? mutant.operator().onCalls() && mutant.changes(callOrdinal++)
+          : isSite(instruction) && !mutant.operator().onCalls() && mutant.changes(ordinal++);
+    }
+  }
+
+  private static boolean isMethodOf(Mutant mutant, MethodModel method) {
+    return method.methodName().equalsString(mutant.methodName())
+        && method.methodType().equalsString(mutant.descriptor());
   }
 
   /// The whole-number constants loaded just before the mutant's site, `100` in `total >= 100`: the
   /// values where its change shows, if anywhere.
   List<Long> constantsNear(ClassModel model, Mutant mutant) {
-    var constants = new ArrayList<Long>();
     for (MethodModel method : model.methods()) {
-      if (!method.methodName().equalsString(mutant.methodName())
-          || !method.methodType().equalsString(mutant.descriptor())) {
+      if (isMethodOf(mutant, method)) {
+        var constants = constantsBeforeSite(method.code().orElseThrow(), mutant);
+        if (constants.isPresent()) {
+          return constants.get();
+        }
+      }
+    }
+    return new ArrayList<>();
+  }
+
+  /// The whole-number constants among the two instructions before the mutant's first site, if the
+  /// code has that site.
+  private static Optional<List<Long>> constantsBeforeSite(
+      java.lang.classfile.CodeModel code, Mutant mutant) {
+    var recent = new java.util.ArrayDeque<Instruction>();
+    var sites = new SiteCounter();
+    for (CodeElement element : code) {
+      if (!(element instanceof Instruction instruction)) {
         continue;
       }
-      var recent = new java.util.ArrayDeque<Instruction>();
-      int ordinal = 0;
-      int callOrdinal = 0;
-      for (CodeElement element : method.code().orElseThrow()) {
-        if (!(element instanceof Instruction instruction)) {
-          continue;
-        }
-        boolean here =
-            instruction instanceof InvokeInstruction
-                ? mutant.operator().onCalls() && mutant.changes(callOrdinal++)
-                : isSite(instruction) && !mutant.operator().onCalls() && mutant.changes(ordinal++);
-        if (here) {
-          for (Instruction before : recent) {
-            if (before instanceof ConstantInstruction constant
-                && constant.constantValue() instanceof Number number
-                && (number instanceof Integer || number instanceof Long)) {
-              constants.add(number.longValue());
-            }
-          }
-          return constants;
-        }
-        recent.addLast(instruction);
-        if (recent.size() > 2) {
-          recent.removeFirst();
-        }
+      if (sites.changedBy(mutant, instruction)) {
+        return Optional.of(wholeNumberConstants(recent));
+      }
+      recent.addLast(instruction);
+      if (recent.size() > 2) {
+        recent.removeFirst();
+      }
+    }
+    return Optional.empty();
+  }
+
+  private static List<Long> wholeNumberConstants(Iterable<Instruction> instructions) {
+    var constants = new ArrayList<Long>();
+    for (Instruction before : instructions) {
+      if (before instanceof ConstantInstruction constant
+          && constant.constantValue() instanceof Number number
+          && (number instanceof Integer || number instanceof Long)) {
+        constants.add(number.longValue());
       }
     }
     return constants;
@@ -271,28 +351,31 @@ final class Mutations {
           builder.with(BranchInstruction.of(operator.replace(branch.opcode()), branch.target()));
       case OperatorInstruction arithmetic ->
           builder.with(OperatorInstruction.of(operator.replace(arithmetic.opcode())));
-      case ReturnInstruction returning -> {
-        var kind = returning.typeKind();
-        pop(builder, kind);
-        switch (kind) {
-          case LONG -> builder.lconst_0();
-          case FLOAT -> builder.fconst_0();
-          case DOUBLE -> builder.dconst_0();
-          case REFERENCE -> builder.aconst_null();
-          default -> builder.iconst_0(); // int, and the boolean, char, short and byte it carries
-        }
-        builder.return_(kind);
-      }
-      case InvokeInstruction call -> {
-        // The arguments, last first, then the receiver: the stack as if the call had run.
-        for (var parameter : call.typeSymbol().parameterList().reversed()) {
-          pop(builder, TypeKind.from(parameter));
-        }
-        if (call.opcode() != Opcode.INVOKESTATIC) {
-          builder.pop();
-        }
-      }
+      case ReturnInstruction returning -> returnDefault(builder, returning.typeKind());
+      case InvokeInstruction call -> removeCall(builder, call);
       default -> throw new IllegalStateException("not a mutation site: " + instruction);
+    }
+  }
+
+  private static void returnDefault(CodeBuilder builder, TypeKind kind) {
+    pop(builder, kind);
+    switch (kind) {
+      case LONG -> builder.lconst_0();
+      case FLOAT -> builder.fconst_0();
+      case DOUBLE -> builder.dconst_0();
+      case REFERENCE -> builder.aconst_null();
+      default -> builder.iconst_0(); // int, and the boolean, char, short and byte it carries
+    }
+    builder.return_(kind);
+  }
+
+  private static void removeCall(CodeBuilder builder, InvokeInstruction call) {
+    // The arguments, last first, then the receiver: the stack as if the call had run.
+    for (var parameter : call.typeSymbol().parameterList().reversed()) {
+      pop(builder, TypeKind.from(parameter));
+    }
+    if (call.opcode() != Opcode.INVOKESTATIC) {
+      builder.pop();
     }
   }
 
@@ -314,96 +397,96 @@ final class Mutations {
   /// handler's start, becomes one mutant that changes every copy.
   private static List<Mutant> mergeFinallyCopies(
       List<Mutant> found, java.lang.classfile.CodeModel code) {
-    var handlerStarts =
-        code.exceptionHandlers().stream()
-            .filter(handler -> handler.catchType().isEmpty())
-            .map(java.lang.classfile.instruction.ExceptionCatch::handler)
-            .collect(java.util.stream.Collectors.toSet());
-    if (handlerStarts.isEmpty()) {
+    var handlers = catchAnythingHandlers(code);
+    if (handlers.isEmpty()) {
       return found;
     }
-    // Where each catch-anything handler starts, counted in each kind of site.
-    var siteStarts = new ArrayList<Integer>();
-    var callStarts = new ArrayList<Integer>();
-    int ordinal = 0;
-    int callOrdinal = 0;
-    for (CodeElement element : code) {
-      if (element instanceof LabelTarget target && handlerStarts.contains(target.label())) {
-        siteStarts.add(ordinal);
-        callStarts.add(callOrdinal);
-      } else if (element instanceof InvokeInstruction) {
-        callOrdinal++;
-      } else if (element instanceof Instruction instruction && isSite(instruction)) {
-        ordinal++;
-      }
-    }
-    var groups = new java.util.LinkedHashMap<List<Object>, List<Mutant>>();
-    for (Mutant mutant : found) {
-      groups
-          .computeIfAbsent(
-              List.of(mutant.line(), mutant.operator(), mutant.original(), mutant.replacement()),
-              key -> new ArrayList<>())
-          .add(mutant);
-    }
+    var starts = HandlerStarts.in(code, handlers);
+    var groups = byChange(found);
     var merged = new ArrayList<Mutant>();
     for (Mutant mutant : found) {
-      var group =
-          requireNonNull(
-              groups.get(
-                  List.of(
-                      mutant.line(), mutant.operator(), mutant.original(), mutant.replacement())));
-      var starts = mutant.operator().onCalls() ? callStarts : siteStarts;
-      boolean straddles =
-          group.size() > 1
-              && starts.stream()
-                  .anyMatch(
-                      start ->
-                          group.stream().anyMatch(copy -> copy.ordinal() < start)
-                              && group.stream().anyMatch(copy -> copy.ordinal() >= start));
-      if (!straddles) {
+      var group = requireNonNull(groups.get(changeOf(mutant)));
+      if (!straddles(group, starts.forKindOf(mutant.operator()))) {
         merged.add(mutant);
       } else if (mutant.equals(
           group.getFirst())) { // the later copies go into this one, in its place
-        merged.add(
-            new Mutant(
-                mutant.className(),
-                mutant.methodName(),
-                mutant.descriptor(),
-                mutant.ordinal(),
-                mutant.line(),
-                mutant.operator(),
-                mutant.original(),
-                mutant.replacement(),
-                mutant.skipped(),
-                group.stream().skip(1).map(Mutant::ordinal).toList(),
-                mutant.operands()));
+        merged.add(withLaterCopies(mutant, group));
       }
     }
     return merged;
   }
 
-  /// Why a mutant shouldn't run, if it shouldn't: the reason's first word is its kind.
-  private static Optional<String> skipReason(
-      Operator operator,
-      Instruction instruction,
-      @Nullable Instruction previous,
-      int line,
-      Set<Integer> stringSwitchLines) {
-    if (operator == Operator.RETURN_DEFAULT
-        && previous instanceof ConstantInstruction constant
-        && DEFAULT_CONSTANTS.contains(constant.opcode())) {
-      return Optional.of("equivalent: already returns the default");
+  private static Set<java.lang.classfile.Label> catchAnythingHandlers(
+      java.lang.classfile.CodeModel code) {
+    return code.exceptionHandlers().stream()
+        .filter(handler -> handler.catchType().isEmpty())
+        .map(java.lang.classfile.instruction.ExceptionCatch::handler)
+        .collect(java.util.stream.Collectors.toSet());
+  }
+
+  /// Where each catch-anything handler starts, counted in each kind of site.
+  private record HandlerStarts(List<Integer> sites, List<Integer> calls) {
+    static HandlerStarts in(
+        java.lang.classfile.CodeModel code, Set<java.lang.classfile.Label> handlers) {
+      var siteStarts = new ArrayList<Integer>();
+      var callStarts = new ArrayList<Integer>();
+      int ordinal = 0;
+      int callOrdinal = 0;
+      for (CodeElement element : code) {
+        if (element instanceof LabelTarget target && handlers.contains(target.label())) {
+          siteStarts.add(ordinal);
+          callStarts.add(callOrdinal);
+        } else if (element instanceof InvokeInstruction) {
+          callOrdinal++;
+        } else if (element instanceof Instruction instruction && isSite(instruction)) {
+          ordinal++;
+        }
+      }
+      return new HandlerStarts(siteStarts, callStarts);
     }
-    if (instruction instanceof BranchInstruction
-        && stringSwitchLines.contains(line)
-        && isCall(previous, "java/lang/String", "equals")) {
-      return Optional.of("generated: part of a switch on a String");
+
+    List<Integer> forKindOf(Operator operator) {
+      return operator.onCalls() ? calls : sites;
     }
-    if (instruction instanceof InvokeInstruction call
-        && OUTPUT_OWNERS.contains(call.owner().asInternalName())) {
-      return Optional.of("arid: only writes output");
+  }
+
+  /// The mutants making each change, by line, operator, instruction and replacement.
+  private static java.util.Map<List<Object>, List<Mutant>> byChange(List<Mutant> found) {
+    var groups = new java.util.LinkedHashMap<List<Object>, List<Mutant>>();
+    for (Mutant mutant : found) {
+      groups.computeIfAbsent(changeOf(mutant), key -> new ArrayList<>()).add(mutant);
     }
-    return Optional.empty();
+    return groups;
+  }
+
+  private static List<Object> changeOf(Mutant mutant) {
+    return List.of(mutant.line(), mutant.operator(), mutant.original(), mutant.replacement());
+  }
+
+  /// Whether the group has a copy on each side of some handler's start.
+  private static boolean straddles(List<Mutant> group, List<Integer> starts) {
+    return group.size() > 1
+        && starts.stream()
+            .anyMatch(
+                start ->
+                    group.stream().anyMatch(copy -> copy.ordinal() < start)
+                        && group.stream().anyMatch(copy -> copy.ordinal() >= start));
+  }
+
+  /// The group's first mutant, changing the later copies' sites too.
+  private static Mutant withLaterCopies(Mutant mutant, List<Mutant> group) {
+    return new Mutant(
+        mutant.className(),
+        mutant.methodName(),
+        mutant.descriptor(),
+        mutant.ordinal(),
+        mutant.line(),
+        mutant.operator(),
+        mutant.original(),
+        mutant.replacement(),
+        mutant.skipped(),
+        group.stream().skip(1).map(Mutant::ordinal).toList(),
+        mutant.operands());
   }
 
   /// `IF_ICMPLT`, or for a call `INVOKEVIRTUAL com/example/Audit.record(Ljava/lang/String;)V`.
@@ -457,9 +540,15 @@ final class Mutations {
     if (model.flags().has(AccessFlag.ENUM) && enumMethod) {
       return false;
     }
+    return !isRecordObjectMethod(method);
+  }
+
+  /// A record's `toString()`, `hashCode()` or `equals()`: javac's are an `invokedynamic` on
+  /// `ObjectMethods`.
+  private static boolean isRecordObjectMethod(MethodModel method) {
     return method.code().stream()
         .flatMap(code -> code.elementStream())
-        .noneMatch(
+        .anyMatch(
             element ->
                 element instanceof InvokeDynamicInstruction indy
                     && indy.bootstrapMethod()
