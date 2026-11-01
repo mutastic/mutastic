@@ -28,6 +28,15 @@ subprojects {
     apply(plugin = "net.ltgt.errorprone")
     dependencies {
         "errorprone"("com.google.errorprone:error_prone_core:2.50.0")
+        // Null is a compile error in packages marked @NullMarked (JSpecify), adopted one at a time.
+        "errorprone"("com.uber.nullaway:nullaway:0.14.2")
+    }
+    pluginManager.withPlugin("java") {
+        dependencies {
+            // Annotations only: the worker runs inside the project's JVM, which needn't have them.
+            "compileOnly"("org.jspecify:jspecify:1.0.1")
+            "testCompileOnly"("org.jspecify:jspecify:1.0.1")
+        }
     }
     tasks.withType<JavaCompile>().configureEach {
         (options as ExtensionAware).extensions.configure<net.ltgt.gradle.errorprone.ErrorProneOptions> {
@@ -45,6 +54,9 @@ subprojects {
                 "RedundantOverride",
                 "UnnecessaryStaticImport",
             )
+            error("NullAway")
+            option("NullAway:OnlyNullMarked", "true")
+            option("NullAway:JSpecifyMode", "true")
         }
     }
 

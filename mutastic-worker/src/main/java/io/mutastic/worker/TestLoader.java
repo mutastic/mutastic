@@ -2,6 +2,7 @@ package io.mutastic.worker;
 
 import java.nio.file.Path;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /// One run's test classes, in a fresh loader whose parent is the production loader, so test statics
 /// (a port picked once in a static field) start clean every run, and tests see the swapped
@@ -29,7 +30,7 @@ final class TestLoader extends RootsLoader {
   }
 
   @Override
-  byte[] bytesFor(String name) {
+  byte @Nullable [] bytesFor(String name) {
     return classFile(name);
   }
 }

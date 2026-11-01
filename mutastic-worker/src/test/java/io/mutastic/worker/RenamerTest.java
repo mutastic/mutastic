@@ -47,7 +47,9 @@ class RenamerTest {
 
   @Test
   void leavesLongerNamesAlone() throws Exception {
-    var bytes = RootsLoader.classFile(roots(), COUNTER);
+    var bytes =
+        java.util.Objects.requireNonNull(
+            RootsLoader.classFile(roots(), COUNTER), "the fixture's class file");
     var renamed = Renamer.rename(bytes, Set.of("io/mutastic/worker/fixture/Counter"), 1);
 
     assertThat(renamed).isEqualTo(bytes);
@@ -70,7 +72,10 @@ class RenamerTest {
         var loaded = findLoadedClass(name);
         if (loaded == null && Renamer.runOf(name) >= 0) {
           try {
-            var original = RootsLoader.classFile(roots(), Renamer.original(name));
+            var original =
+                java.util.Objects.requireNonNull(
+                    RootsLoader.classFile(roots(), Renamer.original(name)),
+                    "a fixture's class file");
             var bytes = Renamer.rename(original, TOP_LEVELS, Renamer.runOf(name));
             loaded = defineClass(name, bytes, 0, bytes.length);
           } catch (Exception e) {

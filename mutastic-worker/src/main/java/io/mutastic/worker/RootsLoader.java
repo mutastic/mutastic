@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /// Loads classes and resources from the project's own directories before asking its parent, as
 /// Gradle's test classpath puts them first. JUnit, the project's dependencies and [Probes] come
@@ -27,7 +28,7 @@ abstract class RootsLoader extends ClassLoader {
   }
 
   /// The bytes to define for `name`, or null to ask the parent.
-  abstract byte[] bytesFor(String name) throws ClassNotFoundException;
+  abstract byte @Nullable [] bytesFor(String name) throws ClassNotFoundException;
 
   /// Called once per class this loader defines.
   void defined(String name, Class<?> loaded) {}
@@ -68,7 +69,7 @@ abstract class RootsLoader extends ClassLoader {
   /// Spring's component scan lists package directories, and `application.properties` is a resource:
   /// both come from the roots.
   @Override
-  protected URL findResource(String name) {
+  protected @Nullable URL findResource(String name) {
     var found = resourcesIn(resourceRoots, name);
     return found.isEmpty() ? null : found.get(0);
   }
@@ -79,11 +80,11 @@ abstract class RootsLoader extends ClassLoader {
   }
 
   /// The class file for `name` from the roots, or null if none has it.
-  byte[] classFile(String name) {
+  byte @Nullable [] classFile(String name) {
     return classFile(roots, name);
   }
 
-  static byte[] classFile(List<Path> roots, String name) {
+  static byte @Nullable [] classFile(List<Path> roots, String name) {
     var relative = name.replace('.', '/') + ".class";
     for (Path root : roots) {
       var file = root.resolve(relative);

@@ -14,6 +14,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.jspecify.annotations.Nullable;
 
 /// Finds a test that would catch a missed mutant by running it: calls the method as it is today and
 /// with the mutant swapped in, on candidate inputs, and keeps the first input where they disagree.
@@ -134,9 +135,11 @@ final class Suggester {
   /// One call: the method on a fresh receiver (or none, if static), with its arguments.
   private static final class Call {
     private final Method method;
-    private final Constructor<?> constructor;
 
-    Call(Method method, Constructor<?> constructor) {
+    /// Null for a static method: there's no receiver to make.
+    private final @Nullable Constructor<?> constructor;
+
+    Call(Method method, @Nullable Constructor<?> constructor) {
       this.method = method;
       this.constructor = constructor;
     }
@@ -159,7 +162,8 @@ final class Suggester {
 
   /// Makes the receiver for a call; may throw, as a constructor may.
   private interface Receiver {
-    Object make() throws Exception;
+    /// The receiver, or null for a static method.
+    @Nullable Object make() throws Exception;
   }
 
   private static Object[] arguments(Class<?>[] types, List<Long> values) {
@@ -186,10 +190,11 @@ final class Suggester {
     try {
       return Optional.of(literal(task.get(CALL_MILLIS, TimeUnit.MILLISECONDS)));
     } catch (ExecutionException e) {
-      var thrown =
+      var cause =
           e.getCause() instanceof InvocationTargetException invoked
               ? invoked.getCause()
               : e.getCause();
+      var thrown = cause == null ? e : cause; // an exception without a cause is its own
       return Optional.of("throws " + thrown.getClass().getName());
     } catch (TimeoutException e) {
       return Optional.empty();

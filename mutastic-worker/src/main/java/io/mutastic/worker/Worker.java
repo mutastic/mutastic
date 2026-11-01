@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.jspecify.annotations.Nullable;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.support.descriptor.MethodSource;
 import org.junit.platform.launcher.TestExecutionListener;
@@ -59,7 +60,10 @@ public final class Worker {
   private final Set<String> testClassNames;
   private final PrintStream protocol;
   private final Map<String, byte[]> staged = new HashMap<>();
-  private ProductionLoader production;
+
+  /// Made by the coverage pass, or by the first command a new worker gets after one was killed.
+  private @Nullable ProductionLoader production;
+
   private int runs;
   private String lastFailure = "unknown";
   private String lastOrigin = "unknown";
@@ -109,33 +113,25 @@ public final class Worker {
     switch (command[0]) {
       case "CLASS" -> staged.put(command[1], Base64.getDecoder().decode(command[2]));
       case "COVER" -> {
-        production =
+        var instrumented =
             new ProductionLoader(
                 productionRoots, staged, testRoots, splitTests, getClass().getClassLoader());
+        production = instrumented;
         cover(tests);
-        production.restoreAll();
+        instrumented.restoreAll();
         staged.clear();
       }
       case "RUN" -> {
-        if (production == null) { // a new worker, after the last one was killed
-          production =
-              new ProductionLoader(
-                  productionRoots, Map.of(), testRoots, splitTests, getClass().getClassLoader());
-        }
-        production.swapIn(staged);
+        var loader = production();
+        loader.swapIn(staged);
         try {
           run(tests);
         } finally {
-          production.swapBack(staged.keySet());
+          loader.swapBack(staged.keySet());
           staged.clear();
         }
       }
       case "SUGGEST" -> {
-        if (production == null) { // a new worker, after the last one was killed
-          production =
-              new ProductionLoader(
-                  productionRoots, Map.of(), testRoots, splitTests, getClass().getClassLoader());
-        }
         var candidates =
             Arrays.stream(command[5].split("\\|", -1))
                 .map(
@@ -146,7 +142,7 @@ public final class Worker {
                 .toList();
         var found =
             Suggester.find(
-                production,
+                production(),
                 command[1],
                 command[2],
                 command[3],
@@ -172,6 +168,17 @@ public final class Worker {
     }
   }
 
+  /// The production loader: the coverage pass's, or a new one for a worker started after the last
+  /// one was killed, which hasn't had one.
+  private ProductionLoader production() {
+    if (production == null) {
+      production =
+          new ProductionLoader(
+              productionRoots, Map.of(), testRoots, splitTests, getClass().getClassLoader());
+    }
+    return production;
+  }
+
   private void cover(List<String> tests) {
     Probes.reset();
     var startedAt = new HashMap<String, Long>();
@@ -190,8 +197,8 @@ public final class Worker {
               @Override
               public void executionFinished(TestIdentifier test, TestExecutionResult result) {
                 if (test.isTest()) {
-                  protocol.println(
-                      "TEST\t" + id(test) + "\t" + (System.nanoTime() - startedAt.get(id(test))));
+                  long started = startedAt.getOrDefault(id(test), System.nanoTime());
+                  protocol.println("TEST\t" + id(test) + "\t" + (System.nanoTime() - started));
                 }
               }
             });
@@ -267,7 +274,7 @@ public final class Worker {
   }
 
   private List<String> execute(List<String> tests, TestExecutionListener observer) {
-    var loader = new TestLoader(testRoots, production, ++runs);
+    var loader = new TestLoader(testRoots, production(), ++runs);
     var thread = Thread.currentThread();
     var previous = thread.getContextClassLoader();
     thread.setContextClassLoader(loader);
@@ -346,7 +353,7 @@ public final class Worker {
           || testClassNames.contains(name)) {
         return "test";
       }
-      if (production.classFile(name) != null) {
+      if (production().classFile(name) != null) {
         return "code";
       }
     }

@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 
 /// The project's production classes, loaded once for the worker's life. Each mutant is swapped in
 /// by redefinition and swapped back after its tests.
@@ -41,7 +42,7 @@ final class ProductionLoader extends RootsLoader {
   }
 
   @Override
-  byte[] bytesFor(String name) throws ClassNotFoundException {
+  byte @Nullable [] bytesFor(String name) throws ClassNotFoundException {
     if (Renamer.runOf(name) >= 0) {
       var original = classFile(testRoots, Renamer.original(name));
       if (original == null) {
@@ -77,7 +78,7 @@ final class ProductionLoader extends RootsLoader {
   }
 
   /// The split-package test class `name` belongs to (itself or the class it's nested in), or null.
-  String splitTopLevel(String name) {
+  @Nullable String splitTopLevel(String name) {
     int dollar = name.indexOf('$');
     var topLevel = dollar < 0 ? name : name.substring(0, dollar);
     return splitTests.contains(topLevel) ? topLevel : null;
@@ -102,9 +103,19 @@ final class ProductionLoader extends RootsLoader {
       replacements.remove(name);
       var loadedClass = loaded.get(name);
       if (loadedClass != null) {
-        Agent.redefine(loadedClass, classFile(name));
+        Agent.redefine(loadedClass, buildBytes(name));
       }
     }
+  }
+
+  /// The build's own bytes for a class this loader defined from them, which are still there.
+  private byte[] buildBytes(String name) {
+    var bytes = classFile(name);
+    if (bytes == null) {
+      throw new IllegalStateException(
+          "the class file for " + name + " went missing during the run");
+    }
+    return bytes;
   }
 
   /// After the coverage pass: every instrumented class back to the build's bytes, so mutants run
