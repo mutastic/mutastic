@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -87,7 +88,7 @@ final class TestWorker implements AutoCloseable {
         .orElseThrow(
             () -> {
               var current = running;
-              boolean stopped = current != null && !current.process().isAlive();
+              boolean stopped = current != null && current.stopped().get();
               kill();
               return new IllegalStateException(
                   stopped
@@ -216,8 +217,15 @@ final class TestWorker implements AutoCloseable {
   /// A running worker: its process, what's sent to it, what it has said, and the hook that ends it
   /// if the engine exits first. A queue per process, so nothing a killed worker was still saying
   /// reaches the next one.
+  ///
+  /// `stopped` is set once the process's output ends: on Linux that comes before the process is
+  /// reaped, so `isAlive()` can't tell yet.
   private record Running(
-      Process process, PrintStream commands, BlockingQueue<String> answers, Thread shutdownHook) {}
+      Process process,
+      PrintStream commands,
+      BlockingQueue<String> answers,
+      Thread shutdownHook,
+      AtomicBoolean stopped) {}
 
   @Override
   public void close() {
@@ -287,9 +295,13 @@ final class TestWorker implements AutoCloseable {
     var queue = new LinkedBlockingQueue<String>();
     var started =
         new Running(
-            process, new PrintStream(process.getOutputStream(), false, UTF_8), queue, shutdownHook);
+            process,
+            new PrintStream(process.getOutputStream(), false, UTF_8),
+            queue,
+            shutdownHook,
+            new AtomicBoolean());
     running = started;
-    forwardAnswers(process, queue);
+    forwardAnswers(started);
     var ready =
         await(STARTUP)
             .filter(line -> line.startsWith("READY\t"))
@@ -334,8 +346,10 @@ final class TestWorker implements AutoCloseable {
   }
 
   /// Every line the worker writes goes on `queue`, read on a thread of its own.
-  private static void forwardAnswers(Process process, BlockingQueue<String> queue) {
-    var reader = new BufferedReader(new InputStreamReader(process.getInputStream(), UTF_8));
+  private static void forwardAnswers(Running worker) {
+    var queue = worker.answers();
+    var reader =
+        new BufferedReader(new InputStreamReader(worker.process().getInputStream(), UTF_8));
     Thread.ofVirtual()
         .start(
             () -> {
@@ -346,6 +360,7 @@ final class TestWorker implements AutoCloseable {
               } catch (IOException e) {
                 // the worker was killed; whatever it was saying no longer matters
               }
+              worker.stopped().set(true);
               queue.add(STOPPED);
             });
   }
