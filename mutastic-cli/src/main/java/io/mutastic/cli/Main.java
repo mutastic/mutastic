@@ -66,7 +66,7 @@ public final class Main {
       progress.started(version());
       long start = System.nanoTime();
       var directory = command.directory().toAbsolutePath().normalize();
-      var work = directory.resolve("build/mutastic");
+      var work = workDirectory(directory, command.module());
       var project = GradleSetup.read(directory, command.module(), work);
       var setup = Duration.ofNanos(System.nanoTime() - start);
       var sources = new SourceView(directory, project.sources(), project.testSources());
@@ -144,6 +144,13 @@ public final class Main {
       err.println("mutastic: internal error: " + e);
       return INTERNAL;
     }
+  }
+
+  /// `build/mutastic` for the root project; `build/mutastic/data` for `:data`, so each module
+  /// keeps its own run record, logs and reports.
+  static Path workDirectory(Path directory, String module) {
+    var work = directory.resolve("build/mutastic");
+    return module.equals(":") ? work : work.resolve(module.substring(1).replace(':', '/'));
   }
 
   /// Where a report goes unless told: beside the run record.

@@ -17,7 +17,7 @@ import java.util.concurrent.TimeoutException;
 /// Finds a test that would catch a missed mutant by running it: calls the method as it is today
 /// and with the mutant swapped in, on candidate inputs, and keeps the first input where they
 /// disagree. The expected value is what the code does today, which the person must check is
-/// what they meant.
+/// what they meant. A method that gives different answers to the same call gets no suggestion.
 ///
 /// Only methods whose parameters are all `int` or `long`, static or on a class with a
 /// no-argument constructor, returning a primitive, a `String` or a boxed primitive: values that
@@ -46,7 +46,14 @@ final class Suggester {
       if (System.nanoTime() > deadline) {
         break;
       }
-      today.add(call(method.get(), inputs).orElse(null));
+      var first = call(method.get(), inputs);
+      // Twice: a method that answers differently to the same call (it uses a random number, the
+      // clock, shared state) can't be pinned by an assertion, and any difference the mutant
+      // seemed to make could be chance.
+      if (first.isPresent() && !first.equals(call(method.get(), inputs))) {
+        return none;
+      }
+      today.add(first.orElse(null));
     }
     production.swapIn(Map.of(className, mutantBytes));
     try {

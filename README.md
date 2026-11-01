@@ -86,7 +86,7 @@ The result goes to stdout and progress to stderr, so `mutastic run > result.txt`
 
 ### Report files
 
-A full run also writes report files to `build/mutastic/`, by default `mutation.json` and `mutation.html`. `--report` chooses (it can be given more than once, and replaces the defaults): `--report=xml` adds `mutations.xml`, `--report=json:reports/m.json` writes somewhere else, and `--report=none` writes nothing.
+A full run also writes report files to `build/mutastic/` (for a module, `build/mutastic/<module>/`), by default `mutation.json` and `mutation.html`. `--report` chooses (it can be given more than once, and replaces the defaults): `--report=xml` adds `mutations.xml`, `--report=json:reports/m.json` writes somewhere else, and `--report=none` writes nothing.
 
 - `json` follows the open mutation-testing report schema (version 2), which report viewers, dashboards and badges read.
 - `html` is that report in the schema's own viewer, embedded in the page, so it opens from disk with no network.
@@ -113,7 +113,7 @@ The expected value is what the code does today. Check it's what you intend befor
 A flaky test fails at random, so against mutants it "catches" changes it never checked, and the score goes up and down with no change to the code. mutastic looks for them in three ways:
 
 - **Before any mutant.** A test that fails in the first run is run again on its own, up to three times. If it passes, mutastic leaves it out of the run and names it (`flaky: …`). A test that fails every time stops the run: the tests are red.
-- **Between runs.** Each full run keeps its results in `build/mutastic/last-run.tsv`. If the code and tests are unchanged and a mutant's result changed, the test that caught it is named (`likely flaky: …`).
+- **Between runs.** Each full run keeps its results in `last-run.tsv` beside its reports, one per module. If the code and tests are unchanged and a mutant's result changed, the test that caught it is named (`likely flaky: …`).
 - **With `--confirm-catches`.** Each catching test runs once more against its mutant. A catch that doesn't repeat doesn't count; the other covering tests decide. This costs one more test run per catch.
 
 A test that catches mutants in several unrelated methods, each time with the same exception thrown in its own code, also gets a `note:`. It may be flaky, or it may just call a lot of code.

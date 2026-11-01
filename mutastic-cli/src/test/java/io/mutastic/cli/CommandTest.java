@@ -54,4 +54,13 @@ class CommandTest {
   void readsTheWorkerCount() {
     assertThat(Main.Command.parse(new String[] {"run", "--workers=3"}).workers()).contains(3);
   }
+
+  @Test
+  void eachModuleKeepsItsOwnWorkDirectory() {
+    var project = Path.of("/code/app");
+
+    assertThat(Main.workDirectory(project, ":")).isEqualTo(Path.of("/code/app/build/mutastic"));
+    assertThat(Main.workDirectory(project, ":data")).isEqualTo(Path.of("/code/app/build/mutastic/data"));
+    assertThat(Main.workDirectory(project, ":services:api")).isEqualTo(Path.of("/code/app/build/mutastic/services/api"));
+  }
 }
