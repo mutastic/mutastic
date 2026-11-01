@@ -18,6 +18,8 @@ final class GradleSetup {
 
   /// The build couldn't be read: it failed, or isn't a Java build.
   static final class SetupFailed extends RuntimeException {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
     SetupFailed(String message) {
       super(message);
     }

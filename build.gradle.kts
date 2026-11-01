@@ -18,6 +18,11 @@ subprojects {
         mavenCentral()
     }
 
+    // Every warning fails the build: a warning nobody acts on hides the next one.
+    tasks.withType<JavaCompile>().configureEach {
+        options.compilerArgs.addAll(listOf("-Werror", "-Xlint:all"))
+    }
+
     apply(plugin = "com.diffplug.spotless")
     configure<com.diffplug.gradle.spotless.SpotlessExtension> {
         java {

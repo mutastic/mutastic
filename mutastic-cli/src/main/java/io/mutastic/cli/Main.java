@@ -325,6 +325,8 @@ public final class Main {
   }
 
   static final class UsageException extends RuntimeException {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
     UsageException(String message) {
       super(message);
     }

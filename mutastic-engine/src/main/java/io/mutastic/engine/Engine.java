@@ -43,7 +43,10 @@ public final class Engine {
 
   /// The tests failed before any mutant: nothing a mutant does can be judged against them.
   public static final class BaselineFailed extends RuntimeException {
-    private final List<String> failing;
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    /// Not serialised: nothing sends this exception anywhere, it's reported where it's caught.
+    private final transient List<String> failing;
 
     BaselineFailed(List<String> failing, Path log) {
       super(

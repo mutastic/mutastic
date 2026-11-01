@@ -5,10 +5,16 @@ plugins {
     `java-library`
 }
 
+// Compiled on 25 with --release 17: checked against 17's API, and the checks that run inside
+// the compiler (Error Prone needs 21 or later) run here too. Its tests run on 17 itself.
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(25)
     }
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.release = 17
 }
 
 dependencies {
@@ -32,4 +38,6 @@ tasks.jar {
 
 tasks.test {
     useJUnitPlatform()
+    // On 17, the oldest JDK a project under test can use: what the worker promises.
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(17) }
 }
