@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 /// No colour, no progress, at most [#LIMIT] misses. Plain enough for people to read too.
 public final class AgentText {
   static final int LIMIT = 10;
+  static final int COVERING_SHOWN = 3;
 
   private final SourceView sources;
   private final int threshold;
@@ -63,8 +64,7 @@ public final class AgentText {
     lines.add("   at %s:%d".formatted(sources.file(mutant), mutant.line()));
     sources.line(mutant).ifPresent(line -> lines.add("   - " + line));
     lines.add("   + " + sources.mutatedLine(mutant).orElse("(`%s` becomes `%s`)".formatted(before, after)));
-    lines.add("   covered by: %s; all still pass with the change".formatted(
-        result.coveredBy().stream().map(AgentText::shortName).collect(Collectors.joining(", "))));
+    lines.add("   covered by: %s; all still pass with the change".formatted(covering(result.coveredBy())));
     lines.add("   fix: add a test with the values where `%s` and `%s` disagree (both sides equal), and assert the result"
         .formatted(before, after));
     lines.add("   reproduce: mutastic run --only=" + mutant.id());
@@ -79,7 +79,9 @@ public final class AgentText {
     return className.substring(className.lastIndexOf('.') + 1) + (hash < 0 ? "" : test.substring(hash));
   }
 
-  static List<String> shortNames(List<String> tests) {
-    return tests.stream().map(AgentText::shortName).toList();
+  /// The fastest few, which are the ones to read first, and how many more there are.
+  static String covering(List<String> tests) {
+    var shown = tests.stream().limit(COVERING_SHOWN).map(AgentText::shortName).collect(Collectors.joining(", "));
+    return tests.size() <= COVERING_SHOWN ? shown : "%s and %d more".formatted(shown, tests.size() - COVERING_SHOWN);
   }
 }
