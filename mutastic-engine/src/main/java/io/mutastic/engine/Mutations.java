@@ -2,8 +2,10 @@ package io.mutastic.engine;
 
 import static java.util.Objects.requireNonNull;
 
+import io.mutastic.api.Filter;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Operator;
+import io.mutastic.api.Skip;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.lang.classfile.ClassTransform;
@@ -50,6 +52,9 @@ final class Mutations {
           "org/apache/commons/logging/Log",
           "java/io/PrintStream");
 
+  /// The method-level filters, built in; the first with a reason decides.
+  private static final List<Filter> FILTERS = List.of(new TrivialAccessors());
+
   private final ClassFile context;
 
   Mutations(ClassFile context) {
@@ -64,7 +69,9 @@ final class Mutations {
             .code()
             .ifPresent(
                 code -> {
-                  var found = new MethodScan(model, method, code.elementList()).mutants();
+                  var found =
+                      new MethodScan(model, method, code.elementList(), filtered(model, method))
+                          .mutants();
                   mutants.addAll(mergeFinallyCopies(found, code));
                 });
       }
@@ -72,13 +79,24 @@ final class Mutations {
     return mutants;
   }
 
-  /// Walks one method's code in order, counting its sites and finding the mutants at each.
+  /// Why a filter skips the method's mutants, if one does.
+  private static Optional<String> filtered(ClassModel model, MethodModel method) {
+    return FILTERS.stream()
+        .map(filter -> filter.skip(model, method))
+        .flatMap(Optional::stream)
+        .findFirst()
+        .map(Skip::toString);
+  }
+
+  /// Walks one method's code in order, counting its sites and finding the mutants at each. A skip
+  /// the code itself shows (generated, equivalent) comes before a filter's.
   private static final class MethodScan {
     private final ClassModel model;
     private final MethodModel method;
     private final List<CodeElement> code;
     private final Set<Instruction> tryWithResources;
     private final Operands operands;
+    private final Optional<String> filtered;
     private final Set<Integer> stringSwitchLines = new HashSet<>();
     private final List<Mutant> mutants = new ArrayList<>();
     private int line = -1;
@@ -86,10 +104,12 @@ final class Mutations {
     private int callOrdinal;
     private @Nullable Instruction previous;
 
-    MethodScan(ClassModel model, MethodModel method, List<CodeElement> code) {
+    MethodScan(
+        ClassModel model, MethodModel method, List<CodeElement> code, Optional<String> filtered) {
       this.model = model;
       this.method = method;
       this.code = code;
+      this.filtered = filtered;
       this.tryWithResources = tryWithResources(code);
       this.operands = method.code().map(Operands::new).orElseThrow();
     }
@@ -135,7 +155,7 @@ final class Mutations {
       var skipped =
           tryWithResources.contains(instruction)
               ? Optional.of("generated: closes a try-with-resources resource")
-              : skipReason(operator, instruction);
+              : skipReason(operator, instruction).or(() -> filtered);
       return new Mutant(
           model.thisClass().asInternalName(),
           method.methodName().stringValue(),

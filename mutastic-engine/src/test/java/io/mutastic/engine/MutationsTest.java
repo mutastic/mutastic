@@ -4,11 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Operator;
+import io.mutastic.engine.fixture.Accessors;
+import io.mutastic.engine.fixture.Kept;
+import io.mutastic.engine.fixture.Point;
 import io.mutastic.engine.fixture.Pricing;
 import io.mutastic.engine.fixture.Window;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -49,6 +53,40 @@ class MutationsTest {
     assertThat(operandsIn(Window.class, "before", Operator.BOUNDARY)).containsExactly("day", "end");
     assertThat(operandsIn(Window.class, "state", Operator.NEGATE_CONDITIONAL))
         .containsExactly("open");
+  }
+
+  /// Trivial accessors, by exact bytecode shape and matching name, are arid; anything with logic,
+  /// or named for another field, is mutated.
+  @Test
+  void trivialAccessorsAreAridAndNearMissesAreMutated() throws Exception {
+    var skips = skipsIn(Accessors.class);
+
+    assertThat(skips)
+        .containsEntry("getFirst", "arid: trivial getter of first")
+        .containsEntry("isActive", "arid: trivial getter of active")
+        .containsEntry("getCount", "arid: trivial getter of count")
+        .containsEntry("getRegion", "arid: trivial getter of region")
+        .containsEntry("first", "arid: trivial getter of first")
+        .containsEntry("withCount", "arid: trivial setter of count")
+        .containsEntry("count", "arid: trivial setter of count");
+    assertThat(skips)
+        .containsEntry("getLast", "")
+        .containsEntry("getBoxed", "")
+        .containsEntry("getTags", "")
+        .containsEntry("getCached", "")
+        .containsEntry("getName", "");
+  }
+
+  @Test
+  void aRecordAccessorWithLogicIsMutated() throws Exception {
+    var skips = skipsIn(Point.class);
+
+    assertThat(skips).containsEntry("x", "arid: trivial getter of x").containsEntry("y", "");
+  }
+
+  @Test
+  void doMutateBringsTrivialAccessorsBack() throws Exception {
+    assertThat(skipsIn(Kept.class)).containsEntry("getName", "");
   }
 
   @Test
@@ -281,6 +319,15 @@ class MutationsTest {
     return mutations.find(model(Pricing.class)).stream()
         .filter(mutant -> mutant.methodName().equals(method))
         .toList();
+  }
+
+  /// Each method's skip reason ("" when its mutants run), for methods with a mutant.
+  private Map<String, String> skipsIn(Class<?> type) throws Exception {
+    var skips = new java.util.TreeMap<String, String>();
+    for (Mutant mutant : mutations.find(model(type))) {
+      skips.merge(mutant.methodName(), mutant.skipped().orElse(""), (kept, ignored) -> kept);
+    }
+    return skips;
   }
 
   private List<String> operandsIn(Class<?> type, String method, Operator operator)
