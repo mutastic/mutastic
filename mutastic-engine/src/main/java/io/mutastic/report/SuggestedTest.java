@@ -62,22 +62,36 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
     return "today %s · with this mutant %s".formatted(suggestion.today(), suggestion.mutated());
   }
 
-  /// `discountWithTotal100`, `feeWithAmountMinus1`; `sizeResult` with no arguments.
+  /// `discountWithTotal100`, `feeWithAmountMinus1`; `sizeResult` with no arguments; and the
+  /// receiver's arguments too when it has some, `openOnWithDay5ForWindow5And10`. Every argument
+  /// is in the name, so two different calls never share one, and the same call (for two
+  /// mutants) is the same test.
   static String name(String method, Suggestion suggestion) {
+    var name = new StringBuilder(method);
     if (suggestion.inputs().isEmpty()) {
-      return method + "Result";
+      name.append("Result");
+    } else {
+      name.append("With");
     }
-    var name = new StringBuilder(method).append("With");
     for (int index = 0; index < suggestion.inputs().size(); index++) {
       if (index > 0) {
         name.append("And");
       }
       var parameter = suggestion.parameters().get(index);
       long value = suggestion.inputs().get(index);
-      name.append(Character.toUpperCase(parameter.charAt(0))).append(parameter.substring(1))
-          .append(value < 0 ? "Minus" + -value : String.valueOf(value));
+      name.append(Character.toUpperCase(parameter.charAt(0))).append(parameter.substring(1)).append(number(value));
+    }
+    if (!suggestion.receiverArguments().isEmpty()) {
+      name.append("For").append(suggestion.receiverType());
+      for (int index = 0; index < suggestion.receiverArguments().size(); index++) {
+        name.append(index == 0 ? "" : "And").append(number(suggestion.receiverArguments().get(index)));
+      }
     }
     return name.toString();
+  }
+
+  private static String number(long value) {
+    return value < 0 ? "Minus" + -value : String.valueOf(value);
   }
 
   /// `name`, or `name2`, `name3`… if the test class already has a method called that.

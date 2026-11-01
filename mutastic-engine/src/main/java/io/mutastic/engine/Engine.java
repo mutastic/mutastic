@@ -281,26 +281,34 @@ public final class Engine {
       var inputs = coverage.inputs(mutant, covering);
       var result = new MutantResult(mutant, run.status(), covering, run.failedTest(), run.failure(), run.origin(),
           run.testsRun(), unconfirmed, inputs, Optional.empty(), Duration.ofNanos(System.nanoTime() - start));
-      if (suggestions && run.status() == Status.MISSED && callableFromTest(mutant, covering.getFirst())) {
-        result = result.withSuggestion(suggest(mutant, bytes, inputs, worker));
+      if (suggestions && run.status() == Status.MISSED) {
+        var receiver = receiverFor(mutant, covering.getFirst());
+        if (receiver.isPresent()) {
+          result = result.withSuggestion(suggest(mutant, receiver.get(), bytes, inputs, worker));
+        }
       }
       return new Outcome(result, run.portClash());
     }
 
-    /// Whether the test class a suggestion would go into, the fastest covering test's, could
-    /// write its call.
-    private boolean callableFromTest(Mutant mutant, String fastestTest) {
+    /// How the test class a suggestion would go into, the fastest covering test's, could write
+    /// its call: `-` for a static method, else the constructor for the receiver. Empty if it
+    /// can't.
+    private Optional<String> receiverFor(Mutant mutant, String fastestTest) {
       int hash = fastestTest.indexOf('#');
       var testClass = hash < 0 ? fastestTest : fastestTest.substring(0, hash);
       synchronized (mutations) {
-        return Access.callableFrom(models.get(mutant.binaryName()), mutant, testClass);
+        return Access.receiver(models.get(mutant.binaryName()), mutant, testClass);
       }
     }
 
-    private Optional<Suggestion> suggest(Mutant mutant, byte[] bytes, Map<String, List<Long>> inputs, TestWorker worker) {
+    /// Each candidate is the receiver's constructor arguments, if any, then the method's.
+    private Optional<Suggestion> suggest(Mutant mutant, String receiver, byte[] bytes, Map<String, List<Long>> inputs,
+        TestWorker worker) {
       var type = java.lang.constant.MethodTypeDesc.ofDescriptor(mutant.descriptor());
-      var wholeNumbers = type.parameterList().stream().allMatch(parameter ->
-          parameter.descriptorString().equals("I") || parameter.descriptorString().equals("J"));
+      var constructor = receiver.equals("-") ? java.lang.constant.MethodTypeDesc.of(java.lang.constant.ConstantDescs.CD_void)
+          : java.lang.constant.MethodTypeDesc.ofDescriptor(receiver);
+      boolean wholeNumbers = type.parameterList().stream()
+          .allMatch(parameter -> Access.WHOLE_NUMBERS.contains(parameter.descriptorString()));
       if (!wholeNumbers) {
         return Optional.empty();
       }
@@ -312,31 +320,42 @@ public final class Engine {
       constants.forEach(constant -> values.addAll(List.of(constant, constant - 1, constant + 1)));
       inputs.values().forEach(values::addAll);
       values.addAll(List.of(0L, 1L, 2L, 3L, -1L, 10L));
+      int receiverCount = constructor.parameterCount();
       var candidates = new ArrayList<List<Long>>();
-      combine(List.copyOf(values), type.parameterCount(), new ArrayList<>(), candidates);
-      return worker.suggest(mutant, bytes, candidates).map(found -> {
-        var arguments = found[0].equals("-") ? List.<Long>of()
+      combine(List.copyOf(values), receiverCount + type.parameterCount(), new ArrayList<>(), candidates);
+      return worker.suggest(mutant, receiver, bytes, candidates).map(found -> {
+        var all = found[0].equals("-") ? List.<Long>of()
             : java.util.Arrays.stream(found[0].split(";")).map(Long::valueOf).toList();
+        var receiverArguments = all.subList(0, receiverCount);
+        var arguments = all.subList(receiverCount, all.size());
         var names = coverage.parameterNames(mutant);
         if (names.size() != arguments.size()) {
           names = java.util.stream.IntStream.range(0, arguments.size()).mapToObj(index -> "arg" + index).toList();
         }
-        return new Suggestion(call(mutant, type, arguments), names, arguments, found[1], found[2]);
+        var simple = mutant.className().substring(mutant.className().lastIndexOf('/') + 1);
+        return new Suggestion(call(mutant, receiver, constructor, receiverArguments, type, arguments), names, arguments,
+            simple.substring(simple.lastIndexOf('$') + 1), receiverArguments, found[1], found[2]);
       });
     }
 
-    /// `new Pricing().discount(100)`, or `Pricing.discount(100)` for a static method.
-    private String call(Mutant mutant, java.lang.constant.MethodTypeDesc type, List<Long> arguments) {
+    /// `Pricing.discount(100)` for a static method, `new Pricing().discount(100)`, or
+    /// `new GoldenScorer.Score(1, 1).hitAt(1)` when the receiver needs arguments.
+    private static String call(Mutant mutant, String receiver, java.lang.constant.MethodTypeDesc constructor,
+        List<Long> receiverArguments, java.lang.constant.MethodTypeDesc type, List<Long> arguments) {
       var simple = mutant.className().substring(mutant.className().lastIndexOf('/') + 1).replace('$', '.');
-      boolean isStatic = models.get(mutant.binaryName()).methods().stream()
-          .filter(method -> method.methodName().equalsString(mutant.methodName())
-              && method.methodType().equalsString(mutant.descriptor()))
-          .anyMatch(method -> method.flags().has(java.lang.reflect.AccessFlag.STATIC));
+      var on = receiver.equals("-") ? simple
+          : "new %s(%s)".formatted(simple, literals(constructor, receiverArguments));
+      return "%s.%s(%s)".formatted(on, mutant.methodName(), literals(type, arguments));
+    }
+
+    /// `1, 2L`: each value as Java source for its parameter (`long` and `Long` take an `L`).
+    private static String literals(java.lang.constant.MethodTypeDesc type, List<Long> values) {
       var written = new ArrayList<String>();
-      for (int index = 0; index < arguments.size(); index++) {
-        written.add(arguments.get(index) + (type.parameterType(index).descriptorString().equals("J") ? "L" : ""));
+      for (int index = 0; index < values.size(); index++) {
+        var descriptor = type.parameterType(index).descriptorString();
+        written.add(values.get(index) + (descriptor.equals("J") || descriptor.equals("Ljava/lang/Long;") ? "L" : ""));
       }
-      return "%s.%s(%s)".formatted(isStatic ? simple : "new " + simple + "()", mutant.methodName(), String.join(", ", written));
+      return String.join(", ", written);
     }
 
     /// Every way to pick one of `values` per parameter, the earlier values first, up to

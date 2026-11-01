@@ -44,6 +44,20 @@ public class Visibility {
     }
   }
 
+  public record Range(Integer low, long high) {
+    public boolean contains(int value) {
+      return low <= value && value <= high;
+    }
+  }
+
+  public static final class Named {
+    public Named(String name) {}
+
+    public int length(int extra) {
+      return extra + 1;
+    }
+  }
+
   static Class<?> hiddenClass() {
     return Hidden.class;
   }

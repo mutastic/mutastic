@@ -61,6 +61,13 @@ class SuggestedTestTest {
     assertThat(SuggestedTest.of(missed(suggestion("10", "0")), sources()).orElseThrow().name()).isEqualTo("discountWithTotal1002");
     assertThat(SuggestedTest.name("size", new Suggestion("new Stock().size()", List.of(), List.of(), "0", "1")))
         .isEqualTo("sizeResult");
+    // Receivers made with arguments: those are in the name too, so two calls never share one.
+    var ten = new Suggestion("new Window(5, 10L).openOn(5)", List.of("day"), List.of(5L), "Window", List.of(5L, 10L), "true",
+        "false");
+    var five = new Suggestion("new Window(5, 5L).openOn(5)", List.of("day"), List.of(5L), "Window", List.of(5L, 5L), "false",
+        "true");
+    assertThat(SuggestedTest.name("openOn", ten)).isEqualTo("openOnWithDay5ForWindow5And10");
+    assertThat(SuggestedTest.name("openOn", five)).isEqualTo("openOnWithDay5ForWindow5And5");
   }
 
   private SourceView sources() {

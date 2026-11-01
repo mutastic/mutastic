@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /// Suggested tests on `samples/suggestions`: AssertJ-style tests, a static method, `long`
-/// arguments, and a random method that must get none.
+/// arguments, a record made with its own constructor, and a random method that must get none.
 class SuggestionsTest {
   private static final Path SAMPLE = Path.of(System.getProperty("mutastic.samples"), "suggestions");
 
@@ -40,11 +40,26 @@ class SuggestionsTest {
         @Test
         void inCreditWithBalance0() {
           assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
+        }""", """
+        @Test
+        void openOnWithDay0ForWindow5And5() {
+          assertThat(new Window(5, 5L).openOn(0)).isFalse(); // today false · with this mutant true
+        }""", """
+        @Test
+        void openOnWithDay5ForWindow5And5() {
+          assertThat(new Window(5, 5L).openOn(5)).isFalse(); // today false · with this mutant true
+        }""", """
+        @Test
+        void openOnWithDay5ForWindow5And10() {
+          assertThat(new Window(5, 10L).openOn(5)).isTrue(); // today true · with this mutant false
         }""");
 
-    var test = project.resolve("src/test/java/com/example/rates/RatesTest.java");
-    var code = String.join("\n", suggested.values().stream().map(method -> method.indent(2)).toList());
-    Files.writeString(test, Files.readString(test).replaceFirst("\\}\\s*$", "\n" + code + "}\n"));
+    // Each into the test class it was written for: RatesTest, or WindowTest for the record.
+    for (var code : suggested.values()) {
+      var testClass = code.contains("new Window(") ? "WindowTest" : "RatesTest";
+      var test = project.resolve("src/test/java/com/example/rates/" + testClass + ".java");
+      Files.writeString(test, Files.readString(test).replaceFirst("\\}\\s*$", "\n" + code.indent(2) + "}\n"));
+    }
     for (Map.Entry<String, String> entry : suggested.entrySet()) {
       var verified = Samples.mutastic("verify", entry.getKey(), project.toString());
       assertThat(verified.exit()).as(entry.getValue() + "\n" + verified.out() + verified.err()).isEqualTo(Main.PASSED);

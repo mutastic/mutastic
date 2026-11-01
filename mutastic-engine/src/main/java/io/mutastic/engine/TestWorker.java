@@ -103,15 +103,17 @@ final class TestWorker implements AutoCloseable {
     };
   }
 
-  /// The first of `candidates` (one value per parameter) where `bytes` changes what the method
-  /// returns, with both results; empty if none does in the worker's time budget. A call that
+  /// The first of `candidates` (one value per constructor parameter of `receiver`, then per
+  /// method parameter) where `bytes` changes what the method returns, with both results; empty
+  /// if none does in the worker's time budget. `receiver` is `-` for a static method, else the
+  /// constructor descriptor. A call that
   /// never returned on the mutant leaves a thread running, so the worker is replaced.
-  Optional<String[]> suggest(Mutant mutant, byte[] bytes, List<List<Long>> candidates) {
+  Optional<String[]> suggest(Mutant mutant, String receiver, byte[] bytes, List<List<Long>> candidates) {
     var encoded = candidates.stream()
         .map(inputs -> inputs.isEmpty() ? "-" : inputs.stream().map(String::valueOf).collect(Collectors.joining(";")))
         .collect(Collectors.joining("|"));
     send(String.join("\t", "SUGGEST", mutant.binaryName(), mutant.methodName(), mutant.descriptor(),
-        Base64.getEncoder().encodeToString(bytes), encoded));
+        Base64.getEncoder().encodeToString(bytes), encoded, receiver));
     var answer = await(Duration.ofSeconds(10));
     if (answer.isEmpty()) {
       kill();

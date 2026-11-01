@@ -1,6 +1,7 @@
 package io.mutastic.worker;
 
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -19,9 +20,10 @@ import java.util.concurrent.TimeoutException;
 /// disagree. The expected value is what the code does today, which the person must check is
 /// what they meant. A method that gives different answers to the same call gets no suggestion.
 ///
-/// Only methods whose parameters are all `int` or `long`, static or on a class with a
-/// no-argument constructor, returning a primitive, a `String` or a boxed primitive: values that
-/// can be written in a test as literals.
+/// Only methods whose parameters are all whole numbers (`int`, `long`, `Integer`, `Long`),
+/// static or on an instance the engine says how to make (a constructor whose parameters are
+/// whole numbers too, or none), returning a primitive, a `String` or a boxed primitive: values
+/// that can be written in a test as literals.
 final class Suggester {
   /// How long one call may take, and all the calls for one mutant together.
   private static final long CALL_MILLIS = 200;
@@ -33,24 +35,29 @@ final class Suggester {
 
   private Suggester() {}
 
+  /// `receiver` is `-` for a static method, else the descriptor of the constructor to make the
+  /// receiver with; each candidate holds its arguments first, then the method's.
   static Found find(ProductionLoader production, String className, String methodName, String descriptor,
-      byte[] mutantBytes, List<List<Long>> candidates) throws Exception {
+      byte[] mutantBytes, List<List<Long>> candidates, String receiver) throws Exception {
     var none = new Found(Optional.empty(), "", "", false);
-    var method = method(production.loadClass(className), methodName, descriptor);
-    if (method.isEmpty()) {
+    var owner = production.loadClass(className);
+    var method = method(owner, methodName, descriptor, receiver.equals("-"));
+    var constructor = receiver.equals("-") ? Optional.<Constructor<?>>empty() : constructor(owner, receiver);
+    if (method.isEmpty() || !receiver.equals("-") && constructor.isEmpty()) {
       return none;
     }
+    var call = new Call(method.get(), constructor.orElse(null));
     long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(BUDGET_MILLIS);
     var today = new ArrayList<String>();
     for (List<Long> inputs : candidates) {
       if (System.nanoTime() > deadline) {
         break;
       }
-      var first = call(method.get(), inputs);
+      var first = call.on(inputs);
       // Twice: a method that answers differently to the same call (it uses a random number, the
       // clock, shared state) can't be pinned by an assertion, and any difference the mutant
       // seemed to make could be chance.
-      if (first.isPresent() && !first.equals(call(method.get(), inputs))) {
+      if (first.isPresent() && !first.equals(call.on(inputs))) {
         return none;
       }
       today.add(first.orElse(null));
@@ -61,7 +68,7 @@ final class Suggester {
         if (today.get(index) == null) {
           continue; // the original didn't return in time: no expected value to write
         }
-        var mutated = call(method.get(), candidates.get(index));
+        var mutated = call.on(candidates.get(index));
         if (mutated.isEmpty()) {
           return new Found(Optional.of(candidates.get(index)), today.get(index), "doesn't return", true);
         }
@@ -75,14 +82,12 @@ final class Suggester {
     }
   }
 
-  private static Optional<Method> method(Class<?> owner, String name, String descriptor) {
+  private static Optional<Method> method(Class<?> owner, String name, String descriptor, boolean isStatic) {
     for (Method method : owner.getDeclaredMethods()) {
       var type = MethodType.methodType(method.getReturnType(), method.getParameterTypes());
-      boolean wholeNumbers = java.util.Arrays.stream(method.getParameterTypes())
-          .allMatch(parameter -> parameter == int.class || parameter == long.class);
-      boolean reachable = Modifier.isStatic(method.getModifiers()) || hasNoArgumentConstructor(owner);
-      if (method.getName().equals(name) && type.toMethodDescriptorString().equals(descriptor) && wholeNumbers
-          && reachable && writable(method.getReturnType())) {
+      if (method.getName().equals(name) && type.toMethodDescriptorString().equals(descriptor)
+          && wholeNumbers(method.getParameterTypes()) && Modifier.isStatic(method.getModifiers()) == isStatic
+          && writable(method.getReturnType())) {
         method.setAccessible(true);
         return Optional.of(method);
       }
@@ -90,20 +95,62 @@ final class Suggester {
     return Optional.empty();
   }
 
+  private static Optional<Constructor<?>> constructor(Class<?> owner, String descriptor) {
+    for (Constructor<?> constructor : owner.getDeclaredConstructors()) {
+      var type = MethodType.methodType(void.class, constructor.getParameterTypes());
+      if (type.toMethodDescriptorString().equals(descriptor) && wholeNumbers(constructor.getParameterTypes())) {
+        constructor.setAccessible(true);
+        return Optional.of(constructor);
+      }
+    }
+    return Optional.empty();
+  }
+
+  private static boolean wholeNumbers(Class<?>[] types) {
+    return java.util.Arrays.stream(types)
+        .allMatch(type -> type == int.class || type == long.class || type == Integer.class || type == Long.class);
+  }
+
+  /// One call: the method on a fresh receiver (or none, if static), with its arguments.
+  private static final class Call {
+    private final Method method;
+    private final Constructor<?> constructor;
+
+    Call(Method method, Constructor<?> constructor) {
+      this.method = method;
+      this.constructor = constructor;
+    }
+
+    /// `inputs` are the constructor's arguments, then the method's.
+    Optional<String> on(List<Long> inputs) {
+      int split = constructor == null ? 0 : constructor.getParameterCount();
+      var receiverArguments = arguments(constructor == null ? new Class<?>[0] : constructor.getParameterTypes(),
+          inputs.subList(0, split));
+      var methodArguments = arguments(method.getParameterTypes(), inputs.subList(split, inputs.size()));
+      return call(method, () -> constructor == null ? null : constructor.newInstance(receiverArguments), methodArguments);
+    }
+  }
+
+  /// Makes the receiver for a call; may throw, as a constructor may.
+  private interface Receiver {
+    Object make() throws Exception;
+  }
+
+  private static Object[] arguments(Class<?>[] types, List<Long> values) {
+    var arguments = new Object[values.size()];
+    for (int index = 0; index < values.size(); index++) {
+      long value = values.get(index);
+      arguments[index] = types[index] == int.class || types[index] == Integer.class ? (Object) (int) value : (Object) value;
+    }
+    return arguments;
+  }
+
   /// The call's result as Java source (`10`, `10L`, `true`, `"text"`, `null`), `throws
   /// IllegalStateException`, or empty if it didn't return in time. A fresh instance per call,
   /// so one call's state can't change another's result.
-  private static Optional<String> call(Method method, List<Long> inputs) {
-    var arguments = new Object[inputs.size()];
-    var types = method.getParameterTypes();
-    for (int index = 0; index < inputs.size(); index++) {
-      arguments[index] = types[index] == int.class ? (Object) inputs.get(index).intValue() : inputs.get(index);
-    }
+  private static Optional<String> call(Method method, Receiver receiver, Object[] arguments) {
     // A daemon thread rather than an executor, whose close() would wait forever on a loop.
-    var task = new FutureTask<>(() -> {
-      var receiver = Modifier.isStatic(method.getModifiers()) ? null : construct(method.getDeclaringClass());
-      return method.invoke(receiver, arguments);
-    });
+    var task = new FutureTask<>(() -> method.invoke(receiver.make(), arguments));
     var thread = new Thread(task, "mutastic-suggestion");
     thread.setDaemon(true);
     thread.start();
@@ -118,12 +165,6 @@ final class Suggester {
       Thread.currentThread().interrupt();
       return Optional.empty();
     }
-  }
-
-  private static Object construct(Class<?> owner) throws Exception {
-    var constructor = owner.getDeclaredConstructor();
-    constructor.setAccessible(true);
-    return constructor.newInstance();
   }
 
   static String literal(Object value) {
@@ -153,12 +194,4 @@ final class Suggester {
         || type == Character.class || type == Double.class || type == Float.class);
   }
 
-  private static boolean hasNoArgumentConstructor(Class<?> owner) {
-    try {
-      owner.getDeclaredConstructor();
-      return true;
-    } catch (NoSuchMethodException e) {
-      return false;
-    }
-  }
 }
