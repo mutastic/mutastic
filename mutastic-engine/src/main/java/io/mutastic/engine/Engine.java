@@ -193,11 +193,17 @@ public final class Engine {
     return workers;
   }
 
-  /// Every test once, on `first`, with coverage; flaky tests are left out of what it recorded.
+  /// Every test once, on `first`, with coverage; flaky tests are left out of what it recorded. A
+  /// module with no test classes has nothing to run: every mutant is not covered, and no worker
+  /// starts (one couldn't, with no JUnit on the classpath).
   private CoveragePass coveragePass(Project project, Plan plan, TestWorker first) {
+    var testClasses = testClassesIn(project.testClasses());
+    if (testClasses.isEmpty()) {
+      return new CoveragePass(0, 0, Duration.ZERO, plan.mutants().size(), List.of());
+    }
     var coverage = plan.mutantRun().coverage();
     long coverageStart = System.nanoTime();
-    var baseline = first.cover(plan.instrumented(), testClassesIn(project.testClasses()), coverage);
+    var baseline = first.cover(plan.instrumented(), testClasses, coverage);
     var flaky =
         baseline.passed() ? List.<String>of() : flakyOrFail(baseline.failing(), coverage, first);
     coverage.exclude(flaky);

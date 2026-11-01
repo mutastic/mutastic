@@ -686,6 +686,9 @@ public final class HumanText {
   }
 
   private String testsRow(Report report) {
+    if (report.tests() == 0) {
+      return "none found (mutastic runs JUnit Platform tests)";
+    }
     return "%d on JDK %d · %d worker%s%s"
         .formatted(
             report.tests(),

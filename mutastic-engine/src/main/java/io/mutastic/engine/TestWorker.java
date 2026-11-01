@@ -33,6 +33,10 @@ final class TestWorker implements AutoCloseable {
   private static final Duration STARTUP = Duration.ofSeconds(30);
   private static final Duration COVERAGE_LIMIT = Duration.ofMinutes(10);
 
+  /// Put on a worker's answers when its process exits: no answer is coming, so nothing waits for
+  /// one. Not a line a worker can write.
+  private static final String STOPPED = "\0stopped";
+
   private final Project project;
   private final Path workerJar;
   private final Path log;
@@ -82,9 +86,15 @@ final class TestWorker implements AutoCloseable {
     return await(COVERAGE_LIMIT)
         .orElseThrow(
             () -> {
+              var current = running;
+              boolean stopped = current != null && !current.process().isAlive();
               kill();
               return new IllegalStateException(
-                  "the tests didn't finish within " + COVERAGE_LIMIT.toMinutes() + " minutes");
+                  stopped
+                      ? "the test worker stopped during the coverage pass; its output is in " + log
+                      : "the tests didn't finish within "
+                          + COVERAGE_LIMIT.toMinutes()
+                          + " minutes");
             });
   }
 
@@ -230,14 +240,16 @@ final class TestWorker implements AutoCloseable {
     commands.flush();
   }
 
-  /// The running worker's next answer, or empty if it gave none in time (or none is running).
+  /// The running worker's next answer, or empty if it gave none in time, stopped, or none is
+  /// running.
   private Optional<String> await(Duration timeout) {
     var current = running;
     if (current == null) {
       return Optional.empty();
     }
     try {
-      return Optional.ofNullable(current.answers().poll(timeout.toNanos(), TimeUnit.NANOSECONDS));
+      return Optional.ofNullable(current.answers().poll(timeout.toNanos(), TimeUnit.NANOSECONDS))
+          .filter(answer -> !answer.equals(STOPPED));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       return Optional.empty();
@@ -334,6 +346,7 @@ final class TestWorker implements AutoCloseable {
               } catch (IOException e) {
                 // the worker was killed; whatever it was saying no longer matters
               }
+              queue.add(STOPPED);
             });
   }
 

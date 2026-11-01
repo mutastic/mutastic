@@ -76,7 +76,9 @@ final class Progress implements Listener {
   @Override
   public void coverageFinished(CoveragePass pass) {
     total = pass.mutants();
-    if (mode != Mode.NONE) {
+    if (mode != Mode.NONE && pass.tests() == 0) {
+      err.printf("coverage  no tests found · %s%n", count(pass.mutants(), "mutant"));
+    } else if (mode != Mode.NONE) {
       err.printf(
           "coverage  %s on JDK %d in %s%s · %s%n",
           count(pass.tests(), "test"),
