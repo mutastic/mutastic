@@ -59,9 +59,12 @@ final class ProductionLoader extends RootsLoader {
     if (production != null) {
       return production;
     }
-    // A test-only class a test copy uses. Tests in a production package are only ever defined
-    // here renamed, so their original names stay out.
-    return splitTopLevel(name) == null ? classFile(testRoots, name) : null;
+    // A test-only class a test copy uses. A test in a production package is run as a renamed copy,
+    // and every class reference in a copy is renamed too, so only a string that names a class
+    // reaches here by its original name: `@MethodSource("com.example.UtilTest#cases")`, which
+    // JUnit loads through the copy's loader. That class is defined once, as the build has it, and
+    // its statics last across runs.
+    return classFile(testRoots, name);
   }
 
   private static List<Path> concat(List<Path> first, List<Path> second) {
