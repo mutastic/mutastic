@@ -27,6 +27,7 @@ import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.support.descriptor.MethodSource;
+import org.junit.platform.launcher.LauncherDiscoveryRequest;
 import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestIdentifier;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
@@ -112,60 +113,70 @@ public final class Worker {
     var tests = Arrays.asList(command).subList(1, command.length);
     switch (command[0]) {
       case "CLASS" -> staged.put(command[1], Base64.getDecoder().decode(command[2]));
-      case "COVER" -> {
-        var instrumented =
-            new ProductionLoader(
-                productionRoots, staged, testRoots, splitTests, getClass().getClassLoader());
-        production = instrumented;
-        cover(tests);
-        instrumented.restoreAll();
-        staged.clear();
-      }
-      case "RUN" -> {
-        var loader = production();
-        loader.swapIn(staged);
-        try {
-          run(tests);
-        } finally {
-          loader.swapBack(staged.keySet());
-          staged.clear();
-        }
-      }
-      case "SUGGEST" -> {
-        var candidates =
-            Arrays.stream(command[5].split("\\|", -1))
-                .map(
-                    inputs ->
-                        inputs.equals("-")
-                            ? List.<Long>of()
-                            : Arrays.stream(inputs.split(";", -1)).map(Long::valueOf).toList())
-                .toList();
-        var found =
-            Suggester.find(
-                production(),
-                command[1],
-                command[2],
-                command[3],
-                Base64.getDecoder().decode(command[4]),
-                candidates,
-                command[6]);
-        protocol.println(
-            found
-                .inputs()
-                .map(
-                    inputs ->
-                        "SUGGESTED\t"
-                            + inputs.stream().map(String::valueOf).collect(Collectors.joining(";"))
-                            + "\t"
-                            + found.today()
-                            + "\t"
-                            + found.mutated()
-                            + "\t"
-                            + (found.stuck() ? "stuck" : "-"))
-                .orElse("SUGGESTED\t-"));
-      }
+      case "COVER" -> coverInstrumented(tests);
+      case "RUN" -> runWithStaged(tests);
+      case "SUGGEST" -> suggest(command);
       default -> protocol.println("RESULT\tERROR\tunknown command " + command[0]);
     }
+  }
+
+  /// Covers with the staged classes, instrumented, in a new production loader that later commands
+  /// reuse.
+  private void coverInstrumented(List<String> tests) throws Exception {
+    var instrumented =
+        new ProductionLoader(
+            productionRoots, staged, testRoots, splitTests, getClass().getClassLoader());
+    production = instrumented;
+    cover(tests);
+    instrumented.restoreAll();
+    staged.clear();
+  }
+
+  /// Runs with the staged classes (a mutant) swapped in, then back out.
+  private void runWithStaged(List<String> tests) throws Exception {
+    var loader = production();
+    loader.swapIn(staged);
+    try {
+      run(tests);
+    } finally {
+      loader.swapBack(staged.keySet());
+      staged.clear();
+    }
+  }
+
+  private void suggest(String[] command) throws Exception {
+    var candidates = candidates(command[5]);
+    var target = new Suggester.Target(command[1], command[2], command[3], command[6]);
+    var found =
+        Suggester.find(production(), target, Base64.getDecoder().decode(command[4]), candidates);
+    protocol.println(suggested(found));
+  }
+
+  /// `1;2|3;4` → `[[1, 2], [3, 4]]`; `-` is an input with no values.
+  private static List<List<Long>> candidates(String encoded) {
+    return Arrays.stream(encoded.split("\\|", -1))
+        .map(
+            inputs ->
+                inputs.equals("-")
+                    ? List.<Long>of()
+                    : Arrays.stream(inputs.split(";", -1)).map(Long::valueOf).toList())
+        .toList();
+  }
+
+  private static String suggested(Suggester.Found found) {
+    return found
+        .inputs()
+        .map(
+            inputs ->
+                "SUGGESTED\t"
+                    + inputs.stream().map(String::valueOf).collect(Collectors.joining(";"))
+                    + "\t"
+                    + found.today()
+                    + "\t"
+                    + found.mutated()
+                    + "\t"
+                    + (found.stuck() ? "stuck" : "-"))
+        .orElse("SUGGESTED\t-");
   }
 
   /// The production loader: the coverage pass's, or a new one for a worker started after the last
@@ -181,28 +192,37 @@ public final class Worker {
 
   private void cover(List<String> tests) {
     Probes.reset();
-    var startedAt = new HashMap<String, Long>();
-    var failing =
-        execute(
-            tests,
-            new TestExecutionListener() {
-              @Override
-              public void executionStarted(TestIdentifier test) {
-                if (test.isTest()) {
-                  Probes.startTest(id(test));
-                  startedAt.put(id(test), System.nanoTime());
-                }
-              }
-
-              @Override
-              public void executionFinished(TestIdentifier test, TestExecutionResult result) {
-                if (test.isTest()) {
-                  long started = startedAt.getOrDefault(id(test), System.nanoTime());
-                  protocol.println("TEST\t" + id(test) + "\t" + (System.nanoTime() - started));
-                }
-              }
-            });
+    var failing = execute(tests, timingTests());
     Probes.flush();
+    reportLines();
+    reportValues();
+    protocol.println(
+        "DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
+  }
+
+  /// Starts each test's probes and answers `TEST` with how long it took.
+  private TestExecutionListener timingTests() {
+    var startedAt = new HashMap<String, Long>();
+    return new TestExecutionListener() {
+      @Override
+      public void executionStarted(TestIdentifier test) {
+        if (test.isTest()) {
+          Probes.startTest(id(test));
+          startedAt.put(id(test), System.nanoTime());
+        }
+      }
+
+      @Override
+      public void executionFinished(TestIdentifier test, TestExecutionResult result) {
+        if (test.isTest()) {
+          long started = startedAt.getOrDefault(id(test), System.nanoTime());
+          protocol.println("TEST\t" + id(test) + "\t" + (System.nanoTime() - started));
+        }
+      }
+    };
+  }
+
+  private void reportLines() {
     Probes.linesByTest()
         .forEach(
             (test, lines) -> {
@@ -214,6 +234,9 @@ public final class Worker {
                         + lines.stream().map(String::valueOf).collect(Collectors.joining(",")));
               }
             });
+  }
+
+  private void reportValues() {
     Probes.valuesByTest()
         .forEach(
             (test, byParameter) ->
@@ -229,8 +252,6 @@ public final class Worker {
                                     .sorted()
                                     .map(String::valueOf)
                                     .collect(Collectors.joining(",")))));
-    protocol.println(
-        "DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
   }
 
   /// The engine orders tests fastest first; the worker stops at the first failure.
@@ -238,39 +259,44 @@ public final class Worker {
     int ran = 0;
     for (String test : tests) {
       ran++;
-      var started = new int[1];
-      var failing =
-          execute(
-              List.of(test),
-              new TestExecutionListener() {
-                @Override
-                public void executionStarted(TestIdentifier identifier) {
-                  if (identifier.isTest()) {
-                    started[0]++;
-                  }
-                }
-              });
+      var started = new StartedTests();
+      var failing = execute(List.of(test), started);
       // A selector that matches nothing runs nothing and fails nothing: that's not a pass.
-      if (started[0] == 0 && failing.isEmpty()) {
+      if (started.count == 0 && failing.isEmpty()) {
         protocol.println("RESULT\tERROR\tno test ran for " + test);
         return;
       }
       if (!failing.isEmpty()) {
-        protocol.println(
-            "RESULT\tFAILED\t"
-                + ran
-                + "\t"
-                + test
-                + "\t"
-                + lastFailure
-                + "\t"
-                + lastOrigin
-                + "\t"
-                + (lastPortClash ? "port-clash" : "-"));
+        protocol.println(failedResult(ran, test));
         return;
       }
     }
     protocol.println("RESULT\tPASSED\t" + ran);
+  }
+
+  /// Counts the tests that started, not the containers.
+  private static final class StartedTests implements TestExecutionListener {
+    private int count;
+
+    @Override
+    public void executionStarted(TestIdentifier identifier) {
+      if (identifier.isTest()) {
+        count++;
+      }
+    }
+  }
+
+  private String failedResult(int ran, String test) {
+    return "RESULT\tFAILED\t"
+        + ran
+        + "\t"
+        + test
+        + "\t"
+        + lastFailure
+        + "\t"
+        + lastOrigin
+        + "\t"
+        + (lastPortClash ? "port-clash" : "-");
   }
 
   private List<String> execute(List<String> tests, TestExecutionListener observer) {
@@ -279,46 +305,51 @@ public final class Worker {
     var previous = thread.getContextClassLoader();
     thread.setContextClassLoader(loader);
     try {
-      var request = LauncherDiscoveryRequestBuilder.request();
-      for (String test : tests) {
-        int hash = test.indexOf('#');
-        request.selectors(
-            hash < 0
-                ? selectClass(loader.loadClass(test))
-                : selectMethod(
-                    loader.loadClass(test.substring(0, hash)), method(test), parameters(test)));
-      }
+      var request = request(loader, tests);
       var failing = new ArrayList<String>();
-      LauncherFactory.create()
-          .execute(
-              request.build(),
-              new TestExecutionListener() {
-                @Override
-                public void executionFinished(TestIdentifier test, TestExecutionResult result) {
-                  // Containers too: a mutant that breaks a test class's set-up (a static
-                  // initialiser,
-                  // `@BeforeAll`) fails the class, and its tests never start.
-                  if (result.getStatus() != TestExecutionResult.Status.SUCCESSFUL) {
-                    failing.add(id(test));
-                    lastFailure =
-                        result
-                            .getThrowable()
-                            .map(thrown -> thrown.getClass().getName())
-                            .orElse("unknown");
-                    lastOrigin = result.getThrowable().map(Worker.this::origin).orElse("unknown");
-                    lastPortClash = result.getThrowable().map(Worker::portClash).orElse(false);
-                    System.err.println("FAILED\t" + id(test));
-                    result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
-                  }
-                }
-              },
-              observer);
+      LauncherFactory.create().execute(request, recordingFailures(failing), observer);
       return failing;
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException(e);
     } finally {
       thread.setContextClassLoader(previous);
     }
+  }
+
+  /// Selects each test, a class or a method, as loaded for this run.
+  private static LauncherDiscoveryRequest request(TestLoader loader, List<String> tests)
+      throws ClassNotFoundException {
+    var request = LauncherDiscoveryRequestBuilder.request();
+    for (String test : tests) {
+      int hash = test.indexOf('#');
+      request.selectors(
+          hash < 0
+              ? selectClass(loader.loadClass(test))
+              : selectMethod(
+                  loader.loadClass(test.substring(0, hash)), method(test), parameters(test)));
+    }
+    return request.build();
+  }
+
+  /// Adds each failure's id to `failing` and keeps the last one's exception, origin and port clash
+  /// for the `RESULT` line.
+  private TestExecutionListener recordingFailures(List<String> failing) {
+    return new TestExecutionListener() {
+      @Override
+      public void executionFinished(TestIdentifier test, TestExecutionResult result) {
+        // Containers too: a mutant that breaks a test class's set-up (a static initialiser,
+        // `@BeforeAll`) fails the class, and its tests never start.
+        if (result.getStatus() != TestExecutionResult.Status.SUCCESSFUL) {
+          failing.add(id(test));
+          lastFailure =
+              result.getThrowable().map(thrown -> thrown.getClass().getName()).orElse("unknown");
+          lastOrigin = result.getThrowable().map(Worker.this::origin).orElse("unknown");
+          lastPortClash = result.getThrowable().map(Worker::portClash).orElse(false);
+          System.err.println("FAILED\t" + id(test));
+          result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
+        }
+      }
+    };
   }
 
   /// Whether a port in use caused it, anywhere in its causes: with workers running side by side,

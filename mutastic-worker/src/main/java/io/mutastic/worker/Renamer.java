@@ -54,29 +54,39 @@ final class Renamer {
       out.writeInt(in.readInt()); // minor, major
       int count = in.readUnsignedShort();
       out.writeShort(count);
-      for (int index = 1; index < count; index++) {
-        int tag = in.readUnsignedByte();
-        out.writeByte(tag);
-        switch (tag) {
-          case 1 -> out.writeUTF(renameIn(in.readUTF(), topLevels, "__m" + run));
-          case 7, 8, 16, 19, 20 -> out.writeShort(in.readUnsignedShort());
-          case 15 -> {
-            out.writeByte(in.readUnsignedByte());
-            out.writeShort(in.readUnsignedShort());
-          }
-          case 3, 4, 9, 10, 11, 12, 17, 18 -> out.writeInt(in.readInt());
-          case 5, 6 -> {
-            out.writeLong(in.readLong());
-            index++; // longs and doubles take two slots
-          }
-          default -> throw new IllegalArgumentException("constant pool tag " + tag);
-        }
+      String suffix = "__m" + run;
+      int index = 1;
+      while (index < count) {
+        index += copyConstant(in, out, topLevels, suffix);
       }
       in.transferTo(out); // the rest refers to the pool by index
       return buffer.toByteArray();
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
+  }
+
+  /// Copies one constant pool entry, renaming it if it's text; returns the slots it takes.
+  private static int copyConstant(
+      DataInputStream in, DataOutputStream out, Set<String> topLevels, String suffix)
+      throws IOException {
+    int tag = in.readUnsignedByte();
+    out.writeByte(tag);
+    switch (tag) {
+      case 1 -> out.writeUTF(renameIn(in.readUTF(), topLevels, suffix));
+      case 7, 8, 16, 19, 20 -> out.writeShort(in.readUnsignedShort());
+      case 15 -> {
+        out.writeByte(in.readUnsignedByte());
+        out.writeShort(in.readUnsignedShort());
+      }
+      case 3, 4, 9, 10, 11, 12, 17, 18 -> out.writeInt(in.readInt());
+      case 5, 6 -> {
+        out.writeLong(in.readLong());
+        return 2; // longs and doubles take two slots
+      }
+      default -> throw new IllegalArgumentException("constant pool tag " + tag);
+    }
+    return 1;
   }
 
   /// Inserts `suffix` after each whole top-level name: followed by the end, `;` (a descriptor), `<`

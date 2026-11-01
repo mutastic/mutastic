@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
@@ -35,28 +36,66 @@ final class Suggester {
   /// so the worker should be replaced.
   record Found(Optional<List<Long>> inputs, String today, String mutated, boolean stuck) {}
 
+  /// The method a suggestion is for. `receiver` is `-` for a static method, else the descriptor of
+  /// the constructor to make the receiver with.
+  record Target(String className, String methodName, String descriptor, String receiver) {
+    boolean isStatic() {
+      return receiver.equals("-");
+    }
+  }
+
+  private static final Found NONE = new Found(Optional.empty(), "", "", false);
+
+  private static final Set<Class<?>> WRITABLE_BOXES =
+      Set.of(
+          Integer.class,
+          Long.class,
+          Boolean.class,
+          Short.class,
+          Byte.class,
+          Character.class,
+          Double.class,
+          Float.class);
+
   private Suggester() {}
 
-  /// `receiver` is `-` for a static method, else the descriptor of the constructor to make the
-  /// receiver with; each candidate holds its arguments first, then the method's.
+  /// Each candidate holds the receiver's constructor arguments first, then the method's.
   static Found find(
-      ProductionLoader production,
-      String className,
-      String methodName,
-      String descriptor,
-      byte[] mutantBytes,
-      List<List<Long>> candidates,
-      String receiver)
+      ProductionLoader production, Target target, byte[] mutantBytes, List<List<Long>> candidates)
       throws Exception {
-    var none = new Found(Optional.empty(), "", "", false);
-    var owner = production.loadClass(className);
-    var method = method(owner, methodName, descriptor, receiver.equals("-"));
-    var constructor =
-        receiver.equals("-") ? Optional.<Constructor<?>>empty() : constructor(owner, receiver);
-    if (method.isEmpty() || (!receiver.equals("-") && constructor.isEmpty())) {
-      return none;
+    var call = callOf(production.loadClass(target.className()), target);
+    if (call.isEmpty()) {
+      return NONE;
     }
-    var call = new Call(method.get(), constructor.orElse(null));
+    var today = today(call.get(), candidates);
+    if (today.isEmpty()) {
+      return NONE;
+    }
+    production.swapIn(Map.of(target.className(), mutantBytes));
+    try {
+      return firstDifference(call.get(), candidates, today.get());
+    } finally {
+      production.swapBack(Set.of(target.className()));
+    }
+  }
+
+  /// The call to make, or empty if the method or its receiver's constructor can't be written as
+  /// literals.
+  private static Optional<Call> callOf(Class<?> owner, Target target) {
+    var method = method(owner, target.methodName(), target.descriptor(), target.isStatic());
+    var constructor =
+        target.isStatic()
+            ? Optional.<Constructor<?>>empty()
+            : constructor(owner, target.receiver());
+    if (method.isEmpty() || (!target.isStatic() && constructor.isEmpty())) {
+      return Optional.empty();
+    }
+    return Optional.of(new Call(method.get(), constructor.orElse(null)));
+  }
+
+  /// What the method returns today for each candidate tried within the budget, null where it didn't
+  /// return in time; empty if it answered one call two ways.
+  private static Optional<List<String>> today(Call call, List<List<Long>> candidates) {
     long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(BUDGET_MILLIS);
     var today = new ArrayList<String>();
     for (List<Long> inputs : candidates) {
@@ -68,30 +107,30 @@ final class Suggester {
       // clock, shared state) can't be pinned by an assertion, and any difference the mutant
       // seemed to make could be chance.
       if (first.isPresent() && !first.equals(call.on(inputs))) {
-        return none;
+        return Optional.empty();
       }
       today.add(first.orElse(null));
     }
-    production.swapIn(Map.of(className, mutantBytes));
-    try {
-      for (int index = 0; index < today.size(); index++) {
-        if (today.get(index) == null) {
-          continue; // the original didn't return in time: no expected value to write
-        }
-        var mutated = call.on(candidates.get(index));
-        if (mutated.isEmpty()) {
-          return new Found(
-              Optional.of(candidates.get(index)), today.get(index), "doesn't return", true);
-        }
-        if (!Objects.equals(today.get(index), mutated.get())) {
-          return new Found(
-              Optional.of(candidates.get(index)), today.get(index), mutated.get(), false);
-        }
+    return Optional.of(today);
+  }
+
+  /// The first candidate where the mutant, now swapped in, answers differently from `today`.
+  private static Found firstDifference(Call call, List<List<Long>> candidates, List<String> today) {
+    for (int index = 0; index < today.size(); index++) {
+      if (today.get(index) == null) {
+        continue; // the original didn't return in time: no expected value to write
       }
-      return none;
-    } finally {
-      production.swapBack(java.util.Set.of(className));
+      var mutated = call.on(candidates.get(index));
+      if (mutated.isEmpty()) {
+        return new Found(
+            Optional.of(candidates.get(index)), today.get(index), "doesn't return", true);
+      }
+      if (!Objects.equals(today.get(index), mutated.get())) {
+        return new Found(
+            Optional.of(candidates.get(index)), today.get(index), mutated.get(), false);
+      }
     }
+    return NONE;
   }
 
   private static Optional<Method> method(
@@ -210,13 +249,7 @@ final class Suggester {
       return "null";
     }
     if (value instanceof String text) {
-      return '"'
-          + text.replace("\\", "\\\\")
-              .replace("\"", "\\\"")
-              .replace("\n", "\\n")
-              .replace("\r", "\\r")
-              .replace("\t", "\\t")
-          + '"'; // and so never a tab, which the protocol splits on
+      return stringLiteral(text);
     }
     if (value instanceof Long number) {
       return number + "L";
@@ -225,24 +258,29 @@ final class Suggester {
       return number + "f";
     }
     if (value instanceof Character character) {
-      return "'"
-          + (character == '\'' ? "\\'" : character == '\\' ? "\\\\" : character.toString())
-          + "'";
+      return charLiteral(character);
     }
     return String.valueOf(value);
   }
 
+  private static String stringLiteral(String text) {
+    return '"'
+        + text.replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
+        + '"'; // and so never a tab, which the protocol splits on
+  }
+
+  private static String charLiteral(Character character) {
+    return "'"
+        + (character == '\'' ? "\\'" : character == '\\' ? "\\\\" : character.toString())
+        + "'";
+  }
+
   private static boolean writable(Class<?> type) {
     return type != void.class
-        && (type.isPrimitive()
-            || type == String.class
-            || type == Integer.class
-            || type == Long.class
-            || type == Boolean.class
-            || type == Short.class
-            || type == Byte.class
-            || type == Character.class
-            || type == Double.class
-            || type == Float.class);
+        && (type.isPrimitive() || type == String.class || WRITABLE_BOXES.contains(type));
   }
 }
