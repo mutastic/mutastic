@@ -49,14 +49,14 @@ You need JDK 25 to build and run mutastic. Your project can be on JDK 17 or late
    Mutants  ✓ 6 caught · ✗ 1 missed · 2 skipped (2 equivalent) (9)
   Worst at  Pricing.discount() 1 ✗
  Test runs  8 (21 without coverage selection)
-  Start at  08:47:29
-  Duration  1.0s (setup 487ms, coverage 197ms, mutants 363ms)
+  Start at  08:56:36
+  Duration  1.1s (setup 489ms, coverage 261ms, mutants 364ms)
      Tests  3 on JDK 17 · 4 workers
    Reports  build/mutastic/mutation.json · build/mutastic/mutation.html
      Score  85.7%  threshold 80
 
  [PASS] 1 missed, above the threshold.
- Next: mutastic run --only=<id> · mutastic verify <id>
+ Next: mutastic verify <id> · mutastic run --only=<id>
 ```
 
 Add the suggested test (after checking 10 is the discount you mean for an order of exactly 100), then:
