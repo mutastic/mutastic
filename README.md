@@ -56,7 +56,7 @@ You need JDK 25 to build and run mutastic. Your project can be on JDK 17 or late
      Score  85.7%  threshold 80
 
  [PASS] 1 missed, above the threshold.
- Next: mutastic verify <id> samples/pricing · mutastic run --only=<id> samples/pricing
+ Next: mutastic verify <id> samples/pricing · mutastic run --only=<id> samples/pricing · mutastic explain <id> samples/pricing
 ```
 
 Add the suggested test (after checking 10 is the discount you mean for an order of exactly 100), then:
@@ -74,6 +74,7 @@ mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [
              [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none] [--no-suggestions]
              [--report=json|html|xml|none[:path]]... [--vocabulary=plain|classic]
 mutastic verify ID [dir] [:module]
+mutastic explain ID [dir] [:module]
 mutastic ignore ID [dir] [:module] --reason="…" | mutastic ignore --prune [dir] [:module]
 ```
 
@@ -116,6 +117,8 @@ filters:
 ```
 
 An annotation on the code comes first, then a rule, then mutastic's own filters. A `mutate:` rule, like `@DoMutate`, brings back only what mutastic would call arid, never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
+
+`mutastic explain ID [dir] [:module]` says everything known of one mutant without running a test: where it is, the line before and after, the change and the gap a miss would show, what its operator does, how the last full run went, why it's skipped if it is, and its commands. The summary's `Next:` line offers it, for the one-line formats.
 
 For one mutant no test should catch, `mutastic ignore ID [dir] [:module] --reason="…"` records the decision in `.mutastic/ignores.yaml`, with where the mutant is, what it changes, the line it's on and the reason. Commit it: each entry is a decision someone reviews. An ignore holds until its line changes; then the mutant runs again, and the run says the ignore no longer holds (`mutastic ignore --prune` removes those). Every missed mutant's card offers the command (`or ignore`), and an ignore never hides code the compiler wrote or a change that can't be told apart from the original.
 

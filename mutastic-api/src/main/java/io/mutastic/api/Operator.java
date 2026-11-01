@@ -8,23 +8,34 @@ import java.util.Locale;
 /// Operators work on two kinds of site, counted apart: instructions (arithmetic, branches, returns)
 /// and calls. A new operator on calls never shifts the ids of instruction mutants.
 public enum Operator {
-  /// `<` becomes `<=` and the other way round: the off-by-one at the edge of a range, which tests
-  /// that only check values far from the edge never notice.
-  BOUNDARY,
+  BOUNDARY(
+      "`<` becomes `<=` and the other way round: the off-by-one at the edge of a range, which tests"
+          + " that only check values far from the edge never notice."),
 
-  /// A condition goes the other way: `==` becomes `!=`, `<` becomes `>=`. Survives when no test
-  /// checks what happens on one side of an `if`.
-  NEGATE_CONDITIONAL,
+  NEGATE_CONDITIONAL(
+      "A condition goes the other way: `==` becomes `!=`, `<` becomes `>=`. It goes unnoticed when"
+          + " no test checks what happens on one side of an `if`."),
 
-  /// `+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`.
-  MATH,
+  MATH("`+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`."),
 
-  /// A method returns its type's default (`0`, `false`, `null`) instead of what it computed.
-  /// Survives when tests call the method but never look at what it returns.
-  RETURN_DEFAULT,
+  RETURN_DEFAULT(
+      "A method returns its type's default (`0`, `false`, `null`) instead of what it computed. It"
+          + " goes unnoticed when tests call the method but never look at what it returns."),
 
-  /// A call that returns nothing is removed. Survives when no test checks the call's effect.
-  REMOVE_VOID_CALL;
+  REMOVE_VOID_CALL(
+      "A call that returns nothing is removed. It goes unnoticed when no test checks what the call"
+          + " does.");
+
+  private final String explanation;
+
+  Operator(String explanation) {
+    this.explanation = explanation;
+  }
+
+  /// What it changes, and when a test misses that, in plain words: for `mutastic explain`.
+  public String explanation() {
+    return explanation;
+  }
 
   /// `mutastic/boundary`: how reports and rules name it.
   public String id() {

@@ -254,7 +254,7 @@ public final class AgentText {
     advice.notes().forEach(note -> lines.add("   evidence: " + note));
     lines.add("   fix: " + advice.fix());
     SuggestedTest.of(result, sources).ifPresent(test -> addSuggestedTest(lines, test));
-    for (MutantCommand command : MutantCommand.values()) {
+    for (MutantCommand command : MutantCommand.withAMutant()) {
       lines.add(
           "   %s: %s".formatted(command.label(), command.text(mutant.id(), sources.target())));
     }

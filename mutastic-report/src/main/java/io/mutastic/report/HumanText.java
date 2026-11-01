@@ -328,7 +328,7 @@ public final class HumanText {
     var indent = " " + gutter + "         ";
     SuggestedTest.of(result, sources).ifPresent(test -> addSuggestedTest(lines, test, indent));
     lines.add("");
-    for (MutantCommand command : MutantCommand.values()) {
+    for (MutantCommand command : MutantCommand.withAMutant()) {
       lines.add(command(gutter, command.label(), command.text(mutant.id(), sources.target())));
     }
     return String.join("\n", lines) + "\n";

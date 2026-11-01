@@ -26,7 +26,8 @@ class RunningElsewhereTest {
         .contains("done when  mutastic verify %s %s passes".formatted(ID, project))
         .contains("reproduce  mutastic run --only=%s %s".formatted(ID, project))
         .contains(
-            "Next: mutastic verify <id> %1$s · mutastic run --only=<id> %1$s".formatted(project));
+            "Next: mutastic verify <id> %1$s · mutastic run --only=<id> %1$s · mutastic explain <id> %1$s"
+                .formatted(project));
   }
 
   @Test

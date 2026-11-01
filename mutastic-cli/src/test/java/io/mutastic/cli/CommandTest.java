@@ -15,7 +15,7 @@ class CommandTest {
     assertThat(command)
         .isEqualTo(
             new Main.Command(
-                false,
+                Main.Subcommand.RUN,
                 Path.of("."),
                 ":",
                 Optional.empty(),
@@ -43,7 +43,7 @@ class CommandTest {
     assertThat(command)
         .isEqualTo(
             new Main.Command(
-                false,
+                Main.Subcommand.RUN,
                 Path.of("../app"),
                 ":api",
                 Optional.of("jsonl"),

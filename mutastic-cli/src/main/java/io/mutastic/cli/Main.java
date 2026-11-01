@@ -11,6 +11,7 @@ import io.mutastic.api.Status;
 import io.mutastic.engine.Engine;
 import io.mutastic.engine.RunRecord;
 import io.mutastic.report.AgentText;
+import io.mutastic.report.Explanation;
 import io.mutastic.report.HumanText;
 import io.mutastic.report.JsonEvents;
 import io.mutastic.report.ReportFiles;
@@ -119,7 +120,7 @@ public final class Main {
     var engine = new Engine(workerJar(), prepared.work().resolve("worker.log"));
     var options = options(command, terminal, prepared.directory());
     var passes = new Passes(engine, options, progress, tool);
-    if (command.verify() || command.ignore().isPresent()) {
+    if (command.subcommand() != Subcommand.RUN) {
       return single(command, prepared, passes, out);
     }
     var display = display(command, prepared, output, human);
@@ -137,6 +138,9 @@ public final class Main {
   /// `verify`, which runs one mutant's tests and says whether it's caught; or `ignore`, which runs
   /// none and records a decision.
   private static int single(Command command, Prepared prepared, Passes passes, PrintStream out) {
+    if (command.explain()) {
+      return explained(prepared, passes.engine().find(prepared.project(), passes.options()), out);
+    }
     if (command.ignore().isPresent()) {
       var found = passes.engine().find(prepared.project(), passes.options());
       return IgnoreCommand.run(
@@ -148,6 +152,17 @@ public final class Main {
     var report = passes.engine().run(prepared.project(), passes.options(), passes.progress());
     passes.progress().finished();
     return verified(report.results().getFirst(), out);
+  }
+
+  /// `explain`: everything known of one mutant, with how the last full run went.
+  private static int explained(Prepared prepared, Engine.Mutants found, PrintStream out) {
+    var mutant = found.all().getFirst();
+    var lastRun =
+        RunRecord.read(prepared.work().resolve("last-run.tsv"))
+            .flatMap(record -> Optional.ofNullable(record.results().get(mutant.id())))
+            .map(entry -> new Explanation.LastRun(entry.status(), entry.caughtBy()));
+    out.print(new Explanation(prepared.sources()).render(mutant, lastRun));
+    return PASSED;
   }
 
   /// `ignore`'s own: remove what no longer holds, or the reason for a new ignore.
@@ -252,6 +267,7 @@ public final class Main {
         "                    [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none]");
     err.println("                    [--no-suggestions] [--report=json|html|xml|none[:path]]...");
     err.println("       mutastic verify ID [dir] [:module]");
+    err.println("       mutastic explain ID [dir] [:module]");
     err.println(
         "       mutastic ignore ID [dir] [:module] --reason=WHY | ignore --prune [dir] [:module]");
   }
@@ -538,7 +554,8 @@ public final class Main {
   enum Subcommand {
     RUN(false),
     VERIFY(true),
-    IGNORE(true);
+    IGNORE(true),
+    EXPLAIN(true);
 
     final boolean takesMutantId;
 
@@ -580,7 +597,7 @@ public final class Main {
   /// @param workers empty for the default, which depends on the machine
   /// @param reports the report files to write after a full run
   record Command(
-      boolean verify,
+      Subcommand subcommand,
       Path directory,
       String module,
       Optional<String> format,
@@ -597,10 +614,18 @@ public final class Main {
       List<String> testsFrom,
       Optional<String> since,
       Optional<Ignoring> ignore) {
+    boolean verify() {
+      return subcommand == Subcommand.VERIFY;
+    }
+
+    boolean explain() {
+      return subcommand == Subcommand.EXPLAIN;
+    }
+
     /// The same command, for `ignore`.
     Command ignoring(Ignoring how) {
       return new Command(
-          verify,
+          subcommand,
           directory,
           module,
           format,
@@ -716,11 +741,10 @@ public final class Main {
         if (subcommand == Subcommand.IGNORE) {
           return ignoring();
         }
-        boolean verify = subcommand == Subcommand.VERIFY;
-        if (verify) {
-          only = Optional.of(mutantId("verify"));
+        if (subcommand != Subcommand.RUN) {
+          only = Optional.of(mutantId(subcommand.word()));
         }
-        return command(verify);
+        return built(subcommand);
       }
 
       /// `ignore ID --reason=…`, or `ignore --prune`.
@@ -732,8 +756,7 @@ public final class Main {
                 "ignore needs a reason, which every ignore says: --reason=\"…\"");
           }
         }
-        var command = command(false);
-        return command.ignoring(new Ignoring(prune, reason));
+        return built(Subcommand.IGNORE).ignoring(new Ignoring(prune, reason));
       }
 
       private String mutantId(String subcommand) {
@@ -743,9 +766,9 @@ public final class Main {
         return positional.removeFirst();
       }
 
-      private Command command(boolean verify) {
+      private Command built(Subcommand subcommand) {
         return new Command(
-            verify,
+            subcommand,
             directory(),
             module(),
             format,

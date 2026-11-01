@@ -111,7 +111,9 @@ class HumanTextTest {
     assertThat(lines.get(lines.size() - 4)).isEqualTo("     Score  0.0%  threshold 80");
     assertThat(lines.get(lines.size() - 2))
         .isEqualTo(" [FAIL] Score below 80: 1 missed, 0 not covered.");
-    assertThat(lines.getLast()).isEqualTo(" Next: mutastic verify <id> · mutastic run --only=<id>");
+    assertThat(lines.getLast())
+        .isEqualTo(
+            " Next: mutastic verify <id> · mutastic run --only=<id> · mutastic explain <id>");
   }
 
   /// No mutants is no evidence either way: it passes, but never reads as a perfect score.

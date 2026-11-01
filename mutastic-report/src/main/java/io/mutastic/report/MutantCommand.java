@@ -11,11 +11,22 @@ import java.util.stream.Collectors;
 /// mutastic ran), so it works as it's copied: an id means nothing in another project.
 public enum MutantCommand {
   /// How to prove a fix: the mutant is caught.
-  DONE_WHEN("done when", "doneWhen", "verify %s", " passes"),
+  DONE_WHEN("done when", "doneWhen", "verify %s", " passes", Shown.EVERYWHERE),
   /// How to see it again on its own.
-  REPRODUCE("reproduce", "reproduce", "run --only=%s", ""),
+  REPRODUCE("reproduce", "reproduce", "run --only=%s", "", Shown.EVERYWHERE),
   /// How to decide it isn't worth a test: recorded, with the reason, for review.
-  IGNORE("or ignore", "ignore", "ignore %s --reason=\"<why>\"", "");
+  IGNORE("or ignore", "ignore", "ignore %s --reason=\"<why>\"", "", Shown.WITH_A_MUTANT),
+  /// Everything known of it, for a line that only names it.
+  EXPLAIN("explain", "explain", "explain %s", "", Shown.IN_THE_SUMMARY);
+
+  /// Where a command is offered: with each mutant (cards, agent text, events), in the summary's
+  /// `Next:` line, or both. A full card explains its mutant, so `explain` is offered for the
+  /// one-line formats, by the summary; ignoring isn't a way to a fix, so not there.
+  enum Shown {
+    EVERYWHERE,
+    WITH_A_MUTANT,
+    IN_THE_SUMMARY
+  }
 
   /// The rule a fix follows, wherever an agent reads the commands.
   public static final String RULE = "add or change tests only, never production code";
@@ -25,11 +36,21 @@ public enum MutantCommand {
   private final String arguments;
   private final String outcome;
 
-  MutantCommand(String label, String key, String arguments, String outcome) {
+  private final Shown shown;
+
+  MutantCommand(String label, String key, String arguments, String outcome, Shown shown) {
     this.label = label;
     this.key = key;
     this.arguments = arguments;
     this.outcome = outcome;
+    this.shown = shown;
+  }
+
+  /// The commands offered with each mutant, in the order shown.
+  public static List<MutantCommand> withAMutant() {
+    return List.of(values()).stream()
+        .filter(command -> command.shown != Shown.IN_THE_SUMMARY)
+        .toList();
   }
 
   /// `done when`: what a card calls it.
@@ -61,10 +82,10 @@ public enum MutantCommand {
     return List.of(arguments.formatted(id).split(" ", -1));
   }
 
-  /// `mutastic verify <id> · mutastic run --only=<id>`: the commands that lead to a fix, for the
-  /// summary. Ignoring isn't one.
+  /// `mutastic verify <id> · mutastic run --only=<id> · mutastic explain <id>`: the summary's.
   public static String next(List<String> target) {
-    return List.of(DONE_WHEN, REPRODUCE).stream()
+    return List.of(values()).stream()
+        .filter(command -> command.shown != Shown.WITH_A_MUTANT)
         .map(command -> command.command("<id>", target))
         .collect(Collectors.joining(" · "));
   }

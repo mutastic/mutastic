@@ -69,9 +69,10 @@ class MutantCommandTest {
   }
 
   @Test
-  void theSummaryOffersEachOneToo() {
+  void theSummaryOffersTheWaysToAFixAndExplain() {
     assertThat(MutantCommand.next(List.of("samples/pricing")))
         .isEqualTo(
-            "mutastic verify <id> samples/pricing · mutastic run --only=<id> samples/pricing");
+            "mutastic verify <id> samples/pricing · mutastic run --only=<id> samples/pricing"
+                + " · mutastic explain <id> samples/pricing");
   }
 }
