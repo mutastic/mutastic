@@ -69,7 +69,7 @@ mutastic verify m855c8e3c samples/pricing
 ## Usage
 
 ```
-mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N] [--only=ID] [--tests-from=:module|dependents]...
+mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N] [--only=ID] [--since[=REF]] [--tests-from=:module|dependents]...
              [--confirm-catches] [--workers=N] [--color=auto|always|never]
              [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none] [--no-suggestions]
              [--report=json|html|xml|none[:path]]... [--vocabulary=plain|classic]
@@ -119,6 +119,8 @@ An annotation on the code comes first, then a rule, then mutastic's own filters.
 To see what the arid skips hide, `MUTASTIC_ARID=audit` runs them anyway and adds an `Arid audit` row: how many ran, how many were caught and how many of those by a test's own assertion (a check on what the code returns, which may make it a contract worth `@DoMutate`), and where.
 
 ### Report files
+
+`--since=main` mutates only the lines changed since the branch left `main` (its merge-base), uncommitted edits and new files included: a pull request's or an agent's change, which is where a missed mutant is worth acting on. A bare `--since` means the repository's default branch. The summary says what the run covered (`Changed  12 lines in 3 files since main`); a scoped run writes its reports but doesn't replace the last full run's record.
 
 A module's own tests are often not all that test it: another module that uses it may test it more. `--tests-from=:app` (as often as needed) runs `:app`'s tests over the mutants the module's own tests leave uncaught, as `:app`'s build runs them, with this module's mutated classes in place of its jar; a mutant caught by either is caught. `mutastic run :core --tests-from=:app`, or `--tests-from=dependents` for every module that depends on this one, directly or through others, as the build's own graph has it.
 

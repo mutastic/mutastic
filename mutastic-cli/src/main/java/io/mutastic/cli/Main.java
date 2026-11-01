@@ -226,7 +226,8 @@ public final class Main {
     err.println(
         "usage: mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N]");
     err.println(
-        "                    [--only=ID] [--tests-from=:module|dependents]... [--vocabulary=plain|classic]");
+        "                    [--only=ID] [--since[=REF]] [--tests-from=:module|dependents]...");
+    err.println("                    [--vocabulary=plain|classic]");
     err.println(
         "                    [--confirm-catches] [--workers=N] [--color=auto|always|never]");
     err.println(
@@ -305,7 +306,8 @@ public final class Main {
         command.suggestions() && !command.verify(),
         terminal.auditArid(),
         java.util.Set.of(),
-        Configuration.read(directory).policy(directory));
+        Configuration.read(directory).policy(directory),
+        command.since().map(since -> new Git(directory).changedSince(since)));
   }
 
   /// What `verify` says of its mutant, and whether it passed.
@@ -402,6 +404,10 @@ public final class Main {
   /// Compares with `last-run.tsv` before replacing it, then writes the report files.
   private static Kept keep(
       Command command, Prepared prepared, Report report, List<Path> otherTests) {
+    if (report.scope().isPresent()) {
+      // A change's score says nothing about the whole module's: no comparison, no record.
+      return new Kept(Optional.empty(), writeReports(command, prepared, report));
+    }
     var lastRun = prepared.work().resolve("last-run.tsv");
     var record =
         RunRecord.of(
@@ -565,7 +571,8 @@ public final class Main {
       boolean suggestions,
       List<RequestedReport> reports,
       Optional<String> vocabulary,
-      List<String> testsFrom) {
+      List<String> testsFrom,
+      Optional<String> since) {
     static Command parse(String[] args) {
       if (args.length == 0 || Subcommand.of(args[0]).isEmpty()) {
         throw new UsageException(args.length == 0 ? "no command" : "unknown command " + args[0]);
@@ -599,6 +606,7 @@ public final class Main {
       private @Nullable List<RequestedReport> reports = null;
       private Optional<String> vocabulary = Optional.empty();
       private final List<String> testsFrom = new ArrayList<>();
+      private Optional<String> since = Optional.empty();
 
       void read(String arg) {
         switch (option(arg)) {
@@ -610,6 +618,8 @@ public final class Main {
           case "--confirm-catches" -> confirmCatches = true;
           case "--only=" -> only = Optional.of(arg.substring("--only=".length()));
           case "--tests-from=" -> testsFrom.add(module(arg.substring("--tests-from=".length())));
+          case "--since" -> since = Optional.of("");
+          case "--since=" -> since = Optional.of(arg.substring("--since=".length()));
           case "--workers=" -> workers = Optional.of(workerCount(arg));
           case "--color=" -> colour = choice(arg, List.of("auto", "always", "never"));
           case "--hyperlinks=" -> links = choice(arg, List.of("auto", "always", "never"));
@@ -674,7 +684,8 @@ public final class Main {
             suggestions,
             reports == null ? DEFAULT_REPORTS : List.copyOf(reports),
             vocabulary,
-            List.copyOf(testsFrom));
+            List.copyOf(testsFrom),
+            since);
       }
 
       /// `:app`: another module, named as the module run is; or `dependents`, every module that

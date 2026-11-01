@@ -603,8 +603,20 @@ public final class HumanText {
     return rows;
   }
 
-  /// The rows only some runs have: an audit, where the misses are, flaky tests.
+  /// The rows only some runs have: the change it was scoped to, an audit, where the misses are,
+  /// flaky tests.
   private void putWhenThere(Map<String, String> rows, Report report) {
+    report
+        .scope()
+        .ifPresent(
+            scope ->
+                rows.put(
+                    "Changed",
+                    "%s in %s since %s"
+                        .formatted(
+                            count(scope.lineCount(), "line"),
+                            count(scope.files(), "file"),
+                            scope.since())));
     var audit = AridAudit.of(report);
     if (audit.happened()) {
       rows.put("Arid audit", audit.summary());
@@ -616,6 +628,11 @@ public final class HumanText {
     if (!report.flaky().isEmpty()) {
       rows.put("Flaky", flakyRow(report));
     }
+  }
+
+  /// `1 line`, `8 lines`.
+  private static String count(int number, String noun) {
+    return number + " " + noun + (number == 1 ? "" : "s");
   }
 
   /// Each row, its label right-aligned to the longest.

@@ -2,6 +2,7 @@ package io.mutastic.engine;
 
 import static java.util.Objects.requireNonNull;
 
+import io.mutastic.api.ChangedLines;
 import io.mutastic.api.CoveragePass;
 import io.mutastic.api.Listener;
 import io.mutastic.api.Mutant;
@@ -99,6 +100,7 @@ public final class Engine {
   ///   them apart: what the filters hide, and whether any of it was caught
   /// @param among only these mutants, by id, when not empty: those an earlier run left uncaught
   /// @param policy the project's own rules and filters
+  /// @param changed the lines of a change, when the run is scoped to it: no other mutant runs
   public record Options(
       Optional<String> only,
       boolean confirmCatches,
@@ -106,10 +108,12 @@ public final class Engine {
       boolean suggestions,
       boolean auditArid,
       java.util.Set<String> among,
-      Policy policy) {
+      Policy policy,
+      Optional<ChangedLines> changed) {
     /// The same options, for only the mutants with these ids.
     public Options among(java.util.Set<String> ids) {
-      return new Options(only, confirmCatches, workers, suggestions, auditArid, ids, policy);
+      return new Options(
+          only, confirmCatches, workers, suggestions, auditArid, ids, policy, changed);
     }
 
     public Options {
@@ -124,13 +128,12 @@ public final class Engine {
   public Report run(Project project, Options options, Listener listener) {
     long start = System.nanoTime();
     var plan = plan(project, options);
-    var mutants = plan.mutants();
-    var workers = workersFor(project, options.workers(), mutants.size());
+    var workers = workersFor(project, options.workers(), plan.mutants().size());
     try {
       var first = workers.getFirst();
       var pass = coveragePass(project, plan, first);
       listener.coverageFinished(pass);
-      var results = new SideBySide(mutants, plan.mutantRun(), workers, listener).runAll();
+      var results = new SideBySide(plan.mutants(), plan.mutantRun(), workers, listener).runAll();
       return new Report(
           project.name(),
           first.jdk(),
@@ -141,7 +144,8 @@ public final class Engine {
           workers.size(),
           workers.stream().mapToInt(TestWorker::started).sum(),
           Duration.ofNanos(System.nanoTime() - start),
-          inOrderFound(plan.mutantRun().audited(), mutants));
+          inOrderFound(plan.mutantRun().audited(), plan.mutants()),
+          options.changed().map(changed -> changed.within(project.sources())));
     } finally {
       workers.forEach(TestWorker::close);
     }
@@ -161,6 +165,7 @@ public final class Engine {
     var mutants =
         mutantsIn(models, mutations, options.only(), project.name()).stream()
             .filter(mutant -> options.among().isEmpty() || options.among().contains(mutant.id()))
+            .filter(inScope(models, project, options.changed()))
             .toList();
     var coverage = new Coverage(context);
     var instrumented = instrumentMutated(models, mutants, coverage, options.auditArid());
@@ -442,10 +447,25 @@ public final class Engine {
     return Duration.ofNanos((long) (normal.toNanos() * TIMEOUT_FACTOR)).plus(TIMEOUT_ALLOWANCE);
   }
 
-  /// What one mutant needs from the run, shared by every worker's thread. Applying and verifying a
-  /// mutant share the ClassFile context's caches, so they take turns; only the tests run side by
-  /// side. Coverage is only read once the coverage pass is over. The results in the order their
-  /// mutants were found, whatever order they finished in.
+  /// Whether a mutant is on a changed line, when the run is scoped to a change.
+  private static java.util.function.Predicate<Mutant> inScope(
+      Map<String, ClassModel> models, Project project, Optional<ChangedLines> changed) {
+    if (changed.isEmpty()) {
+      return mutant -> true;
+    }
+    var files = new java.util.HashMap<String, Optional<Path>>();
+    return mutant -> {
+      var file =
+          files.computeIfAbsent(
+              mutant.binaryName(),
+              name ->
+                  Optional.ofNullable(models.get(name))
+                      .flatMap(model -> SourcePaths.of(model, project.sources())));
+      return file.filter(path -> changed.get().covers(path, mutant.line())).isPresent();
+    };
+  }
+
+  /// The results in the order their mutants were found, whatever order they finished in.
   private static List<MutantResult> inOrderFound(List<MutantResult> results, List<Mutant> mutants) {
     var order = new java.util.HashMap<String, Integer>();
     for (int at = 0; at < mutants.size(); at++) {
@@ -464,6 +484,10 @@ public final class Engine {
     return mutant.skipped().filter(reason -> reason.startsWith("arid:")).isPresent();
   }
 
+  /// What one mutant needs from the run, shared by every worker's thread. Applying and verifying a
+  /// mutant share the ClassFile context's caches, so they take turns; only the tests run side by
+  /// side. Coverage is only read once the coverage pass is over.
+  ///
   /// @param audited each arid mutant's result when run anyway, in an audit
   private record MutantRun(
       Map<String, ClassModel> models,

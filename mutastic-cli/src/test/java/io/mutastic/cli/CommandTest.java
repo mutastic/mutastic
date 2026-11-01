@@ -29,7 +29,8 @@ class CommandTest {
                 true,
                 Main.DEFAULT_REPORTS,
                 Optional.empty(),
-                java.util.List.of()));
+                java.util.List.of(),
+                Optional.empty()));
   }
 
   @Test
@@ -55,7 +56,8 @@ class CommandTest {
                 true,
                 Main.DEFAULT_REPORTS,
                 Optional.empty(),
-                java.util.List.of()));
+                java.util.List.of(),
+                Optional.empty()));
   }
 
   @Test

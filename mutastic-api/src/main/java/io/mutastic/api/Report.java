@@ -2,6 +2,7 @@ package io.mutastic.api;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalDouble;
 import org.jspecify.annotations.Nullable;
 
@@ -15,6 +16,7 @@ import org.jspecify.annotations.Nullable;
 /// @param started how many worker JVMs started: one per worker, plus one after each kill
 /// @param audited in an audit of the arid filters, each arid mutant's result when run anyway; the
 ///   mutant itself is in `results` as skipped, as in any run
+/// @param scope the change the run was scoped to, when it was: only mutants on its lines ran
 public record Report(
     String project,
     int jdk,
@@ -25,7 +27,8 @@ public record Report(
     int workers,
     int started,
     Duration took,
-    List<MutantResult> audited) {
+    List<MutantResult> audited,
+    Optional<ChangedLines> scope) {
 
   public Report {
     results = List.copyOf(results);
@@ -44,7 +47,18 @@ public record Report(
       int workers,
       int started,
       Duration took) {
-    this(project, jdk, results, tests, flaky, coverage, workers, started, took, List.of());
+    this(
+        project,
+        jdk,
+        results,
+        tests,
+        flaky,
+        coverage,
+        workers,
+        started,
+        took,
+        List.of(),
+        Optional.empty());
   }
 
   /// This run's results with `other`'s, a run of other tests (another module's) over the same
@@ -67,7 +81,8 @@ public record Report(
         Math.max(workers, other.workers()),
         started + other.started(),
         took.plus(other.took()),
-        audited);
+        audited,
+        scope);
   }
 
   private static MutantResult combined(MutantResult mine, @Nullable MutantResult theirs) {

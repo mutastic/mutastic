@@ -1,5 +1,6 @@
 package io.mutastic.report;
 
+import io.mutastic.api.ChangedLines;
 import io.mutastic.api.Comparison;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
@@ -144,8 +145,18 @@ public final class JsonEvents {
     fields.put("unrelatedCatches", unrelatedCatches(report));
     fields.put("reports", reports);
     putAudit(fields, AridAudit.of(report));
+    report.scope().ifPresent(scope -> fields.put("scope", scopeOf(scope)));
     fields.put("durationMs", report.took().toMillis());
     emit("run-finished", fields);
+  }
+
+  /// The change a run was scoped to: what it's since, and how much it touched.
+  private static Map<String, Object> scopeOf(ChangedLines scope) {
+    var found = new LinkedHashMap<String, Object>();
+    found.put("since", scope.since());
+    found.put("files", scope.files());
+    found.put("lines", scope.lineCount());
+    return found;
   }
 
   /// An audit of the arid filters, when the run was one.
