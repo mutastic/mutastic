@@ -167,8 +167,9 @@ val coverageReport by tasks.registering(JacocoReport::class) {
     }
 }
 
-// The floor is today's coverage: it can rise, but a change that drops it fails the build. It is
-// never lowered to pass: a branch whose coverage depends on the machine gets a test instead.
+// The floor is today's coverage, on the way to a target of 85%: it rises as coverage does, and a
+// change that drops it fails the build. It is never lowered to pass: a branch whose coverage
+// depends on the machine gets a test instead.
 val coverageCheck by tasks.registering(JacocoCoverageVerification::class) {
     violationRules {
         rule {

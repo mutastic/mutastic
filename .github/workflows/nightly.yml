@@ -3,8 +3,7 @@
 # a timeout changes between runs), raised as tests are added, so a real drop fails the run. Only
 # the engine module's own tests count: the CLI's end-to-end tests are in another module.
 #
-# Each night adds a row to score-history.tsv, kept in the Actions cache and attached to the run;
-# docs/own-score.md records the milestones and what moved the score.
+# Each night adds a row to score-history.tsv, kept in the Actions cache and attached to the run.
 name: Nightly
 
 on:

@@ -169,8 +169,6 @@ Code is in three modules:
 
 Gradle downloads the JDKs it needs (25 and 17). The end-to-end tests run mutastic against `samples/pricing`, a JDK 17 project.
 
-mutastic runs on its own engine every night: [its own score](docs/own-score.md), and what moved it.
-
 ## Licence
 
 Apache License 2.0. See [LICENSE](LICENSE).
