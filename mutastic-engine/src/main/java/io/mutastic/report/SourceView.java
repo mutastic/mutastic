@@ -12,11 +12,30 @@ import java.util.Optional;
 public final class SourceView {
   private final Path root;
   private final List<Path> sources;
+  private final List<Path> testSources;
 
   /// `root` is the project directory, which locations are relative to.
   public SourceView(Path root, List<Path> sources) {
+    this(root, sources, List.of());
+  }
+
+  /// With the test sources too, so suggested tests match the class they'd go into.
+  public SourceView(Path root, List<Path> sources, List<Path> testSources) {
     this.root = root;
     this.sources = List.copyOf(sources);
+    this.testSources = List.copyOf(testSources);
+  }
+
+  /// A test class's source, `com.example.PricingTest`, if it's in the test sources.
+  public Optional<String> testSource(String testClass) {
+    var relative = testClass.replace('.', '/') + ".java";
+    return testSources.stream().map(source -> source.resolve(relative)).filter(Files::isRegularFile).findFirst().map(file -> {
+      try {
+        return Files.readString(file);
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
+    });
   }
 
   /// `src/main/java/com/example/Pricing.java`, relative to the project, or the class's own

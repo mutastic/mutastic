@@ -28,6 +28,7 @@ allprojects {
                 setup["testClasses"] = test.output.classesDirs.files.joinToString(separator)
                 setup["testResources"] = listOfNotNull(test.output.resourcesDir).joinToString(separator)
                 setup["sources"] = main.java.srcDirs.joinToString(separator)
+                setup["testSources"] = test.java.srcDirs.joinToString(separator)
                 // The module's own directories are left out: the worker loads those itself, so
                 // mutants can replace them.
                 setup["dependencies"] = task.classpath.files.map { it.absolutePath }.filterNot { it in own }.joinToString(separator)

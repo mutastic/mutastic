@@ -59,7 +59,9 @@ public final class Engine {
   ///     doesn't repeat came from a flaky test, and the mutant's other covering tests decide.
   ///     One more test run per catch.
   /// @param workers how many worker JVMs run mutants side by side
-  public record Options(Optional<String> only, boolean confirmCatches, int workers) {
+  /// @param suggestions look for a test that catches each missed mutant, by calling its method
+  ///     with candidate inputs, today and with the mutant: user code runs outside its tests
+  public record Options(Optional<String> only, boolean confirmCatches, int workers, boolean suggestions) {
     public Options {
       if (workers < 1) {
         throw new IllegalArgumentException("workers must be at least 1, not " + workers);
@@ -108,7 +110,7 @@ public final class Engine {
         throw new IllegalStateException("no tests ran in " + project.name() + "; mutastic runs JUnit Platform tests");
       }
       listener.coverageFinished(first.jdk(), coverage.testCount(), coverageTook, mutants.size(), flaky);
-      var mutantRun = new MutantRun(models, mutations, coverage, options.confirmCatches());
+      var mutantRun = new MutantRun(models, mutations, coverage, options.confirmCatches(), options.suggestions());
       var results = runAll(mutants, mutantRun, workers, listener);
       return new Report(project.name(), first.jdk(), results, coverage.testCount(), flaky, coverageTook, workers.size(),
           workers.stream().mapToInt(TestWorker::started).sum(), Duration.ofNanos(System.nanoTime() - start));
@@ -219,7 +221,10 @@ public final class Engine {
   /// What one mutant needs from the run, shared by every worker's thread. Applying and
   /// verifying a mutant share the ClassFile context's caches, so they take turns; only the
   /// tests run side by side. Coverage is only read once the coverage pass is over.
-  private record MutantRun(Map<String, ClassModel> models, Mutations mutations, Coverage coverage, boolean confirmCatches) {
+  private record MutantRun(Map<String, ClassModel> models, Mutations mutations, Coverage coverage, boolean confirmCatches,
+      boolean suggestions) {
+    /// At most this many sets of arguments to try per mutant.
+    static final int CANDIDATES = 400;
     record Outcome(MutantResult result, boolean portClash) {}
 
     Outcome run(Mutant mutant, TestWorker worker) {
@@ -258,9 +263,72 @@ public final class Engine {
               ran + after.testsRun(), after.portClash());
         }
       }
+      var inputs = coverage.inputs(mutant, covering);
       var result = new MutantResult(mutant, run.status(), covering, run.failedTest(), run.failure(), run.origin(),
-          run.testsRun(), unconfirmed, coverage.inputs(mutant, covering), Duration.ofNanos(System.nanoTime() - start));
+          run.testsRun(), unconfirmed, inputs, Optional.empty(), Duration.ofNanos(System.nanoTime() - start));
+      if (suggestions && run.status() == Status.MISSED) {
+        result = result.withSuggestion(suggest(mutant, bytes, inputs, worker));
+      }
       return new Outcome(result, run.portClash());
+    }
+
+    private Optional<Suggestion> suggest(Mutant mutant, byte[] bytes, Map<String, List<Long>> inputs, TestWorker worker) {
+      var type = java.lang.constant.MethodTypeDesc.ofDescriptor(mutant.descriptor());
+      var wholeNumbers = type.parameterList().stream().allMatch(parameter ->
+          parameter.descriptorString().equals("I") || parameter.descriptorString().equals("J"));
+      if (!wholeNumbers) {
+        return Optional.empty();
+      }
+      List<Long> constants;
+      synchronized (mutations) {
+        constants = mutations.constantsNear(models.get(mutant.binaryName()), mutant);
+      }
+      var values = new java.util.LinkedHashSet<Long>();
+      constants.forEach(constant -> values.addAll(List.of(constant, constant - 1, constant + 1)));
+      inputs.values().forEach(values::addAll);
+      values.addAll(List.of(0L, 1L, 2L, 3L, -1L, 10L));
+      var candidates = new ArrayList<List<Long>>();
+      combine(List.copyOf(values), type.parameterCount(), new ArrayList<>(), candidates);
+      return worker.suggest(mutant, bytes, candidates).map(found -> {
+        var arguments = found[0].equals("-") ? List.<Long>of()
+            : java.util.Arrays.stream(found[0].split(";")).map(Long::valueOf).toList();
+        var names = coverage.parameterNames(mutant);
+        if (names.size() != arguments.size()) {
+          names = java.util.stream.IntStream.range(0, arguments.size()).mapToObj(index -> "arg" + index).toList();
+        }
+        return new Suggestion(call(mutant, type, arguments), names, arguments, found[1], found[2]);
+      });
+    }
+
+    /// `new Pricing().discount(100)`, or `Pricing.discount(100)` for a static method.
+    private String call(Mutant mutant, java.lang.constant.MethodTypeDesc type, List<Long> arguments) {
+      var simple = mutant.className().substring(mutant.className().lastIndexOf('/') + 1).replace('$', '.');
+      boolean isStatic = models.get(mutant.binaryName()).methods().stream()
+          .filter(method -> method.methodName().equalsString(mutant.methodName())
+              && method.methodType().equalsString(mutant.descriptor()))
+          .anyMatch(method -> method.flags().has(java.lang.reflect.AccessFlag.STATIC));
+      var written = new ArrayList<String>();
+      for (int index = 0; index < arguments.size(); index++) {
+        written.add(arguments.get(index) + (type.parameterType(index).descriptorString().equals("J") ? "L" : ""));
+      }
+      return "%s.%s(%s)".formatted(isStatic ? simple : "new " + simple + "()", mutant.methodName(), String.join(", ", written));
+    }
+
+    /// Every way to pick one of `values` per parameter, the earlier values first, up to
+    /// [#CANDIDATES].
+    private static void combine(List<Long> values, int arity, List<Long> prefix, List<List<Long>> out) {
+      if (out.size() >= CANDIDATES) {
+        return;
+      }
+      if (prefix.size() == arity) {
+        out.add(List.copyOf(prefix));
+        return;
+      }
+      for (Long value : values) {
+        prefix.add(value);
+        combine(values, arity, prefix, out);
+        prefix.removeLast();
+      }
     }
   }
 

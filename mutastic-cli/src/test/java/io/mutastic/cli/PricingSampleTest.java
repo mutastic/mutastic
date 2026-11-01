@@ -83,4 +83,35 @@ class PricingSampleTest {
     assertThat(run.exit()).isEqualTo(Main.USAGE);
     assertThat(run.err()).contains("Gradle couldn't build");
   }
+
+  @Test
+  void theSuggestedTestPastedInCatchesTheMutant() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+
+    var run = Samples.mutastic("run", project.toString(), "--format=jsonl");
+    var missed = run.out().lines().filter(line -> line.contains("\"status\":\"Survived\"")).findFirst().orElseThrow();
+    var id = missed.replaceAll(".*\"id\":\"(m[0-9a-f]{8})\".*", "$1");
+    var code = missed.replaceAll(".*\"code\":\"((?:[^\"\\\\]|\\\\.)*)\".*", "$1").replace("\\n", "\n");
+
+    assertThat(code).isEqualTo("""
+        @Test
+        void discountWithTotal100() {
+          assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0
+        }""");
+    var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
+    Files.writeString(test, Files.readString(test).replaceFirst("\\}\\s*$", "\n" + code.indent(2) + "}\n"));
+
+    var verified = Samples.mutastic("verify", id, project.toString());
+    assertThat(verified.exit()).as(verified.out() + verified.err()).isEqualTo(Main.PASSED);
+    assertThat(verified.out()).contains("is caught by com.example.pricing.PricingTest#discountWithTotal100");
+  }
+
+  @Test
+  void noSuggestionsMeansNoUserCodeRunsOutsideTheTests() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+
+    var run = Samples.mutastic("run", project.toString(), "--format=jsonl", "--no-suggestions");
+
+    assertThat(run.out()).doesNotContain("suggestedTest");
+  }
 }

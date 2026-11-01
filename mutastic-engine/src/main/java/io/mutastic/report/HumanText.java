@@ -149,6 +149,12 @@ public final class HumanText {
       lines.add("%s note: inputs seen: %s".formatted(equals(width), AgentText.inputs(result.inputs())));
     }
     lines.add("%s %s %s".formatted(equals(width), style.cyan("help:"), advice.fix()));
+    var pad = " ".repeat(width + 3 + "help: ".length());
+    SuggestedTest.of(result, sources).ifPresent(test -> {
+      lines.add(pad + style.dim("// in " + test.testClass()));
+      test.lines().forEach(line -> lines.add(pad + style.green(line)));
+      lines.add(pad + style.dim("check today's value is the one you intend: the test pins what the code does now"));
+    });
     lines.add("%s reproduce: mutastic run --only=%s".formatted(equals(width), mutant.id()));
     lines.add("%s done when: mutastic verify %s passes".formatted(equals(width), mutant.id()));
     return String.join(System.lineSeparator(), lines) + System.lineSeparator();

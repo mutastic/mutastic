@@ -69,6 +69,15 @@ final class Coverage {
         .computeIfAbsent(parameter, ignored -> new HashSet<>()).addAll(values);
   }
 
+  /// The names of the mutant's method's whole-number parameters, in declaration order.
+  List<String> parameterNames(Mutant mutant) {
+    var method = mutant.methodName() + mutant.descriptor();
+    return parameters.stream()
+        .filter(parameter -> parameter.className().equals(mutant.className()) && parameter.method().equals(method))
+        .map(Parameter::name)
+        .toList();
+  }
+
   /// The whole numbers `tests` passed to the mutant's method, by parameter name in declaration
   /// order: `total` → 50, 250. Empty for a method without whole-number parameters.
   Map<String, List<Long>> inputs(Mutant mutant, List<String> tests) {

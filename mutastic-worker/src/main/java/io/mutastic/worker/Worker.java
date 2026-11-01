@@ -47,6 +47,7 @@ import org.junit.platform.launcher.core.LauncherFactory;
 /// | `CLASS <name> <base64>`: use these bytes for the next command | nothing |
 /// | `COVER <test>...`: run every test, recording lines and arguments | `TEST <id> <nanos>`, `LINE <id> <ids>` and `VALUE <id> <parameter> <values>` lines, then `DONE PASSED` or `DONE FAILED <id>...` |
 /// | `RUN <test>...`: run in order until one fails | `RESULT PASSED <ran>`, `RESULT FAILED <ran> <test> <exception> <origin> <port-clash or ->` or `RESULT ERROR <why>` |
+/// | `SUGGEST <class> <method> <descriptor> <base64> <inputs>`: find inputs where a mutant changes the result; inputs are `1;2\|3;4`, `-` for none | `SUGGESTED <inputs> <today> <with mutant> <stuck or ->`, or `SUGGESTED -` |
 /// | `EXIT` | nothing; the worker exits |
 ///
 /// A test is `com.example.PricingTest#method` or a class name. The engine kills the worker if it
@@ -119,6 +120,20 @@ public final class Worker {
           production.swapBack(staged.keySet());
           staged.clear();
         }
+      }
+      case "SUGGEST" -> {
+        if (production == null) { // a new worker, after the last one was killed
+          production = new ProductionLoader(productionRoots, Map.of(), testRoots, splitTests, getClass().getClassLoader());
+        }
+        var candidates = Arrays.stream(command[5].split("\\|"))
+            .map(inputs -> inputs.equals("-") ? List.<Long>of() : Arrays.stream(inputs.split(";")).map(Long::valueOf).toList())
+            .toList();
+        var found = Suggester.find(production, command[1], command[2], command[3], Base64.getDecoder().decode(command[4]),
+            candidates);
+        protocol.println(found.inputs()
+            .map(inputs -> "SUGGESTED\t" + inputs.stream().map(String::valueOf).collect(Collectors.joining(";"))
+                + "\t" + found.today() + "\t" + found.mutated() + "\t" + (found.stuck() ? "stuck" : "-"))
+            .orElse("SUGGESTED\t-"));
       }
       default -> protocol.println("RESULT\tERROR\tunknown command " + command[0]);
     }

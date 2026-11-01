@@ -12,14 +12,14 @@ class CommandTest {
   void runDefaultsToTheCurrentDirectoryAndRootProject() {
     var command = Main.Command.parse(new String[] {"run"});
 
-    assertThat(command).isEqualTo(new Main.Command(false, Path.of("."), ":", Optional.empty(), 80, Optional.empty(), false, Optional.empty(), "auto", "auto", "auto"));
+    assertThat(command).isEqualTo(new Main.Command(false, Path.of("."), ":", Optional.empty(), 80, Optional.empty(), false, Optional.empty(), "auto", "auto", "auto", true));
   }
 
   @Test
   void readsDirectoryModuleAndOptionsInAnyOrder() {
     var command = Main.Command.parse(new String[] {"run", ":api", "--format=jsonl", "../app", "--threshold=60"});
 
-    assertThat(command).isEqualTo(new Main.Command(false, Path.of("../app"), ":api", Optional.of("jsonl"), 60, Optional.empty(), false, Optional.empty(), "auto", "auto", "auto"));
+    assertThat(command).isEqualTo(new Main.Command(false, Path.of("../app"), ":api", Optional.of("jsonl"), 60, Optional.empty(), false, Optional.empty(), "auto", "auto", "auto", true));
   }
 
   @Test

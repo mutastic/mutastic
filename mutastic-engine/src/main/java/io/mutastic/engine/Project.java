@@ -15,6 +15,7 @@ import java.util.List;
 /// @param testClasses the test class directories
 /// @param testResources the test resource directories
 /// @param sources the main source directories, for showing code
+/// @param testSources the test source directories, for writing suggested tests in their style
 /// @param dependencies the rest of the test runtime classpath, which brings JUnit
 public record Project(
     String name,
@@ -26,6 +27,7 @@ public record Project(
     List<Path> testClasses,
     List<Path> testResources,
     List<Path> sources,
+    List<Path> testSources,
     List<Path> dependencies) {
 
   public Project {
@@ -35,6 +37,7 @@ public record Project(
     testClasses = List.copyOf(testClasses);
     testResources = List.copyOf(testResources);
     sources = List.copyOf(sources);
+    testSources = List.copyOf(testSources);
     dependencies = List.copyOf(dependencies);
   }
 }

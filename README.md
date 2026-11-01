@@ -52,7 +52,7 @@ mutastic verify m855c8e3c samples/pricing
 ```
 mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]
              [--confirm-catches] [--workers=N] [--color=auto|always|never]
-             [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none]
+             [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none] [--no-suggestions]
 mutastic verify ID [dir] [:module]
 ```
 
@@ -73,6 +73,22 @@ The result goes to stdout and progress to stderr, so `mutastic run > result.txt`
 - `--format=jsonl` is one JSON event per line, written as each mutant finishes (`mutastic.events/v1`). Statuses follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`, `NoCoverage`.
 - A mutant's id comes from its class, method, position and change, not its line number, so it stays the same while code around it moves.
 - Some mutants are skipped, with the reason given: a change that can't be told apart from the original (`return 0` becoming "return the default"), code the compiler wrote (a `switch` on a `String`, a record's `equals()`), and calls that only write output (logging, `System.out`). Skipped mutants don't count towards the score.
+
+### Inputs seen and suggested tests
+
+Each missed mutant shows the whole numbers its covering tests passed to its method (`inputs seen: total = 50, 250`), so what they never tried is plain.
+
+For a missed mutant in a method whose parameters are all `int` or `long`, on a class mutastic can create (static, or with a no-argument constructor), mutastic also looks for a test that would catch it. It calls the method with candidate inputs, first as it is and then with the mutant in, and keeps the first input where the results differ. The constants near the change, ±1, come first, then what the tests passed, then a few small numbers. The test is written for the class of the fastest test that already reaches the mutant, in its assertion style (AssertJ or JUnit), with a name it doesn't already use:
+
+```java
+// in PricingTest
+@Test
+void discountWithTotal100() {
+  assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0
+}
+```
+
+The expected value is what the code does today. Check it's what you intend before keeping the test. The search runs your code outside your tests, in the test worker with a time limit; `--no-suggestions` turns it off.
 
 ### Flaky tests
 

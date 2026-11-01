@@ -63,6 +63,16 @@ public final class JsonEvents {
     if (!result.inputs().isEmpty()) {
       fields.put("inputs", result.inputs());
     }
+    SuggestedTest.of(result, sources).ifPresent(test -> {
+      var suggestion = new LinkedHashMap<String, Object>();
+      suggestion.put("testClass", test.testClass());
+      suggestion.put("name", test.name());
+      suggestion.put("code", String.join("\n", test.lines()));
+      suggestion.put("call", result.suggestion().orElseThrow().call());
+      suggestion.put("today", result.suggestion().orElseThrow().today());
+      suggestion.put("withMutant", result.suggestion().orElseThrow().mutated());
+      fields.put("suggestedTest", suggestion);
+    });
     fields.put("testsRun", result.testsRun());
     fields.put("durationMs", result.took().toMillis());
     if (result.status() == Status.MISSED) {

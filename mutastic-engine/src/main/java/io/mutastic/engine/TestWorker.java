@@ -103,6 +103,30 @@ final class TestWorker implements AutoCloseable {
     };
   }
 
+  /// The first of `candidates` (one value per parameter) where `bytes` changes what the method
+  /// returns, with both results; empty if none does in the worker's time budget. A call that
+  /// never returned on the mutant leaves a thread running, so the worker is replaced.
+  Optional<String[]> suggest(Mutant mutant, byte[] bytes, List<List<Long>> candidates) {
+    var encoded = candidates.stream()
+        .map(inputs -> inputs.isEmpty() ? "-" : inputs.stream().map(String::valueOf).collect(Collectors.joining(";")))
+        .collect(Collectors.joining("|"));
+    send(String.join("\t", "SUGGEST", mutant.binaryName(), mutant.methodName(), mutant.descriptor(),
+        Base64.getEncoder().encodeToString(bytes), encoded));
+    var answer = await(Duration.ofSeconds(10));
+    if (answer.isEmpty()) {
+      kill();
+      return Optional.empty();
+    }
+    var parts = answer.get().split("\t");
+    if (!parts[0].equals("SUGGESTED")) {
+      throw new IllegalStateException("the worker said: " + answer.get());
+    }
+    if (parts.length >= 5 && parts[4].equals("stuck")) {
+      kill(); // a call that never returned: a timeout in all but name
+    }
+    return parts[1].equals("-") ? Optional.empty() : Optional.of(new String[] {parts[1], parts[2], parts[3]});
+  }
+
   /// Whether `test` passes on its own with no mutant in, within `timeout`.
   boolean passes(String test, Duration timeout) {
     send("RUN\t" + test);

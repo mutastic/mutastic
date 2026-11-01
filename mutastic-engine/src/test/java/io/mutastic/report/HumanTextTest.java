@@ -132,7 +132,7 @@ class HumanTextTest {
 
   private static MutantResult missed(Mutant mutant) {
     return new MutantResult(mutant, Status.MISSED, List.of("com.example.PricingTest#bigOrders"), Optional.empty(),
-        Optional.empty(), Optional.empty(), 1, Optional.empty(), java.util.Map.of(), Duration.ofMillis(5));
+        Optional.empty(), Optional.empty(), 1, Optional.empty(), java.util.Map.of(), Optional.empty(), Duration.ofMillis(5));
   }
 
   private static Report report(MutantResult... results) {

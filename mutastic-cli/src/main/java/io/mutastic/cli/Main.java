@@ -25,7 +25,7 @@ import java.util.Optional;
 /// ```
 /// mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]
 ///              [--confirm-catches] [--workers=N] [--color=auto|always|never]
-///              [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none]
+///              [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none] [--no-suggestions]
 /// mutastic verify ID [dir] [:module]
 /// ```
 ///
@@ -66,10 +66,10 @@ public final class Main {
       var work = directory.resolve("build/mutastic");
       var project = GradleSetup.read(directory, command.module(), work);
       var setup = Duration.ofNanos(System.nanoTime() - start);
-      var sources = new SourceView(directory, project.sources());
+      var sources = new SourceView(directory, project.sources(), project.testSources());
       var engine = new Engine(workerJar(), work.resolve("worker.log"));
       var options = new Engine.Options(command.only(), command.confirmCatches(),
-          command.workers().orElse(Engine.defaultWorkers()));
+          command.workers().orElse(Engine.defaultWorkers()), command.suggestions() && !command.verify());
       if (command.verify()) {
         var report = engine.run(project, options, progress);
         progress.finished();
@@ -121,6 +121,7 @@ public final class Main {
       err.println("usage: mutastic run [dir] [:module] [--format=full|concise|agent|jsonl] [--threshold=N] [--only=ID]");
       err.println("                    [--confirm-catches] [--workers=N] [--color=auto|always|never]");
       err.println("                    [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none]");
+      err.println("                    [--no-suggestions]");
       err.println("       mutastic verify ID [dir] [:module]");
       return USAGE;
     } catch (GradleSetup.SetupFailed | IllegalArgumentException e) {
@@ -172,7 +173,7 @@ public final class Main {
   /// @param workers empty for the default, which depends on the machine
   record Command(boolean verify, Path directory, String module, Optional<String> format, int threshold,
       Optional<String> only, boolean confirmCatches, Optional<Integer> workers, String colour, String links,
-      String progress) {
+      String progress, boolean suggestions) {
     static Command parse(String[] args) {
       if (args.length == 0 || !List.of("run", "verify").contains(args[0])) {
         throw new UsageException(args.length == 0 ? "no command" : "unknown command " + args[0]);
@@ -187,11 +188,14 @@ public final class Main {
       String colour = "auto";
       String links = "auto";
       String progress = "auto";
+      boolean suggestions = true;
       for (String arg : List.of(args).subList(1, args.length)) {
         if (arg.startsWith("--format=")) {
           format = Optional.of(choice(arg, FORMATS));
         } else if (arg.startsWith("--threshold=")) {
           threshold = number(arg);
+        } else if (arg.equals("--no-suggestions")) {
+          suggestions = false;
         } else if (arg.equals("--confirm-catches")) {
           confirmCatches = true;
         } else if (arg.startsWith("--only=")) {
@@ -222,7 +226,7 @@ public final class Main {
       var module = positional.stream().filter(arg -> arg.startsWith(":")).findFirst().orElse(":");
       var directory = positional.stream().filter(arg -> !arg.startsWith(":")).findFirst().map(Path::of).orElse(Path.of("."));
       return new Command(verify, directory, module, format, threshold, only, confirmCatches, workers, colour, links,
-          progress);
+          progress, suggestions);
     }
 
     /// The whole number in `--name=value`.

@@ -128,6 +128,42 @@ final class Mutations {
         transform));
   }
 
+  /// The whole-number constants loaded just before the mutant's site, `100` in `total >= 100`:
+  /// the values where its change shows, if anywhere.
+  List<Long> constantsNear(ClassModel model, Mutant mutant) {
+    var constants = new ArrayList<Long>();
+    for (MethodModel method : model.methods()) {
+      if (!method.methodName().equalsString(mutant.methodName()) || !method.methodType().equalsString(mutant.descriptor())) {
+        continue;
+      }
+      var recent = new java.util.ArrayDeque<Instruction>();
+      int ordinal = 0;
+      int callOrdinal = 0;
+      for (CodeElement element : method.code().orElseThrow()) {
+        if (!(element instanceof Instruction instruction)) {
+          continue;
+        }
+        boolean here = instruction instanceof InvokeInstruction
+            ? mutant.operator().onCalls() && mutant.changes(callOrdinal++)
+            : isSite(instruction) && !mutant.operator().onCalls() && mutant.changes(ordinal++);
+        if (here) {
+          for (Instruction before : recent) {
+            if (before instanceof ConstantInstruction constant && constant.constantValue() instanceof Number number
+                && (number instanceof Integer || number instanceof Long)) {
+              constants.add(number.longValue());
+            }
+          }
+          return constants;
+        }
+        recent.addLast(instruction);
+        if (recent.size() > 2) {
+          recent.removeFirst();
+        }
+      }
+    }
+    return constants;
+  }
+
   /// Verification errors in a mutated class: none means the JVM will load it.
   List<VerifyError> verify(byte[] bytes) {
     return context.verify(bytes);

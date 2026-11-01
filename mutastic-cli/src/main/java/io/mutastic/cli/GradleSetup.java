@@ -72,6 +72,7 @@ final class GradleSetup {
         paths(setup.getProperty("testClasses")),
         paths(setup.getProperty("testResources")),
         paths(setup.getProperty("sources")),
+        paths(setup.getProperty("testSources")),
         paths(setup.getProperty("dependencies")));
   }
 

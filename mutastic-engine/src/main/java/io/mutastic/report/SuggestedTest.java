@@ -1,0 +1,91 @@
+package io.mutastic.report;
+
+import io.mutastic.engine.MutantResult;
+import io.mutastic.engine.Suggestion;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+/// A suggested test as code to paste: into the test class of the fastest test that already
+/// reaches the mutant, written the way that class writes assertions (AssertJ's `assertThat` if
+/// it imports AssertJ, JUnit's otherwise), with a name it doesn't already use.
+///
+/// @param testClass where it goes, `PricingTest`
+/// @param lines the test method, one line each, unindented
+/// @param outcomes `today 10 · with this mutant 0`
+public record SuggestedTest(String testClass, String name, List<String> lines, String outcomes) {
+
+  public SuggestedTest {
+    lines = List.copyOf(lines);
+  }
+
+  static Optional<SuggestedTest> of(MutantResult result, SourceView sources) {
+    if (result.suggestion().isEmpty() || result.coveredBy().isEmpty()) {
+      return Optional.empty();
+    }
+    var suggestion = result.suggestion().get();
+    var fastest = result.coveredBy().getFirst();
+    var testClass = fastest.contains("#") ? fastest.substring(0, fastest.indexOf('#')) : fastest;
+    var source = sources.testSource(testClass);
+    boolean assertJ = source.map(text -> text.contains("import static org.assertj.")).orElse(false);
+    var name = freeName(name(result.mutant().methodName(), suggestion), source.orElse(""));
+    var lines = new ArrayList<String>();
+    lines.add("@Test");
+    lines.add("void %s() {".formatted(name));
+    lines.add("  " + assertion(suggestion, assertJ) + " // " + outcomes(suggestion));
+    lines.add("}");
+    return Optional.of(new SuggestedTest(testClass.substring(testClass.lastIndexOf('.') + 1), name, lines,
+        outcomes(suggestion)));
+  }
+
+  /// `assertEquals(10, new Pricing().discount(100));`, or the AssertJ equivalent.
+  static String assertion(Suggestion suggestion, boolean assertJ) {
+    var call = suggestion.call();
+    var today = suggestion.today();
+    if (!suggestion.returnsValue()) {
+      var thrown = today.substring("throws ".length());
+      return assertJ
+          ? "assertThatThrownBy(() -> %s).isInstanceOf(%s.class);".formatted(call, thrown)
+          : "assertThrows(%s.class, () -> %s);".formatted(thrown, call);
+    }
+    if (today.equals("true") || today.equals("false")) {
+      return assertJ ? "assertThat(%s).is%s();".formatted(call, today.equals("true") ? "True" : "False")
+          : "assert%s(%s);".formatted(today.equals("true") ? "True" : "False", call);
+    }
+    if (today.equals("null")) {
+      return assertJ ? "assertThat(%s).isNull();".formatted(call) : "assertNull(%s);".formatted(call);
+    }
+    return assertJ ? "assertThat(%s).isEqualTo(%s);".formatted(call, today) : "assertEquals(%s, %s);".formatted(today, call);
+  }
+
+  static String outcomes(Suggestion suggestion) {
+    return "today %s · with this mutant %s".formatted(suggestion.today(), suggestion.mutated());
+  }
+
+  /// `discountWithTotal100`, `feeWithAmountMinus1`; `sizeResult` with no arguments.
+  static String name(String method, Suggestion suggestion) {
+    if (suggestion.inputs().isEmpty()) {
+      return method + "Result";
+    }
+    var name = new StringBuilder(method).append("With");
+    for (int index = 0; index < suggestion.inputs().size(); index++) {
+      if (index > 0) {
+        name.append("And");
+      }
+      var parameter = suggestion.parameters().get(index);
+      long value = suggestion.inputs().get(index);
+      name.append(Character.toUpperCase(parameter.charAt(0))).append(parameter.substring(1))
+          .append(value < 0 ? "Minus" + -value : String.valueOf(value));
+    }
+    return name.toString();
+  }
+
+  /// `name`, or `name2`, `name3`… if the test class already has a method called that.
+  private static String freeName(String name, String source) {
+    var free = name;
+    for (int count = 2; source.matches("(?s).*\\b" + free + "\\s*\\(.*"); count++) {
+      free = name + count;
+    }
+    return free;
+  }
+}

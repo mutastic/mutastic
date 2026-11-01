@@ -102,6 +102,11 @@ public final class AgentText {
       lines.add("   evidence: inputs seen: " + inputs(result.inputs()));
     }
     lines.add("   fix: " + advice.fix());
+    SuggestedTest.of(result, sources).ifPresent(test -> {
+      lines.add("   test to add in %s:".formatted(test.testClass()));
+      test.lines().forEach(line -> lines.add("     " + line));
+      lines.add("     // check today's value is the one you intend: the test pins what the code does now");
+    });
     lines.add("   reproduce: mutastic run --only=" + mutant.id());
     lines.add("   done when: mutastic verify %s passes".formatted(mutant.id()));
     return String.join(System.lineSeparator(), lines) + System.lineSeparator();
