@@ -52,6 +52,16 @@ class ReportFilesTest {
   }
 
   @Test
+  void theSameRunWritesTheSameText() {
+    var text = Json.write(files.json(report()));
+
+    assertThat(text)
+        .contains("\"thresholds\":{\"high\":80,\"low\":60}")
+        .contains("\"start\":{\"line\":5,\"column\":15}")
+        .contains("\"framework\":{\"name\":\"mutastic\",\"version\":\"1.2.3\"}");
+  }
+
+  @Test
   void jsonHasTheSchemasShape() {
     var json = files.json(report());
 

@@ -76,11 +76,11 @@ public final class ReportFiles {
         "https://raw.githubusercontent.com/stryker-mutator/mutation-testing-elements/master/packages/report-schema/src/mutation-testing-report-schema.json");
     document.put("schemaVersion", "2");
     // One threshold in mutastic: at or above it is good; the warning band is the 20 points below.
-    document.put("thresholds", Map.of("high", threshold, "low", Math.max(0, threshold - 20)));
+    document.put("thresholds", pair("high", threshold, "low", Math.max(0, threshold - 20)));
     document.put("projectRoot", root.toAbsolutePath().normalize().toString());
     document.put("files", files(report));
     document.put("testFiles", testFiles(report));
-    document.put("framework", Map.of("name", "mutastic", "version", version));
+    document.put("framework", pair("name", "mutastic", "version", version));
     document.put("performance", performance(report));
     return document;
   }
@@ -130,8 +130,18 @@ public final class ReportFiles {
     return ids.stream()
         .distinct()
         .sorted()
-        .map(id -> Map.<String, Object>of("id", id, "name", testName(id)))
+        .map(id -> pair("id", id, "name", testName(id)))
         .toList();
+  }
+
+  /// Two fields in the order given. `Map.of` would iterate in an order that changes from one JVM to
+  /// the next, and the same run should write the same file.
+  private static Map<String, Object> pair(
+      String firstKey, Object first, String secondKey, Object second) {
+    var fields = new LinkedHashMap<String, Object>();
+    fields.put(firstKey, first);
+    fields.put(secondKey, second);
+    return fields;
   }
 
   private static Map<String, Object> performance(Report report) {
@@ -153,9 +163,9 @@ public final class ReportFiles {
     entry.put("description", advice.change());
     entry.put(
         "location",
-        Map.of(
-            "start", Map.of("line", place.line(), "column", place.start()),
-            "end", Map.of("line", place.line(), "column", place.end())));
+        pair(
+            "start", pair("line", place.line(), "column", place.start()),
+            "end", pair("line", place.line(), "column", place.end())));
     entry.put("status", result.status().schemaName());
     var reason = statusReason(result, advice);
     if (!reason.isEmpty()) {
