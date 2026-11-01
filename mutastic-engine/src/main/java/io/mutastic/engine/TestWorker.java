@@ -64,6 +64,8 @@ final class TestWorker implements AutoCloseable {
         case "TEST" -> coverage.recordTest(parts[1], Duration.ofNanos(Long.parseLong(parts[2])));
         case "LINE" -> coverage.recordLines(parts[1],
             Arrays.stream(parts[2].split(",")).map(Integer::valueOf).collect(Collectors.toSet()));
+        case "VALUE" -> coverage.recordValues(parts[1], Integer.parseInt(parts[2]),
+            Arrays.stream(parts[3].split(",")).map(Long::valueOf).collect(Collectors.toSet()));
         case "DONE" -> {
           return new Baseline(parts[1].equals("PASSED"), Arrays.asList(parts).subList(Math.min(2, parts.length), parts.length));
         }

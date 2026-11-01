@@ -259,7 +259,7 @@ public final class Engine {
         }
       }
       var result = new MutantResult(mutant, run.status(), covering, run.failedTest(), run.failure(), run.origin(),
-          run.testsRun(), unconfirmed, Duration.ofNanos(System.nanoTime() - start));
+          run.testsRun(), unconfirmed, coverage.inputs(mutant, covering), Duration.ofNanos(System.nanoTime() - start));
       return new Outcome(result, run.portClash());
     }
   }

@@ -60,6 +60,9 @@ public final class JsonEvents {
     result.failure().ifPresent(failure -> fields.put("killedWith", failure));
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
     result.unconfirmed().ifPresent(test -> fields.put("unconfirmedCatchBy", test));
+    if (!result.inputs().isEmpty()) {
+      fields.put("inputs", result.inputs());
+    }
     fields.put("testsRun", result.testsRun());
     fields.put("durationMs", result.took().toMillis());
     if (result.status() == Status.MISSED) {

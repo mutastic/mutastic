@@ -13,6 +13,8 @@ import java.util.Optional;
 ///     own code threw) or `code` (the code under test threw)
 /// @param testsRun how many covering tests ran before the result was known
 /// @param unconfirmed a test whose catch didn't repeat when run again, if catches were confirmed
+/// @param inputs the whole numbers the covering tests passed to the mutant's method, by
+///     parameter name: what the tests tried, so what they didn't is plain
 public record MutantResult(
     Mutant mutant,
     Status status,
@@ -22,19 +24,21 @@ public record MutantResult(
     Optional<String> failureOrigin,
     int testsRun,
     Optional<String> unconfirmed,
+    java.util.Map<String, List<Long>> inputs,
     Duration took) {
 
   public MutantResult {
     coveredBy = List.copyOf(coveredBy);
+    inputs = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(inputs));
   }
 
   static MutantResult notCovered(Mutant mutant) {
     return new MutantResult(mutant, Status.NOT_COVERED, List.of(), Optional.empty(), Optional.empty(), Optional.empty(), 0,
-        Optional.empty(), Duration.ZERO);
+        Optional.empty(), java.util.Map.of(), Duration.ZERO);
   }
 
   static MutantResult skipped(Mutant mutant) {
     return new MutantResult(mutant, Status.SKIPPED, List.of(), Optional.empty(), Optional.empty(), Optional.empty(), 0,
-        Optional.empty(), Duration.ZERO);
+        Optional.empty(), java.util.Map.of(), Duration.ZERO);
   }
 }

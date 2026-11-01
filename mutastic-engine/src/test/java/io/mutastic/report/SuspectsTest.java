@@ -58,6 +58,6 @@ class SuspectsTest {
     var mutant = new Mutant("com/example/" + className, method, "()I", ordinal++, 1, Operator.RETURN_DEFAULT, "IRETURN",
         "return default", Optional.empty());
     return new MutantResult(mutant, Status.CAUGHT, List.of(TEST), Optional.of(TEST), Optional.of(failure),
-        Optional.of(origin), 1, Optional.empty(), Duration.ZERO);
+        Optional.of(origin), 1, Optional.empty(), java.util.Map.of(), Duration.ZERO);
   }
 }

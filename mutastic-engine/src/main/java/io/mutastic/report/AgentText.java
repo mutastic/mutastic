@@ -98,6 +98,9 @@ public final class AgentText {
     lines.add("   + " + sources.mutatedLine(mutant, advice).orElse("(" + advice.change() + ")"));
     lines.add("   covered by: %s; all still pass with the change%s".formatted(covering(result.coveredBy()),
         result.unconfirmed().map(test -> " (%s failed once, then passed: flaky)".formatted(shortName(test))).orElse("")));
+    if (!result.inputs().isEmpty()) {
+      lines.add("   evidence: inputs seen: " + inputs(result.inputs()));
+    }
     lines.add("   fix: " + advice.fix());
     lines.add("   reproduce: mutastic run --only=" + mutant.id());
     lines.add("   done when: mutastic verify %s passes".formatted(mutant.id()));
@@ -113,6 +116,13 @@ public final class AgentText {
 
   static List<String> shortNames(List<String> tests) {
     return tests.stream().map(AgentText::shortName).toList();
+  }
+
+  /// `total = 50, 250; quantity = 3`: what the covering tests passed in.
+  static String inputs(java.util.Map<String, List<Long>> inputs) {
+    return inputs.entrySet().stream()
+        .map(entry -> entry.getKey() + " = " + entry.getValue().stream().map(String::valueOf).collect(Collectors.joining(", ")))
+        .collect(Collectors.joining("; "));
   }
 
   /// The fastest few, which are the ones to read first, and how many more there are.

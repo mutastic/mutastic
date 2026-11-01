@@ -145,6 +145,9 @@ public final class HumanText {
     lines.add("%s note: covered by %s".formatted(equals(width), AgentText.covering(result.coveredBy())
         + result.unconfirmed().map(test -> " (%s failed once, then passed: flaky)".formatted(AgentText.shortName(test)))
             .orElse("")));
+    if (!result.inputs().isEmpty()) {
+      lines.add("%s note: inputs seen: %s".formatted(equals(width), AgentText.inputs(result.inputs())));
+    }
     lines.add("%s %s %s".formatted(equals(width), style.cyan("help:"), advice.fix()));
     lines.add("%s reproduce: mutastic run --only=%s".formatted(equals(width), mutant.id()));
     lines.add("%s done when: mutastic verify %s passes".formatted(equals(width), mutant.id()));

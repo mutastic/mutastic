@@ -27,6 +27,7 @@ class PricingSampleTest {
     assertThat(run.out()).contains("\"statusReason\":\"equivalent: already returns the default\"");
     var missed = run.out().lines().filter(line -> line.contains("\"status\":\"Survived\"")).findFirst().orElseThrow();
     assertThat(missed).contains("\"line\":17").contains("\"original\":\">=\",\"replacement\":\">\"");
+    assertThat(missed).contains("\"inputs\":{\"total\":[50,250]}"); // what the tests tried: never 100
     var id = missed.replaceAll(".*\"id\":\"(m[0-9a-f]{8})\".*", "$1");
 
     assertThat(Samples.mutastic("verify", id, project.toString()).exit()).isEqualTo(Main.FAILED);
