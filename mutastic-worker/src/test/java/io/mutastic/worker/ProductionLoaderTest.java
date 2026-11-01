@@ -28,6 +28,20 @@ class ProductionLoaderTest {
     assertThat(byOriginalName).isNotSameAs(copy);
   }
 
+  /// Spring reads a test class's bytecode as a resource to find its `@Import`s, by the copy's name.
+  @Test
+  void aRenamedCopysBytecodeIsAResource() throws Exception {
+    var production =
+        new ProductionLoader(
+            List.of(), Map.of(), roots(), Set.of(COUNTER), ClassLoader.getPlatformClassLoader());
+    var copy = Renamer.renamed(COUNTER, COUNTER, 4);
+
+    try (var in = production.getResourceAsStream(copy.replace('.', '/') + ".class")) {
+      assertThat(in).isNotNull();
+      assertThat(in.readAllBytes()).isEqualTo(production.bytesFor(copy));
+    }
+  }
+
   private static List<Path> roots() throws Exception {
     return List.of(
         Path.of(CounterTest.class.getProtectionDomain().getCodeSource().getLocation().toURI()));

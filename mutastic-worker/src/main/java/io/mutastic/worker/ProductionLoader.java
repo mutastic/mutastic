@@ -1,5 +1,11 @@
 package io.mutastic.worker;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLStreamHandler;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
@@ -97,6 +103,45 @@ final class ProductionLoader extends RootsLoader {
       } else {
         replacements.put(mutant.getKey(), mutant.getValue());
       }
+    }
+  }
+
+  /// A renamed copy's bytecode, for frameworks that read a class as a resource: Spring reads a test
+  /// class's `@Import`s that way, by the copy's name, and the copy has no file.
+  @Override
+  protected @Nullable URL findResource(String name) {
+    var className =
+        name.endsWith(".class") ? name.substring(0, name.length() - 6).replace('/', '.') : "";
+    if (Renamer.runOf(className) < 0) {
+      return super.findResource(name);
+    }
+    try {
+      var bytes = bytesFor(className);
+      return bytes == null ? null : new URL(null, "mutastic-copy:" + name, new Bytes(bytes));
+    } catch (ClassNotFoundException | MalformedURLException e) {
+      return null;
+    }
+  }
+
+  /// Serves one class's bytes as a URL's content.
+  private static final class Bytes extends URLStreamHandler {
+    private final byte[] content;
+
+    Bytes(byte[] content) {
+      this.content = content;
+    }
+
+    @Override
+    protected URLConnection openConnection(URL url) {
+      return new URLConnection(url) {
+        @Override
+        public void connect() {}
+
+        @Override
+        public InputStream getInputStream() {
+          return new ByteArrayInputStream(content);
+        }
+      };
     }
   }
 
