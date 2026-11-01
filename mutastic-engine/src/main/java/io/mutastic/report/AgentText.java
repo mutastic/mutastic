@@ -38,7 +38,28 @@ public final class AgentText {
 
   /// With `comparison`, the score against the last run and the tests whose catches changed.
   public String render(Report report, Optional<Comparison> comparison) {
+    return render(report, comparison, false);
+  }
+
+  /// @param oneMutant the run was one mutant asked for by id: its fate is the verdict, not a score
+  public String render(Report report, Optional<Comparison> comparison, boolean oneMutant) {
     var out = new StringBuilder();
+    if (oneMutant && !report.results().isEmpty()) {
+      var result = report.results().getFirst();
+      out.append("mutastic: %s %s%n".formatted(result.mutant().id(), switch (result.status()) {
+        case CAUGHT -> "is %s by %s".formatted(words.detected, result.caughtBy().orElse("a test"));
+        case TIMED_OUT -> "is %s: its tests stopped finishing in time".formatted(words.detected);
+        case MISSED -> "is still %s".formatted(words.undetected);
+        case NOT_COVERED -> "isn't reached by any test";
+        case SKIPPED -> "is skipped: " + result.mutant().skipped().orElse("");
+      }));
+      if (result.status() == Status.MISSED) {
+        out.append("rules: %s; a fix counts when `%s`%n%n".formatted(MutantCommand.RULE,
+            MutantCommand.DONE_WHEN.text(result.mutant().id(), sources.target())));
+        out.append(entry(0, result));
+      }
+      return out.toString();
+    }
     var missed = report.results().stream().filter(result -> result.status() == Status.MISSED).toList();
     var notCovered = report.results().stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
     var skipped = report.count(Status.SKIPPED);
@@ -72,7 +93,7 @@ public final class AgentText {
     if (missed.isEmpty() && notCovered.isEmpty()) {
       return out.toString();
     }
-    out.append("rules: %s; a fix counts when `%s`%n".formatted(MutantCommand.RULE, MutantCommand.DONE_WHEN.text("<id>")));
+    out.append("rules: %s; a fix counts when `%s`%n".formatted(MutantCommand.RULE, MutantCommand.DONE_WHEN.text("<id>", sources.target())));
     int number = 0;
     for (MutantResult result : missed.stream().limit(LIMIT).toList()) {
       out.append(System.lineSeparator()).append(entry(++number, result));
@@ -111,7 +132,7 @@ public final class AgentText {
       lines.add("     // check today's value is the one you intend: the test pins what the code does now");
     });
     for (MutantCommand command : MutantCommand.values()) {
-      lines.add("   %s: %s".formatted(command.label(), command.text(mutant.id())));
+      lines.add("   %s: %s".formatted(command.label(), command.text(mutant.id(), sources.target())));
     }
     return String.join(System.lineSeparator(), lines) + System.lineSeparator();
   }

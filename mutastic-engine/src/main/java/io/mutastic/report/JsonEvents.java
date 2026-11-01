@@ -81,7 +81,7 @@ public final class JsonEvents {
     fields.put("durationMs", result.took().toMillis());
     if (result.status() == Status.MISSED) {
       for (MutantCommand command : MutantCommand.values()) {
-        fields.put(command.key(), command.text(mutant.id()));
+        fields.put(command.key(), command.text(mutant.id(), sources.target()));
       }
       fields.put("rendered", text.entry(0, result));
     }
@@ -93,11 +93,13 @@ public final class JsonEvents {
   }
 
   public void runFinished(Report report, Optional<Comparison> comparison) {
-    runFinished(report, comparison, List.of());
+    runFinished(report, comparison, List.of(), false);
   }
 
   /// @param reports the report files written
-  public void runFinished(Report report, Optional<Comparison> comparison, List<String> reports) {
+  /// @param oneMutant the run was one mutant asked for by id: `passed` says whether it's caught,
+  ///     not whether a score reaches the threshold
+  public void runFinished(Report report, Optional<Comparison> comparison, List<String> reports, boolean oneMutant) {
     var fields = new LinkedHashMap<String, Object>();
     fields.put("jdk", report.jdk());
     fields.put("mutants", report.results().size());
@@ -106,7 +108,12 @@ public final class JsonEvents {
     }
     fields.put("score", Math.round(report.score() * 10) / 10.0);
     fields.put("threshold", threshold);
-    fields.put("passed", report.score() >= threshold);
+    fields.put("passed", oneMutant
+        ? report.results().stream().allMatch(result -> result.status().detected())
+        : report.score() >= threshold);
+    if (oneMutant) {
+      fields.put("only", report.results().isEmpty() ? null : report.results().getFirst().mutant().id());
+    }
     fields.put("tests", report.tests());
     fields.put("flaky", report.flaky());
     comparison.ifPresent(found -> {

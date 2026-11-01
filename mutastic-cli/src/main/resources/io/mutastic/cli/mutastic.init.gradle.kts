@@ -1,6 +1,20 @@
 // Added to the user's build with `-I` to read what the `test` task would do: its JDK, JVM
 // arguments, working directory and classpath, and the module's own directories. Written as a
 // properties file to -PmutasticOut. Nothing in the user's build changes.
+// When the module asked for has no Java code: which modules do, to suggest one.
+rootProject {
+    tasks.register("mutasticModules") {
+        val out = File(project.findProperty("mutasticOut") as String)
+        val java = project.provider {
+            rootProject.allprojects.filter { it.plugins.hasPlugin("java") }.map { it.path }
+        }
+        doLast {
+            out.parentFile.mkdirs()
+            out.writeText(java.get().joinToString("\n"))
+        }
+    }
+}
+
 allprojects {
     // Building for mutastic must not reformat the user's sources (some builds make compileJava
     // depend on spotlessApply). Disabled where it exists; builds without Spotless are unaffected.

@@ -82,7 +82,9 @@ public final class Engine {
         .filter(mutant -> only.map(mutant.id()::equals).orElse(true))
         .toList();
     if (only.isPresent() && mutants.isEmpty()) {
-      throw new IllegalArgumentException("no mutant " + only.get() + " in " + project.name());
+      throw new IllegalArgumentException(("no mutant %s in %s. A mutant's id belongs to the project its run was on: "
+          + "run the command as that run printed it, with the project's directory and module").formatted(only.get(),
+          project.name()));
     }
 
     var coverage = new Coverage(context);

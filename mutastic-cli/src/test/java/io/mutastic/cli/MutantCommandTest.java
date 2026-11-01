@@ -1,10 +1,12 @@
 package io.mutastic.cli;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 
 import io.mutastic.report.MutantCommand;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -14,13 +16,33 @@ class MutantCommandTest {
   private static final String ID = "m855c8e3c";
 
   @Test
-  void everyCommandTheOutputOffersParses() {
+  void everyCommandTheOutputOffersParsesForTheSameProject() {
+    var target = List.of("samples/pricing", ":api");
     for (MutantCommand command : MutantCommand.values()) {
-      var arguments = command.arguments(ID).toArray(String[]::new);
+      var arguments = new ArrayList<>(command.arguments(ID));
+      arguments.addAll(target);
 
-      assertThatCode(() -> Main.Command.parse(arguments)).as(command.command(ID)).doesNotThrowAnyException();
-      assertThat(Main.Command.parse(arguments).only()).as(command.command(ID)).isEqualTo(Optional.of(ID));
+      var parsed = Main.Command.parse(arguments.toArray(String[]::new));
+
+      assertThat(parsed.only()).as(command.command(ID, target)).isEqualTo(Optional.of(ID));
+      assertThat(parsed.directory()).as(command.command(ID, target)).isEqualTo(Path.of("samples/pricing"));
+      assertThat(parsed.module()).as(command.command(ID, target)).isEqualTo(":api");
+      assertThat(command.command(ID, target)).endsWith(" samples/pricing :api");
     }
+  }
+
+  @Test
+  void aPathWithASpaceIsQuoted() {
+    assertThat(MutantCommand.REPRODUCE.command(ID, List.of("my project"))).isEqualTo("mutastic run --only=m855c8e3c 'my project'");
+  }
+
+  @Test
+  void theTargetIsTheProjectAsTypedFromHere() {
+    var here = Path.of("/code");
+
+    assertThat(Main.target(here, Path.of("/code"), ":")).isEmpty();
+    assertThat(Main.target(here, Path.of("/code/samples/pricing"), ":")).containsExactly("samples/pricing");
+    assertThat(Main.target(here, Path.of("/elsewhere/app"), ":api")).containsExactly("/elsewhere/app", ":api");
   }
 
   @Test
@@ -37,6 +59,7 @@ class MutantCommandTest {
 
   @Test
   void theSummaryOffersEachOneToo() {
-    assertThat(MutantCommand.next()).isEqualTo("mutastic verify <id> · mutastic run --only=<id>");
+    assertThat(MutantCommand.next(List.of("samples/pricing")))
+        .isEqualTo("mutastic verify <id> samples/pricing · mutastic run --only=<id> samples/pricing");
   }
 }

@@ -13,6 +13,7 @@ public final class SourceView {
   private final Path root;
   private final List<Path> sources;
   private final List<Path> testSources;
+  private final List<String> target;
 
   /// `root` is the project directory, which locations are relative to.
   public SourceView(Path root, List<Path> sources) {
@@ -21,9 +22,25 @@ public final class SourceView {
 
   /// With the test sources too, so suggested tests match the class they'd go into.
   public SourceView(Path root, List<Path> sources, List<Path> testSources) {
+    this(root, sources, testSources, List.of());
+  }
+
+  private SourceView(Path root, List<Path> sources, List<Path> testSources, List<String> target) {
     this.root = root;
     this.sources = List.copyOf(sources);
     this.testSources = List.copyOf(testSources);
+    this.target = List.copyOf(target);
+  }
+
+  /// The run's project as typed on a command line, `samples/pricing :api`: what the commands
+  /// the output offers need, to work from where mutastic ran. Empty when that's the directory
+  /// mutastic ran in and its root project.
+  public SourceView withTarget(List<String> arguments) {
+    return new SourceView(root, sources, testSources, arguments);
+  }
+
+  public List<String> target() {
+    return target;
   }
 
   /// A test class's source file, relative to the project, if it's in the test sources.

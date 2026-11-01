@@ -91,9 +91,11 @@ public final class Main {
       var startedAt = java.time.LocalTime.now();
       var directory = command.directory().toAbsolutePath().normalize();
       var work = workDirectory(directory, command.module());
-      var project = GradleSetup.read(directory, command.module(), work);
+      var here = Path.of("").toAbsolutePath().normalize();
+      var target = target(here, directory, command.module());
+      var project = GradleSetup.read(directory, command.module(), work, String.join(" ", target(here, directory, ":")));
       var setup = Duration.ofNanos(System.nanoTime() - start);
-      var sources = new SourceView(directory, project.sources(), project.testSources());
+      var sources = new SourceView(directory, project.sources(), project.testSources()).withTarget(target);
       var style = terminal.colour(command.colour()) ? Style.COLOUR : Style.PLAIN;
       style = terminal.links(command.links()) ? style.withLinks() : style;
       style = terminal.roundedLabels() ? style.withRoundedLabels() : style;
@@ -153,9 +155,15 @@ public final class Main {
         }
       }
       switch (format) {
-        case "jsonl" -> events.runFinished(report, comparison, written);
-        case "agent" -> out.print(new AgentText(sources, command.threshold(), words).render(report, comparison));
-        default -> out.print(human.render(report, comparison, new HumanText.Run(startedAt, setup, written)));
+        case "jsonl" -> events.runFinished(report, comparison, written, command.only().isPresent());
+        case "agent" -> out.print(new AgentText(sources, command.threshold(), words)
+            .render(report, comparison, command.only().isPresent()));
+        default -> out.print(human.render(report, comparison,
+            new HumanText.Run(startedAt, setup, written, command.only().isPresent())));
+      }
+      // One mutant asked for by id passes when it's caught, as `verify` does; a whole run, on its score.
+      if (command.only().isPresent()) {
+        return report.results().stream().allMatch(result -> result.status().detected()) ? PASSED : FAILED;
       }
       return report.score() >= command.threshold() ? PASSED : FAILED;
     } catch (UsageException e) {
@@ -193,6 +201,19 @@ public final class Main {
       case "html" -> "mutation.html";
       default -> "mutations.xml";
     };
+  }
+
+  /// The project as it would be typed from `here`: `samples/pricing :api`, a path relative to
+  /// `here` when it's inside it, else absolute; nothing for `here` and its root project.
+  static List<String> target(Path here, Path directory, String module) {
+    var words = new ArrayList<String>();
+    if (!directory.equals(here)) {
+      words.add(directory.startsWith(here) ? here.relativize(directory).toString() : directory.toString());
+    }
+    if (!module.equals(":")) {
+      words.add(module);
+    }
+    return words;
   }
 
   /// A bar on a terminal for people; counter lines in logs; nothing for agents and JSONL

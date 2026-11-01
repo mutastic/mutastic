@@ -37,10 +37,14 @@ public final class HumanText {
   }
 
   /// What the run knows beyond the report: when it started, how long reading the build took,
-  /// and the report files written.
-  public record Run(LocalTime startedAt, Duration setup, List<String> reports) {
+  /// the report files written, and whether it was one mutant asked for by id.
+  public record Run(LocalTime startedAt, Duration setup, List<String> reports, boolean oneMutant) {
     public Run {
       reports = List.copyOf(reports);
+    }
+
+    public Run(LocalTime startedAt, Duration setup, List<String> reports) {
+      this(startedAt, setup, reports, false);
     }
   }
 
@@ -253,7 +257,7 @@ public final class HumanText {
     });
     lines.add("");
     for (MutantCommand command : MutantCommand.values()) {
-      lines.add(command(gutter, command.label(), command.text(mutant.id())));
+      lines.add(command(gutter, command.label(), command.text(mutant.id(), sources.target())));
     }
     return String.join("\n", lines) + "\n";
   }
@@ -281,7 +285,7 @@ public final class HumanText {
     lines.add(" %s %s %s".formatted(gutter, style.dim("="), style.blue(style.bold("note")) + ": " + code(evidence.getFirst())));
     evidence.stream().skip(1).forEach(note -> lines.add(" " + gutter + "         " + style.dim(code(note))));
     lines.add(" %s %s %s %s".formatted(gutter, style.dim("="), style.dim("id:") + " " + mutant.id(),
-        style.dim("· %s --format=full for the whole card".formatted(MutantCommand.REPRODUCE.command(mutant.id())))));
+        style.dim("· %s --format=full for the whole card".formatted(MutantCommand.REPRODUCE.command(mutant.id(), sources.target())))));
     return String.join("\n", lines) + "\n";
   }
 
@@ -372,22 +376,44 @@ public final class HumanText {
     }
     var score = "%.1f%%".formatted(report.score());
     boolean passed = report.score() >= threshold;
-    rows.put("Score", (passed ? style.green(style.bold(score)) : style.red(style.bold(score))) + delta(report, comparison)
-        + style.dim("  threshold " + threshold));
+    if (!run.oneMutant()) { // one mutant has a fate, not a score
+      rows.put("Score", (passed ? style.green(style.bold(score)) : style.red(style.bold(score))) + delta(report, comparison)
+          + style.dim("  threshold " + threshold));
+    }
     int width = rows.keySet().stream().mapToInt(String::length).max().orElse(0);
     out.append('\n');
     rows.forEach((label, value) -> out.append(" %s  %s%n".formatted(style.dim(" ".repeat(width - label.length()) + label), value)));
     out.append('\n');
-    if (passed) {
+    if (run.oneMutant() && !report.results().isEmpty()) {
+      out.append(" %s%n".formatted(fate(report.results().getFirst())));
+    } else if (passed) {
       out.append(" %s %s%n".formatted(style.label("PASS", Style.GREEN), style.green(missed == 0
           ? words.allDetected : "%d %s, above the threshold.".formatted(missed, words.undetected))));
     } else {
       out.append(" %s %s%n".formatted(style.label("FAIL", Style.RED), style.red("Score below %d: %d %s, %d %s.".formatted(
           threshold, missed, words.undetected, notCovered, words.notCovered))));
     }
-    if (missed > 0) {
-      out.append(style.dim(" Next: " + MutantCommand.next())).append('\n');
+    if (missed > 0 && !run.oneMutant()) {
+      out.append(style.dim(" Next: " + MutantCommand.next(sources.target()))).append('\n');
     }
+  }
+
+  /// `[MISSED] m855c8e3c is still missed`: one mutant's verdict, for a run that asked for it.
+  private String fate(MutantResult result) {
+    var id = result.mutant().id();
+    return switch (result.status()) {
+      case CAUGHT -> style.label(words.detected.toUpperCase(), Style.GREEN) + " "
+          + style.green("%s is %s by %s".formatted(id, words.detected, AgentText.shortName(result.caughtBy().orElse("a test"))));
+      case TIMED_OUT -> style.label(words.detected.toUpperCase(), Style.GREEN) + " "
+          + style.green("%s is %s: its tests stopped finishing in time".formatted(id, words.detected));
+      case MISSED -> style.label(words.undetected.toUpperCase(), Style.RED) + " "
+          + style.red("%s is still %s · done when %s".formatted(id, words.undetected,
+              MutantCommand.DONE_WHEN.text(id, sources.target())));
+      case NOT_COVERED -> style.label(words.notCovered.toUpperCase(), Style.RED) + " "
+          + style.red("%s: no test reaches its line".formatted(id));
+      case SKIPPED -> style.label("SKIPPED", Style.CYAN) + " " + "%s is skipped: %s".formatted(id,
+          result.mutant().skipped().orElse(""));
+    };
   }
 
   /// {clean, with misses}: source files with mutants, by whether any was missed or not covered.

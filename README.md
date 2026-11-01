@@ -42,21 +42,21 @@ You need JDK 25 to build and run mutastic. Your project can be on JDK 17 or late
             }
             check today's value is the one you intend: the test pins what the code does now
 
-    done when  mutastic verify m855c8e3c passes
-    reproduce  mutastic run --only=m855c8e3c
+    done when  mutastic verify m855c8e3c samples/pricing passes
+    reproduce  mutastic run --only=m855c8e3c samples/pricing
 
    Classes  0 clean | 1 with misses (1)
    Mutants  ✓ 6 caught · ✗ 1 missed · 2 skipped (2 equivalent) (9)
   Worst at  Pricing.discount() 1 ✗
  Test runs  8 (21 without coverage selection)
-  Start at  08:56:36
-  Duration  1.1s (setup 489ms, coverage 261ms, mutants 364ms)
+  Start at  09:13:06
+  Duration  1.3s (setup 546ms, coverage 204ms, mutants 544ms)
      Tests  3 on JDK 17 · 4 workers
    Reports  build/mutastic/mutation.json · build/mutastic/mutation.html
      Score  85.7%  threshold 80
 
  [PASS] 1 missed, above the threshold.
- Next: mutastic verify <id> · mutastic run --only=<id>
+ Next: mutastic verify <id> samples/pricing · mutastic run --only=<id> samples/pricing
 ```
 
 Add the suggested test (after checking 10 is the discount you mean for an order of exactly 100), then:
@@ -83,6 +83,10 @@ mutastic verify ID [dir] [:module]
 | 2 | A usage error, or a build mutastic couldn't read |
 | 3 | The tests fail without any mutant (a flaky test that passes when run again doesn't count) |
 | 4 | mutastic itself went wrong |
+
+With `--only=<id>` the run is about one mutant, so it passes when that mutant is caught, as `verify` does, and says the mutant's fate rather than a score.
+
+The commands mutastic prints for a mutant name the project it ran on (`mutastic verify m855c8e3c samples/pricing`), so they work as copied. A mutant's id belongs to its project: run in a directory with no Java code, or one that isn't a Gradle build, mutastic says so and names the modules that have Java code.
 
 The result goes to stdout and progress to stderr, so `mutastic run > result.txt` keeps only the result.
 
