@@ -5,6 +5,8 @@ plugins {
     // the diff depend on who ran it last.
     id("com.diffplug.spotless") version "8.10.4"
     id("net.ltgt.errorprone") version "4.1.0" apply false
+    base
+    jacoco
 }
 
 repositories {
@@ -65,6 +67,16 @@ subprojects {
         }
     }
 
+    apply(plugin = "jacoco")
+    configure<JacocoPluginExtension> {
+        toolVersion = "0.8.14"
+    }
+    tasks.withType<JacocoReport>().configureEach {
+        reports {
+            xml.required = true
+        }
+    }
+
     apply(plugin = "checkstyle")
     configure<CheckstyleExtension> {
         toolVersion = "14.3.0"
@@ -102,4 +114,46 @@ spotless {
         target("*.gradle.kts", "samples/*/*.gradle.kts")
         ktlint()
     }
+}
+
+// Coverage over every module's tests at once: the CLI's end-to-end tests run the engine in
+// process, so a module's own tests undercount it. The worker's runs in the project's JVM, and so
+// isn't measured there: 11% of its branches, against 65% overall.
+fun JacocoReportBase.overModules() {
+    subprojects.filter { it.plugins.hasPlugin("java") }.forEach { module ->
+        dependsOn(module.tasks.named("test"))
+        val main = module.extensions.getByType<SourceSetContainer>()["main"]
+        sourceDirectories.from(main.allJava.srcDirs)
+        classDirectories.from(main.output.classesDirs)
+        executionData.from(module.layout.buildDirectory.file("jacoco/test.exec"))
+    }
+}
+
+val coverageReport by tasks.registering(JacocoReport::class) {
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+// The floor is today's coverage: it can rise, but a change that drops it fails the build.
+val coverageCheck by tasks.registering(JacocoCoverageVerification::class) {
+    violationRules {
+        rule {
+            limit {
+                counter = "BRANCH"
+                minimum = "0.65".toBigDecimal()
+            }
+        }
+    }
+}
+
+// Once every module is configured, so their source sets and test tasks exist.
+gradle.projectsEvaluated {
+    coverageReport { overModules() }
+    coverageCheck { overModules() }
+}
+
+tasks.check {
+    dependsOn(coverageReport, coverageCheck)
 }

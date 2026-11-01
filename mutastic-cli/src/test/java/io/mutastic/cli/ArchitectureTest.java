@@ -1,0 +1,56 @@
+package io.mutastic.cli;
+
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.junit.AnalyzeClasses;
+import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchRule;
+import java.util.regex.Matcher;
+
+/// The rules from AGENTS.md that a compiler can't see: which layer may know about which, and the
+/// regex calls that read a group by number. Run here because the CLI's tests see every module.
+@AnalyzeClasses(packages = "io.mutastic", importOptions = ImportOption.DoNotIncludeTests.class)
+class ArchitectureTest {
+  /// The worker runs inside the project's own JVM, on its classpath: nothing of the engine's goes
+  /// with it.
+  @ArchTest
+  static final ArchRule workerStandsAlone =
+      noClasses()
+          .that()
+          .resideInAPackage("io.mutastic.worker..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage("io.mutastic.engine..", "io.mutastic.report..", "io.mutastic.cli..");
+
+  /// The engine finds and runs mutants; how they're shown is the report's.
+  @ArchTest
+  static final ArchRule engineKnowsNothingOfOutput =
+      noClasses()
+          .that()
+          .resideInAPackage("io.mutastic.engine..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage("io.mutastic.report..", "io.mutastic.cli..");
+
+  /// The report renders a run, whoever asked for it.
+  @ArchTest
+  static final ArchRule reportKnowsNothingOfTheCommandLine =
+      noClasses()
+          .that()
+          .resideInAPackage("io.mutastic.report..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("io.mutastic.cli..");
+
+  /// A group is read by its name: `group(2)` breaks silently when the pattern gains a group.
+  @ArchTest
+  static final ArchRule groupsReadByName =
+      noClasses()
+          .should()
+          .callMethod(Matcher.class, "group", int.class)
+          .orShould()
+          .callMethod(Matcher.class, "start", int.class)
+          .orShould()
+          .callMethod(Matcher.class, "end", int.class);
+}
