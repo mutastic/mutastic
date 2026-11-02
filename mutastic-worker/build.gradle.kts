@@ -5,6 +5,8 @@ plugins {
     `java-library`
 }
 
+description = "The test worker mutastic runs on the project's own JDK, as a Java agent, to run its tests against each mutant."
+
 // Compiled on 25 with --release 17: checked against 17's API, and the checks that run inside
 // the compiler (Error Prone needs 21 or later) run here too. Its tests run on 17 itself.
 java {

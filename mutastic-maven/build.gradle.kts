@@ -4,6 +4,8 @@ plugins {
     `java-library`
 }
 
+description = "Reads a Maven build's test setup for mutastic."
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)

@@ -4,6 +4,8 @@ plugins {
     `java-library`
 }
 
+description = "mutastic's output formats: for people, for agents, JSON Lines, and report files other tools read."
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)

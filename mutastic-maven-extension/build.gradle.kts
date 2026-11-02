@@ -5,6 +5,8 @@ plugins {
     `java-library`
 }
 
+description = "Loaded into a project's own Maven build to record what Surefire would run, for mutastic."
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)

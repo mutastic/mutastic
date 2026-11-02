@@ -5,6 +5,8 @@ plugins {
     `java-library`
 }
 
+description = "@DoNotMutate and @DoMutate, for marking code mutastic should skip or mutate: nothing else, and nothing at run time."
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)

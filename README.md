@@ -203,6 +203,8 @@ Code is in nine modules:
 
 Gradle downloads the JDKs it needs (25 and 17). The end-to-end tests run mutastic against `samples/pricing`, a JDK 17 project.
 
+Releases go to Maven Central as `io.mutastic:<module>`: see [RELEASING.md](RELEASING.md).
+
 ## Licence
 
 Apache License 2.0. See [LICENSE](LICENSE).

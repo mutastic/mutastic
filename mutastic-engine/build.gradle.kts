@@ -4,6 +4,8 @@ plugins {
     `java-library`
 }
 
+description = "mutastic's engine: finds, filters, applies and verifies mutants with the ClassFile API, and runs their tests."
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)

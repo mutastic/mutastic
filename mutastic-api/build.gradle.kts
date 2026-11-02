@@ -4,6 +4,8 @@ plugins {
     `java-library`
 }
 
+description = "mutastic's result model and extension points: build tools, filters, policies and test selection."
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)

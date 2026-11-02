@@ -9,6 +9,8 @@ plugins {
     jacoco
     // A bill of materials for what mutastic ships, for whoever installs it to check.
     id("org.cyclonedx.bom") version "3.5.1"
+    // Maven Central: signing, the POM it requires, and the Central Portal's upload.
+    id("com.vanniktech.maven.publish") version "0.37.0" apply false
 }
 
 repositories {
@@ -17,7 +19,8 @@ repositories {
 
 subprojects {
     group = "io.mutastic"
-    version = "0.1.0-SNAPSHOT"
+    // A release passes its version (`-PreleaseVersion=0.1.0`); every other build is a snapshot.
+    version = providers.gradleProperty("releaseVersion").getOrElse("0.1.0-SNAPSHOT")
 
     repositories {
         mavenCentral()
@@ -26,6 +29,16 @@ subprojects {
     // Every warning fails the build: a warning nobody acts on hides the next one.
     tasks.withType<JavaCompile>().configureEach {
         options.compilerArgs.addAll(listOf("-Werror", "-Xlint:all"))
+    }
+    // Javadoc too, for the jars published beside the code. Except doclint's "missing" group, which
+    // wants a comment, @param and @return on everything public: comments here are sparse on purpose
+    // (AGENTS.md), and a sentence that repeats the signature is noise.
+    tasks.withType<Javadoc>().configureEach {
+        (options as StandardJavadocDocletOptions).apply {
+            addBooleanOption("Xdoclint:all,-missing", true)
+            addBooleanOption("Xwerror", true)
+            addBooleanOption("quiet", true)
+        }
     }
 
     // Correctness you didn't think to check.
@@ -98,6 +111,50 @@ subprojects {
         kotlinGradle {
             target("*.gradle.kts")
             ktlint()
+        }
+    }
+}
+
+// Every library is published to Maven Central with the POM it requires. The CLI is an application,
+// shipped as a distribution rather than a jar to depend on. Signing uses an in-memory key from
+// `signingInMemoryKey`, `signingInMemoryKeyId` and `signingInMemoryKeyPassword` (in CI, secrets as
+// ORG_GRADLE_PROJECT_ variables); without one, as on a laptop, publications are left unsigned, and
+// Central refuses them. A release is uploaded, then published by hand from the Central Portal:
+// until then it can be dropped, and afterwards it never can.
+subprojects {
+    pluginManager.withPlugin("java-library") {
+        apply(plugin = "com.vanniktech.maven.publish")
+        // The javadoc jar ships with each release: a doc comment that breaks it fails here, not then.
+        tasks.named("check") { dependsOn("javadoc") }
+        configure<com.vanniktech.maven.publish.MavenPublishBaseExtension> {
+            publishToMavenCentral(automaticRelease = false)
+            if (providers.gradleProperty("signingInMemoryKey").isPresent) {
+                signAllPublications()
+            }
+            pom {
+                name = project.name
+                description = provider { project.description }
+                url = "https://github.com/mutastic/mutastic"
+                inceptionYear = "2026"
+                licenses {
+                    license {
+                        name = "Apache-2.0"
+                        url = "https://www.apache.org/licenses/LICENSE-2.0"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "briancorbinxyz"
+                        name = "Brian Corbin"
+                        url = "https://github.com/briancorbinxyz"
+                    }
+                }
+                scm {
+                    url = "https://github.com/mutastic/mutastic"
+                    connection = "scm:git:https://github.com/mutastic/mutastic.git"
+                    developerConnection = "scm:git:ssh://git@github.com/mutastic/mutastic.git"
+                }
+            }
         }
     }
 }
