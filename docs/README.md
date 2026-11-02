@@ -30,19 +30,23 @@ Code is set in JetBrains Mono with its ligatures off: these pages are about tell
 
 ## Deploying
 
-`.github/workflows/docs.yml` builds the site on every change, and deploys it once these exist:
+`.github/workflows/docs.yml` builds the site on every change. docs.mutastic.io describes the latest
+release, so it's deployed from each release's tag, to the Pages project's production branch,
+`release`. main and each pull request deploy to preview addresses of their own
+(`main.mutastic-docs.pages.dev`), since main documents what isn't released yet.
 
-1. **A Cloudflare Pages project** named `mutastic-docs`, of the Direct Upload kind (Workers & Pages,
-   Create, Pages, Upload assets), so GitHub Actions deploys it rather than Cloudflare building it.
+It deploys once these exist; the vault's *Mutastic hosting and DNS setup* has the whole checklist:
+
+1. **A Cloudflare Pages project** named `mutastic-docs`, whose production branch is `release`:
+   ```sh
+   npx wrangler pages project create mutastic-docs --production-branch=release
+   ```
 2. **Two repository secrets**: `CLOUDFLARE_ACCOUNT_ID` (on the account's overview page), and
    `CLOUDFLARE_API_TOKEN`, a token with the *Cloudflare Pages: Edit* permission.
    ```sh
    gh secret set CLOUDFLARE_ACCOUNT_ID --repo mutastic/mutastic
    gh secret set CLOUDFLARE_API_TOKEN --repo mutastic/mutastic
    ```
-3. **The domain**: add `docs.mutastic.io` under the project's *Custom domains* first, then at
-   Namecheap (*Advanced DNS*) a CNAME record, host `docs`, value `mutastic-docs.pages.dev`. In
-   that order: a CNAME to a project that doesn't know the domain yet gives a 522 error.
-
-Each pull request that changes the docs then gets its own preview address, and main is
-docs.mutastic.io.
+3. **The domain**: add `docs.mutastic.io` under the project's *Custom domains* first, then its
+   DNS record. In that order: a record pointing at a project that doesn't know the domain yet gives
+   a 522 error.

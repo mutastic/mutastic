@@ -1,13 +1,17 @@
-# The docs site, docs.mutastic.io: built on every change to it, and deployed to Cloudflare Pages
-# from main, with a preview for each pull request, once the Cloudflare secrets are set (see
-# docs/README.md). The Java build checks the rest: that the reference's commands.json matches the
-# CLI's declarations, and that every command the docs show parses.
+# The docs site: built on every change to it, and deployed to Cloudflare Pages once the Cloudflare
+# secrets are set (see docs/README.md). docs.mutastic.io describes the latest release, so it's
+# deployed from a release's tag, to the project's production branch, `release`. main, and each pull
+# request, deploy to a preview address of their own: main is ahead of the release, and its docs
+# describe what isn't out yet. The Java build checks the rest: that the reference's commands.json
+# matches the CLI's declarations, and that every command the docs show parses.
 # Actions are pinned to a commit: a tag can be moved.
 name: Docs
 
 on:
   push:
     branches: [main]
+    # A release: GitHub doesn't apply the paths filter to tags, so every release deploys.
+    tags: ["v*"]
     paths: ["docs/**", ".github/workflows/docs.yml"]
   pull_request:
     paths: ["docs/**", ".github/workflows/docs.yml"]
@@ -34,9 +38,10 @@ jobs:
           cache-dependency-path: docs/package-lock.json
       - run: npm ci
       - run: npm run build
-      # Main is docs.mutastic.io; a pull request's branch gets a preview address of its own.
+      # A tag is the release, docs.mutastic.io; anything else, main or a pull request's branch,
+      # a preview at <branch>.mutastic-docs.pages.dev.
       - name: Deploy to Cloudflare Pages
         if: env.CLOUDFLARE_API_TOKEN != ''
         env:
-          BRANCH: ${{ github.head_ref || github.ref_name }}
+          BRANCH: ${{ github.ref_type == 'tag' && 'release' || github.head_ref || github.ref_name }}
         run: npx --yes wrangler@4.151.1 pages deploy dist --project-name=mutastic-docs --branch="$BRANCH"
