@@ -1,6 +1,7 @@
 # The Gradle plugin to the Gradle Plugin Portal, for a release already published on Maven Central:
-# started by hand once the Central Portal shows it published, since the plugin's own dependency,
-# the `mutastic` command, comes from Central. The portal reviews a plugin's first version by hand
+# started by hand on the release's tag (`gh workflow run portal.yml --ref v0.2.0`) once the Central
+# Portal shows it published, since the plugin's own dependency, the `mutastic` command, comes from
+# Central. Run on the tag, as the `release` environment only lets tags deploy. The portal reviews a plugin's first version by hand
 # before it's listed. RELEASING.md has the steps.
 #
 # Secrets live in the `release` environment, so its required reviewer approves this too. Actions
@@ -9,10 +10,6 @@ name: Gradle Plugin Portal
 
 on:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: The release's tag, published on Maven Central, like v0.2.0
-        required: true
 
 permissions:
   contents: read
@@ -23,11 +20,11 @@ jobs:
     timeout-minutes: 20
     environment: release
     steps:
-      - name: The version, from the tag
+      - name: The version, from the tag it runs on
         env:
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ github.ref_name }}
         run: |
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "tag $TAG isn't vX.Y.Z"; exit 1; }
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "run it on a release's tag (--ref vX.Y.Z), not $TAG"; exit 1; }
           echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
       # The plugin depends on the `mutastic` command of its own version: it must be on Central.
       - name: The release is on Maven Central
@@ -35,8 +32,6 @@ jobs:
           url="https://repo1.maven.org/maven2/io/mutastic/mutastic-cli/$VERSION/mutastic-cli-$VERSION.pom"
           curl -sfI "$url" > /dev/null || { echo "$VERSION isn't on Maven Central yet: publish it there first"; exit 1; }
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.tag }}
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin

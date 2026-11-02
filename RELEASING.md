@@ -78,9 +78,10 @@ version can never be changed or removed.
    within about half an hour.
 4. Once it's on Central, send the Gradle plugin to the portal, and approve the job:
    ```sh
-   gh workflow run portal.yml -f tag=v0.1.0
+   gh workflow run portal.yml --ref v0.1.0
    ```
-   It checks the release is on Central first: the plugin's jars come from there. A plugin's first
+   It runs on the tag, as the `release` environment only lets tags deploy, and checks the release
+   is on Central first: the plugin's jars come from there. A plugin's first
    version waits for the portal's review before it's listed.
 
 If validation fails, drop the deployment, fix the cause, delete the GitHub release and its tag, and
