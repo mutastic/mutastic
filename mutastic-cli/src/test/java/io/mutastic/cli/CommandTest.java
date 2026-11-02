@@ -79,6 +79,33 @@ class CommandTest {
     assertThat(command.commands()).isEqualTo("maven");
   }
 
+  /// How the build plugins pass their settings: lists joined by commas, flags as true or false.
+  @Test
+  void readsTheBuildPluginsSettings() {
+    var command =
+        Main.Command.parse(
+            new String[] {
+              "run",
+              "-Pmutastic.threshold=60",
+              "-Dmutastic.testsFrom=:app,:web",
+              "-Dmutastic.reports=json,xml:out/mutations.xml",
+              "-Dmutastic.suggestions=false",
+              "-Dmutastic.confirmCatches=false",
+              "-Dmutastic.since="
+            });
+
+    assertThat(command.threshold()).isEqualTo(60);
+    assertThat(command.testsFrom()).containsExactly(":app", ":web");
+    assertThat(command.reports())
+        .containsExactly(
+            new Main.RequestedReport("json", Optional.empty()),
+            new Main.RequestedReport("xml", Optional.of(Path.of("out/mutations.xml"))));
+    assertThat(command.suggestions()).isFalse();
+    assertThat(command.confirmCatches()).isFalse();
+    assertThat(command.since()).contains("");
+    assertThat(Main.Command.parse(new String[] {"run", "-Dmutastic.reports="}).reports()).isEmpty();
+  }
+
   @Test
   void verifyTakesTheMutantIdFirst() {
     var command = Main.Command.parse(new String[] {"verify", "m855c8e3c", "samples/pricing"});

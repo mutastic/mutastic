@@ -30,25 +30,60 @@ class MavenPluginTest {
   void eachModuleIsMutatedAndTheCommandsOfferedAreGoals() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("maven-modules"));
 
-    var run = mvn(project, PLUGIN + ":run", "-Dmutastic.format=jsonl", "-Dmutastic.threshold=0");
+    // The plugin's default threshold, 80, which core's 80% reaches.
+    var byDefault = mvn(project, PLUGIN + ":run", "-Dmutastic.format=jsonl", "-pl", "core");
+
+    assertThat(byDefault.out()).contains("\"threshold\":80,");
+    assertThat(byDefault.exit()).as(byDefault.out()).isZero();
+
+    // The POM's, 90, which it doesn't.
+    declare(project, "<threshold>90</threshold>");
+    var fromThePom = mvn(project, "mutastic:run", "-Dmutastic.format=jsonl", "-pl", "core");
+
+    assertThat(fromThePom.out())
+        .contains("\"threshold\":90,")
+        .contains("the mutation score is below the threshold");
+    assertThat(fromThePom.exit()).isEqualTo(1);
+
+    // The command line's over the POM's, for one run: every module runs.
+    var run = mvn(project, "mutastic:run", "-Dmutastic.format=jsonl", "-Dmutastic.threshold=0");
 
     assertThat(run.exit()).as(run.out()).isZero();
-    // The root is a pom, with nothing to mutate; core and app each run on their own.
     assertThat(run.out())
+        .contains("\"threshold\":0,")
         .contains("\"file\":\"core/src/main/java/com/example/core/Fees.java\"")
         .contains("\"file\":\"app/src/main/java/com/example/app/Checkout.java\"");
+    // Declared in the build now, so named by its prefix; the command carries only the mutant, so
+    // it runs with the POM's settings.
     var doneWhen = DONE_WHEN.matcher(run.out());
     assertThat(doneWhen.find()).as(run.out()).isTrue();
-    // Not declared in the sample's build, so named by its coordinates, for core alone.
     var command = doneWhen.group("command");
-    assertThat(command)
-        .startsWith("mvn " + PLUGIN + ":verify -Dmutastic.mutant=m")
-        .endsWith(" -pl core");
+    assertThat(command).startsWith("mvn mutastic:verify -Dmutastic.mutant=m").endsWith(" -pl core");
 
     var verify = mvn(project, command.substring("mvn ".length()).split(" ", -1));
 
     assertThat(verify.out()).as(verify.out()).contains("is still missed");
     assertThat(verify.exit()).isEqualTo(1);
+  }
+
+  /// The plugin in the root POM's plugins, with `configuration`.
+  private static void declare(Path project, String configuration) throws IOException {
+    var pom = project.resolve("pom.xml");
+    var version = PLUGIN.substring(PLUGIN.lastIndexOf(':') + 1);
+    Files.writeString(
+        pom,
+        Files.readString(pom)
+            .replace(
+                "    </plugins>",
+                """
+                      <plugin>
+                        <groupId>io.mutastic</groupId>
+                        <artifactId>mutastic-maven-plugin</artifactId>
+                        <version>%s</version>
+                        <configuration>%s</configuration>
+                      </plugin>
+                    </plugins>"""
+                    .formatted(version, configuration)));
   }
 
   /// `mvn` in `project`, from the build's repository; snapshots checked each time (`-U`), so the

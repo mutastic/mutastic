@@ -100,15 +100,34 @@ The Maven plugin has each command as a goal, and each option as a `mutastic.` pr
 mvn io.mutastic:mutastic-maven-plugin:0.2.0:run -Dmutastic.threshold=60
 ```
 
-Declare it in the build, and its goals take the short prefix, `mvn mutastic:run`:
+Declare it in the build, and its goals take the short prefix, `mvn mutastic:run`, and how a run happens can be set there:
 
 ```xml
 <plugin>
   <groupId>io.mutastic</groupId>
   <artifactId>mutastic-maven-plugin</artifactId>
   <version>0.2.0</version>
+  <configuration>
+    <threshold>60</threshold>
+    <testsFrom>dependents</testsFrom>
+    <reports>json,xml</reports>
+  </configuration>
 </plugin>
 ```
+
+| Option | Default | |
+|---|---|---|
+| `threshold` | 80 | The score a run must reach |
+| `testsFrom` | none | Other modules whose tests run over the mutants this one's miss: `:app`, or `dependents` |
+| `workers` | by the machine | How many workers run side by side |
+| `reports` | `json,html` | The report files a full run writes, each with `:path` if it isn't the default; empty for none |
+| `format` | by the terminal | `full`, `brief`, `concise`, `grouped`, `agent` or `jsonl` |
+| `since` | not set | Mutate only the lines changed since this ref; empty for the default branch |
+| `confirmCatches` | `false` | Run a catching test again on its own, to confirm the catch |
+| `suggestions` | `true` | Suggest a test for each missed mutant |
+| `jdk` | see below | The JDK mutastic itself runs on |
+
+`-Dmutastic.<name>` on the command line wins over the POM, for that run, and a list given there (`-Dmutastic.testsFrom=:app,:web`) replaces the POM's. What to mutate (skip and mutate rules, plugins and filters) stays in `mutastic.yaml`, which the `mutastic` command and both build plugins read.
 
 ### From Gradle
 
@@ -132,6 +151,22 @@ plugins {
 ```sh
 ./gradlew mutasticRun -Pmutastic.threshold=60
 ```
+
+How a run happens can be set in the build file, for every task in the project, or on one task:
+
+```kotlin
+mutastic {
+    threshold = 60
+    testsFrom = listOf("dependents")
+    reports = listOf("json", "xml")
+}
+
+tasks.named<io.mutastic.gradle.plugin.MutasticTask>("mutasticRun") {
+    workers = 2
+}
+```
+
+The options and their defaults are the Maven plugin's (above), with two more: `toolVersion`, the version of the `mutastic` command the tasks run (the plugin's own unless set), and `javaLauncher`, the JDK mutastic runs on (a JDK 25 toolchain unless set). `-Pmutastic.<name>` on the command line wins over the build file, for that run, and a list given there replaces the build file's. What to mutate stays in `mutastic.yaml`.
 
 Each task compiles the code and tests first and reads the settings the `test` task would use. The commands it prints are tasks too, `./gradlew :core:mutasticVerify -Pmutastic.mutant=m855c8e3c`, and a missed mutant or a score below the threshold fails the build. mutastic itself runs on JDK 25 in a process of its own, a Gradle toolchain, so Gradle finds or downloads one; your tests still run on the JDK the `test` task uses. The `mutastic` command comes from the project's repositories, so they need Maven Central.
 

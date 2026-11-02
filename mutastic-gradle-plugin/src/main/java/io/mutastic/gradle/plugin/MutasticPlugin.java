@@ -18,8 +18,9 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion;
 import org.gradle.jvm.toolchain.JavaToolchainService;
 
 /// `id("io.mutastic")`: in each Java project it's applied to, a task for each of mutastic's
-/// commands, `mutasticRun`, `mutasticVerify`, `mutasticExplain` and `mutasticIgnore`. Their options
-/// are the `mutastic.` properties (`-Pmutastic.threshold=60`), passed on as they are.
+/// commands, `mutasticRun`, `mutasticVerify`, `mutasticExplain` and `mutasticIgnore`, set up by the
+/// `mutastic { }` extension and each task's own properties, with `-Pmutastic.<name>` over both for
+/// one run.
 public abstract class MutasticPlugin implements Plugin<Project> {
   /// The JDK mutastic runs on, for the ClassFile API; a Gradle toolchain, so Gradle finds or
   /// fetches it. The tests still run on the JDK the `test` task uses.
@@ -29,17 +30,15 @@ public abstract class MutasticPlugin implements Plugin<Project> {
 
   @Override
   public void apply(Project project) {
-    project.getPlugins().withType(JavaPlugin.class, java -> configure(project));
+    var extension = project.getExtensions().create("mutastic", MutasticExtension.class);
+    project.getPlugins().withType(JavaPlugin.class, java -> configure(project, extension));
   }
 
-  private static void configure(Project project) {
-    var command = commandJars(project);
+  private static void configure(Project project, MutasticExtension extension) {
+    defaults(project, extension);
+    var command = commandJars(project, extension);
     var setup =
         project.getTasks().register("mutasticWriteSetup", WriteSetup.class, WriteSetup::configure);
-    var toolchains = project.getExtensions().getByType(JavaToolchainService.class);
-    var engineJava =
-        toolchains.launcherFor(
-            spec -> spec.getLanguageVersion().set(JavaLanguageVersion.of(ENGINE_JDK)));
     for (String name : COMMANDS) {
       project
           .getTasks()
@@ -49,16 +48,31 @@ public abstract class MutasticPlugin implements Plugin<Project> {
               task -> {
                 task.getCommand().set(name);
                 task.getSetup().set(setup.flatMap(WriteSetup::getSetup));
-                task.getJava().set(engineJava);
                 task.getCommandJars().from(command);
+                task.from(extension);
                 MutasticTask.configure(task, project);
               });
     }
   }
 
-  /// `mutastic`: the `mutastic` command's jars, of this plugin's version, from the project's
-  /// repositories. Built for 25, as the command runs on.
-  private static Configuration commandJars(Project project) {
+  /// The plugin's defaults, as conventions: what the build file sets replaces them.
+  private static void defaults(Project project, MutasticExtension extension) {
+    extension.getThreshold().convention(80);
+    extension.getReports().convention(List.of("json", "html"));
+    extension.getConfirmCatches().convention(false);
+    extension.getSuggestions().convention(true);
+    extension.getToolVersion().convention(project.provider(MutasticPlugin::version));
+    var toolchains = project.getExtensions().getByType(JavaToolchainService.class);
+    extension
+        .getJavaLauncher()
+        .convention(
+            toolchains.launcherFor(
+                spec -> spec.getLanguageVersion().set(JavaLanguageVersion.of(ENGINE_JDK))));
+  }
+
+  /// `mutastic`: the `mutastic` command's jars, of the extension's `toolVersion`, from the
+  /// project's repositories. Built for 25, as the command runs on.
+  private static Configuration commandJars(Project project, MutasticExtension extension) {
     var objects = project.getObjects();
     return project
         .getConfigurations()
@@ -72,7 +86,8 @@ public abstract class MutasticPlugin implements Plugin<Project> {
                       dependencies.add(
                           project
                               .getDependencies()
-                              .create("io.mutastic:mutastic-cli:" + version())));
+                              .create(
+                                  "io.mutastic:mutastic-cli:" + extension.getToolVersion().get())));
               configuration.attributes(attributes -> jdk25Library(attributes, objects));
             });
   }

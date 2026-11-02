@@ -11,12 +11,15 @@ import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.MapProperty;
 import org.gradle.api.provider.Property;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Classpath;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.Nested;
+import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
@@ -27,6 +30,9 @@ import org.gradle.process.ExecOperations;
 /// One of mutastic's commands, run on the module's setup by the `mutastic` command's own main, on
 /// JDK 25, in a process of its own. The command prints its own output, with the commands it offers
 /// written as these tasks; the task fails when the command does.
+///
+/// How a run happens is set here, each property taking the `mutastic { }` extension's as its
+/// convention, and a `-Pmutastic.<name>` on the command line wins over both, for one run.
 @UntrackedTask(because = "runs the tests each time, as the test task would")
 public abstract class MutasticTask extends DefaultTask {
   /// Why the build fails when what the command checks doesn't hold.
@@ -46,7 +52,38 @@ public abstract class MutasticTask extends DefaultTask {
   public abstract RegularFileProperty getSetup();
 
   @Nested
-  public abstract Property<JavaLauncher> getJava();
+  public abstract Property<JavaLauncher> getJavaLauncher();
+
+  /// See [MutasticExtension] for each.
+  @Input
+  @Optional
+  public abstract Property<Integer> getThreshold();
+
+  @Input
+  public abstract ListProperty<String> getTestsFrom();
+
+  @Input
+  @Optional
+  public abstract Property<Integer> getWorkers();
+
+  @Input
+  public abstract ListProperty<String> getReports();
+
+  @Input
+  @Optional
+  public abstract Property<String> getFormat();
+
+  @Input
+  @Optional
+  public abstract Property<String> getSince();
+
+  @Input
+  @Optional
+  public abstract Property<Boolean> getConfirmCatches();
+
+  @Input
+  @Optional
+  public abstract Property<Boolean> getSuggestions();
 
   @Classpath
   public abstract ConfigurableFileCollection getCommandJars();
@@ -66,9 +103,10 @@ public abstract class MutasticTask extends DefaultTask {
   @Input
   public abstract Property<String> getGradle();
 
-  /// The `mutastic.` properties: `mutastic.threshold` → `60`.
+  /// The `mutastic.` properties on the command line, `mutastic.threshold` → `60`: over what's set
+  /// here, for one run, and passed on as they are.
   @Input
-  public abstract MapProperty<String, String> getOptions();
+  public abstract MapProperty<String, String> getCommandLine();
 
   @Inject
   protected abstract ExecOperations getExec();
@@ -80,7 +118,7 @@ public abstract class MutasticTask extends DefaultTask {
     task.getModule().set(project.getPath());
     task.getHere().set(here.getAbsolutePath());
     task.getGradle().set(MutasticPlugin.gradle(root, here));
-    task.getOptions().set(project.getProviders().gradlePropertiesPrefixedBy("mutastic."));
+    task.getCommandLine().set(project.getProviders().gradlePropertiesPrefixedBy("mutastic."));
     task.setGroup("verification");
     task.setDescription(
         "Runs `mutastic %s` on this module's code and tests".formatted(task.getCommand().get()));
@@ -92,7 +130,7 @@ public abstract class MutasticTask extends DefaultTask {
         getExec()
             .javaexec(
                 spec -> {
-                  spec.setExecutable(getJava().get().getExecutablePath().getAsFile());
+                  spec.setExecutable(getJavaLauncher().get().getExecutablePath().getAsFile());
                   spec.classpath(getCommandJars());
                   spec.getMainClass().set("io.mutastic.cli.Main");
                   spec.args(arguments());
@@ -110,12 +148,54 @@ public abstract class MutasticTask extends DefaultTask {
     }
   }
 
+  /// Each property's convention is the extension's.
+  void from(MutasticExtension extension) {
+    getThreshold().convention(extension.getThreshold());
+    getTestsFrom().convention(extension.getTestsFrom());
+    getWorkers().convention(extension.getWorkers());
+    getReports().convention(extension.getReports());
+    getFormat().convention(extension.getFormat());
+    getSince().convention(extension.getSince());
+    getConfirmCatches().convention(extension.getConfirmCatches());
+    getSuggestions().convention(extension.getSuggestions());
+    getJavaLauncher().convention(extension.getJavaLauncher());
+  }
+
+  /// What's set here, by name: `threshold` → `80`, lists joined by commas.
+  Map<String, String> configured() {
+    var configured = new TreeMap<String, String>();
+    put(configured, "threshold", getThreshold());
+    put(configured, "workers", getWorkers());
+    put(configured, "format", getFormat());
+    put(configured, "since", getSince());
+    put(configured, "confirmCatches", getConfirmCatches());
+    put(configured, "suggestions", getSuggestions());
+    configured.put("testsFrom", String.join(",", getTestsFrom().get()));
+    configured.put("reports", String.join(",", getReports().get()));
+    return configured;
+  }
+
+  private static void put(Map<String, String> configured, String name, Provider<?> value) {
+    if (value.isPresent()) {
+      configured.put(name, String.valueOf(value.get()));
+    }
+  }
+
+  /// What the run uses: `configured`, with the command line's `mutastic.` properties over it. A
+  /// list given there replaces the configured one whole.
+  static Map<String, String> settings(
+      Map<String, String> configured, Map<String, String> commandLine) {
+    var settings = new TreeMap<>(configured);
+    commandLine.forEach((name, value) -> settings.put(name.substring("mutastic.".length()), value));
+    return settings;
+  }
+
   /// `<command> -Pmutastic.threshold=60 <root> :core --setup=… --commands=gradle:./gradlew`.
-  private List<String> arguments() {
+  List<String> arguments() {
     var arguments = new ArrayList<String>();
     arguments.add(getCommand().get());
-    new TreeMap<>(getOptions().get())
-        .forEach((name, value) -> arguments.add("-P" + name + "=" + value));
+    settings(configured(), getCommandLine().get())
+        .forEach((name, value) -> arguments.add("-Pmutastic." + name + "=" + value));
     arguments.add(getRoot().get());
     if (!getModule().get().equals(":")) {
       arguments.add(getModule().get());

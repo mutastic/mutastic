@@ -31,13 +31,21 @@ class GradlePluginTest {
   void theTasksRunAndTheCommandsOfferedAreTasks() throws Exception {
     var project = withPlugin(Samples.copy(SAMPLE, work.resolve("modules")));
 
-    var run =
-        gradlew(project, ":core:mutasticRun", "-Pmutastic.format=jsonl", "-Pmutastic.threshold=90");
+    // The build file's threshold, 90, over the plugin's 80: core's 80% doesn't reach it.
+    var fromTheBuildFile = gradlew(project, ":core:mutasticRun", "-Pmutastic.format=jsonl");
 
-    // 80%, below the threshold, so the task fails after reporting.
-    assertThat(run.out()).contains("\"file\":\"core/src/main/java/com/example/core/Fees.java\"");
-    assertThat(run.exit()).as(run.out()).isEqualTo(1);
-    assertThat(run.out()).contains("the mutation score is below the threshold");
+    assertThat(fromTheBuildFile.out())
+        .contains("\"file\":\"core/src/main/java/com/example/core/Fees.java\"")
+        .contains("\"threshold\":90,")
+        .contains("the mutation score is below the threshold");
+    assertThat(fromTheBuildFile.exit()).isEqualTo(1);
+
+    // The command line's over the build file's, for one run.
+    var run =
+        gradlew(project, ":core:mutasticRun", "-Pmutastic.format=jsonl", "-Pmutastic.threshold=0");
+
+    assertThat(run.out()).contains("\"threshold\":0,");
+    assertThat(run.exit()).as(run.out()).isZero();
     var doneWhen = DONE_WHEN.matcher(run.out());
     assertThat(doneWhen.find()).as(run.out()).isTrue();
     var command = doneWhen.group("task");
@@ -68,7 +76,7 @@ class GradlePluginTest {
   }
 
   /// The sample with the plugin applied to each module, from the build's repository, which also has
-  /// the `mutastic` command it runs.
+  /// the `mutastic` command it runs; and a threshold of 90, in the build file.
   private static Path withPlugin(Path project) throws IOException {
     var repository = REPOSITORY.toUri().toString();
     var settings = project.resolve("settings.gradle.kts");
@@ -97,7 +105,13 @@ class GradlePluginTest {
             + Files.readString(build)
                 .replace(
                     "    apply(plugin = \"java\")\n",
-                    "    apply(plugin = \"java\")\n    apply(plugin = \"io.mutastic\")\n")
+                    """
+                        apply(plugin = "java")
+                        apply(plugin = "io.mutastic")
+                        configure<io.mutastic.gradle.plugin.MutasticExtension> {
+                            threshold = 90
+                        }
+                    """)
                 .replace(
                     "        mavenCentral()\n",
                     "        mavenCentral()\n        maven(\"%s\")\n".formatted(repository)));

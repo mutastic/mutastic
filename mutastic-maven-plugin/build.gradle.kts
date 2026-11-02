@@ -27,6 +27,15 @@ dependencies {
     compileOnly(libs.maven.core)
     compileOnly(libs.maven.plugin.api)
     compileOnly(libs.maven.plugin.annotations)
+
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.assertj)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 // The plugin's own classes run in Maven's JVM, so on 17; mutastic's command, among its runtime

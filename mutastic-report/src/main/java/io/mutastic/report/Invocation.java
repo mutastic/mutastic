@@ -121,10 +121,13 @@ public record Invocation(Form form, String launcher, List<String> target) {
     return camelCase(name) + (equals < 0 ? "" : word.substring(equals));
   }
 
-  /// The other way: `-Dmutastic.testsFrom=:app` (or `-Pmutastic.`) → `--tests-from=:app`,
-  /// `-Dmutastic.prune` or `-Dmutastic.prune=true` → `--prune`, and `-Dmutastic.mutant=m855c8e3c` →
-  /// the id. Empty for anything else.
-  public static java.util.Optional<String> option(String property) {
+  /// The other way, as a build sets them: `-Dmutastic.threshold=60` (or `-Pmutastic.`) →
+  /// `--threshold=60`, and `-Dmutastic.mutant=m855c8e3c` → the id. A flag is `true` or `false`:
+  /// `-Dmutastic.prune` → `--prune`, `-Dmutastic.suggestions=false` → `--no-suggestions`. A list is
+  /// joined by commas: `-Dmutastic.testsFrom=:app,:web` → `--tests-from` for each, and
+  /// `-Dmutastic.reports=json,xml` → a `--report` for each, or `--report=none` when it's empty.
+  /// Empty for anything else.
+  public static java.util.Optional<List<String>> options(String property) {
     if (!property.startsWith(MAVEN_PROPERTY) && !property.startsWith(GRADLE_PROPERTY)) {
       return java.util.Optional.empty();
     }
@@ -132,12 +135,36 @@ public record Invocation(Form form, String launcher, List<String> target) {
     int equals = assignment.indexOf('=');
     var name = equals < 0 ? assignment : assignment.substring(0, equals);
     var value = equals < 0 ? "true" : assignment.substring(equals + 1);
-    if (name.equals("mutant")) {
-      return java.util.Optional.of(value);
-    }
-    var option =
-        "--" + name.replaceAll("(?<upper>[A-Z])", "-${upper}").toLowerCase(java.util.Locale.ROOT);
-    return java.util.Optional.of(value.equals("true") ? option : option + "=" + value);
+    return java.util.Optional.of(
+        switch (name) {
+          case "mutant" -> List.of(value);
+          case "suggestions" -> value.equals("false") ? List.of("--no-suggestions") : List.of();
+          case "reports" -> value.isEmpty() ? List.of("--report=none") : each("--report=", value);
+          case "testsFrom" -> each("--tests-from=", value);
+          default -> option(kebabCase(name), value);
+        });
+  }
+
+  /// `--prune` for `true`, nothing for `false`, else `--threshold=60`.
+  private static List<String> option(String name, String value) {
+    return switch (value) {
+      case "true" -> List.of("--" + name);
+      case "false" -> List.of();
+      default -> List.of("--" + name + "=" + value);
+    };
+  }
+
+  /// `--tests-from=` before each of `:app,:web`.
+  private static List<String> each(String option, String values) {
+    return java.util.Arrays.stream(values.split(",", -1))
+        .filter(value -> !value.isBlank())
+        .map(value -> option + value.strip())
+        .toList();
+  }
+
+  /// `testsFrom` → `tests-from`.
+  private static String kebabCase(String name) {
+    return name.replaceAll("(?<upper>[A-Z])", "-${upper}").toLowerCase(java.util.Locale.ROOT);
   }
 
   /// `tests-from` → `testsFrom`.

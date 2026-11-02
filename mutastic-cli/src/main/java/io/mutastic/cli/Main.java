@@ -749,11 +749,12 @@ public final class Main {
       private String commands = "mutastic";
 
       void read(String arg) {
-        // The Maven plugin's form of an option, `-Dmutastic.only=ID`: as the commands it offers
-        // write them, so each parses back to the command it stands for.
-        var property = Invocation.option(arg);
-        if (property.isPresent()) {
-          read(property.get());
+        // The build plugins' form of an option, `-Dmutastic.only=ID`: how they pass their settings,
+        // and how the commands they offer write them, so each parses back to the command it
+        // stands for.
+        var properties = Invocation.options(arg);
+        if (properties.isPresent()) {
+          properties.get().forEach(this::readOption);
         } else {
           readOption(arg);
         }
