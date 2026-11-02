@@ -55,7 +55,6 @@ public record Advice(
   private static final Map<String, String> ARITHMETIC =
       Map.of("ADD", "+", "SUB", "-", "MUL", "*", "DIV", "/");
 
-  private static final Pattern LAMBDA = Pattern.compile("lambda\\$(?<enclosing>.+)\\$\\d+");
   private static final Pattern NUMBER = Pattern.compile("-?\\d+");
 
   /// The advice with nothing but the mutant to go on, reading a jump as javac usually writes it.
@@ -242,10 +241,15 @@ public record Advice(
 
   /// `` `discount()` ``, or "a lambda in `run()`" for javac's `lambda$run$0`.
   static String method(Mutant mutant) {
-    var lambda = LAMBDA.matcher(mutant.methodName());
-    return lambda.matches()
-        ? "a lambda in `%s()`".formatted(lambda.group("enclosing"))
-        : "`%s()`".formatted(mutant.methodName());
+    var where = SourceNames.of(mutant);
+    return where
+        .kind()
+        .map(
+            kind ->
+                kind.equals("a lambda")
+                    ? "a lambda in `%s()`".formatted(where.method())
+                    : "`%s()` in %s".formatted(where.method(), kind))
+        .orElse("`%s()`".formatted(where.method()));
   }
 
   private static List<String> inputsSeen(Map<String, List<Long>> seen) {

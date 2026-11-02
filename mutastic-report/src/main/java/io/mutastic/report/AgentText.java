@@ -272,7 +272,7 @@ public final class AgentText {
   }
 
   private static void addSuggestedTest(List<String> lines, SuggestedTest test) {
-    lines.add("   test to add in %s:".formatted(test.testClass()));
+    lines.add("   test to add in %s:".formatted(SourceNames.sourceName(test.testClass())));
     test.lines().forEach(line -> lines.add("     " + line));
     lines.add(
         "     // check today's value is the one you intend: the test pins what the code does now");

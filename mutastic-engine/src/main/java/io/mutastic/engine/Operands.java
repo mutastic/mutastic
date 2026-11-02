@@ -28,6 +28,10 @@ import org.jspecify.annotations.Nullable;
 final class Operands {
   private record Local(int slot, String name, int from, int to) {}
 
+  /// `this$0`: the outer instance, in an inner class.
+  private static final java.util.regex.Pattern OUTER =
+      java.util.regex.Pattern.compile("this\\$\\d+");
+
   private static final Set<String> BOXES =
       Set.of(
           "java/lang/Integer",
@@ -151,8 +155,9 @@ final class Operands {
       return null;
     }
     var name = field.name().stringValue();
-    return new Operand(
-        owner.text().equals("this") ? name : owner.text() + "." + name, owner.start(), false);
+    // `this$0` is the outer instance javac gives an inner class: the source names its fields bare.
+    boolean own = owner.text().equals("this") || OUTER.matcher(owner.text()).matches();
+    return new Operand(own ? name : owner.text() + "." + name, owner.start(), false);
   }
 
   private @Nullable Operand unboxed(List<Instruction> before, int end, InvokeInstruction call) {

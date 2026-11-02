@@ -494,7 +494,7 @@ public final class HumanText {
 
   private void addSuggestedTest(List<String> lines, SuggestedTest test, String indent) {
     lines.add("");
-    lines.add(indent + style.dim("// in " + test.testClass()));
+    lines.add(indent + style.dim("// in " + SourceNames.sourceName(test.testClass())));
     test.lines()
         .forEach(line -> lines.add(indent + (line.startsWith("  ") ? style.green(line) : line)));
     lines.add(
@@ -969,9 +969,15 @@ public final class HumanText {
         .collect(Collectors.joining(" · "));
   }
 
+  /// `Shipping.Zone.surcharge()`, or `Shipping.heavyOnes() (a lambda)`: where the misses are, as
+  /// the source names it.
   private static String methodLabel(Mutant mutant) {
-    var simple = mutant.className().substring(mutant.className().lastIndexOf('/') + 1);
-    return simple + "." + plain(Advice.method(mutant));
+    var where = SourceNames.of(mutant);
+    return where.className()
+        + "."
+        + where.method()
+        + "()"
+        + where.kind().map(kind -> " (" + plain(kind) + ")").orElse("");
   }
 
   /// Backticks mark code in the templates; in the terminal they become bold text instead.
