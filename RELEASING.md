@@ -46,8 +46,9 @@ version can never be changed or removed.
    account, so tictactoe's works here too, and generating a new one may retire the old.
 5. **A signed dry run,** to check the key works before a real release:
    ```sh
-   read -s "PASS?key password: "
-   ORG_GRADLE_PROJECT_signingInMemoryKey="$(gpg --armor --export-secret-keys $KEY)" \
+   read -s "PASS?key password: "   # zsh; in bash, read -sp "key password: " PASS
+   # GnuPG asks for the passphrase before exporting a secret key: give it $PASS rather than a prompt.
+   ORG_GRADLE_PROJECT_signingInMemoryKey="$(gpg --pinentry-mode loopback --passphrase "$PASS" --armor --export-secret-keys $KEY)" \
    ORG_GRADLE_PROJECT_signingInMemoryKeyId=$KEY \
    ORG_GRADLE_PROJECT_signingInMemoryKeyPassword="$PASS" \
      ./gradlew publishToMavenLocal -PreleaseVersion=0.0.0-dryrun
