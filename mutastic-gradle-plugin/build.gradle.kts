@@ -2,9 +2,12 @@
 // writes the module's setup from inside the build, as the init script does from outside it, then
 // runs the command on JDK 25 (a Gradle toolchain) in a process of its own. Built for 17, the oldest
 // JDK Gradle runs on.
+import org.gradle.plugin.compatibility.compatibility
+
 plugins {
     `java-library`
     `java-gradle-plugin`
+    id("com.gradle.plugin-publish")
 }
 
 description = "The Gradle plugin: tasks mutasticRun, mutasticVerify, mutasticExplain and mutasticIgnore."
@@ -35,13 +38,25 @@ tasks.test {
     useJUnitPlatform()
 }
 
+// Published to Maven Central with the other modules, and to the Gradle Plugin Portal.
 gradlePlugin {
+    website = "https://github.com/mutastic/mutastic"
+    vcsUrl = "https://github.com/mutastic/mutastic"
     plugins {
         create("mutastic") {
             id = "io.mutastic"
             implementationClass = "io.mutastic.gradle.plugin.MutasticPlugin"
             displayName = "mutastic"
             description = project.description
+            tags = listOf("mutation-testing", "testing", "test-quality", "java")
+            // Neither is: the setup task reads the test task as it runs, and isolated projects
+            // haven't been tried. Declared false until each is, as the portal asks.
+            compatibility {
+                features {
+                    configurationCache = false
+                    isolatedProjects = false
+                }
+            }
         }
     }
 }

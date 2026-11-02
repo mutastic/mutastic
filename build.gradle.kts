@@ -13,6 +13,8 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.37.0" apply false
     // The Maven plugin's descriptor (plugin.xml), from its goals' annotations.
     id("org.gradlex.maven-plugin-development") version "1.0.3" apply false
+    // The Gradle Plugin Portal, for `plugins { id("io.mutastic") }` without adding a repository.
+    id("com.gradle.plugin-publish") version "2.2.1" apply false
 }
 
 repositories {
