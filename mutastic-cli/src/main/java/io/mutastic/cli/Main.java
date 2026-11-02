@@ -41,8 +41,9 @@ import org.jspecify.annotations.Nullable;
 /// The result goes to stdout, progress to stderr. The format is `--format`, else `MUTASTIC_FORMAT`,
 /// else `agent` when `MUTASTIC_AGENT=1`, else `full` on a terminal and `concise` elsewhere.
 /// `MUTASTIC_VOCABULARY=classic` says killed and survived; `MUTASTIC_PILLS=rounded` draws round
-/// label ends for a Nerd Font. A full run also writes report files, by default
-/// `build/mutastic/mutation.json` and `mutation.html`.
+/// label ends for a Nerd Font, and `MUTASTIC_PILLS=off` draws labels as coloured words, not blocks.
+/// A full run also writes report files, by default `build/mutastic/mutation.json` and
+/// `mutation.html`.
 ///
 /// A full run keeps its results in `build/mutastic/last-run.tsv`, and the next full run compares
 /// against them: with the code unchanged, a mutant that changed result names a flaky test.
@@ -326,7 +327,19 @@ public final class Main {
   private static Style style(Command command, Terminal terminal) {
     var style = terminal.colour(command.colour()) ? Style.COLOUR : Style.PLAIN;
     style = terminal.links(command.links()) ? style.withLinks() : style;
-    return terminal.roundedLabels() ? style.withRoundedLabels() : style;
+    return style.withLabels(labels(terminal.defaultLabels()));
+  }
+
+  private static Style.Labels labels(String chosen) {
+    return switch (chosen) {
+      case "square" -> Style.Labels.SQUARE;
+      case "rounded" -> Style.Labels.ROUNDED;
+      case "off" -> Style.Labels.OFF;
+      default ->
+          throw new UsageException(
+              "unknown labels %s in MUTASTIC_PILLS (one of square, rounded, off)"
+                  .formatted(chosen));
+    };
   }
 
   /// A project read through its Gradle build: where it is, where mutastic keeps its files, its code

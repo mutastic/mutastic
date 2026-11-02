@@ -182,7 +182,7 @@ class HumanTextTest {
   }
 
   @Test
-  void labelsAreBlocksInColourAndRoundOnlyWhenAsked() {
+  void labelsAreBlocksInColourRoundOrOffOnlyWhenAsked() {
     var square =
         new HumanText(sources, 80, Style.COLOUR, HumanText.Detail.FULL, Vocabulary.PLAIN)
             .card(missed(boundary(), Map.of()));
@@ -190,13 +190,23 @@ class HumanTextTest {
         new HumanText(
                 sources,
                 80,
-                Style.COLOUR.withRoundedLabels(),
+                Style.COLOUR.withLabels(Style.Labels.ROUNDED),
+                HumanText.Detail.FULL,
+                Vocabulary.PLAIN)
+            .card(missed(boundary(), Map.of()));
+    var off =
+        new HumanText(
+                sources,
+                80,
+                Style.COLOUR.withLabels(Style.Labels.OFF),
                 HumanText.Detail.FULL,
                 Vocabulary.PLAIN)
             .card(missed(boundary(), Map.of()));
 
     assertThat(square).contains("\u001b[41;30;1m ✗ MISSED \u001b[0m").doesNotContain("");
     assertThat(rounded).contains("").contains("");
+    // No block: the words in the label's colour, bold.
+    assertThat(off).contains("\u001b[1;31m✗ MISSED\u001b[0m").doesNotContain("\u001b[41;");
   }
 
   @Test

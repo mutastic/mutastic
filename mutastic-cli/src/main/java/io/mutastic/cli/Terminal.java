@@ -57,8 +57,9 @@ record Terminal(boolean interactive, Map<String, String> env) {
     return "audit".equals(env.get("MUTASTIC_ARID"));
   }
 
-  /// `MUTASTIC_PILLS=rounded`: label ends drawn round, for terminals with a Nerd Font.
-  boolean roundedLabels() {
-    return "rounded".equals(env.get("MUTASTIC_PILLS"));
+  /// `MUTASTIC_PILLS`, how labels are drawn: `square` unless set, `rounded` for terminals with a
+  /// Nerd Font, or `off` for no blocks at all.
+  String defaultLabels() {
+    return env.getOrDefault("MUTASTIC_PILLS", "square");
   }
 }

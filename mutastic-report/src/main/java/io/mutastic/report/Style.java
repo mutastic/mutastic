@@ -7,8 +7,17 @@ package io.mutastic.report;
 /// Watermelon colours, used sparingly: green for caught, red only on a missed mutant's glyph, label
 /// and caret, never a whole card.
 public final class Style {
-  public static final Style PLAIN = new Style(false, false, false);
-  public static final Style COLOUR = new Style(true, false, false);
+  public static final Style PLAIN = new Style(false, false, Labels.SQUARE);
+  public static final Style COLOUR = new Style(true, false, Labels.SQUARE);
+
+  /// How a label such as `MISSED` is drawn in colour (`MUTASTIC_PILLS`): a block with square ends,
+  /// the default; with rounded ends, which need a Nerd Font, or the ends show as boxes; or `OFF`,
+  /// no block at all, only the label's words in its colour.
+  public enum Labels {
+    SQUARE,
+    ROUNDED,
+    OFF
+  }
 
   /// Nerd Font half-circles, for rounded label ends.
   private static final String ROUND_LEFT = "\ue0b6";
@@ -23,24 +32,23 @@ public final class Style {
 
   private final boolean colour;
   private final boolean links;
-  private final boolean rounded;
+  private final Labels labels;
 
-  private Style(boolean colour, boolean links, boolean rounded) {
+  private Style(boolean colour, boolean links, Labels labels) {
     this.colour = colour;
     this.links = links;
-    this.rounded = rounded;
+    this.labels = labels;
   }
 
   /// The same style, with file locations as terminal hyperlinks (OSC 8): terminals that know them
   /// open the file, and others show the text.
   public Style withLinks() {
-    return new Style(colour, true, rounded);
+    return new Style(colour, true, labels);
   }
 
-  /// The same style with rounded label ends (`MUTASTIC_PILLS=rounded`). They need a Nerd Font, so
-  /// square is the default: without one, the ends show as boxes.
-  public Style withRoundedLabels() {
-    return new Style(colour, links, true);
+  /// The same style with labels drawn as `labels` says.
+  public Style withLabels(Labels labels) {
+    return new Style(colour, links, labels);
   }
 
   /// A label, `MISSED` on red: a coloured block in a terminal, `[MISSED]` without colour.
@@ -48,12 +56,17 @@ public final class Style {
     if (!colour) {
       return "[" + text + "]";
     }
-    var body = "\u001b[" + background + ";30;1m " + text + " \u001b[0m";
-    if (!rounded) {
-      return body;
-    }
     var edge =
         String.valueOf(Integer.parseInt(background) - 10); // 41 (red background) → 31 (red text)
+    return switch (labels) {
+      case SQUARE -> "\u001b[" + background + ";30;1m " + text + " \u001b[0m";
+      case ROUNDED -> rounded(text, background, edge);
+      case OFF -> paint("1;" + edge, text);
+    };
+  }
+
+  /// `text` on `background` between round ends drawn in `edge`, the same colour as text.
+  private String rounded(String text, String background, String edge) {
     return paint(edge, ROUND_LEFT)
         + "\u001b["
         + background

@@ -35,4 +35,11 @@ class TerminalTest {
     assertThat(new Terminal(true, Map.of("TERM", "dumb")).links("auto")).isFalse();
     assertThat(PIPE.links("always")).isTrue();
   }
+
+  @Test
+  void labelsAreSquareUnlessAskedOtherwise() {
+    assertThat(TTY.defaultLabels()).isEqualTo("square");
+    assertThat(new Terminal(true, Map.of("MUTASTIC_PILLS", "off")).defaultLabels())
+        .isEqualTo("off");
+  }
 }
