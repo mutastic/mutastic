@@ -14,7 +14,7 @@ public final class SourceView {
   private final Path root;
   private final List<Path> sources;
   private final List<Path> testSources;
-  private final List<String> target;
+  private final Invocation invocation;
 
   /// `root` is the project directory, which locations are relative to.
   public SourceView(Path root, List<Path> sources) {
@@ -23,25 +23,24 @@ public final class SourceView {
 
   /// With the test sources too, so suggested tests match the class they'd go into.
   public SourceView(Path root, List<Path> sources, List<Path> testSources) {
-    this(root, sources, testSources, List.of());
+    this(root, sources, testSources, Invocation.HERE);
   }
 
-  private SourceView(Path root, List<Path> sources, List<Path> testSources, List<String> target) {
+  private SourceView(Path root, List<Path> sources, List<Path> testSources, Invocation invocation) {
     this.root = root;
     this.sources = List.copyOf(sources);
     this.testSources = List.copyOf(testSources);
-    this.target = List.copyOf(target);
+    this.invocation = invocation;
   }
 
-  /// The run's project as typed on a command line, `samples/pricing :api`: what the commands the
-  /// output offers need, to work from where mutastic ran. Empty when that's the directory mutastic
-  /// ran in and its root project.
-  public SourceView withTarget(List<String> arguments) {
-    return new SourceView(root, sources, testSources, arguments);
+  /// How the person runs mutastic on this run's project, from where they ran it: what the commands
+  /// the output offers need, to work as they're copied.
+  public SourceView withInvocation(Invocation invocation) {
+    return new SourceView(root, sources, testSources, invocation);
   }
 
-  public List<String> target() {
-    return target;
+  public Invocation invocation() {
+    return invocation;
   }
 
   /// A test class's source file, relative to the project, if it's in the test sources.

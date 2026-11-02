@@ -13,6 +13,7 @@ import io.mutastic.engine.RunRecord;
 import io.mutastic.report.AgentText;
 import io.mutastic.report.Explanation;
 import io.mutastic.report.HumanText;
+import io.mutastic.report.Invocation;
 import io.mutastic.report.JsonEvents;
 import io.mutastic.report.ReportFiles;
 import io.mutastic.report.SourceView;
@@ -360,11 +361,14 @@ public final class Main {
     var here = Path.of("").toAbsolutePath().normalize();
     var target = target(here, directory, command.module());
     var project =
-        tool.read(
-            directory, command.module(), work, String.join(" ", target(here, directory, ":")));
+        command.setup().isPresent()
+            ? tool.read(directory, command.module(), command.setup().get())
+            : tool.read(
+                directory, command.module(), work, String.join(" ", target(here, directory, ":")));
     var setup = Duration.ofNanos(System.nanoTime() - start);
     var sources =
-        new SourceView(directory, project.sources(), project.testSources()).withTarget(target);
+        new SourceView(directory, project.sources(), project.testSources())
+            .withInvocation(Invocation.of(command.commands(), target));
     return new Prepared(directory, work, project, sources, startedAt, setup);
   }
 
@@ -654,7 +658,9 @@ public final class Main {
       Optional<String> vocabulary,
       List<String> testsFrom,
       Optional<String> since,
-      Optional<Ignoring> ignore) {
+      Optional<Ignoring> ignore,
+      Optional<Path> setup,
+      String commands) {
     boolean verify() {
       return subcommand == Subcommand.VERIFY;
     }
@@ -682,7 +688,9 @@ public final class Main {
           vocabulary,
           testsFrom,
           since,
-          Optional.of(how));
+          Optional.of(how),
+          setup,
+          commands);
     }
 
     static Command parse(String[] args) {
@@ -722,8 +730,21 @@ public final class Main {
       private String reason = "";
       private boolean prune = false;
       private boolean remove = false;
+      private Optional<Path> setup = Optional.empty();
+      private String commands = "mutastic";
 
       void read(String arg) {
+        // The Maven plugin's form of an option, `-Dmutastic.only=ID`: as the commands it offers
+        // write them, so each parses back to the command it stands for.
+        var property = Invocation.option(arg);
+        if (property.isPresent()) {
+          read(property.get());
+        } else {
+          readOption(arg);
+        }
+      }
+
+      private void readOption(String arg) {
         switch (option(arg)) {
           case "--format=" -> format = Optional.of(choice(arg, FORMATS));
           case "--threshold=" -> threshold = number(arg);
@@ -742,6 +763,16 @@ public final class Main {
           case "--color=" -> colour = choice(arg, List.of("auto", "always", "never"));
           case "--hyperlinks=" -> links = choice(arg, List.of("auto", "always", "never"));
           case "--progress=" -> progress = choice(arg, List.of("auto", "bar", "counter", "none"));
+          default -> buildPluginOption(arg);
+        }
+      }
+
+      /// The build plugins' own options, as they run inside the build: the setup they wrote, and
+      /// their goals as the commands the output offers. Anything else is a directory or module.
+      private void buildPluginOption(String arg) {
+        switch (option(arg)) {
+          case "--setup=" -> setup = Optional.of(Path.of(arg.substring("--setup=".length())));
+          case "--commands=" -> commands = commands(arg.substring("--commands=".length()));
           default -> positional(arg);
         }
       }
@@ -762,6 +793,15 @@ public final class Main {
               new RequestedReport(
                   kind,
                   colon < 0 ? Optional.empty() : Optional.of(Path.of(value.substring(colon + 1)))));
+        }
+      }
+
+      private static String commands(String value) {
+        try {
+          Invocation.of(value, List.of());
+          return value;
+        } catch (IllegalArgumentException e) {
+          throw new UsageException(String.valueOf(e.getMessage()));
         }
       }
 
@@ -827,7 +867,9 @@ public final class Main {
             vocabulary,
             List.copyOf(testsFrom),
             since,
-            Optional.empty());
+            Optional.empty(),
+            setup,
+            commands);
       }
 
       /// `:app`: another module, named as the module run is; or `dependents`, every module that

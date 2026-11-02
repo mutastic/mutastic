@@ -33,6 +33,11 @@ public interface BuildTool {
   /// @throws SetupFailed when the build can't be read, saying what to do instead
   Project read(Path directory, String module, Path workDirectory, String typed);
 
+  /// The module's code and tests from `setup`, a file in [ProjectSetup]'s format the build already
+  /// wrote: for an entry point inside the build, such as a build plugin, which needn't run it
+  /// again. Named as [#read(Path, String, Path, String)] names it, so their runs compare.
+  Project read(Path directory, String module, Path setup);
+
   /// The build couldn't be read: the message says what to do instead.
   final class SetupFailed extends RuntimeException {
     @java.io.Serial private static final long serialVersionUID = 1L;

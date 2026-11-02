@@ -38,12 +38,21 @@ final class MavenSetup {
       if (!Files.isRegularFile(setup)) {
         throw new SetupFailed(noJava(directory, module, typed));
       }
-      return ProjectSetup.read(name(directory, module), setup);
+      return written(directory, module, setup);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IllegalStateException("interrupted while Maven ran", e);
+    }
+  }
+
+  /// The module's setup, already written to `setup`: by the extension, or by the Maven plugin.
+  static Project written(Path directory, String module, Path setup) {
+    try {
+      return ProjectSetup.read(name(directory, module), setup);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
     }
   }
 

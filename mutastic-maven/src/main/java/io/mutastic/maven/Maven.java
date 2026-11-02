@@ -39,4 +39,9 @@ public final class Maven implements BuildTool {
   public Project read(Path directory, String module, Path workDirectory, String typed) {
     return MavenSetup.read(directory, module, workDirectory, typed);
   }
+
+  @Override
+  public Project read(Path directory, String module, Path setup) {
+    return MavenSetup.written(directory, module, setup);
+  }
 }

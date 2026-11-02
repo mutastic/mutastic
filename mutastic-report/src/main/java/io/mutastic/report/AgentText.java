@@ -83,7 +83,8 @@ public final class AgentText {
       StringBuilder out, Report report, List<MutantResult> missed, List<MutantResult> notCovered) {
     out.append(
         "rules: %s; a fix counts when `%s`%n"
-            .formatted(MutantCommand.RULE, MutantCommand.DONE_WHEN.text("<id>", sources.target())));
+            .formatted(
+                MutantCommand.RULE, MutantCommand.DONE_WHEN.text("<id>", sources.invocation())));
     appendMissed(out, missed);
     if (!notCovered.isEmpty()) {
       appendNotCovered(out, report, notCovered, missed.isEmpty());
@@ -99,7 +100,7 @@ public final class AgentText {
           "rules: %s; a fix counts when `%s`%n%n"
               .formatted(
                   MutantCommand.RULE,
-                  MutantCommand.DONE_WHEN.text(result.mutant().id(), sources.target())));
+                  MutantCommand.DONE_WHEN.text(result.mutant().id(), sources.invocation())));
       out.append(entry(0, result));
     }
     return out.toString();
@@ -135,14 +136,15 @@ public final class AgentText {
   }
 
   /// Decisions the code has outgrown: say so, since the mutants they covered ran.
-  private static void appendStaleIgnores(StringBuilder out, Report report) {
+  private void appendStaleIgnores(StringBuilder out, Report report) {
     if (!report.staleIgnores().isEmpty()) {
       out.append(
-          "stale ignores: %s no longer match their code, so their mutants ran; ask before removing them (mutastic ignore --prune)%n"
+          "stale ignores: %s no longer match their code, so their mutants ran; ask before removing them (%s)%n"
               .formatted(
                   String.join(
                       ", ",
-                      report.staleIgnores().stream().map(io.mutastic.api.Ignore::id).toList())));
+                      report.staleIgnores().stream().map(io.mutastic.api.Ignore::id).toList()),
+                  sources.invocation().command(HumanText.PRUNE)));
     }
   }
 
@@ -256,7 +258,7 @@ public final class AgentText {
     SuggestedTest.of(result, sources).ifPresent(test -> addSuggestedTest(lines, test));
     for (MutantCommand command : MutantCommand.withAMutant()) {
       lines.add(
-          "   %s: %s".formatted(command.label(), command.text(mutant.id(), sources.target())));
+          "   %s: %s".formatted(command.label(), command.text(mutant.id(), sources.invocation())));
     }
     return String.join(System.lineSeparator(), lines) + System.lineSeparator();
   }

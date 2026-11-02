@@ -58,6 +58,15 @@ final class GradleSetup {
     return ProjectSetup.read(name(build.directory(), module), out);
   }
 
+  /// The module's setup, already written to `setup`.
+  static Project written(Path directory, String module, Path setup) {
+    try {
+      return ProjectSetup.read(name(directory, module), setup);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
   private static void writeInitScript(Path init) throws IOException {
     try (InputStream script = GradleSetup.class.getResourceAsStream("mutastic.init.gradle.kts")) {
       Files.write(init, script.readAllBytes());

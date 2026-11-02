@@ -31,7 +31,9 @@ class CommandTest {
                 Optional.empty(),
                 java.util.List.of(),
                 Optional.empty(),
-                Optional.empty()));
+                Optional.empty(),
+                Optional.empty(),
+                "mutastic"));
   }
 
   @Test
@@ -59,7 +61,22 @@ class CommandTest {
                 Optional.empty(),
                 java.util.List.of(),
                 Optional.empty(),
-                Optional.empty()));
+                Optional.empty(),
+                Optional.empty(),
+                "mutastic"));
+  }
+
+  /// What the build plugins pass: the setup they wrote, and their goals as the commands offered.
+  @Test
+  void readsWhatABuildPluginPasses() {
+    var command =
+        Main.Command.parse(
+            new String[] {
+              "run", "app", ":api", "--setup=target/setup.properties", "--commands=maven"
+            });
+
+    assertThat(command.setup()).contains(Path.of("target/setup.properties"));
+    assertThat(command.commands()).isEqualTo("maven");
   }
 
   @Test

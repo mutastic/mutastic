@@ -14,5 +14,6 @@ include(
     "mutastic-gradle",
     "mutastic-maven-extension",
     "mutastic-maven",
+    "mutastic-maven-plugin",
     "mutastic-cli",
 )

@@ -56,7 +56,9 @@ public class MutasticSetup extends AbstractMavenLifecycleParticipant {
     }
   }
 
-  private void write(MavenSession session, MavenProject project, Path file)
+  /// One module's setup, to `file`: for the extension after a build, and the Maven plugin during
+  /// one.
+  public void write(MavenSession session, MavenProject project, Path file)
       throws MavenExecutionException {
     var previous = session.getCurrentProject();
     session.setCurrentProject(project);

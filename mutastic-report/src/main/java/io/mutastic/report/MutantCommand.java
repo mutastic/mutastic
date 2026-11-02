@@ -7,8 +7,9 @@ import java.util.stream.Collectors;
 /// event stream and the summary's `Next:` line all take them from here, so a command added here
 /// appears everywhere, and the CLI's tests check that each one is a command the CLI has.
 ///
-/// Each is written for the project the run was on (its directory and module, as typed from where
-/// mutastic ran), so it works as it's copied: an id means nothing in another project.
+/// Each is written by the run's [Invocation]: for the project the run was on (its directory and
+/// module, as typed from where mutastic ran), and as the `mutastic` command or a Maven goal, as it
+/// was started. So it works as it's copied: an id means nothing in another project.
 public enum MutantCommand {
   /// How to prove a fix: the mutant is caught.
   DONE_WHEN("done when", "doneWhen", "verify %s", " passes", Shown.EVERYWHERE),
@@ -68,18 +69,16 @@ public enum MutantCommand {
     return key;
   }
 
-  /// `mutastic verify m855c8e3c samples/pricing`, for the project `target` names (nothing when it's
-  /// the directory mutastic ran in and its root project).
-  public String command(String id, List<String> target) {
-    var words = new java.util.ArrayList<>(List.of("mutastic", arguments.formatted(id)));
-    target.forEach(word -> words.add(quoted(word)));
-    return String.join(" ", words);
+  /// `mutastic verify m855c8e3c samples/pricing`, or `mvn mutastic:verify
+  /// -Dmutastic.mutant=m855c8e3c -f samples/pricing`, as `invocation` writes it.
+  public String command(String id, Invocation invocation) {
+    return invocation.command(arguments(id));
   }
 
   /// `mutastic verify m855c8e3c samples/pricing passes`: the command, and what it shows when it
   /// applies.
-  public String text(String id, List<String> target) {
-    return command(id, target) + outcome;
+  public String text(String id, Invocation invocation) {
+    return command(id, invocation) + outcome;
   }
 
   /// The arguments after `mutastic`, for checking they parse: `verify m855c8e3c`.
@@ -88,21 +87,15 @@ public enum MutantCommand {
   }
 
   /// `mutastic verify <id> · mutastic run --only=<id> · mutastic explain <id>`: the summary's.
-  public static String next(List<String> target) {
+  public static String next(Invocation invocation) {
     return List.of(values()).stream()
         .filter(command -> command.shown != Shown.WITH_A_MUTANT)
-        .map(command -> command.command("<id>", target))
+        .map(command -> command.command("<id>", invocation))
         .collect(Collectors.joining(" · "));
   }
 
-  /// `mutastic ignore --remove m855c8e3c samples/pricing`: words joined as a shell reads them, each
-  /// quoted if it needs to be.
-  public static String shell(List<String> words) {
-    return words.stream().map(MutantCommand::quoted).collect(Collectors.joining(" "));
-  }
-
-  /// A path with a space or a quote, quoted for a shell.
-  private static String quoted(String word) {
-    return word.matches("[A-Za-z0-9_./:@%+=,-]+") ? word : "'" + word.replace("'", "'\\''") + "'";
+  /// A path, quoted if a shell needs it to be.
+  public static String shell(String path) {
+    return Invocation.quoted(path);
   }
 }

@@ -1,7 +1,11 @@
 // The `mutastic` command: reads a Gradle project's setup, runs the engine, prints the result.
 plugins {
     application
+    // Also a library: the Maven plugin runs it, from the plugin's own classpath.
+    `java-library`
 }
+
+description = "The mutastic command, which the build plugins run too."
 
 java {
     toolchain {
@@ -36,6 +40,16 @@ tasks.test {
     useJUnitPlatform()
     // The end-to-end tests run mutastic against the sample projects, each its own Gradle build.
     systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
+    // The Maven plugin's test resolves it, and everything it needs, from a repository in the build.
+    systemProperty(
+        "mutastic.samplesRepository",
+        rootProject.layout.buildDirectory
+            .dir("samples-repo")
+            .get()
+            .asFile.absolutePath,
+    )
+    systemProperty("mutastic.version", project.version.toString())
+    dependsOn(rootProject.subprojects.map { "${it.path}:publishAllPublicationsToSamplesRepository" })
 }
 
 tasks.jar {

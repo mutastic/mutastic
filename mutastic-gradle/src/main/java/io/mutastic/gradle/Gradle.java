@@ -40,4 +40,9 @@ public final class Gradle implements BuildTool {
   public Project read(Path directory, String module, Path workDirectory, String typed) {
     return GradleSetup.read(directory, module, workDirectory, typed);
   }
+
+  @Override
+  public Project read(Path directory, String module, Path setup) {
+    return GradleSetup.written(directory, module, setup);
+  }
 }

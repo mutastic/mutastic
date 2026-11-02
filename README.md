@@ -92,6 +92,26 @@ The commands mutastic prints for a mutant name the project it ran on (`mutastic 
 
 The result goes to stdout and progress to stderr, so `mutastic run > result.txt` keeps only the result.
 
+### From Maven
+
+The Maven plugin has each command as a goal, and each option as a `mutastic.` property of the same name:
+
+```sh
+mvn io.mutastic:mutastic-maven-plugin:0.2.0:run -Dmutastic.threshold=60
+```
+
+Declare it in the build, and its goals take the short prefix, `mvn mutastic:run`:
+
+```xml
+<plugin>
+  <groupId>io.mutastic</groupId>
+  <artifactId>mutastic-maven-plugin</artifactId>
+  <version>0.2.0</version>
+</plugin>
+```
+
+Each goal compiles the code and tests first, then runs in every module of the build (`-pl` picks one) with the settings Surefire's `test` would use. The commands it prints are goals too, `mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -pl core`, and a missed mutant or a score below the threshold fails the build. mutastic itself runs on JDK 25 or later in a process of its own, so Maven can run on 17: it uses a JDK 25 toolchain from `~/.m2/toolchains.xml` if there is one, else Maven's own JDK if it's new enough, else the one `-Dmutastic.jdk=<directory>` names. Your tests still run on the JDK Surefire would use.
+
 - `--format=full` (the default on a terminal) shows each missed mutant as a card: the gap in the tests, the code with the change marked, the evidence (what the tests passed in, and which tests run it), the test to add, and how to prove it. Cards are grouped by file, and in each file the method with the most misses comes first. On a terminal, file locations are links (`--hyperlinks`) that terminals supporting OSC 8 open; others show the text.
 - `--format=brief` keeps the gap, the changed line and the evidence; `--format=concise` (the default elsewhere, such as CI logs) is one line per missed mutant; `--format=grouped` is one line each under its file and method.
 - `--format=agent` (the default when `MUTASTIC_AGENT=1`) is plain text for coding agents: the verdict first, so a truncated read still has it, then each missed mutant with the change, the fix and how to prove it, and the rule that a fix changes tests, never production code.
@@ -181,7 +201,7 @@ A test that catches mutants in several unrelated methods, each time with the sam
 
    Several workers run at once (`--workers`, by default half the cores, at most 4), each its own JVM, as Gradle's parallel test forks are. Results are reported in source order whatever order they finish in. Workers side by side can get in each other's way: tests that use a fixed port collide, and tests that share a lock, a database or a slow start (a Spring context) run slower than they did alone. So neither a catch caused by a port in use nor a timeout is trusted: that mutant runs again on its own once the others are done.
 
-Code is in nine modules:
+Code is in ten modules:
 
 | Module | JDK | What it does |
 |---|---|---|
@@ -194,6 +214,7 @@ Code is in nine modules:
 | `mutastic-maven` | 25 | Reads a Maven build's setup, with the extension; a `BuildTool` |
 | `mutastic-maven-extension` | 17 | Runs inside your Maven build and writes what Surefire would run |
 | `mutastic-cli` | 25 | The `mutastic` command: finds the build tool, runs the engine, picks the format |
+| `mutastic-maven-plugin` | 17 | The Maven plugin: writes a module's setup from inside the build, then runs the `mutastic` command on it |
 
 ## Building
 

@@ -11,6 +11,8 @@ plugins {
     id("org.cyclonedx.bom") version "3.5.1"
     // Maven Central: signing, the POM it requires, and the Central Portal's upload.
     id("com.vanniktech.maven.publish") version "0.37.0" apply false
+    // The Maven plugin's descriptor (plugin.xml), from its goals' annotations.
+    id("org.gradlex.maven-plugin-development") version "1.0.3" apply false
 }
 
 repositories {
@@ -77,6 +79,8 @@ subprojects {
             } else {
                 error("NullAway")
                 option("NullAway:OnlyNullMarked", "true")
+                // Set by Maven before a goal runs, as a constructor can't.
+                option("NullAway:ExcludedFieldAnnotations", "org.apache.maven.plugins.annotations.Parameter")
                 option("NullAway:JSpecifyMode", "true")
             }
         }
@@ -126,6 +130,16 @@ subprojects {
         apply(plugin = "com.vanniktech.maven.publish")
         // The javadoc jar ships with each release: a doc comment that breaks it fails here, not then.
         tasks.named("check") { dependsOn("javadoc") }
+        // A repository in the build, for the end-to-end tests: Maven resolves the plugin from it
+        // as it would from Central, and ~/.m2 is left alone.
+        configure<PublishingExtension> {
+            repositories {
+                maven {
+                    name = "samples"
+                    url = uri(rootProject.layout.buildDirectory.dir("samples-repo"))
+                }
+            }
+        }
         configure<com.vanniktech.maven.publish.MavenPublishBaseExtension> {
             publishToMavenCentral(automaticRelease = false)
             if (providers.gradleProperty("signingInMemoryKey").isPresent) {

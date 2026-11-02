@@ -406,7 +406,7 @@ public final class HumanText {
           command(
               gutter,
               command.label(),
-              command.command(mutant.id(), sources.target()) + style.dim(command.outcome())));
+              command.command(mutant.id(), sources.invocation()) + style.dim(command.outcome())));
     }
   }
 
@@ -534,7 +534,7 @@ public final class HumanText {
         + " "
         + style.dim(
             "· %s --format=full for the whole card"
-                .formatted(MutantCommand.REPRODUCE.command(mutant.id(), sources.target())));
+                .formatted(MutantCommand.REPRODUCE.command(mutant.id(), sources.invocation())));
   }
 
   /// Just the changed line, the change marked under it.
@@ -624,15 +624,19 @@ public final class HumanText {
 
   private String staleIgnoresWarning(Report report) {
     var ids = report.staleIgnores().stream().map(io.mutastic.api.Ignore::id).toList();
-    return " %s %s: %s code changed or is gone, so %s mutant%s ran; remove with `mutastic ignore --prune`"
+    return " %s %s: %s code changed or is gone, so %s mutant%s ran; remove with `%s`"
         .formatted(
             style.amber(
                 ids.size() == 1 ? "! an ignore no longer holds:" : "! ignores no longer hold:"),
             String.join(", ", ids),
             ids.size() == 1 ? "its" : "their",
             ids.size() == 1 ? "its" : "their",
-            ids.size() == 1 ? "" : "s");
+            ids.size() == 1 ? "" : "s",
+            sources.invocation().command(PRUNE));
   }
+
+  /// `ignore --prune`: what removes the ignores that no longer hold.
+  static final List<String> PRUNE = List.of("ignore", "--prune");
 
   private String flakyWarning(String test) {
     return " %s %s failed, then passed when run again; left out of this run"
@@ -671,7 +675,7 @@ public final class HumanText {
     out.append('\n');
     out.append(verdict(report, run));
     if (report.count(Status.MISSED) > 0 && !run.oneMutant()) {
-      out.append(style.dim(" Next: " + MutantCommand.next(sources.target()))).append('\n');
+      out.append(style.dim(" Next: " + MutantCommand.next(sources.invocation()))).append('\n');
     }
   }
 
@@ -874,18 +878,21 @@ public final class HumanText {
       case TIMED_OUT ->
           detectedFate(
               "%s is %s: its tests stopped finishing in time".formatted(id, words.detected));
-      case MISSED ->
-          redFate(
-              words.undetected,
-              "%s is still %s · done when %s"
-                  .formatted(
-                      id, words.undetected, MutantCommand.DONE_WHEN.text(id, sources.target())));
+      case MISSED -> missedFate(id);
       case NOT_COVERED -> redFate(words.notCovered, "%s: no test reaches its line".formatted(id));
       case SKIPPED ->
           style.label("SKIPPED", Style.CYAN)
               + " "
               + "%s is skipped: %s".formatted(id, result.mutant().skipped().orElse(""));
     };
+  }
+
+  /// `m855c8e3c is still missed · done when mutastic verify m855c8e3c passes`.
+  private String missedFate(String id) {
+    var doneWhen = MutantCommand.DONE_WHEN.text(id, sources.invocation());
+    return redFate(
+        words.undetected,
+        "%s is still %s · done when %s".formatted(id, words.undetected, doneWhen));
   }
 
   private String detectedFate(String text) {

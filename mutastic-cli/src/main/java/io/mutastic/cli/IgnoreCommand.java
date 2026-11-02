@@ -21,12 +21,11 @@ final class IgnoreCommand {
   /// Where the project is, its sources (to say where a mutant is), and the ignores file as the
   /// person would type it.
   record Where(Path directory, SourceView sources, String shownFile) {
-    /// `mutastic ignore …` for this project, as typed from where mutastic ran.
+    /// `mutastic ignore …` for this project, as typed from where mutastic ran, or the Maven goal.
     String command(List<String> words) {
-      var all = new ArrayList<>(List.of("mutastic", "ignore"));
+      var all = new ArrayList<>(List.of("ignore"));
       all.addAll(words);
-      all.addAll(sources.target());
-      return MutantCommand.shell(all);
+      return sources.invocation().command(all);
     }
   }
 
@@ -109,7 +108,7 @@ final class IgnoreCommand {
         removed == 1 ? "" : "s",
         String.join(", ", stale.stream().sorted().toList()),
         where.shownFile(),
-        MutantCommand.shell(List.of(where.shownFile())));
+        MutantCommand.shell(where.shownFile()));
     return Main.PASSED;
   }
 }

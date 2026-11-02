@@ -7,6 +7,8 @@ assertj = "3.27.7"
 archunit = "1.4.1"
 # The oldest Maven the extension compiles against: it runs inside the project's own Maven.
 maven = "3.9.9"
+# The Maven plugin's annotations, read at build time into its descriptor.
+maven-plugin-annotations = "3.15.2"
 
 [libraries]
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
@@ -16,3 +18,5 @@ junit-platform-launcher-floor = { module = "org.junit.platform:junit-platform-la
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 archunit = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
 maven-core = { module = "org.apache.maven:maven-core", version.ref = "maven" }
+maven-plugin-api = { module = "org.apache.maven:maven-plugin-api", version.ref = "maven" }
+maven-plugin-annotations = { module = "org.apache.maven.plugin-tools:maven-plugin-annotations", version.ref = "maven-plugin-annotations" }

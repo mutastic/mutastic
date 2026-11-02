@@ -111,7 +111,7 @@ public final class JsonEvents {
   /// The commands to work on a missed mutant, and its entry as the agent text has it.
   private void putMissedHelp(Map<String, Object> fields, MutantResult result) {
     for (MutantCommand command : MutantCommand.withAMutant()) {
-      fields.put(command.key(), command.text(result.mutant().id(), sources.target()));
+      fields.put(command.key(), command.text(result.mutant().id(), sources.invocation()));
     }
     fields.put("rendered", text.entry(0, result));
   }
