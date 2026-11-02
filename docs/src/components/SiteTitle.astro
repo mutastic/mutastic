@@ -1,0 +1,58 @@
+---
+// The site's title, then the release these docs describe, and a way to the others: each
+// published release line, the latest first. Choosing one opens the same page there.
+import Default from '@astrojs/starlight/components/SiteTitle.astro';
+import { home, latest, version, versions } from './versions';
+
+const current = version === 'next' ? 'next' : version;
+---
+
+<div class="site-title-with-version">
+  <Default />
+  {
+    versions.length > 0 && (
+      <select class="version-switcher" aria-label="Documentation version" data-version-switcher>
+        {current === 'next' && (
+          <option value="" selected>
+            next
+          </option>
+        )}
+        {versions.map((line) => (
+          <option value={home(line)} selected={line === current}>
+            {line === latest ? `${line} (latest)` : line}
+          </option>
+        ))}
+      </select>
+    )
+  }
+</div>
+
+<script>
+  // In the browser, so not versions.ts, which reads the build's environment.
+  const base = import.meta.env.BASE_URL;
+  const page = location.pathname.startsWith(base)
+    ? location.pathname.slice(base.length)
+    : location.pathname.replace(/^\//, '');
+  for (const select of document.querySelectorAll<HTMLSelectElement>('[data-version-switcher]')) {
+    select.addEventListener('change', () => {
+      if (select.value) location.href = select.value + page;
+    });
+  }
+</script>
+
+<style>
+  .site-title-with-version {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .version-switcher {
+    font: inherit;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-2);
+    background: transparent;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 999px;
+    padding: 0.15rem 0.5rem;
+  }
+</style>

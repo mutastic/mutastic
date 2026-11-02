@@ -1,6 +1,6 @@
 {
   "schema": "mutastic.commands/v1",
-  "docs": "https://github.com/mutastic/mutastic#readme",
+  "docs": "https://docs.mutastic.io/",
   "commands": [
     {
       "name": "run",

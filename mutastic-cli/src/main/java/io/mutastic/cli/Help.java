@@ -11,8 +11,21 @@ import java.util.List;
 final class Help {
   private Help() {}
 
-  /// Where the full documentation is.
-  static final String DOCS = "https://github.com/mutastic/mutastic#readme";
+  /// Where the latest release's documentation is.
+  static final String DOCS = "https://docs.mutastic.io/";
+
+  /// `0.3.1`: a release, whose docs are its line's, `0.3`.
+  private static final java.util.regex.Pattern RELEASE =
+      java.util.regex.Pattern.compile("(?<major>\\d+)\\.(?<minor>\\d+)\\.\\d+");
+
+  /// The docs for `version`: a release's own line, `https://docs.mutastic.io/v0.3/`, so an older
+  /// install reads what it does; the latest release's for a build from source.
+  static String docs(String version) {
+    var release = RELEASE.matcher(version);
+    return release.matches()
+        ? DOCS + "v" + release.group("major") + "." + release.group("minor") + "/"
+        : DOCS;
+  }
 
   private static final int WIDTH = 100;
   private static final int COLUMN = 26;
@@ -58,7 +71,7 @@ final class Help {
     out.addAll(section("Environment:", ENVIRONMENT));
     out.addAll(section("Exit codes:", EXIT_CODES));
     out.add("");
-    out.add("mutastic <command> --help says more about each. Docs: " + DOCS);
+    out.add("mutastic <command> --help says more about each. Docs: " + docs(version));
     return String.join("\n", out) + "\n";
   }
 
@@ -80,7 +93,7 @@ final class Help {
   }
 
   /// `mutastic run --help`: its usage, what it does, examples and its options.
-  static String of(Main.Subcommand command) {
+  static String of(Main.Subcommand command, String version) {
     var out = new ArrayList<String>();
     out.add("Usage: mutastic " + command.synopsis);
     out.add("");
@@ -96,7 +109,7 @@ final class Help {
     }
     out.addAll(section("Exit codes:", EXIT_CODES));
     out.add("");
-    out.add("Docs: " + DOCS);
+    out.add("Docs: " + docs(version) + "reference/" + command.word() + "/");
     return String.join("\n", out) + "\n";
   }
 

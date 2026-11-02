@@ -28,6 +28,18 @@ npm run build    # dist/, as deployed
 
 Code is set in JetBrains Mono with its ligatures off: these pages are about telling `>=` from `>`.
 
+## Versions
+
+Every recent release's docs stay published, each built from its own tag:
+`docs.mutastic.io/` is the latest release, `docs.mutastic.io/v0.3/` the newest 0.3 release, kept for
+the last five release lines. `scripts/build-versions.mjs` builds them all at each release; older
+releases show a banner pointing at the latest, a version switcher sits beside the title, and only
+the latest at the root is indexed. A release's `mutastic --help` links to its own line's docs.
+
+The build is told which release it is through `DOCS_BASE`, `DOCS_VERSION`, `DOCS_LATEST` and
+`DOCS_VERSIONS` (see `astro.config.mjs`). Keep those four as they are: each release's docs are
+rebuilt from its tag with them for as long as it's published.
+
 ## Deploying
 
 `.github/workflows/docs.yml` builds the site on every change. docs.mutastic.io describes the latest

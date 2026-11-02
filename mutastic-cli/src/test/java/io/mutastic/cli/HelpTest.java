@@ -30,10 +30,23 @@ class HelpTest {
 
   @Test
   void eachCommandsHelpHasOnlyItsOwnOptions() {
-    assertThat(Help.of(Main.Subcommand.RUN)).contains("--threshold=N").doesNotContain("--reason");
-    assertThat(Help.of(Main.Subcommand.IGNORE))
+    assertThat(Help.of(Main.Subcommand.RUN, "dev"))
+        .contains("--threshold=N")
+        .doesNotContain("--reason");
+    assertThat(Help.of(Main.Subcommand.IGNORE, "dev"))
         .contains("--reason=WHY")
         .doesNotContain("--threshold");
+  }
+
+  /// A release's help links to its own release line's docs, so an older install reads what it does;
+  /// a build from source, to the latest release's.
+  @Test
+  void helpLinksToTheDocsForItsOwnRelease() {
+    assertThat(Help.docs("0.3.1")).isEqualTo("https://docs.mutastic.io/v0.3/");
+    assertThat(Help.docs("0.4.0-SNAPSHOT")).isEqualTo("https://docs.mutastic.io/");
+    assertThat(Help.docs("dev")).isEqualTo("https://docs.mutastic.io/");
+    assertThat(Help.of(Main.Subcommand.VERIFY, "0.3.1"))
+        .contains("Docs: https://docs.mutastic.io/v0.3/reference/verify/");
   }
 
   /// The examples help gives are commands that parse.

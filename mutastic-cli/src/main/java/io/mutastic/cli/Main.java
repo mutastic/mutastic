@@ -313,7 +313,8 @@ public final class Main {
       return Optional.empty();
     }
     var command = Subcommand.of(help && words.size() > 1 ? words.get(1) : words.getFirst());
-    return Optional.of(command.map(Help::of).orElseGet(() -> Help.general(version())));
+    return Optional.of(
+        command.map(each -> Help.of(each, version())).orElseGet(() -> Help.general(version())));
   }
 
   /// Where and how the result is shown: stdout and progress, the format, the words for results and

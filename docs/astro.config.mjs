@@ -1,18 +1,54 @@
 // docs.mutastic.io. Guides and concepts are Markdown under src/content/docs; the command
 // reference is src/pages/reference, written from src/data/commands.json, which the CLI's own
 // declarations produce (./gradlew :mutastic-cli:exportDocsModel), so it can't drift from them.
+//
+// Every release's docs stay published. scripts/build-versions.mjs builds each from its own tag,
+// under its own path, and tells each build which it is through the environment:
+//   DOCS_BASE      where it's served: `/` for the latest release, `/v0.3/` for an older one
+//   DOCS_VERSION   the release line it describes, `0.3`; `next` for main; unset locally
+//   DOCS_LATEST    the latest release line, `0.5`
+//   DOCS_VERSIONS  every release line published, newest first: `0.5,0.4,0.3`
+// Keep these four as they are: a release's docs are rebuilt from its tag with them for as long
+// as it's published.
 import starlight from '@astrojs/starlight';
 import { defineConfig } from 'astro/config';
 import starlightLlmsTxt from 'starlight-llms-txt';
 
+const base = process.env.DOCS_BASE ?? '/';
+const version = process.env.DOCS_VERSION ?? '';
+const latest = process.env.DOCS_LATEST ?? '';
+/**
+ * Anything but the latest release at the root: an older release's docs, main's, and the latest's
+ * pinned copy under /v<line>/. Kept out of search engines, which should find the one at the root.
+ */
+const notLatest = (version !== '' && version !== latest) || base !== '/';
+
+/** Root-relative links in the Markdown, `/concepts/results/`, under this build's base path. */
+function linksUnderBase() {
+  const visit = (node) => {
+    if (node.type === 'element' && node.tagName === 'a') {
+      const href = node.properties?.href;
+      if (typeof href === 'string' && href.startsWith('/') && !href.startsWith('//')) {
+        node.properties.href = base.replace(/\/$/, '') + href;
+      }
+    }
+    node.children?.forEach(visit);
+  };
+  return (tree) => visit(tree);
+}
+
 export default defineConfig({
   site: 'https://docs.mutastic.io',
+  base,
+  markdown: { rehypePlugins: [linksUnderBase] },
   integrations: [
     starlight({
       title: 'mutastic',
       // Its own 404 page is src/content/docs/404.md, in the site's words.
       disable404Route: true,
-      description: 'Mutation testing for Java: finds the changes your tests don\'t notice, and suggests the tests that would.',
+      description:
+        "Mutation testing for Java: finds the changes your tests don't notice, and suggests the tests that would.",
+      head: notLatest ? [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex' } }] : [],
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/mutastic/mutastic' }],
       editLink: { baseUrl: 'https://github.com/mutastic/mutastic/edit/main/docs/' },
       customCss: [
@@ -21,6 +57,11 @@ export default defineConfig({
         '@fontsource/jetbrains-mono/700.css',
         './src/styles/theme.css',
       ],
+      components: {
+        // The release these docs describe, and a way to the others.
+        SiteTitle: './src/components/SiteTitle.astro',
+        Banner: './src/components/Banner.astro',
+      },
       plugins: [starlightLlmsTxt()],
       sidebar: [
         {
@@ -34,11 +75,11 @@ export default defineConfig({
         {
           label: 'Reference',
           items: [
-            { label: 'mutastic run', link: '/reference/run/' },
-            { label: 'mutastic verify', link: '/reference/verify/' },
-            { label: 'mutastic explain', link: '/reference/explain/' },
-            { label: 'mutastic ignore', link: '/reference/ignore/' },
-            { label: 'Environment and exit codes', link: '/reference/environment/' },
+            { label: 'mutastic run', link: `${base}reference/run/` },
+            { label: 'mutastic verify', link: `${base}reference/verify/` },
+            { label: 'mutastic explain', link: `${base}reference/explain/` },
+            { label: 'mutastic ignore', link: `${base}reference/ignore/` },
+            { label: 'Environment and exit codes', link: `${base}reference/environment/` },
           ],
         },
         {

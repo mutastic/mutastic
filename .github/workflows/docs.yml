@@ -1,9 +1,11 @@
 # The docs site: built on every change to it, and deployed to Cloudflare Pages once the Cloudflare
 # secrets are set (see docs/README.md). docs.mutastic.io describes the latest release, so it's
-# deployed from a release's tag, to the project's production branch, `release`. main, and each pull
-# request, deploy to a preview address of their own: main is ahead of the release, and its docs
-# describe what isn't out yet. The Java build checks the rest: that the reference's commands.json
-# matches the CLI's declarations, and that every command the docs show parses.
+# deployed from a release's tag, to the project's production branch, `release`, with each recent
+# release line's docs under /v<line>/, each built from its own tag (scripts/build-versions.mjs).
+# main and each pull request deploy to a preview address of their own, as "next": main is ahead
+# of the release, and its docs describe what isn't out yet. The Java build checks the rest: that
+# the reference's commands.json matches the CLI's declarations, and that every command the docs
+# show parses.
 # Actions are pinned to a commit: a tag can be moved.
 name: Docs
 
@@ -31,13 +33,16 @@ jobs:
         working-directory: docs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # every release's tag: each release's docs are built from its own
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: docs/package-lock.json
       - run: npm ci
-      - run: npm run build
+      # A release: every published release line's docs. Anything else: this checkout's, as next.
+      - run: node scripts/build-versions.mjs ${{ github.ref_type == 'tag' && '' || '--next' }}
       # A tag is the release, docs.mutastic.io; anything else, main or a pull request's branch,
       # a preview at <branch>.mutastic-docs.pages.dev.
       - name: Deploy to Cloudflare Pages
