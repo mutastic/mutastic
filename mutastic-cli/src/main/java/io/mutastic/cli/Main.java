@@ -129,7 +129,7 @@ public final class Main {
       return single(command, prepared, passes, output);
     }
     var display = display(command, prepared, output, human);
-    var tested = passes.run(command, prepared, display);
+    var tested = passes.run(command, prepared, display.listener());
     progress.finished();
     // Only full runs compare, are kept and write reports: one mutant says nothing about the rest.
     var kept =
@@ -162,7 +162,7 @@ public final class Main {
               passes.engine().find(prepared.project(), passes.options()),
               out);
     }
-    var report = passes.engine().run(prepared.project(), passes.options(), passes.progress());
+    var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
     return verified(report.results().getFirst(), out);
   }
@@ -170,7 +170,7 @@ public final class Main {
   /// `explain`: everything known of one mutant, with how the last full run went.
   private static int explained(Command command, Prepared prepared, Passes passes, Output output) {
     var lastRun = lastRun(prepared, command.only().orElseThrow());
-    var report = passes.engine().run(prepared.project(), passes.options(), passes.progress());
+    var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
     var result = report.results().getFirst();
     output.out().print(humanText(command, output, prepared.sources()).explained(result));
@@ -219,8 +219,11 @@ public final class Main {
   /// uncaught, as that module's own build runs them (its classpath, with this module's mutated
   /// classes in place of its jar), merged.
   private record Passes(Engine engine, Engine.Options options, Progress progress, BuildTool tool) {
-    Tested run(Command command, Prepared prepared, Display display) {
-      var merged = engine.run(prepared.project(), options, display.listener());
+    /// The module's own tests, then each `--tests-from` module's over what they missed: for a full
+    /// run, and for one mutant (`verify`, `explain`) alike, so a mutant only another module's tests
+    /// catch is caught either way.
+    Tested run(Command command, Prepared prepared, Listener listener) {
+      var merged = engine.run(prepared.project(), options, listener);
       var otherTests = new ArrayList<Path>();
       for (String module : modules(command, prepared)) {
         var uncaught = uncaught(merged);

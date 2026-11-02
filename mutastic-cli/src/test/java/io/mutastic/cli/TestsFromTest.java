@@ -13,6 +13,9 @@ class TestsFromTest {
   private static final Path SAMPLE = Path.of(System.getProperty("mutastic.samples"), "modules");
   private static final String BOUNDARY = "\"status\":\"%s\",\"operator\":\"mutastic/boundary\"";
 
+  /// The boundary mutant, `amount < 10` becoming `<=` in `Fees.fee()`.
+  private static final String BOUNDARY_ID = "mac8091e6";
+
   @TempDir Path work;
 
   @Test
@@ -29,6 +32,22 @@ class TestsFromTest {
         .contains("\"killedBy\":\"com.example.app.CheckoutTest#tenPaysAFee\"")
         .contains("\"sameCodeAsLastRun\":false")
         .contains("\"likelyFlaky\":[]");
+  }
+
+  /// `verify` runs them as a run does: a mutant only another module's tests catch passes it there,
+  /// and still fails it without them.
+  @Test
+  void verifyRunsThemToo() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("modules"));
+
+    var own = Samples.mutastic("verify", BOUNDARY_ID, project.toString(), ":core");
+    var both =
+        Samples.mutastic("verify", BOUNDARY_ID, project.toString(), ":core", "--tests-from=:app");
+
+    assertThat(own.out()).contains(BOUNDARY_ID + " is still missed");
+    assertThat(own.exit()).isEqualTo(Main.FAILED);
+    assertThat(both.out()).as(both.err()).contains(BOUNDARY_ID + " is caught by");
+    assertThat(both.exit()).isEqualTo(Main.PASSED);
   }
 
   /// `dependents`: every module that depends on this one, as each build tool's own graph says.
