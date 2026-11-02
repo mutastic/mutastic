@@ -16,27 +16,34 @@ version can never be changed or removed.
 3. **A signing key,** used only for mutastic's releases:
    ```sh
    brew install gnupg
+   # Give it a passphrase when asked: it protects the private key wherever a copy of it sits.
    gpg --quick-gen-key "mutastic releases <your email>" rsa4096 sign 3y
-   gpg --list-secret-keys --keyid-format short   # the key id is after rsa4096/, 8 hex digits
-   KEY=<key id>
+   gpg --list-secret-keys   # the 40 hex digits under `sec` are its fingerprint
+   FPR=<fingerprint>
+   # Gradle takes only the short id, the fingerprint's last 8 digits: a full one is refused
+   # ("The key ID must be in a valid form").
+   KEY=${FPR: -8}
    # Central checks signatures against public keyservers.
-   gpg --keyserver keyserver.ubuntu.com --send-keys $KEY
-   gpg --keyserver keys.openpgp.org --send-keys $KEY
+   gpg --keyserver keyserver.ubuntu.com --send-keys $FPR
+   gpg --keyserver keys.openpgp.org --send-keys $FPR   # emails a link: until it's followed, the key has no name
    ```
    Back up the private key and its revocation certificate (`~/.gnupg/openpgp-revocs.d/`), for
-   example in a password manager.
+   example in a password manager. If you made the key without a passphrase, add one with
+   `gpg --passwd $KEY`; the public key and fingerprint don't change.
 4. **The `release` environment and its secrets.** Add yourself as a required reviewer in the repo's
    *Settings → Environments → release*, so no tag reaches Central without you.
    ```sh
    gh api -X PUT repos/mutastic/mutastic/environments/release
    # The private key goes straight from gpg to GitHub: it's never printed.
    gpg --armor --export-secret-keys $KEY | gh secret set SIGNING_KEY --env release --repo mutastic/mutastic
-   gh secret set SIGNING_KEY_ID --env release --repo mutastic/mutastic --body $KEY
+   gh secret set SIGNING_KEY_ID --env release --repo mutastic/mutastic --body $KEY   # the short id
    # These prompt, so the values stay out of shell history.
-   gh secret set SIGNING_KEY_PASSWORD --env release --repo mutastic/mutastic
-   gh secret set MAVEN_CENTRAL_USERNAME --env release --repo mutastic/mutastic
-   gh secret set MAVEN_CENTRAL_PASSWORD --env release --repo mutastic/mutastic
+   gh secret set SIGNING_KEY_PASSWORD --env release --repo mutastic/mutastic    # the key's passphrase
+   gh secret set MAVEN_CENTRAL_USERNAME --env release --repo mutastic/mutastic  # the token's username, from step 2
+   gh secret set MAVEN_CENTRAL_PASSWORD --env release --repo mutastic/mutastic  # the token's password, from step 2
    ```
+   The token is not your Central Portal login, and the portal shows it once. Tokens belong to the
+   account, so tictactoe's works here too, and generating a new one may retire the old.
 5. **A signed dry run,** to check the key works before a real release:
    ```sh
    read -s "PASS?key password: "
