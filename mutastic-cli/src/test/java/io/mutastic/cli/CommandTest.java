@@ -115,6 +115,56 @@ class CommandTest {
     assertThat(command.directory()).isEqualTo(Path.of("samples/pricing"));
   }
 
+  /// An option that always takes a value takes it after `=` or as the next word.
+  @Test
+  void aValueFollowsItsOptionAfterASpaceToo() {
+    var command =
+        parse("run", "--only", "m855c8e3c", "--threshold", "60", "--tests-from", ":app", "../app");
+
+    assertThat(command.only()).contains("m855c8e3c");
+    assertThat(command.threshold()).isEqualTo(60);
+    assertThat(command.testsFrom()).containsExactly(":app");
+    assertThat(command.directory()).isEqualTo(Path.of("../app"));
+    assertThatThrownBy(() -> parse("run", "--only")).hasMessage("--only needs a value: --only=ID");
+  }
+
+  /// `--since` may go without a value, so the word after it is the directory: one that isn't a
+  /// directory was meant as its value, and the error says how to write it.
+  @Test
+  void sinceTakesItsValueOnlyAfterEquals() {
+    var command = parse("run", "--since", ".");
+
+    assertThat(command.since()).contains("");
+    assertThat(command.directory()).isEqualTo(Path.of("."));
+    assertThatThrownBy(() -> parse("run", "--since", "main"))
+        .hasMessage("there's no directory main: for the changes since main, write --since=main");
+  }
+
+  @Test
+  void aScoreIsFrom0To100AndAFlagTakesNoValue() {
+    assertThatThrownBy(() -> parse("run", "--threshold=101"))
+        .hasMessage("--threshold is from 0 to 100, not 101");
+    assertThatThrownBy(() -> parse("run", "--threshold=-1"))
+        .hasMessage("--threshold is from 0 to 100, not -1");
+    assertThatThrownBy(() -> parse("ignore", "--prune=yes")).hasMessage("--prune takes no value");
+  }
+
+  /// Gradle sets a property given without a value to the empty string: a flag is then on.
+  @Test
+  void aFlagPropertyWithNoValueIsOn() {
+    assertThat(parse("ignore", "-Pmutastic.prune=").ignore().orElseThrow().prune()).isTrue();
+    assertThat(parse("ignore", "-Dmutastic.prune").ignore().orElseThrow().prune()).isTrue();
+    assertThat(parse("run", "-Pmutastic.suggestions=true").suggestions()).isTrue();
+    assertThatThrownBy(() -> parse("run", "-Dmutastic.confirmCatches=maybe"))
+        .hasMessage("mutastic.confirmCatches is true or false, not maybe");
+    assertThatThrownBy(() -> parse("run", "-Dmutastic.fast=true"))
+        .hasMessage("unknown property mutastic.fast");
+  }
+
+  private static Main.Command parse(String... args) {
+    return Main.Command.parse(args);
+  }
+
   @Test
   void rejectsWhatItDoesntKnow() {
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--fast"}))

@@ -69,14 +69,13 @@ mutastic verify m855c8e3c samples/pricing
 ## Usage
 
 ```
-mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N] [--only=ID] [--since[=REF]] [--tests-from=:module|dependents]...
-             [--confirm-catches] [--workers=N] [--color=auto|always|never]
-             [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none] [--no-suggestions]
-             [--report=json|html|xml|none[:path]]... [--vocabulary=plain|classic]
-mutastic verify ID [dir] [:module]
-mutastic explain ID [dir] [:module]
-mutastic ignore ID [dir] [:module] --reason="…" | mutastic ignore --prune [dir] [:module]
+mutastic run [DIR] [:MODULE] [OPTIONS]
+mutastic verify ID [DIR] [:MODULE]
+mutastic explain ID [DIR] [:MODULE]
+mutastic ignore ID [DIR] [:MODULE] --reason=WHY
 ```
+
+`mutastic --help` lists every option, the environment variables and the exit codes, and `mutastic <command> --help` each command's own; `mutastic --version` prints the version. An option's value follows `=` or a space (`--only=m855c8e3c`, `--only m855c8e3c`), except `--since`, whose value is optional and so always follows `=`: `--since=main`.
 
 | Exit code | Meaning |
 |---|---|

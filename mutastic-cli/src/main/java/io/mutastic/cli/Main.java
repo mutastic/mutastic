@@ -32,25 +32,13 @@ import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
-/// `mutastic`: mutation testing for a Gradle project.
+/// `mutastic`: mutation testing for a Java build, read through Gradle or Maven. `mutastic --help`
+/// lists every command and option ([Help]), from the one place each option is declared ([Options]).
 ///
-/// ```
-/// mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N] [--only=ID]
-///              [--confirm-catches] [--workers=N] [--color=auto|always|never]
-///              [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none] [--no-suggestions]
-///              [--report=json|html|xml|none[:path]]... [--vocabulary=plain|classic]
-/// mutastic verify ID [dir] [:module]
-/// ```
-///
-/// The result goes to stdout, progress to stderr. The format is `--format`, else `MUTASTIC_FORMAT`,
-/// else `agent` when `MUTASTIC_AGENT=1`, else `full` on a terminal and `concise` elsewhere.
-/// `MUTASTIC_VOCABULARY=classic` says killed and survived; `MUTASTIC_PILLS=rounded` draws round
-/// label ends for a Nerd Font, and `MUTASTIC_PILLS=off` draws labels as coloured words, not blocks.
-/// A full run also writes report files, by default `build/mutastic/mutation.json` and
-/// `mutation.html`.
-///
-/// A full run keeps its results in `build/mutastic/last-run.tsv`, and the next full run compares
-/// against them: with the code unchanged, a mutant that changed result names a flaky test.
+/// The result goes to stdout, progress to stderr. A full run writes report files and keeps its
+/// results in the module's work directory (`build/mutastic` or `target/mutastic`), and the next
+/// full run compares against them: with the code unchanged, a mutant that changed result names a
+/// flaky test.
 public final class Main {
   /// The score reaches the threshold; for `verify`, the mutant is caught.
   static final int PASSED = 0;
@@ -72,13 +60,13 @@ public final class Main {
   /// `--tests-from=dependents`: every module that depends on the one run.
   static final String DEPENDENTS = "dependents";
 
-  private static final List<String> FORMATS =
+  static final List<String> FORMATS =
       List.of("full", "brief", "concise", "grouped", "agent", "jsonl");
 
   /// The formats for people: they get each file's line as it finishes.
   private static final List<String> PEOPLE = List.of("full", "brief", "concise", "grouped");
 
-  private static final List<String> VOCABULARIES = List.of("plain", "classic");
+  static final List<String> VOCABULARIES = List.of("plain", "classic");
 
   private static HumanText.Detail detail(String format) {
     return switch (format) {
@@ -96,11 +84,15 @@ public final class Main {
   }
 
   static int run(String[] args, PrintStream out, PrintStream err, Terminal terminal) {
+    var answered = answeredWithoutRunning(List.of(args), out, err);
+    if (answered.isPresent()) {
+      return answered.getAsInt();
+    }
     try {
       return run(Command.parse(args), out, err, terminal);
     } catch (UsageException e) {
       err.println("mutastic: " + e.getMessage());
-      printUsage(err);
+      err.print(Help.usage());
       return USAGE;
     } catch (BuildTool.SetupFailed | Engine.UnknownMutant e) {
       err.println("mutastic: " + e.getMessage());
@@ -291,20 +283,37 @@ public final class Main {
     }
   }
 
-  private static void printUsage(PrintStream err) {
-    err.println(
-        "usage: mutastic run [dir] [:module] [--format=full|brief|concise|grouped|agent|jsonl] [--threshold=N]");
-    err.println(
-        "                    [--only=ID] [--since[=REF]] [--tests-from=:module|dependents]...");
-    err.println("                    [--vocabulary=plain|classic]");
-    err.println(
-        "                    [--confirm-catches] [--workers=N] [--color=auto|always|never]");
-    err.println(
-        "                    [--hyperlinks=auto|always|never] [--progress=auto|bar|counter|none]");
-    err.println("                    [--no-suggestions] [--report=json|html|xml|none[:path]]...");
-    err.println("       mutastic verify ID [dir] [:module]");
-    err.println("       mutastic explain ID [dir] [:module]");
-    err.println("       mutastic ignore ID [dir] [:module] --reason=WHY | --remove ID | --prune");
+  /// Help and the version, answered before any command reads a build; and, with no command at all,
+  /// help as the error. Empty when there's a command to run.
+  private static java.util.OptionalInt answeredWithoutRunning(
+      List<String> args, PrintStream out, PrintStream err) {
+    var asked = helpAsked(args);
+    if (asked.isPresent()) {
+      out.print(asked.get());
+      return java.util.OptionalInt.of(PASSED);
+    }
+    if (args.isEmpty()) {
+      err.print(Help.general(version()));
+      return java.util.OptionalInt.of(USAGE);
+    }
+    return java.util.OptionalInt.empty();
+  }
+
+  /// What help was asked for, if any: `--version`; `--help`, `-h` or `help` for every command;
+  /// `<command> --help` or `help <command>` for one.
+  private static Optional<String> helpAsked(List<String> words) {
+    if (words.isEmpty()) {
+      return Optional.empty();
+    }
+    if (words.getFirst().equals("--version")) {
+      return Optional.of("mutastic " + version() + "\n");
+    }
+    boolean help = words.getFirst().equals("help");
+    if (!help && !words.contains("--help") && !words.contains("-h")) {
+      return Optional.empty();
+    }
+    var command = Subcommand.of(help && words.size() > 1 ? words.get(1) : words.getFirst());
+    return Optional.of(command.map(Help::of).orElseGet(() -> Help.general(version())));
   }
 
   /// Where and how the result is shown: stdout and progress, the format, the words for results and
@@ -613,17 +622,67 @@ public final class Main {
   }
 
   /// The commands, and whether each works on one mutant. Every one that does must be offered for
-  /// each mutant in the output (`MutantCommand`), and its tests check that.
+  /// each mutant in the output (`MutantCommand`), and its tests check that. Each says how it's
+  /// written, what it does and how it's used, for help and the docs.
   enum Subcommand {
-    RUN(false),
-    VERIFY(true),
-    IGNORE(true),
-    EXPLAIN(true);
+    RUN(
+        false,
+        "run [DIR] [:MODULE] [OPTIONS]",
+        "Mutate the code and run its tests against each mutant",
+        "DIR is the build, here unless given, and :MODULE one of its modules: as Gradle names it"
+            + " (:app), or as Maven's -pl takes it (:services/api). The run passes when the score"
+            + " reaches the threshold. A full run writes report files, keeps a record the next run"
+            + " compares with, and offers the commands to work on each missed mutant.",
+        List.of(
+            "mutastic run",
+            "mutastic run samples/pricing --threshold=70",
+            "mutastic run --since=main",
+            "mutastic run . :core --tests-from=dependents")),
+    VERIFY(
+        true,
+        "verify ID [DIR] [:MODULE]",
+        "Run one mutant's tests: it passes when they catch it",
+        "How a fix is proved: each missed mutant offers it as \"done when\".",
+        List.of("mutastic verify m855c8e3c", "mutastic verify m855c8e3c samples/pricing")),
+    EXPLAIN(
+        true,
+        "explain ID [DIR] [:MODULE]",
+        "Everything known of one mutant, with its tests run",
+        "Its card, the change in its bytecode, what its operator does, and its result in the last"
+            + " full run.",
+        List.of("mutastic explain m855c8e3c")),
+    IGNORE(
+        true,
+        "ignore ID [DIR] [:MODULE] --reason=WHY",
+        "Record a decision not to test one mutant",
+        "It goes in .mutastic/ignores.yaml with its line and the reason, to commit and review, and"
+            + " lapses when that line changes. --remove takes one back; ignore --prune takes away"
+            + " every one that has lapsed.",
+        List.of(
+            "mutastic ignore m855c8e3c --reason=\"only logs\"",
+            "mutastic ignore --remove m855c8e3c",
+            "mutastic ignore --prune"));
 
     final boolean takesMutantId;
+    final String synopsis;
+    final String summary;
+    final String detail;
 
-    Subcommand(boolean takesMutantId) {
+    // Always a List.of, which can't change: the check goes by the declared type, which can.
+    @SuppressWarnings("ImmutableEnumChecker")
+    final List<String> examples;
+
+    Subcommand(
+        boolean takesMutantId,
+        String synopsis,
+        String summary,
+        String detail,
+        List<String> examples) {
       this.takesMutantId = takesMutantId;
+      this.synopsis = synopsis;
+      this.summary = summary;
+      this.detail = detail;
+      this.examples = examples;
     }
 
     String word() {
@@ -717,16 +776,11 @@ public final class Main {
       }
       var subcommand = Subcommand.of(args[0]).orElseThrow();
       var parser = new Parser();
-      for (String arg : List.of(args).subList(1, args.length)) {
-        parser.read(arg);
+      var rest = new java.util.ArrayDeque<>(List.of(args).subList(1, args.length));
+      while (!rest.isEmpty()) {
+        parser.read(rest.removeFirst(), rest);
       }
       return parser.command(subcommand);
-    }
-
-    /// `--name=` for an option with a value; the whole argument otherwise.
-    private static String option(String arg) {
-      int equals = arg.indexOf('=');
-      return equals < 0 ? arg : arg.substring(0, equals + 1);
     }
 
     /// The arguments after the subcommand, read one at a time.
@@ -751,48 +805,82 @@ public final class Main {
       private Optional<Path> setup = Optional.empty();
       private String commands = "mutastic";
 
-      void read(String arg) {
+      /// Whether the argument before was `--since` without a value, which it may go without: the
+      /// word after it is then the directory, so one that isn't a directory was its value.
+      private boolean afterBareSince = false;
+
+      void read(String arg, java.util.Deque<String> rest) {
+        boolean sinceBefore = afterBareSince;
+        afterBareSince = false;
         // The build plugins' form of an option, `-Dmutastic.only=ID`: how they pass their settings,
         // and how the commands they offer write them, so each parses back to the command it
         // stands for.
-        var properties = Invocation.options(arg);
+        var properties = Options.fromProperty(arg);
         if (properties.isPresent()) {
-          properties.get().forEach(this::readOption);
+          properties.get().forEach(each -> read(each, new java.util.ArrayDeque<>()));
+        } else if (arg.startsWith("--")) {
+          int equals = arg.indexOf('=');
+          var option = Options.named(equals < 0 ? arg : arg.substring(0, equals));
+          set(option, value(option, arg, equals, rest));
         } else {
-          readOption(arg);
+          positional(arg, sinceBefore);
         }
       }
 
-      private void readOption(String arg) {
-        switch (option(arg)) {
-          case "--format=" -> format = Optional.of(choice(arg, FORMATS));
-          case "--threshold=" -> threshold = number(arg);
-          case "--report=" -> report(arg.substring("--report=".length()));
-          case "--vocabulary=" -> vocabulary = Optional.of(choice(arg, VOCABULARIES));
-          case "--no-suggestions" -> suggestions = false;
+      /// The value after `=`, or the next argument for an option that always takes one; null for a
+      /// flag, and for `--since` without one.
+      private static @Nullable String value(
+          Option option, String arg, int equals, java.util.Deque<String> rest) {
+        if (equals >= 0) {
+          if (option.kind() == Option.Kind.FLAG) {
+            throw new UsageException(option.name() + " takes no value");
+          }
+          return arg.substring(equals + 1);
+        }
+        return switch (option.kind()) {
+          case FLAG, OPTIONAL_VALUE -> null;
+          case VALUE, REPEATED -> {
+            if (rest.isEmpty()) {
+              throw new UsageException(
+                  "%s needs a value: %s".formatted(option.name(), option.synopsis()));
+            }
+            yield rest.removeFirst();
+          }
+        };
+      }
+
+      private void set(Option option, @Nullable String value) {
+        var given = value == null ? "" : value;
+        switch (option.name()) {
+          case "--threshold" -> threshold = number(option, given, 0, 100);
+          case "--since" -> {
+            since = Optional.of(given);
+            afterBareSince = value == null;
+          }
+          case "--only" -> only = Optional.of(given);
+          case "--tests-from" -> testsFrom.add(module(given));
+          case "--workers" -> workers = Optional.of(number(option, given, 1, Integer.MAX_VALUE));
           case "--confirm-catches" -> confirmCatches = true;
-          case "--only=" -> only = Optional.of(arg.substring("--only=".length()));
-          case "--tests-from=" -> testsFrom.add(module(arg.substring("--tests-from=".length())));
-          case "--since" -> since = Optional.of("");
-          case "--reason=" -> reason = arg.substring("--reason=".length()).strip();
-          case "--prune" -> prune = true;
-          case "--remove" -> remove = true;
-          case "--since=" -> since = Optional.of(arg.substring("--since=".length()));
-          case "--workers=" -> workers = Optional.of(workerCount(arg));
-          case "--color=" -> colour = choice(arg, List.of("auto", "always", "never"));
-          case "--hyperlinks=" -> links = choice(arg, List.of("auto", "always", "never"));
-          case "--progress=" -> progress = choice(arg, List.of("auto", "bar", "counter", "none"));
-          default -> buildPluginOption(arg);
+          case "--no-suggestions" -> suggestions = false;
+          case "--report" -> report(given);
+          case "--format" -> format = Optional.of(choice(option, given));
+          case "--vocabulary" -> vocabulary = Optional.of(choice(option, given));
+          case "--color" -> colour = choice(option, given);
+          case "--hyperlinks" -> links = choice(option, given);
+          case "--progress" -> progress = choice(option, given);
+          default -> setIgnoringOrForAPlugin(option, given);
         }
       }
 
-      /// The build plugins' own options, as they run inside the build: the setup they wrote, and
-      /// their goals as the commands the output offers. Anything else is a directory or module.
-      private void buildPluginOption(String arg) {
-        switch (option(arg)) {
-          case "--setup=" -> setup = Optional.of(Path.of(arg.substring("--setup=".length())));
-          case "--commands=" -> commands = commands(arg.substring("--commands=".length()));
-          default -> positional(arg);
+      /// `ignore`'s own options, and those the build plugins pass.
+      private void setIgnoringOrForAPlugin(Option option, String given) {
+        switch (option.name()) {
+          case "--reason" -> reason = given.strip();
+          case "--remove" -> remove = true;
+          case "--prune" -> prune = true;
+          case "--setup" -> setup = Optional.of(Path.of(given));
+          case "--commands" -> commands = commands(given);
+          default -> throw new IllegalStateException("no reader for " + option.name());
         }
       }
 
@@ -824,17 +912,17 @@ public final class Main {
         }
       }
 
-      private static int workerCount(String arg) {
-        int count = number(arg);
-        if (count < 1) {
-          throw new UsageException("--workers must be at least 1");
-        }
-        return count;
-      }
-
-      private void positional(String arg) {
-        if (arg.startsWith("--")) {
+      /// A directory or `:module`. After `--since` without a value, a word that isn't a directory
+      /// was meant as its value, which needs `=`: `--since main` reads as the default branch and a
+      /// directory called main.
+      private void positional(String arg, boolean sinceBefore) {
+        if (arg.startsWith("-") && arg.length() > 1) {
           throw new UsageException("unknown option " + arg);
+        }
+        if (sinceBefore && !arg.startsWith(":") && !Files.isDirectory(Path.of(arg))) {
+          throw new UsageException(
+              "there's no directory %s: for the changes since %s, write --since=%s"
+                  .formatted(arg, arg, arg));
         }
         positional.add(arg);
       }
@@ -914,24 +1002,29 @@ public final class Main {
       }
     }
 
-    /// The whole number in `--name=value`.
-    private static int number(String arg) {
-      var value = arg.substring(arg.indexOf('=') + 1);
+    /// `value` as a whole number from `min` to `max`.
+    private static int number(Option option, String value, int min, int max) {
+      int number;
       try {
-        return Integer.parseInt(value);
+        number = Integer.parseInt(value);
       } catch (NumberFormatException e) {
-        throw new UsageException(
-            "%s needs a whole number, not %s".formatted(arg.substring(0, arg.indexOf('=')), value));
+        throw new UsageException("%s needs a whole number, not %s".formatted(option.name(), value));
       }
+      if (number < min || number > max) {
+        throw new UsageException(
+            max == Integer.MAX_VALUE
+                ? "%s must be at least %d".formatted(option.name(), min)
+                : "%s is from %d to %d, not %d".formatted(option.name(), min, max, number));
+      }
+      return number;
     }
 
-    /// The value of `--name=value`, if it's one of `allowed`.
-    private static String choice(String arg, List<String> allowed) {
-      var name = arg.substring(2, arg.indexOf('='));
-      var value = arg.substring(arg.indexOf('=') + 1);
-      if (!allowed.contains(value)) {
+    /// `value`, if it's one of the option's choices.
+    private static String choice(Option option, String value) {
+      if (!option.choices().contains(value)) {
         throw new UsageException(
-            "unknown %s %s (one of %s)".formatted(name, value, String.join(", ", allowed)));
+            "unknown %s %s (one of %s)"
+                .formatted(option.name().substring(2), value, String.join(", ", option.choices())));
       }
       return value;
     }
