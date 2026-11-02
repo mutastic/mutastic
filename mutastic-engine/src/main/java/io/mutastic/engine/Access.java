@@ -1,10 +1,14 @@
 package io.mutastic.engine;
 
+import static java.util.Objects.requireNonNull;
+
 import io.mutastic.api.Mutant;
 import java.lang.classfile.Attributes;
 import java.lang.classfile.ClassModel;
 import java.lang.classfile.MethodModel;
+import java.lang.classfile.attribute.InnerClassInfo;
 import java.lang.reflect.AccessFlag;
+import java.util.Map;
 import java.util.Optional;
 
 /// Whether a test class could write the call a suggestion makes, and how. The worker calls methods
@@ -14,13 +18,17 @@ final class Access {
   private Access() {}
 
   /// How code in `testClass` (a binary name) can call the mutant's method, if it can: `-` for a
-  /// static method, else the descriptor of the constructor to make the receiver with. That's the
-  /// no-argument constructor when there's one it can reach, or else one whose parameters are all
-  /// whole numbers (`int`, `long`, `Integer`, `Long`), as a record of numbers has.
-  static Optional<String> receiver(ClassModel model, Mutant mutant, String testClass) {
-    boolean samePackage =
-        packageOf(model.thisClass().asInternalName().replace('/', '.'))
-            .equals(packageOf(testClass));
+  /// static method, else how to make the receiver. That's the descriptor of the reachable
+  /// constructor with the fewest parameters, all of them whole numbers (`int`, `long`, `Integer`,
+  /// `Long`), as a record of numbers has. An inner class is made inside an instance of its outer
+  /// class, so its receiver is the outer class's, then `>`, then its own constructor, which takes
+  /// that instance first: `()V>(Lcom/example/Shipping;I)V`.
+  ///
+  /// @param models the project's classes by binary name, the mutant's among them
+  static Optional<String> receiver(
+      Map<String, ClassModel> models, Mutant mutant, String testClass) {
+    var model = requireNonNull(models.get(mutant.binaryName()), mutant.binaryName());
+    boolean samePackage = packageOf(mutant.binaryName()).equals(packageOf(testClass));
     var method = method(model, mutant.methodName(), mutant.descriptor());
     if (method.isEmpty()
         || !reachable(method.get().flags().flags(), samePackage)
@@ -30,28 +38,40 @@ final class Access {
     if (method.get().flags().has(AccessFlag.STATIC)) {
       return Optional.of("-");
     }
+    return made(models, model, samePackage);
+  }
+
+  /// How to make an instance of `model`'s class: its constructor, after its outer class's if it's
+  /// an inner class.
+  private static Optional<String> made(
+      Map<String, ClassModel> models, ClassModel model, boolean samePackage) {
     if (model.flags().has(AccessFlag.ABSTRACT) || model.flags().has(AccessFlag.INTERFACE)) {
       return Optional.empty();
     }
-    var noArguments =
-        method(model, "<init>", "()V")
-            .filter(constructor -> reachable(constructor.flags().flags(), samePackage));
-    if (noArguments.isPresent()) {
-      return Optional.of("()V");
+    var outer = outerInstance(model);
+    if (outer.isEmpty()) {
+      return constructor(model, samePackage, 0);
     }
-    return wholeNumberConstructor(model, samePackage);
+    var outerModel = models.get(outer.get());
+    if (outerModel == null || !classReachable(outerModel, samePackage)) {
+      return Optional.empty();
+    }
+    return made(models, outerModel, samePackage)
+        .flatMap(outerMade -> constructor(model, samePackage, 1).map(own -> outerMade + ">" + own));
   }
 
-  /// The reachable constructor with the fewest parameters, all of them whole numbers.
-  private static Optional<String> wholeNumberConstructor(ClassModel model, boolean samePackage) {
+  /// The reachable constructor with the fewest parameters after the first `skip` (an inner class's
+  /// outer instance), all of them whole numbers: a no-argument one if there is one.
+  private static Optional<String> constructor(ClassModel model, boolean samePackage, int skip) {
     return model.methods().stream()
         .filter(constructor -> constructor.methodName().equalsString("<init>"))
         .filter(constructor -> reachable(constructor.flags().flags(), samePackage))
+        .filter(constructor -> constructor.methodTypeSymbol().parameterCount() >= skip)
         .filter(
             constructor ->
-                constructor.methodTypeSymbol().parameterCount() > 0
-                    && constructor.methodTypeSymbol().parameterList().stream()
-                        .allMatch(type -> WHOLE_NUMBERS.contains(type.descriptorString())))
+                constructor.methodTypeSymbol().parameterList().stream()
+                    .skip(skip)
+                    .allMatch(type -> WHOLE_NUMBERS.contains(type.descriptorString())))
         .min(
             java.util.Comparator.comparingInt(
                 (MethodModel constructor) -> constructor.methodTypeSymbol().parameterCount()))
@@ -59,8 +79,8 @@ final class Access {
   }
 
   /// Whether code in `testClass` can call the mutant's method at all.
-  static boolean callableFrom(ClassModel model, Mutant mutant, String testClass) {
-    return receiver(model, mutant, testClass).isPresent();
+  static boolean callableFrom(Map<String, ClassModel> models, Mutant mutant, String testClass) {
+    return receiver(models, mutant, testClass).isPresent();
   }
 
   /// Parameter types a suggestion can fill with a number.
@@ -74,20 +94,35 @@ final class Access {
   }
 
   /// A top-level class by its own flags; a nested one by the access it was declared with, which
-  /// javac keeps in the InnerClasses attribute (its own flags say public or package only).
+  /// javac keeps in the InnerClasses attribute (its own flags say public or package only). A test
+  /// can name a static nested class or an inner one, but not an anonymous or local class.
   private static boolean classReachable(ClassModel model, boolean samePackage) {
-    var self = model.thisClass().asInternalName();
-    var declared =
-        model.findAttribute(Attributes.innerClasses()).stream()
-            .flatMap(attribute -> attribute.classes().stream())
-            .filter(inner -> inner.innerClass().asInternalName().equals(self))
-            .findFirst();
+    var declared = declared(model);
     if (declared.isPresent()) {
-      // A non-static inner class needs an outer instance: `new Outer().new Inner()` isn't written.
-      boolean isStatic = declared.get().flags().contains(AccessFlag.STATIC);
-      return isStatic && reachable(declared.get().flags(), samePackage);
+      boolean named =
+          declared.get().flags().contains(AccessFlag.STATIC)
+              || declared.get().outerClass().isPresent();
+      return named && reachable(declared.get().flags(), samePackage);
     }
     return reachable(model.flags().flags(), samePackage);
+  }
+
+  /// The binary name of the class whose instance an inner class is made in, or empty for a class
+  /// that needs none.
+  private static Optional<String> outerInstance(ClassModel model) {
+    return declared(model)
+        .filter(declared -> !declared.flags().contains(AccessFlag.STATIC))
+        .flatMap(InnerClassInfo::outerClass)
+        .map(outer -> outer.asInternalName().replace('/', '.'));
+  }
+
+  /// How `model`'s class was declared, if it's nested in another.
+  private static Optional<InnerClassInfo> declared(ClassModel model) {
+    var self = model.thisClass().asInternalName();
+    return model.findAttribute(Attributes.innerClasses()).stream()
+        .flatMap(attribute -> attribute.classes().stream())
+        .filter(inner -> inner.innerClass().asInternalName().equals(self))
+        .findFirst();
   }
 
   private static Optional<MethodModel> method(ClassModel model, String name, String descriptor) {

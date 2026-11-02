@@ -44,6 +44,20 @@ public class Visibility {
     public int onInstance(int value) {
       return value + 1;
     }
+
+    public final class Deeper {
+      public int onInstance(int value) {
+        return value + 1;
+      }
+    }
+  }
+
+  public final class Sized {
+    public Sized(int size) {}
+
+    public int onInstance(int value) {
+      return value + 1;
+    }
   }
 
   public record Range(Integer low, long high) {
@@ -57,6 +71,12 @@ public class Visibility {
 
     public int length(int extra) {
       return extra + 1;
+    }
+
+    public final class Part {
+      public int onInstance(int value) {
+        return value + 1;
+      }
     }
   }
 

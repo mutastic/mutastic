@@ -149,9 +149,8 @@ final class TestWorker implements AutoCloseable {
 
   /// The first of `candidates` (one value per constructor parameter of `receiver`, then per method
   /// parameter) where `bytes` changes what the method returns, with both results; empty if none
-  /// does in the worker's time budget. `receiver` is `-` for a static method, else the constructor
-  /// descriptor. A call that never returned on the mutant leaves a thread running, so the worker is
-  /// replaced.
+  /// does in the worker's time budget. `receiver` is how [Access#receiver] says to make it. A call
+  /// that never returned on the mutant leaves a thread running, so the worker is replaced.
   Optional<String[]> suggest(
       Mutant mutant, String receiver, byte[] bytes, List<List<Long>> candidates) {
     send(suggestCommand(mutant, receiver, bytes, candidates));

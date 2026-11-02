@@ -6,6 +6,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -24,8 +25,8 @@ import org.jspecify.annotations.Nullable;
 ///
 /// Only methods whose parameters are all whole numbers (`int`, `long`, `Integer`, `Long`), static
 /// or on an instance the engine says how to make (a constructor whose parameters are whole numbers
-/// too, or none), returning a primitive, a `String` or a boxed primitive: values that can be
-/// written in a test as literals.
+/// too, or none; for an inner class, its outer class's constructor first), returning a primitive, a
+/// `String` or a boxed primitive: values that can be written in a test as literals.
 final class Suggester {
   /// How long one call may take, and all the calls for one mutant together.
   private static final long CALL_MILLIS = 200;
@@ -37,7 +38,8 @@ final class Suggester {
   record Found(Optional<List<Long>> inputs, String today, String mutated, boolean stuck) {}
 
   /// The method a suggestion is for. `receiver` is `-` for a static method, else the descriptor of
-  /// the constructor to make the receiver with.
+  /// the constructor to make the receiver with. An inner class's receiver is made inside an
+  /// instance of its outer class, made first: the descriptors outermost first, joined by `>`.
   record Target(String className, String methodName, String descriptor, String receiver) {
     boolean isStatic() {
       return receiver.equals("-");
@@ -59,7 +61,8 @@ final class Suggester {
 
   private Suggester() {}
 
-  /// Each candidate holds the receiver's constructor arguments first, then the method's.
+  /// Each candidate holds the receiver's constructor arguments first, outermost first, then the
+  /// method's.
   static Found find(
       ProductionLoader production, Target target, byte[] mutantBytes, List<List<Long>> candidates)
       throws Exception {
@@ -83,14 +86,34 @@ final class Suggester {
   /// literals.
   private static Optional<Call> callOf(Class<?> owner, Target target) {
     var method = method(owner, target.methodName(), target.descriptor(), target.isStatic());
-    var constructor =
+    var receiver =
         target.isStatic()
-            ? Optional.<Constructor<?>>empty()
-            : constructor(owner, target.receiver());
-    if (method.isEmpty() || (!target.isStatic() && constructor.isEmpty())) {
+            ? Optional.of(List.<Constructor<?>>of())
+            : receiver(owner, target.receiver());
+    if (method.isEmpty() || receiver.isEmpty()) {
       return Optional.empty();
     }
-    return Optional.of(new Call(method.get(), constructor.orElse(null)));
+    return Optional.of(new Call(method.get(), receiver.get()));
+  }
+
+  /// The constructors that make an instance of `owner`, outermost first: its own, after its outer
+  /// class's if it's an inner class. An inner class's constructor takes the outer instance first.
+  private static Optional<List<Constructor<?>>> receiver(Class<?> owner, String receiver) {
+    var descriptors = receiver.split(">", -1);
+    var made = new ArrayList<Constructor<?>>();
+    Class<?> type = owner;
+    for (int index = descriptors.length - 1; index >= 0; index--) {
+      boolean inner = index > 0;
+      var constructor = constructor(type, descriptors[index], inner ? 1 : 0);
+      if (constructor.isEmpty()) {
+        return Optional.empty();
+      }
+      made.add(0, constructor.get());
+      if (inner) {
+        type = constructor.get().getParameterTypes()[0];
+      }
+    }
+    return Optional.of(made);
   }
 
   /// What the method returns today for each candidate tried within the budget, null where it didn't
@@ -149,11 +172,15 @@ final class Suggester {
     return Optional.empty();
   }
 
-  private static Optional<Constructor<?>> constructor(Class<?> owner, String descriptor) {
+  /// `owner`'s constructor with `descriptor`, if its parameters after the first `skip` are whole
+  /// numbers.
+  private static Optional<Constructor<?>> constructor(Class<?> owner, String descriptor, int skip) {
     for (Constructor<?> constructor : owner.getDeclaredConstructors()) {
-      var type = MethodType.methodType(void.class, constructor.getParameterTypes());
+      var types = constructor.getParameterTypes();
+      var type = MethodType.methodType(void.class, types);
       if (type.toMethodDescriptorString().equals(descriptor)
-          && wholeNumbers(constructor.getParameterTypes())) {
+          && types.length >= skip
+          && wholeNumbers(Arrays.copyOfRange(types, skip, types.length))) {
         constructor.setAccessible(true);
         return Optional.of(constructor);
       }
@@ -162,7 +189,7 @@ final class Suggester {
   }
 
   private static boolean wholeNumbers(Class<?>[] types) {
-    return java.util.Arrays.stream(types)
+    return Arrays.stream(types)
         .allMatch(
             type ->
                 type == int.class
@@ -175,27 +202,50 @@ final class Suggester {
   private static final class Call {
     private final Method method;
 
-    /// Null for a static method: there's no receiver to make.
-    private final @Nullable Constructor<?> constructor;
+    /// The constructors that make the receiver, outermost first; none for a static method.
+    private final List<Constructor<?>> receiver;
 
-    Call(Method method, @Nullable Constructor<?> constructor) {
+    Call(Method method, List<Constructor<?>> receiver) {
       this.method = method;
-      this.constructor = constructor;
+      this.receiver = receiver;
     }
 
-    /// `inputs` are the constructor's arguments, then the method's.
+    /// `inputs` are the constructors' arguments, outermost first, then the method's.
     Optional<String> on(List<Long> inputs) {
-      int split = constructor == null ? 0 : constructor.getParameterCount();
-      var receiverArguments =
-          arguments(
-              constructor == null ? new Class<?>[0] : constructor.getParameterTypes(),
-              inputs.subList(0, split));
+      var receiverArguments = new ArrayList<Object[]>();
+      int next = 0;
+      for (int index = 0; index < receiver.size(); index++) {
+        var types = filled(receiver.get(index), index);
+        receiverArguments.add(arguments(types, inputs.subList(next, next + types.length)));
+        next += types.length;
+      }
       var methodArguments =
-          arguments(method.getParameterTypes(), inputs.subList(split, inputs.size()));
-      return call(
-          method,
-          () -> constructor == null ? null : constructor.newInstance(receiverArguments),
-          methodArguments);
+          arguments(method.getParameterTypes(), inputs.subList(next, inputs.size()));
+      return call(method, () -> make(receiverArguments), methodArguments);
+    }
+
+    /// The parameters of the receiver's constructor at `index` that inputs fill: all of them but an
+    /// inner class's outer instance.
+    private static Class<?>[] filled(Constructor<?> constructor, int index) {
+      var types = constructor.getParameterTypes();
+      return index == 0 ? types : Arrays.copyOfRange(types, 1, types.length);
+    }
+
+    /// A fresh receiver, each instance passed first to the next constructor; null for a static
+    /// method.
+    private @Nullable Object make(List<Object[]> receiverArguments) throws Exception {
+      if (receiver.isEmpty()) {
+        return null;
+      }
+      Object made = receiver.get(0).newInstance(receiverArguments.get(0));
+      for (int index = 1; index < receiver.size(); index++) {
+        var own = receiverArguments.get(index);
+        var all = new Object[own.length + 1];
+        all[0] = made;
+        System.arraycopy(own, 0, all, 1, own.length);
+        made = receiver.get(index).newInstance(all);
+      }
+      return made;
     }
   }
 

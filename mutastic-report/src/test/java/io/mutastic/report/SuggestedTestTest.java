@@ -83,8 +83,7 @@ class SuggestedTestTest {
             "new Window(5, 10L).openOn(5)",
             List.of("day"),
             List.of(5L),
-            "Window",
-            List.of(5L, 10L),
+            List.of(new Suggestion.Instance("Window", List.of(5L, 10L))),
             "true",
             "false");
     var five =
@@ -92,12 +91,31 @@ class SuggestedTestTest {
             "new Window(5, 5L).openOn(5)",
             List.of("day"),
             List.of(5L),
-            "Window",
-            List.of(5L, 5L),
+            List.of(new Suggestion.Instance("Window", List.of(5L, 5L))),
             "false",
             "true");
     assertThat(SuggestedTest.name("openOn", ten)).isEqualTo("openOnWithDay5ForWindow5And10");
     assertThat(SuggestedTest.name("openOn", five)).isEqualTo("openOnWithDay5ForWindow5And5");
+    // An inner class: each instance is named with its own arguments, innermost first.
+    assertThat(SuggestedTest.name("heavy", inner(List.of(10L), List.of(30L))))
+        .isEqualTo("heavyResultForParcel30InShipping10");
+    assertThat(SuggestedTest.name("heavy", inner(List.of(10L), List.of())))
+        .isEqualTo("heavyResultForParcelInShipping10");
+    assertThat(SuggestedTest.name("heavy", inner(List.of(), List.of(30L))))
+        .isEqualTo("heavyResultForParcel30");
+  }
+
+  /// `heavy()` on an inner class `Parcel`, made in a `Shipping`.
+  private static Suggestion inner(List<Long> shipping, List<Long> parcel) {
+    return new Suggestion(
+        "shipping.new Parcel().heavy()",
+        List.of(),
+        List.of(),
+        List.of(
+            new Suggestion.Instance("Shipping", shipping),
+            new Suggestion.Instance("Parcel", parcel)),
+        "true",
+        "false");
   }
 
   private SourceView sources() {

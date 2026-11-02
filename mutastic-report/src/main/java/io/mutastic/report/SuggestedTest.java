@@ -77,9 +77,9 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
   }
 
   /// `discountWithTotal100`, `feeWithAmountMinus1`; `sizeResult` with no arguments; and the
-  /// receiver's arguments too when it has some, `openOnWithDay5ForWindow5And10`. Every argument is
-  /// in the name, so two different calls never share one, and the same call (for two mutants) is
-  /// the same test.
+  /// receiver's arguments too when it has some, `openOnWithDay5ForWindow5And10`, or an inner
+  /// class's outer instance's, `heavyResultForParcel30InShipping10`. Every argument is in the name,
+  /// so two different calls never share one, and the same call (for two mutants) is the same test.
   static String name(String method, Suggestion suggestion) {
     var name = new StringBuilder(method);
     if (suggestion.inputs().isEmpty()) {
@@ -97,18 +97,29 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
           .append(parameter.substring(1))
           .append(number(value));
     }
-    if (!suggestion.receiverArguments().isEmpty()) {
-      appendReceiver(name, suggestion);
+    if (suggestion.receiverTakesArguments()) {
+      appendReceiver(name, suggestion.receiver());
     }
     return name.toString();
   }
 
-  /// `For` the receiver's type and its arguments: `ForWindow5And10`.
-  private static void appendReceiver(StringBuilder name, Suggestion suggestion) {
-    name.append("For").append(suggestion.receiverType());
-    for (int index = 0; index < suggestion.receiverArguments().size(); index++) {
-      name.append(index == 0 ? "" : "And")
-          .append(number(suggestion.receiverArguments().get(index)));
+  /// `For` the receiver's type and its arguments, `ForWindow5And10`, then `In` each instance it's
+  /// made in that takes arguments, innermost first: `ForParcel30InShipping10`.
+  private static void appendReceiver(StringBuilder name, List<Suggestion.Instance> receiver) {
+    for (int index = receiver.size() - 1; index >= 0; index--) {
+      var instance = receiver.get(index);
+      boolean innermost = index == receiver.size() - 1;
+      if (innermost || !instance.arguments().isEmpty()) {
+        name.append(innermost ? "For" : "In").append(instance.type());
+        appendArguments(name, instance.arguments());
+      }
+    }
+  }
+
+  /// `5And10`.
+  private static void appendArguments(StringBuilder name, List<Long> arguments) {
+    for (int index = 0; index < arguments.size(); index++) {
+      name.append(index == 0 ? "" : "And").append(number(arguments.get(index)));
     }
   }
 

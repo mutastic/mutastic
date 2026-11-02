@@ -17,6 +17,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
+import java.lang.constant.ClassDesc;
+import java.lang.constant.MethodTypeDesc;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -626,7 +628,7 @@ public final class Engine {
       int hash = fastestTest.indexOf('#');
       var testClass = hash < 0 ? fastestTest : fastestTest.substring(0, hash);
       synchronized (mutations) {
-        return Access.receiver(model(mutant), mutant, testClass);
+        return Access.receiver(models, mutant, testClass);
       }
     }
 
@@ -666,7 +668,7 @@ public final class Engine {
     /// and with the mutant.
     private Suggestion suggestion(CallShape shape, String[] found) {
       var all = found[0].equals("-") ? List.<Long>of() : wholeNumbers(found[0]);
-      int receiverCount = shape.constructor().parameterCount();
+      int receiverCount = shape.receiverArity();
       var receiverArguments = all.subList(0, receiverCount);
       var arguments = all.subList(receiverCount, all.size());
       var mutant = shape.mutant();
@@ -674,13 +676,11 @@ public final class Engine {
       if (names.size() != arguments.size()) {
         names = placeholderNames(arguments.size());
       }
-      var simple = mutant.className().substring(mutant.className().lastIndexOf('/') + 1);
       return new Suggestion(
           shape.call(receiverArguments, arguments),
           names,
           arguments,
-          simple.substring(simple.lastIndexOf('$') + 1),
-          receiverArguments,
+          shape.instances(receiverArguments),
           found[1],
           found[2]);
     }
@@ -695,20 +695,50 @@ public final class Engine {
       return java.util.stream.IntStream.range(0, count).mapToObj(index -> "arg" + index).toList();
     }
 
-    /// How a suggestion calls the mutant's method: `receiver` is `-` for a static method, else the
-    /// descriptor of the constructor that makes the receiver.
-    private record CallShape(
-        Mutant mutant,
-        String receiver,
-        java.lang.constant.MethodTypeDesc constructor,
-        java.lang.constant.MethodTypeDesc type) {
+    /// How a suggestion calls the mutant's method: on no receiver for a static method, else on one
+    /// made by each constructor of `receiver` in turn, outermost first.
+    private record CallShape(Mutant mutant, List<Made> receiver, MethodTypeDesc type) {
+      /// One constructor call: `new Shipping(10)`, or `.new Parcel(30)` for an inner class, made
+      /// inside the instance before it.
+      private record Made(String className, MethodTypeDesc constructor, boolean inner) {
+        /// The parameters a suggestion fills: all but an inner class's outer instance.
+        List<ClassDesc> parameters() {
+          var all = constructor.parameterList();
+          return inner ? all.subList(1, all.size()) : all;
+        }
+
+        /// `Parcel` for `com/example/Shipping$Parcel`: the name an inner class is made by.
+        String simpleName() {
+          return className.substring(
+              Math.max(className.lastIndexOf('/'), className.lastIndexOf('$')) + 1);
+        }
+
+        String written(List<Long> arguments) {
+          var nested = className.substring(className.lastIndexOf('/') + 1).replace('$', '.');
+          return (inner ? ".new %s(%s)" : "new %s(%s)")
+              .formatted(inner ? simpleName() : nested, literals(parameters(), arguments));
+        }
+      }
+
+      /// `receiver` is `-` for a static method, else constructor descriptors joined by `>`, as
+      /// [Access#receiver] gives them. Each inner class's outer class is its constructor's first
+      /// parameter.
       static CallShape of(Mutant mutant, String receiver) {
-        var type = java.lang.constant.MethodTypeDesc.ofDescriptor(mutant.descriptor());
-        var constructor =
-            receiver.equals("-")
-                ? java.lang.constant.MethodTypeDesc.of(java.lang.constant.ConstantDescs.CD_void)
-                : java.lang.constant.MethodTypeDesc.ofDescriptor(receiver);
-        return new CallShape(mutant, receiver, constructor, type);
+        var type = MethodTypeDesc.ofDescriptor(mutant.descriptor());
+        var made = new ArrayList<Made>();
+        if (!receiver.equals("-")) {
+          var descriptors = receiver.split(">", -1);
+          var className = mutant.className();
+          for (int index = descriptors.length - 1; index >= 0; index--) {
+            var constructor = MethodTypeDesc.ofDescriptor(descriptors[index]);
+            made.addFirst(new Made(className, constructor, index > 0));
+            if (index > 0) {
+              var outer = constructor.parameterType(0).descriptorString();
+              className = outer.substring(1, outer.length() - 1);
+            }
+          }
+        }
+        return new CallShape(mutant, List.copyOf(made), type);
       }
 
       /// Whether every parameter of the method takes a number a suggestion can fill.
@@ -717,29 +747,60 @@ public final class Engine {
             .allMatch(parameter -> Access.WHOLE_NUMBERS.contains(parameter.descriptorString()));
       }
 
-      /// How many values a candidate has: the constructor's, then the method's.
-      int arity() {
-        return constructor.parameterCount() + type.parameterCount();
+      /// The instances the call makes, with their arguments.
+      List<Suggestion.Instance> instances(List<Long> receiverArguments) {
+        var each = eachArguments(receiverArguments);
+        return java.util.stream.IntStream.range(0, receiver.size())
+            .mapToObj(
+                index -> new Suggestion.Instance(receiver.get(index).simpleName(), each.get(index)))
+            .toList();
       }
 
-      /// `Pricing.discount(100)` for a static method, `new Pricing().discount(100)`, or `new
-      /// GoldenScorer.Score(1, 1).hitAt(1)` when the receiver needs arguments.
+      /// `receiverArguments` split into each constructor's.
+      private List<List<Long>> eachArguments(List<Long> receiverArguments) {
+        var each = new ArrayList<List<Long>>();
+        int next = 0;
+        for (Made made : receiver) {
+          int count = made.parameters().size();
+          each.add(receiverArguments.subList(next, next + count));
+          next += count;
+        }
+        return each;
+      }
+
+      /// How many values making the receiver takes.
+      int receiverArity() {
+        return receiver.stream().mapToInt(made -> made.parameters().size()).sum();
+      }
+
+      /// How many values a candidate has: the receiver's, then the method's.
+      int arity() {
+        return receiverArity() + type.parameterCount();
+      }
+
+      /// `Pricing.discount(100)` for a static method, `new Pricing().discount(100)`, `new
+      /// GoldenScorer.Score(1, 1).hitAt(1)` when the receiver needs arguments, or `new
+      /// Shipping(10).new Parcel(30).heavy()` for an inner class.
       String call(List<Long> receiverArguments, List<Long> arguments) {
-        var simple =
-            mutant.className().substring(mutant.className().lastIndexOf('/') + 1).replace('$', '.');
-        var on =
-            receiver.equals("-")
-                ? simple
-                : "new %s(%s)".formatted(simple, literals(constructor, receiverArguments));
-        return "%s.%s(%s)".formatted(on, mutant.methodName(), literals(type, arguments));
+        var on = new StringBuilder();
+        if (receiver.isEmpty()) {
+          var className = mutant.className();
+          on.append(className.substring(className.lastIndexOf('/') + 1).replace('$', '.'));
+        }
+        var each = eachArguments(receiverArguments);
+        for (int index = 0; index < receiver.size(); index++) {
+          on.append(receiver.get(index).written(each.get(index)));
+        }
+        return "%s.%s(%s)"
+            .formatted(on, mutant.methodName(), literals(type.parameterList(), arguments));
       }
     }
 
     /// `1, 2L`: each value as Java source for its parameter (`long` and `Long` take an `L`).
-    private static String literals(java.lang.constant.MethodTypeDesc type, List<Long> values) {
+    private static String literals(List<ClassDesc> types, List<Long> values) {
       var written = new ArrayList<String>();
       for (int index = 0; index < values.size(); index++) {
-        var descriptor = type.parameterType(index).descriptorString();
+        var descriptor = types.get(index).descriptorString();
         written.add(
             values.get(index)
                 + (descriptor.equals("J") || descriptor.equals("Ljava/lang/Long;") ? "L" : ""));

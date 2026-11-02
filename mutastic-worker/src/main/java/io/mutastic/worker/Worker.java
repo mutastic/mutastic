@@ -51,7 +51,7 @@ import org.junit.platform.launcher.core.LauncherFactory;
 /// | `CLASS <name> <base64>`: use these bytes for the next command | nothing |
 /// | `COVER <test>...`: run every test, recording lines and arguments | `TEST <id> <nanos>`, `LINE <id> <ids>` and `VALUE <id> <parameter> <values>` lines, then `DONE PASSED` or `DONE FAILED <id>...` |
 /// | `RUN <test>...`: run in order until one fails | `RESULT PASSED <ran>`, `RESULT FAILED <ran> <test> <exception> <origin> <port-clash or ->` or `RESULT ERROR <why>` |
-/// | `SUGGEST <class> <method> <descriptor> <base64> <inputs> <receiver>`: find inputs where a mutant changes the result; inputs are `1;2\|3;4`, `-` for none; the receiver is `-` for a static method, else a constructor descriptor whose arguments start each input | `SUGGESTED <inputs> <today> <with mutant> <stuck or ->`, or `SUGGESTED -` |
+/// | `SUGGEST <class> <method> <descriptor> <base64> <inputs> <receiver>`: find inputs where a mutant changes the result; inputs are `1;2\|3;4`, `-` for none; the receiver is `-` for a static method, else a constructor descriptor whose arguments start each input, or for an inner class its outer class's receiver, `>`, then its own | `SUGGESTED <inputs> <today> <with mutant> <stuck or ->`, or `SUGGESTED -` |
 /// | `EXIT` | nothing; the worker exits |
 ///
 /// A test is `com.example.PricingTest#method` or a class name. The engine kills the worker if it
