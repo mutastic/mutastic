@@ -9,47 +9,6 @@ mutastic itself runs on JDK 25. The project it tests can be on JDK 17 or later: 
 the JDK its build gives them, as they always do.
 
 <Tabs syncKey="runner">
-<TabItem label="Command line">
-
-Download `mutastic-0.2.0.zip` from the
-[0.2.0 release](https://github.com/mutastic/mutastic/releases/tag/v0.2.0), unzip it, and put its
-`bin` directory on your `PATH`. It runs on the `java` in `JAVA_HOME`, or on the `PATH`, which must
-be JDK 25 or later.
-
-```sh
-unzip mutastic-0.2.0.zip
-export PATH="$PWD/mutastic-0.2.0/bin:$PATH"
-mutastic --version
-```
-
-Then, in a Gradle or Maven project's directory:
-
-```sh
-mutastic run
-```
-
-</TabItem>
-<TabItem label="Maven">
-
-Declare the plugin in your POM's build plugins, so its goals take the short `mutastic:` prefix:
-
-```xml
-<plugin>
-  <groupId>io.mutastic</groupId>
-  <artifactId>mutastic-maven-plugin</artifactId>
-  <version>0.2.0</version>
-</plugin>
-```
-
-```sh
-mvn mutastic:run
-```
-
-Maven can run on JDK 17. mutastic finds a JDK 25 for itself: a JDK 25 toolchain in
-`~/.m2/toolchains.xml`, else the JDK Maven runs on if it's new enough, else the one
-`-Dmutastic.jdk=<directory>` names.
-
-</TabItem>
 <TabItem label="Gradle">
 
 Until the Gradle Plugin Portal lists it, add Maven Central to where Gradle finds plugins, in
@@ -82,6 +41,47 @@ repositories {
 ```
 
 mutastic runs on a JDK 25 Gradle toolchain, which Gradle finds or downloads.
+
+</TabItem>
+<TabItem label="Maven">
+
+Declare the plugin in your POM's build plugins, so its goals take the short `mutastic:` prefix:
+
+```xml
+<plugin>
+  <groupId>io.mutastic</groupId>
+  <artifactId>mutastic-maven-plugin</artifactId>
+  <version>0.2.0</version>
+</plugin>
+```
+
+```sh
+mvn mutastic:run
+```
+
+Maven can run on JDK 17. mutastic finds a JDK 25 for itself: a JDK 25 toolchain in
+`~/.m2/toolchains.xml`, else the JDK Maven runs on if it's new enough, else the one
+`-Dmutastic.jdk=<directory>` names.
+
+</TabItem>
+<TabItem label="Command line">
+
+Download `mutastic-0.2.0.zip` from the
+[0.2.0 release](https://github.com/mutastic/mutastic/releases/tag/v0.2.0), unzip it, and put its
+`bin` directory on your `PATH`. It runs on the `java` in `JAVA_HOME`, or on the `PATH`, which must
+be JDK 25 or later.
+
+```sh
+unzip mutastic-0.2.0.zip
+export PATH="$PWD/mutastic-0.2.0/bin:$PATH"
+mutastic --version
+```
+
+Then, in a Gradle or Maven project's directory:
+
+```sh
+mutastic run
+```
 
 </TabItem>
 </Tabs>

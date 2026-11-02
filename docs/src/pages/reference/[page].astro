@@ -1,8 +1,11 @@
 ---
 // The command reference, written from commands.json: the CLI's own declarations of its commands
-// and options (./gradlew :mutastic-cli:exportDocsModel), the same ones `mutastic --help` prints.
-// Each option shows how each runner writes it: the command line, Maven and Gradle.
-import { Code } from '@astrojs/starlight/components';
+// and options (./gradlew :mutastic-cli:exportDocsModel), the same ones `mutastic --help` prints,
+// with each example as each runner writes it. Each section is a row: what it does on the left, and
+// on the right its examples, pinned while the row scrolls by, in Gradle, Maven and command-line
+// tabs that follow the reader's choice across the site. On a narrow screen the examples follow the
+// prose.
+import { Code, TabItem, Tabs } from '@astrojs/starlight/components';
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import model from '../../data/commands.json';
 
@@ -30,17 +33,25 @@ function propertyValue(option: Option): string {
   return `=${option.value}`;
 }
 
-/** `mvn mutastic:verify -Dmutastic.mutant=ID`: how a build plugin runs the command. */
-function runAs(command: Command, runner: 'maven' | 'gradle'): string {
-  const name = command.name;
-  const property = runner === 'maven' ? '-Dmutastic.' : '-Pmutastic.';
-  const words =
-    runner === 'maven'
-      ? ['mvn', `mutastic:${name}`]
-      : ['./gradlew', `mutastic${name[0].toUpperCase()}${name.slice(1)}`];
-  if (command.takesMutantId) words.push(`${property}mutant=ID`);
-  if (name === 'ignore') words.push(`${property}reason=WHY`);
-  return words.join(' ');
+/**
+ * `./gradlew mutasticRun -Pmutastic.threshold=70 -p app` as a shell would take it on several
+ * lines: the command and its first word, then one argument per line after a `\`. A narrow column
+ * then never breaks a command in the middle of an option. Short commands stay on one line.
+ */
+function continued(command: string): string {
+  const words = command.match(/(?:[^\s"]+|"[^"]*")+/g) ?? [command];
+  if (command.length <= 36 || words.length <= 2) return command;
+  const lines = [words.slice(0, 2).join(' ')];
+  for (let index = 2; index < words.length; index++) {
+    const word = words[index];
+    // A flag and its value, `-p app`, stay together.
+    if (['-p', '-f', '-pl'].includes(word) && index + 1 < words.length) {
+      lines.push(`${word} ${words[++index]}`);
+    } else {
+      lines.push(word);
+    }
+  }
+  return lines.join(' \\\n  ');
 }
 
 const title = command ? `mutastic ${command.name}` : 'Environment and exit codes';
@@ -50,8 +61,6 @@ const description = command
 const headings = command
   ? [
       { depth: 2, slug: 'usage', text: 'Usage' },
-      { depth: 2, slug: 'examples', text: 'Examples' },
-      { depth: 2, slug: 'from-maven-and-gradle', text: 'From Maven and Gradle' },
       ...(options.length ? [{ depth: 2, slug: 'options', text: 'Options' }] : []),
       ...options.map((option) => ({ depth: 3, slug: anchor(option), text: option.name })),
     ]
@@ -64,77 +73,119 @@ const headings = command
 <StarlightPage frontmatter={{ title, description }} headings={headings}>
   {
     command ? (
-      <>
-        <p>{command.summary}. {command.detail}</p>
-        <h2 id="usage">Usage</h2>
-        <Code code={command.synopsis} lang="sh" />
-        <h2 id="examples">Examples</h2>
-        <Code code={command.examples.join('\n')} lang="sh" />
-        <h2 id="from-maven-and-gradle">From Maven and Gradle</h2>
-        <p>
-          The build plugins run the same command, with each option as a <code>mutastic.</code>{' '}
-          property of the same name.
-        </p>
-        <Code code={`${runAs(command, 'maven')}\n${runAs(command, 'gradle')}`} lang="sh" />
+      <div class="reference">
+        <section class="reference-row">
+          <div class="reference-prose">
+            <p>
+              {command.summary}. {command.detail}
+            </p>
+            <h2 id="usage">Usage</h2>
+            <Code code={command.synopsis} lang="sh" wrap />
+            <p>
+              The build plugins run the same command, with each option as a{' '}
+              <code>mutastic.</code> property of the same name.
+            </p>
+          </div>
+          <aside class="reference-examples" aria-label="Examples">
+            <Tabs syncKey="runner">
+              <TabItem label="Gradle">
+                <Code code={command.examples.map((example) => continued(example.gradle)).join('\n')} lang="sh" wrap />
+              </TabItem>
+              <TabItem label="Maven">
+                <Code code={command.examples.map((example) => continued(example.maven)).join('\n')} lang="sh" wrap />
+              </TabItem>
+              <TabItem label="Command line">
+                <Code
+                  code={command.examples.map((example) => continued(example.commandLine)).join('\n')}
+                  lang="sh"
+                  wrap
+                />
+              </TabItem>
+            </Tabs>
+          </aside>
+        </section>
         {options.length > 0 && <h2 id="options">Options</h2>}
         {options.map((option) => (
-          <section>
-            <h3 id={anchor(option)} class="option-heading">
-              <code>{option.synopsis}</code>
-            </h3>
-            <p>{option.help}.</p>
-            {option.choices.length > 0 && (
-              <p class="choices">
-                One of {option.choices.map((choice) => <code>{choice}</code>)}
-              </p>
-            )}
-            <table class="runners">
-              <tbody>
-                <tr>
-                  <th scope="row">Command line</th>
-                  <td>
-                    <code>{option.synopsis}</code>
-                  </td>
-                </tr>
-                {option.maven && (
+          <section class="reference-row">
+            <div class="reference-prose">
+              <h3 id={anchor(option)} class="option-heading">
+                <code>{option.synopsis}</code>
+              </h3>
+              <p>{option.help}.</p>
+              {option.choices.length > 0 && (
+                <p class="choices">
+                  One of {option.choices.map((choice) => <code>{choice}</code>)}
+                </p>
+              )}
+              <table class="runners">
+                <tbody>
+                  {option.gradle && (
+                    <tr>
+                      <th scope="row">Gradle</th>
+                      <td>
+                        <code>{option.gradle.property + propertyValue(option)}</code>
+                        {option.gradle.setting && (
+                          <>
+                            {' '}or <code>{option.gradle.setting}</code> in{' '}
+                            <code>mutastic {'{ }'}</code>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  {option.maven && (
+                    <tr>
+                      <th scope="row">Maven</th>
+                      <td>
+                        <code>{option.maven.property + propertyValue(option)}</code>
+                        {option.maven.setting && (
+                          <>
+                            {' '}or <code>{option.maven.setting}</code> in the plugin's
+                            configuration
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  )}
                   <tr>
-                    <th scope="row">Maven</th>
+                    <th scope="row">Command line</th>
                     <td>
-                      <code>{option.maven.property + propertyValue(option)}</code>
-                      {option.maven.setting && (
-                        <>
-                          {' '}or <code>{option.maven.setting}</code> in the plugin's configuration
-                        </>
-                      )}
+                      <code>{option.synopsis}</code>
                     </td>
                   </tr>
-                )}
-                {option.gradle && (
-                  <tr>
-                    <th scope="row">Gradle</th>
-                    <td>
-                      <code>{option.gradle.property + propertyValue(option)}</code>
-                      {option.gradle.setting && (
-                        <>
-                          {' '}or <code>{option.gradle.setting}</code> in <code>mutastic {'{ }'}</code>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                )}
-                {option.environment && (
-                  <tr>
-                    <th scope="row">Environment</th>
-                    <td>
-                      <code>{option.environment}</code>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  {option.environment && (
+                    <tr>
+                      <th scope="row">Environment</th>
+                      <td>
+                        <code>{option.environment}</code>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <aside class="reference-examples" aria-label={`Example of ${option.name}`}>
+              <Tabs syncKey="runner">
+                <TabItem label="Gradle">
+                  <Code code={continued(option.examples.gradle)} lang="sh" wrap />
+                  {option.examples.gradleBuild && (
+                    <Code code={option.examples.gradleBuild} lang="kotlin" title="build.gradle.kts" wrap />
+                  )}
+                </TabItem>
+                <TabItem label="Maven">
+                  <Code code={continued(option.examples.maven)} lang="sh" wrap />
+                  {option.examples.mavenBuild && (
+                    <Code code={option.examples.mavenBuild} lang="xml" title="pom.xml" wrap />
+                  )}
+                </TabItem>
+                <TabItem label="Command line">
+                  <Code code={continued(option.examples.commandLine)} lang="sh" wrap />
+                </TabItem>
+              </Tabs>
+            </aside>
           </section>
         ))}
-      </>
+      </div>
     ) : (
       <>
         <h2 id="environment">Environment</h2>

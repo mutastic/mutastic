@@ -41,6 +41,31 @@ class DocsCommandsTest {
     assertThat(checked).as("commands found in the docs").isGreaterThanOrEqualTo(5);
   }
 
+  /// The reference's examples, written from the catalogue for each runner, parse too: each option's
+  /// and each command's, from Gradle, Maven and the command line.
+  @Test
+  void everyExampleTheReferenceShowsParsesInEveryRunner() {
+    var commandLines = new ArrayList<String>();
+    for (Option option : Options.ALL) {
+      if (!option.example().isEmpty()) {
+        commandLines.add(option.example());
+      }
+    }
+    for (Main.Subcommand command : Main.Subcommand.values()) {
+      commandLines.addAll(command.examples);
+    }
+    for (String commandLine : commandLines) {
+      for (String line :
+          List.of(commandLine, Runners.gradle(commandLine), Runners.maven(commandLine))) {
+        var args = arguments(line);
+
+        assertThat(Main.Command.parse(args.toArray(String[]::new)))
+            .as(line)
+            .isEqualTo(Main.Command.parse(arguments(commandLine).toArray(String[]::new)));
+      }
+    }
+  }
+
   /// A command line from a code block, and the file and line it's on.
   private record Shown(String where, String line) {}
 
@@ -82,7 +107,7 @@ class DocsCommandsTest {
     return switch (words.getFirst()) {
       case "mutastic" -> words.subList(1, words.size());
       case "mvn" -> fromBuild(words, "mutastic:", "-pl", "-f");
-      default -> fromBuild(words, "mutastic", "-p", "");
+      default -> fromBuild(words, "mutastic", "", "-p");
     };
   }
 

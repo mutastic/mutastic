@@ -53,7 +53,7 @@ final class DocsModel {
                   field("summary", quoted(command.summary)),
                   field("detail", quoted(command.detail)),
                   field("takesMutantId", String.valueOf(command.takesMutantId)),
-                  field("examples", strings(command.examples)),
+                  field("examples", examples(command.examples)),
                   field("options", strings(options)))));
     }
     return String.join(",\n", commands);
@@ -80,7 +80,32 @@ final class DocsModel {
             field("commands", strings(commands)),
             field("environment", quoted(option.environment())),
             field("maven", runner(option, "-Dmutastic.", "<%s>%s</%s>")),
-            field("gradle", runner(option, "-Pmutastic.", "%s = %s"))));
+            field("gradle", runner(option, "-Pmutastic.", "%s = %s")),
+            field("examples", optionExamples(option))));
+  }
+
+  /// Each command as each runner writes it, Gradle first: the order the docs show them in.
+  private static String examples(List<String> commandLines) {
+    return commandLines.stream()
+        .map(
+            commandLine ->
+                "{ \"gradle\": %s, \"maven\": %s, \"commandLine\": %s }"
+                    .formatted(
+                        quoted(Runners.gradle(commandLine)),
+                        quoted(Runners.maven(commandLine)),
+                        quoted(commandLine)))
+        .collect(Collectors.joining(", ", "[", "]"));
+  }
+
+  /// The option's example in each runner, and its setting in each build file when it has one.
+  private static String optionExamples(Option option) {
+    return "{ \"gradle\": %s, \"maven\": %s, \"commandLine\": %s, \"gradleBuild\": %s, \"mavenBuild\": %s }"
+        .formatted(
+            quoted(Runners.gradle(option.example())),
+            quoted(Runners.maven(option.example())),
+            quoted(option.example()),
+            quoted(Runners.gradleBuild(option)),
+            quoted(Runners.mavenBuild(option)));
   }
 
   /// How a build plugin sets it: the property on the command line, and the build-file setting when

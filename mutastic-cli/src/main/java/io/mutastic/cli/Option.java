@@ -17,6 +17,7 @@ import java.util.Set;
 /// @param buildSetting whether the plugins also take it as a build-file setting, not only as a
 ///   property on the command line
 /// @param environment the environment variables that set it when it isn't given, if any
+/// @param example a command that uses it, for help and the docs; empty for those people don't use
 record Option(
     String name,
     Kind kind,
@@ -27,7 +28,8 @@ record Option(
     Set<Main.Subcommand> commands,
     String property,
     boolean buildSetting,
-    String environment) {
+    String environment,
+    String example) {
 
   Option {
     choices = List.copyOf(choices);

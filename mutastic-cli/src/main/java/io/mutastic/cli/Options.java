@@ -42,7 +42,8 @@ final class Options {
               RUNS,
               "threshold",
               true,
-              ""),
+              "",
+              "mutastic run --threshold=70"),
           new Option(
               "--since",
               Kind.OPTIONAL_VALUE,
@@ -53,7 +54,8 @@ final class Options {
               RUNS,
               "since",
               true,
-              ""),
+              "",
+              "mutastic run --since=main"),
           new Option(
               "--only",
               Kind.VALUE,
@@ -64,7 +66,8 @@ final class Options {
               RUNS,
               "only",
               false,
-              ""),
+              "",
+              "mutastic run --only=m855c8e3c"),
           new Option(
               "--tests-from",
               Kind.REPEATED,
@@ -76,7 +79,8 @@ final class Options {
               MUTANTS_RUN,
               "testsFrom",
               true,
-              ""),
+              "",
+              "mutastic run . :core --tests-from=dependents"),
           new Option(
               "--workers",
               Kind.VALUE,
@@ -87,7 +91,8 @@ final class Options {
               MUTANTS_RUN,
               "workers",
               true,
-              ""),
+              "",
+              "mutastic run --workers=2"),
           new Option(
               "--confirm-catches",
               Kind.FLAG,
@@ -98,7 +103,8 @@ final class Options {
               MUTANTS_RUN,
               "confirmCatches",
               true,
-              ""),
+              "",
+              "mutastic run --confirm-catches"),
           new Option(
               "--no-suggestions",
               Kind.FLAG,
@@ -109,7 +115,8 @@ final class Options {
               SHOWN,
               "suggestions",
               true,
-              ""),
+              "",
+              "mutastic run --no-suggestions"),
           new Option(
               "--report",
               Kind.REPEATED,
@@ -121,7 +128,8 @@ final class Options {
               RUNS,
               "reports",
               true,
-              ""),
+              "",
+              "mutastic run --report=xml"),
           new Option(
               "--format",
               Kind.VALUE,
@@ -133,7 +141,8 @@ final class Options {
               RUNS,
               "format",
               true,
-              "MUTASTIC_FORMAT, MUTASTIC_AGENT"),
+              "MUTASTIC_FORMAT, MUTASTIC_AGENT",
+              "mutastic run --format=agent"),
           new Option(
               "--vocabulary",
               Kind.VALUE,
@@ -144,7 +153,8 @@ final class Options {
               SHOWN,
               "vocabulary",
               false,
-              "MUTASTIC_VOCABULARY"),
+              "MUTASTIC_VOCABULARY",
+              "mutastic run --vocabulary=classic"),
           new Option(
               "--color",
               Kind.VALUE,
@@ -155,7 +165,8 @@ final class Options {
               SHOWN,
               "color",
               false,
-              "NO_COLOR, FORCE_COLOR"),
+              "NO_COLOR, FORCE_COLOR",
+              "mutastic run --color=never"),
           new Option(
               "--hyperlinks",
               Kind.VALUE,
@@ -166,7 +177,8 @@ final class Options {
               SHOWN,
               "hyperlinks",
               false,
-              ""),
+              "",
+              "mutastic run --hyperlinks=never"),
           new Option(
               "--progress",
               Kind.VALUE,
@@ -177,7 +189,8 @@ final class Options {
               MUTANTS_RUN,
               "progress",
               false,
-              ""),
+              "",
+              "mutastic run --progress=counter"),
           new Option(
               "--reason",
               Kind.VALUE,
@@ -188,7 +201,8 @@ final class Options {
               IGNORES,
               "reason",
               false,
-              ""),
+              "",
+              "mutastic ignore m855c8e3c --reason=\"only logs\""),
           new Option(
               "--remove",
               Kind.FLAG,
@@ -199,7 +213,8 @@ final class Options {
               IGNORES,
               "remove",
               false,
-              ""),
+              "",
+              "mutastic ignore --remove m855c8e3c"),
           new Option(
               "--prune",
               Kind.FLAG,
@@ -210,7 +225,8 @@ final class Options {
               IGNORES,
               "prune",
               false,
-              ""),
+              "",
+              "mutastic ignore --prune"),
           new Option(
               "--setup",
               Kind.VALUE,
@@ -221,6 +237,7 @@ final class Options {
               EVERY,
               "",
               false,
+              "",
               ""),
           new Option(
               "--commands",
@@ -232,6 +249,7 @@ final class Options {
               EVERY,
               "",
               false,
+              "",
               ""));
 
   /// The option called `name`, `--threshold`.

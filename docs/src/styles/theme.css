@@ -65,3 +65,38 @@ kbd,
   font-variant-ligatures: none;
   font-feature-settings: 'liga' 0, 'calt' 0;
 }
+
+/* Reference pages, Stripe-style: each row has what it does on the left and its examples on the
+   right, pinned under the header while the row scrolls by. Starlight's "On this page" stays as
+   the outer column. When the content area is too narrow for both, the examples follow the prose. */
+:root:has(.reference) {
+  --sl-content-width: 68rem;
+}
+.reference {
+  container-type: inline-size;
+}
+.reference-row {
+  display: grid;
+  gap: 0 2rem;
+  margin-top: 1.5rem;
+}
+.reference-row > * {
+  min-width: 0;
+}
+@container (min-width: 44rem) {
+  .reference-row {
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 21rem);
+    align-items: start;
+  }
+  .reference-examples {
+    position: sticky;
+    top: calc(var(--sl-nav-height) + 1.25rem);
+  }
+}
+.reference-examples .expressive-code {
+  margin-top: 0.75rem;
+}
+/* Long property names wrap rather than push the page sideways on a phone. */
+.sl-markdown-content .runners code {
+  overflow-wrap: anywhere;
+}
