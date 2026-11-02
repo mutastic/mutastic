@@ -42,6 +42,10 @@ subprojects {
             addBooleanOption("Xdoclint:all,-missing", true)
             addBooleanOption("Xwerror", true)
             addBooleanOption("quiet", true)
+            // Since JDK 23 javadoc copies 4 MB of web fonts into every jar, a hundred times a small
+            // module's docs, and Maven Central counts each release's size against a monthly limit.
+            // Without them, browsers use their own fonts.
+            addBooleanOption("-no-fonts", true)
         }
     }
 
