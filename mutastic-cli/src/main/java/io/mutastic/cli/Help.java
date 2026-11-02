@@ -17,23 +17,30 @@ final class Help {
   private static final int WIDTH = 100;
   private static final int COLUMN = 26;
 
-  /// What each exit status means.
-  private static final List<String> EXIT_CODES =
-      List.of(
-          "0  The score reaches the threshold; for verify, the mutant is caught",
-          "1  It doesn't",
-          "2  A usage error, or a build mutastic couldn't read",
-          "3  The tests fail without any mutant",
-          "4  mutastic itself went wrong");
+  /// A name and what it means: an exit status, an environment variable.
+  record Entry(String name, String meaning) {}
 
-  private static final List<String> ENVIRONMENT =
+  /// What each exit status means.
+  static final List<Entry> EXIT_CODES =
       List.of(
-          "MUTASTIC_FORMAT      The format when --format isn't given",
-          "MUTASTIC_AGENT=1     The agent format, for coding agents",
-          "MUTASTIC_VOCABULARY  plain or classic, when --vocabulary isn't given",
-          "MUTASTIC_PILLS       Labels: square (the default), rounded (for a Nerd Font) or off",
-          "MUTASTIC_ARID=audit  Run the mutants the arid filters skip, and say what happened",
-          "NO_COLOR             No colour; FORCE_COLOR, colour even off a terminal");
+          new Entry("0", "The score reaches the threshold; for verify, the mutant is caught"),
+          new Entry("1", "It doesn't"),
+          new Entry("2", "A usage error, or a build mutastic couldn't read"),
+          new Entry("3", "The tests fail without any mutant"),
+          new Entry("4", "mutastic itself went wrong"));
+
+  static final List<Entry> ENVIRONMENT =
+      List.of(
+          new Entry("MUTASTIC_FORMAT", "The format when --format isn't given"),
+          new Entry("MUTASTIC_AGENT=1", "The agent format, for coding agents"),
+          new Entry("MUTASTIC_VOCABULARY", "plain or classic, when --vocabulary isn't given"),
+          new Entry(
+              "MUTASTIC_PILLS", "Labels: square (the default), rounded (for a Nerd Font) or off"),
+          new Entry(
+              "MUTASTIC_ARID=audit",
+              "Run the mutants the arid filters skip, and say what happened"),
+          new Entry("NO_COLOR", "No colour"),
+          new Entry("FORCE_COLOR", "Colour even off a terminal"));
 
   /// `mutastic --help`: every command, examples, every option, the environment and exit codes.
   static String general(String version) {
@@ -127,11 +134,12 @@ final class Help {
     return out;
   }
 
-  private static List<String> section(String heading, List<String> lines) {
+  private static List<String> section(String heading, List<Entry> entries) {
+    int width = entries.stream().mapToInt(entry -> entry.name().length()).max().orElse(0) + 2;
     var out = new ArrayList<String>();
     out.add("");
     out.add(heading);
-    lines.forEach(line -> out.add("  " + line));
+    entries.forEach(entry -> out.add("  " + padded(entry.name(), width) + entry.meaning()));
     return out;
   }
 

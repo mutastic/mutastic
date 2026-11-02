@@ -1,0 +1,36 @@
+---
+title: Operators
+description: The kinds of change mutastic makes to your code, and the gap in the tests each one finds.
+---
+
+An operator is a kind of change. Each mutant is one operator applied at one place in your code.
+Reports and rules name an operator by its id, `mutastic/boundary` say; each has its own anchor on
+this page.
+
+## Boundary
+
+`mutastic/boundary`. `<` becomes `<=` and the other way round: the off-by-one at the edge of a
+range, which tests that only check values far from the edge never notice.
+
+```java
+if (total >= 100)   // becomes: if (total > 100)
+```
+
+## Negate conditional
+
+`mutastic/negate-conditional`. A condition goes the other way: `==` becomes `!=`, `<` becomes
+`>=`. It goes unnoticed when no test checks what happens on one side of an `if`.
+
+## Math
+
+`mutastic/math`. `+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`.
+
+## Return default
+
+`mutastic/return-default`. A method returns its type's default (`0`, `false`, `null`) instead of
+what it computed. It goes unnoticed when tests call the method but never look at what it returns.
+
+## Remove void call
+
+`mutastic/remove-void-call`. A call that returns nothing is removed. It goes unnoticed when no test
+checks what the call does.

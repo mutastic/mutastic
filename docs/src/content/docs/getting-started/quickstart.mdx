@@ -1,0 +1,93 @@
+---
+title: Quickstart
+description: Run mutastic on a small project, read what it found, write the test, and prove it.
+---
+
+This runs mutastic on `samples/pricing`, a small Gradle project in mutastic's repository whose
+tests pass and cover every line, and still miss something. It needs the
+[command line](/getting-started/install/) on your `PATH`.
+
+## 1. Run it
+
+```sh
+git clone https://github.com/mutastic/mutastic.git
+cd mutastic
+mutastic run samples/pricing
+```
+
+mutastic reads the build, runs the tests once to see what each line is reached by, then changes
+the code one small way at a time and runs the tests that reach each change. One change gets past
+them:
+
+```text
+ [✗ MISSED] no test checks discount() at total == 100
+    ┌─ src/main/java/com/example/pricing/Pricing.java:17
+    │
+ 16 │   public int discount(int total) {
+ 17 │     if (total >= 100) {
+    │               ^^ changed to >
+ 18 │       return total / 10;
+    │
+    = mutant  - if (total >= 100) {
+              + if (total > 100) {
+    = note: every test calls discount() away from the boundary
+            inputs seen: 50, 250 (none is 100)
+            covered by PricingTest#bigOrdersGetTenPercentOff, PricingTest#smallOrdersPayFullPrice (all 2 covering tests still pass)
+    = help: test discount() with total = 100 and assert the result
+
+            // in PricingTest
+            @Test
+            void discountWithTotal100() {
+              assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m855c8e3c samples/pricing passes
+    reproduce  mutastic run --only=m855c8e3c samples/pricing
+    or ignore  mutastic ignore m855c8e3c --reason="<why>" samples/pricing
+
+     Score  85.7%  threshold 80
+```
+
+## 2. Read it
+
+- **The gap**, first: no test calls `discount()` with exactly 100, so nothing tells `>=` from `>`.
+- **The change** that got through, on its line.
+- **The evidence**: the values your tests actually passed (50 and 250), and the tests that reach
+  the line, which all still pass with the change in.
+- **A test that would catch it**, with what the code returns today (10) and with the change (0).
+  Today's value is what the code does, not necessarily what it should: check it's what you mean.
+- **The commands** to prove a fix, to see the mutant again, or to record a decision not to test it.
+  Each names this project, so it works as it's copied. `m855c8e3c` is the mutant's id.
+
+## 3. Close the gap
+
+Add the suggested test to `samples/pricing/src/test/java/com/example/pricing/PricingTest.java`:
+
+```java
+@Test
+void discountWithTotal100() {
+  assertEquals(10, new Pricing().discount(100));
+}
+```
+
+## 4. Prove it
+
+Run the command the card offered as "done when":
+
+```sh
+mutastic verify m855c8e3c samples/pricing
+```
+
+```text
+mutastic: m855c8e3c is caught by com.example.pricing.PricingTest#discountWithTotal100
+```
+
+The mutant is caught: a test now fails when `>=` becomes `>`. Run `mutastic run samples/pricing`
+again and the score is 100%.
+
+## Next
+
+- [Results and the score](/concepts/results/): what caught, missed and the rest mean.
+- [Operators](/concepts/operators/): the kinds of change mutastic makes.
+- [`mutastic run`](/reference/run/): every option, from the command line, Maven and Gradle.

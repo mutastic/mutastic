@@ -1,0 +1,35 @@
+---
+title: mutastic
+description: Mutation testing for Java. It changes your code in small ways and checks that your tests notice, then tells you which test to write when they don't.
+template: splash
+hero:
+  tagline: Mutation testing for Java. It changes your code in small ways, checks that your tests notice, and when they don't, tells you the test to write.
+  actions:
+    - text: Quickstart
+      link: /getting-started/quickstart/
+      icon: right-arrow
+    - text: Install
+      link: /getting-started/install/
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Your tests, checked">
+    Coverage says a line ran. mutastic changes that line, `>=` to `>` say, and runs the tests that
+    reach it. If they all still pass, nothing checks what the line does.
+  </Card>
+  <Card title="The test to write">
+    Each missed mutant comes with the inputs your tests used, the gap they left, a test that would
+    close it, and the command that proves it closed.
+  </Card>
+  <Card title="Three ways to run it">
+    The `mutastic` command, `mvn mutastic:run`, or `./gradlew mutasticRun`. The same run, the same
+    results, the same options.
+  </Card>
+  <Card title="Made for agents too">
+    `--format=agent` gives coding agents the verdict first, then each gap and the rule that a fix
+    changes tests, never production code.
+  </Card>
+</CardGrid>

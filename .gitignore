@@ -4,3 +4,8 @@ build/
 *.iml
 .DS_Store
 target/
+
+# The docs site: its dependencies and build output.
+docs/node_modules/
+docs/dist/
+docs/.astro/

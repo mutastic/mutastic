@@ -1,0 +1,18 @@
+{
+  "name": "mutastic-docs",
+  "private": true,
+  "type": "module",
+  "description": "docs.mutastic.io: the reference is written from the CLI's own declarations (src/data/commands.json, from ./gradlew :mutastic-cli:exportDocsModel).",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "0.42.6",
+    "@fontsource-variable/bricolage-grotesque": "5.3.0",
+    "@fontsource/jetbrains-mono": "5.3.0",
+    "astro": "7.4.0",
+    "starlight-llms-txt": "0.12.0"
+  }
+}

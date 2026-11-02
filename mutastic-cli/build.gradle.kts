@@ -40,6 +40,10 @@ tasks.test {
     useJUnitPlatform()
     // The end-to-end tests run mutastic against the sample projects, each its own Gradle build.
     systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
+    // DocsCommandsTest parses every command the docs show.
+    systemProperty("mutastic.docs", rootDir.resolve("docs/src/content/docs").absolutePath)
+    // An input, so a change to the docs alone runs it again.
+    inputs.dir(rootDir.resolve("docs/src/content/docs")).withPathSensitivity(PathSensitivity.RELATIVE)
     // The Maven plugin's test resolves it, and everything it needs, from a repository in the build.
     systemProperty(
         "mutastic.samplesRepository",
@@ -56,4 +60,38 @@ tasks.jar {
     manifest {
         attributes("Implementation-Version" to project.version)
     }
+}
+
+// The docs reference's model of the commands and options (docs/src/data/commands.json), written
+// from the CLI's own declarations, as `--help` is. Committed, so the docs build needs no Java; the
+// check fails while the committed copy and the code disagree.
+val docsModel = rootProject.layout.projectDirectory.file("docs/src/data/commands.json")
+val writeDocsModel by tasks.registering(JavaExec::class) {
+    description = "Writes the docs' model of the commands and options to build/docs."
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass = "io.mutastic.cli.DocsModel"
+    val out = layout.buildDirectory.file("docs/commands.json")
+    args(out.get().asFile.absolutePath)
+    outputs.file(out)
+}
+tasks.register<Copy>("exportDocsModel") {
+    description = "Writes the docs' model of the commands and options to docs/src/data."
+    from(writeDocsModel)
+    into(docsModel.asFile.parentFile)
+}
+val checkDocsModel by tasks.registering {
+    description = "Fails when docs/src/data/commands.json isn't what the code declares."
+    val written = writeDocsModel.map { it.outputs.files.singleFile }
+    val committed = docsModel.asFile
+    inputs.files(written, committed)
+    doLast {
+        if (!committed.exists() || committed.readText() != written.get().readText()) {
+            throw GradleException(
+                "docs/src/data/commands.json is out of date: ./gradlew :mutastic-cli:exportDocsModel",
+            )
+        }
+    }
+}
+tasks.check {
+    dependsOn(checkDocsModel)
 }

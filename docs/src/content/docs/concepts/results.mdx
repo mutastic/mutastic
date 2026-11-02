@@ -1,0 +1,54 @@
+---
+title: Results and the score
+description: What happens to each mutant, how the score is worked out, and why some mutants are skipped.
+---
+
+A **mutant** is your code with one small change in it, `>=` becoming `>` say. mutastic runs the
+tests that reach the changed line. If one fails, the tests noticed: the mutant is **caught**. If
+they all pass, nothing checks what that line does: the mutant is **missed**, and that's a gap in
+the tests.
+
+## What happens to a mutant
+
+| Result | Symbol | Means |
+|---|---|---|
+| Caught | ✓ | A test failed with the mutant in. |
+| Missed | ✗ | Every test that reaches it still passes: a gap in the tests. |
+| Timed out | ⏱ | The tests stopped finishing in time, usually a loop that no longer ends. Counts as caught. |
+| Not covered | ○ | No test reaches its line. |
+| Skipped | | Never run, for the reason given with it. Left out of the score. |
+
+Colour is never the only signal: every result also has its symbol or word. With
+`--vocabulary=classic` (or `MUTASTIC_VOCABULARY=classic`) mutastic says *killed* and *survived*
+instead of caught and missed. The JSON report and the event stream always use the standard names:
+`Killed`, `Survived`, `Timeout`, `NoCoverage` and `Ignored`.
+
+## The score
+
+The score is the share of the mutants that ran which the tests noticed:
+
+```text
+score = (caught + timed out) / (every mutant − skipped) × 100
+```
+
+A mutant no test reaches counts against the score, as one no test checks does. A run passes when
+the score reaches the threshold, 80 unless `--threshold` says otherwise; a run with nothing to
+score says so, rather than claiming 100%.
+
+## Skipped mutants
+
+Some changes would tell you nothing, so mutastic doesn't run them. Each skip says why, with a kind
+first:
+
+| Kind | Means | For example |
+|---|---|---|
+| `arid:` | Code whose change no test should have to notice | A call that only writes output, a trivial getter or setter, `toString()` and `hashCode()` |
+| `generated:` | Code the compiler wrote, not you | Closing a try-with-resources resource, the hashing in a `switch` on a `String` |
+| `equivalent:` | The change does nothing | A method that already returns its type's default, "changed" to return it |
+| `user:` | Your decision | `@DoNotMutate`, a rule in `mutastic.yaml`, or `mutastic ignore` |
+
+`@DoMutate` on a method or class brings back what the arid filters skip there, and
+`MUTASTIC_ARID=audit` runs every arid mutant anyway, to check the filters.
+
+mutastic never mutates constructors, static initialisers, `float` and `double` arithmetic, an
+enum's `values()`, or a record's generated `equals`, `hashCode` and `toString`.
