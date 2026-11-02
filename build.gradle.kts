@@ -22,7 +22,7 @@ repositories {
 subprojects {
     group = "io.mutastic"
     // A release passes its version (`-PreleaseVersion=0.1.0`); every other build is a snapshot.
-    version = providers.gradleProperty("releaseVersion").getOrElse("0.1.0-SNAPSHOT")
+    version = providers.gradleProperty("releaseVersion").getOrElse("0.2.0-SNAPSHOT")
 
     repositories {
         mavenCentral()
