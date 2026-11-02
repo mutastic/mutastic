@@ -110,6 +110,31 @@ Declare it in the build, and its goals take the short prefix, `mvn mutastic:run`
 </plugin>
 ```
 
+### From Gradle
+
+The Gradle plugin adds a task for each command to every Java project it's applied to, with each option a `mutastic.` property of the same name:
+
+```kotlin
+// settings.gradle.kts: the plugin is on Maven Central
+pluginManagement {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+// build.gradle.kts
+plugins {
+    id("io.mutastic") version "0.2.0"
+}
+```
+
+```sh
+./gradlew mutasticRun -Pmutastic.threshold=60
+```
+
+Each task compiles the code and tests first and reads the settings the `test` task would use. The commands it prints are tasks too, `./gradlew :core:mutasticVerify -Pmutastic.mutant=m855c8e3c`, and a missed mutant or a score below the threshold fails the build. mutastic itself runs on JDK 25 in a process of its own, a Gradle toolchain, so Gradle finds or downloads one; your tests still run on the JDK the `test` task uses. The `mutastic` command comes from the project's repositories, so they need Maven Central.
+
 Each goal compiles the code and tests first, then runs in every module of the build (`-pl` picks one) with the settings Surefire's `test` would use. The commands it prints are goals too, `mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -pl core`, and a missed mutant or a score below the threshold fails the build. mutastic itself runs on JDK 25 or later in a process of its own, so Maven can run on 17: it uses a JDK 25 toolchain from `~/.m2/toolchains.xml` if there is one, else Maven's own JDK if it's new enough, else the one `-Dmutastic.jdk=<directory>` names. Your tests still run on the JDK Surefire would use.
 
 - `--format=full` (the default on a terminal) shows each missed mutant as a card: the gap in the tests, the code with the change marked, the evidence (what the tests passed in, and which tests run it), the test to add, and how to prove it. Cards are grouped by file, and in each file the method with the most misses comes first. On a terminal, file locations are links (`--hyperlinks`) that terminals supporting OSC 8 open; others show the text.
@@ -201,7 +226,7 @@ A test that catches mutants in several unrelated methods, each time with the sam
 
    Several workers run at once (`--workers`, by default half the cores, at most 4), each its own JVM, as Gradle's parallel test forks are. Results are reported in source order whatever order they finish in. Workers side by side can get in each other's way: tests that use a fixed port collide, and tests that share a lock, a database or a slow start (a Spring context) run slower than they did alone. So neither a catch caused by a port in use nor a timeout is trusted: that mutant runs again on its own once the others are done.
 
-Code is in ten modules:
+Code is in eleven modules:
 
 | Module | JDK | What it does |
 |---|---|---|
@@ -214,6 +239,7 @@ Code is in ten modules:
 | `mutastic-maven` | 25 | Reads a Maven build's setup, with the extension; a `BuildTool` |
 | `mutastic-maven-extension` | 17 | Runs inside your Maven build and writes what Surefire would run |
 | `mutastic-cli` | 25 | The `mutastic` command: finds the build tool, runs the engine, picks the format |
+| `mutastic-gradle-plugin` | 17 | The Gradle plugin: writes a module's setup from inside the build, then runs the `mutastic` command on it |
 | `mutastic-maven-plugin` | 17 | The Maven plugin: writes a module's setup from inside the build, then runs the `mutastic` command on it |
 
 ## Building

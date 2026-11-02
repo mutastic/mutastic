@@ -12,6 +12,7 @@ include(
     "mutastic-engine",
     "mutastic-report",
     "mutastic-gradle",
+    "mutastic-gradle-plugin",
     "mutastic-maven-extension",
     "mutastic-maven",
     "mutastic-maven-plugin",

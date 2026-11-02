@@ -88,6 +88,48 @@ class MutantCommandTest {
     }
   }
 
+  /// From the Gradle plugin, each is the module's task, with the same properties as Gradle sets
+  /// them.
+  @Test
+  void fromGradleEachIsATask() {
+    var invocation = Invocation.of("gradle:./gradlew", List.of("my app", ":services:api"));
+
+    assertThat(MutantCommand.DONE_WHEN.command(ID, invocation))
+        .isEqualTo(
+            "./gradlew :services:api:mutasticVerify -Pmutastic.mutant=m855c8e3c -p 'my app'");
+    assertThat(MutantCommand.REPRODUCE.command(ID, Invocation.of("gradle", List.of())))
+        .isEqualTo("gradle :mutasticRun -Pmutastic.only=m855c8e3c");
+  }
+
+  /// The plugin passes the `mutastic.` properties on as they are, with its task's module: each
+  /// command offered from Gradle parses to the same command as the command line's.
+  @Test
+  void everyCommandOfferedFromGradleParsesForTheSameProject() {
+    var invocation = Invocation.of("gradle:./gradlew", List.of("samples/pricing", ":api"));
+    for (MutantCommand command : MutantCommand.values()) {
+      var words = List.of(command.command(ID, invocation).split(" ", -1));
+      var task = words.get(1);
+      var goal = task.substring(task.lastIndexOf(":mutastic") + ":mutastic".length());
+      var arguments = new ArrayList<String>();
+      arguments.add(Character.toLowerCase(goal.charAt(0)) + goal.substring(1));
+      for (int index = 2; index < words.size(); index++) {
+        arguments.add(words.get(index).equals("-p") ? words.get(++index) : words.get(index));
+      }
+      arguments.add(task.substring(0, task.lastIndexOf(":mutastic"))); // the task's module
+
+      assertThat(Main.Command.parse(arguments.toArray(String[]::new)))
+          .as(command.command(ID, invocation))
+          .isEqualTo(commandLine(command));
+    }
+  }
+
+  /// What `command` parses to from the command line, for `samples/pricing :api`.
+  private static Main.Command commandLine(MutantCommand command) {
+    return Main.Command.parse(
+        Stream.concat(command.arguments(ID).stream(), Stream.of("samples/pricing", ":api"))
+            .toArray(String[]::new));
+  }
+
   @Test
   void theTargetIsTheProjectAsTypedFromHere() {
     var here = Path.of("/code");

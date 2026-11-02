@@ -19,8 +19,11 @@ import io.mutastic.report.ReportFiles;
 import io.mutastic.report.SourceView;
 import io.mutastic.report.Style;
 import io.mutastic.report.Vocabulary;
+import java.io.IOException;
 import java.io.PrintStream;
+import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalTime;
@@ -357,7 +360,7 @@ public final class Main {
     long start = System.nanoTime();
     var startedAt = LocalTime.now(java.time.ZoneId.systemDefault()); // the reader's clock
     var directory = command.directory().toAbsolutePath().normalize();
-    var work = tool.workDirectory(directory, command.module());
+    var work = workDirectory(tool, directory, command.module());
     var here = Path.of("").toAbsolutePath().normalize();
     var target = target(here, directory, command.module());
     var project =
@@ -370,6 +373,18 @@ public final class Main {
         new SourceView(directory, project.sources(), project.testSources())
             .withInvocation(Invocation.of(command.commands(), target));
     return new Prepared(directory, work, project, sources, startedAt, setup);
+  }
+
+  /// Where mutastic keeps the module's run record, logs and reports, made if it isn't there yet:
+  /// with a setup a build plugin wrote, no build has run to make it.
+  private static Path workDirectory(BuildTool tool, Path directory, String module) {
+    var work = tool.workDirectory(directory, module);
+    try {
+      Files.createDirectories(work);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    return work;
   }
 
   private static HumanText humanText(Command command, Output output, SourceView sources) {
