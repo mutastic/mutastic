@@ -17,6 +17,9 @@ on:
     paths: ["docs/**", ".github/workflows/docs.yml"]
   pull_request:
     paths: ["docs/**", ".github/workflows/docs.yml"]
+  # By hand, from the Actions tab or `gh workflow run docs.yml`: on a release's tag (--ref vX.Y.Z)
+  # it redeploys docs.mutastic.io, and on main the preview.
+  workflow_dispatch:
 
 permissions:
   contents: read
