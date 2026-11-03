@@ -1,12 +1,110 @@
 ---
 title: Flaky tests
-description: "How mutastic finds tests that fail at random, so they can't inflate the score."
+description: "How mutastic finds tests that pass or fail at random, keeps them from inflating the score, and tells you which to fix."
 ---
 
-A flaky test fails at random, so against mutants it "catches" changes it never checked, and the score goes up and down with no change to the code. mutastic looks for them in three ways:
+import { Code } from '@astrojs/starlight/components';
+import flaky from '../../../data/output/flaky.ansi?raw';
 
-- **Before any mutant.** A test that fails in the first run is run again on its own, up to three times. If it passes, mutastic leaves it out of the run and names it (`flaky: …`). A test that fails every time stops the run: the tests are red.
-- **Between runs.** Each full run keeps its results in `last-run.tsv` beside its reports, one per module. If the code and tests are unchanged and a mutant's result changed, the test that caught it is named (`likely flaky: …`).
-- **With `--confirm-catches`.** Each catching test runs once more against its mutant. A catch that doesn't repeat doesn't count; the other covering tests decide. This costs one more test run per catch.
+A flaky test passes or fails at random, with nothing changed. In mutation testing that matters
+more than usual: a mutant is caught when a test fails, so a test that fails by chance "catches"
+mutants it never checked. The score goes up for nothing, and moves from run to run with no change
+to the code.
 
-A test that catches mutants in several unrelated methods, each time with the same exception thrown in its own code, also gets a `note:`. It may be flaky, or it may just call a lot of code.
+mutastic looks for flaky tests in three ways. Two cost nothing and happen on their own; the third
+is a choice. Whatever it finds, it names the test, so you know what to fix.
+
+| Check | When | Costs |
+|---|---|---|
+| [Before any mutant](#before-any-mutant) | Every run | Only a failing test's reruns |
+| [Between runs](#between-runs) | Each full run after the first, with the same code | Nothing |
+| [Confirming catches](#confirming-catches) | With `--confirm-catches` | One more test run per catch |
+
+## What you'll see
+
+The `flaky` sample in mutastic's repository has two flaky tests on purpose. On its second run,
+with `--confirm-catches`, the end of the output has every warning:
+
+<Code code={flaky} lang="ansi" />
+
+- `! flaky:` names a test that failed before any mutant, then passed. It's left out of the run,
+  and the `Flaky` row counts it.
+- `! likely flaky:` names a test whose catches can't be trusted: once because a mutant's result
+  changed since the last run with the code unchanged, once because its catches didn't repeat.
+- The score fell by 14.3 points with the code unchanged (`same code`). That drop is the flaky
+  test's luck running out, not a change in the tests.
+
+## Before any mutant
+
+mutastic runs all your tests once before it changes anything, to see which tests reach each line.
+They have to pass then: a mutant is only caught when a test that passed fails.
+
+- **A test that fails is run again on its own, up to three times.** If it passes, it's flaky: the
+  run goes on without it, and names it (`! flaky: …`). Its catches would be luck, so none count.
+- **A test that fails every time stops the run** with exit status 3: the tests fail without any
+  mutant, and nothing can be judged against them. See
+  [Troubleshooting](/guides/troubleshooting/).
+- **A test class that fails as a whole,** in a `@BeforeAll` say, can't be run again on its own,
+  so it stops the run too.
+
+Leaving a flaky test out has a price you'll see: lines that only it reached are now reached by
+nothing. Their mutants are counted as not covered, under the heading "no test reaches these lines,
+or only a flaky one does", and they lower the score until the test is fixed.
+
+## Between runs
+
+Each full run keeps its results in `last-run.tsv`, in the module's work directory beside the
+reports (`build/mutastic/`, or `target/mutastic/` for Maven), and the next run compares with it.
+The score line says what changed in between: `same code`, `code changed` or `mutastic changed`.
+
+With the same code, tests and mutastic, every mutant should be caught or missed exactly as before.
+One that changed result points at the test that caught it, in whichever run it was caught: that
+test is named as `! likely flaky: …`, with the mutants whose results it changed. With anything
+changed, a different result is just the change at work, and nothing is named.
+
+Only a full run compares and records: a run of one mutant (`--only`, `verify`, `explain`) says
+nothing about the others, and a run of a change (`--since`) has a different score by design.
+
+## Confirming catches
+
+With [`--confirm-catches`](/reference/run/#confirm-catches) (or `confirmCatches` in a build
+plugin), each test that catches a mutant is run once more against it. A catch that repeats
+counts. One that doesn't came from a flaky test: it doesn't count, and the mutant's other covering
+tests decide whether it's caught. The test is named as `! likely flaky: …`, and the mutant's card
+says so beside its covering tests (`… failed once, then passed: flaky`).
+
+It costs one more test run for every catch, so the more mutants your tests catch, the longer a
+run takes. It's worth it in CI, where a score has to hold, or once a run has named a likely flaky
+test.
+
+## A test that fails the same way everywhere
+
+One more pattern earns a `note:` rather than a warning: a test that catches mutants in several
+unrelated methods, each time with the same exception thrown in the test's own code. It may be
+flaky, failing whatever the change. Or it may just call a lot of code. Run it on its own a few
+times to tell which.
+
+## For agents and scripts
+
+The same evidence is in the other formats:
+
+- `--format=agent` writes each as a line of its own (`flaky: …`, `likely flaky: …`), with what to
+  do next.
+- `--format=jsonl`'s `run-finished` event lists each likely flaky test, its mutants and its
+  reasons (`changed-since-last-run`, `catch-not-repeated`). A mutant whose catch didn't repeat says
+  which test made it, as `unconfirmedCatchBy`.
+
+## Fixing a flaky test
+
+mutastic tells you which test; why it's flaky is in the test or the code it runs. The usual causes:
+
+- **Order.** It depends on another test running first, or not running: shared static state, a
+  system property, a database row. Run it on its own, and in a different order.
+- **Time.** It reads the clock, or sleeps and hopes a background thread has finished. Pass a clock
+  in, and wait for the thread rather than for time.
+- **Randomness.** It uses random input without a fixed seed.
+- **The outside world.** A network call, a port, a file left behind by an earlier run.
+
+Once it's fixed, run mutastic again. A test that was left out is back in, and the mutants it
+covers are judged by it again. A test named likely flaky stops being named once its catches
+repeat.

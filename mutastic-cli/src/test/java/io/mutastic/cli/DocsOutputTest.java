@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,10 @@ class DocsOutputTest {
   private static final Path OUTPUT = Path.of(System.getProperty("mutastic.docsOutput"));
   private static final boolean WRITE = Boolean.getBoolean("mutastic.docsOutput.write");
   private static final String ID = "m855c8e3c";
+  private static final Path FLAKY = Path.of(System.getProperty("mutastic.samples"), "flaky");
+
+  /// Colour and style codes, to find a line by its words.
+  private static final Pattern ANSI = Pattern.compile("\u001B\\[[0-9;]*m");
 
   /// What a person at a terminal sees.
   private static final Map<String, String> TERMINAL =
@@ -44,6 +50,32 @@ class DocsOutputTest {
     shown("run-again.ansi", project, mutastic("run", project.toString(), "--workers=4"));
   }
 
+  /// The flaky sample, run twice: the second time, every check has something to say. Only the end
+  /// of its output is shown, from the first warning on.
+  @Test
+  void theFlakySample() throws Exception {
+    var project = Samples.copy(FLAKY, work.resolve("flaky"));
+    var run = List.of("run", project.toString(), "--workers=1");
+
+    Samples.mutastic(TERMINAL, run.toArray(String[]::new));
+    var second = new ArrayList<>(run);
+    second.add("--confirm-catches");
+    var result = Samples.mutastic(TERMINAL, second.toArray(String[]::new));
+
+    assertThat(result.exit()).isEqualTo(Main.FAILED);
+    shown("flaky.ansi", project, fromTheFirstWarning(result));
+  }
+
+  private static Samples.Result fromTheFirstWarning(Samples.Result result) {
+    var lines = result.out().lines().toList();
+    int first = 0;
+    while (!ANSI.matcher(lines.get(first)).replaceAll("").contains("! flaky:")) {
+      first++;
+    }
+    var shown = String.join("\n", lines.subList(first, lines.size())) + "\n";
+    return new Samples.Result(result.exit(), shown, result.err());
+  }
+
   private static Samples.Result mutastic(String... args) {
     var result = Samples.mutastic(TERMINAL, args);
     assertThat(result.exit()).as(String.join(" ", args)).isEqualTo(Main.PASSED);
@@ -66,16 +98,19 @@ class DocsOutputTest {
     Files.writeString(test, source.substring(0, source.lastIndexOf('}')).stripTrailing() + added);
   }
 
-  /// As the docs show it, from the repository's root, where `samples/pricing` is typed. Timings are
-  /// kept as they were when it was written, and left out of the comparison.
+  /// As the docs show it, from the repository's root, where the sample is typed as
+  /// `samples/<name>`. Timings are kept as they were when it was written, and left out of the
+  /// comparison; so a file is written again only when more than its timings changed.
   private static void shown(String name, Path project, Samples.Result result) throws Exception {
-    var output = result.out().replace(project.toString(), "samples/pricing");
+    var output = result.out().replace(project.toString(), "samples/" + project.getFileName());
     var file = OUTPUT.resolve(name);
-    if (WRITE) {
+    var written = Files.exists(file) ? Files.readString(file, StandardCharsets.UTF_8) : "";
+    if (WRITE && !withoutTimings(written).equals(withoutTimings(output))) {
       Files.createDirectories(OUTPUT);
       Files.writeString(file, output, StandardCharsets.UTF_8);
+      written = output;
     }
-    assertThat(withoutTimings(Files.readString(file, StandardCharsets.UTF_8)))
+    assertThat(withoutTimings(written))
         .as("docs/src/data/output/%s: ./gradlew :mutastic-cli:exportDocsOutput", name)
         .isEqualTo(withoutTimings(output));
   }
