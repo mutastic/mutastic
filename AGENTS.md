@@ -14,6 +14,7 @@ build failure.
 ./gradlew coverageReport # build/reports/jacoco/coverageReport/html, over every module's tests
 ./gradlew lockDependencies --write-locks  # after changing a version: rewrites gradle.lockfile
 ./gradlew :mutastic-cli:exportDocsModel    # after changing an option or command: the docs' reference
+./gradlew :mutastic-cli:exportDocsOutput   # after changing what a command prints: the output the docs show
 ./gradlew :mutastic-cli:installDist && ./mutastic-cli/build/install/mutastic/bin/mutastic run samples/pricing
 ```
 

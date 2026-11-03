@@ -21,6 +21,15 @@ npm run build    # dist/, as deployed
   ```
 
   `./gradlew build` fails while the committed file and the code disagree.
+- **The output the docs show** (`src/data/output/`) is mutastic's own, on the pricing sample:
+  `DocsOutputTest` fails while it differs from what the CLI prints. After changing what a command
+  prints, write it again:
+
+  ```sh
+  ./gradlew :mutastic-cli:exportDocsOutput
+  ```
+
+  A file named for a command (`explain.ansi`) appears on that command's reference page.
 - **Every command the docs show is checked**: `DocsCommandsTest` parses each `mutastic …`,
   `mvn …mutastic:…` and `./gradlew …mutastic…` line in a code block, so a page can't show an option
   the CLI doesn't take.

@@ -54,7 +54,8 @@ projects the end-to-end tests run on.
 - **Tests:** a change in behaviour comes with a test that fails without it.
 - **Docs:** user-facing changes update the docs in `docs/` (see [docs/README.md](docs/README.md)).
   After changing an option or a command, run `./gradlew :mutastic-cli:exportDocsModel`; the build
-  fails until the docs' reference matches.
+  fails until the docs' reference matches. After changing what a command prints, run
+  `./gradlew :mutastic-cli:exportDocsOutput`, for the output the docs show.
 - **Dependencies:** pin exact versions, then `./gradlew lockDependencies --write-locks`.
 
 ## Pull requests

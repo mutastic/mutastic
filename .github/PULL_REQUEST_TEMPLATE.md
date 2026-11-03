@@ -6,4 +6,4 @@
 
 - [ ] `./gradlew build` passes
 - [ ] A test that fails without the change
-- [ ] Docs updated, and `./gradlew :mutastic-cli:exportDocsModel` run if an option or command changed
+- [ ] Docs updated, and `./gradlew :mutastic-cli:exportDocsModel` run if an option or command changed, `exportDocsOutput` if what one prints did
