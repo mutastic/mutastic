@@ -13,7 +13,7 @@ For why each one is worth catching, the bugs it stands for and the test that cat
 | Operator | Changes | Set |
 |---|---|---|
 | [`mutastic/boundary`](#boundary) | `<` and `<=`, `>` and `>=` | defaults |
-| [`mutastic/negate-conditional`](#negate-conditional) | a condition to its opposite | defaults |
+| [`mutastic/negate-conditional`](#negate-conditional) | a condition to its opposite | stronger |
 | [`mutastic/remove-conditional`](#remove-conditional) | a condition to always true, or always false | defaults |
 | [`mutastic/math`](#math) | `+` and `-`, `*` and `/` | defaults |
 | [`mutastic/arithmetic-replacement`](#arithmetic-replacement) | `+` to `*` | stronger |
@@ -36,9 +36,14 @@ if (total >= 100)   // becomes: if (total > 100)
 
 ## Negate conditional
 
-`mutastic/negate-conditional`. A condition goes the other way: `==` becomes `!=`, `<` becomes
-`>=`, `== null` becomes `!= null`. It goes unnoticed when no test checks what happens on one side
-of an `if`.
+`mutastic/negate-conditional`, in the `stronger` set. A condition goes the other way: `==` becomes
+`!=`, `<` becomes `>=`, `== null` becomes `!= null`. It goes unnoticed when no test checks what
+happens on one side of an `if`.
+
+It left the defaults after 0.3.0. [Remove conditional](#remove-conditional) asks more of the same
+condition: a test that catches the condition going the other way can still leave "always true" and
+"always false" both uncaught, but a test that catches either of those catches the opposite too. So
+in the defaults, negate's catches only added to the score. PIT made the same change in 1.7.2.
 
 ```java
 if (order.isPaid())   // becomes: if (!order.isPaid())

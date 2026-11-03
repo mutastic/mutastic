@@ -27,7 +27,7 @@ class QuarkusTest {
 
     assertThat(run.err()).doesNotContain("mutastic: internal error");
     assertThat(run.out())
-        .contains("5 missed, 0 not covered, 11 caught of 16 mutants")
+        .contains("5 missed, 0 not covered, 9 caught of 14 mutants")
         .contains("no test has duplicate items for `.select().distinct()` in top() to remove")
         .contains("no test has more items than `.select().first(…)` in top() lets through")
         .contains(

@@ -20,14 +20,7 @@ class SuggestionsTest {
   void suggestionsPastedInCatchTheirMutantsAndRandomnessGetsNone() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("suggestions"));
 
-    // Without remove-conditional, whose misses here get suggestions too (its `start == null`
-    // can't: suggestions pass numbers, never null). This pins the suggestions themselves.
-    var run =
-        Samples.mutastic(
-            "run",
-            project.toString(),
-            "--format=jsonl",
-            "--operators=-mutastic/remove-conditional");
+    var run = Samples.mutastic("run", project.toString(), "--format=jsonl");
     var suggested = new LinkedHashMap<String, String>(); // mutant id → test code
     run.out()
         .lines()
@@ -41,13 +34,16 @@ class SuggestionsTest {
                         .replace("\\n", "\n")
                         .replace("\\\"", "\""));
               } else {
+                // Suggestions pass numbers, never null, so `start == null` can't get one.
                 assertThat(line)
-                    .as("only the random method goes without")
-                    .contains("\"method\":\"jitter(I)I\"");
+                    .as("only the random method and the null check go without")
+                    .containsAnyOf(
+                        "\"method\":\"jitter(I)I\"", "\"bytecode\":\"IFNULL -> never jump\"");
               }
             });
 
-    assertThat(suggested.values())
+    // Two mutants on a side of one condition share a test: one of each.
+    assertThat(java.util.Set.copyOf(suggested.values()))
         .containsExactlyInAnyOrder(
             """
         @Test
@@ -76,7 +72,7 @@ class SuggestionsTest {
         }""");
 
     // Each into the test class it was written for: RatesTest, or WindowTest for the record.
-    for (var code : suggested.values()) {
+    for (var code : java.util.Set.copyOf(suggested.values())) {
       var testClass = code.contains("new Window(") ? "WindowTest" : "RatesTest";
       var test = project.resolve("src/test/java/com/example/rates/" + testClass + ".java");
       Files.writeString(

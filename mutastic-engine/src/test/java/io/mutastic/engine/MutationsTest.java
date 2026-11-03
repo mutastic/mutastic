@@ -26,6 +26,12 @@ import org.junit.jupiter.api.Test;
 class MutationsTest {
   private final Mutations mutations = new Mutations(ClassFile.of());
 
+  /// Every operator, negate's too: for tests of one operator, whatever its set.
+  private final Mutations stronger =
+      new Mutations(
+          ClassFile.of(),
+          new Policy(List.of(), List.of(), List.of(), List.of("stronger"), List.of()));
+
   @Test
   void findsEveryOperatorInDiscount() throws Exception {
     var found = mutantsOf("discount");
@@ -34,8 +40,6 @@ class MutationsTest {
         .extracting(Mutant::operator, Mutant::original, Mutant::replacement, Mutant::line)
         .containsExactly(
             org.assertj.core.groups.Tuple.tuple(BuiltIn.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", 10),
-            org.assertj.core.groups.Tuple.tuple(
-                BuiltIn.NEGATE_CONDITIONAL, "IF_ICMPLT", "IF_ICMPGE", 10),
             org.assertj.core.groups.Tuple.tuple(
                 BuiltIn.REMOVE_CONDITIONAL, "IF_ICMPLT", "always jump", 10),
             org.assertj.core.groups.Tuple.tuple(
@@ -440,7 +444,7 @@ class MutationsTest {
 
   private List<String> operandsIn(Class<?> type, String method, Operator operator)
       throws Exception {
-    return mutations.find(model(type)).stream()
+    return stronger.find(model(type)).stream()
         .filter(mutant -> mutant.methodName().equals(method) && mutant.operator().equals(operator))
         .findFirst()
         .orElseThrow()
@@ -448,8 +452,8 @@ class MutationsTest {
   }
 
   private Mutant only(String method, Operator operator) throws Exception {
-    return mutantsOf(method).stream()
-        .filter(mutant -> mutant.operator().equals(operator))
+    return stronger.find(model(Pricing.class)).stream()
+        .filter(mutant -> mutant.methodName().equals(method) && mutant.operator().equals(operator))
         .findFirst()
         .orElseThrow();
   }

@@ -45,7 +45,7 @@ suggests the test that would catch it, and gives the command that proves the fix
     reproduce  mutastic run --only=m855c8e3c samples/pricing
     or ignore  mutastic ignore m855c8e3c --reason="<why>" samples/pricing
 
-     Score  85.7%  threshold 80
+     Score  88.9%  threshold 80
 
   PASS  1 missed, above the threshold.
 ```

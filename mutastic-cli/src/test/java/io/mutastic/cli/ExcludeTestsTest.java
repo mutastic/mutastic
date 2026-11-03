@@ -32,11 +32,11 @@ class ExcludeTestsTest {
             "--exclude-tests=com.example.rates.WindowTest");
 
     assertThat(human.out())
-        .contains("src/main/java/com/example/rates/Window.java:6 openOn() (12 mutants)")
+        .contains("src/main/java/com/example/rates/Window.java:6 openOn() (9 mutants)")
         .contains("try: assertThat(new Window(")
         .contains("Left out  WindowTest (--exclude-tests)");
     assertThat(agent.out())
-        .contains("12 not covered")
+        .contains("9 not covered")
         .contains("  start with: assertThat(new Window(");
   }
 }

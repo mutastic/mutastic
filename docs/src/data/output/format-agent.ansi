@@ -1,4 +1,4 @@
-mutastic: PASS · score 90.9% (threshold 80) · 1 missed, 0 not covered, 10 caught of 11 mutants (2 more skipped)
+mutastic: PASS · score 88.9% (threshold 80) · 1 missed, 0 not covered, 8 caught of 9 mutants (2 more skipped)
 rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/pricing passes`
 
 1. missed m855c8e3c: no test checks `discount()` at `total == 100`

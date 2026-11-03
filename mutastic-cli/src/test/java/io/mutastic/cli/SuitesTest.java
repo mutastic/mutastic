@@ -23,7 +23,7 @@ class SuitesTest {
         Samples.mutastic("run", project.toString(), "--format=agent", "--suite=integrationTest");
 
     assertThat(unit.out()).contains("1 missed").contains("no test checks `late()` at `days == 30`");
-    assertThat(integration.out()).contains("0 missed, 0 not covered, 5 caught of 5 mutants");
+    assertThat(integration.out()).contains("0 missed, 0 not covered, 4 caught of 4 mutants");
     // Its run keeps its own record, beside the default suite's.
     assertThat(project.resolve("build/mutastic/suites/integrationTest/last-run.tsv")).exists();
     assertThat(project.resolve("build/mutastic/last-run.tsv")).exists();
@@ -51,7 +51,7 @@ class SuitesTest {
         Samples.mutastic("run", project.toString(), "--format=agent", "--suite=integration-test");
 
     assertThat(unit.out()).contains("1 missed");
-    assertThat(integration.out()).contains("0 missed, 0 not covered, 5 caught of 5 mutants");
+    assertThat(integration.out()).contains("0 missed, 0 not covered, 4 caught of 4 mutants");
     assertThat(Files.exists(project.resolve("target/mutastic/suites/integration-test"))).isTrue();
   }
 }

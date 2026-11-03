@@ -3,15 +3,15 @@
  [33m! likely flaky:[0m StockTest#restockingWorks; its catches of m4b6a65ac, m7610241c didn't repeat when run again
 
  [2m  Classes[0m  [32m[1m0 clean[0m[0m[2m | [0m[1;31m[1m1 with misses[0m[0m[2m (1)[0m
- [2m  Mutants[0m  [32m✓ [1m5 caught[0m[0m[2m · [0m[1;31m✗ [1m2 missed[0m[0m[2m · [0m[33m○ 2 not covered[0m[2m (9)[0m
+ [2m  Mutants[0m  [32m✓ [1m4 caught[0m[0m[2m · [0m[1;31m✗ [1m2 missed[0m[0m[2m · [0m[33m○ 2 not covered[0m[2m (8)[0m
  [2m Worst at[0m  Stock.restock() 2 ✗
  [2m    Flaky[0m  1 test left out
- [2mTest runs[0m  7[2m (14 without coverage selection)[0m
- [2m Start at[0m  23:31:29
- [2m Duration[0m  831ms [2m(setup 523ms, coverage 192ms, mutants 115ms)[0m
+ [2mTest runs[0m  6[2m (12 without coverage selection)[0m
+ [2m Start at[0m  16:30:49
+ [2m Duration[0m  1.1s [2m(setup 638ms, coverage 274ms, mutants 196ms)[0m
  [2m    Tests[0m  2 on JDK 17 · 1 worker
  [2m  Reports[0m  build/mutastic/mutation.json[2m · [0mbuild/mutastic/mutation.html
- [2m    Score[0m  [1;31m[1m55.6%[0m[0m  [1;31m▼ 11.1 vs last run[0m[2m (same code)[0m[2m  threshold 80[0m
+ [2m    Score[0m  [1;31m[1m50.0%[0m[0m  [1;31m▼ 12.5 vs last run[0m[2m (same code)[0m[2m  threshold 80[0m
 
  [41;30;1m FAIL [0m [1;31mScore below 80: 2 missed, 2 not covered.[0m
 [2m Next: mutastic verify <id> samples/flaky · mutastic run --only=<id> samples/flaky · mutastic explain <id> samples/flaky[0m

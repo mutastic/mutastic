@@ -8,9 +8,13 @@ public enum BuiltIn implements Operator {
       "`<` becomes `<=` and the other way round: the off-by-one at the edge of a range, which tests"
           + " that only check values far from the edge never notice."),
 
+  /// In `stronger`, not `defaults`: a test that catches it can still leave both of
+  /// [#REMOVE_CONDITIONAL]'s mutants alive, and not the other way round, so in the defaults its
+  /// catches only add to the score. PIT made the same change in 1.7.2.
   NEGATE_CONDITIONAL(
       "A condition goes the other way: `==` becomes `!=`, `<` becomes `>=`. It goes unnoticed when"
-          + " no test checks what happens on one side of an `if`."),
+          + " no test checks what happens on one side of an `if`.",
+      Tier.STRONGER),
 
   MATH("`+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`."),
 

@@ -21,7 +21,8 @@ class TestNgTest {
 
     var run = Samples.mutastic("run", project.toString(), "--format=agent");
 
-    assertThat(run.exit()).as(run.err()).isEqualTo(Main.PASSED);
+    // One miss among four mutants is under the threshold.
+    assertThat(run.exit()).as(run.err()).isEqualTo(Main.FAILED);
     // The `slow` group would catch it; the build leaves it out, so mutastic does too.
     assertThat(run.out())
         .contains("1 missed")
