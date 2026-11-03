@@ -22,16 +22,39 @@ if (total >= 100)   // becomes: if (total > 100)
 `>=`, `== null` becomes `!= null`. It goes unnoticed when no test checks what happens on one side
 of an `if`.
 
+```java
+if (order.isPaid())   // becomes: if (!order.isPaid())
+if (coupon == null)   // becomes: if (coupon != null)
+```
+
 ## Math
 
-`mutastic/math`. `+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`.
+`mutastic/math`. `+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`. It goes
+unnoticed when tests only use values where the two give the same answer, such as adding `0` or
+multiplying by `1`.
+
+```java
+return price * quantity;   // becomes: return price / quantity;
+```
 
 ## Return default
 
 `mutastic/return-default`. A method returns its type's default (`0`, `false`, `null`) instead of
 what it computed. It goes unnoticed when tests call the method but never look at what it returns.
 
+```java
+return subtotal + shipping;      // becomes: return 0;
+return customer.isEligible();    // becomes: return false;
+return "Order " + id;            // becomes: return null;
+```
+
 ## Remove void call
 
 `mutastic/remove-void-call`. A call that returns nothing is removed. It goes unnoticed when no test
 checks what the call does.
+
+```java
+inventory.reserve(item);   // becomes: nothing, the line is gone
+```
+
+Constructors are left alone: removing one would leave an object half made, not a gap in the tests.
