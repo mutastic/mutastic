@@ -42,4 +42,24 @@ class TestSelectionTest {
     assertThat(selection.runs("com.example.CatTest")).isTrue();
     assertThat(selection.runs("com.example.CowTest")).isFalse();
   }
+
+  @Test
+  void anyIncludeIsEnough() {
+    var selection =
+        new TestSelection(
+            List.of("**/*Test.class", "**/*IT.class"), List.of(), List.of(), List.of());
+
+    assertThat(selection.runs("com.example.PricingTest")).isTrue();
+    assertThat(selection.runs("com.example.PricingIT")).isTrue();
+    assertThat(selection.runs("com.example.Helper")).isFalse();
+  }
+
+  @Test
+  void leavingOutNamesAClassWithOrWithoutItsPackage() {
+    var selection = TestSelection.ALL.leavingOut(List.of("SlowTest", "com.example.BigTest"));
+
+    assertThat(selection.runs("com.example.deep.SlowTest")).isFalse();
+    assertThat(selection.runs("com.example.BigTest")).isFalse();
+    assertThat(selection.runs("com.other.BigTest")).isTrue();
+  }
 }

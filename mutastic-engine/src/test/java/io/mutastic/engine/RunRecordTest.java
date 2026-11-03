@@ -122,6 +122,98 @@ class RunRecordTest {
     assertThat(RunRecord.read(work.resolve("missing.tsv"))).isEmpty();
   }
 
+  @Test
+  void theCodeHashChangesWithAClassFileAndNothingElse() throws Exception {
+    var classes = work.resolve("classes");
+    var tests = work.resolve("test-classes");
+    java.nio.file.Files.createDirectories(classes.resolve("com/example"));
+    java.nio.file.Files.createDirectories(tests);
+    var pricing = classes.resolve("com/example/Pricing.class");
+    java.nio.file.Files.write(pricing, new byte[] {1, 2, 3});
+    var project = project(List.of(classes, work.resolve("missing")), List.of(tests));
+
+    var before = RunRecord.codeOf(project);
+    java.nio.file.Files.writeString(classes.resolve("notes.txt"), "not code");
+    var withNotes = RunRecord.codeOf(project);
+    java.nio.file.Files.write(pricing, new byte[] {1, 2, 4});
+    var changed = RunRecord.codeOf(project);
+    java.nio.file.Files.write(tests.resolve("PricingTest.class"), new byte[] {9});
+    var withTest = RunRecord.codeOf(project);
+
+    assertThat(withNotes).isEqualTo(before);
+    assertThat(changed).isNotEqualTo(before);
+    assertThat(withTest).isNotEqualTo(changed);
+  }
+
+  @Test
+  void aRecordIsOfItsProjectAndKeepsEachResult() throws Exception {
+    var classes = work.resolve("classes");
+    java.nio.file.Files.createDirectories(classes);
+    var project = project(List.of(classes), List.of());
+    var other = project(List.of(work.resolve("elsewhere")), List.of());
+    var report =
+        new io.mutastic.api.Report(
+            "pricing",
+            17,
+            List.of(),
+            0,
+            List.of(),
+            java.time.Duration.ZERO,
+            1,
+            1,
+            java.time.Duration.ZERO);
+
+    var recorded = RunRecord.of(project, "tool-1", report);
+    var withOtherTests =
+        RunRecord.of(project, List.of(work.resolve("their-tests")), "tool-1", report);
+
+    assertThat(recorded.isOf(project)).isTrue();
+    assertThat(recorded.isOf(other)).isFalse();
+    assertThat(recorded.project()).isEqualTo(classes.toAbsolutePath().normalize().toString());
+    assertThat(recorded.tool()).isEqualTo("tool-1");
+    assertThat(recorded.score()).isEmpty();
+    assertThat(withOtherTests.code()).isEqualTo(recorded.code());
+    assertThat(
+            new RunRecord("", "abc", "t", java.util.OptionalDouble.empty(), Map.of()).isOf(project))
+        .isFalse();
+  }
+
+  @Test
+  void theToolHashCoversEachFilesPathAndBytes() throws Exception {
+    var jar = work.resolve("tool/engine.jar");
+    java.nio.file.Files.createDirectories(jar.getParent());
+    java.nio.file.Files.write(jar, new byte[] {1});
+    var first = RunRecord.toolOf(List.of(work.resolve("tool")));
+
+    java.nio.file.Files.write(jar, new byte[] {2});
+    var rebuilt = RunRecord.toolOf(List.of(work.resolve("tool")));
+    java.nio.file.Files.move(jar, work.resolve("tool/worker.jar"));
+    var renamed = RunRecord.toolOf(List.of(work.resolve("tool")));
+
+    assertThat(first).hasSize(64).isNotEqualTo(rebuilt);
+    assertThat(renamed).isNotEqualTo(rebuilt);
+    assertThat(RunRecord.toolOf(List.of(work.resolve("tool")))).isEqualTo(renamed);
+  }
+
+  private static io.mutastic.api.Project project(List<Path> classes, List<Path> tests) {
+    return new io.mutastic.api.Project(
+        "pricing",
+        Path.of("java"),
+        List.of(),
+        Path.of("."),
+        classes,
+        List.of(),
+        tests,
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        io.mutastic.api.TestSelection.ALL,
+        Map.of());
+  }
+
   private static RunRecord record(String code, Map<String, RunRecord.Entry> results) {
     return record(code, "tool-1", results);
   }

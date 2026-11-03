@@ -1,0 +1,218 @@
+package io.mutastic.report;
+
+import static io.mutastic.report.AgentTextTest.boundary;
+import static io.mutastic.report.AgentTextTest.report;
+import static io.mutastic.report.AgentTextTest.result;
+import static org.assertj.core.api.Assertions.assertThat;
+
+import io.mutastic.api.ChangedLines;
+import io.mutastic.api.Comparison;
+import io.mutastic.api.Ignore;
+import io.mutastic.api.MutantResult;
+import io.mutastic.api.Report;
+import io.mutastic.api.Status;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+class JsonEventsTest {
+  @TempDir Path project;
+
+  private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+  private JsonEvents events;
+
+  @BeforeEach
+  void source() throws Exception {
+    var file = project.resolve("src/main/java/com/example/Pricing.java");
+    Files.createDirectories(file.getParent());
+    Files.writeString(
+        file,
+        """
+        package com.example;
+
+        public class Pricing {
+          public int discount(int total) {
+            if (total >= 100) {
+              return total / 10;
+            }
+            return 0;
+          }
+        }
+        """);
+    events =
+        new JsonEvents(
+            new PrintStream(bytes, true, StandardCharsets.UTF_8),
+            new SourceView(project, List.of(project.resolve("src/main/java"))),
+            80);
+  }
+
+  @Test
+  void theRunStartsWithItsProjectAndRules() {
+    events.runStarted("pricing");
+
+    assertThat(lines())
+        .containsExactly(
+            "{\"schema\":\"mutastic.events/v1\",\"reason\":\"run-started\",\"project\":\"pricing\","
+                + "\"rules\":\"add or change tests only, never production code\"}");
+  }
+
+  @Test
+  void aMissedMutantCarriesWhereWhatAndTheCommands() {
+    events.mutantFinished(result(boundary(0), Status.MISSED));
+
+    var id = boundary(0).id();
+    assertThat(lines().getFirst())
+        .startsWith(
+            "{\"schema\":\"mutastic.events/v1\",\"reason\":\"mutant-finished\",\"id\":\"%s\","
+                .formatted(id))
+        .contains("\"status\":\"Survived\",\"operator\":\"mutastic/boundary\"")
+        .contains(
+            "\"location\":{\"file\":\"src/main/java/com/example/Pricing.java\",\"line\":5,"
+                + "\"class\":\"com.example.Pricing\",\"method\":\"discount(I)I\"}")
+        .contains("\"original\":\">=\",\"replacement\":\">\"")
+        .contains("\"bytecode\":\"IF_ICMPLT -> IF_ICMPLE\"")
+        .contains("\"coveredBy\":[\"com.example.PricingTest#a\"]")
+        .contains("\"testsRun\":1,\"durationMs\":3")
+        .contains("mutastic verify " + id + " passes")
+        .contains("\"rendered\":\"missed " + id + ": ")
+        .doesNotContain("killedBy", "statusReason", "inputs");
+  }
+
+  @Test
+  void aCaughtMutantSaysByWhatAndASkippedOneWhy() {
+    events.mutantFinished(result(boundary(0), Status.CAUGHT));
+    events.mutantFinished(result(boundary(1).skippedFor("arid: only logs"), Status.SKIPPED));
+
+    assertThat(lines().get(0))
+        .contains("\"status\":\"Killed\"")
+        .contains("\"killedBy\":\"a.PricingTest#a\"")
+        .contains("\"killedWith\":\"org.opentest4j.AssertionFailedError\"")
+        .contains("\"failureOrigin\":\"assertion\"")
+        .doesNotContain("rendered");
+    assertThat(lines().get(1))
+        .contains("\"status\":\"Ignored\"")
+        .contains("\"statusReason\":\"arid: only logs\",\"skipKind\":\"arid\"");
+  }
+
+  @Test
+  void inputsAndAnUnconfirmedCatchAreKept() {
+    events.mutantFinished(
+        new MutantResult(
+            boundary(0),
+            Status.MISSED,
+            List.of("com.example.PricingTest#a"),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            2,
+            Optional.of("com.example.PricingTest#b"),
+            Map.of("total", List.of(50L)),
+            Optional.empty(),
+            Duration.ofMillis(3)));
+
+    assertThat(lines().getFirst())
+        .contains("\"unconfirmedCatchBy\":\"com.example.PricingTest#b\"")
+        .contains("\"inputs\":{\"total\":[50]}");
+  }
+
+  @Test
+  void theRunFinishesWithTotalsScoreAndVerdict() {
+    events.runFinished(
+        report(
+            List.of(result(boundary(0), Status.MISSED), result(boundary(1), Status.CAUGHT)),
+            List.of("com.example.PricingTest#f"),
+            List.of(new Ignore("m1", "x", "y"))),
+        Optional.empty(),
+        List.of("build/mutastic/mutation.json"),
+        false);
+
+    assertThat(lines().getFirst())
+        .contains("\"reason\":\"run-finished\",\"jdk\":17,\"mutants\":2")
+        .contains("\"Killed\":1,\"Survived\":1,\"Timeout\":0,\"NoCoverage\":0,\"Ignored\":0")
+        .contains("\"score\":50.0,\"threshold\":80,\"passed\":false")
+        .contains("\"tests\":2,\"flaky\":[\"com.example.PricingTest#f\"]")
+        .contains("\"reports\":[\"build/mutastic/mutation.json\"]")
+        .contains("\"staleIgnores\":[\"m1\"],\"durationMs\":300")
+        .doesNotContain("previousScore", "\"only\"", "aridAudit", "scope");
+  }
+
+  @Test
+  void aComparisonSaysWhatChanged() {
+    events.runFinished(
+        report(List.of(result(boundary(0), Status.CAUGHT)), List.of(), List.of()),
+        Optional.of(
+            new Comparison(
+                OptionalDouble.of(33.333),
+                false,
+                true,
+                List.of(
+                    new Comparison.Flip("m1", Status.MISSED, Status.CAUGHT, Optional.of("T#t")),
+                    new Comparison.Flip(
+                        "m2", Status.CAUGHT, Status.TIMED_OUT, Optional.empty())))));
+
+    assertThat(lines().getFirst())
+        .contains(
+            "\"previousScore\":33.3,\"sameCodeAsLastRun\":false,\"sameMutasticAsLastRun\":true")
+        .contains(
+            "\"changedSinceLastRun\":[{\"id\":\"m1\",\"before\":\"Survived\",\"after\":\"Killed\","
+                + "\"caughtBy\":\"T#t\"},{\"id\":\"m2\",\"before\":\"Killed\",\"after\":\"Timeout\"}]");
+  }
+
+  @Test
+  void oneMutantPassesWhenItIsCaughtAndNamesIt() {
+    events.runFinished(
+        report(List.of(result(boundary(0), Status.CAUGHT)), List.of(), List.of()),
+        Optional.empty(),
+        List.of(),
+        true);
+    events.runFinished(
+        report(List.of(result(boundary(0), Status.MISSED)), List.of(), List.of()),
+        Optional.empty(),
+        List.of(),
+        true);
+    events.runFinished(report(List.of(), List.of(), List.of()), Optional.empty(), List.of(), true);
+
+    assertThat(lines().get(0)).contains("\"passed\":true,\"only\":\"" + boundary(0).id() + "\"");
+    assertThat(lines().get(1)).contains("\"passed\":false,\"only\":\"" + boundary(0).id() + "\"");
+    assertThat(lines().get(2)).contains("\"score\":null").contains("\"only\":null");
+  }
+
+  @Test
+  void aScopedRunSaysWhatItIsSince() {
+    var file = project.resolve("src/main/java/com/example/Pricing.java");
+    var scoped =
+        new Report(
+            "pricing",
+            17,
+            List.of(),
+            2,
+            List.of(),
+            Duration.ofMillis(100),
+            1,
+            1,
+            Duration.ofMillis(300),
+            List.of(),
+            Optional.of(new ChangedLines("main", Map.of(file, Set.of(5, 6)))),
+            List.of());
+
+    events.runFinished(scoped);
+
+    assertThat(lines().getFirst())
+        .contains("\"scope\":{\"since\":\"main\",\"files\":1,\"lines\":2}");
+  }
+
+  private List<String> lines() {
+    return bytes.toString(StandardCharsets.UTF_8).lines().toList();
+  }
+}

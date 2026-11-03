@@ -14,6 +14,7 @@ import io.mutastic.engine.fixture.Kept;
 import io.mutastic.engine.fixture.OwnAnnotations;
 import io.mutastic.engine.fixture.Point;
 import io.mutastic.engine.fixture.Pricing;
+import io.mutastic.engine.fixture.Switches;
 import io.mutastic.engine.fixture.Window;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
@@ -83,7 +84,13 @@ class MutationsTest {
         .containsEntry("getBoxed", "")
         .containsEntry("getTags", "")
         .containsEntry("getCached", "")
-        .containsEntry("getName", "");
+        .containsEntry("getName", "")
+        .containsEntry("withLast", "")
+        .containsEntry("withBoxed", "")
+        .containsEntry("withActive", "")
+        .containsEntry("withFirst", "")
+        .containsEntry("withTags", "")
+        .containsEntry("withRegion", "");
   }
 
   @Test
@@ -300,6 +307,38 @@ class MutationsTest {
     assertThat(mutantsOf("clearTwice"))
         .hasSize(2)
         .allSatisfy(mutant -> assertThat(mutant.copies()).isEmpty());
+  }
+
+  @Test
+  void aSwitchOnAStringSkipsJavacsEqualsButNotTheUsers() throws Exception {
+    var model = model(Switches.class);
+    var found = mutations.find(model);
+    var inSize = found.stream().filter(mutant -> mutant.methodName().equals("size")).toList();
+    var inIsSmall = found.stream().filter(mutant -> mutant.methodName().equals("isSmall")).toList();
+
+    assertThat(inSize)
+        .filteredOn(mutant -> mutant.skipped().isPresent())
+        .isNotEmpty()
+        .allSatisfy(
+            mutant ->
+                assertThat(mutant.skipped()).contains("generated: part of a switch on a String"));
+    // The cases' own returns are the user's.
+    assertThat(inSize)
+        .filteredOn(mutant -> mutant.operator() == BuiltIn.RETURN_DEFAULT)
+        .allSatisfy(mutant -> assertThat(mutant.skipped()).isEmpty());
+    assertThat(inIsSmall).isNotEmpty().allSatisfy(mutant -> assertThat(mutant.skipped()).isEmpty());
+  }
+
+  @Test
+  void aCloseTheUserWritesIsMutated() throws Exception {
+    assertThat(mutations.find(model(Switches.class)))
+        .filteredOn(mutant -> mutant.methodName().equals("done"))
+        .singleElement()
+        .satisfies(
+            mutant -> {
+              assertThat(mutant.operator()).isEqualTo(BuiltIn.REMOVE_VOID_CALL);
+              assertThat(mutant.skipped()).isEmpty();
+            });
   }
 
   @Test

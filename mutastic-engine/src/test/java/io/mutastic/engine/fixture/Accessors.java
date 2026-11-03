@@ -78,4 +78,35 @@ public class Accessors {
   public String getName() {
     return first == null ? "" : first; // null to empty
   }
+
+  // Near-miss fluent setters: each returns, so has a mutant to keep, but isn't trivial.
+  public Accessors withLast(String last) {
+    this.first = last; // the wrong field: its name says last
+    return this;
+  }
+
+  public Accessors withBoxed(int boxed) {
+    this.count = boxed; // the wrong field, of the right type
+    return this;
+  }
+
+  public Accessors withActive(boolean active) {
+    this.active = !active; // changes what it stores
+    return this;
+  }
+
+  public Accessors withFirst(String first) {
+    this.first = first;
+    return new Accessors(); // not this
+  }
+
+  public Accessors withTags(Accessors other) {
+    other.first = first; // another object's field
+    return this;
+  }
+
+  public static Accessors withRegion(String region) {
+    Accessors.region = region;
+    return new Accessors(); // static: there's no this
+  }
 }
