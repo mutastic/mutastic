@@ -86,7 +86,7 @@ function release() {
   for (const [line, tag] of lines) {
     const worktree = checkout(tag);
     try {
-      const environment = { ...shared, DOCS_VERSION: line };
+      const environment = { ...shared, DOCS_VERSION: line, DOCS_RELEASE: tag.slice(1) };
       if (line === latest) {
         build(join(worktree, 'docs'), out, { ...environment, DOCS_BASE: '/' });
       }

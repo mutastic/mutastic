@@ -2,6 +2,10 @@
 
 *Find out whether your tests, or your agent's, actually check anything.*
 
+[![Maven Central](https://img.shields.io/maven-central/v/io.mutastic/mutastic-cli?label=Maven%20Central)](https://central.sonatype.com/namespace/io.mutastic) · [Install](https://docs.mutastic.io/getting-started/install/) · [Docs](https://docs.mutastic.io/)
+
+The docs' [Install](https://docs.mutastic.io/getting-started/install/) page has the Gradle, Maven and command-line setup for the current release, its version always the latest; this README describes the code on `main`.
+
 mutastic is a mutation-testing tool for Java. It makes small changes to your compiled code, such as `>=` to `>`, and runs your tests against each one. A change that no test notices is a **missed mutant**: a place where your tests run the code but don't check what it does.
 
 > **Status: early.** Five operators (boundaries, negated conditions, arithmetic, returned defaults, removed void calls), Gradle and Maven projects with JUnit Platform tests, parallel workers, suggested tests, flaky-test detection, and output for people, agents and tools (JSON, HTML and XML reports). Expect everything to change.
@@ -93,25 +97,25 @@ The result goes to stdout and progress to stderr, so `mutastic run > result.txt`
 
 ### From Maven
 
-The Maven plugin has each command as a goal, and each option as a `mutastic.` property of the same name:
+The Maven plugin has each command as a goal, and each option as a `mutastic.` property of the same name. Declare it in the build's plugins, as the [Install](https://docs.mutastic.io/getting-started/install/) page shows for the current release, and its goals take the short prefix:
 
 ```sh
-mvn io.mutastic:mutastic-maven-plugin:0.2.0:run -Dmutastic.threshold=60
+mvn mutastic:run -Dmutastic.threshold=60
 ```
 
-Declare it in the build, and its goals take the short prefix, `mvn mutastic:run`, and how a run happens can be set there:
+How a run happens can be set in the plugin's configuration:
 
 ```xml
-<plugin>
-  <groupId>io.mutastic</groupId>
-  <artifactId>mutastic-maven-plugin</artifactId>
-  <version>0.2.0</version>
-  <configuration>
-    <threshold>60</threshold>
-    <testsFrom>dependents</testsFrom>
-    <reports>json,xml</reports>
-  </configuration>
-</plugin>
+<configuration>
+  <threshold>60</threshold>
+  <testsFrom>
+    <module>dependents</module>
+  </testsFrom>
+  <reports>
+    <report>json</report>
+    <report>xml</report>
+  </reports>
+</configuration>
 ```
 
 | Option | Default | |
@@ -130,22 +134,7 @@ Declare it in the build, and its goals take the short prefix, `mvn mutastic:run`
 
 ### From Gradle
 
-The Gradle plugin adds a task for each command to every Java project it's applied to, with each option a `mutastic.` property of the same name:
-
-```kotlin
-// settings.gradle.kts: the plugin is on Maven Central
-pluginManagement {
-    repositories {
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-
-// build.gradle.kts
-plugins {
-    id("io.mutastic") version "0.2.0"
-}
-```
+The Gradle plugin, `id("io.mutastic")`, adds a task for each command to every Java project it's applied to, with each option a `mutastic.` property of the same name. The [Install](https://docs.mutastic.io/getting-started/install/) page shows how to apply it, at the current release.
 
 ```sh
 ./gradlew mutasticRun -Pmutastic.threshold=60

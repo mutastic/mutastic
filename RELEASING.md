@@ -70,7 +70,7 @@ version can never be changed or removed.
 
 1. With `main` green, create the release; its tag gives the version:
    ```sh
-   gh release create v0.1.0 --target main --generate-notes
+   gh release create vX.Y.Z --target main --generate-notes
    ```
 2. Approve the `release` job when GitHub asks. It builds, uploads, and attaches the CLI.
 3. In the Central Portal, under *Deployments*, wait for the deployment to show *Validated*, look
@@ -78,7 +78,7 @@ version can never be changed or removed.
    within about half an hour.
 4. Once it's on Central, send the Gradle plugin to the portal, and approve the job:
    ```sh
-   gh workflow run portal.yml --ref v0.1.0
+   gh workflow run portal.yml --ref vX.Y.Z
    ```
    It runs on the tag, as the `release` environment only lets tags deploy, and checks the release
    is on Central first: the plugin's jars come from there. A plugin's first
