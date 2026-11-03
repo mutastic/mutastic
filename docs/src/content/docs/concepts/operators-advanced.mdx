@@ -1,0 +1,171 @@
+---
+title: Operators (advanced)
+description: "For each operator: the bug it stands for, where missing it costs, the test that catches it, and when a miss is fine."
+---
+
+[Operators](/concepts/operators/) says what each operator changes. This page says why a test that
+catches it is worth having. Each mutant stands for a bug someone could really write, and a
+missed mutant means that bug would get through: the tests pass whichever way the line is written.
+
+For each operator below: the bug it stands for, where missing it costs, the test that catches
+it, and when a miss is fine to [ignore](#when-a-miss-is-fine).
+
+## Boundary
+
+**The bug it stands for:** the off-by-one. `>=` and `>` read almost the same, and code reviews
+rarely stop on them, so the wrong one gets written and the wrong one gets through.
+
+**Where it costs:** every rule with a limit. Free shipping from 100, a discount from 10 items, a
+login locked after 3 failures, a plan's 5-seat limit, a page of 20 results, the last day a refund
+is allowed. Customers are at the edge all the time: someone who spends exactly 100 because the site
+said "free shipping from 100" is the case the rule exists for.
+
+```java
+if (total >= 100)   // becomes: if (total > 100)
+  shipping = 0;
+```
+
+**The test that catches it:** one at the edge. Tests with totals of 50 and 250 pass either way;
+only 100 tells `>=` from `>`. mutastic's [inputs seen](/concepts/suggested-tests/) shows which values
+the tests tried, so the missing edge is easy to spot.
+
+```java
+@Test
+void shippingIsFreeFromExactly100() {
+  assertEquals(0, new Checkout().shipping(100));
+}
+```
+
+A boundary miss is a question for whoever owns the rule as much as for the tests: should 100 get
+free shipping? The test records the answer.
+
+## Negate conditional
+
+**The bug it stands for:** a condition the wrong way round: a missing `!`, `==` for `!=`, a null
+check that guards the wrong case.
+
+**Where it costs:** where code decides which way to go: whether an order is paid before it ships,
+whether a user may see a page, whether to retry, whether a value is missing. Getting it backwards
+usually means doing the wrong thing in exactly the case that matters: shipping unpaid orders, or
+refusing paid ones.
+
+```java
+if (order.isPaid())   // becomes: if (!order.isPaid())
+  warehouse.ship(order);
+```
+
+**The test that catches it:** one for each side of the `if`. A miss here usually means the tests
+only ever took one path, the happy one, and nothing checks what happens on the other.
+
+```java
+@Test
+void unpaidOrdersDontShip() {
+  var order = Order.unpaid();
+  checkout.complete(order);
+  assertThat(warehouse.shipped()).doesNotContain(order);
+}
+```
+
+Security checks deserve this most. A permission check whose negation no test notices is one
+nobody has proved refuses anyone.
+
+## Math
+
+**The bug it stands for:** the wrong operator in a calculation: `-` for `+`, `/` for `*`.
+
+**Where it costs:** money, quantities and time: prices, tax, totals, stock levels, durations. A
+wrong calculation is often silent: nothing crashes, the number is just wrong, and it's found later
+on an invoice or in a report, by a customer.
+
+```java
+return price * quantity;   // becomes: return price / quantity;
+```
+
+**The test that catches it:** one whose values tell the operators apart. Tests often use values
+where they don't: a quantity of `1` gives the same answer for `*` and `/`, and adding `0` the same
+for `+` and `-`. Those are exactly the values a quick test tends to pick.
+
+```java
+@Test
+void totalIsPriceTimesQuantity() {
+  assertEquals(1500, new LineItem(500, 3).total());
+}
+```
+
+## Return default
+
+**The bug it stands for:** a method that doesn't return what it worked out. This is less a typo
+than a sign: tests that call the method but never look at its answer.
+
+**Where it costs:** everywhere a result is used. If returning `0`, `false` or `null` instead
+passes every test, the tests run the method without checking it. Its line counts as covered, and
+the coverage report says it's tested when it isn't.
+
+```java
+return customer.isEligible();   // becomes: return false;
+```
+
+**The test that catches it:** one that asserts on the result. When `false` is missed, a test that
+expects `true` catches it, and the other way round. When `null` is missed, a test that checks the
+returned value catches it, and code that uses the value without checking it for `null` would fail
+in production.
+
+```java
+@Test
+void loyalCustomersAreEligible() {
+  assertTrue(Customer.withOrders(12).isEligible());
+}
+```
+
+A test that calls a method and asserts nothing about what comes back is the commonest gap this
+operator finds, and often the easiest to fix.
+
+## Remove void call
+
+**The bug it stands for:** a step left out: a call removed in a refactor, never added, or
+skipped on one path.
+
+**Where it costs:** side effects, which are often the point of the code: saving a record,
+reserving stock, sending an email, writing an audit entry, releasing a lock, invalidating a cache.
+If removing the call passes every test, nothing checks the step happens. That's how an order can
+be confirmed without its stock being reserved, or a change made without the audit entry that
+compliance relies on.
+
+```java
+inventory.reserve(item);   // becomes: nothing, the line is gone
+```
+
+**The test that catches it:** one that checks the effect, the stock afterwards or the record
+written, rather than only that the method returned.
+
+```java
+@Test
+void confirmingReservesStock() {
+  orders.confirm(orderFor(item));
+  assertEquals(4, inventory.available(item));
+}
+```
+
+## When a miss is fine
+
+Not every missed mutant is a gap worth closing. mutastic already skips the changes that would
+tell you nothing, such as calls that only log and trivial getters: see
+[Skipped mutants](/concepts/results/#skipped-mutants). What's left can still include changes no
+one could see:
+
+- **A boundary nobody can reach.** If `count` can never be exactly `limit`, `<` and `<=` behave the
+  same.
+- **A call whose effect is checked elsewhere, or not at all on purpose,** such as warming a cache
+  that only makes things faster.
+- **A result the code always overwrites,** or a check made twice where the second never decides
+  anything.
+
+For those, record the decision rather than writing a test that pins nothing. It goes in
+`.mutastic/ignores.yaml`, to commit and review, and lapses when the line changes:
+
+```sh
+mutastic ignore m855c8e3c --reason="count never reaches limit"
+```
+
+For a whole class or method that isn't worth testing, generated code say, a rule in
+`mutastic.yaml` skips it: see [Configuration and skipping](/guides/configuration/).

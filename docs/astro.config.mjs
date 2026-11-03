@@ -74,6 +74,7 @@ export default defineConfig({
           items: [
             'concepts/results',
             'concepts/operators',
+            'concepts/operators-advanced',
             'concepts/output',
             'concepts/suggested-tests',
             'concepts/flaky-tests',
