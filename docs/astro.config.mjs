@@ -49,7 +49,20 @@ export default defineConfig({
       disable404Route: true,
       description:
         "Mutation testing for Java: finds the changes your tests don't notice, and suggests the tests that would.",
-      head: notLatest ? [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex' } }] : [],
+      head: [
+        ...(notLatest ? [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex' } }] : []),
+        // Umami, the same cookie-free analytics as mutastic.io, as its own website: counted only
+        // on docs.mutastic.io itself, never on a preview.
+        {
+          tag: 'script',
+          attrs: {
+            defer: true,
+            src: 'https://umami.wazolabs.co/script.js',
+            'data-website-id': 'ba6d5674-59d9-4086-93dd-b58640d3925b',
+            'data-domains': 'docs.mutastic.io',
+          },
+        },
+      ],
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/mutastic/mutastic' }],
       editLink: { baseUrl: 'https://github.com/mutastic/mutastic/edit/main/docs/' },
       customCss: [
