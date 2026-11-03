@@ -117,7 +117,10 @@ class NewOperatorsTest {
 
   @Test
   void everyNewMutantVerifies() throws Exception {
-    for (Class<?> type : List.of(Pricing.class, Orders.class)) {
+    // Tail has a local with a type annotation, whose offsets a mutant that changes the code's
+    // length mustn't leave behind.
+    for (Class<?> type :
+        List.of(Pricing.class, Orders.class, io.mutastic.engine.fixture.Tail.class)) {
       var model = MutationsTest.model(type);
       for (Mutant mutant : stronger.find(model)) {
         assertThat(stronger.verify(stronger.apply(model, mutant))).as(mutant.toString()).isEmpty();

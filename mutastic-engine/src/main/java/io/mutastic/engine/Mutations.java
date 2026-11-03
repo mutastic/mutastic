@@ -20,6 +20,8 @@ import java.lang.classfile.Instruction;
 import java.lang.classfile.MethodModel;
 import java.lang.classfile.Opcode;
 import java.lang.classfile.TypeKind;
+import java.lang.classfile.attribute.RuntimeInvisibleTypeAnnotationsAttribute;
+import java.lang.classfile.attribute.RuntimeVisibleTypeAnnotationsAttribute;
 import java.lang.classfile.instruction.BranchInstruction;
 import java.lang.classfile.instruction.ConstantInstruction;
 import java.lang.classfile.instruction.InvokeDynamicInstruction;
@@ -423,7 +425,14 @@ final class Mutations {
       // code and shrinks max_locals, but the debug table still names the dead locals, and the JVM
       // rejects the class with a ClassFormatError that verification doesn't catch. Mutants run
       // without local-variable debug info; line numbers stay.
-      if (element instanceof LocalVariable || element instanceof LocalVariableType) {
+      //
+      // Type annotations in the code (JSpecify's `@Nullable` on a local) say where each annotated
+      // local lives by bytecode offset, which the API doesn't move when a mutant changes the
+      // code's length: they'd point past the end, and the class wouldn't load. They go too.
+      if (element instanceof LocalVariable
+          || element instanceof LocalVariableType
+          || element instanceof RuntimeVisibleTypeAnnotationsAttribute
+          || element instanceof RuntimeInvisibleTypeAnnotationsAttribute) {
         return;
       }
       if (element instanceof Instruction instruction && sites.changedBy(mutant, instruction)) {
