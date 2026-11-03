@@ -45,7 +45,7 @@ version can never be changed or removed.
    gh secret set MAVEN_CENTRAL_PASSWORD --env release --repo mutastic/mutastic  # the token's password, from step 2
    ```
    The token is not your Central Portal login, and the portal shows it once. Tokens belong to the
-   account, so tictactoe's works here too, and generating a new one may retire the old.
+   account, not the namespace, and generating a new one may retire the old.
 5. **The Gradle Plugin Portal.** Sign in at [plugins.gradle.org](https://plugins.gradle.org), and
    on your profile's *API Keys* tab generate a key and secret:
    ```sh
