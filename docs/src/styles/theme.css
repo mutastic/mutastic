@@ -92,6 +92,18 @@ kbd,
     position: sticky;
     top: calc(var(--sl-nav-height) + 1.25rem);
   }
+  /* Side by side, the examples start level with the prose's first line: not Starlight's gap
+     between stacked blocks (which the first row's tabs also get, after the script Starlight
+     puts before them once a page), and an option's heading keeps its space above on the row
+     instead. */
+  .sl-markdown-content .reference-examples,
+  .sl-markdown-content .reference-examples > starlight-tabs,
+  .sl-markdown-content .reference-prose > h3:first-child {
+    margin-top: 0;
+  }
+  .reference-row:has(> .reference-prose > h3:first-child) {
+    margin-top: 4rem;
+  }
 }
 .reference-examples .expressive-code {
   margin-top: 0.75rem;
