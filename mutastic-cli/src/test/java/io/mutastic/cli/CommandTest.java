@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -20,7 +21,7 @@ class CommandTest {
                 ":",
                 Optional.empty(),
                 80,
-                Optional.empty(),
+                List.of(),
                 false,
                 Optional.empty(),
                 "auto",
@@ -53,7 +54,7 @@ class CommandTest {
                 ":api",
                 Optional.of("jsonl"),
                 60,
-                Optional.empty(),
+                List.of(),
                 false,
                 Optional.empty(),
                 "auto",

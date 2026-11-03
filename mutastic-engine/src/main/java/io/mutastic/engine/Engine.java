@@ -91,7 +91,8 @@ public final class Engine {
 
   /// What a run does beyond finding and running every mutant.
   ///
-  /// @param only run just the mutant with this id
+  /// @param only run just the mutants with these ids, each of which must be there; every mutant
+  ///   when empty
   /// @param confirmCatches run a catching test once more against its mutant: a catch that doesn't
   ///   repeat came from a flaky test, and the mutant's other covering tests decide. One more test
   ///   run per catch.
@@ -105,7 +106,7 @@ public final class Engine {
   /// @param policy the project's own rules and filters
   /// @param changed the lines of a change, when the run is scoped to it: no other mutant runs
   public record Options(
-      Optional<String> only,
+      List<String> only,
       boolean confirmCatches,
       int workers,
       boolean suggestions,
@@ -120,6 +121,7 @@ public final class Engine {
     }
 
     public Options {
+      only = List.copyOf(only);
       among = java.util.Set.copyOf(among);
       if (workers < 1) {
         throw new IllegalArgumentException("workers must be at least 1, not " + workers);
@@ -221,20 +223,22 @@ public final class Engine {
             .toList());
   }
 
-  /// Every mutant in the classes, or only the one with the id `only`, which must be there.
+  /// Every mutant in the classes, or only those with the ids `only`, which must all be there.
   private static List<Mutant> mutantsIn(
-      Map<String, ClassModel> models,
-      Mutations mutations,
-      Optional<String> only,
-      String projectName) {
+      Map<String, ClassModel> models, Mutations mutations, List<String> only, String projectName) {
     var mutants =
         models.values().stream()
             .flatMap(model -> mutations.find(model).stream())
-            .filter(mutant -> only.map(mutant.id()::equals).orElse(true))
+            .filter(mutant -> only.isEmpty() || only.contains(mutant.id()))
             .toList();
-    if (only.isPresent() && mutants.isEmpty()) {
-      throw new UnknownMutant(only.get(), projectName);
-    }
+    var found = mutants.stream().map(Mutant::id).collect(Collectors.toSet());
+    only.stream()
+        .filter(id -> !found.contains(id))
+        .findFirst()
+        .ifPresent(
+            id -> {
+              throw new UnknownMutant(id, projectName);
+            });
     return mutants;
   }
 

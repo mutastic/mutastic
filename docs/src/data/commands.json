@@ -13,11 +13,11 @@
     },
     {
       "name": "verify",
-      "synopsis": "mutastic verify ID [DIR] [:MODULE]",
-      "summary": "Run one mutant's tests: it passes when they catch it",
-      "detail": "How a fix is proved: each missed mutant offers it as \"done when\".",
+      "synopsis": "mutastic verify ID... [DIR] [:MODULE]",
+      "summary": "Run mutants' tests: it passes when they catch every one",
+      "detail": "How a fix is proved: each missed mutant offers it as \"done when\", and a card with several mutants names them all.",
       "takesMutantId": true,
-      "examples": [{ "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c", "commandLine": "mutastic verify m855c8e3c" }, { "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c -p samples/pricing", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -f samples/pricing", "commandLine": "mutastic verify m855c8e3c samples/pricing" }],
+      "examples": [{ "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c", "commandLine": "mutastic verify m855c8e3c" }, { "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c -p samples/pricing", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -f samples/pricing", "commandLine": "mutastic verify m855c8e3c samples/pricing" }, { "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c -p m2e491c40", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -f m2e491c40", "commandLine": "mutastic verify m855c8e3c m2e491c40" }],
       "options": ["--tests-from", "--workers", "--confirm-catches", "--exclude-tests", "--suite", "--progress"]
     },
     {
@@ -75,7 +75,7 @@
       "group": "Running",
       "value": "ID",
       "choices": [],
-      "help": "Run one mutant; the run passes when it's caught",
+      "help": "Run one mutant, or several split by commas; the run passes when each is caught",
       "commands": ["run"],
       "environment": "",
       "maven": { "property": "-Dmutastic.only", "setting": null },

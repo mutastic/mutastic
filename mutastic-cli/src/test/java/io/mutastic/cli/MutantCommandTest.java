@@ -8,7 +8,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +26,7 @@ class MutantCommandTest {
 
       var parsed = Main.Command.parse(arguments.toArray(String[]::new));
 
-      assertThat(parsed.only()).as(command.command(ID, invocation)).isEqualTo(Optional.of(ID));
+      assertThat(parsed.only()).as(command.command(ID, invocation)).isEqualTo(List.of(ID));
       assertThat(parsed.directory())
           .as(command.command(ID, invocation))
           .isEqualTo(Path.of("samples/pricing"));

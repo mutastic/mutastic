@@ -39,6 +39,17 @@ class PricingSampleTest {
     var id = missed.replaceAll(".*\"id\":\"(m[0-9a-f]{8})\".*", "$1");
 
     assertThat(Samples.mutastic("verify", id, project.toString()).exit()).isEqualTo(Main.FAILED);
+    var caught =
+        run.out()
+            .lines()
+            .filter(line -> line.contains("\"status\":\"Killed\""))
+            .findFirst()
+            .orElseThrow()
+            .replaceAll(".*\"id\":\"(m[0-9a-f]{8})\".*", "$1");
+    // Several at once pass only when every one is caught.
+    var both = Samples.mutastic("verify", id, caught, project.toString());
+    assertThat(both.exit()).isEqualTo(Main.FAILED);
+    assertThat(both.out()).contains(id + " is still missed").contains(caught + " is caught by");
 
     // What the advice asks for: a test at the edge, and no production change.
     var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
@@ -56,7 +67,7 @@ class PricingSampleTest {
         }
         """));
 
-    var verified = Samples.mutastic("verify", id, project.toString());
+    var verified = Samples.mutastic("verify", id, caught, project.toString());
     assertThat(verified.exit()).isEqualTo(Main.PASSED);
     assertThat(verified.out())
         .contains(

@@ -62,7 +62,7 @@ final class Options {
               Group.RUNNING,
               "ID",
               List.of(),
-              "Run one mutant; the run passes when it's caught",
+              "Run one mutant, or several split by commas; the run passes when each is caught",
               RUNS,
               "only",
               false,
@@ -312,10 +312,10 @@ final class Options {
 
   /// A build plugin's `mutastic.` property as the arguments it stands for, or empty for an argument
   /// that isn't one. `-Dmutastic.threshold=60` (or `-Pmutastic.`) → `--threshold=60`;
-  /// `-Dmutastic.mutant=m855c8e3c` → the id. A flag is on when it's set without a value or to
-  /// `true`, off for `false`: `-Pmutastic.prune`, `-Dmutastic.suggestions=false` →
-  /// `--no-suggestions`. A list is joined by commas, `-Dmutastic.testsFrom=:app,:web`, and an empty
-  /// `reports` writes none.
+  /// `-Dmutastic.mutant=m855c8e3c` → the id, and `m855c8e3c,m2e491c40` → each, for `verify`. A flag
+  /// is on when it's set without a value or to `true`, off for `false`: `-Pmutastic.prune`,
+  /// `-Dmutastic.suggestions=false` → `--no-suggestions`. A list is joined by commas,
+  /// `-Dmutastic.testsFrom=:app,:web`, and an empty `reports` writes none.
   static Optional<List<String>> fromProperty(String argument) {
     if (!argument.startsWith(MAVEN_PROPERTY) && !argument.startsWith(GRADLE_PROPERTY)) {
       return Optional.empty();
@@ -325,7 +325,7 @@ final class Options {
     var name = equals < 0 ? assignment : assignment.substring(0, equals);
     var value = equals < 0 ? "" : assignment.substring(equals + 1);
     if (name.equals("mutant")) {
-      return Optional.of(List.of(value));
+      return Optional.of(List.of(value.split(",", -1)));
     }
     var option =
         ALL.stream()

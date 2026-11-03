@@ -149,7 +149,7 @@ public final class Main {
               shown(prepared.directory().resolve(Ignores.FILE)));
       // Removing needs no mutant: its code may be gone.
       return command.ignore().get().remove()
-          ? IgnoreCommand.remove(command.only().orElseThrow(), where, out)
+          ? IgnoreCommand.remove(command.only().getFirst(), where, out)
           : IgnoreCommand.run(
               command.ignore().get(),
               where,
@@ -158,12 +158,12 @@ public final class Main {
     }
     var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
-    return verified(report.results().getFirst(), out);
+    return verified(report.results(), out);
   }
 
   /// `explain`: everything known of one mutant, with how the last full run went.
   private static int explained(Command command, Prepared prepared, Passes passes, Output output) {
-    var lastRun = lastRun(prepared, command.only().orElseThrow());
+    var lastRun = lastRun(prepared, command.only().getFirst());
     var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
     var result = report.results().getFirst();
@@ -448,7 +448,7 @@ public final class Main {
   private static Policy policy(Command command, Path directory) {
     var configuration = Configuration.read(directory);
     var chosen =
-        command.only().isPresent()
+        !command.only().isEmpty()
             ? List.of("stronger")
             : command.operators().isEmpty() ? configuration.operators() : command.operators();
     var policy =
@@ -466,7 +466,16 @@ public final class Main {
     return policy;
   }
 
-  /// What `verify` says of its mutant, and whether it passed.
+  /// What `verify` says of each of its mutants, and whether every one passed.
+  private static int verified(List<MutantResult> results, PrintStream out) {
+    int exit = PASSED;
+    for (MutantResult result : results) {
+      exit = Math.max(exit, verified(result, out));
+    }
+    return exit;
+  }
+
+  /// What `verify` says of one of its mutants, and whether it passed.
   private static int verified(MutantResult result, PrintStream out) {
     out.printf(
         "mutastic: %s %s%n",
@@ -488,7 +497,7 @@ public final class Main {
 
   private static Display display(
       Command command, Prepared prepared, Output output, HumanText human) {
-    var oneMutant = command.only().isPresent();
+    var oneMutant = !command.only().isEmpty();
     return switch (output.format()) {
       case "jsonl" -> jsonl(command, prepared, output);
       case "agent" -> {
@@ -515,7 +524,7 @@ public final class Main {
         prepared.startedAt(),
         prepared.setup(),
         written,
-        command.only().isPresent(),
+        !command.only().isEmpty(),
         command.excludeTests());
   }
 
@@ -529,13 +538,13 @@ public final class Main {
           output.progress(),
           (report, comparison, written) -> {
             report.results().forEach(events::mutantFinished);
-            events.runFinished(report, comparison, written, command.only().isPresent());
+            events.runFinished(report, comparison, written, !command.only().isEmpty());
           });
     }
     return new Display(
         progressAndEvents(output.progress(), events),
         (report, comparison, written) ->
-            events.runFinished(report, comparison, written, command.only().isPresent()));
+            events.runFinished(report, comparison, written, !command.only().isEmpty()));
   }
 
   private static Listener progressAndEvents(Progress progress, JsonEvents events) {
@@ -604,7 +613,7 @@ public final class Main {
   private static int exitCode(Command command, Report report) {
     // One mutant asked for by id passes when it's caught, as `verify` does; a whole run, on its
     // score.
-    if (command.only().isPresent()) {
+    if (!command.only().isEmpty()) {
       return report.results().stream().allMatch(result -> result.status().detected())
           ? PASSED
           : FAILED;
@@ -693,10 +702,14 @@ public final class Main {
             "mutastic run . :core --tests-from=dependents")),
     VERIFY(
         true,
-        "verify ID [DIR] [:MODULE]",
-        "Run one mutant's tests: it passes when they catch it",
-        "How a fix is proved: each missed mutant offers it as \"done when\".",
-        List.of("mutastic verify m855c8e3c", "mutastic verify m855c8e3c samples/pricing")),
+        "verify ID... [DIR] [:MODULE]",
+        "Run mutants' tests: it passes when they catch every one",
+        "How a fix is proved: each missed mutant offers it as \"done when\", and a card with"
+            + " several mutants names them all.",
+        List.of(
+            "mutastic verify m855c8e3c",
+            "mutastic verify m855c8e3c samples/pricing",
+            "mutastic verify m855c8e3c m2e491c40")),
     EXPLAIN(
         true,
         "explain ID [DIR] [:MODULE]",
@@ -777,7 +790,7 @@ public final class Main {
       String module,
       Optional<String> format,
       int threshold,
-      Optional<String> only,
+      List<String> only,
       boolean confirmCatches,
       Optional<Integer> workers,
       String colour,
@@ -844,10 +857,13 @@ public final class Main {
 
     /// The arguments after the subcommand, read one at a time.
     private static final class Parser {
+      private static final java.util.regex.Pattern MUTANT_ID =
+          java.util.regex.Pattern.compile("m[0-9a-f]{8}");
+
       private final List<String> positional = new ArrayList<>();
       private Optional<String> format = Optional.empty();
       private int threshold = DEFAULT_THRESHOLD;
-      private Optional<String> only = Optional.empty();
+      private List<String> only = List.of();
       private boolean confirmCatches = false;
       private Optional<Integer> workers = Optional.empty();
       private String colour = "auto";
@@ -919,7 +935,7 @@ public final class Main {
             since = Optional.of(given);
             afterBareSince = value == null;
           }
-          case "--only" -> only = Optional.of(given);
+          case "--only" -> only = List.of(given.split(",", -1));
           case "--tests-from" -> testsFrom.add(module(given));
           case "--operators" -> operators(given);
           case "--exclude-tests" -> excludeTests(given);
@@ -1023,8 +1039,10 @@ public final class Main {
         if (subcommand == Subcommand.IGNORE) {
           return ignoring();
         }
-        if (subcommand != Subcommand.RUN) {
-          only = Optional.of(mutantId(subcommand.word()));
+        if (subcommand == Subcommand.VERIFY) {
+          only = mutantIds();
+        } else if (subcommand != Subcommand.RUN) {
+          only = List.of(mutantId(subcommand.word()));
         }
         return built(subcommand);
       }
@@ -1032,13 +1050,23 @@ public final class Main {
       /// `ignore ID --reason=…`, or `ignore --prune`.
       private Command ignoring() {
         if (!prune) {
-          only = Optional.of(mutantId("ignore"));
+          only = List.of(mutantId("ignore"));
           if (!remove && reason.isBlank()) {
             throw new UsageException(
                 "ignore needs a reason, which every ignore says: --reason=\"…\"");
           }
         }
         return built(Subcommand.IGNORE).ignoring(new Ignoring(prune, remove, reason));
+      }
+
+      /// `verify`'s ids: every word before the directory that is one, `m` and eight hex digits.
+      private List<String> mutantIds() {
+        var ids = new ArrayList<String>();
+        ids.add(mutantId("verify"));
+        while (!positional.isEmpty() && MUTANT_ID.matcher(positional.getFirst()).matches()) {
+          ids.add(positional.removeFirst());
+        }
+        return ids;
       }
 
       private String mutantId(String subcommand) {
