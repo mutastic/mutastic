@@ -11,8 +11,9 @@ import java.util.List;
 ///   prefix) when the build declares it, else its coordinates,
 ///   `io.mutastic:mutastic-maven-plugin:0.2.0`; for Gradle, the command, `./gradlew` or `gradle`;
 ///   empty for the command line
-/// @param target the project as the command line names it, `samples/pricing :api`; empty when it's
-///   the directory mutastic ran in and its root project
+/// @param target the project as the command line names it, `samples/pricing :api`, and its test
+///   suite when it isn't the default, `--suite=integrationTest`; empty when it's the directory
+///   mutastic ran in, its root project and its default suite
 public record Invocation(Form form, String launcher, List<String> target) {
   /// Where mutastic was started from.
   public enum Form {
@@ -85,10 +86,14 @@ public record Invocation(Form form, String launcher, List<String> target) {
       all.add(quoted(MAVEN_PROPERTY + property(word)));
     }
     for (String word : target) {
-      all.addAll(
-          word.startsWith(":")
-              ? List.of("-pl", quoted(word.substring(1)))
-              : List.of("-f", quoted(word)));
+      if (word.startsWith("--")) {
+        all.add(quoted(MAVEN_PROPERTY + property(word))); // `--suite=…`, part of the project
+      } else {
+        all.addAll(
+            word.startsWith(":")
+                ? List.of("-pl", quoted(word.substring(1)))
+                : List.of("-f", quoted(word)));
+      }
     }
     return all;
   }
@@ -103,7 +108,9 @@ public record Invocation(Form form, String launcher, List<String> target) {
       all.add(quoted(GRADLE_PROPERTY + property(word)));
     }
     for (String word : target) {
-      if (!word.startsWith(":")) {
+      if (word.startsWith("--")) {
+        all.add(quoted(GRADLE_PROPERTY + property(word))); // `--suite=…`, part of the project
+      } else if (!word.startsWith(":")) {
         all.addAll(List.of("-p", quoted(word)));
       }
     }
