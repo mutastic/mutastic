@@ -645,18 +645,26 @@ public final class HumanText {
                 "(no test reaches these lines%s)"
                     .formatted(report.flaky().isEmpty() ? "" : ", or only a flaky one does")))
         .append('\n');
-    byLine.entrySet().stream()
-        .limit(CARDS)
-        .forEach(entry -> out.append(notCoveredLine(entry.getKey(), entry.getValue())));
-    if (byLine.size() > CARDS) {
-      out.append(style.dim("   … and %d more lines%n".formatted(byLine.size() - CARDS)));
-    }
+    appendNotCoveredLines(out, byLine);
     var uncovered =
         report.results().stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
     SuggestedTest.startingPoints(uncovered, sources, 1)
         .forEach(
             assertion ->
                 out.append("     %s %s%n".formatted(style.dim("try:"), style.green(assertion))));
+  }
+
+  /// The first [#CARDS] places no test reaches, and how many more there are.
+  private void appendNotCoveredLines(StringBuilder out, Map<String, Long> byLine) {
+    byLine.entrySet().stream()
+        .limit(CARDS)
+        .forEach(entry -> out.append(notCoveredLine(entry.getKey(), entry.getValue())));
+    if (byLine.size() > CARDS) {
+      out.append(
+          style.dim(
+              "   … and %d more %s%n"
+                  .formatted(byLine.size() - CARDS, eachMutant ? "lines" : "methods")));
+    }
   }
 
   private String notCoveredLine(String where, long count) {
@@ -667,22 +675,13 @@ public final class HumanText {
             style.dim("(%d mutant%s)".formatted(count, count == 1 ? "" : "s")));
   }
 
-  /// `src/…/Pricing.java:17 discount()` to how many mutants no test reaches there, in report order.
+  /// `src/…/Pricing.java:17 discount()` to how many mutants no test reaches there, in report order:
+  /// one entry per method, at its first such line, or with `--each-mutant` one per line.
   private Map<String, Long> notCoveredByLine(Report report) {
-    var byLine = new LinkedHashMap<String, Long>();
-    report.results().stream()
-        .filter(result -> result.status() == Status.NOT_COVERED)
-        .forEach(
-            result ->
-                byLine.merge(
-                    "%s:%d %s"
-                        .formatted(
-                            sources.file(result.mutant()),
-                            sources.place(result.mutant()).line(),
-                            plain(Advice.method(result.mutant()))),
-                    1L,
-                    Long::sum));
-    return byLine;
+    var uncovered =
+        report.results().stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
+    return NotCovered.counted(
+        uncovered, sources, eachMutant, mutant -> plain(Advice.method(mutant)));
   }
 
   private void warnings(Report report, Optional<Comparison> comparison, StringBuilder out) {
@@ -912,7 +911,17 @@ public final class HumanText {
             ? style.green(style.bold(score))
             : style.red(style.bold(score)))
         + delta(report, comparison)
-        + style.dim("  threshold " + threshold);
+        + style.dim("  threshold " + threshold)
+        + coveredScore(report);
+  }
+
+  /// ` · 74.1% where tests reach`, when some code is out of their reach: the score of what they
+  /// run.
+  private String coveredScore(Report report) {
+    var covered = report.coveredScore();
+    return report.count(Status.NOT_COVERED) == 0 || covered.isEmpty()
+        ? ""
+        : style.dim("  · %.1f%% where tests reach".formatted(covered.getAsDouble()));
   }
 
   /// The last line: the one mutant's fate, or PASS or FAIL with why.

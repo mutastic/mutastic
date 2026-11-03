@@ -7,11 +7,11 @@
  [2m Worst at[0m  Stock.restock() 2 ✗
  [2m    Flaky[0m  1 test left out
  [2mTest runs[0m  6[2m (12 without coverage selection)[0m
- [2m Start at[0m  16:30:49
- [2m Duration[0m  1.1s [2m(setup 638ms, coverage 274ms, mutants 196ms)[0m
+ [2m Start at[0m  17:38:28
+ [2m Duration[0m  824ms [2m(setup 452ms, coverage 222ms, mutants 148ms)[0m
  [2m    Tests[0m  2 on JDK 17 · 1 worker
  [2m  Reports[0m  build/mutastic/mutation.json[2m · [0mbuild/mutastic/mutation.html
- [2m    Score[0m  [1;31m[1m50.0%[0m[0m  [1;31m▼ 12.5 vs last run[0m[2m (same code)[0m[2m  threshold 80[0m
+ [2m    Score[0m  [1;31m[1m50.0%[0m[0m  [1;31m▼ 12.5 vs last run[0m[2m (same code)[0m[2m  threshold 80[0m[2m  · 66.7% where tests reach[0m
 
  [41;30;1m FAIL [0m [1;31mScore below 80: 2 missed, 2 not covered.[0m
 [2m Next: mutastic verify <id> samples/flaky · mutastic run --only=<id> samples/flaky · mutastic explain <id> samples/flaky[0m

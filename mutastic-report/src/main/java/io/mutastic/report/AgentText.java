@@ -5,7 +5,6 @@ import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -131,11 +130,14 @@ public final class AgentText {
   private void appendVerdict(StringBuilder out, Report report, int missed, int notCovered) {
     var skipped = report.count(Status.SKIPPED);
     out.append(
-        "mutastic: %s · score %s (threshold %d) · %d %s, %d %s, %d %s of %d mutants%s%n"
+        "mutastic: %s · score %s (threshold %d%s) · %d %s, %d %s, %d %s of %d mutants%s%n"
             .formatted(
                 report.passes(threshold) ? "PASS" : "FAIL",
                 report.score().isPresent() ? percent(report.score()) : "none (no mutants to score)",
                 threshold,
+                notCovered == 0 || report.coveredScore().isEmpty()
+                    ? ""
+                    : "; %s where tests reach".formatted(percent(report.coveredScore())),
                 missed,
                 words.undetected,
                 notCovered,
@@ -236,20 +238,11 @@ public final class AgentText {
         .forEach(assertion -> out.append("  start with: %s%n".formatted(assertion)));
   }
 
-  /// `src/…/Pricing.java:12 discount()` to how many mutants no test reaches there, in report order.
+  /// `src/…/Pricing.java:12-15 discount()` to how many mutants no test reaches there, in report
+  /// order: by method, or with `--each-mutant` by line.
   private Map<String, Long> notCoveredByLine(List<MutantResult> notCovered) {
-    var byLine = new LinkedHashMap<String, Long>();
-    notCovered.forEach(
-        result ->
-            byLine.merge(
-                "%s:%d %s"
-                    .formatted(
-                        sources.file(result.mutant()),
-                        sources.place(result.mutant()).line(),
-                        Advice.method(result.mutant()).replace("`", "")),
-                1L,
-                Long::sum));
-    return byLine;
+    return NotCovered.counted(
+        notCovered, sources, eachMutant, mutant -> Advice.method(mutant).replace("`", ""));
   }
 
   /// One missed mutant, numbered, or unnumbered (0) where it stands alone.

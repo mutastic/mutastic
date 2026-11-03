@@ -26,6 +26,18 @@ class ReportTest {
     assertThat(report.count(Status.NOT_COVERED)).isEqualTo(1);
   }
 
+  /// The covered score leaves out what no test reaches, and with nothing reached there is none.
+  @Test
+  void theCoveredScoreIsOfWhatTestsReach() {
+    var report =
+        report(Status.TIMED_OUT, Status.CAUGHT, Status.NOT_COVERED, Status.MISSED, Status.SKIPPED);
+
+    assertThat(report.score()).hasValue(50.0);
+    assertThat(report.coveredScore())
+        .hasValueCloseTo(66.67, org.assertj.core.data.Offset.offset(0.01));
+    assertThat(report(Status.NOT_COVERED, Status.SKIPPED).coveredScore()).isEmpty();
+  }
+
   @Test
   void exactlyTheThresholdPasses() {
     var report = report(Status.CAUGHT, Status.MISSED);

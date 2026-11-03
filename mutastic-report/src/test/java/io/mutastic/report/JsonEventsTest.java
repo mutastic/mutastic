@@ -140,7 +140,7 @@ class JsonEventsTest {
     assertThat(lines().getFirst())
         .contains("\"reason\":\"run-finished\",\"jdk\":17,\"mutants\":2")
         .contains("\"Killed\":1,\"Survived\":1,\"Timeout\":0,\"NoCoverage\":0,\"Ignored\":0")
-        .contains("\"score\":50.0,\"threshold\":80,\"passed\":false")
+        .contains("\"score\":50.0,\"threshold\":80,\"passed\":false,\"coveredScore\":50.0")
         .contains("\"tests\":2,\"flaky\":[\"com.example.PricingTest#f\"]")
         .contains("\"reports\":[\"build/mutastic/mutation.json\"]")
         .contains("\"staleIgnores\":[\"m1\"],\"durationMs\":300")
@@ -185,7 +185,10 @@ class JsonEventsTest {
 
     assertThat(lines().get(0)).contains("\"passed\":true,\"only\":\"" + boundary(0).id() + "\"");
     assertThat(lines().get(1)).contains("\"passed\":false,\"only\":\"" + boundary(0).id() + "\"");
-    assertThat(lines().get(2)).contains("\"score\":null").contains("\"only\":null");
+    assertThat(lines().get(2))
+        .contains("\"score\":null")
+        .contains("\"only\":null")
+        .contains("\"coveredScore\":null");
   }
 
   @Test

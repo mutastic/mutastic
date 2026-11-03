@@ -35,6 +35,12 @@ A mutant no test reaches counts against the score, as one no test checks does. A
 the score reaches the threshold, 80 unless `--threshold` says otherwise; a run with nothing to
 score says so, rather than claiming 100%.
 
+When some code is out of every test's reach, the result also gives the score of the code they do
+reach (`74.1% where tests reach`, and `coveredScore` in `--format=jsonl`): how well the tests check
+what they run, apart from what they don't. The threshold is always on the whole score. The code no
+test reaches is listed once per method, with the lines its mutants are on, since one test that calls
+the method reaches them all; `--each-mutant` lists each line.
+
 ## Skipped mutants
 
 Some changes would tell you nothing, so mutastic doesn't run them. Each skip says why, with a kind

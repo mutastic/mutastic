@@ -63,8 +63,8 @@ class AgentTextTest {
 
     assertThat(output.lines().findFirst())
         .contains(
-            "mutastic: FAIL · score 50.0% (threshold 80) · 1 missed, 1 not covered, 2 caught of"
-                + " 4 mutants (1 more skipped)");
+            "mutastic: FAIL · score 50.0% (threshold 80; 66.7% where tests reach) · 1 missed, 1 not"
+                + " covered, 2 caught of 4 mutants (1 more skipped)");
   }
 
   @Test
@@ -147,6 +147,34 @@ class AgentTextTest {
     assertThat(output)
         .contains("not covered (no test reaches these lines):")
         .contains("- src/main/java/com/example/Pricing.java:5 discount() (2 mutants)");
+  }
+
+  /// A method no test reaches is one line, with the lines its mutants are on; `--each-mutant` lists
+  /// each line.
+  @Test
+  void notCoveredMethodsAreOneLineEach() {
+    var elsewhere =
+        new Mutant(
+            "com/example/Pricing",
+            "discount",
+            "(I)I",
+            9,
+            8,
+            BuiltIn.RETURN_DEFAULT,
+            "IRETURN",
+            "return default",
+            Optional.empty());
+    var uncovered =
+        report(
+            List.of(result(boundary(0), Status.NOT_COVERED), result(elsewhere, Status.NOT_COVERED)),
+            List.of(),
+            List.of());
+
+    assertThat(text.render(uncovered))
+        .contains("- src/main/java/com/example/Pricing.java:5-8 discount() (2 mutants)");
+    assertThat(text.eachMutant(true).render(uncovered))
+        .contains("- src/main/java/com/example/Pricing.java:5 discount() (1 mutant)")
+        .contains("- src/main/java/com/example/Pricing.java:8 discount() (1 mutant)");
   }
 
   @Test

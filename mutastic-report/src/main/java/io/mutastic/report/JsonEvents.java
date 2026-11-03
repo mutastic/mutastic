@@ -188,6 +188,8 @@ public final class JsonEvents {
       fields.put(
           "only", report.results().isEmpty() ? null : report.results().getFirst().mutant().id());
     }
+    // The score of the code some test reaches: how well the tests check what they run.
+    fields.put("coveredScore", rounded(report.coveredScore()));
   }
 
   /// To one decimal place; null when there was nothing to score.

@@ -128,6 +128,15 @@ public record Report(
                 / scored());
   }
 
+  /// Detected mutants as a share of those some test reached: how well the tests check the code they
+  /// run, apart from the code they don't. None when no test reached any; the threshold is still on
+  /// [#score].
+  public OptionalDouble coveredScore() {
+    long detected = results.stream().filter(result -> result.status().detected()).count();
+    long reached = detected + count(Status.MISSED);
+    return reached == 0 ? OptionalDouble.empty() : OptionalDouble.of(100.0 * detected / reached);
+  }
+
   /// At or above `threshold`, or nothing to score: with no mutants there is nothing to fail.
   public boolean passes(int threshold) {
     return score().orElse(100) >= threshold;
