@@ -3,21 +3,48 @@ title: Output
 description: "What mutastic prints, for people, for agents and for tools, and where it goes."
 ---
 
-import { Code } from '@astrojs/starlight/components';
+import { Code, TabItem, Tabs } from '@astrojs/starlight/components';
 import explain from '../../../data/output/explain.ansi?raw';
+import agent from '../../../data/output/format-agent.ansi?raw';
+import brief from '../../../data/output/format-brief.ansi?raw';
+import concise from '../../../data/output/format-concise.ansi?raw';
+import grouped from '../../../data/output/format-grouped.ansi?raw';
+import jsonl from '../../../data/output/format-jsonl.ansi?raw';
+import full from '../../../data/output/run.ansi?raw';
 
 mutastic prints its result on stdout and its progress on stderr. How the result looks is `--format`'s choice.
 
 ## Formats
 
-- `--format=full` (the default on a terminal) shows each missed mutant as a card: the gap in the tests, the code with the change marked, the evidence (what the tests passed in, and which tests run it), the test to add, and how to prove it. Cards are grouped by file, and in each file the method with the most misses comes first. On a terminal, file locations are links (`--hyperlinks`) that terminals supporting OSC 8 open; others show the text.
-- `--format=brief` keeps the gap, the changed line and the evidence; `--format=concise` (the default elsewhere, such as CI logs) is one line per missed mutant; `--format=grouped` is one line each under its file and method.
-- `--format=agent` (the default when `MUTASTIC_AGENT=1`) is plain text for coding agents: the verdict first, so a truncated read still has it, then each missed mutant with the change, the fix and how to prove it, and the rule that a fix changes tests, never production code.
-- `MUTASTIC_FORMAT` sets the format when `--format` isn't given. While it runs, each source file gets a line as it finishes, on stderr, with its misses under it.
-- `--vocabulary=classic` (or `MUTASTIC_VOCABULARY=classic`) says killed and survived instead of caught and missed. JSON and the report files always use the standard statuses.
-- Colour follows the usual rules: only on a terminal, never with `NO_COLOR` or `TERM=dumb`, always with `FORCE_COLOR`. Every colour has a symbol beside it (✓ caught, ✗ missed, ○ not covered, ⏱ timed out), so nothing is lost without it. Labels such as `MISSED` and `PASS` are coloured blocks, `[MISSED]` without colour, and have rounded ends with `MUTASTIC_PILLS=rounded` for terminals with a Nerd Font. `MUTASTIC_PILLS=off` draws no blocks: the label's words in its colour.
-- `--format=jsonl` is one JSON event per line, written as each mutant finishes (`mutastic.events/v1`). Statuses follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`, `NoCoverage`.
-- A mutant's id comes from its class, method, position and change, not its line number, so it stays the same while code around it moves.
+`--format` chooses how much each missed mutant says, and for whom:
+
+| Format | For | Each missed mutant |
+|---|---|---|
+| `full` | People at a terminal, the default there | A card: the gap, the code with the change marked, the evidence, the test to add, and how to prove it |
+| `brief` | People who know the cards | The gap, the changed line and the evidence |
+| `concise` | Logs and CI, the default off a terminal | One line |
+| `grouped` | Reading many misses at once | One line, under its file and method |
+| `agent` | Coding agents, the default with `MUTASTIC_AGENT=1` | Plain text: the verdict first, then the change, the fix and how to prove it |
+| `jsonl` | Tools and scripts | One JSON event per line, as each mutant finishes |
+
+The same run of the pricing sample, in each:
+
+<Tabs>
+<TabItem label="full"><Code code={full} lang="ansi" /></TabItem>
+<TabItem label="brief"><Code code={brief} lang="ansi" /></TabItem>
+<TabItem label="concise"><Code code={concise} lang="ansi" /></TabItem>
+<TabItem label="grouped"><Code code={grouped} lang="ansi" /></TabItem>
+<TabItem label="agent"><Code code={agent} lang="ansi" /></TabItem>
+<TabItem label="jsonl"><Code code={jsonl} lang="ansi" /></TabItem>
+</Tabs>
+
+- **Cards** are grouped by file, and in each file the method with the most misses comes first. On a terminal, file locations are links (`--hyperlinks`) that terminals supporting OSC 8 open; others show the text.
+- **The agent format** puts the verdict first, so a truncated read still has it, and the rule that a fix changes tests, never production code.
+- **`MUTASTIC_FORMAT`** sets the format when `--format` isn't given. While it runs, each source file gets a line as it finishes, on stderr, with its misses under it.
+- **`--vocabulary=classic`** (or `MUTASTIC_VOCABULARY=classic`) says killed and survived instead of caught and missed. JSON and the report files always use the standard statuses.
+- **Colour** follows the usual rules: only on a terminal, never with `NO_COLOR` or `TERM=dumb`, always with `FORCE_COLOR`. Every colour has a symbol beside it (✓ caught, ✗ missed, ○ not covered, ⏱ timed out), so nothing is lost without it. Labels such as `MISSED` and `PASS` are coloured blocks, `[MISSED]` without colour, and have rounded ends with `MUTASTIC_PILLS=rounded` for terminals with a Nerd Font. `MUTASTIC_PILLS=off` draws no blocks: the label's words in its colour.
+- **`jsonl`** writes `mutastic.events/v1` events. Statuses follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`, `NoCoverage`.
+- **A mutant's id** comes from its class, method, position and change, not its line number, so it stays the same while code around it moves.
 
 ## Streams
 

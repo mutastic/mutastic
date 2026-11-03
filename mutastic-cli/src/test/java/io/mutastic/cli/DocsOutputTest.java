@@ -31,9 +31,9 @@ class DocsOutputTest {
   private static final Map<String, String> TERMINAL =
       Map.of("FORCE_COLOR", "1", "MUTASTIC_FORMAT", "full");
 
-  /// What changes from run to run: when it started and how long it took.
+  /// What changes from run to run: when it started and how long it took, in words or in JSON.
   private static final Pattern TIMINGS =
-      Pattern.compile("\\d+(\\.\\d+)?(ms|s)\\b|\\d\\d:\\d\\d:\\d\\d");
+      Pattern.compile("\\d+(\\.\\d+)?(ms|s)\\b|\\d\\d:\\d\\d:\\d\\d|Ms\":\\d+");
 
   @TempDir Path work;
 
@@ -48,6 +48,24 @@ class DocsOutputTest {
     addTheSuggestedTest(project);
     shown("verify.ansi", project, mutastic("verify", ID, project.toString()));
     shown("run-again.ansi", project, mutastic("run", project.toString(), "--workers=4"));
+  }
+
+  /// The pricing sample in each format but `full` (the quickstart's run is that), each from a fresh
+  /// copy, with one worker so mutants finish in the same order every time.
+  @Test
+  void eachFormat() throws Exception {
+    for (String format : List.of("brief", "concise", "grouped", "agent", "jsonl")) {
+      var project = Samples.copy(SAMPLE, work.resolve(format).resolve("pricing"));
+      var result =
+          Samples.mutastic(
+              Map.of("FORCE_COLOR", "1"),
+              "run",
+              project.toString(),
+              "--format=" + format,
+              "--workers=1");
+      assertThat(result.exit()).as(format).isEqualTo(Main.PASSED);
+      shown("format-" + format + ".ansi", project, result);
+    }
   }
 
   /// The flaky sample, run twice: the second time, every check has something to say. Only the end

@@ -8,13 +8,8 @@ import { release } from '../../../components/versions';
 
 {/* Every version on this page is `release`, the newest release tag's: none is typed in. */}
 
-mutastic itself runs on JDK 25. The project it tests can be on JDK 17 or later: its tests run on
-the JDK its build gives them, as they always do. Its tests can be JUnit 5 or 6 (Jupiter), anything
-else on the JUnit Platform, or TestNG, which mutastic runs with TestNG's own engine for the
-platform; a project needs nothing extra for it. TestNG's groups count as the platform's tags, so a
-build that leaves out a group leaves it out of mutastic's runs too. `@QuarkusTest` tests work as
-they are: Quarkus loads the app in its own class loader, and mutastic swaps each mutant into
-Quarkus's copy of the class, so the app starts once per worker, not once per mutant.
+mutastic runs on JDK 25. The project it tests can be on JDK 17 or later, with JUnit or TestNG
+tests.[^tests]
 
 <Tabs syncKey="runner">
 <TabItem label="Gradle">
@@ -99,3 +94,11 @@ mutastic run
 
 Next: the [Quickstart](/getting-started/quickstart/) runs mutastic on a small sample and closes the
 gap it finds.
+
+[^tests]: Its tests run on the JDK its build gives them, as they always do. They can be JUnit 5 or 6
+    (Jupiter), anything else on the JUnit Platform, or TestNG, which mutastic runs with TestNG's own
+    engine for the platform, so a project needs nothing extra. TestNG's groups count as the
+    platform's tags: a build that leaves out a group leaves it out of mutastic's runs too.
+    `@QuarkusTest` tests work as they are: Quarkus loads the app in its own class loader, and
+    mutastic swaps each mutant into Quarkus's copy of the class, so the app starts once per worker,
+    not once per mutant.
