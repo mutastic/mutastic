@@ -1,6 +1,6 @@
 # mutastic on its own modules, every night: the tool's tests held to what it asks of everyone
-# else's. The threshold is a floor under today's scores (engine 53.8%, report 58.4%, api 52.3% on
-# 3 Nov 2026, once negate-conditional left the defaults), raised as tests are added, so a real
+# else's. The threshold is a floor under today's scores (engine 54.3%, report 60.4%, api 54.0% on
+# 3 Nov 2026, since negate-conditional left the defaults), raised as tests are added, so a real
 # drop fails the run. The api is used, and
 # tested, in the other modules, so their tests count for it (--tests-from); for the engine, the
 # CLI's end-to-end tests would too, but run whole Gradle builds per mutant, so not nightly yet.
@@ -46,8 +46,8 @@ jobs:
               --threshold="$2" "${@:3}" > "$1.jsonl" || failed=1
           }
           run mutastic-engine 52
-          run mutastic-report 56
-          run mutastic-api 49 --tests-from=:mutastic-engine --tests-from=:mutastic-report
+          run mutastic-report 58
+          run mutastic-api 50 --tests-from=:mutastic-engine --tests-from=:mutastic-report
           exit $failed
       - name: Score history
         if: always()
