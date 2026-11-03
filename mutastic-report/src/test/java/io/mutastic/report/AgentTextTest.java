@@ -133,6 +133,28 @@ class AgentTextTest {
     assertThat(each).contains("1. missed " + always.id()).contains("2. missed " + boundary.id());
   }
 
+  /// A condition or a removal no test checks comes before arithmetic: it changes what the code
+  /// decides.
+  @Test
+  void conditionsComeBeforeArithmetic() {
+    var math =
+        new Mutant(
+            "com/example/Pricing",
+            "discount",
+            "(I)I",
+            3,
+            6,
+            BuiltIn.MATH,
+            "IDIV",
+            "IMUL",
+            Optional.empty());
+    var missed = List.of(result(math, Status.MISSED), result(boundary(0), Status.MISSED));
+
+    var output = text.render(report(missed, List.of(), List.of()));
+
+    assertThat(output).contains("1. missed " + boundary(0).id()).contains("2. missed " + math.id());
+  }
+
   @Test
   void notCoveredLinesAreCountedOncePerLine() {
     var output =

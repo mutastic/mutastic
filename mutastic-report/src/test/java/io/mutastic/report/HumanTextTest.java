@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -315,6 +316,42 @@ class HumanTextTest {
         .contains("= also    ✗ ")
         .contains("ids: " + boundary().id() + ", " + always.id());
     assertThat(each.lines().filter(line -> line.contains("✗ MISSED"))).hasSize(2);
+  }
+
+  /// At most seven cards a file, and the rest counted; `--each-mutant` shows them all.
+  @Test
+  void aFileShowsAtMostSevenCards() {
+    var results = new ArrayList<MutantResult>();
+    for (int line = 1; line <= HumanText.PER_FILE + 2; line++) {
+      results.add(
+          missed(
+              new Mutant(
+                  "com/example/Pricing",
+                  "discount",
+                  "(I)I",
+                  line,
+                  line,
+                  BuiltIn.MATH,
+                  "IADD",
+                  "ISUB",
+                  Optional.empty()),
+              Map.of()));
+    }
+    var report = report(results.toArray(MutantResult[]::new));
+
+    var capped =
+        text(HumanText.Detail.BRIEF, Vocabulary.PLAIN).render(report, Optional.empty(), RUN);
+    var each =
+        text(HumanText.Detail.BRIEF, Vocabulary.PLAIN)
+            .eachMutant(true)
+            .render(report, Optional.empty(), RUN);
+
+    assertThat(capped.lines().filter(line -> line.contains("✗ MISSED")))
+        .hasSize(HumanText.PER_FILE);
+    assertThat(capped)
+        .contains("… and 2 more missed mutants in this file (--each-mutant shows every card)");
+    assertThat(each.lines().filter(line -> line.contains("✗ MISSED")))
+        .hasSize(HumanText.PER_FILE + 2);
   }
 
   @Test

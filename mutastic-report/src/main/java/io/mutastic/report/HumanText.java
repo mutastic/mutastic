@@ -64,6 +64,10 @@ public final class HumanText {
   /// Missed mutants shown as cards; the rest are counted.
   static final int CARDS = 50;
 
+  /// Cards shown for one file, unless `--each-mutant`: Google shows at most seven per file in a
+  /// change, as more than a few at a time are left unread.
+  static final int PER_FILE = 7;
+
   private final SourceView sources;
   private final int threshold;
   private final Style style;
@@ -118,29 +122,59 @@ public final class HumanText {
   /// The first [#CARDS] findings as cards under their files, and how many more missed mutants there
   /// are.
   private String cards(List<MutantResult> missed) {
-    var findings = Finding.of(missed, eachMutant);
     var out = new StringBuilder();
-    String file = null;
-    for (Finding finding : findings.stream().limit(CARDS).toList()) {
-      var lead = finding.lead().mutant();
-      var here = sources.file(lead);
-      if (!here.equals(file)) {
-        out.append('\n').append(fileHeader(here, lead, missed)).append('\n');
-        file = here;
+    int shown = 0;
+    int unshown = 0;
+    for (var inFile : byFile(Finding.of(missed, eachMutant))) {
+      int room = Math.min(eachMutant ? CARDS : PER_FILE, CARDS - shown);
+      if (room == 0) {
+        unshown += Finding.mutantsIn(inFile);
+      } else {
+        appendFile(out, inFile, room, missed);
+        shown += Math.min(room, inFile.size());
       }
-      out.append(detail == Detail.BRIEF ? briefCard(finding) : card(finding));
     }
-    if (findings.size() > CARDS) {
+    if (unshown > 0) {
       out.append('\n')
           .append(
               style.dim(
                   " … and %d more %s mutants (--format=concise lists them all)"
-                      .formatted(
-                          Finding.mutantsIn(findings.subList(CARDS, findings.size())),
-                          words.undetected)))
+                      .formatted(unshown, words.undetected)))
           .append('\n');
     }
     return out.toString();
+  }
+
+  /// The findings of each file, files in the order found.
+  private List<List<Finding>> byFile(List<Finding> findings) {
+    var byFile = new LinkedHashMap<String, List<Finding>>();
+    for (Finding finding : findings) {
+      byFile
+          .computeIfAbsent(sources.file(finding.lead().mutant()), file -> new ArrayList<>())
+          .add(finding);
+    }
+    return List.copyOf(byFile.values());
+  }
+
+  /// One file's header and its first `room` cards, and how many more missed mutants it has.
+  private void appendFile(
+      StringBuilder out, List<Finding> inFile, int room, List<MutantResult> missed) {
+    var lead = inFile.getFirst().lead().mutant();
+    out.append('\n').append(fileHeader(sources.file(lead), lead, missed)).append('\n');
+    inFile.stream()
+        .limit(room)
+        .forEach(
+            finding -> out.append(detail == Detail.BRIEF ? briefCard(finding) : card(finding)));
+    if (inFile.size() > room) {
+      out.append('\n')
+          .append(
+              style.dim(
+                  "   … and %d more %s mutants in this file (--each-mutant shows every card)"
+                      .formatted(
+                          Finding.mutantsIn(inFile.subList(room, inFile.size())),
+                          words.undetected)))
+          .append('\n');
+    }
   }
 
   /// One file's results, as they finish: `✓` and a count when nothing was missed; `❯` with each

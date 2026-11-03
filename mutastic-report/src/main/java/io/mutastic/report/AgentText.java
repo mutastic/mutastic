@@ -209,7 +209,7 @@ public final class AgentText {
 
   /// The first [#LIMIT] findings' entries, and how many more missed mutants there are.
   private void appendMissed(StringBuilder out, List<MutantResult> missed) {
-    var findings = Finding.of(missed, eachMutant);
+    var findings = Finding.ranked(Finding.of(missed, eachMutant));
     int number = 0;
     for (Finding finding : findings.stream().limit(LIMIT).toList()) {
       out.append(System.lineSeparator()).append(entry(++number, finding));

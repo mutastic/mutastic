@@ -52,6 +52,39 @@ record Finding(List<MutantResult> mutants) {
             .toList());
   }
 
+  /// `findings`, those most worth a test first, in their order otherwise. A condition or a removal
+  /// that goes unnoticed changes what the code decides or does; arithmetic and the rest come after,
+  /// as they're more often noise. Among equals, the one more tests reach goes first: many tests run
+  /// it and none checks it.
+  static List<Finding> ranked(List<Finding> findings) {
+    return findings.stream()
+        .sorted(
+            Comparator.comparingInt(Finding::prior)
+                .reversed()
+                .thenComparing(
+                    Comparator.comparingInt((Finding finding) -> finding.lead().coveredBy().size())
+                        .reversed()))
+        .toList();
+  }
+
+  /// 2 for a condition or a removal, 1 for anything else: the finding's best.
+  int prior() {
+    return mutants.stream()
+        .mapToInt(
+            result ->
+                switch (result.mutant().operator()) {
+                  case BuiltIn.BOUNDARY,
+                      BuiltIn.NEGATE_CONDITIONAL,
+                      BuiltIn.REMOVE_CONDITIONAL,
+                      BuiltIn.RETURN_DEFAULT,
+                      BuiltIn.REMOVE_VOID_CALL ->
+                      2;
+                  default -> 1;
+                })
+        .max()
+        .orElse(1);
+  }
+
   MutantResult lead() {
     return mutants.getFirst();
   }
