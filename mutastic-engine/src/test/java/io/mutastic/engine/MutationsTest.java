@@ -14,6 +14,7 @@ import io.mutastic.engine.fixture.Kept;
 import io.mutastic.engine.fixture.OwnAnnotations;
 import io.mutastic.engine.fixture.Point;
 import io.mutastic.engine.fixture.Pricing;
+import io.mutastic.engine.fixture.Sites;
 import io.mutastic.engine.fixture.Switches;
 import io.mutastic.engine.fixture.Window;
 import java.lang.classfile.ClassFile;
@@ -331,6 +332,51 @@ class MutationsTest {
         .filteredOn(mutant -> mutant.operator() == BuiltIn.RETURN_DEFAULT)
         .allSatisfy(mutant -> assertThat(mutant.skipped()).isEmpty());
     assertThat(inIsSmall).isNotEmpty().allSatisfy(mutant -> assertThat(mutant.skipped()).isEmpty());
+  }
+
+  /// A boundary where both sides give the same value at the edge is equivalent; one where they
+  /// don't, or the body does more, is mutated. Its other mutants always run.
+  @Test
+  void aBoundaryThatGivesTheSameValueAtTheEdgeIsEquivalent() throws Exception {
+    var found = mutations.find(model(Sites.class));
+    var equivalent = "equivalent: both sides give the same value at the edge";
+
+    // The loop's own boundary, `i < values.length`, runs; the `if`'s is equivalent.
+    assertThat(boundariesIn(found, "largest")).containsExactly("", equivalent);
+    assertThat(boundariesIn(found, "smaller")).containsExactly(equivalent);
+    assertThat(boundariesIn(found, "countAbove")).containsExactly("", "");
+    assertThat(boundariesIn(found, "firstOrNone")).containsExactly("");
+    assertThat(found)
+        .filteredOn(
+            mutant ->
+                mutant.methodName().equals("largest")
+                    && mutant.operator() == BuiltIn.REMOVE_CONDITIONAL)
+        .isNotEmpty()
+        .allSatisfy(mutant -> assertThat(mutant.skipped()).isEmpty());
+  }
+
+  /// Arithmetic that only sizes a collection or sets a wait is arid, as is removing a sleep; the
+  /// same arithmetic returned is mutated.
+  @Test
+  void capacityAndWaitsAreArid() throws Exception {
+    var skips = skipsIn(Sites.class);
+
+    assertThat(skips)
+        .containsEntry("sized", "arid: only sizes a collection's first allocation")
+        .containsEntry("doubled", "");
+    assertThat(mutations.find(model(Sites.class)))
+        .filteredOn(mutant -> mutant.methodName().equals("pause"))
+        .extracting(mutant -> mutant.skipped().orElse(""))
+        .containsExactlyInAnyOrder("arid: only sets how long to wait", "arid: only waits");
+  }
+
+  /// Each boundary's skip reason in `method`, in order, "" for one that runs.
+  private static List<String> boundariesIn(List<Mutant> found, String method) {
+    return found.stream()
+        .filter(
+            mutant -> mutant.methodName().equals(method) && mutant.operator() == BuiltIn.BOUNDARY)
+        .map(mutant -> mutant.skipped().orElse(""))
+        .toList();
   }
 
   @Test

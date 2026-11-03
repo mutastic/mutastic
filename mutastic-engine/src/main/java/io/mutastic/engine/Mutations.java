@@ -244,7 +244,7 @@ final class Mutations {
           case Mutator mutator -> addedChanges(mutator, instruction, at, found);
         }
       }
-      found.forEach(each -> mutants.add(mutant(each, instruction, workedOn)));
+      found.forEach(each -> mutants.add(mutant(each, instruction, at, workedOn)));
       if (instruction instanceof InvokeInstruction) {
         callOrdinal++;
       } else if (isSite(instruction)) {
@@ -287,7 +287,7 @@ final class Mutations {
       }
     }
 
-    private Mutant mutant(Found found, Instruction instruction, List<String> workedOn) {
+    private Mutant mutant(Found found, Instruction instruction, int at, List<String> workedOn) {
       var operator = found.operator();
       var skipped =
           tryWithResources.contains(instruction)
@@ -295,6 +295,7 @@ final class Mutations {
               : found
                   .skippedByOperator()
                   .or(() -> skipReason(operator, instruction))
+                  .or(() -> SiteSkips.reason(operator, code, at))
                   .or(() -> filtered);
       return new Mutant(
           model.thisClass().asInternalName(),

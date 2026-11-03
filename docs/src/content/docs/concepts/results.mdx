@@ -48,9 +48,9 @@ first:
 
 | Kind | Means | For example |
 |---|---|---|
-| `arid:` | Code whose change no test should have to notice | A call that only writes output, a trivial getter or setter, `toString()` and `hashCode()` |
+| `arid:` | Code whose change no test should have to notice | A call that only writes output, a trivial getter or setter, `toString()` and `hashCode()`, arithmetic that only sizes a collection (`new ArrayList<>(n * 2)`) or sets a wait (`Thread.sleep(s * 1000)`), a removed `sleep` |
 | `generated:` | Code the compiler wrote, not you | Closing a try-with-resources resource, the hashing in a `switch` on a `String` |
-| `equivalent:` | The change does nothing | A method that already returns its type's default, "changed" to return it |
+| `equivalent:` | The change does nothing | A method that already returns its type's default, "changed" to return it; a boundary where both sides give the same value at the edge (`if (x > max) max = x;`, `a < b ? a : b`) |
 | `unviable:` | The change wouldn't load | A plugin's rewrite that doesn't fit the call it met |
 | `user:` | Your decision | `@DoNotMutate`, a rule in `mutastic.yaml`, or `mutastic ignore` |
 
