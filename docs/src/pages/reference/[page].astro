@@ -12,7 +12,7 @@ import model from '../../data/commands.json';
 /**
  * What a command prints, where the docs show it: mutastic's own output on the pricing sample,
  * written by ./gradlew :mutastic-cli:exportDocsOutput and checked against the CLI by
- * DocsOutputTest. `explain.ansi` is `mutastic explain`'s.
+ * DocsOutputTest, which runs the quickstart's tour. `explain.ansi` is `mutastic explain`'s.
  */
 const outputs = import.meta.glob<string>('../../data/output/*.ansi', {
   query: '?raw',
@@ -36,6 +36,13 @@ const options: Option[] = command
   : [];
 const anchor = (option: Option) => option.name.replace(/^--/, '');
 const output = command ? outputs[`../../data/output/${command.name}.ansi`] : undefined;
+
+/** When in the quickstart's tour each output was taken, as DocsOutputTest takes it. */
+const when: Record<string, string> = {
+  run: 'On the pricing sample, where one mutant gets past the tests.',
+  explain: 'On the pricing sample, after a run.',
+  verify: 'On the pricing sample, once the test the card suggested is added.',
+};
 
 /** `=N`, `=MODULE,…`, `=false`: the value a property takes on the command line. */
 function propertyValue(option: Option): string {
@@ -121,8 +128,8 @@ const headings = command
           <section class="reference-output">
             <h2 id="output">Output</h2>
             <p>
-              On the pricing sample, after a run. This is mutastic's own output, written from the
-              CLI and checked against it on every build.
+              {when[command.name]} This is mutastic's own output, written from the CLI and checked
+              against it on every build.
             </p>
             <Code code={output} lang="ansi" />
           </section>
