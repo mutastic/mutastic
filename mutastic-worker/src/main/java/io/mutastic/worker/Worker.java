@@ -132,7 +132,19 @@ public final class Worker {
     for (String line = commands.take(); !line.equals("EXIT"); line = commands.take()) {
       worker.handle(line.split("\t", -1));
     }
+    writeCoverage();
     Runtime.getRuntime().halt(0); // even if a test left non-daemon threads behind
+  }
+
+  /// When a coverage agent is attached, as when mutastic's own build measures the worker, writes
+  /// what it has: halting skips the shutdown hook that would. Nothing otherwise.
+  private static void writeCoverage() {
+    try {
+      var agent = Class.forName("org.jacoco.agent.rt.RT").getMethod("getAgent").invoke(null);
+      agent.getClass().getMethod("dump", boolean.class).invoke(agent, false);
+    } catch (ReflectiveOperationException | LinkageError e) {
+      // no agent: nothing to write
+    }
   }
 
   private void handle(String[] command) throws Exception {

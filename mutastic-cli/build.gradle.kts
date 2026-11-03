@@ -61,6 +61,23 @@ tasks.test {
             .asFile.absolutePath,
     )
     systemProperty("mutastic.version", project.version.toString())
+    // mutastic's own code that these tests run outside their JVM is measured too: the worker, in
+    // a JVM of its own; the Maven extension and plugin, inside Maven; the Gradle plugin, inside
+    // the samples' Gradle daemons. Each writes to its own file in jacoco/outside, which the
+    // coverage report reads.
+    val outside = layout.buildDirectory.dir("jacoco/outside")
+    outputs.dir(outside)
+    doFirst {
+        val agent = the<JacocoTaskExtension>().asJvmArg.substringAfter("-javaagent:").substringBefore("=")
+        val directory = outside.get().asFile
+        directory.deleteRecursively()
+        directory.mkdirs()
+
+        fun measured(name: String) = "-javaagent:$agent=destfile=$directory/$name.exec,append=true,includes=io.mutastic.*"
+        systemProperty("mutastic.workerJvmArgs", measured("worker-{worker}"))
+        systemProperty("mutastic.coverageAgent", measured("gradle"))
+        environment("MAVEN_OPTS", measured("maven"))
+    }
     dependsOn(rootProject.subprojects.map { "${it.path}:publishAllPublicationsToSamplesRepository" })
 }
 

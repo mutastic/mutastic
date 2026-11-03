@@ -1,6 +1,7 @@
 package io.mutastic.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
@@ -113,6 +114,64 @@ class ReportFilesTest {
   }
 
   @Test
+  void xmlNamesEachOperatorAndStatusAsPitDoes() throws Exception {
+    var results =
+        List.of(
+            result(at(BuiltIn.BOUNDARY, "(I)I"), Status.TIMED_OUT),
+            result(at(BuiltIn.NEGATE_CONDITIONAL, "(I)I"), Status.NOT_COVERED),
+            result(at(BuiltIn.ARITHMETIC_REPLACEMENT, "(I)I"), Status.CAUGHT),
+            result(at(BuiltIn.REMOVE_CONDITIONAL, "(I)I"), Status.MISSED),
+            result(at(BuiltIn.REMOVE_VOID_CALL, "(I)V"), Status.MISSED),
+            result(at(BuiltIn.RETURN_DEFAULT, "(I)Z"), Status.MISSED),
+            result(at(BuiltIn.RETURN_DEFAULT, "(I)J"), Status.MISSED),
+            result(at(BuiltIn.RETURN_DEFAULT, "(I)Ljava/lang/String;"), Status.MISSED));
+    var report =
+        new Report(
+            "pricing",
+            17,
+            results,
+            8,
+            List.of(),
+            Duration.ofMillis(100),
+            1,
+            1,
+            Duration.ofMillis(300));
+
+    var mutations =
+        DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder()
+            .parse(new ByteArrayInputStream(files.xml(report).getBytes(StandardCharsets.UTF_8)))
+            .getElementsByTagName("mutation");
+
+    var seen = new java.util.ArrayList<String>();
+    for (int i = 0; i < mutations.getLength(); i++) {
+      var mutation = (org.w3c.dom.Element) mutations.item(i);
+      var mutator = mutation.getElementsByTagName("mutator").item(0).getTextContent();
+      seen.add(
+          mutation.getAttribute("status")
+              + " "
+              + mutator.substring(mutator.lastIndexOf("mutators.") + "mutators.".length()));
+    }
+    assertThat(seen)
+        .containsExactly(
+            "TIMED_OUT ConditionalsBoundaryMutator",
+            "NO_COVERAGE NegateConditionalsMutator",
+            "KILLED MathMutator",
+            "SURVIVED RemoveConditionalMutator",
+            "SURVIVED VoidMethodCallMutator",
+            "SURVIVED returns.BooleanFalseReturnValsMutator",
+            "SURVIVED returns.PrimitiveReturnsMutator",
+            "SURVIVED returns.NullReturnValsMutator");
+  }
+
+  @Test
+  void anUnknownKindIsRefused() {
+    assertThatThrownBy(() -> files.write("pdf", report(), project.resolve("out.pdf")))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("unknown report pdf");
+  }
+
+  @Test
   void htmlEmbedsTheViewerAndTheDataSafely() {
     var html = files.html(report());
 
@@ -181,6 +240,39 @@ class ReportFilesTest {
         1,
         1,
         Duration.ofMillis(300));
+  }
+
+  private static Mutant at(BuiltIn operator, String descriptor) {
+    return new Mutant(
+        "com/example/Pricing",
+        "discount",
+        descriptor,
+        0,
+        5,
+        operator,
+        switch (operator) {
+          case MATH, ARITHMETIC_REPLACEMENT -> "IDIV";
+          case REMOVE_VOID_CALL -> "INVOKEVIRTUAL com/example/Pricing.audit(I)V";
+          case RETURN_DEFAULT -> "IRETURN";
+          default -> "IF_ICMPLT";
+        },
+        switch (operator) {
+          case MATH, ARITHMETIC_REPLACEMENT -> "IMUL";
+          case REMOVE_VOID_CALL -> "remove call";
+          case RETURN_DEFAULT -> "return default";
+          case REMOVE_CONDITIONAL -> "never jump";
+          default -> "IF_ICMPGE";
+        },
+        Optional.empty());
+  }
+
+  private static MutantResult result(Mutant mutant, Status status) {
+    var tests = List.of("com.example.PricingTest#a");
+    return result(
+        mutant,
+        status,
+        status == Status.NOT_COVERED ? List.of() : tests,
+        status == Status.CAUGHT ? Optional.of(tests.getFirst()) : Optional.empty());
   }
 
   private static MutantResult result(

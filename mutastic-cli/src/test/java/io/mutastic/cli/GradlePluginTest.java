@@ -159,6 +159,12 @@ class GradlePluginTest {
   private Samples.Result gradlew(Path project, String... arguments)
       throws IOException, InterruptedException {
     var command = new ArrayList<>(List.of("./gradlew", "-q"));
+    // The plugin runs in the sample's Gradle daemon: measured there, when the build measures it,
+    // in a daemon for this build alone, whose coverage is written as it exits.
+    var agent = System.getProperty("mutastic.coverageAgent", "");
+    if (!agent.isBlank()) {
+      command.addAll(List.of("--no-daemon", "-Dorg.gradle.jvmargs=" + agent));
+    }
     command.addAll(List.of(arguments));
     var log = work.resolve("gradle.log");
     int exit =

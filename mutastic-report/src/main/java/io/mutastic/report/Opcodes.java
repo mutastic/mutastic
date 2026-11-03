@@ -29,8 +29,28 @@ final class Opcodes {
   private static final Map<String, String> TYPES =
       Map.of("I", "ints", "L", "longs", "F", "floats", "D", "doubles", "A", "references");
 
+  private static final Map<String, String> FIXED =
+      Map.of(
+          "IFNULL",
+          "jump if it's null",
+          "IFNONNULL",
+          "jump if it isn't null",
+          "always jump",
+          "jump whatever the condition: the code it skips never runs",
+          "never jump",
+          "never jump: the code the jump would skip always runs");
+
   /// `IF_ICMPLT`: `jump if the first int is less than the second`; empty for one it can't say.
   static Optional<String> describe(String opcode) {
+    return Optional.ofNullable(FIXED.get(opcode))
+        .or(() -> jump(opcode))
+        .or(() -> arithmetic(opcode))
+        .or(() -> returns(opcode))
+        .or(() -> call(opcode));
+  }
+
+  /// `IF_ICMPLT`, `IF_ACMPEQ`, `IFEQ`: what a conditional jump tests.
+  private static Optional<String> jump(String opcode) {
     if (opcode.startsWith("IF_ICMP")) {
       return condition(opcode.substring(7))
           .map(words -> "jump if the first int is " + words + " the second");
@@ -41,9 +61,6 @@ final class Opcodes {
               ? "jump if both are the same object"
               : "jump if they're different objects");
     }
-    if (opcode.equals("IFNULL") || opcode.equals("IFNONNULL")) {
-      return Optional.of(opcode.equals("IFNULL") ? "jump if it's null" : "jump if it isn't null");
-    }
     if (opcode.startsWith("IF")) {
       return condition(opcode.substring(2))
           .map(
@@ -52,7 +69,7 @@ final class Opcodes {
                       + words
                       + " zero");
     }
-    return arithmetic(opcode).or(() -> returns(opcode)).or(() -> call(opcode));
+    return Optional.empty();
   }
 
   private static final Map<String, String> SYMBOLS =

@@ -225,8 +225,8 @@ jacoco {
 }
 
 // Coverage over every module's tests at once: the CLI's end-to-end tests run the engine in
-// process, so a module's own tests undercount it. The worker's runs in the project's JVM, and so
-// isn't measured there: 11% of its branches, against 65% overall.
+// process, so a module's own tests undercount it, and what they run in other JVMs (the worker,
+// Maven, Gradle) is measured there too.
 fun JacocoReportBase.overModules() {
     subprojects.filter { it.plugins.hasPlugin("java") }.forEach { module ->
         dependsOn(module.tasks.named("test"))
@@ -235,6 +235,12 @@ fun JacocoReportBase.overModules() {
         classDirectories.from(main.output.classesDirs)
         executionData.from(module.layout.buildDirectory.file("jacoco/test.exec"))
     }
+    // What the CLI's end-to-end tests ran outside their own JVM: the worker, Maven and Gradle.
+    executionData.from(
+        // A worker stopped as it began writing leaves a file too short to hold any data.
+        fileTree(project(":mutastic-cli").layout.buildDirectory.dir("jacoco/outside")) { include("*.exec") }
+            .filter { it.length() > 64 },
+    )
 }
 
 val coverageReport by tasks.registering(JacocoReport::class) {
@@ -252,7 +258,7 @@ val coverageCheck by tasks.registering(JacocoCoverageVerification::class) {
         rule {
             limit {
                 counter = "BRANCH"
-                minimum = "0.65".toBigDecimal()
+                minimum = "0.80".toBigDecimal()
             }
         }
     }

@@ -235,6 +235,13 @@ final class TestWorker implements AutoCloseable {
     if (current != null) {
       current.commands().println("EXIT");
       current.commands().flush();
+      // It halts on EXIT: a moment to do so before it's stopped, so nothing it writes as it goes
+      // is cut short.
+      try {
+        current.process().waitFor(1, TimeUnit.SECONDS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
       current.process().destroy();
       forget(current);
     }
@@ -338,11 +345,27 @@ final class TestWorker implements AutoCloseable {
             .flatMap(each -> each));
   }
 
+  /// For mutastic's own tests: the coverage agent its build measures the worker with, as the worker
+  /// runs in a JVM of its own. Nothing otherwise.
+  private static List<String> measured() {
+    var agent = System.getProperty("mutastic.workerJvmArgs", "");
+    // Each worker writes a file of its own: side by side, some of them killed, they can't share.
+    return agent.isBlank()
+        ? List.of()
+        : List.of(agent.replace("{worker}", java.util.UUID.randomUUID().toString()));
+  }
+
+  /// Framework mode, for tests run in a framework that loads the app itself.
+  private List<String> mode() {
+    return TestFrameworks.loadsTheApp(project.dependencies()) ? List.of("--framework") : List.of();
+  }
+
   /// The worker's command line: the project's own JDK and JVM arguments, with the worker as agent.
   private List<String> command() {
     var command = new ArrayList<String>();
     command.add(project.java().toString());
     command.addAll(project.jvmArgs());
+    command.addAll(measured());
     command.add("-javaagent:" + workerJar);
     command.addAll(
         List.of(
@@ -359,9 +382,7 @@ final class TestWorker implements AutoCloseable {
                         project.testClasses().stream(), project.testResources().stream())),
             "--include-tags=" + String.join(",", project.tests().includeTags()),
             "--exclude-tags=" + String.join(",", project.tests().excludeTags())));
-    if (TestFrameworks.loadsTheApp(project.dependencies())) {
-      command.add("--framework");
-    }
+    command.addAll(mode());
     return command;
   }
 
