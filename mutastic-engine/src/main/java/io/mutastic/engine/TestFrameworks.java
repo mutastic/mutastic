@@ -31,6 +31,15 @@ final class TestFrameworks {
 
   private TestFrameworks() {}
 
+  /// Whether the tests run in a framework that loads the app in a class loader of its own:
+  /// `@QuarkusTest`'s. Its workers run in framework mode: the framework loads the project's classes
+  /// from the classpath, and mutants reach its copies by redefinition.
+  static boolean loadsTheApp(List<Path> dependencies) {
+    return dependencies.stream()
+        .map(path -> path.getFileName().toString())
+        .anyMatch(name -> name.startsWith("quarkus-junit"));
+  }
+
   /// The jars to add to a worker's classpath for `dependencies`, the project's test classpath: none
   /// unless its tests are TestNG's and nothing runs them on the platform.
   static List<Path> support(List<Path> dependencies) {

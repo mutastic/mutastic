@@ -40,6 +40,7 @@ public abstract class WriteSetup extends DefaultTask {
   private @Nullable SourceSetContainer sourceSets;
   private @Nullable TaskProvider<Test> testTask;
   private @Nullable Jar jar;
+  private org.gradle.api.@Nullable Task quarkusModel;
   private String projectPath = ":";
 
   @OutputFile
@@ -59,6 +60,13 @@ public abstract class WriteSetup extends DefaultTask {
         project.getTasks().withType(Test.class).named(task.getSuite().get(), Test.class);
     task.jar = (Jar) project.getTasks().findByName("jar");
     task.projectPath = project.getPath();
+    // Quarkus's plugin hands its Test task a pre-built application model as the task runs, so it
+    // isn't among the task's JVM arguments. Without it, every @QuarkusTest asks Gradle for the
+    // model again.
+    task.quarkusModel = project.getTasks().findByName("quarkusGenerateTestAppModel");
+    if (task.quarkusModel != null) {
+      task.dependsOn(task.quarkusModel);
+    }
     task.dependsOn(task.main.getClassesTaskName(), task.testTask.map(Test::getTestClassesDirs));
     task.getSetup().set(project.getLayout().getBuildDirectory().file("mutastic/setup.properties"));
     task.setDescription("Writes what the test task would run the tests with, for mutastic");
@@ -74,7 +82,7 @@ public abstract class WriteSetup extends DefaultTask {
     var test = testsOf(task);
     var setup = new Properties();
     setup.setProperty("java", task.getJavaLauncher().get().getExecutablePath().toString());
-    setup.setProperty("jvmArgs", String.join("\n", task.getAllJvmArgs()));
+    setup.setProperty("jvmArgs", String.join("\n", jvmArgs(task)));
     setup.setProperty("workingDirectory", task.getWorkingDir().getAbsolutePath());
     directories(setup, main, test);
     setup.setProperty("dependencies", dependencies(task, main, test));
@@ -97,6 +105,22 @@ public abstract class WriteSetup extends DefaultTask {
             () ->
                 new GradleException(
                     "mutastic: no source set holds the classes %s runs".formatted(task.getName())));
+  }
+
+  /// The test task's JVM arguments, with Quarkus's application model when there is one.
+  private List<String> jvmArgs(Test task) {
+    var arguments = new ArrayList<>(task.getAllJvmArgs());
+    if (quarkusModel != null) {
+      quarkusModel.getOutputs().getFiles().getFiles().stream()
+          .filter(file -> file.getName().endsWith("test-model.dat"))
+          .findFirst()
+          .ifPresent(
+              model ->
+                  arguments.add(
+                      "-Dquarkus-internal-test.serialized-app-model.path="
+                          + model.getAbsolutePath()));
+    }
+    return arguments;
   }
 
   /// The module's own classes, resources and sources.

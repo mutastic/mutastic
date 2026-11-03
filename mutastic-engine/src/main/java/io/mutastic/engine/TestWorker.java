@@ -317,13 +317,24 @@ final class TestWorker implements AutoCloseable {
   }
 
   /// The worker first, then the project's test classpath, then what mutastic brings for its tests
-  /// to run on the JUnit Platform, when they need it ([TestFrameworks]).
+  /// to run on the JUnit Platform, when they need it ([TestFrameworks]); for a framework that loads
+  /// the app itself, the project's own directories last, where it finds them.
   private String classpath() {
+    var own =
+        TestFrameworks.loadsTheApp(project.dependencies())
+            ? Stream.of(
+                    project.classes(),
+                    project.resources(),
+                    project.testClasses(),
+                    project.testResources())
+                .flatMap(List::stream)
+            : Stream.<Path>empty();
     return join(
         Stream.of(
                 Stream.of(workerJar),
                 project.dependencies().stream(),
-                TestFrameworks.support(project.dependencies()).stream())
+                TestFrameworks.support(project.dependencies()).stream(),
+                own)
             .flatMap(each -> each));
   }
 
@@ -348,6 +359,9 @@ final class TestWorker implements AutoCloseable {
                         project.testClasses().stream(), project.testResources().stream())),
             "--include-tags=" + String.join(",", project.tests().includeTags()),
             "--exclude-tags=" + String.join(",", project.tests().excludeTags())));
+    if (TestFrameworks.loadsTheApp(project.dependencies())) {
+      command.add("--framework");
+    }
     return command;
   }
 

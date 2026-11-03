@@ -68,6 +68,9 @@ public final class Worker {
   /// Made by the coverage pass, or by the first command a new worker gets after one was killed.
   private @Nullable ProductionLoader production;
 
+  /// For tests run in a framework that loads the app itself (`--framework`): see [Framework].
+  private final @Nullable Framework framework;
+
   private int runs;
   private String lastFailure = "unknown";
   private String lastOrigin = "unknown";
@@ -97,7 +100,12 @@ public final class Worker {
     }
   }
 
-  private Worker(List<Path> productionRoots, List<Path> testRoots, Tags tags, PrintStream protocol)
+  private Worker(
+      List<Path> productionRoots,
+      List<Path> testRoots,
+      Tags tags,
+      PrintStream protocol,
+      boolean framework)
       throws IOException {
     this.productionRoots = productionRoots;
     this.testRoots = testRoots;
@@ -105,13 +113,20 @@ public final class Worker {
     this.protocol = protocol;
     this.splitTests = splitTests(productionRoots, testRoots);
     this.testClassNames = classNamesIn(testRoots);
+    this.framework =
+        framework ? new Framework(productionRoots, classNamesIn(productionRoots)) : null;
   }
 
   public static void main(String[] args) throws Exception {
     var protocol = new PrintStream(new FileOutputStream(FileDescriptor.out), true, UTF_8);
     System.setOut(System.err);
     var worker =
-        new Worker(roots(args, "--production="), roots(args, "--tests="), Tags.of(args), protocol);
+        new Worker(
+            roots(args, "--production="),
+            roots(args, "--tests="),
+            Tags.of(args),
+            protocol,
+            Arrays.asList(args).contains("--framework"));
     var commands = readCommands();
     protocol.println("READY\t" + Runtime.version().feature());
     for (String line = commands.take(); !line.equals("EXIT"); line = commands.take()) {
@@ -134,6 +149,16 @@ public final class Worker {
   /// Covers with the staged classes, instrumented, in a new production loader that later commands
   /// reuse.
   private void coverInstrumented(List<String> tests) throws Exception {
+    if (framework != null) {
+      framework.swapIn(staged);
+      try {
+        cover(tests);
+      } finally {
+        framework.swapBack(staged.keySet());
+        staged.clear();
+      }
+      return;
+    }
     var instrumented =
         new ProductionLoader(
             productionRoots, staged, testRoots, splitTests, getClass().getClassLoader());
@@ -145,12 +170,29 @@ public final class Worker {
 
   /// Runs with the staged classes (a mutant) swapped in, then back out.
   private void runWithStaged(List<String> tests) throws Exception {
+    if (framework != null) {
+      runInTheFramework(framework, tests);
+      return;
+    }
     var loader = production();
     loader.swapIn(staged);
     try {
       run(tests);
     } finally {
       loader.swapBack(staged.keySet());
+      staged.clear();
+    }
+  }
+
+  /// The same, with the staged classes swapped into the framework's copies of them.
+  private void runInTheFramework(Framework framework, List<String> tests) throws Exception {
+    try {
+      framework.swapIn(staged);
+      run(tests);
+    } catch (IllegalStateException e) {
+      protocol.println("RESULT\tERROR\t" + e.getMessage());
+    } finally {
+      framework.swapBack(staged.keySet());
       staged.clear();
     }
   }
@@ -305,6 +347,12 @@ public final class Worker {
   }
 
   private List<String> execute(List<String> tests, TestExecutionListener observer) {
+    if (framework != null) {
+      // By name: the framework's loader must load the test classes itself.
+      var failing = new ArrayList<String>();
+      framework.launcher().execute(byName(tests), recordingFailures(failing), observer);
+      return failing;
+    }
     var loader = new TestLoader(testRoots, production(), ++runs);
     var thread = Thread.currentThread();
     var previous = thread.getContextClassLoader();
@@ -319,6 +367,20 @@ public final class Worker {
     } finally {
       thread.setContextClassLoader(previous);
     }
+  }
+
+  /// Selects each test, a class or a method, by name.
+  private LauncherDiscoveryRequest byName(List<String> tests) {
+    var request = LauncherDiscoveryRequestBuilder.request();
+    tags.filter(request);
+    for (String test : tests) {
+      int hash = test.indexOf('#');
+      request.selectors(
+          hash < 0
+              ? selectClass(test)
+              : selectMethod(test.substring(0, hash), method(test), parameters(test)));
+    }
+    return request.build();
   }
 
   /// Selects each test, a class or a method, as loaded for this run.

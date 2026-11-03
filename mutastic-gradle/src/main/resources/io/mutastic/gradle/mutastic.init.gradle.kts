@@ -61,15 +61,24 @@ allprojects {
                 set.name != "main" && set.output.classesDirs.files.any { it in suiteTask.get().testClassesDirs.files }
             } ?: sourceSets["test"]
             dependsOn(main.classesTaskName, test.classesTaskName)
+            // Quarkus's plugin hands its Test task a pre-built application model as the task runs,
+            // so it isn't among the task's JVM arguments. Without it, every @QuarkusTest asks
+            // Gradle for the model again.
+            val quarkusModel = tasks.findByName("quarkusGenerateTestAppModel")
+            if (quarkusModel != null) {
+                dependsOn(quarkusModel)
+            }
             val out = File(project.findProperty("mutasticOut") as String)
             val separator = File.pathSeparator
             doLast {
                 val task = suiteTask.get()
+                val model = quarkusModel?.outputs?.files?.files?.firstOrNull { it.name.endsWith("test-model.dat") }
+                val quarkus = listOfNotNull(model?.let { "-Dquarkus-internal-test.serialized-app-model.path=" + it.absolutePath })
                 val own = (main.output.classesDirs.files + test.output.classesDirs.files +
                     listOfNotNull(main.output.resourcesDir, test.output.resourcesDir)).map { it.absolutePath }.toSet()
                 val setup = java.util.Properties()
                 setup["java"] = task.javaLauncher.get().executablePath.asFile.absolutePath
-                setup["jvmArgs"] = task.allJvmArgs.joinToString("\n")
+                setup["jvmArgs"] = (task.allJvmArgs + quarkus).joinToString("\n")
                 setup["workingDirectory"] = task.workingDir.absolutePath
                 setup["classes"] = main.output.classesDirs.files.joinToString(separator)
                 setup["resources"] = listOfNotNull(main.output.resourcesDir).joinToString(separator)
