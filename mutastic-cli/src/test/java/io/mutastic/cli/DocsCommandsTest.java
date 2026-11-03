@@ -17,6 +17,9 @@ import org.junit.jupiter.api.Test;
 class DocsCommandsTest {
   private static final Path DOCS = Path.of(System.getProperty("mutastic.docs"));
 
+  /// The code blocks commands are typed in; a Kotlin `mutastic { }` block isn't one.
+  private static final List<String> SHELLS = List.of("sh", "bash", "shell", "console", "");
+
   /// What help and the version answer before a command is parsed.
   private static final List<String> ANSWERED = List.of("--help", "-h", "--version", "help");
 
@@ -75,11 +78,13 @@ class DocsCommandsTest {
       for (Path file : files.filter(DocsCommandsTest::isPage).sorted().toList()) {
         var lines = Files.readAllLines(file);
         boolean inCode = false;
+        boolean inShell = false;
         for (int index = 0; index < lines.size(); index++) {
           var line = lines.get(index).strip();
           if (line.startsWith("```")) {
             inCode = !inCode;
-          } else if (inCode && isCommand(line)) {
+            inShell = inCode && SHELLS.contains(line.substring(3).strip());
+          } else if (inShell && isCommand(line)) {
             shown.add(new Shown(DOCS.relativize(file) + ":" + (index + 1), line));
           }
         }

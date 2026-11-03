@@ -1,0 +1,29 @@
+---
+title: Output
+description: "What mutastic prints, for people, for agents and for tools, and where it goes."
+---
+
+mutastic prints its result on stdout and its progress on stderr. How the result looks is `--format`'s choice.
+
+## Formats
+
+- `--format=full` (the default on a terminal) shows each missed mutant as a card: the gap in the tests, the code with the change marked, the evidence (what the tests passed in, and which tests run it), the test to add, and how to prove it. Cards are grouped by file, and in each file the method with the most misses comes first. On a terminal, file locations are links (`--hyperlinks`) that terminals supporting OSC 8 open; others show the text.
+- `--format=brief` keeps the gap, the changed line and the evidence; `--format=concise` (the default elsewhere, such as CI logs) is one line per missed mutant; `--format=grouped` is one line each under its file and method.
+- `--format=agent` (the default when `MUTASTIC_AGENT=1`) is plain text for coding agents: the verdict first, so a truncated read still has it, then each missed mutant with the change, the fix and how to prove it, and the rule that a fix changes tests, never production code.
+- `MUTASTIC_FORMAT` sets the format when `--format` isn't given. While it runs, each source file gets a line as it finishes, on stderr, with its misses under it.
+- `--vocabulary=classic` (or `MUTASTIC_VOCABULARY=classic`) says killed and survived instead of caught and missed. JSON and the report files always use the standard statuses.
+- Colour follows the usual rules: only on a terminal, never with `NO_COLOR` or `TERM=dumb`, always with `FORCE_COLOR`. Every colour has a symbol beside it (✓ caught, ✗ missed, ○ not covered, ⏱ timed out), so nothing is lost without it. Labels such as `MISSED` and `PASS` are coloured blocks, `[MISSED]` without colour, and have rounded ends with `MUTASTIC_PILLS=rounded` for terminals with a Nerd Font. `MUTASTIC_PILLS=off` draws no blocks: the label's words in its colour.
+- `--format=jsonl` is one JSON event per line, written as each mutant finishes (`mutastic.events/v1`). Statuses follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`, `NoCoverage`.
+- A mutant's id comes from its class, method, position and change, not its line number, so it stays the same while code around it moves.
+
+## Streams
+
+The result goes to stdout and progress to stderr, so `mutastic run > result.txt` keeps only the result.
+
+## The commands it offers
+
+The commands mutastic prints for a mutant name the project it ran on (`mutastic verify m855c8e3c samples/pricing`), so they work as copied. A mutant's id belongs to its project: run in a directory with no Java code, or one that isn't a Gradle or Maven build, mutastic says so (for Gradle, it names the modules that have Java code). A Maven module is named by its directory, as `-pl` takes it: `mutastic run . :services/api`.
+
+## One mutant, explained
+
+`mutastic explain ID [dir] [:module]` runs that one mutant and shows its card, whatever became of it, then what it is: the change in the bytecode, opcode by opcode (`IF_ICMPLT → IF_ICMPLE`), and how the jump relates to the source, since javac compiles `if (total >= 100)` to a jump taken when `total < 100`; what its operator does; how its id is made and why it survives edits; which site it is; and how the last full run went. The summary's `Next:` line offers it, for the one-line formats.

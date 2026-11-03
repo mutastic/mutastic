@@ -1,0 +1,18 @@
+---
+title: Suggested tests
+description: "The inputs your tests used, and the test mutastic suggests for a missed mutant."
+---
+
+Each missed mutant shows the whole numbers its covering tests passed to its method (`inputs seen: total = 50, 250`), so what they never tried is plain.
+
+For a missed mutant in a method whose parameters are all whole numbers (`int`, `long`, `Integer`, `Long`), mutastic also looks for a test that would catch it. The method can be static, or on an object mutastic can make: with a no-argument constructor, or one whose parameters are whole numbers too, as a record of numbers has. The call must be one the test class could write itself (nothing private, nothing package-private from another package). It calls the method with candidate inputs, first as it is and then with the mutant in, and keeps the first input where the results differ. The constants near the change, ±1, come first, then what the tests passed, then a few small numbers. The test is written for the class of the fastest test that already reaches the mutant, in its assertion style (AssertJ or JUnit), with a name it doesn't already use:
+
+```java
+// in PricingTest
+@Test
+void discountWithTotal100() {
+  assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0
+}
+```
+
+A method that answers differently to the same call (it uses a random number or the clock) gets no suggestion. The expected value is what the code does today. Check it's what you intend before keeping the test. The search runs your code outside your tests, in the test worker with a time limit; `--no-suggestions` turns it off.

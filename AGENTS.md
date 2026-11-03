@@ -1,7 +1,7 @@
 # Working on mutastic
 
 mutastic is a mutation-testing tool for Java. Read the [README](README.md) for what it does and
-how it's built. This file is the conventions the code is held to, and why. Most are enforced by
+[ARCHITECTURE.md](ARCHITECTURE.md) for how it's built. This file is the conventions the code is held to, and why. Most are enforced by
 the build; the rest are judgement, written down so they're designed around rather than met as a
 build failure.
 

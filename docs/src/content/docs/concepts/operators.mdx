@@ -19,7 +19,8 @@ if (total >= 100)   // becomes: if (total > 100)
 ## Negate conditional
 
 `mutastic/negate-conditional`. A condition goes the other way: `==` becomes `!=`, `<` becomes
-`>=`. It goes unnoticed when no test checks what happens on one side of an `if`.
+`>=`, `== null` becomes `!= null`. It goes unnoticed when no test checks what happens on one side
+of an `if`.
 
 ## Math
 

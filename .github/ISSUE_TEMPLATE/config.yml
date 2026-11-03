@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://docs.mutastic.io/
+    about: Install, the Quickstart, and every command and option.
+  - name: Report a security problem
+    url: https://github.com/mutastic/mutastic/security/advisories/new
+    about: Privately, rather than in a public issue.

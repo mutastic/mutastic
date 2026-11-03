@@ -70,7 +70,13 @@ export default defineConfig({
         },
         {
           label: 'Concepts',
-          items: ['concepts/results', 'concepts/operators'],
+          items: [
+            'concepts/results',
+            'concepts/operators',
+            'concepts/output',
+            'concepts/suggested-tests',
+            'concepts/flaky-tests',
+          ],
         },
         {
           label: 'Reference',
@@ -80,7 +86,12 @@ export default defineConfig({
             { label: 'mutastic explain', link: `${base}reference/explain/` },
             { label: 'mutastic ignore', link: `${base}reference/ignore/` },
             { label: 'Environment and exit codes', link: `${base}reference/environment/` },
+            'reference/reports',
           ],
+        },
+        {
+          label: 'Guides',
+          items: ['guides/build-plugins', 'guides/scoping', 'guides/configuration'],
         },
         {
           label: 'Help',
