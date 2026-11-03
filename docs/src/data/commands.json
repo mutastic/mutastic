@@ -9,7 +9,7 @@
       "detail": "DIR is the build, here unless given, and :MODULE one of its modules: as Gradle names it (:app), or as Maven's -pl takes it (:services/api). The run passes when the score reaches the threshold. A full run writes report files, keeps a record the next run compares with, and offers the commands to work on each missed mutant.",
       "takesMutantId": false,
       "examples": [{ "gradle": "./gradlew mutasticRun", "maven": "mvn mutastic:run", "commandLine": "mutastic run" }, { "gradle": "./gradlew mutasticRun -Pmutastic.threshold=70 -p samples/pricing", "maven": "mvn mutastic:run -Dmutastic.threshold=70 -f samples/pricing", "commandLine": "mutastic run samples/pricing --threshold=70" }, { "gradle": "./gradlew mutasticRun -Pmutastic.since=main", "maven": "mvn mutastic:run -Dmutastic.since=main", "commandLine": "mutastic run --since=main" }, { "gradle": "./gradlew :core:mutasticRun -Pmutastic.testsFrom=dependents", "maven": "mvn mutastic:run -Dmutastic.testsFrom=dependents -pl core", "commandLine": "mutastic run . :core --tests-from=dependents" }],
-      "options": ["--threshold", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--no-suggestions", "--operators", "--report", "--format", "--vocabulary", "--color", "--hyperlinks", "--progress"]
+      "options": ["--threshold", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--no-suggestions", "--suite", "--operators", "--report", "--format", "--vocabulary", "--color", "--hyperlinks", "--progress"]
     },
     {
       "name": "verify",
@@ -18,7 +18,7 @@
       "detail": "How a fix is proved: each missed mutant offers it as \"done when\".",
       "takesMutantId": true,
       "examples": [{ "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c", "commandLine": "mutastic verify m855c8e3c" }, { "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c -p samples/pricing", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -f samples/pricing", "commandLine": "mutastic verify m855c8e3c samples/pricing" }],
-      "options": ["--tests-from", "--workers", "--confirm-catches", "--progress"]
+      "options": ["--tests-from", "--workers", "--confirm-catches", "--suite", "--progress"]
     },
     {
       "name": "explain",
@@ -27,7 +27,7 @@
       "detail": "Its card, the change in its bytecode, what its operator does, and its result in the last full run.",
       "takesMutantId": true,
       "examples": [{ "gradle": "./gradlew mutasticExplain -Pmutastic.mutant=m855c8e3c", "maven": "mvn mutastic:explain -Dmutastic.mutant=m855c8e3c", "commandLine": "mutastic explain m855c8e3c" }],
-      "options": ["--tests-from", "--workers", "--confirm-catches", "--no-suggestions", "--vocabulary", "--color", "--hyperlinks", "--progress"]
+      "options": ["--tests-from", "--workers", "--confirm-catches", "--no-suggestions", "--suite", "--vocabulary", "--color", "--hyperlinks", "--progress"]
     },
     {
       "name": "ignore",
@@ -137,6 +137,20 @@
       "maven": { "property": "-Dmutastic.suggestions", "setting": "<suggestions>false</suggestions>" },
       "gradle": { "property": "-Pmutastic.suggestions", "setting": "suggestions = false" },
       "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.suggestions=false", "maven": "mvn mutastic:run -Dmutastic.suggestions=false", "commandLine": "mutastic run --no-suggestions", "gradleBuild": "mutastic {\n    suggestions = false\n}", "mavenBuild": "<configuration>\n  <suggestions>false</suggestions>\n</configuration>" }
+    },
+    {
+      "name": "--suite",
+      "synopsis": "--suite=SUITE",
+      "kind": "value",
+      "group": "Running",
+      "value": "SUITE",
+      "choices": [],
+      "help": "Which of the build's test suites runs: a Gradle Test task by name, or Maven's integration-test (Failsafe); test unless set",
+      "commands": ["explain", "run", "verify"],
+      "environment": "",
+      "maven": { "property": "-Dmutastic.suite", "setting": "<suite>…</suite>" },
+      "gradle": { "property": "-Pmutastic.suite", "setting": "suite = …" },
+      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.suite=integrationTest", "maven": "mvn mutastic:run -Dmutastic.suite=integrationTest", "commandLine": "mutastic run --suite=integrationTest", "gradleBuild": "mutastic {\n    suite = \"integrationTest\"\n}", "mavenBuild": "<configuration>\n  <suite>integrationTest</suite>\n</configuration>" }
     },
     {
       "name": "--operators",

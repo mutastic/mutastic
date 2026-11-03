@@ -37,8 +37,7 @@ public abstract class MutasticPlugin implements Plugin<Project> {
   private static void configure(Project project, MutasticExtension extension) {
     defaults(project, extension);
     var command = commandJars(project, extension);
-    var setup =
-        project.getTasks().register("mutasticWriteSetup", WriteSetup.class, WriteSetup::configure);
+    var setup = writeSetup(project, extension);
     for (String name : COMMANDS) {
       project
           .getTasks()
@@ -55,9 +54,27 @@ public abstract class MutasticPlugin implements Plugin<Project> {
     }
   }
 
+  /// `mutasticWriteSetup`, for the suite the command line's -Pmutastic.suite or the build file
+  /// names: it decides which test task the setup reads.
+  private static org.gradle.api.tasks.TaskProvider<WriteSetup> writeSetup(
+      Project project, MutasticExtension extension) {
+    var suite =
+        project.getProviders().gradleProperty("mutastic.suite").orElse(extension.getSuite());
+    return project
+        .getTasks()
+        .register(
+            "mutasticWriteSetup",
+            WriteSetup.class,
+            task -> {
+              task.getSuite().set(suite);
+              WriteSetup.configure(task);
+            });
+  }
+
   /// The plugin's defaults, as conventions: what the build file sets replaces them.
   private static void defaults(Project project, MutasticExtension extension) {
     extension.getThreshold().convention(80);
+    extension.getSuite().convention("test");
     extension.getReports().convention(List.of("json", "html"));
     extension.getConfirmCatches().convention(false);
     extension.getSuggestions().convention(true);

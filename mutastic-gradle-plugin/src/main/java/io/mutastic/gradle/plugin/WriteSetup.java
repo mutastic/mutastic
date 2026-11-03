@@ -14,7 +14,10 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.gradle.api.DefaultTask;
+import org.gradle.api.GradleException;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.SourceSetContainer;
@@ -25,15 +28,15 @@ import org.gradle.api.tasks.testing.junitplatform.JUnitPlatformOptions;
 import org.gradle.jvm.tasks.Jar;
 import org.jspecify.annotations.Nullable;
 
-/// What the `test` task would run the module's tests with (its JDK, JVM arguments, working
-/// directory, classpath, which tests and environment) and the module's own directories, written as
-/// mutastic's setup file. The same as the init script's `mutasticSetup`, which the `mutastic`
-/// command adds to a build from outside it.
+/// What the suite's `Test` task (`test`, or `integrationTest` say) would run the module's tests
+/// with (its JDK, JVM arguments, working directory, classpath, which tests and environment) and the
+/// module's own directories, written as mutastic's setup file. The same as the init script's
+/// `mutasticSetup`, which the `mutastic` command adds to a build from outside it.
 public abstract class WriteSetup extends DefaultTask {
   private static final String SEPARATOR = File.pathSeparator;
 
   private @Nullable SourceSet main;
-  private @Nullable SourceSet test;
+  private @Nullable SourceSetContainer sourceSets;
   private @Nullable TaskProvider<Test> testTask;
   private @Nullable Jar jar;
   private String projectPath = ":";
@@ -41,15 +44,21 @@ public abstract class WriteSetup extends DefaultTask {
   @OutputFile
   public abstract RegularFileProperty getSetup();
 
+  /// The `Test` task whose tests run.
+  @Input
+  public abstract Property<String> getSuite();
+
+  /// Set up once [#getSuite] is set: it names the test task, whose classes it builds first.
   static void configure(WriteSetup task) {
     var project = task.getProject();
     var sourceSets = project.getExtensions().getByType(SourceSetContainer.class);
+    task.sourceSets = sourceSets;
     task.main = sourceSets.getByName(SourceSet.MAIN_SOURCE_SET_NAME);
-    task.test = sourceSets.getByName(SourceSet.TEST_SOURCE_SET_NAME);
-    task.testTask = project.getTasks().named("test", Test.class);
+    task.testTask =
+        project.getTasks().withType(Test.class).named(task.getSuite().get(), Test.class);
     task.jar = (Jar) project.getTasks().findByName("jar");
     task.projectPath = project.getPath();
-    task.dependsOn(task.main.getClassesTaskName(), task.test.getClassesTaskName());
+    task.dependsOn(task.main.getClassesTaskName(), task.testTask.map(Test::getTestClassesDirs));
     task.getSetup().set(project.getLayout().getBuildDirectory().file("mutastic/setup.properties"));
     task.setDescription("Writes what the test task would run the tests with, for mutastic");
     // It reads the test task as it runs, which the configuration cache can't keep.
@@ -60,8 +69,8 @@ public abstract class WriteSetup extends DefaultTask {
   @TaskAction
   public void write() {
     var main = Objects.requireNonNull(this.main);
-    var test = Objects.requireNonNull(this.test);
     var task = Objects.requireNonNull(testTask).get();
+    var test = testsOf(task);
     var setup = new Properties();
     setup.setProperty("java", task.getJavaLauncher().get().getExecutablePath().toString());
     setup.setProperty("jvmArgs", String.join("\n", task.getAllJvmArgs()));
@@ -72,6 +81,21 @@ public abstract class WriteSetup extends DefaultTask {
     selection(setup, task);
     setup.setProperty("environment", environment(task));
     store(setup);
+  }
+
+  /// The source set whose classes the test task runs: `test` for `test`, `integrationTest` for a
+  /// suite of that name.
+  private SourceSet testsOf(Test task) {
+    var runs = task.getTestClassesDirs().getFiles();
+    return Objects.requireNonNull(sourceSets).stream()
+        .filter(set -> !set.getName().equals(SourceSet.MAIN_SOURCE_SET_NAME))
+        .filter(
+            set -> set.getOutput().getClassesDirs().getFiles().stream().anyMatch(runs::contains))
+        .findFirst()
+        .orElseThrow(
+            () ->
+                new GradleException(
+                    "mutastic: no source set holds the classes %s runs".formatted(task.getName())));
   }
 
   /// The module's own classes, resources and sources.

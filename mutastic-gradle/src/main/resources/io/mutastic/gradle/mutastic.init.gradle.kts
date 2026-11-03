@@ -1,6 +1,7 @@
-// Added to the user's build with `-I` to read what the `test` task would do: its JDK, JVM
-// arguments, working directory and classpath, and the module's own directories. Written as a
-// properties file to -PmutasticOut. Nothing in the user's build changes.
+// Added to the user's build with `-I` to read what the `test` task (or another Test task, named
+// by -PmutasticSuite) would do: its JDK, JVM arguments, working directory and classpath, and the
+// module's own directories. Written as a properties file to -PmutasticOut. Nothing in the user's
+// build changes.
 // When the module asked for has no Java code: which modules do, to suggest one.
 rootProject {
     tasks.register("mutasticModules") {
@@ -46,13 +47,24 @@ allprojects {
         tasks.register("mutasticSetup") {
             val sourceSets = project.extensions.getByType<SourceSetContainer>()
             val main = sourceSets["main"]
-            val test = sourceSets["test"]
-            val testTask = tasks.named<Test>("test")
+            // The suite: a Test task, `test` unless -PmutasticSuite names another, and the source
+            // set whose classes it runs, `integrationTest` say.
+            val suite = (project.findProperty("mutasticSuite") as String?) ?: "test"
+            val testTask = tasks.withType<Test>().named { it == suite }
+            if (testTask.isEmpty()) {
+                val suites = tasks.withType<Test>().names.sorted().joinToString(", ")
+                val where = if (project.path == ":") "the root project" else project.path
+                throw GradleException("mutastic: no test suite $suite in $where; its Test tasks are $suites")
+            }
+            val suiteTask = tasks.named<Test>(suite)
+            val test = sourceSets.find { set ->
+                set.name != "main" && set.output.classesDirs.files.any { it in suiteTask.get().testClassesDirs.files }
+            } ?: sourceSets["test"]
             dependsOn(main.classesTaskName, test.classesTaskName)
             val out = File(project.findProperty("mutasticOut") as String)
             val separator = File.pathSeparator
             doLast {
-                val task = testTask.get()
+                val task = suiteTask.get()
                 val own = (main.output.classesDirs.files + test.output.classesDirs.files +
                     listOfNotNull(main.output.resourcesDir, test.output.resourcesDir)).map { it.absolutePath }.toSet()
                 val setup = java.util.Properties()

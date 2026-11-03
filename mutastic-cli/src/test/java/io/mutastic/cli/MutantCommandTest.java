@@ -36,6 +36,28 @@ class MutantCommandTest {
     }
   }
 
+  /// A suite but the default is part of the project: each command offered keeps it, so a mutant is
+  /// checked against the tests that found it.
+  @Test
+  void aSuiteGoesWithEveryCommandInEveryForm() {
+    var target = List.of("samples/suites", "--suite=integrationTest");
+
+    assertThat(MutantCommand.DONE_WHEN.command(ID, Invocation.of("mutastic", target)))
+        .isEqualTo("mutastic verify m855c8e3c samples/suites --suite=integrationTest");
+    assertThat(MutantCommand.DONE_WHEN.command(ID, Invocation.of("maven", target)))
+        .isEqualTo(
+            "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -f samples/suites"
+                + " -Dmutastic.suite=integrationTest");
+    assertThat(MutantCommand.DONE_WHEN.command(ID, Invocation.of("gradle:./gradlew", target)))
+        .isEqualTo(
+            "./gradlew :mutasticVerify -Pmutastic.mutant=m855c8e3c -p samples/suites"
+                + " -Pmutastic.suite=integrationTest");
+    var arguments = new ArrayList<>(MutantCommand.DONE_WHEN.arguments(ID));
+    arguments.addAll(target);
+    assertThat(Main.Command.parse(arguments.toArray(String[]::new)).suite())
+        .isEqualTo("integrationTest");
+  }
+
   @Test
   void aPathWithASpaceIsQuoted() {
     var invocation = Invocation.of("mutastic", List.of("my project"));

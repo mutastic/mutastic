@@ -66,6 +66,27 @@ class MavenPluginTest {
     assertThat(verify.exit()).isEqualTo(1);
   }
 
+  /// `-Dmutastic.suite=integration-test` runs Failsafe's tests, which check what Surefire's miss.
+  @Test
+  void theIntegrationTestSuiteRunsFailsafesTests() throws Exception {
+    var project =
+        Samples.copy(
+            Path.of(System.getProperty("mutastic.samples"), "maven-suites"),
+            work.resolve("maven-suites"));
+
+    var unit = mvn(project, PLUGIN + ":run", "-Dmutastic.format=agent");
+    var integration =
+        mvn(
+            project,
+            PLUGIN + ":run",
+            "-Dmutastic.format=agent",
+            "-Dmutastic.suite=integration-test");
+
+    assertThat(unit.out()).as(unit.out()).contains("1 missed");
+    assertThat(integration.out()).as(integration.out()).contains("0 missed");
+    assertThat(integration.exit()).isZero();
+  }
+
   /// The plugin in the root POM's plugins, with `configuration`.
   private static void declare(Path project, String configuration) throws IOException {
     var pom = project.resolve("pom.xml");

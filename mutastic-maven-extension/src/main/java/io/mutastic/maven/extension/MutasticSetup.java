@@ -60,12 +60,30 @@ public class MutasticSetup extends AbstractMavenLifecycleParticipant {
   /// one.
   public void write(MavenSession session, MavenProject project, Path file)
       throws MavenExecutionException {
+    write(
+        session, project, file, session.getUserProperties().getProperty("mutastic.suite", "test"));
+  }
+
+  /// One module's setup for one test suite: `test`, as Surefire runs it, or `integration-test`, as
+  /// Failsafe does.
+  public void write(MavenSession session, MavenProject project, Path file, String suite)
+      throws MavenExecutionException {
     var previous = session.getCurrentProject();
     session.setCurrentProject(project);
     try {
-      var surefire = new Surefire(session, surefireTest(session));
-      new ModuleSetup(project, surefire, new Launcher(session, project, repositories))
-          .write(file, Java.of(surefire, session, toolchains));
+      boolean failsafe = suite.equals("integration-test") || suite.equals("integrationTest");
+      var execution = testExecution(session, failsafe);
+      if (failsafe && execution == null) {
+        throw new MavenExecutionException(
+            "mutastic: no test suite integration-test in %s; its build has no Failsafe"
+                .formatted(project.getArtifactId()),
+            project.getFile());
+      }
+      var settings = new Surefire(session, execution);
+      new ModuleSetup(project, settings, new Launcher(session, project, repositories), failsafe)
+          .write(file, Java.of(settings, session, toolchains));
+    } catch (MavenExecutionException e) {
+      throw e;
     } catch (Exception e) {
       throw new MavenExecutionException("mutastic couldn't read " + project.getId(), e);
     } finally {
@@ -73,12 +91,15 @@ public class MutasticSetup extends AbstractMavenLifecycleParticipant {
     }
   }
 
-  /// Surefire's `test` in the module's build plan, which evaluates its settings as the build would.
-  private @Nullable MojoExecution surefireTest(MavenSession session) throws Exception {
+  /// Surefire's `test`, or Failsafe's `integration-test`, in the module's build plan, which
+  /// evaluates its settings as the build would.
+  private @Nullable MojoExecution testExecution(MavenSession session, boolean failsafe)
+      throws Exception {
+    var phase = failsafe ? "integration-test" : "test";
+    var plugin = failsafe ? "maven-failsafe-plugin" : "maven-surefire-plugin";
     for (MojoExecution execution :
-        lifecycle.calculateExecutionPlan(session, "test").getMojoExecutions()) {
-      if (execution.getArtifactId().equals("maven-surefire-plugin")
-          && execution.getGoal().equals("test")) {
+        lifecycle.calculateExecutionPlan(session, phase).getMojoExecutions()) {
+      if (execution.getArtifactId().equals(plugin) && execution.getGoal().equals(phase)) {
         return execution;
       }
     }

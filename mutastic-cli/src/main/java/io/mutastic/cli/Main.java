@@ -375,14 +375,19 @@ public final class Main {
     long start = System.nanoTime();
     var startedAt = LocalTime.now(java.time.ZoneId.systemDefault()); // the reader's clock
     var directory = command.directory().toAbsolutePath().normalize();
-    var work = workDirectory(tool, directory, command.module());
+    var work = workDirectory(tool, directory, command.module(), command.suite());
     var here = Path.of("").toAbsolutePath().normalize();
-    var target = target(here, directory, command.module());
+    var target = withSuite(target(here, directory, command.module()), command.suite());
     var project =
         command.setup().isPresent()
             ? tool.read(directory, command.module(), command.setup().get())
             : tool.read(
-                directory, command.module(), work, String.join(" ", target(here, directory, ":")));
+                new BuildTool.Request(
+                    directory,
+                    command.module(),
+                    work,
+                    String.join(" ", target(here, directory, ":")),
+                    command.suite()));
     var setup = Duration.ofNanos(System.nanoTime() - start);
     var sources =
         new SourceView(directory, project.sources(), project.testSources())
@@ -390,10 +395,26 @@ public final class Main {
     return new Prepared(directory, work, project, sources, startedAt, setup);
   }
 
+  /// The project as typed, and its suite when it isn't the default: its tests are the suite's, so
+  /// it's part of the project every command offered names.
+  private static List<String> withSuite(List<String> target, String suite) {
+    if (suite.equals(BuildTool.DEFAULT_SUITE)) {
+      return target;
+    }
+    var named = new ArrayList<>(target);
+    named.add("--suite=" + suite);
+    return named;
+  }
+
   /// Where mutastic keeps the module's run record, logs and reports, made if it isn't there yet:
-  /// with a setup a build plugin wrote, no build has run to make it.
-  private static Path workDirectory(BuildTool tool, Path directory, String module) {
-    var work = tool.workDirectory(directory, module);
+  /// with a setup a build plugin wrote, no build has run to make it. A suite but the default keeps
+  /// its own, under `suites/`: its run never compares with another suite's.
+  private static Path workDirectory(BuildTool tool, Path directory, String module, String suite) {
+    var moduleWork = tool.workDirectory(directory, module);
+    var work =
+        suite.equals(BuildTool.DEFAULT_SUITE)
+            ? moduleWork
+            : moduleWork.resolve("suites").resolve(suite);
     try {
       Files.createDirectories(work);
     } catch (IOException e) {
@@ -760,6 +781,7 @@ public final class Main {
       Optional<String> vocabulary,
       List<String> testsFrom,
       List<String> operators,
+      String suite,
       Optional<String> since,
       Optional<Ignoring> ignore,
       Optional<Path> setup,
@@ -791,6 +813,7 @@ public final class Main {
           vocabulary,
           testsFrom,
           operators,
+          suite,
           since,
           Optional.of(how),
           setup,
@@ -826,6 +849,7 @@ public final class Main {
       private Optional<String> vocabulary = Optional.empty();
       private final List<String> testsFrom = new ArrayList<>();
       private final List<String> operators = new ArrayList<>();
+      private String suite = BuildTool.DEFAULT_SUITE;
       private Optional<String> since = Optional.empty();
       private String reason = "";
       private boolean prune = false;
@@ -888,6 +912,7 @@ public final class Main {
           case "--only" -> only = Optional.of(given);
           case "--tests-from" -> testsFrom.add(module(given));
           case "--operators" -> operators(given);
+          case "--suite" -> suite = suite(given);
           case "--workers" -> workers = Optional.of(number(option, given, 1, Integer.MAX_VALUE));
           case "--confirm-catches" -> confirmCatches = true;
           case "--no-suggestions" -> suggestions = false;
@@ -911,6 +936,15 @@ public final class Main {
           case "--commands" -> commands = commands(given);
           default -> throw new IllegalStateException("no reader for " + option.name());
         }
+      }
+
+      /// `--suite=integrationTest`: a name the build tool checks.
+      private static String suite(String value) {
+        if (value.isBlank() || value.contains("/") || value.startsWith("-")) {
+          throw new UsageException(
+              "--suite takes a test suite's name, as integrationTest; not " + value);
+        }
+        return value.strip();
       }
 
       /// `--operators=stronger,-stream`: each word, checked when the project's operators are known.
@@ -1012,6 +1046,7 @@ public final class Main {
             vocabulary,
             List.copyOf(testsFrom),
             List.copyOf(operators),
+            suite,
             since,
             Optional.empty(),
             setup,

@@ -1,5 +1,6 @@
 package io.mutastic.maven;
 
+import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
 import io.mutastic.api.Project;
 import io.mutastic.api.ProjectSetup;
@@ -25,18 +26,25 @@ final class MavenSetup {
     return module.equals(":") ? directory : directory.resolve(module.substring(1));
   }
 
-  static Project read(Path directory, String module, Path workDirectory, String typed) {
+  /// The test suites a Maven build has: Surefire's, and Failsafe's, by its phase or as Gradle would
+  /// name it.
+  static final List<String> SUITES = List.of("test", "integration-test", "integrationTest");
+
+  static Project read(BuildTool.Request request) {
+    var directory = request.directory();
+    var module = request.module();
     try {
-      Files.createDirectories(workDirectory);
-      var out = workDirectory.resolve("maven-setup");
-      var log = workDirectory.resolve("maven.log");
-      if (mvn(directory, command(directory, module, out), log) != 0) {
-        throw new SetupFailed("the Maven build failed; its output is in " + log);
+      Files.createDirectories(request.workDirectory());
+      var out = request.workDirectory().resolve("maven-setup");
+      var log = request.workDirectory().resolve("maven.log");
+      if (mvn(directory, command(directory, module, out, request.suite()), log) != 0) {
+        throw SetupFailed.noSuite(Files.readAllLines(log).stream())
+            .orElseGet(() -> new SetupFailed("the Maven build failed; its output is in " + log));
       }
       var setup =
           out.resolve(module.equals(":") ? "" : module.substring(1)).resolve("setup.properties");
       if (!Files.isRegularFile(setup)) {
-        throw new SetupFailed(noJava(directory, module, typed));
+        throw new SetupFailed(noJava(directory, module, request.typed()));
       }
       return written(directory, module, setup);
     } catch (IOException e) {
@@ -93,7 +101,7 @@ final class MavenSetup {
         "-Dmutastic.module=" + (module.equals(":") ? "" : module.substring(1)));
   }
 
-  private static List<String> command(Path directory, String module, Path out) {
+  private static List<String> command(Path directory, String module, Path out, String suite) {
     var command =
         new ArrayList<>(
             List.of(
@@ -102,7 +110,8 @@ final class MavenSetup {
                 "-B",
                 "test-compile",
                 "-Dmaven.ext.class.path=" + extensionJar(),
-                "-Dmutastic.out=" + out));
+                "-Dmutastic.out=" + out,
+                "-Dmutastic.suite=" + suite));
     if (!module.equals(":")) {
       command.addAll(List.of("-pl", module.substring(1), "-am"));
     }

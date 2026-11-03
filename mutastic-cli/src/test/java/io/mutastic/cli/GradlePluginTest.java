@@ -20,6 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
 /// as it's copied. The plugin reads the build as the `mutastic` command's init script does.
 class GradlePluginTest {
   private static final Path SAMPLE = Path.of(System.getProperty("mutastic.samples"), "modules");
+  private static final Path SUITES = Path.of(System.getProperty("mutastic.samples"), "suites");
   private static final Path REPOSITORY = Path.of(System.getProperty("mutastic.samplesRepository"));
   private static final String VERSION = System.getProperty("mutastic.version");
   private static final Pattern DONE_WHEN =
@@ -56,6 +57,43 @@ class GradlePluginTest {
     assertThat(verify.out()).as(verify.out()).contains("is still missed");
     assertThat(verify.exit()).isEqualTo(1);
     sameSetupAsTheCommand(project);
+  }
+
+  /// `suite` in the build file picks the Test task whose tests run, as `--suite` does, and the
+  /// command line's `-Pmutastic.suite` is over it; its setup is the init script's for that suite.
+  @Test
+  void theBuildFilesSuiteRunsThatTestTask() throws Exception {
+    var project = Samples.copy(SUITES, work.resolve("suites"));
+    var repository = REPOSITORY.toUri().toString();
+    var settings = project.resolve("settings.gradle.kts");
+    Files.writeString(
+        settings,
+        "pluginManagement {\n    repositories {\n        maven(\"%s\")\n        gradlePluginPortal()\n    }\n}\n"
+                .formatted(repository)
+            + Files.readString(settings));
+    var build = project.resolve("build.gradle.kts");
+    Files.writeString(
+        build,
+        Files.readString(build)
+                .replace(
+                    "plugins {\n    java\n}",
+                    "plugins {\n    java\n    id(\"io.mutastic\") version \"%s\"\n}"
+                        .formatted(VERSION))
+                .replace(
+                    "    mavenCentral()\n",
+                    "    mavenCentral()\n    maven(\"%s\")\n".formatted(repository))
+            + "\nmutastic {\n    suite = \"integrationTest\"\n}\n");
+
+    var integration = gradlew(project, "mutasticRun", "-Pmutastic.format=agent");
+    var unit = gradlew(project, "mutasticRun", "-Pmutastic.format=agent", "-Pmutastic.suite=test");
+
+    assertThat(integration.out()).as(integration.out()).contains("0 missed");
+    assertThat(unit.out()).as(unit.out()).contains("1 missed");
+    gradlew(project, "mutasticWriteSetup");
+    Samples.mutastic("run", project.toString(), "--suite=integrationTest", "--report=none");
+    assertThat(setup(project.resolve("build/mutastic/setup.properties")))
+        .isEqualTo(
+            setup(project.resolve("build/mutastic/suites/integrationTest/setup.properties")));
   }
 
   /// The plugin's setup and the init script's, for the same module, say the same.

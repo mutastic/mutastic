@@ -27,10 +27,14 @@ final class ModuleSetup {
   private final Surefire surefire;
   private final Launcher launcher;
 
-  ModuleSetup(MavenProject project, Surefire surefire, Launcher launcher) {
+  /// Whether the settings are Failsafe's, whose tests are named for integration tests.
+  private final boolean failsafe;
+
+  ModuleSetup(MavenProject project, Surefire surefire, Launcher launcher, boolean failsafe) {
     this.project = project;
     this.surefire = surefire;
     this.launcher = launcher;
+    this.failsafe = failsafe;
   }
 
   void write(Path file, String java) throws Exception {
@@ -61,10 +65,15 @@ final class ModuleSetup {
   private static final List<String> DEFAULT_INCLUDES =
       List.of("**/Test*.class", "**/*Test.class", "**/*Tests.class", "**/*TestCase.class");
 
+  /// Failsafe's.
+  private static final List<String> INTEGRATION_INCLUDES =
+      List.of("**/IT*.class", "**/*IT.class", "**/*ITCase.class");
+
   /// Which tests Surefire runs, and the environment it gives them.
   private void putTests(Properties setup) throws Exception {
     var includes = patterns(surefire.list("includes"));
-    setup.put("testIncludes", lines(includes.isEmpty() ? DEFAULT_INCLUDES : includes));
+    var defaults = failsafe ? INTEGRATION_INCLUDES : DEFAULT_INCLUDES;
+    setup.put("testIncludes", lines(includes.isEmpty() ? defaults : includes));
     var excludes = patterns(surefire.list("excludes"));
     setup.put("testExcludes", lines(excludes.isEmpty() ? List.of("**/*$*") : excludes));
     setup.put("includeTags", lines(commaSeparated(surefire.value("groups"))));

@@ -1,6 +1,7 @@
 package io.mutastic.maven;
 
 import io.mutastic.api.BuildTool;
+import io.mutastic.api.BuildTool.SetupFailed;
 import io.mutastic.api.Project;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,7 +38,18 @@ public final class Maven implements BuildTool {
 
   @Override
   public Project read(Path directory, String module, Path workDirectory, String typed) {
-    return MavenSetup.read(directory, module, workDirectory, typed);
+    return read(new Request(directory, module, workDirectory, typed, DEFAULT_SUITE));
+  }
+
+  /// `suite` is `test`, Surefire's, or `integration-test` (or `integrationTest`), Failsafe's.
+  @Override
+  public Project read(Request request) {
+    if (!MavenSetup.SUITES.contains(request.suite())) {
+      throw new SetupFailed(
+          "Maven builds have two test suites, test (Surefire) and integration-test (Failsafe), not "
+              + request.suite());
+    }
+    return MavenSetup.read(request);
   }
 
   @Override

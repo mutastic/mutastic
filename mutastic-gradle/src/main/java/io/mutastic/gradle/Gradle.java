@@ -38,7 +38,13 @@ public final class Gradle implements BuildTool {
 
   @Override
   public Project read(Path directory, String module, Path workDirectory, String typed) {
-    return GradleSetup.read(directory, module, workDirectory, typed);
+    return read(new Request(directory, module, workDirectory, typed, DEFAULT_SUITE));
+  }
+
+  /// The suite is a `Test` task: `test`, or `integrationTest` say.
+  @Override
+  public Project read(Request request) {
+    return GradleSetup.read(request);
   }
 
   @Override

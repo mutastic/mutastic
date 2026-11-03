@@ -1,5 +1,6 @@
 package io.mutastic.gradle;
 
+import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
 import io.mutastic.api.Project;
 import io.mutastic.api.ProjectSetup;
@@ -16,12 +17,16 @@ import java.util.List;
 final class GradleSetup {
   private GradleSetup() {}
 
-  /// `module` is a Gradle project path, `:` for the root project; `typed` is the directory as the
-  /// person would type it, for the commands a failure suggests.
-  static Project read(Path directory, String module, Path workDirectory, String typed) {
-    var build = new Build(directory, workDirectory.resolve("mutastic.init.gradle.kts"));
+  /// The request's module is a Gradle project path, `:` for the root project; its suite the `Test`
+  /// task to read.
+  static Project read(BuildTool.Request request) {
+    var build =
+        new Build(
+            request.directory(),
+            request.workDirectory().resolve("mutastic.init.gradle.kts"),
+            request.suite());
     try {
-      return setUp(build, module, workDirectory, typed);
+      return setUp(build, request.module(), request.workDirectory(), request.typed());
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     } catch (InterruptedException e) {
@@ -30,8 +35,12 @@ final class GradleSetup {
     }
   }
 
-  /// A build to run, and mutastic's init script to run it with.
-  private record Build(Path directory, Path init) {}
+  /// A build to run, mutastic's init script to run it with, and the `Test` task it reads.
+  private record Build(Path directory, Path init, String suite) {
+    Build(Path directory, Path init) {
+      this(directory, init, BuildTool.DEFAULT_SUITE);
+    }
+  }
 
   /// Runs the module's `mutasticSetup` task and reads the project from what it wrote.
   private static Project setUp(Build build, String module, Path workDirectory, String typed)
@@ -47,13 +56,16 @@ final class GradleSetup {
       if (output.contains("'mutasticSetup' not found")) {
         throw new SetupFailed(noJava(build, module, workDirectory, typed));
       }
-      throw new SetupFailed(
-          "Gradle couldn't build "
-              + build.directory()
-              + " for mutastic (exit "
-              + exit
-              + "):\n"
-              + output);
+      throw SetupFailed.noSuite(output.lines())
+          .orElseGet(
+              () ->
+                  new SetupFailed(
+                      "Gradle couldn't build "
+                          + build.directory()
+                          + " for mutastic (exit "
+                          + exit
+                          + "):\n"
+                          + output));
     }
     return ProjectSetup.read(name(build.directory(), module), out);
   }
@@ -179,6 +191,7 @@ final class GradleSetup {
         "-I",
         build.init().toString(),
         "-PmutasticOut=" + out,
+        "-PmutasticSuite=" + build.suite(),
         task);
   }
 

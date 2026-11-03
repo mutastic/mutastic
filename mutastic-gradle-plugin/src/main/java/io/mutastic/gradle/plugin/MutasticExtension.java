@@ -16,6 +16,9 @@ public abstract class MutasticExtension {
   /// `dependents` for every module that depends on this one.
   public abstract ListProperty<String> getTestsFrom();
 
+  /// Which `Test` task's tests run, and its source set's: `test` unless set, `integrationTest` say.
+  public abstract Property<String> getSuite();
+
   /// How many workers run side by side; unset, it depends on the machine.
   public abstract Property<Integer> getWorkers();
 

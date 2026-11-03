@@ -118,6 +118,19 @@ final class Options {
               "",
               "mutastic run --no-suggestions"),
           new Option(
+              "--suite",
+              Kind.VALUE,
+              Group.RUNNING,
+              "SUITE",
+              List.of(),
+              "Which of the build's test suites runs: a Gradle Test task by name, or Maven's"
+                  + " integration-test (Failsafe); test unless set",
+              MUTANTS_RUN,
+              "suite",
+              true,
+              "",
+              "mutastic run --suite=integrationTest"),
+          new Option(
               "--operators",
               Kind.REPEATED,
               Group.RUNNING,

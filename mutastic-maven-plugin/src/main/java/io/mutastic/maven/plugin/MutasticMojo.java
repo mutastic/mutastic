@@ -74,6 +74,10 @@ abstract class MutasticMojo extends AbstractMojo {
   @Parameter(property = "mutastic.format")
   private @Nullable String format;
 
+  /// Which test suite runs: `test`, Surefire's, unless set, or `integration-test`, Failsafe's.
+  @Parameter(property = "mutastic.suite", defaultValue = "test")
+  private String suite = "test";
+
   /// Mutate only the lines changed since this ref; empty for the default branch.
   @Parameter(property = "mutastic.since")
   private @Nullable String since;
@@ -111,7 +115,7 @@ abstract class MutasticMojo extends AbstractMojo {
     }
     var setup = Path.of(project.getBuild().getDirectory(), "mutastic", "setup.properties");
     try {
-      new MutasticSetup(lifecycle, toolchains, repositories).write(session, project, setup);
+      new MutasticSetup(lifecycle, toolchains, repositories).write(session, project, setup, suite);
     } catch (Exception e) {
       throw new MojoExecutionException("mutastic couldn't read " + project.getId(), e);
     }
@@ -170,6 +174,7 @@ abstract class MutasticMojo extends AbstractMojo {
     configured.put("confirmCatches", String.valueOf(confirmCatches));
     configured.put("suggestions", String.valueOf(suggestions));
     configured.put("testsFrom", testsFrom == null ? "" : String.join(",", testsFrom));
+    configured.put("suite", suite);
     if (reports != null) {
       configured.put("reports", String.join(",", reports));
     }

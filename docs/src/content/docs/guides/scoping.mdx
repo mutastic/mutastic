@@ -1,6 +1,6 @@
 ---
-title: Changed lines and other modules' tests
-description: "Mutate only what a change touched, run another module's tests over this one's mutants, or run one mutant."
+title: Changed lines, other tests and suites
+description: "Mutate only what a change touched, run another module's tests or another test suite, or run one mutant."
 ---
 
 ## Only what changed
@@ -10,6 +10,24 @@ description: "Mutate only what a change touched, run another module's tests over
 ## Other modules' tests
 
 A module's own tests are often not all that test it: another module that uses it may test it more. `--tests-from=:app` (as often as needed) runs `:app`'s tests over the mutants the module's own tests leave uncaught, as `:app`'s build runs them, with this module's mutated classes in place of its jar; a mutant caught by either is caught. `mutastic run :core --tests-from=:app`, or `--tests-from=dependents` for every module that depends on this one, directly or through others, as the build's own graph has it.
+
+## Another test suite
+
+A module's tests aren't always in one suite: integration tests often live apart, in a suite of their own that checks what the unit tests leave out. `--suite` picks which suite's tests run, `test` unless set:
+
+| Build | `--suite` | Runs |
+|---|---|---|
+| Gradle | `test`, or any `Test` task's name, `integrationTest` say | That task's tests, from its own source set, with its JDK, JVM arguments, classpath and environment |
+| Maven | `test` | Surefire's tests, as `mvn test` runs them |
+| Maven | `integration-test` (or `integrationTest`) | Failsafe's tests, `*IT` by default, as its `integration-test` goal runs them |
+
+```sh
+mutastic run --suite=integrationTest
+```
+
+From a build plugin, `-Pmutastic.suite=integrationTest` or `-Dmutastic.suite=integration-test` for one run, or for every run `suite = "integrationTest"` in `mutastic { }`, or `<suite>integration-test</suite>` in the Maven plugin's configuration. A suite the build doesn't have is an error that lists those it does.
+
+A suite but `test` keeps its own run record and reports, under `suites/<name>/` in the module's work directory (`build/mutastic/suites/integrationTest/`), so its runs compare only with its own. The commands a run offers keep the suite: `mutastic verify m2f3930a4 --suite=integrationTest` checks a mutant against the tests that found it.
 
 ## One mutant
 

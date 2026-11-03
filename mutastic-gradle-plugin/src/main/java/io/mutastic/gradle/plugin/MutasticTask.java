@@ -64,6 +64,10 @@ public abstract class MutasticTask extends DefaultTask {
 
   @Input
   @Optional
+  public abstract Property<String> getSuite();
+
+  @Input
+  @Optional
   public abstract Property<Integer> getWorkers();
 
   @Input
@@ -152,6 +156,7 @@ public abstract class MutasticTask extends DefaultTask {
   void from(MutasticExtension extension) {
     getThreshold().convention(extension.getThreshold());
     getTestsFrom().convention(extension.getTestsFrom());
+    getSuite().convention(extension.getSuite());
     getWorkers().convention(extension.getWorkers());
     getReports().convention(extension.getReports());
     getFormat().convention(extension.getFormat());
@@ -168,6 +173,7 @@ public abstract class MutasticTask extends DefaultTask {
     put(configured, "workers", getWorkers());
     put(configured, "format", getFormat());
     put(configured, "since", getSince());
+    put(configured, "suite", getSuite());
     put(configured, "confirmCatches", getConfirmCatches());
     put(configured, "suggestions", getSuggestions());
     configured.put("testsFrom", String.join(",", getTestsFrom().get()));
