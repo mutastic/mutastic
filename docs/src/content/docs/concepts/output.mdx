@@ -38,6 +38,7 @@ The same run of the pricing sample, in each:
 <TabItem label="jsonl"><Code code={jsonl} lang="ansi" /></TabItem>
 </Tabs>
 
+- **The mutants of one line share a card** (and an entry in the agent format): one test there usually catches them all, the edge of a condition its boundary and its removal alike. The card is written about one of them, lists the others with their changes, and its `done when` checks them all at once (`mutastic verify m855c8e3c,m2e491c40`). Each is still counted, and ignored, on its own. `--each-mutant` gives every missed mutant a card of its own.
 - **Cards** are grouped by file, and in each file the method with the most misses comes first. On a terminal, file locations are links (`--hyperlinks`) that terminals supporting OSC 8 open; others show the text.
 - **The agent format** puts the verdict first, so a truncated read still has it, and the rule that a fix changes tests, never production code.
 - **`MUTASTIC_FORMAT`** sets the format when `--format` isn't given. While it runs, each source file gets a line as it finishes, on stderr, with its misses under it.

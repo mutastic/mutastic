@@ -26,7 +26,7 @@ class MutasticTaskTest {
         .containsEntry("suggestions", "true")
         .containsEntry("confirmCatches", "false")
         .containsEntry("testsFrom", "")
-        .doesNotContainKeys("workers", "format", "since");
+        .doesNotContainKeys("workers", "format", "since", "eachMutant");
   }
 
   @Test

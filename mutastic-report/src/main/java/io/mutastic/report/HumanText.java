@@ -69,14 +69,31 @@ public final class HumanText {
   private final Style style;
   private final Detail detail;
   private final Vocabulary words;
+  private final boolean eachMutant;
 
   public HumanText(
       SourceView sources, int threshold, Style style, Detail detail, Vocabulary words) {
+    this(sources, threshold, style, detail, words, false);
+  }
+
+  private HumanText(
+      SourceView sources,
+      int threshold,
+      Style style,
+      Detail detail,
+      Vocabulary words,
+      boolean eachMutant) {
     this.sources = sources;
     this.threshold = threshold;
     this.style = style;
     this.detail = detail;
     this.words = words;
+    this.eachMutant = eachMutant;
+  }
+
+  /// The same, with a card for every missed mutant, not one for each line's (`--each-mutant`).
+  public HumanText eachMutant(boolean each) {
+    return new HumanText(sources, threshold, style, detail, words, each);
   }
 
   public String render(Report report, Optional<Comparison> comparison, Run run) {
@@ -98,24 +115,29 @@ public final class HumanText {
     return out.toString();
   }
 
-  /// The first [#CARDS] missed mutants as cards under their files, and how many more there are.
+  /// The first [#CARDS] findings as cards under their files, and how many more missed mutants there
+  /// are.
   private String cards(List<MutantResult> missed) {
+    var findings = Finding.of(missed, eachMutant);
     var out = new StringBuilder();
     String file = null;
-    for (MutantResult result : missed.stream().limit(CARDS).toList()) {
-      var here = sources.file(result.mutant());
+    for (Finding finding : findings.stream().limit(CARDS).toList()) {
+      var lead = finding.lead().mutant();
+      var here = sources.file(lead);
       if (!here.equals(file)) {
-        out.append('\n').append(fileHeader(here, result.mutant(), missed)).append('\n');
+        out.append('\n').append(fileHeader(here, lead, missed)).append('\n');
         file = here;
       }
-      out.append(detail == Detail.BRIEF ? briefCard(result) : card(result));
+      out.append(detail == Detail.BRIEF ? briefCard(finding) : card(finding));
     }
-    if (missed.size() > CARDS) {
+    if (findings.size() > CARDS) {
       out.append('\n')
           .append(
               style.dim(
                   " … and %d more %s mutants (--format=concise lists them all)"
-                      .formatted(missed.size() - CARDS, words.undetected)))
+                      .formatted(
+                          Finding.mutantsIn(findings.subList(CARDS, findings.size())),
+                          words.undetected)))
           .append('\n');
     }
     return out.toString();
@@ -325,6 +347,13 @@ public final class HumanText {
   /// a before-and-after, the evidence, the help with a test to add, and the commands to reproduce
   /// it and prove the fix.
   String card(MutantResult result) {
+    return card(new Finding(List.of(result)));
+  }
+
+  /// A finding in full: its lead mutant's card, with each other mutant on the line as its change,
+  /// each distinct test to add, and the commands for them all.
+  String card(Finding finding) {
+    var result = finding.lead();
     var mutant = result.mutant();
     var advice = sources.advice(result);
     var place = sources.place(mutant);
@@ -335,13 +364,24 @@ public final class HumanText {
     addHead(lines, advice, mutant, gutter);
     lines.addAll(frame(mutant, advice, place, width));
     addBeforeAndAfter(lines, mutant, advice, gutter);
+    finding.others().forEach(other -> addOther(lines, other, gutter));
     addNotes(lines, gutter, cardNotes(result, advice));
     lines.add(annotation(gutter, style.green(style.bold("help")) + ": " + code(advice.fix())));
     var indent = " " + gutter + "         ";
-    SuggestedTest.of(result, sources).ifPresent(test -> addSuggestedTest(lines, test, indent));
+    SuggestedTest.distinct(finding, sources).forEach(test -> addSuggestedTest(lines, test, indent));
     lines.add("");
-    addCommands(lines, mutant, gutter, MutantCommand.withAMutant());
+    addCommands(lines, finding, gutter, MutantCommand.withAMutant());
     return String.join("\n", lines) + "\n";
+  }
+
+  /// `= also ✗ headline · m2e491c40`, then `+ the line` with its change, when it can be shown.
+  private void addOther(List<String> lines, MutantResult other, String gutter) {
+    var advice = sources.advice(other);
+    lines.add(annotation(gutter, alsoMissed(other)));
+    sources
+        .mutatedLine(other.mutant(), advice)
+        .ifPresent(
+            line -> lines.add(" %s           %s".formatted(gutter, style.green("+ ") + line)));
   }
 
   /// One mutant in full whatever became of it, for `explain`: a miss gets its card; anything else a
@@ -367,7 +407,7 @@ public final class HumanText {
     }
     lines.add("");
     // Caught, or not to be caught: done when and ignore don't apply.
-    addCommands(lines, mutant, gutter, List.of(MutantCommand.REPRODUCE));
+    addCommands(lines, new Finding(List.of(result)), gutter, List.of(MutantCommand.REPRODUCE));
     return String.join("\n", lines) + "\n";
   }
 
@@ -412,13 +452,17 @@ public final class HumanText {
   /// `done when`, `reproduce`, `or ignore`: the commands for one mutant, its outcome styled like
   /// its label, so `passes` doesn't read as part of what to type.
   private void addCommands(
-      List<String> lines, Mutant mutant, String gutter, List<MutantCommand> commands) {
+      List<String> lines, Finding finding, String gutter, List<MutantCommand> commands) {
     for (MutantCommand command : commands) {
+      var text = command.text(finding, sources.invocation());
+      var outcome = command.outcome();
       lines.add(
           command(
               gutter,
               command.label(),
-              command.command(mutant.id(), sources.invocation()) + style.dim(command.outcome())));
+              outcome.isEmpty() || !text.endsWith(outcome)
+                  ? text
+                  : text.substring(0, text.length() - outcome.length()) + style.dim(outcome)));
     }
   }
 
@@ -517,6 +561,13 @@ public final class HumanText {
 
   /// The card cut down: the gap, the changed line, the evidence and the id.
   String briefCard(MutantResult result) {
+    return briefCard(new Finding(List.of(result)));
+  }
+
+  /// A finding cut down: the lead's gap and changed line, each other mutant's headline, the
+  /// evidence and the ids.
+  String briefCard(Finding finding) {
+    var result = finding.lead();
     var mutant = result.mutant();
     var advice = sources.advice(result);
     var place = sources.place(mutant);
@@ -533,20 +584,30 @@ public final class HumanText {
         advice.notes().isEmpty()
             ? List.of("covered by " + AgentText.covering(result.coveredBy()))
             : advice.notes();
+    finding.others().forEach(other -> lines.add(annotation(gutter, alsoMissed(other))));
     addNotes(lines, gutter, evidence);
-    lines.add(annotation(gutter, idAndFullCard(mutant)));
+    lines.add(annotation(gutter, idAndFullCard(finding)));
     return String.join("\n", lines) + "\n";
   }
 
+  /// `also ✗ headline · m2e491c40`
+  private String alsoMissed(MutantResult other) {
+    return "also    %s %s %s"
+        .formatted(
+            style.red("✗"),
+            code(sources.advice(other).headline()),
+            style.dim("· " + other.mutant().id()));
+  }
+
   /// `id: m855c8e3c · mutastic run … --format=full for the whole card`
-  private String idAndFullCard(Mutant mutant) {
-    return style.dim("id:")
+  private String idAndFullCard(Finding finding) {
+    return style.dim(finding.mutants().size() == 1 ? "id:" : "ids:")
         + " "
-        + mutant.id()
+        + finding.ids().replace(",", ", ")
         + " "
         + style.dim(
             "· %s --format=full for the whole card"
-                .formatted(MutantCommand.REPRODUCE.command(mutant.id(), sources.invocation())));
+                .formatted(MutantCommand.REPRODUCE.command(finding.ids(), sources.invocation())));
   }
 
   /// Just the changed line, the change marked under it.

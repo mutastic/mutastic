@@ -81,6 +81,15 @@ public enum MutantCommand {
     return command(id, invocation) + outcome;
   }
 
+  /// The command for every mutant in `finding`: one run proves or shows them all, but each is
+  /// ignored on its own, for its own reason.
+  String text(Finding finding, Invocation invocation) {
+    if (this == IGNORE && finding.mutants().size() > 1) {
+      return command("<id>", invocation) + " for each of " + finding.ids().replace(",", ", ");
+    }
+    return text(finding.ids(), invocation);
+  }
+
   /// The arguments after `mutastic`, for checking they parse: `verify m855c8e3c`.
   public List<String> arguments(String id) {
     return List.of(arguments.formatted(id).split(" ", -1));

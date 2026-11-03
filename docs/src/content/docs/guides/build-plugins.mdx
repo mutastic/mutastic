@@ -35,6 +35,7 @@ How a run happens can be set in the plugin's configuration:
 | `workers` | by the machine | How many workers run side by side |
 | `reports` | `json,html` | The report files a full run writes, each with `:path` if it isn't the default; empty for none |
 | `format` | by the terminal | `full`, `brief`, `concise`, `grouped`, `agent` or `jsonl` |
+| `eachMutant` | `false` | A card for every missed mutant, not one for the mutants of each line |
 | `since` | not set | Mutate only the lines changed since this ref; empty for the default branch |
 | `confirmCatches` | `false` | Run a catching test again on its own, to confirm the catch |
 | `suggestions` | `true` | Suggest a test for each missed mutant |

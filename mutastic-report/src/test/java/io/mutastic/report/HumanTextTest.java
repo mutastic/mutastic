@@ -275,6 +275,48 @@ class HumanTextTest {
         .containsExactly(" ❯ src/main/java/com/example/Pricing.java  4 missed in 3 methods");
   }
 
+  /// The mutants of one line are one card, the boundary leading; `--each-mutant` gives each its
+  /// own.
+  @Test
+  void theMutantsOfOneLineAreOneCard() {
+    var always =
+        new Mutant(
+            "com/example/Pricing",
+            "discount",
+            "(I)I",
+            1,
+            5,
+            BuiltIn.REMOVE_CONDITIONAL,
+            "IF_ICMPLT",
+            "always jump",
+            Optional.empty(),
+            List.of(),
+            List.of("total", "100"));
+    var results = report(missed(always, Map.of()), missed(boundary(), Map.of()));
+    var ids = boundary().id() + "," + always.id();
+
+    var full = text(HumanText.Detail.FULL, Vocabulary.PLAIN).render(results, Optional.empty(), RUN);
+    var brief =
+        text(HumanText.Detail.BRIEF, Vocabulary.PLAIN).render(results, Optional.empty(), RUN);
+    var each =
+        text(HumanText.Detail.FULL, Vocabulary.PLAIN)
+            .eachMutant(true)
+            .render(results, Optional.empty(), RUN);
+
+    assertThat(full.lines().filter(line -> line.contains("✗ MISSED"))).hasSize(1);
+    assertThat(full)
+        .contains("✗ MISSED] no test checks discount() at total == 100")
+        .contains("= also    ✗ ")
+        .contains("· " + always.id())
+        .contains("done when  mutastic verify " + ids + " passes")
+        .contains("reproduce  mutastic run --only=" + ids)
+        .contains("for each of " + boundary().id() + ", " + always.id());
+    assertThat(brief)
+        .contains("= also    ✗ ")
+        .contains("ids: " + boundary().id() + ", " + always.id());
+    assertThat(each.lines().filter(line -> line.contains("✗ MISSED"))).hasSize(2);
+  }
+
   @Test
   void plainOutputHasNoEscapes() {
     var output =

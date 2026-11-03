@@ -22,8 +22,8 @@
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m
 
     [2mdone when [0m mutastic verify m855c8e3c samples/pricing[2m passes[0m
-    [2mreproduce [0m mutastic run --only=m855c8e3c samples/pricing[2m[0m
-    [2mor ignore [0m mutastic ignore m855c8e3c --reason="<why>" samples/pricing[2m[0m
+    [2mreproduce [0m mutastic run --only=m855c8e3c samples/pricing
+    [2mor ignore [0m mutastic ignore m855c8e3c --reason="<why>" samples/pricing
 
 [1m About this mutant [0m[2m───────────────────────────────────────────────[0m
     [2m=[0m [1;34m[1mbytecode[0m[0m  [1mIF_ICMPLT → IF_ICMPLE[0m

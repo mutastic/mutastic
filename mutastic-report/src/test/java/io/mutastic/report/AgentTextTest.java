@@ -96,18 +96,41 @@ class AgentTextTest {
   }
 
   @Test
-  void atMostTenMissedAreShown() {
+  void atMostTenEntriesAreShown() {
     var results = new ArrayList<MutantResult>();
     for (int i = 0; i < AgentText.LIMIT + 2; i++) {
       results.add(result(boundary(i), Status.MISSED));
     }
 
-    var output = text.render(report(results, List.of(), List.of()));
+    var output = text.eachMutant(true).render(report(results, List.of(), List.of()));
 
     assertThat(output)
         .contains("10. missed")
         .doesNotContain("11. missed")
         .contains("2 more missed mutants: run again after fixing these");
+  }
+
+  /// The mutants of one line are one entry: one test there catches them all, so one fix and one
+  /// command to prove it.
+  @Test
+  void theMutantsOfOneLineAreOneEntry() {
+    var boundary = boundary(0);
+    var always = removal(1, "always jump");
+    var missed = List.of(result(always, Status.MISSED), result(boundary, Status.MISSED));
+
+    var output = text.render(report(missed, List.of(), List.of()));
+    var each = text.eachMutant(true).render(report(missed, List.of(), List.of()));
+
+    var ids = boundary.id() + "," + always.id();
+    assertThat(output)
+        .contains("1. missed " + boundary.id() + ": no test checks `discount()` at `total == 100`")
+        .contains("   also missed " + always.id() + ": ")
+        .contains("   done when: mutastic verify " + ids + " passes")
+        .contains("   reproduce: mutastic run --only=" + ids)
+        .contains("   or ignore: mutastic ignore <id> --reason=\"<why>\"")
+        .contains("for each of " + boundary.id() + ", " + always.id())
+        .doesNotContain("2. missed");
+    assertThat(each).contains("1. missed " + always.id()).contains("2. missed " + boundary.id());
   }
 
   @Test
@@ -259,6 +282,21 @@ class AgentTextTest {
         BuiltIn.BOUNDARY,
         "IF_ICMPLT",
         "IF_ICMPLE",
+        Optional.empty(),
+        List.of(),
+        List.of("total", "100"));
+  }
+
+  static Mutant removal(int ordinal, String replacement) {
+    return new Mutant(
+        "com/example/Pricing",
+        "discount",
+        "(I)I",
+        ordinal,
+        5,
+        BuiltIn.REMOVE_CONDITIONAL,
+        "IF_ICMPLT",
+        replacement,
         Optional.empty(),
         List.of(),
         List.of("total", "100"));

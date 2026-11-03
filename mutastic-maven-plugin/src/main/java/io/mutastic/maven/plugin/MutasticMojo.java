@@ -74,6 +74,10 @@ abstract class MutasticMojo extends AbstractMojo {
   @Parameter(property = "mutastic.format")
   private @Nullable String format;
 
+  /// A card for every missed mutant, not one for the mutants of each line.
+  @Parameter(property = "mutastic.eachMutant")
+  private @Nullable Boolean eachMutant;
+
   /// Which test suite runs: `test`, Surefire's, unless set, or `integration-test`, Failsafe's.
   @Parameter(property = "mutastic.suite", defaultValue = "test")
   private String suite = "test";
@@ -180,6 +184,9 @@ abstract class MutasticMojo extends AbstractMojo {
     }
     if (workers != null) {
       configured.put("workers", String.valueOf(workers));
+    }
+    if (eachMutant != null) {
+      configured.put("eachMutant", String.valueOf(eachMutant));
     }
     if (format != null) {
       configured.put("format", format);

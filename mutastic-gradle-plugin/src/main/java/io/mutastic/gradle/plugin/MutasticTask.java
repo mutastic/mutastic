@@ -89,6 +89,10 @@ public abstract class MutasticTask extends DefaultTask {
   @Optional
   public abstract Property<Boolean> getSuggestions();
 
+  @Input
+  @Optional
+  public abstract Property<Boolean> getEachMutant();
+
   @Classpath
   public abstract ConfigurableFileCollection getCommandJars();
 
@@ -163,6 +167,7 @@ public abstract class MutasticTask extends DefaultTask {
     getSince().convention(extension.getSince());
     getConfirmCatches().convention(extension.getConfirmCatches());
     getSuggestions().convention(extension.getSuggestions());
+    getEachMutant().convention(extension.getEachMutant());
     getJavaLauncher().convention(extension.getJavaLauncher());
   }
 
@@ -176,6 +181,7 @@ public abstract class MutasticTask extends DefaultTask {
     put(configured, "suite", getSuite());
     put(configured, "confirmCatches", getConfirmCatches());
     put(configured, "suggestions", getSuggestions());
+    put(configured, "eachMutant", getEachMutant());
     configured.put("testsFrom", String.join(",", getTestsFrom().get()));
     configured.put("reports", String.join(",", getReports().get()));
     return configured;

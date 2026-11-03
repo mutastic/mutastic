@@ -426,7 +426,8 @@ public final class Main {
 
   private static HumanText humanText(Command command, Output output, SourceView sources) {
     return new HumanText(
-        sources, command.threshold(), output.style(), detail(output.format()), output.words());
+            sources, command.threshold(), output.style(), detail(output.format()), output.words())
+        .eachMutant(command.eachMutant());
   }
 
   /// What the engine runs with: the command's choices, and the project's `mutastic.yaml`.
@@ -501,7 +502,9 @@ public final class Main {
     return switch (output.format()) {
       case "jsonl" -> jsonl(command, prepared, output);
       case "agent" -> {
-        var agent = new AgentText(prepared.sources(), command.threshold(), output.words());
+        var agent =
+            new AgentText(prepared.sources(), command.threshold(), output.words())
+                .eachMutant(command.eachMutant());
         yield new Display(
             output.progress(),
             (report, comparison, written) ->
@@ -779,26 +782,34 @@ public final class Main {
           new RequestedReport("json", Optional.empty()),
           new RequestedReport("html", Optional.empty()));
 
-  /// A command line, read.
+  /// How the result is shown, as the command line chose.
   ///
   /// @param format empty for the default, which depends on where output goes
+  /// @param colour `auto`, `always` or `never`, as are `links` and `progress`
+  /// @param eachMutant a card for every missed mutant, not one for the mutants of each line
+  record Shown(
+      Optional<String> format,
+      String colour,
+      String links,
+      String progress,
+      Optional<String> vocabulary,
+      boolean eachMutant) {}
+
+  /// A command line, read.
+  ///
   /// @param workers empty for the default, which depends on the machine
   /// @param reports the report files to write after a full run
   record Command(
       Subcommand subcommand,
       Path directory,
       String module,
-      Optional<String> format,
+      Shown shown,
       int threshold,
       List<String> only,
       boolean confirmCatches,
       Optional<Integer> workers,
-      String colour,
-      String links,
-      String progress,
       boolean suggestions,
       List<RequestedReport> reports,
-      Optional<String> vocabulary,
       List<String> testsFrom,
       List<String> operators,
       List<String> excludeTests,
@@ -807,6 +818,30 @@ public final class Main {
       Optional<Ignoring> ignore,
       Optional<Path> setup,
       String commands) {
+    Optional<String> format() {
+      return shown.format();
+    }
+
+    Optional<String> vocabulary() {
+      return shown.vocabulary();
+    }
+
+    String colour() {
+      return shown.colour();
+    }
+
+    String links() {
+      return shown.links();
+    }
+
+    String progress() {
+      return shown.progress();
+    }
+
+    boolean eachMutant() {
+      return shown.eachMutant();
+    }
+
     boolean verify() {
       return subcommand == Subcommand.VERIFY;
     }
@@ -821,17 +856,13 @@ public final class Main {
           subcommand,
           directory,
           module,
-          format,
+          shown,
           threshold,
           only,
           confirmCatches,
           workers,
-          colour,
-          links,
-          progress,
           suggestions,
           reports,
-          vocabulary,
           testsFrom,
           operators,
           excludeTests,
@@ -865,6 +896,7 @@ public final class Main {
       private int threshold = DEFAULT_THRESHOLD;
       private List<String> only = List.of();
       private boolean confirmCatches = false;
+      private boolean eachMutant = false;
       private Optional<Integer> workers = Optional.empty();
       private String colour = "auto";
       private String links = "auto";
@@ -931,10 +963,7 @@ public final class Main {
         var given = value == null ? "" : value;
         switch (option.name()) {
           case "--threshold" -> threshold = number(option, given, 0, 100);
-          case "--since" -> {
-            since = Optional.of(given);
-            afterBareSince = value == null;
-          }
+          case "--since" -> since(value);
           case "--only" -> only = List.of(given.split(",", -1));
           case "--tests-from" -> testsFrom.add(module(given));
           case "--operators" -> operators(given);
@@ -942,6 +971,7 @@ public final class Main {
           case "--suite" -> suite = suite(given);
           case "--workers" -> workers = Optional.of(number(option, given, 1, Integer.MAX_VALUE));
           case "--confirm-catches" -> confirmCatches = true;
+          case "--each-mutant" -> eachMutant = true;
           case "--no-suggestions" -> suggestions = false;
           case "--report" -> report(given);
           case "--format" -> format = Optional.of(choice(option, given));
@@ -951,6 +981,12 @@ public final class Main {
           case "--progress" -> progress = choice(option, given);
           default -> setIgnoringOrForAPlugin(option, given);
         }
+      }
+
+      /// `--since=REF`, or a bare `--since`, whose ref may be the word after it.
+      private void since(@Nullable String value) {
+        since = Optional.of(value == null ? "" : value);
+        afterBareSince = value == null;
       }
 
       /// `ignore`'s own options, and those the build plugins pass.
@@ -1059,10 +1095,10 @@ public final class Main {
         return built(Subcommand.IGNORE).ignoring(new Ignoring(prune, remove, reason));
       }
 
-      /// `verify`'s ids: every word before the directory that is one, `m` and eight hex digits.
+      /// `verify`'s ids: every word before the directory that is one, `m` and eight hex digits, or
+      /// several split by commas, as a card's `done when` writes them.
       private List<String> mutantIds() {
-        var ids = new ArrayList<String>();
-        ids.add(mutantId("verify"));
+        var ids = new ArrayList<>(List.of(mutantId("verify").split(",", -1)));
         while (!positional.isEmpty() && MUTANT_ID.matcher(positional.getFirst()).matches()) {
           ids.add(positional.removeFirst());
         }
@@ -1081,17 +1117,13 @@ public final class Main {
             subcommand,
             directory(),
             module(),
-            format,
+            new Shown(format, colour, links, progress, vocabulary, eachMutant),
             threshold,
             only,
             confirmCatches,
             workers,
-            colour,
-            links,
-            progress,
             suggestions,
             reports == null ? DEFAULT_REPORTS : List.copyOf(reports),
-            vocabulary,
             List.copyOf(testsFrom),
             List.copyOf(operators),
             List.copyOf(excludeTests),

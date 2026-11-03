@@ -183,6 +183,18 @@ final class Options {
               "MUTASTIC_FORMAT, MUTASTIC_AGENT",
               "mutastic run --format=agent"),
           new Option(
+              "--each-mutant",
+              Kind.FLAG,
+              Group.OUTPUT,
+              "",
+              List.of(),
+              "A card for every missed mutant, not one for the mutants of each line",
+              RUNS,
+              "eachMutant",
+              true,
+              "",
+              "mutastic run --each-mutant"),
+          new Option(
               "--vocabulary",
               Kind.VALUE,
               Group.OUTPUT,

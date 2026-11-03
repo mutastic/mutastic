@@ -42,6 +42,17 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
             outcomes(suggestion)));
   }
 
+  /// The tests suggested for the mutants of `finding`, each call once: two mutants on one side of a
+  /// condition get the same call, and pasting it twice wouldn't compile.
+  static List<SuggestedTest> distinct(Finding finding, SourceView sources) {
+    var byName = new java.util.LinkedHashMap<String, SuggestedTest>();
+    for (MutantResult result : finding.mutants()) {
+      of(result, sources)
+          .ifPresent(test -> byName.putIfAbsent(test.testClass() + "#" + test.name(), test));
+    }
+    return List.copyOf(byName.values());
+  }
+
   /// For mutants no test reaches, an assertion to start each method's first test with, at most
   /// `limit`, in the style of the class's own test class (`PricingTest`) if it has one.
   static List<String> startingPoints(List<MutantResult> uncovered, SourceView sources, int limit) {

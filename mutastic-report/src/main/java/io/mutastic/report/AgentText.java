@@ -23,15 +23,26 @@ public final class AgentText {
   private final SourceView sources;
   private final int threshold;
   private final Vocabulary words;
+  private final boolean eachMutant;
 
   public AgentText(SourceView sources, int threshold) {
     this(sources, threshold, Vocabulary.PLAIN);
   }
 
   public AgentText(SourceView sources, int threshold, Vocabulary words) {
+    this(sources, threshold, words, false);
+  }
+
+  private AgentText(SourceView sources, int threshold, Vocabulary words, boolean eachMutant) {
     this.sources = sources;
     this.threshold = threshold;
     this.words = words;
+    this.eachMutant = eachMutant;
+  }
+
+  /// The same, with an entry for every missed mutant, not one for each line's (`--each-mutant`).
+  public AgentText eachMutant(boolean each) {
+    return new AgentText(sources, threshold, words, each);
   }
 
   public String render(Report report) {
@@ -194,16 +205,18 @@ public final class AgentText {
     }
   }
 
-  /// The first [#LIMIT] missed mutants' entries, and how many more there are.
+  /// The first [#LIMIT] findings' entries, and how many more missed mutants there are.
   private void appendMissed(StringBuilder out, List<MutantResult> missed) {
+    var findings = Finding.of(missed, eachMutant);
     int number = 0;
-    for (MutantResult result : missed.stream().limit(LIMIT).toList()) {
-      out.append(System.lineSeparator()).append(entry(++number, result));
+    for (Finding finding : findings.stream().limit(LIMIT).toList()) {
+      out.append(System.lineSeparator()).append(entry(++number, finding));
     }
-    if (missed.size() > LIMIT) {
+    if (findings.size() > LIMIT) {
       out.append(
           "%n%d more %s mutants: run again after fixing these%n"
-              .formatted(missed.size() - LIMIT, words.undetected));
+              .formatted(
+                  Finding.mutantsIn(findings.subList(LIMIT, findings.size())), words.undetected));
     }
   }
 
@@ -241,28 +254,50 @@ public final class AgentText {
 
   /// One missed mutant, numbered, or unnumbered (0) where it stands alone.
   public String entry(int number, MutantResult result) {
+    return entry(number, new Finding(List.of(result)));
+  }
+
+  /// One finding: its lead mutant in full, the others on its line each by its change, one fix, each
+  /// distinct test to add, and the commands for them all.
+  String entry(int number, Finding finding) {
+    var result = finding.lead();
     var mutant = result.mutant();
     var advice = sources.advice(result);
     var lines = new ArrayList<String>();
-    lines.add(
-        "%s%s %s: %s"
-            .formatted(
-                number == 0 ? "" : number + ". ",
-                words.undetected,
-                mutant.id(),
-                advice.headline()));
+    lines.add(head(number, mutant, advice));
     lines.add("   at %s:%d".formatted(sources.file(mutant), sources.place(mutant).line()));
     sources.line(mutant).ifPresent(line -> lines.add("   - " + line));
-    lines.add("   + " + sources.mutatedLine(mutant, advice).orElse("(" + advice.change() + ")"));
+    lines.add("   + " + mutated(result));
+    finding.others().forEach(other -> addOther(lines, other));
     lines.add(coveredBy(result));
     advice.notes().forEach(note -> lines.add("   evidence: " + note));
     lines.add("   fix: " + advice.fix());
-    SuggestedTest.of(result, sources).ifPresent(test -> addSuggestedTest(lines, test));
+    SuggestedTest.distinct(finding, sources).forEach(test -> addSuggestedTest(lines, test));
     for (MutantCommand command : MutantCommand.withAMutant()) {
       lines.add(
-          "   %s: %s".formatted(command.label(), command.text(mutant.id(), sources.invocation())));
+          "   %s: %s".formatted(command.label(), command.text(finding, sources.invocation())));
     }
     return String.join(System.lineSeparator(), lines) + System.lineSeparator();
+  }
+
+  /// `1. missed m855c8e3c: headline`, unnumbered for 0.
+  private String head(int number, io.mutastic.api.Mutant mutant, Advice advice) {
+    return "%s%s %s: %s"
+        .formatted(
+            number == 0 ? "" : number + ". ", words.undetected, mutant.id(), advice.headline());
+  }
+
+  /// `also missed m2e491c40: headline`, then its line as it changes.
+  private void addOther(List<String> lines, MutantResult other) {
+    lines.add(
+        "   also %s %s: %s"
+            .formatted(words.undetected, other.mutant().id(), sources.advice(other).headline()));
+    lines.add("   + " + mutated(other));
+  }
+
+  private String mutated(MutantResult result) {
+    var advice = sources.advice(result);
+    return sources.mutatedLine(result.mutant(), advice).orElse("(" + advice.change() + ")");
   }
 
   private static String coveredBy(MutantResult result) {

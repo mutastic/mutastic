@@ -36,6 +36,9 @@ public abstract class MutasticExtension {
   /// Run a catching test again on its own, to confirm the catch. Off unless set.
   public abstract Property<Boolean> getConfirmCatches();
 
+  /// A card for every missed mutant, not one for the mutants of each line. Off unless set.
+  public abstract Property<Boolean> getEachMutant();
+
   /// Suggest a test for each missed mutant. On unless set.
   public abstract Property<Boolean> getSuggestions();
 

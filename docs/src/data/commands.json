@@ -9,7 +9,7 @@
       "detail": "DIR is the build, here unless given, and :MODULE one of its modules: as Gradle names it (:app), or as Maven's -pl takes it (:services/api). The run passes when the score reaches the threshold. A full run writes report files, keeps a record the next run compares with, and offers the commands to work on each missed mutant.",
       "takesMutantId": false,
       "examples": [{ "gradle": "./gradlew mutasticRun", "maven": "mvn mutastic:run", "commandLine": "mutastic run" }, { "gradle": "./gradlew mutasticRun -Pmutastic.threshold=70 -p samples/pricing", "maven": "mvn mutastic:run -Dmutastic.threshold=70 -f samples/pricing", "commandLine": "mutastic run samples/pricing --threshold=70" }, { "gradle": "./gradlew mutasticRun -Pmutastic.since=main", "maven": "mvn mutastic:run -Dmutastic.since=main", "commandLine": "mutastic run --since=main" }, { "gradle": "./gradlew :core:mutasticRun -Pmutastic.testsFrom=dependents", "maven": "mvn mutastic:run -Dmutastic.testsFrom=dependents -pl core", "commandLine": "mutastic run . :core --tests-from=dependents" }],
-      "options": ["--threshold", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--no-suggestions", "--exclude-tests", "--suite", "--operators", "--report", "--format", "--vocabulary", "--color", "--hyperlinks", "--progress"]
+      "options": ["--threshold", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--no-suggestions", "--exclude-tests", "--suite", "--operators", "--report", "--format", "--each-mutant", "--vocabulary", "--color", "--hyperlinks", "--progress"]
     },
     {
       "name": "verify",
@@ -207,6 +207,20 @@
       "maven": { "property": "-Dmutastic.format", "setting": "<format>…</format>" },
       "gradle": { "property": "-Pmutastic.format", "setting": "format = …" },
       "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.format=agent", "maven": "mvn mutastic:run -Dmutastic.format=agent", "commandLine": "mutastic run --format=agent", "gradleBuild": "mutastic {\n    format = \"agent\"\n}", "mavenBuild": "<configuration>\n  <format>agent</format>\n</configuration>" }
+    },
+    {
+      "name": "--each-mutant",
+      "synopsis": "--each-mutant",
+      "kind": "flag",
+      "group": "Output",
+      "value": "",
+      "choices": [],
+      "help": "A card for every missed mutant, not one for the mutants of each line",
+      "commands": ["run"],
+      "environment": "",
+      "maven": { "property": "-Dmutastic.eachMutant", "setting": "<eachMutant>true</eachMutant>" },
+      "gradle": { "property": "-Pmutastic.eachMutant", "setting": "eachMutant = true" },
+      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.eachMutant", "maven": "mvn mutastic:run -Dmutastic.eachMutant", "commandLine": "mutastic run --each-mutant", "gradleBuild": "mutastic {\n    eachMutant = true\n}", "mavenBuild": "<configuration>\n  <eachMutant>true</eachMutant>\n</configuration>" }
     },
     {
       "name": "--vocabulary",
