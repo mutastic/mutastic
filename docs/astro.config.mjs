@@ -62,6 +62,8 @@ export default defineConfig({
         // The release these docs describe, and a way to the others.
         SiteTitle: './src/components/SiteTitle.astro',
         Banner: './src/components/Banner.astro',
+        // A link back to mutastic.io beside GitHub's.
+        SocialIcons: './src/components/SocialIcons.astro',
       },
       plugins: [starlightLlmsTxt()],
       sidebar: [

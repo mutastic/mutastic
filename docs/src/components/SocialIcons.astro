@@ -1,0 +1,20 @@
+---
+// The way back to mutastic.io, before the GitHub icon: in the header, and in the menu on a phone.
+import Default from '@astrojs/starlight/components/SocialIcons.astro';
+---
+
+<a class="home-link" href="https://mutastic.io/">mutastic.io</a>
+<Default />
+
+<style>
+  .home-link {
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .home-link:hover {
+    color: var(--sl-color-white);
+  }
+</style>
