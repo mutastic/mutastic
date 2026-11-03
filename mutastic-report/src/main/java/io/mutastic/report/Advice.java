@@ -2,8 +2,10 @@ package io.mutastic.report;
 
 import static java.util.Objects.requireNonNull;
 
+import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
+import io.mutastic.api.Mutator;
 import java.lang.constant.MethodTypeDesc;
 import java.util.ArrayList;
 import java.util.List;
@@ -72,12 +74,54 @@ public record Advice(
   /// @param asWritten the jump tests the source's own condition, not its opposite
   static Advice of(Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
     return switch (mutant.operator()) {
-      case BOUNDARY -> boundary(mutant, seen, asWritten);
-      case NEGATE_CONDITIONAL -> negateConditional(mutant, seen, asWritten);
-      case MATH -> math(mutant, seen);
-      case RETURN_DEFAULT -> returnDefault(mutant, seen);
-      case REMOVE_VOID_CALL -> removeVoidCall(mutant, seen);
+      case Mutator mutator -> added(mutator, mutant, seen);
+      case BuiltIn builtIn ->
+          switch (builtIn) {
+            case BOUNDARY -> boundary(mutant, seen, asWritten);
+            case NEGATE_CONDITIONAL -> negateConditional(mutant, seen, asWritten);
+            case MATH, ARITHMETIC_REPLACEMENT -> math(mutant, seen);
+            case RETURN_DEFAULT -> returnDefault(mutant, seen);
+            case REMOVE_VOID_CALL -> removeVoidCall(mutant, seen);
+            case REMOVE_CONDITIONAL -> removeConditional(mutant, seen, asWritten);
+          };
     };
+  }
+
+  /// A plugin's or rules file's operator: its own words for the card.
+  private static Advice added(Mutator mutator, Mutant mutant, Map<String, List<Long>> seen) {
+    var words = mutator.words(mutant);
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        words.changed(),
+        words.changed(),
+        words.headline(),
+        inputsSeen(seen),
+        words.help());
+  }
+
+  /// The condition no longer decides: always true or always false, by which way the jump now goes
+  /// and which way javac compiled it.
+  private static Advice removeConditional(
+      Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
+    var method = method(mutant);
+    var token = jump(mutant.original(), asWritten);
+    var condition = condition(mutant.operands(), token);
+    boolean always = mutant.replacement().equals("always jump");
+    // javac's usual jump skips the body when the condition is false: always taken, the body never
+    // runs, as if the condition were always false. A jump as written is the other way round.
+    boolean forced = always == asWritten;
+    var truth = forced ? "true" : "false";
+    var other = forced ? "false" : "true";
+    return new Advice(
+        token,
+        Optional.empty(),
+        "%s is always %s".formatted(condition, truth),
+        "now always " + truth,
+        "no test needs %s to be %s in %s".formatted(condition, other, method),
+        inputsSeen(seen),
+        "add a test where %s is %s, and assert what %s does then"
+            .formatted(condition, other, method));
   }
 
   private static Advice boundary(Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {

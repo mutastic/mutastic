@@ -128,11 +128,20 @@ public record Mutant(
     return site == ordinal || copies.contains(site);
   }
 
-  /// Stable across runs and line moves: class, method, site and replacement, but no line number,
-  /// because code moves during review far more often than it changes. A `finally` block's copies
-  /// share the first copy's fingerprint.
+  /// Stable across runs and line moves: class, method, site and replacement, and the operator for
+  /// all but the first five ([BuiltIn#first]), but no line number, because code moves during review
+  /// far more often than it changes. A `finally` block's copies share the first copy's fingerprint.
   public String fingerprint() {
-    var key = className + "#" + methodName + descriptor + "@" + ordinal + ":" + replacement;
+    var key =
+        className
+            + "#"
+            + methodName
+            + descriptor
+            + "@"
+            + ordinal
+            + ":"
+            + replacement
+            + (operator instanceof BuiltIn builtIn && builtIn.first() ? "" : "|" + operator.id());
     try {
       var hash = MessageDigest.getInstance("SHA-256").digest(key.getBytes(StandardCharsets.UTF_8));
       return HexFormat.of().formatHex(hash, 0, 8);

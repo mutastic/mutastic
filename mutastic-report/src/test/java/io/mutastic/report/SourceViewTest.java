@@ -2,8 +2,8 @@ package io.mutastic.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
-import io.mutastic.api.Operator;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -95,7 +95,7 @@ class SourceViewTest {
             "(II)Z",
             0,
             26,
-            Operator.BOUNDARY,
+            BuiltIn.BOUNDARY,
             "IFLT",
             "IFLE",
             Optional.empty(),
@@ -108,7 +108,7 @@ class SourceViewTest {
             "(II)Z",
             1,
             26,
-            Operator.BOUNDARY,
+            BuiltIn.BOUNDARY,
             "IF_ICMPGE",
             "IF_ICMPGT",
             Optional.empty(),
@@ -129,7 +129,7 @@ class SourceViewTest {
         "(ZI)Z",
         0,
         line,
-        Operator.BOUNDARY,
+        BuiltIn.BOUNDARY,
         original,
         replacement,
         Optional.empty());

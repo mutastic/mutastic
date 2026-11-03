@@ -46,10 +46,18 @@ rules:
   - mutate: com.acme.Money#toString  # brings back what mutastic would skip as arid
     reason: shown to customers
 plugins:
-  - build/libs/acme-filters.jar      # jars with filters of your own (io.mutastic.api.Filter)
+  - build/libs/acme-filters.jar      # a jar: filters and operators of your own
+  - mutiny.yaml                      # a rules file: call operators, as data
 filters:
   - acme:no-metrics                  # a plugin's filter runs only when named here
+operators:
+  - defaults                         # which operators run, as --operators chooses
+  - -stream/swap-match
 ```
+
+`plugins:` lists jars and rules files, relative to the project: see [Plugins](/guides/plugins/).
+`operators:` chooses which operators run, the same way as [`--operators`](/reference/run/#operators),
+which replaces it for one run; see [Choosing operators](/concepts/operators/#choosing-operators).
 
 An annotation on the code comes first, then a rule, then mutastic's own filters. A `mutate:` rule, like `@DoMutate`, brings back only what mutastic would call arid, never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
 

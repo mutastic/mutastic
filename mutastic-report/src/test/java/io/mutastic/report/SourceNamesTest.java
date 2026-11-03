@@ -2,8 +2,8 @@ package io.mutastic.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
-import io.mutastic.api.Operator;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +32,7 @@ class SourceNamesTest {
             "()I",
             0,
             1,
-            Operator.RETURN_DEFAULT,
+            BuiltIn.RETURN_DEFAULT,
             "IRETURN",
             "return default",
             Optional.empty()));

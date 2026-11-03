@@ -28,7 +28,7 @@ class FlakyRunsTest {
     // The second doesn't: the catch didn't repeat, and with the same code the result changed.
     assertThat(second.out())
         .contains(
-            "vs last run: 57.1% → 42.9% (same code)",
+            "vs last run: 66.7% → 55.6% (same code)",
             "likely flaky: StockTest#restockingWorks; with the code unchanged, whether it catches",
             "likely flaky: StockTest#restockingWorks; its catches of",
             "(StockTest#restockingWorks failed once, then passed: flaky)");

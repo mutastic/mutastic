@@ -2,9 +2,9 @@ package io.mutastic.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
-import io.mutastic.api.Operator;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import java.nio.file.Files;
@@ -233,7 +233,7 @@ class HumanTextTest {
                 "(I)I",
                 0,
                 9,
-                Operator.MATH,
+                BuiltIn.MATH,
                 "IADD",
                 "ISUB",
                 Optional.empty()),
@@ -247,7 +247,7 @@ class HumanTextTest {
                 "(I)I",
                 1,
                 6,
-                Operator.MATH,
+                BuiltIn.MATH,
                 "IDIV",
                 "IMUL",
                 Optional.empty()),
@@ -260,7 +260,7 @@ class HumanTextTest {
                 "()I",
                 0,
                 7,
-                Operator.RETURN_DEFAULT,
+                BuiltIn.RETURN_DEFAULT,
                 "IRETURN",
                 "return default",
                 Optional.empty()),
@@ -295,7 +295,7 @@ class HumanTextTest {
         "(I)I",
         0,
         5,
-        Operator.BOUNDARY,
+        BuiltIn.BOUNDARY,
         "IF_ICMPLT",
         "IF_ICMPLE",
         Optional.empty(),

@@ -71,6 +71,35 @@ void unpaidOrdersDontShip() {
 Security checks deserve this most. A permission check whose negation no test notices is one
 nobody has proved refuses anyone.
 
+## Remove conditional
+
+**The bug it stands for:** a check that doesn't matter as much as its author thought, or that's
+the wrong check entirely. Forcing a condition always true or always false asks whether any test
+depends on it deciding.
+
+**Where it costs:** guards. A permission check, a validation, a "only if it's changed" before a
+write, a retry that should stop. If the code behaves the same with the guard always passing, no
+test has ever been refused by it; if it behaves the same with the guard never passing, no test has
+ever needed it to let something through.
+
+```java
+if (user.canEdit(document))   // becomes: if (true)
+  document.save(changes);
+```
+
+**The test that catches it:** one for each answer the condition can give. Negate conditional asks
+the same question from a different angle; remove conditional is clearer about which answer no test
+has tried, and catches the case where the condition is checked twice and one check never decides.
+
+```java
+@Test
+void aReaderCantSave() {
+  var document = new Document();
+  var reader = User.withRole(Role.READER);
+  assertThrows(AccessDenied.class, () -> editor(reader).save(document, "changes"));
+}
+```
+
 ## Math
 
 **The bug it stands for:** the wrong operator in a calculation: `-` for `+`, `/` for `*`.
@@ -93,6 +122,33 @@ void totalIsPriceTimesQuantity() {
   assertEquals(1500, new LineItem(500, 3).total());   // 500 × 3; with / it would be 166
 }
 ```
+
+## Arithmetic replacement
+
+**The bug it stands for:** an operation mixed up with another one entirely: adding where it should
+multiply, a total that should be a product. It's in the `stronger` set because the values that
+let it through are rarer than math's, so it finds less, but what it finds is a test that checks
+almost nothing.
+
+**Where it costs:** the same places as math: prices, quantities, scores. Its real value is as a
+check on the tests' values: `2 + 2 == 2 * 2`, `0 + 0 == 0 * 0` and `1 + 0` against `1 * 0` are the
+numbers quick tests pick.
+
+```java
+return price + shipping;   // becomes: return price * shipping;
+```
+
+**The test that catches it:** one with ordinary values, where the sum and the product are far
+apart.
+
+```java
+@Test
+void totalAddsShipping() {
+  assertEquals(1250, new Order(1200, 50).total());   // 1200 + 50; with * it would be 60000
+}
+```
+
+Run it with `--operators=stronger`.
 
 ## Return default
 
@@ -148,6 +204,60 @@ void confirmingReservesStock() {
   inventory.restock(item, 5);
   orders.confirm(orderFor(item));   // one of the item
   assertEquals(4, inventory.available(item));   // 5 in stock, 1 reserved
+}
+```
+
+## Stream stage removal
+
+**The bug it stands for:** a stage that's wrong, or in the wrong place, and no test would know: a
+filter with the wrong condition, a `distinct()` someone forgot, a `limit` that's off by one, a sort
+by the wrong key.
+
+**Where it costs:** streams are where business rules hide in one line: only the paid orders, the
+first ten results, each customer once. If removing the stage changes nothing a test checks, the
+rule isn't tested at all, however many tests run the line.
+
+```java
+return orders.stream().filter(Order::isPaid).toList();   // becomes: orders.stream().toList()
+```
+
+**The test that catches it:** one whose input the stage has to change: an unpaid order the filter
+must drop, a duplicate for `distinct()`, more elements than the `limit`, input out of order for
+`sorted()`.
+
+```java
+@Test
+void onlyPaidOrdersAreListed() {
+  var paid = Order.paid();
+  var unpaid = Order.unpaid();
+  assertEquals(List.of(paid), orders.paid(List.of(paid, unpaid)));   // the unpaid one is dropped
+}
+```
+
+A test with only paid orders passes with the filter or without it: that's the gap this operator
+finds.
+
+## Stream match swap
+
+**The bug it stands for:** "any" where "all" was meant, or the other way round. They read alike,
+and with the inputs tests usually pick, all of them matching or none, they give the same answer.
+
+**Where it costs:** checks over collections: whether any item is out of stock, whether all
+approvers have signed, whether none of the lines is negative. Getting it wrong lets an order
+through with one bad line, or blocks one with a single good one.
+
+```java
+return lines.stream().anyMatch(Line::isBackordered);   // becomes: .allMatch(…), and: .noneMatch(…)
+```
+
+**The test that catches it:** one with a mix: some elements that match and some that don't. That's
+the only input where `anyMatch` and `allMatch` disagree.
+
+```java
+@Test
+void oneBackorderedLineDelaysTheOrder() {
+  var order = new Order(List.of(Line.inStock(), Line.backordered()));   // one of each
+  assertTrue(order.isDelayed());
 }
 ```
 

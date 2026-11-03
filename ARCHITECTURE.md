@@ -5,7 +5,7 @@ How mutastic is built, for people working on it. To use it, see the [documentati
 ## How a run works
 
 1. **Setup.** mutastic runs your build with its own code loaded, which compiles the code and tests and records what the tests would run with: their JDK, JVM arguments, working directory and classpath. For Gradle that's an init script reading the `test` task; for Maven, an extension (`-Dmaven.ext.class.path`) reading Surefire's settings after `mvn test-compile`. Your build files are not changed.
-2. **Mutants.** The engine reads your class files with the JDK's ClassFile API (`java.lang.classfile`, final in JDK 24) and finds every mutation site.
+2. **Mutants.** The engine reads your class files with the JDK's ClassFile API (`java.lang.classfile`, final in JDK 24) and finds every mutation site, for each operator the run uses: mutastic's own (`BuiltIn`), its stream rules, and any a plugin adds (`Mutator`, as Java or as a rules file). A mutant's id is made from its method, site and change, so a new operator never changes the ids of the others.
 3. **Coverage.** A test worker starts on your project's JDK and runs every test once, with each line instrumented. This records which tests reach which lines, and doubles as a check that the tests pass.
 4. **Mutants, side by side.** For each mutant, the engine sends the changed class to a worker. The worker runs only the tests that reach that line, fastest first, and stops at the first failure. Classes load once per worker and each mutant is swapped in with class redefinition, so nothing is restarted between mutants. A worker that takes too long is killed and replaced: a mutant can turn a loop into one that never ends.
 

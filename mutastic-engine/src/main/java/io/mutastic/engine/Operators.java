@@ -1,5 +1,7 @@
 package io.mutastic.engine;
 
+import static java.lang.classfile.Opcode.GOTO;
+import static java.lang.classfile.Opcode.GOTO_W;
 import static java.lang.classfile.Opcode.IADD;
 import static java.lang.classfile.Opcode.IDIV;
 import static java.lang.classfile.Opcode.IFEQ;
@@ -26,7 +28,7 @@ import static java.lang.classfile.Opcode.LMUL;
 import static java.lang.classfile.Opcode.LSUB;
 import static java.util.Objects.requireNonNull;
 
-import io.mutastic.api.Operator;
+import io.mutastic.api.BuiltIn;
 import java.lang.classfile.Instruction;
 import java.lang.classfile.Opcode;
 import java.lang.classfile.TypeKind;
@@ -35,21 +37,28 @@ import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.OperatorInstruction;
 import java.lang.classfile.instruction.ReturnInstruction;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
-/// How each [Operator] finds its sites and what each instruction becomes.
+/// How each [BuiltIn] operator finds its sites and what each instruction becomes.
 final class Operators {
-  private static final Map<Operator, Map<Opcode, Opcode>> REPLACEMENTS =
-      new EnumMap<>(Operator.class);
+  /// `remove-conditional`'s two changes: the jump always taken, so the code it skips never runs, or
+  /// never taken, so it always does.
+  static final String ALWAYS_JUMP = "always jump";
+
+  static final String NEVER_JUMP = "never jump";
+
+  private static final Map<BuiltIn, Map<Opcode, Opcode>> REPLACEMENTS =
+      new EnumMap<>(BuiltIn.class);
 
   static {
     REPLACEMENTS.put(
-        Operator.BOUNDARY,
+        BuiltIn.BOUNDARY,
         Map.of(
             IF_ICMPLT, IF_ICMPLE, IF_ICMPLE, IF_ICMPLT, IF_ICMPGT, IF_ICMPGE, IF_ICMPGE, IF_ICMPGT,
             IFLT, IFLE, IFLE, IFLT, IFGT, IFGE, IFGE, IFGT));
     REPLACEMENTS.put(
-        Operator.NEGATE_CONDITIONAL,
+        BuiltIn.NEGATE_CONDITIONAL,
         Map.ofEntries(
             Map.entry(IF_ICMPLT, IF_ICMPGE),
             Map.entry(IF_ICMPGE, IF_ICMPLT),
@@ -68,48 +77,61 @@ final class Operators {
             Map.entry(IF_ACMPEQ, IF_ACMPNE),
             Map.entry(IF_ACMPNE, IF_ACMPEQ)));
     REPLACEMENTS.put(
-        Operator.MATH,
+        BuiltIn.MATH,
         Map.of(
             IADD, ISUB, ISUB, IADD, IMUL, IDIV, IDIV, IMUL, LADD, LSUB, LSUB, LADD, LMUL, LDIV,
             LDIV, LMUL));
-    REPLACEMENTS.put(Operator.RETURN_DEFAULT, Map.of());
-    REPLACEMENTS.put(Operator.REMOVE_VOID_CALL, Map.of());
+    REPLACEMENTS.put(BuiltIn.ARITHMETIC_REPLACEMENT, Map.of(IADD, IMUL, LADD, LMUL));
   }
 
   private Operators() {}
 
-  static boolean applies(Operator operator, Instruction instruction) {
+  /// What `operator` can make of `instruction`, as it appears in ids: an opcode, or what changed.
+  /// These labels are part of every mutant's fingerprint, so they never change. None when the
+  /// operator doesn't apply.
+  static List<String> replacements(BuiltIn operator, Instruction instruction) {
     return switch (operator) {
       case RETURN_DEFAULT ->
           instruction instanceof ReturnInstruction returning
-              && returning.typeKind() != TypeKind.VOID;
+                  && returning.typeKind() != TypeKind.VOID
+              ? List.of("return default")
+              : List.of();
       case REMOVE_VOID_CALL ->
           instruction instanceof InvokeInstruction call
-              && call.typeSymbol().returnType().descriptorString().equals("V")
-              && !call.name().equalsString("<init>");
+                  && call.typeSymbol().returnType().descriptorString().equals("V")
+                  && !call.name().equalsString("<init>")
+              ? List.of("remove call")
+              : List.of();
+      case REMOVE_CONDITIONAL ->
+          isConditional(instruction) ? List.of(ALWAYS_JUMP, NEVER_JUMP) : List.of();
       default ->
           (instruction instanceof BranchInstruction || instruction instanceof OperatorInstruction)
-              && replacements(operator).containsKey(instruction.opcode());
+                  && REPLACEMENTS.getOrDefault(operator, Map.of()).containsKey(instruction.opcode())
+              ? List.of(replace(operator, instruction.opcode()).name())
+              : List.of();
     };
   }
 
-  /// What the instruction becomes, as it appears in ids: an opcode, or what changed. These labels
-  /// are part of every mutant's fingerprint, so they never change.
-  static String replacement(Operator operator, Instruction instruction) {
-    return switch (operator) {
-      case RETURN_DEFAULT -> "return default";
-      case REMOVE_VOID_CALL -> "remove call";
-      default -> replace(operator, instruction.opcode()).name();
-    };
-  }
-
-  /// What the opcode becomes; only for an instruction [#applies(Operator, Instruction)] accepts.
-  static Opcode replace(Operator operator, Opcode opcode) {
+  /// What the opcode becomes, for an operator that swaps one opcode for another.
+  static Opcode replace(BuiltIn operator, Opcode opcode) {
     return requireNonNull(
-        replacements(operator).get(opcode), () -> operator.name() + " doesn't apply to " + opcode);
+        REPLACEMENTS.getOrDefault(operator, Map.of()).get(opcode),
+        () -> operator.name() + " doesn't apply to " + opcode);
   }
 
-  private static Map<Opcode, Opcode> replacements(Operator operator) {
-    return REPLACEMENTS.getOrDefault(operator, Map.of());
+  /// A jump that tests something: every branch but `goto`.
+  static boolean isConditional(Instruction instruction) {
+    return instruction instanceof BranchInstruction
+        && instruction.opcode() != GOTO
+        && instruction.opcode() != GOTO_W;
+  }
+
+  /// How many stack slots a conditional jump tests: two for a comparison, one against zero or null.
+  static int tested(Opcode opcode) {
+    return switch (opcode) {
+      case IF_ICMPEQ, IF_ICMPNE, IF_ICMPLT, IF_ICMPGE, IF_ICMPGT, IF_ICMPLE, IF_ACMPEQ, IF_ACMPNE ->
+          2;
+      default -> 1;
+    };
   }
 }

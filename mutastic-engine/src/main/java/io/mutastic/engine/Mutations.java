@@ -2,8 +2,10 @@ package io.mutastic.engine;
 
 import static java.util.Objects.requireNonNull;
 
+import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Filter;
 import io.mutastic.api.Mutant;
+import io.mutastic.api.Mutator;
 import io.mutastic.api.Operator;
 import io.mutastic.api.Policy;
 import io.mutastic.api.Rule;
@@ -56,6 +58,10 @@ final class Mutations {
 
   private final ClassFile context;
   private final Policy policy;
+
+  /// The operators this run uses, as the policy chooses.
+  private final List<Operator> operators;
+
   private final AnnotatedSkips annotated = new AnnotatedSkips();
 
   /// The filters that judge code arid or the like, built in first, then the project's own; the
@@ -69,6 +75,7 @@ final class Mutations {
   Mutations(ClassFile context, Policy policy) {
     this.context = context;
     this.policy = policy;
+    this.operators = OperatorSet.active(policy);
     var all =
         new ArrayList<Filter>(
             List.of(new TrivialAccessors(), new DebugRepresentations(this::kept)));
@@ -85,13 +92,46 @@ final class Mutations {
             .ifPresent(
                 code -> {
                   var found =
-                      new MethodScan(model, method, code.elementList(), filtered(model, method))
+                      new MethodScan(
+                              model, method, code.elementList(), filtered(model, method), operators)
                           .mutants();
-                  mutants.addAll(mergeFinallyCopies(found, code));
+                  mutants.addAll(viable(model, mergeFinallyCopies(found, code)));
                 });
       }
     }
     return mutants;
+  }
+
+  /// The mutants, with any of a plugin's or rules file's that wouldn't load skipped as unviable:
+  /// mutastic's own operators are built to verify, and a failure of theirs stops the run, but a
+  /// rule can't know every call it will meet.
+  private List<Mutant> viable(ClassModel model, List<Mutant> found) {
+    var checked = new ArrayList<Mutant>(found.size());
+    for (Mutant mutant : found) {
+      var unviable =
+          mutant.operator() instanceof Mutator && mutant.skipped().isEmpty()
+              ? whyUnviable(model, mutant)
+              : Optional.<String>empty();
+      checked.add(unviable.map(why -> mutant.skippedFor("unviable: " + why)).orElse(mutant));
+    }
+    return checked;
+  }
+
+  /// Why the mutated class wouldn't load, if it wouldn't: its stack maps can't be built, or it
+  /// doesn't verify.
+  private Optional<String> whyUnviable(ClassModel model, Mutant mutant) {
+    try {
+      var errors = verify(apply(model, mutant));
+      return errors.isEmpty()
+          ? Optional.empty()
+          : Optional.of(firstLine(errors.getFirst().getMessage()));
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      return Optional.of(firstLine(e.getMessage()));
+    }
+  }
+
+  private static String firstLine(@Nullable String message) {
+    return String.valueOf(message).lines().findFirst().orElse("doesn't verify");
   }
 
   /// Lets the filters see the whole module, before any of its mutants are found.
@@ -151,74 +191,118 @@ final class Mutations {
     private final Set<Instruction> tryWithResources;
     private final Operands operands;
     private final Optional<String> filtered;
+    private final List<Operator> operators;
     private final Set<Integer> stringSwitchLines = new HashSet<>();
     private final List<Mutant> mutants = new ArrayList<>();
     private int line = -1;
     private int ordinal;
     private int callOrdinal;
+    private int index;
     private @Nullable Instruction previous;
 
     MethodScan(
-        ClassModel model, MethodModel method, List<CodeElement> code, Optional<String> filtered) {
+        ClassModel model,
+        MethodModel method,
+        List<CodeElement> code,
+        Optional<String> filtered,
+        List<Operator> operators) {
       this.model = model;
       this.method = method;
       this.code = code;
       this.filtered = filtered;
+      this.operators = operators;
       this.tryWithResources = tryWithResources(code);
       this.operands = method.code().map(Operands::new).orElseThrow();
     }
 
     List<Mutant> mutants() {
-      for (CodeElement element : code) {
-        switch (element) {
+      for (int at = 0; at < code.size(); at++) {
+        switch (code.get(at)) {
           case LineNumber lineNumber -> line = lineNumber.line();
           case LabelTarget _ -> {
             previous = null; // a jump lands here: the instruction before isn't the only way in
             operands.jumpTarget();
           }
-          case Instruction instruction -> scan(instruction);
+          case Instruction instruction -> scan(instruction, at);
           default -> {}
         }
       }
       return mutants;
     }
 
-    private void scan(Instruction instruction) {
+    private void scan(Instruction instruction, int at) {
       var workedOn = operands.of(instruction);
       if (isSwitch(instruction) && isCall(previous, "java/lang/String", "hashCode")) {
         stringSwitchLines.add(line); // javac's switch on a String: hashCode, then equals
       }
-      if (isSite(instruction) || instruction instanceof InvokeInstruction) {
-        boolean call = instruction instanceof InvokeInstruction;
-        for (Operator operator : Operator.values()) {
-          if (operator.onCalls() == call && Operators.applies(operator, instruction)) {
-            mutants.add(mutant(operator, instruction, call, workedOn));
-          }
-        }
-        if (call) {
-          callOrdinal++;
-        } else {
-          ordinal++;
+      var found = new ArrayList<Found>();
+      for (Operator operator : operators) {
+        switch (operator) {
+          case io.mutastic.api.BuiltIn builtIn -> builtInChanges(builtIn, instruction, found);
+          case Mutator mutator -> addedChanges(mutator, instruction, at, found);
         }
       }
+      found.forEach(each -> mutants.add(mutant(each, instruction, workedOn)));
+      if (instruction instanceof InvokeInstruction) {
+        callOrdinal++;
+      } else if (isSite(instruction)) {
+        ordinal++;
+      }
+      index++;
       previous = instruction;
     }
 
-    private Mutant mutant(
-        Operator operator, Instruction instruction, boolean call, List<String> workedOn) {
+    /// One change an operator makes at the instruction: its site, counted as the operator counts
+    /// them, and its label.
+    private record Found(
+        Operator operator, int site, String label, Optional<String> skippedByOperator) {}
+
+    private void builtInChanges(
+        io.mutastic.api.BuiltIn builtIn, Instruction instruction, List<Found> found) {
+      boolean call = instruction instanceof InvokeInstruction;
+      if ((call || isSite(instruction)) && builtIn.onCalls() == call) {
+        for (String label : Operators.replacements(builtIn, instruction)) {
+          found.add(new Found(builtIn, call ? callOrdinal : ordinal, label, Optional.empty()));
+        }
+      }
+    }
+
+    /// A plugin's or rules file's operator: a call operator at a call, counted as calls are; any
+    /// other at every instruction, counted in order.
+    private void addedChanges(Mutator mutator, Instruction instruction, int at, List<Found> found) {
+      boolean call = instruction instanceof InvokeInstruction;
+      if (mutator.onCalls() && !call) {
+        return;
+      }
+      var place = new Mutator.Site(model, method, code, at, instruction);
+      for (Mutator.Change change : mutator.changes(place)) {
+        found.add(
+            new Found(
+                mutator,
+                mutator.onCalls() ? callOrdinal : index,
+                change.label(),
+                change.skipped()));
+      }
+    }
+
+    private Mutant mutant(Found found, Instruction instruction, List<String> workedOn) {
+      var operator = found.operator();
       var skipped =
           tryWithResources.contains(instruction)
               ? Optional.of("generated: closes a try-with-resources resource")
-              : skipReason(operator, instruction).or(() -> filtered);
+              : found
+                  .skippedByOperator()
+                  .or(() -> skipReason(operator, instruction))
+                  .or(() -> filtered);
       return new Mutant(
           model.thisClass().asInternalName(),
           method.methodName().stringValue(),
           method.methodType().stringValue(),
-          call ? callOrdinal : ordinal,
+          found.site(),
           line,
           operator,
           describe(instruction),
-          Operators.replacement(operator, instruction),
+          found.label(),
           skipped,
           List.of(),
           workedOn);
@@ -226,7 +310,7 @@ final class Mutations {
 
     /// Why a mutant shouldn't run, if it shouldn't: the reason's first word is its kind.
     private Optional<String> skipReason(Operator operator, Instruction instruction) {
-      if (operator == Operator.RETURN_DEFAULT
+      if (operator == BuiltIn.RETURN_DEFAULT
           && previous instanceof ConstantInstruction constant
           && DEFAULT_CONSTANTS.contains(constant.opcode())) {
         return Optional.of("equivalent: already returns the default");
@@ -343,7 +427,7 @@ final class Mutations {
         return;
       }
       if (element instanceof Instruction instruction && sites.changedBy(mutant, instruction)) {
-        emit(builder, instruction, mutant.operator());
+        emit(builder, instruction, mutant);
         return;
       }
       builder.with(element);
@@ -351,16 +435,26 @@ final class Mutations {
   }
 
   /// Counts a method's sites as its code is walked, each kind on its own, as a mutant's ordinal
-  /// does.
+  /// does: instruction sites, call sites, and for a plugin's instruction operator every
+  /// instruction.
   private static final class SiteCounter {
     private int ordinal;
     private int callOrdinal;
+    private int index;
 
-    /// Whether the mutant changes `instruction`, counting it if it's a site of the mutant's kind.
+    /// Whether the mutant changes `instruction`, counting it as a site of each kind it is.
     boolean changedBy(Mutant mutant, Instruction instruction) {
-      return instruction instanceof InvokeInstruction
-          ? mutant.operator().onCalls() && mutant.changes(callOrdinal++)
-          : isSite(instruction) && !mutant.operator().onCalls() && mutant.changes(ordinal++);
+      boolean call = instruction instanceof InvokeInstruction;
+      int at = index++;
+      int callSite = call ? callOrdinal++ : -1;
+      int site = !call && isSite(instruction) ? ordinal++ : -1;
+      var operator = mutant.operator();
+      if (operator instanceof Mutator && !operator.onCalls()) {
+        return mutant.changes(at);
+      }
+      return operator.onCalls()
+          ? callSite >= 0 && mutant.changes(callSite)
+          : site >= 0 && mutant.changes(site);
     }
   }
 
@@ -421,7 +515,16 @@ final class Mutations {
     return context.verify(bytes);
   }
 
-  private static void emit(CodeBuilder builder, Instruction instruction, Operator operator) {
+  private static void emit(CodeBuilder builder, Instruction instruction, Mutant mutant) {
+    if (mutant.operator() instanceof Mutator mutator) {
+      mutator.write(builder, instruction, mutant.replacement());
+      return;
+    }
+    var operator = (io.mutastic.api.BuiltIn) mutant.operator();
+    if (operator == io.mutastic.api.BuiltIn.REMOVE_CONDITIONAL) {
+      removeConditional(builder, (BranchInstruction) instruction, mutant.replacement());
+      return;
+    }
     switch (instruction) {
       case BranchInstruction branch ->
           builder.with(
@@ -431,6 +534,18 @@ final class Mutations {
       case ReturnInstruction returning -> returnDefault(builder, returning.typeKind());
       case InvokeInstruction call -> removeCall(builder, call);
       default -> throw new IllegalStateException("not a mutation site: " + instruction);
+    }
+  }
+
+  /// The jump's operands popped, then the jump always taken, or never: the condition no longer
+  /// decides anything.
+  private static void removeConditional(
+      CodeBuilder builder, BranchInstruction branch, String change) {
+    for (int slot = 0; slot < Operators.tested(branch.opcode()); slot++) {
+      builder.pop();
+    }
+    if (change.equals(Operators.ALWAYS_JUMP)) {
+      builder.goto_(branch.target());
     }
   }
 

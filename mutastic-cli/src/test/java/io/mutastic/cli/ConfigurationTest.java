@@ -53,7 +53,7 @@ class ConfigurationTest {
 
     write("rule:\n  - skip: com.acme.**\n");
     assertThatThrownBy(() -> Configuration.read(project))
-        .hasMessage("mutastic.yaml line 1: expected rules:, plugins: or filters:");
+        .hasMessage("mutastic.yaml line 1: expected rules:, plugins:, filters: or operators:");
   }
 
   private void write(String text) throws Exception {

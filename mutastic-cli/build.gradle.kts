@@ -50,6 +50,8 @@ tasks.test {
     // DocsOutputTest checks the output the docs show is what mutastic prints.
     systemProperty("mutastic.docsOutput", docsOutput.absolutePath)
     inputs.dir(docsOutput).withPathSensitivity(PathSensitivity.RELATIVE)
+    // DocsPluginsTest reads the example plugins the docs show.
+    inputs.dir(rootDir.resolve("docs/src/data/plugins")).withPathSensitivity(PathSensitivity.RELATIVE)
     // The Maven plugin's test resolves it, and everything it needs, from a repository in the build.
     systemProperty(
         "mutastic.samplesRepository",

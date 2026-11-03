@@ -2,6 +2,7 @@ package io.mutastic.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Operator;
 import io.mutastic.api.Policy;
@@ -31,32 +32,35 @@ class MutationsTest {
     assertThat(found)
         .extracting(Mutant::operator, Mutant::original, Mutant::replacement, Mutant::line)
         .containsExactly(
-            org.assertj.core.groups.Tuple.tuple(Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", 10),
+            org.assertj.core.groups.Tuple.tuple(BuiltIn.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", 10),
             org.assertj.core.groups.Tuple.tuple(
-                Operator.NEGATE_CONDITIONAL, "IF_ICMPLT", "IF_ICMPGE", 10),
-            org.assertj.core.groups.Tuple.tuple(Operator.MATH, "IDIV", "IMUL", 11),
+                BuiltIn.NEGATE_CONDITIONAL, "IF_ICMPLT", "IF_ICMPGE", 10),
             org.assertj.core.groups.Tuple.tuple(
-                Operator.RETURN_DEFAULT, "IRETURN", "return default", 11),
+                BuiltIn.REMOVE_CONDITIONAL, "IF_ICMPLT", "always jump", 10),
             org.assertj.core.groups.Tuple.tuple(
-                Operator.RETURN_DEFAULT, "IRETURN", "return default", 13));
+                BuiltIn.REMOVE_CONDITIONAL, "IF_ICMPLT", "never jump", 10),
+            org.assertj.core.groups.Tuple.tuple(BuiltIn.MATH, "IDIV", "IMUL", 11),
+            org.assertj.core.groups.Tuple.tuple(
+                BuiltIn.RETURN_DEFAULT, "IRETURN", "return default", 11),
+            org.assertj.core.groups.Tuple.tuple(
+                BuiltIn.RETURN_DEFAULT, "IRETURN", "return default", 13));
     assertThat(found.getLast().skipped()).contains("equivalent: already returns the default");
   }
 
   @Test
   void readsWhatTheChangeWorksOnFromTheBytecode() throws Exception {
-    assertThat(only("discount", Operator.BOUNDARY).operands()).containsExactly("total", "100");
-    assertThat(only("discount", Operator.MATH).operands()).containsExactly("total", "10");
+    assertThat(only("discount", BuiltIn.BOUNDARY).operands()).containsExactly("total", "100");
+    assertThat(only("discount", BuiltIn.MATH).operands()).containsExactly("total", "10");
     // longs compare with LCMP first: the operands are what went into it.
-    assertThat(only("overdue", Operator.BOUNDARY).operands()).containsExactly("days", "30");
-    assertThat(only("total", Operator.MATH).operands()).containsExactly("price", "quantity");
+    assertThat(only("overdue", BuiltIn.BOUNDARY).operands()).containsExactly("days", "30");
+    assertThat(only("total", BuiltIn.MATH).operands()).containsExactly("price", "quantity");
   }
 
   @Test
   void readsFieldsAndUnboxedValuesAsTheSourceNamesThem() throws Exception {
-    assertThat(operandsIn(Window.class, "after", Operator.BOUNDARY))
-        .containsExactly("start", "day");
-    assertThat(operandsIn(Window.class, "before", Operator.BOUNDARY)).containsExactly("day", "end");
-    assertThat(operandsIn(Window.class, "state", Operator.NEGATE_CONDITIONAL))
+    assertThat(operandsIn(Window.class, "after", BuiltIn.BOUNDARY)).containsExactly("start", "day");
+    assertThat(operandsIn(Window.class, "before", BuiltIn.BOUNDARY)).containsExactly("day", "end");
+    assertThat(operandsIn(Window.class, "state", BuiltIn.NEGATE_CONDITIONAL))
         .containsExactly("open");
   }
 
@@ -162,7 +166,7 @@ class MutationsTest {
 
   @Test
   void boundaryMovesTheEdge() throws Exception {
-    var pricing = mutated(only("discount", Operator.BOUNDARY));
+    var pricing = mutated(only("discount", BuiltIn.BOUNDARY));
 
     assertThat(call(pricing, "discount", 100)).isEqualTo(0); // was 10
     assertThat(call(pricing, "discount", 101)).isEqualTo(10);
@@ -170,7 +174,7 @@ class MutationsTest {
 
   @Test
   void negationSwapsTheBranches() throws Exception {
-    var pricing = mutated(only("discount", Operator.NEGATE_CONDITIONAL));
+    var pricing = mutated(only("discount", BuiltIn.NEGATE_CONDITIONAL));
 
     assertThat(call(pricing, "discount", 50)).isEqualTo(5); // was 0
     assertThat(call(pricing, "discount", 250)).isEqualTo(0); // was 25
@@ -178,7 +182,7 @@ class MutationsTest {
 
   @Test
   void mathSwapsTheOperator() throws Exception {
-    var pricing = mutated(only("discount", Operator.MATH));
+    var pricing = mutated(only("discount", BuiltIn.MATH));
 
     assertThat(call(pricing, "discount", 250)).isEqualTo(2500); // was 25
   }
@@ -188,7 +192,7 @@ class MutationsTest {
     var mutant =
         mutantsOf("discount").stream()
             .filter(
-                found -> found.operator() == Operator.RETURN_DEFAULT && found.skipped().isEmpty())
+                found -> found.operator() == BuiltIn.RETURN_DEFAULT && found.skipped().isEmpty())
             .findFirst()
             .orElseThrow();
     var pricing = mutated(mutant);
@@ -204,7 +208,7 @@ class MutationsTest {
                 .filter(found -> found.original().equals("LADD"))
                 .findFirst()
                 .orElseThrow());
-    var audit = mutated(only("audit", Operator.RETURN_DEFAULT));
+    var audit = mutated(only("audit", BuiltIn.RETURN_DEFAULT));
 
     assertThat(total.getClass().getMethod("total", long.class, int.class).invoke(total, 10L, 3))
         .isEqualTo(25L); // was 35
@@ -242,7 +246,7 @@ class MutationsTest {
   @Test
   void callsAreCountedApartFromInstructions() throws Exception {
     // The void-call operator doesn't move instruction sites: discount()'s branch is still site 0.
-    assertThat(only("discount", Operator.BOUNDARY).ordinal()).isZero();
+    assertThat(only("discount", BuiltIn.BOUNDARY).ordinal()).isZero();
     assertThat(mutantsOf("checkout")).extracting(Mutant::ordinal).containsExactly(0, 1);
   }
 
@@ -316,7 +320,7 @@ class MutationsTest {
         .anyMatch(original -> original.contains("addSuppressed"))
         .anyMatch(original -> original.equals("IFNULL"));
     // `return reader.readLine()` is the user's: its mutants still run.
-    assertThat(userCode).extracting(Mutant::operator).containsExactly(Operator.RETURN_DEFAULT);
+    assertThat(userCode).extracting(Mutant::operator).containsExactly(BuiltIn.RETURN_DEFAULT);
   }
 
   @Test
@@ -343,7 +347,7 @@ class MutationsTest {
             "(I)I",
             0,
             5,
-            Operator.BOUNDARY,
+            BuiltIn.BOUNDARY,
             "IF_ICMPLT",
             "IF_ICMPLE",
             Optional.empty());
@@ -354,7 +358,7 @@ class MutationsTest {
             "(I)I",
             0,
             9,
-            Operator.BOUNDARY,
+            BuiltIn.BOUNDARY,
             "IF_ICMPLT",
             "IF_ICMPLE",
             Optional.empty());
@@ -365,7 +369,7 @@ class MutationsTest {
             "(I)I",
             1,
             5,
-            Operator.BOUNDARY,
+            BuiltIn.BOUNDARY,
             "IF_ICMPLT",
             "IF_ICMPLE",
             Optional.empty());
@@ -398,7 +402,7 @@ class MutationsTest {
   private List<String> operandsIn(Class<?> type, String method, Operator operator)
       throws Exception {
     return mutations.find(model(type)).stream()
-        .filter(mutant -> mutant.methodName().equals(method) && mutant.operator() == operator)
+        .filter(mutant -> mutant.methodName().equals(method) && mutant.operator().equals(operator))
         .findFirst()
         .orElseThrow()
         .operands();
@@ -406,7 +410,7 @@ class MutationsTest {
 
   private Mutant only(String method, Operator operator) throws Exception {
     return mutantsOf(method).stream()
-        .filter(mutant -> mutant.operator() == operator)
+        .filter(mutant -> mutant.operator().equals(operator))
         .findFirst()
         .orElseThrow();
   }

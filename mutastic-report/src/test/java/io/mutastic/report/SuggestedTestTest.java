@@ -2,9 +2,9 @@ package io.mutastic.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
-import io.mutastic.api.Operator;
 import io.mutastic.api.Status;
 import io.mutastic.api.Suggestion;
 import java.nio.file.Files;
@@ -141,7 +141,7 @@ class SuggestedTestTest {
             "(I)I",
             0,
             5,
-            Operator.BOUNDARY,
+            BuiltIn.BOUNDARY,
             "IF_ICMPLT",
             "IF_ICMPLE",
             Optional.empty());

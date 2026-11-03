@@ -2,8 +2,8 @@ package io.mutastic.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
-import io.mutastic.api.Operator;
 import io.mutastic.engine.fixture.Visibility;
 import java.lang.classfile.ClassModel;
 import java.util.HashMap;
@@ -95,7 +95,7 @@ class AccessTest {
         descriptor,
         0,
         1,
-        Operator.MATH,
+        BuiltIn.MATH,
         "IADD",
         "ISUB",
         Optional.empty());

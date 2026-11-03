@@ -1,49 +1,32 @@
 package io.mutastic.api;
 
-import java.util.Locale;
-
-/// The mutation operators: what kinds of change mutastic makes. How each finds its sites and
-/// rewrites them is the engine's.
+/// A kind of change mutastic makes: one of its own ([BuiltIn]), or one a plugin or rules file adds
+/// ([Mutator]). How each finds its sites and rewrites them is the engine's, or the mutator's own.
 ///
 /// Operators work on two kinds of site, counted apart: instructions (arithmetic, branches, returns)
-/// and calls. A new operator on calls never shifts the ids of instruction mutants.
-public enum Operator {
-  BOUNDARY(
-      "`<` becomes `<=` and the other way round: the off-by-one at the edge of a range, which tests"
-          + " that only check values far from the edge never notice."),
-
-  NEGATE_CONDITIONAL(
-      "A condition goes the other way: `==` becomes `!=`, `<` becomes `>=`. It goes unnoticed when"
-          + " no test checks what happens on one side of an `if`."),
-
-  MATH("`+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`."),
-
-  RETURN_DEFAULT(
-      "A method returns its type's default (`0`, `false`, `null`) instead of what it computed. It"
-          + " goes unnoticed when tests call the method but never look at what it returns."),
-
-  REMOVE_VOID_CALL(
-      "A call that returns nothing is removed. It goes unnoticed when no test checks what the call"
-          + " does.");
-
-  private final String explanation;
-
-  Operator(String explanation) {
-    this.explanation = explanation;
-  }
+/// and calls. A new operator never shifts the ids of existing mutants.
+public sealed interface Operator permits BuiltIn, Mutator {
+  /// `mutastic/boundary`, `stream/remove-stage`: how reports, rules and `--operators` name it.
+  String id();
 
   /// What it changes, and when a test misses that, in plain words: for `mutastic explain`.
-  public String explanation() {
-    return explanation;
-  }
-
-  /// `mutastic/boundary`: how reports and rules name it.
-  public String id() {
-    return "mutastic/" + name().toLowerCase(Locale.ROOT).replace('_', '-');
-  }
+  String explanation();
 
   /// Whether it works on call sites rather than instruction sites.
-  public boolean onCalls() {
-    return this == REMOVE_VOID_CALL;
+  boolean onCalls();
+
+  /// Which set of operators it's in: what runs unless `--operators` says otherwise.
+  Tier tier();
+
+  /// The sets operators come in. A run takes `defaults` unless told otherwise; `stronger` adds the
+  /// operators that find more but cost more, or need more care to read.
+  enum Tier {
+    DEFAULTS,
+    STRONGER;
+
+    /// `defaults`, `stronger`: as `--operators` takes it.
+    public String word() {
+      return name().toLowerCase(java.util.Locale.ROOT);
+    }
   }
 }

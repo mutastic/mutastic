@@ -1,0 +1,152 @@
+---
+title: Plugins
+description: "Add operators of your own: as a rules file for the calls of a library, or as Java for anything else. And filters of your own."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import mutiny from '../../../data/plugins/mutiny.yaml?raw';
+
+mutastic's [operators](/concepts/operators/) cover the language and the JDK's streams. A plugin adds
+more, for the libraries and patterns your code uses. There are two kinds:
+
+| Kind | File | Adds | Needs |
+|---|---|---|---|
+| [A rules file](#rules-files) | `.yaml` | Operators on calls: remove one, rename it, or call another method instead | Nothing but the file |
+| [A jar](#java-plugins) | `.jar` | Operators on any instruction, and [filters](#filters) | Java, built against `io.mutastic:mutastic-api` |
+
+List each under `plugins:` in `mutastic.yaml`, relative to the project's directory:
+
+```yaml
+plugins:
+  - mutastic/mutiny.yaml
+  - build/libs/acme-mutastic.jar
+```
+
+A plugin's operators then run like mutastic's own: each in the `defaults` set unless it says it's
+`stronger`, chosen by its id or namespace with [`--operators`](/concepts/operators/#choosing-operators)
+(`--operators=defaults,-mutiny`), and reported, explained and ignored the same way. A plugin's code
+runs in mutastic's own process, so only list plugins you trust.
+
+## Rules files
+
+A rules file describes call operators as data: which calls to match, by the type that declares the
+method and the method's name, and how to rewrite them. mutastic's own [stream
+operators](/concepts/operators/#stream-stage-removal) are a rules file of exactly this shape. This
+one adds two operators for [Mutiny](https://smallrye.io/smallrye-mutiny/):
+
+<Code code={mutiny} lang="yaml" title="mutiny.yaml" />
+
+Each rule is a list item with these fields:
+
+| Field | | |
+|---|---|---|
+| `id` | required | `namespace/name`, lower case: how reports, `--operators` and ignores name it |
+| `explanation` | required | What it changes, and when a test misses that: shown by `mutastic explain` |
+| `owners` | required | The types whose calls it matches, in full: `java.lang.String` |
+| `methods` | required | The method names it matches |
+| `rewrite` | required | What the call becomes: [see below](#rewrites) |
+| `headline` | required | A missed mutant's headline, the gap in the tests |
+| `help` | required | The test to write |
+| `changed` | | What the line now does, in a code frame: `stage removed` |
+| `source` | | How a `call` rewrite reads in the source, for its label: `first(Long.MAX_VALUE)` |
+| `tier` | | `defaults` (unless it says) or `stronger` |
+
+`headline` and `help` can have a version per method, `headline.sorted`, used for that method
+instead. In all three wordings, `{name}` is the method called, `{to}` what a rename calls instead,
+and `{method}` the method the call is in.
+
+### Rewrites
+
+| Rewrite | Does | For example |
+|---|---|---|
+| `remove` | Drops the call and its arguments, and keeps the object it was called on as the result. Only for a method that returns its own type: a stream stage, a builder step, `String.strip()` | `stream.filter(p).count()` becomes `stream.count()` |
+| `rename a->b, c->d` | Calls another method of the same type with the same arguments; each `a->b` is one mutant | `anyMatch->allMatch, anyMatch->noneMatch` |
+| `call name(ARGS) with A, B` | Drops the arguments and calls another method on the same object, which must return the same type. `ARGS` are the method's parameter types as the JVM writes them (`J` for `long`, `Ljava/util/function/Function;`) | `call first(J) with Long.MAX_VALUE` |
+
+A `call` rewrite's arguments are `0`, `0L`, `true`, `false`, `null`, `Integer.MAX_VALUE`,
+`Long.MAX_VALUE`, or a static method with no arguments, written in full:
+`java.util.function.Function.identity()`.
+
+A rewrite that doesn't fit a call it meets, because the types don't line up, isn't run: the mutant
+is skipped as `unviable:`, with the reason, and stays out of the score. A label, the replacement a
+mutant shows, is part of its id, so once a rule is in use, change its `rewrite` and `source` only
+knowing that its mutants get new ids.
+
+## Java plugins
+
+For an operator a rules file can't describe, write it in Java: implement
+[`io.mutastic.api.Mutator`](https://github.com/mutastic/mutastic/blob/main/mutastic-api/src/main/java/io/mutastic/api/Mutator.java),
+with the JDK's `java.lang.classfile` API, which mutastic is built on. This one makes every
+whole-number constant one more:
+
+```java
+package acme;
+
+import io.mutastic.api.Mutant;
+import io.mutastic.api.Mutator;
+import java.lang.classfile.CodeBuilder;
+import java.lang.classfile.Instruction;
+import java.lang.classfile.instruction.ConstantInstruction;
+import java.util.List;
+
+public class ConstantPlusOne implements Mutator {
+  public String id() {
+    return "acme/constant-plus-one";
+  }
+
+  public String explanation() {
+    return "A whole-number constant goes up by one.";
+  }
+
+  public boolean onCalls() {
+    return false; // every instruction is a site, not only calls
+  }
+
+  public List<Change> changes(Site site) {
+    return site.instruction() instanceof ConstantInstruction constant
+            && constant.constantValue() instanceof Integer
+        ? List.of(Change.of("plus one"))
+        : List.of();
+  }
+
+  public void write(CodeBuilder builder, Instruction instruction, String label) {
+    var value = (Integer) ((ConstantInstruction) instruction).constantValue();
+    builder.loadConstant(value + 1);
+  }
+
+  public Words words(Mutant mutant) {
+    return new Words(
+        "constant plus one",
+        "no test tells the constant in " + mutant.methodName() + "() from one more",
+        "test at the constant itself, and assert the result");
+  }
+}
+```
+
+- **`changes`** is asked about each instruction, with the method and its code around it
+  (`site.code()`, `site.index()`), and gives a label for each change it makes there, if any, and
+  why one shouldn't run (`equivalent: …`), if it shouldn't.
+- **`write`** puts the changed instruction in its place. Afterwards the stack must hold what the
+  original left; a change that doesn't verify is skipped as `unviable:`, never run.
+- **`words`** is what a missed mutant's card says: the change, the headline and the test to write.
+- **`onCalls`** says which sites the operator counts: calls, as mutastic's call operators count
+  them, or every instruction in the method. **`tier`** defaults to `defaults`; return
+  `Tier.STRONGER` to leave an operator out unless asked for.
+
+Build it against `io.mutastic:mutastic-api` (`compileOnly`, or Maven's `provided`: mutastic brings
+it), on JDK 25, and name the class in the jar's
+`META-INF/services/io.mutastic.api.Mutator`:
+
+```text
+acme.ConstantPlusOne
+```
+
+Labels are part of mutant ids, as a rules file's are: keep them once the operator is in use.
+
+## Filters
+
+A jar can also hold filters, which decide that a method's mutants shouldn't run:
+[`io.mutastic.api.Filter`](https://github.com/mutastic/mutastic/blob/main/mutastic-api/src/main/java/io/mutastic/api/Filter.java),
+named in `META-INF/services/io.mutastic.api.Filter`. Unlike operators, a plugin's filters run only
+when `filters:` in `mutastic.yaml` names them: see [Configuration and
+skipping](/guides/configuration/).

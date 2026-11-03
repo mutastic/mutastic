@@ -2,9 +2,9 @@ package io.mutastic.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
-import io.mutastic.api.Operator;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import java.time.Duration;
@@ -70,7 +70,7 @@ class SuspectsTest {
             "()I",
             ordinal++,
             1,
-            Operator.RETURN_DEFAULT,
+            BuiltIn.RETURN_DEFAULT,
             "IRETURN",
             "return default",
             Optional.empty());

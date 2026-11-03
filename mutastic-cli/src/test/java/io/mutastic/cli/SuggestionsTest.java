@@ -20,7 +20,14 @@ class SuggestionsTest {
   void suggestionsPastedInCatchTheirMutantsAndRandomnessGetsNone() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("suggestions"));
 
-    var run = Samples.mutastic("run", project.toString(), "--format=jsonl");
+    // Without remove-conditional, whose misses here get suggestions too (its `start == null`
+    // can't: suggestions pass numbers, never null). This pins the suggestions themselves.
+    var run =
+        Samples.mutastic(
+            "run",
+            project.toString(),
+            "--format=jsonl",
+            "--operators=-mutastic/remove-conditional");
     var suggested = new LinkedHashMap<String, String>(); // mutant id → test code
     run.out()
         .lines()

@@ -2,6 +2,7 @@ package io.mutastic.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Operator;
 import java.util.Optional;
@@ -10,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class AdviceTest {
   @Test
   void readsAnIfBackToItsSourceOperator() {
-    var advice = Advice.of(mutant(Operator.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", "(I)I"));
+    var advice = Advice.of(mutant(BuiltIn.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", "(I)I"));
 
     assertThat(advice.before()).contains(">=");
     assertThat(advice.after()).contains(">");
@@ -20,28 +21,28 @@ class AdviceTest {
   @Test
   void negatesComparisonsAndNullChecks() {
     assertThat(
-            Advice.of(mutant(Operator.NEGATE_CONDITIONAL, "IF_ICMPNE", "IF_ICMPEQ", "(I)I"))
+            Advice.of(mutant(BuiltIn.NEGATE_CONDITIONAL, "IF_ICMPNE", "IF_ICMPEQ", "(I)I"))
                 .change())
         .isEqualTo("`==` becomes `!=`");
     assertThat(
-            Advice.of(mutant(Operator.NEGATE_CONDITIONAL, "IFNULL", "IFNONNULL", "(I)I")).change())
+            Advice.of(mutant(BuiltIn.NEGATE_CONDITIONAL, "IFNULL", "IFNONNULL", "(I)I")).change())
         .isEqualTo("`!=` becomes `==`");
-    assertThat(Advice.of(mutant(Operator.NEGATE_CONDITIONAL, "IFEQ", "IFNE", "(I)I")).headline())
+    assertThat(Advice.of(mutant(BuiltIn.NEGATE_CONDITIONAL, "IFEQ", "IFNE", "(I)I")).headline())
         .isEqualTo("`discount()` behaves the same with the condition reversed");
   }
 
   @Test
   void returnsTheDefaultForTheReturnType() {
     assertThat(
-            Advice.of(mutant(Operator.RETURN_DEFAULT, "IRETURN", "return default", "(I)Z")).after())
+            Advice.of(mutant(BuiltIn.RETURN_DEFAULT, "IRETURN", "return default", "(I)Z")).after())
         .contains("return false;");
     assertThat(
-            Advice.of(mutant(Operator.RETURN_DEFAULT, "LRETURN", "return default", "(I)J")).after())
+            Advice.of(mutant(BuiltIn.RETURN_DEFAULT, "LRETURN", "return default", "(I)J")).after())
         .contains("return 0L;");
     assertThat(
             Advice.of(
                     mutant(
-                        Operator.RETURN_DEFAULT, "ARETURN", "return default", "()Ljava/util/List;"))
+                        BuiltIn.RETURN_DEFAULT, "ARETURN", "return default", "()Ljava/util/List;"))
                 .change())
         .isEqualTo("returns `null` instead");
   }
@@ -51,7 +52,7 @@ class AdviceTest {
     var advice =
         Advice.of(
             mutant(
-                Operator.REMOVE_VOID_CALL,
+                BuiltIn.REMOVE_VOID_CALL,
                 "INVOKEVIRTUAL com/example/Audit.record(Ljava/lang/String;)V",
                 "remove call",
                 "(I)I"));

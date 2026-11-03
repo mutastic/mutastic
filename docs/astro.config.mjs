@@ -108,7 +108,7 @@ export default defineConfig({
         },
         {
           label: 'Guides',
-          items: ['guides/build-plugins', 'guides/scoping', 'guides/configuration'],
+          items: ['guides/build-plugins', 'guides/scoping', 'guides/configuration', 'guides/plugins'],
         },
         {
           label: 'Help',

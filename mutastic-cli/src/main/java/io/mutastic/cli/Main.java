@@ -5,10 +5,12 @@ import io.mutastic.api.Comparison;
 import io.mutastic.api.CoveragePass;
 import io.mutastic.api.Listener;
 import io.mutastic.api.MutantResult;
+import io.mutastic.api.Policy;
 import io.mutastic.api.Project;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import io.mutastic.engine.Engine;
+import io.mutastic.engine.OperatorSet;
 import io.mutastic.engine.RunRecord;
 import io.mutastic.report.AgentText;
 import io.mutastic.report.Explanation;
@@ -414,10 +416,32 @@ public final class Main {
         command.suggestions() && !command.verify(),
         terminal.auditArid(),
         java.util.Set.of(),
-        Configuration.read(directory)
-            .policy(directory)
-            .withIgnores(Ignores.read(directory).stream().map(Ignores.Entry::ignore).toList()),
+        policy(command, directory),
         command.since().map(since -> new Git(directory).changedSince(since)));
+  }
+
+  /// The project's say, from `mutastic.yaml` and its ignores, with the operators to run: the
+  /// command's `--operators`, else `operators:`, else the defaults. One mutant, asked for by id, is
+  /// looked for among every operator, so a stronger one's id is found as any other's.
+  private static Policy policy(Command command, Path directory) {
+    var configuration = Configuration.read(directory);
+    var chosen =
+        command.only().isPresent()
+            ? List.of("stronger")
+            : command.operators().isEmpty() ? configuration.operators() : command.operators();
+    var policy =
+        configuration
+            .policy(directory)
+            .withIgnores(Ignores.read(directory).stream().map(Ignores.Entry::ignore).toList());
+    policy = policy.withOperators(chosen, policy.mutators());
+    try {
+      OperatorSet.active(policy);
+    } catch (IllegalArgumentException e) {
+      var source =
+          command.operators().isEmpty() ? "operators: in " + Configuration.FILE : "--operators";
+      throw new UsageException(source + ": " + e.getMessage());
+    }
+    return policy;
   }
 
   /// What `verify` says of its mutant, and whether it passed.
@@ -735,6 +759,7 @@ public final class Main {
       List<RequestedReport> reports,
       Optional<String> vocabulary,
       List<String> testsFrom,
+      List<String> operators,
       Optional<String> since,
       Optional<Ignoring> ignore,
       Optional<Path> setup,
@@ -765,6 +790,7 @@ public final class Main {
           reports,
           vocabulary,
           testsFrom,
+          operators,
           since,
           Optional.of(how),
           setup,
@@ -799,6 +825,7 @@ public final class Main {
       private @Nullable List<RequestedReport> reports = null;
       private Optional<String> vocabulary = Optional.empty();
       private final List<String> testsFrom = new ArrayList<>();
+      private final List<String> operators = new ArrayList<>();
       private Optional<String> since = Optional.empty();
       private String reason = "";
       private boolean prune = false;
@@ -860,6 +887,7 @@ public final class Main {
           }
           case "--only" -> only = Optional.of(given);
           case "--tests-from" -> testsFrom.add(module(given));
+          case "--operators" -> operators(given);
           case "--workers" -> workers = Optional.of(number(option, given, 1, Integer.MAX_VALUE));
           case "--confirm-catches" -> confirmCatches = true;
           case "--no-suggestions" -> suggestions = false;
@@ -882,6 +910,15 @@ public final class Main {
           case "--setup" -> setup = Optional.of(Path.of(given));
           case "--commands" -> commands = commands(given);
           default -> throw new IllegalStateException("no reader for " + option.name());
+        }
+      }
+
+      /// `--operators=stronger,-stream`: each word, checked when the project's operators are known.
+      private void operators(String value) {
+        for (String word : value.split(",", -1)) {
+          if (!word.isBlank()) {
+            operators.add(word.strip());
+          }
         }
       }
 
@@ -974,6 +1011,7 @@ public final class Main {
             reports == null ? DEFAULT_REPORTS : List.copyOf(reports),
             vocabulary,
             List.copyOf(testsFrom),
+            List.copyOf(operators),
             since,
             Optional.empty(),
             setup,

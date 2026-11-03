@@ -10,6 +10,21 @@ this page.
 For why each one is worth catching, the bugs it stands for and the test that catches it, see
 [Operators (advanced)](/concepts/operators-advanced/).
 
+| Operator | Changes | Set |
+|---|---|---|
+| [`mutastic/boundary`](#boundary) | `<` and `<=`, `>` and `>=` | defaults |
+| [`mutastic/negate-conditional`](#negate-conditional) | a condition to its opposite | defaults |
+| [`mutastic/remove-conditional`](#remove-conditional) | a condition to always true, or always false | defaults |
+| [`mutastic/math`](#math) | `+` and `-`, `*` and `/` | defaults |
+| [`mutastic/arithmetic-replacement`](#arithmetic-replacement) | `+` to `*` | stronger |
+| [`mutastic/return-default`](#return-default) | a returned value to `0`, `false` or `null` | defaults |
+| [`mutastic/remove-void-call`](#remove-void-call) | a call that returns nothing, removed | defaults |
+| [`stream/remove-stage`](#stream-stage-removal) | a stream stage, removed | defaults |
+| [`stream/swap-match`](#stream-match-swap) | `anyMatch`, `allMatch` and `noneMatch`, swapped | defaults |
+
+A run uses the `defaults` set unless you [choose otherwise](#choosing-operators). Plugins can add
+operators of their own: see [Plugins](/guides/plugins/).
+
 ## Boundary
 
 `mutastic/boundary`. `<` becomes `<=` and the other way round: the off-by-one at the edge of a
@@ -30,6 +45,16 @@ if (order.isPaid())   // becomes: if (!order.isPaid())
 if (coupon == null)   // becomes: if (coupon != null)
 ```
 
+## Remove conditional
+
+`mutastic/remove-conditional`. A condition stops deciding: the code it guards always runs, or never
+does. Each condition gets two mutants, one each way. It goes unnoticed when no test needs the
+condition to be true one time and false another.
+
+```java
+if (order.isPaid())   // becomes: if (true), and: if (false)
+```
+
 ## Math
 
 `mutastic/math`. `+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`. It goes
@@ -38,6 +63,15 @@ multiplying by `1`.
 
 ```java
 return price * quantity;   // becomes: return price / quantity;
+```
+
+## Arithmetic replacement
+
+`mutastic/arithmetic-replacement`, in the `stronger` set. `+` becomes `*`, on `int` and `long`. It
+goes unnoticed when tests only add numbers whose sum and product agree, `2 + 2` say.
+
+```java
+return price + shipping;   // becomes: return price * shipping;
 ```
 
 ## Return default
@@ -61,3 +95,63 @@ inventory.reserve(item);   // becomes: nothing, the line is gone
 ```
 
 Constructors are left alone: removing one would leave an object half made, not a gap in the tests.
+
+## Stream stage removal
+
+`stream/remove-stage`. A stage of a stream pipeline is removed, and the stream goes on without it:
+`filter`, `distinct`, `sorted`, `limit`, `skip`, `dropWhile` or `takeWhile`, on `Stream`,
+`IntStream`, `LongStream` and `DoubleStream`. It goes unnoticed when no test has input the stage
+would change.
+
+```java
+orders.stream().filter(Order::isPaid).count()   // becomes: orders.stream().count()
+```
+
+Removing `sorted()` before a result that ignores order (`count()`, `anyMatch`, `min`, `sum` and
+the like) can't change anything, so it's skipped as equivalent; so is removing `distinct()` before
+a result that ignores duplicates.
+
+## Stream match swap
+
+`stream/swap-match`. `anyMatch`, `allMatch` and `noneMatch` swap places: `anyMatch` becomes
+`allMatch` and `noneMatch`, and each of the others becomes `anyMatch`. It goes unnoticed when no
+test has input where some elements match and some don't.
+
+```java
+items.stream().anyMatch(Item::isFragile)   // becomes: .allMatch(…), and: .noneMatch(…)
+```
+
+## Choosing operators
+
+A run uses the `defaults` set: every operator above but those in `stronger`. To choose, give a list
+of sets, operator ids and namespaces, any with a `-` in front to leave it out:
+
+| Choice | Runs |
+|---|---|
+| `defaults` | What runs unless told otherwise |
+| `stronger` | Every operator, those in `stronger` too |
+| `mutastic/arithmetic-replacement` | That one operator |
+| `stream` | Every operator in that namespace: `stream/remove-stage`, `stream/swap-match` |
+| `-stream` | The defaults without the stream operators |
+| `defaults,mutastic/arithmetic-replacement` | The defaults and that one |
+
+On the command line, or from a build plugin, as [`--operators`](/reference/run/#operators):
+
+```sh
+mutastic run --operators=stronger
+mutastic run --operators=defaults,-stream/swap-match
+```
+
+Or for every run, in `mutastic.yaml`, which a command-line choice replaces:
+
+```yaml
+operators:
+  - stronger
+  - -stream/swap-match
+```
+
+A run of one mutant, by id (`verify`, `explain`, `run --only`), looks among every operator, so a
+mutant a stronger run found can always be checked again.
+
+A mutant's id doesn't depend on which operators run: choosing more adds mutants, and never changes
+the ids of the others.

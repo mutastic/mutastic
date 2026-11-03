@@ -118,6 +118,19 @@ final class Options {
               "",
               "mutastic run --no-suggestions"),
           new Option(
+              "--operators",
+              Kind.REPEATED,
+              Group.RUNNING,
+              "OPERATORS",
+              List.of(),
+              "Which operators run: defaults or stronger, an operator's id or namespace, or any with"
+                  + " - in front to leave it out; defaults unless set",
+              RUNS,
+              "operators",
+              false,
+              "",
+              "mutastic run --operators=stronger"),
+          new Option(
               "--report",
               Kind.REPEATED,
               Group.RUNNING,

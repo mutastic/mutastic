@@ -9,7 +9,7 @@
       "detail": "DIR is the build, here unless given, and :MODULE one of its modules: as Gradle names it (:app), or as Maven's -pl takes it (:services/api). The run passes when the score reaches the threshold. A full run writes report files, keeps a record the next run compares with, and offers the commands to work on each missed mutant.",
       "takesMutantId": false,
       "examples": [{ "gradle": "./gradlew mutasticRun", "maven": "mvn mutastic:run", "commandLine": "mutastic run" }, { "gradle": "./gradlew mutasticRun -Pmutastic.threshold=70 -p samples/pricing", "maven": "mvn mutastic:run -Dmutastic.threshold=70 -f samples/pricing", "commandLine": "mutastic run samples/pricing --threshold=70" }, { "gradle": "./gradlew mutasticRun -Pmutastic.since=main", "maven": "mvn mutastic:run -Dmutastic.since=main", "commandLine": "mutastic run --since=main" }, { "gradle": "./gradlew :core:mutasticRun -Pmutastic.testsFrom=dependents", "maven": "mvn mutastic:run -Dmutastic.testsFrom=dependents -pl core", "commandLine": "mutastic run . :core --tests-from=dependents" }],
-      "options": ["--threshold", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--no-suggestions", "--report", "--format", "--vocabulary", "--color", "--hyperlinks", "--progress"]
+      "options": ["--threshold", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--no-suggestions", "--operators", "--report", "--format", "--vocabulary", "--color", "--hyperlinks", "--progress"]
     },
     {
       "name": "verify",
@@ -137,6 +137,20 @@
       "maven": { "property": "-Dmutastic.suggestions", "setting": "<suggestions>false</suggestions>" },
       "gradle": { "property": "-Pmutastic.suggestions", "setting": "suggestions = false" },
       "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.suggestions=false", "maven": "mvn mutastic:run -Dmutastic.suggestions=false", "commandLine": "mutastic run --no-suggestions", "gradleBuild": "mutastic {\n    suggestions = false\n}", "mavenBuild": "<configuration>\n  <suggestions>false</suggestions>\n</configuration>" }
+    },
+    {
+      "name": "--operators",
+      "synopsis": "--operators=OPERATORS",
+      "kind": "repeated",
+      "group": "Running",
+      "value": "OPERATORS",
+      "choices": [],
+      "help": "Which operators run: defaults or stronger, an operator's id or namespace, or any with - in front to leave it out; defaults unless set",
+      "commands": ["run"],
+      "environment": "",
+      "maven": { "property": "-Dmutastic.operators", "setting": null },
+      "gradle": { "property": "-Pmutastic.operators", "setting": null },
+      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.operators=stronger", "maven": "mvn mutastic:run -Dmutastic.operators=stronger", "commandLine": "mutastic run --operators=stronger", "gradleBuild": "", "mavenBuild": "" }
     },
     {
       "name": "--report",

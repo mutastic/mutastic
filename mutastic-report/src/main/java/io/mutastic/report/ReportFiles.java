@@ -158,7 +158,7 @@ public final class ReportFiles {
     var place = sources.place(mutant);
     var entry = new LinkedHashMap<String, Object>();
     entry.put("id", mutant.id());
-    entry.put("mutatorName", mutant.operator().id().substring("mutastic/".length()));
+    entry.put("mutatorName", mutatorName(mutant));
     entry.put("replacement", advice.after().orElse(advice.change()));
     entry.put("description", advice.change());
     entry.put(
@@ -176,6 +176,12 @@ public final class ReportFiles {
     entry.put("testsCompleted", result.testsRun());
     entry.put("duration", result.took().toMillis());
     return entry;
+  }
+
+  /// `boundary` for mutastic's own operators, a plugin's by its whole id: `stream/remove-stage`.
+  private static String mutatorName(Mutant mutant) {
+    var id = mutant.operator().id();
+    return id.startsWith("mutastic/") ? id.substring("mutastic/".length()) : id;
   }
 
   /// Why the mutant has its status, or empty when there's nothing to say.
@@ -261,13 +267,19 @@ public final class ReportFiles {
     };
   }
 
+  /// The mutator's name as `mutations.xml` readers know it; an operator they don't know, by its own
+  /// id.
   private static String mutator(Mutant mutant) {
+    if (!(mutant.operator() instanceof io.mutastic.api.BuiltIn builtIn)) {
+      return mutant.operator().id();
+    }
     var prefix = "org.pitest.mutationtest.engine.gregor.mutators.";
     return prefix
-        + switch (mutant.operator()) {
+        + switch (builtIn) {
           case BOUNDARY -> "ConditionalsBoundaryMutator";
           case NEGATE_CONDITIONAL -> "NegateConditionalsMutator";
-          case MATH -> "MathMutator";
+          case MATH, ARITHMETIC_REPLACEMENT -> "MathMutator";
+          case REMOVE_CONDITIONAL -> "RemoveConditionalMutator";
           case REMOVE_VOID_CALL -> "VoidMethodCallMutator";
           case RETURN_DEFAULT ->
               switch (MethodTypeDesc.ofDescriptor(mutant.descriptor())

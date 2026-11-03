@@ -1,0 +1,10 @@
+# A plugin's rules file: call operators for String, in the same shape as mutastic's own stream
+# rules. Listed under `plugins:` in mutastic.yaml, it adds acme/remove-strip.
+- id: acme/remove-strip
+  explanation: A call that trims a string is removed. It goes unnoticed when no test passes text with spaces around it.
+  owners: java.lang.String
+  methods: strip, trim, stripLeading, stripTrailing
+  rewrite: remove
+  changed: `.{name}()` removed
+  headline: no test passes {method} text with spaces for `.{name}()` to remove
+  help: add a test whose input has spaces around it, and assert they're gone

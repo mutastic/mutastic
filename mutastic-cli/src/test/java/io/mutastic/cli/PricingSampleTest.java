@@ -23,7 +23,7 @@ class PricingSampleTest {
     assertThat(run.exit()).as(run.err()).isEqualTo(Main.PASSED);
     assertThat(run.out()).contains("\"reason\":\"run-finished\",\"jdk\":17");
     assertThat(run.out())
-        .contains("\"Killed\":6,\"Survived\":1,\"Timeout\":0,\"NoCoverage\":0,\"Ignored\":2");
+        .contains("\"Killed\":10,\"Survived\":1,\"Timeout\":0,\"NoCoverage\":0,\"Ignored\":2");
     assertThat(run.out()).contains("\"statusReason\":\"equivalent: already returns the default\"");
     var missed =
         run.out()
@@ -72,7 +72,7 @@ class PricingSampleTest {
 
     assertThat(run.out().lines().findFirst().orElseThrow())
         .isEqualTo(
-            "mutastic: PASS · score 85.7% (threshold 80) · 1 missed, 0 not covered, 6 caught of 7 mutants (2 more skipped)");
+            "mutastic: PASS · score 90.9% (threshold 80) · 1 missed, 0 not covered, 10 caught of 11 mutants (2 more skipped)");
     assertThat(run.out()).contains("   - if (total >= 100) {", "   + if (total > 100) {");
   }
 
@@ -92,7 +92,7 @@ class PricingSampleTest {
                 .filter(line -> line.contains("Score"))
                 .findFirst()
                 .orElseThrow())
-        .isEqualTo("     Score  85.7%  threshold 80");
+        .isEqualTo("     Score  90.9%  threshold 80");
     assertThat(run.out().strip().lines().toList())
         .contains(" [PASS] 1 missed, above the threshold.");
     // Progress goes to stderr, so stdout is only the result: in a log, a line per file as it
@@ -101,7 +101,7 @@ class PricingSampleTest {
         .contains(
             "mutastic dev · reading the Gradle build…",
             "coverage  3 tests on JDK 17",
-            " ❯ [pricing] src/main/java/com/example/pricing/Pricing.java (9 mutants | 1 missed)",
+            " ❯ [pricing] src/main/java/com/example/pricing/Pricing.java (13 mutants | 1 missed)",
             "   × discount() :17 >= becomes >");
   }
 

@@ -133,8 +133,9 @@ public final class SourceView {
   /// inverted jump.
   boolean asWritten(Mutant mutant) {
     var operator = mutant.operator();
-    if (operator != io.mutastic.api.Operator.BOUNDARY
-        && operator != io.mutastic.api.Operator.NEGATE_CONDITIONAL) {
+    if (operator != io.mutastic.api.BuiltIn.BOUNDARY
+        && operator != io.mutastic.api.BuiltIn.NEGATE_CONDITIONAL
+        && operator != io.mutastic.api.BuiltIn.REMOVE_CONDITIONAL) {
       return false;
     }
     var inverted = Advice.jump(mutant.original(), false);
@@ -205,12 +206,11 @@ public final class SourceView {
       for (int at = text.indexOf(token); at >= 0; at = text.indexOf(token, at + 1)) {
         count++;
         found =
-            switch (operator) {
-              case REMOVE_VOID_CALL -> new Place(number, at + 1, at + token.length());
-              case RETURN_DEFAULT -> new Place(number, at + 1, text.stripTrailing().length() + 1);
-              default ->
-                  new Place(number, at + 2, at + token.length()); // inside the spaces around it
-            };
+            operator.onCalls()
+                ? new Place(number, at + 1, at + token.length())
+                : operator == io.mutastic.api.BuiltIn.RETURN_DEFAULT
+                    ? new Place(number, at + 1, text.stripTrailing().length() + 1)
+                    : new Place(number, at + 2, at + token.length()); // inside its spaces
       }
     }
     return count == 1 && found != null ? Optional.of(found) : Optional.empty();
@@ -231,12 +231,11 @@ public final class SourceView {
         .map(before -> " " + before + " ")
         .or(
             () ->
-                Optional.ofNullable(
-                    switch (mutant.operator()) {
-                      case REMOVE_VOID_CALL -> calledName(mutant.original()) + "(";
-                      case RETURN_DEFAULT -> "return ";
-                      default -> null;
-                    }));
+                mutant.operator().onCalls()
+                    ? Optional.of(calledName(mutant.original()) + "(")
+                    : mutant.operator() == io.mutastic.api.BuiltIn.RETURN_DEFAULT
+                        ? Optional.of("return ")
+                        : Optional.empty());
   }
 
   /// A line that ends a statement or opens or closes a block: the statement can't run past it.
@@ -258,11 +257,11 @@ public final class SourceView {
     return line(mutant)
         .flatMap(
             text -> {
-              if (advice.before().isPresent()) {
+              if (advice.before().isPresent() && advice.after().isPresent()) {
                 var before = " " + advice.before().get() + " ";
                 int at = text.indexOf(before);
                 return at >= 0 && at == text.lastIndexOf(before)
-                    ? Optional.of(text.replace(before, " " + advice.after().orElseThrow() + " "))
+                    ? Optional.of(text.replace(before, " " + advice.after().get() + " "))
                     : Optional.empty();
               }
               boolean singleReturn =

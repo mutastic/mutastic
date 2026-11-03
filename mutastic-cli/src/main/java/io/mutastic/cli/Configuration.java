@@ -1,8 +1,10 @@
 package io.mutastic.cli;
 
 import io.mutastic.api.Filter;
+import io.mutastic.api.Mutator;
 import io.mutastic.api.Policy;
 import io.mutastic.api.Rule;
+import io.mutastic.engine.CallRules;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
@@ -26,20 +28,28 @@ import org.jspecify.annotations.Nullable;
 ///     reason: shown to customers
 /// plugins:
 ///   - build/libs/acme-filters.jar
+///   - mutiny.yaml
 /// filters:
 ///   - acme:no-metrics
+/// operators:
+///   - stronger
+///   - -stream/swap-match
 /// ```
 ///
 /// Read strictly, as exactly this shape: a line it doesn't understand is an error that names it,
-/// never a guess. A plugin's filters run only when `filters:` names them.
-record Configuration(List<Rule> rules, List<Path> plugins, List<String> filters) {
+/// never a guess. A plugin is a jar, whose filters run only when `filters:` names them and whose
+/// operators run as `operators:` chooses, or a rules file (`.yaml`) of call operators. `operators:`
+/// chooses as `--operators` does, which replaces it.
+record Configuration(
+    List<Rule> rules, List<Path> plugins, List<String> filters, List<String> operators) {
   static final String FILE = "mutastic.yaml";
-  static final Configuration NONE = new Configuration(List.of(), List.of(), List.of());
+  static final Configuration NONE = new Configuration(List.of(), List.of(), List.of(), List.of());
 
   Configuration {
     rules = List.copyOf(rules);
     plugins = List.copyOf(plugins);
     filters = List.copyOf(filters);
+    operators = List.copyOf(operators);
   }
 
   /// The project's configuration, or none when it has no `mutastic.yaml`.
@@ -55,13 +65,31 @@ record Configuration(List<Rule> rules, List<Path> plugins, List<String> filters)
     }
   }
 
-  /// The rules, and the filters `filters:` names, found in the plugins.
+  /// The rules, the filters `filters:` names, found in the plugins, and the operators the plugins
+  /// add: a jar's, then each rules file's.
   Policy policy(Path directory) {
+    var jars = plugins(directory);
+    var mutators = new ArrayList<Mutator>();
+    ServiceLoader.load(Mutator.class, jars).forEach(mutators::add);
+    for (Path plugin : plugins) {
+      if (isRules(plugin)) {
+        try {
+          mutators.addAll(CallRules.read(directory.resolve(plugin)));
+        } catch (IllegalArgumentException e) {
+          throw new Main.UsageException(String.valueOf(e.getMessage()));
+        }
+      }
+    }
+    return new Policy(rules, filters(jars), List.of()).withOperators(operators, mutators);
+  }
+
+  /// The filters `filters:` names, from the plugin jars.
+  private List<Filter> filters(ClassLoader jars) {
     if (filters.isEmpty()) {
-      return new Policy(rules, List.of());
+      return List.of();
     }
     var found = new LinkedHashMap<String, Filter>();
-    ServiceLoader.load(Filter.class, plugins(directory))
+    ServiceLoader.load(Filter.class, jars)
         .forEach(filter -> found.putIfAbsent(filter.id(), filter));
     var named = new ArrayList<Filter>();
     for (String id : filters) {
@@ -78,9 +106,16 @@ record Configuration(List<Rule> rules, List<Path> plugins, List<String> filters)
       }
       named.add(filter);
     }
-    return new Policy(rules, named);
+    return named;
   }
 
+  /// A rules file rather than a jar.
+  private static boolean isRules(Path plugin) {
+    var name = plugin.getFileName().toString();
+    return name.endsWith(".yaml") || name.endsWith(".yml");
+  }
+
+  /// The plugin jars, to load services from.
   private ClassLoader plugins(Path directory) {
     var urls = new ArrayList<URL>();
     for (Path plugin : plugins) {
@@ -88,6 +123,9 @@ record Configuration(List<Rule> rules, List<Path> plugins, List<String> filters)
       if (!Files.isRegularFile(jar)) {
         throw new Main.UsageException(
             "%s names the plugin %s, which isn't there".formatted(FILE, plugin));
+      }
+      if (isRules(plugin)) {
+        continue;
       }
       try {
         urls.add(jar.toUri().toURL());
@@ -104,6 +142,7 @@ record Configuration(List<Rule> rules, List<Path> plugins, List<String> filters)
     private final List<Rule> rules = new ArrayList<>();
     private final List<Path> plugins = new ArrayList<>();
     private final List<String> filters = new ArrayList<>();
+    private final List<String> operators = new ArrayList<>();
     private String section = "";
     private @Nullable String pendingVerb;
     private @Nullable String pendingTarget;
@@ -122,15 +161,15 @@ record Configuration(List<Rule> rules, List<Path> plugins, List<String> filters)
         }
       }
       requireReason();
-      return new Configuration(rules, plugins, filters);
+      return new Configuration(rules, plugins, filters, operators);
     }
 
     private void read(String line) {
       if (!line.startsWith(" ")) {
         requireReason();
         section = line.strip();
-        if (!List.of("rules:", "plugins:", "filters:").contains(section)) {
-          throw error("expected rules:, plugins: or filters:");
+        if (!List.of("rules:", "plugins:", "filters:", "operators:").contains(section)) {
+          throw error("expected rules:, plugins:, filters: or operators:");
         }
         return;
       }
@@ -139,6 +178,7 @@ record Configuration(List<Rule> rules, List<Path> plugins, List<String> filters)
         case "rules:" -> rule(item);
         case "plugins:" -> plugins.add(Path.of(listed(item)));
         case "filters:" -> filters.add(listed(item));
+        case "operators:" -> operators.add(listed(item));
         default -> throw error("a list item needs a section above it");
       }
     }

@@ -1,7 +1,7 @@
 package io.mutastic.report;
 
+import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
-import io.mutastic.api.Operator;
 import io.mutastic.api.Status;
 import java.util.ArrayList;
 import java.util.List;
@@ -64,7 +64,9 @@ public final class Explanation {
   /// when its condition is false. Said in the mutant's own terms when its operands are known.
   private Optional<String> jump(Mutant mutant) {
     var operator = mutant.operator();
-    if (operator != Operator.BOUNDARY && operator != Operator.NEGATE_CONDITIONAL) {
+    if (operator != BuiltIn.BOUNDARY
+        && operator != BuiltIn.NEGATE_CONDITIONAL
+        && operator != BuiltIn.REMOVE_CONDITIONAL) {
       return Optional.empty();
     }
     if (sources.asWritten(mutant)) {
@@ -109,14 +111,19 @@ public final class Explanation {
   }
 
   private static List<String> id(Mutant mutant) {
+    boolean first = mutant.operator() instanceof BuiltIn builtIn && builtIn.first();
     return List.of(
         ("%s: `m` and the first 8 hex digits of its fingerprint, %s, a SHA-256 of the class,"
-                + " method, site and change")
-            .formatted(mutant.id(), mutant.fingerprint()),
+                + " method, site and change%s")
+            .formatted(mutant.id(), mutant.fingerprint(), first ? "" : ", and the operator"),
         "no line number goes in, so the id stays the same when code above it moves");
   }
 
   private static String site(Mutant mutant) {
+    if (mutant.operator() instanceof io.mutastic.api.Mutator && !mutant.operator().onCalls()) {
+      return "instruction %d of %s%s, counting every instruction in bytecode order from 1"
+          .formatted(mutant.ordinal() + 1, mutant.methodName(), mutant.descriptor());
+    }
     var kind = mutant.operator().onCalls() ? "call site" : "instruction site";
     var counted =
         mutant.operator().onCalls()
