@@ -10,7 +10,9 @@ plugins {
     id("com.gradle.plugin-publish")
 }
 
-description = "The Gradle plugin: tasks mutasticRun, mutasticVerify, mutasticExplain and mutasticIgnore."
+// What the Gradle Plugin Portal shows as its listing, and Maven Central as the POM's description.
+description =
+    "Mutation testing for Java: finds the changes your tests don't notice, and suggests the test that would catch each one."
 
 java {
     toolchain {
