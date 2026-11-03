@@ -548,7 +548,7 @@ public final class Engine {
       }
       var covering = coverage.coveringTests(mutant);
       if (covering.isEmpty()) {
-        return new Outcome(MutantResult.notCovered(mutant), false);
+        return new Outcome(uncovered(mutant, worker), false);
       }
       var trial = new Trial(worker, mutant, verifiedMutation(mutant), coverage);
       var tested = testConfirmed(trial, covering);
@@ -620,6 +620,26 @@ public final class Engine {
           inputs,
           Optional.empty(),
           trial.took());
+    }
+
+    /// A mutant no test reaches, with the first test to write for it when suggestions are on.
+    private MutantResult uncovered(Mutant mutant, TestWorker worker) {
+      var result = MutantResult.notCovered(mutant);
+      return suggestions ? result.withSuggestion(startingPoint(mutant, worker)) : result;
+    }
+
+    /// For a mutant no test reaches, the first test to write: a call a test in the class's own
+    /// package could make, and its result, where the mutant changes it.
+    private Optional<Suggestion> startingPoint(Mutant mutant, TestWorker worker) {
+      Optional<String> receiver;
+      synchronized (mutations) {
+        receiver = Access.receiver(models, mutant, mutant.binaryName() + "Test");
+      }
+      if (receiver.isEmpty()) {
+        return Optional.empty();
+      }
+      var trial = new Trial(worker, mutant, verifiedMutation(mutant), coverage);
+      return suggest(receiver.get(), trial, Map.of());
     }
 
     /// How the test class a suggestion would go into, the fastest covering test's, could write its

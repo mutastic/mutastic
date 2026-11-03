@@ -42,6 +42,26 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
             outcomes(suggestion)));
   }
 
+  /// For mutants no test reaches, an assertion to start each method's first test with, at most
+  /// `limit`, in the style of the class's own test class (`PricingTest`) if it has one.
+  static List<String> startingPoints(List<MutantResult> uncovered, SourceView sources, int limit) {
+    return uncovered.stream()
+        .flatMap(
+            result ->
+                result.suggestion().stream()
+                    .map(
+                        suggestion ->
+                            assertion(
+                                suggestion,
+                                Style.of(
+                                    sources
+                                        .testSource(result.mutant().binaryName() + "Test")
+                                        .orElse("")))))
+        .distinct()
+        .limit(limit)
+        .toList();
+  }
+
   /// How the test class writes its tests: JUnit's assertions, AssertJ's, or TestNG's, whose test
   /// methods must be public and whose `assertEquals` takes the actual value first.
   enum Style {

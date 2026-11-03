@@ -41,6 +41,26 @@ public record Project(
     TestSelection tests,
     Map<String, String> environment) {
 
+  /// The same project, its tests chosen by `chosen`.
+  public Project withTests(TestSelection chosen) {
+    return new Project(
+        name,
+        java,
+        jvmArgs,
+        workingDirectory,
+        classes,
+        resources,
+        testClasses,
+        testResources,
+        sources,
+        testSources,
+        dependencies,
+        alongside,
+        outputs,
+        chosen,
+        environment);
+  }
+
   /// The project whose mutants are this one's, run by `runner`'s tests, as `runner`'s build runs
   /// them: its JDK, JVM arguments, working directory, tests, environment and classpath, with this
   /// module's outputs taken off it and its own code loaded beside the mutated classes.

@@ -105,6 +105,8 @@ mutastic tells you which test; why it's flaky is in the test or the code it runs
 - **Randomness.** It uses random input without a fixed seed.
 - **The outside world.** A network call, a port, a file left behind by an earlier run.
 
+Until it's fixed, a test class that can't run reliably under mutastic, with a race or a fixed port, can be left out of every run: [`--exclude-tests=CheckoutRaceTest`](/reference/run/#exclude-tests), by its name or full name. The summary names what was left out (`Left out  CheckoutRaceTest (--exclude-tests)`), and the lines only it reached count as not covered, as for a flaky test mutastic leaves out itself.
+
 Once it's fixed, run mutastic again. A test that was left out is back in, and the mutants it
 covers are judged by it again. A test named likely flaky stops being named once its catches
 repeat.

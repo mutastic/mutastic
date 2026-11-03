@@ -118,6 +118,19 @@ final class Options {
               "",
               "mutastic run --no-suggestions"),
           new Option(
+              "--exclude-tests",
+              Kind.REPEATED,
+              Group.RUNNING,
+              "CLASS",
+              List.of(),
+              "A test class to leave out of the run, by its name or full name: one that can't run"
+                  + " reliably here, with a race or a fixed port; the summary names it",
+              MUTANTS_RUN,
+              "excludeTests",
+              false,
+              "",
+              "mutastic run --exclude-tests=CheckoutRaceTest"),
+          new Option(
               "--suite",
               Kind.VALUE,
               Group.RUNNING,

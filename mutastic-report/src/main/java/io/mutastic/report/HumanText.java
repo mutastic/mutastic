@@ -39,9 +39,21 @@ public final class HumanText {
 
   /// What the run knows beyond the report: when it started, how long reading the build took, the
   /// report files written, and whether it was one mutant asked for by id.
-  public record Run(LocalTime startedAt, Duration setup, List<String> reports, boolean oneMutant) {
+  ///
+  /// @param leftOut the test classes `--exclude-tests` left out, which the summary names
+  public record Run(
+      LocalTime startedAt,
+      Duration setup,
+      List<String> reports,
+      boolean oneMutant,
+      List<String> leftOut) {
     public Run {
       reports = List.copyOf(reports);
+      leftOut = List.copyOf(leftOut);
+    }
+
+    public Run(LocalTime startedAt, Duration setup, List<String> reports, boolean oneMutant) {
+      this(startedAt, setup, reports, oneMutant, List.of());
     }
 
     public Run(LocalTime startedAt, Duration setup, List<String> reports) {
@@ -578,6 +590,12 @@ public final class HumanText {
     if (byLine.size() > CARDS) {
       out.append(style.dim("   … and %d more lines%n".formatted(byLine.size() - CARDS)));
     }
+    var uncovered =
+        report.results().stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
+    SuggestedTest.startingPoints(uncovered, sources, 1)
+        .forEach(
+            assertion ->
+                out.append("     %s %s%n".formatted(style.dim("try:"), style.green(assertion))));
   }
 
   private String notCoveredLine(String where, long count) {
@@ -691,6 +709,9 @@ public final class HumanText {
     rows.put("Tests", testsRow(report));
     if (!run.reports().isEmpty()) {
       rows.put("Reports", String.join(style.dim(" · "), run.reports()));
+    }
+    if (!run.leftOut().isEmpty()) {
+      rows.put("Left out", String.join(", ", run.leftOut()) + style.dim(" (--exclude-tests)"));
     }
     if (!run.oneMutant()) { // one mutant has a fate, not a score
       rows.put("Score", scoreRow(report, comparison));

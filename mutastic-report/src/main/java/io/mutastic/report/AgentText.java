@@ -219,6 +219,8 @@ public final class AgentText {
         .forEach(
             (where, count) ->
                 out.append("- %s (%d mutant%s)%n".formatted(where, count, count == 1 ? "" : "s")));
+    SuggestedTest.startingPoints(notCovered, sources, LIMIT)
+        .forEach(assertion -> out.append("  start with: %s%n".formatted(assertion)));
   }
 
   /// `src/…/Pricing.java:12 discount()` to how many mutants no test reaches there, in report order.

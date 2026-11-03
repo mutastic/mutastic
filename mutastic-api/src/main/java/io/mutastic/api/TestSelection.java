@@ -31,6 +31,16 @@ public record TestSelection(
     excludeTags = List.copyOf(excludeTags);
   }
 
+  /// The same, leaving out these test classes as well: each by its name (`RacyTest`, in any
+  /// package) or its full name (`com.example.RacyTest`).
+  public TestSelection leavingOut(List<String> classes) {
+    var more = new java.util.ArrayList<>(excludes);
+    for (String name : classes) {
+      more.add(name.contains(".") ? name.replace('.', '/') + ".class" : "**/" + name + ".class");
+    }
+    return new TestSelection(includes, more, includeTags, excludeTags);
+  }
+
   /// Whether the build runs the top-level test class `className` (`com.example.PricingTest`).
   public boolean runs(String className) {
     var file = Path.of(className.replace('.', '/') + ".class");

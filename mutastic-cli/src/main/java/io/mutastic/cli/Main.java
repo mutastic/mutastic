@@ -388,6 +388,7 @@ public final class Main {
                     work,
                     String.join(" ", target(here, directory, ":")),
                     command.suite()));
+    project = project.withTests(project.tests().leavingOut(command.excludeTests()));
     var setup = Duration.ofNanos(System.nanoTime() - start);
     var sources =
         new SourceView(directory, project.sources(), project.testSources())
@@ -503,13 +504,19 @@ public final class Main {
               (report, comparison, written) ->
                   output
                       .out()
-                      .print(
-                          human.render(
-                              report,
-                              comparison,
-                              new HumanText.Run(
-                                  prepared.startedAt(), prepared.setup(), written, oneMutant))));
+                      .print(human.render(report, comparison, run(command, prepared, written))));
     };
+  }
+
+  /// What the summary says of the run beyond its result: when and how long, the reports it wrote,
+  /// and the tests it was told to leave out.
+  private static HumanText.Run run(Command command, Prepared prepared, List<String> written) {
+    return new HumanText.Run(
+        prepared.startedAt(),
+        prepared.setup(),
+        written,
+        command.only().isPresent(),
+        command.excludeTests());
   }
 
   /// JSON Lines: the run's start now, each mutant as it finishes, and the result at the end.
@@ -781,6 +788,7 @@ public final class Main {
       Optional<String> vocabulary,
       List<String> testsFrom,
       List<String> operators,
+      List<String> excludeTests,
       String suite,
       Optional<String> since,
       Optional<Ignoring> ignore,
@@ -813,6 +821,7 @@ public final class Main {
           vocabulary,
           testsFrom,
           operators,
+          excludeTests,
           suite,
           since,
           Optional.of(how),
@@ -849,6 +858,7 @@ public final class Main {
       private Optional<String> vocabulary = Optional.empty();
       private final List<String> testsFrom = new ArrayList<>();
       private final List<String> operators = new ArrayList<>();
+      private final List<String> excludeTests = new ArrayList<>();
       private String suite = BuildTool.DEFAULT_SUITE;
       private Optional<String> since = Optional.empty();
       private String reason = "";
@@ -912,6 +922,7 @@ public final class Main {
           case "--only" -> only = Optional.of(given);
           case "--tests-from" -> testsFrom.add(module(given));
           case "--operators" -> operators(given);
+          case "--exclude-tests" -> excludeTests(given);
           case "--suite" -> suite = suite(given);
           case "--workers" -> workers = Optional.of(number(option, given, 1, Integer.MAX_VALUE));
           case "--confirm-catches" -> confirmCatches = true;
@@ -945,6 +956,15 @@ public final class Main {
               "--suite takes a test suite's name, as integrationTest; not " + value);
         }
         return value.strip();
+      }
+
+      /// `--exclude-tests=RacyTest,com.example.PortTest`: test classes by name or full name.
+      private void excludeTests(String value) {
+        for (String name : value.split(",", -1)) {
+          if (!name.isBlank()) {
+            excludeTests.add(name.strip());
+          }
+        }
       }
 
       /// `--operators=stronger,-stream`: each word, checked when the project's operators are known.
@@ -1046,6 +1066,7 @@ public final class Main {
             vocabulary,
             List.copyOf(testsFrom),
             List.copyOf(operators),
+            List.copyOf(excludeTests),
             suite,
             since,
             Optional.empty(),
