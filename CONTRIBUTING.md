@@ -10,6 +10,9 @@ JDK, the command and what it printed. A small project that shows the problem is 
 
 For a security problem, don't open an issue: see [SECURITY.md](SECURITY.md).
 
+Everyone taking part in issues, pull requests and discussions agrees to the
+[Code of Conduct](CODE_OF_CONDUCT.md). To report a breach of it, write to conduct@mutastic.io.
+
 ## Setting up
 
 You need a JDK to run Gradle. Gradle fetches the JDKs the build uses (25 for mutastic, 17 for the

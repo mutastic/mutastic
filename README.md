@@ -79,7 +79,8 @@ and XML reports). Expect it to change before 1.0. Each release's changes are in 
 Issues and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). In short,
 `./gradlew build` runs everything CI does; [AGENTS.md](AGENTS.md) has the conventions the code is
 held to, [ARCHITECTURE.md](ARCHITECTURE.md) how it's built, and [RELEASING.md](RELEASING.md) how a
-release is made. To report a vulnerability, see [SECURITY.md](SECURITY.md).
+release is made. To report a vulnerability, see [SECURITY.md](SECURITY.md). Everyone taking part
+agrees to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Licence
 
