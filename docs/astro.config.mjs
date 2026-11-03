@@ -10,6 +10,7 @@
 //   DOCS_VERSIONS  every release line published, newest first: `0.5,0.4,0.3`
 // Keep these four as they are: a release's docs are rebuilt from its tag with them for as long
 // as it's published.
+import { unified } from '@astrojs/markdown-remark';
 import starlight from '@astrojs/starlight';
 import { defineConfig } from 'astro/config';
 import starlightLlmsTxt from 'starlight-llms-txt';
@@ -40,7 +41,7 @@ function linksUnderBase() {
 export default defineConfig({
   site: 'https://docs.mutastic.io',
   base,
-  markdown: { rehypePlugins: [linksUnderBase] },
+  markdown: { processor: unified({ rehypePlugins: [linksUnderBase] }) },
   integrations: [
     starlight({
       title: 'mutastic',

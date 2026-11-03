@@ -17,9 +17,14 @@ on:
     paths: ["docs/**", ".github/workflows/docs.yml"]
   pull_request:
     paths: ["docs/**", ".github/workflows/docs.yml"]
-  # By hand, from the Actions tab or `gh workflow run docs.yml`: on a release's tag (--ref vX.Y.Z)
-  # it redeploys docs.mutastic.io, and on main the preview.
+  # By hand, from the Actions tab or `gh workflow run docs.yml`: main's preview, or with
+  # `-f release=true` docs.mutastic.io itself, rebuilt from the release tags.
   workflow_dispatch:
+    inputs:
+      release:
+        description: Deploy docs.mutastic.io, every release's docs from its tag
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -44,12 +49,14 @@ jobs:
           cache: npm
           cache-dependency-path: docs/package-lock.json
       - run: npm ci
-      # A release: every published release line's docs. Anything else: this checkout's, as next.
-      - run: node scripts/build-versions.mjs ${{ github.ref_type == 'tag' && '' || '--next' }}
+      # A release's tag, or a run by hand that asks: every published release line's docs, for
+      # docs.mutastic.io. Anything else: this checkout's, as next. (Not `cond && '' || …`: an empty
+      # string counts as false in an expression, and picks the other side.)
+      - run: node scripts/build-versions.mjs ${{ (github.ref_type == 'tag' || inputs.release == true) && '--release' || '--next' }}
       # A tag is the release, docs.mutastic.io; anything else, main or a pull request's branch,
       # a preview at <branch>.mutastic-docs.pages.dev.
       - name: Deploy to Cloudflare Pages
         if: env.CLOUDFLARE_API_TOKEN != ''
         env:
-          BRANCH: ${{ github.ref_type == 'tag' && 'release' || github.head_ref || github.ref_name }}
+          BRANCH: ${{ (github.ref_type == 'tag' || inputs.release == true) && 'release' || github.head_ref || github.ref_name }}
         run: npx --yes wrangler@4.151.1 pages deploy dist --project-name=mutastic-docs --branch="$BRANCH"

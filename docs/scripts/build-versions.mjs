@@ -1,9 +1,10 @@
 // Builds docs.mutastic.io with every recent release's docs, each from its own tag, so each
 // reference is written from its own release's CLI:
 //
-//   node scripts/build-versions.mjs          the latest release at the root and under /v<line>/,
-//                                            and each earlier release line under its own /v<line>/
-//   node scripts/build-versions.mjs --next   this checkout alone, as main's docs: "next"
+//   node scripts/build-versions.mjs --release   the latest release at the root and under
+//                                               /v<line>/, and each earlier release line under
+//                                               its own /v<line>/
+//   node scripts/build-versions.mjs --next      this checkout alone, as main's docs: "next"
 //
 // Run from docs/, with the repository's tags fetched; the docs workflow does both. A release line
 // is the newest patch of each minor version, 0.3 for 0.3.0 and 0.3.1. Older lines whose build
@@ -115,8 +116,12 @@ function next() {
   });
 }
 
-if (process.argv.includes('--next')) {
+// Said outright, so a mistake in the caller fails rather than quietly building the other.
+const mode = process.argv[2];
+if (mode === '--release') {
+  release();
+} else if (mode === '--next') {
   next();
 } else {
-  release();
+  throw new Error(`build-versions: say --release or --next, not ${mode}`);
 }
