@@ -85,6 +85,8 @@ class AgentTextTest {
 
     assertThat(output)
         .contains("rules: add or change tests only, never production code")
+        .contains("decline: if a mutant's case can't happen in practice")
+        .contains("ignore it with that reason (`mutastic ignore <id> --reason=\"<why>\"`)")
         .contains(
             "1. missed " + boundary(0).id() + ": no test checks `discount()` at `total == 100`")
         .contains("   at src/main/java/com/example/Pricing.java:5")

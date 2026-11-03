@@ -32,6 +32,12 @@ public enum MutantCommand {
   /// The rule a fix follows, wherever an agent reads the commands.
   public static final String RULE = "add or change tests only, never production code";
 
+  /// When not to write a test: a test for a case that can't happen pins code nobody needs pinned,
+  /// and an agent told only to close gaps will contrive one.
+  public static final String DECLINE =
+      "if a mutant's case can't happen in practice, or the change is one no caller can see, don't"
+          + " contrive a test: say why, and ignore it with that reason";
+
   private final String label;
   private final String key;
   private final String arguments;

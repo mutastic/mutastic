@@ -95,6 +95,10 @@ public final class AgentText {
         "rules: %s; a fix counts when `%s`%n"
             .formatted(
                 MutantCommand.RULE, MutantCommand.DONE_WHEN.text("<id>", sources.invocation())));
+    out.append(
+        "decline: %s (`%s`)%n"
+            .formatted(
+                MutantCommand.DECLINE, MutantCommand.IGNORE.command("<id>", sources.invocation())));
     appendMissed(out, missed);
     if (!notCovered.isEmpty()) {
       appendNotCovered(out, report, notCovered, missed.isEmpty());

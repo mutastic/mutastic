@@ -1,5 +1,6 @@
 mutastic: PASS · score 88.9% (threshold 80) · 1 missed, 0 not covered, 8 caught of 9 mutants (2 more skipped)
 rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/pricing passes`
+decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and ignore it with that reason (`mutastic ignore <id> --reason="<why>" samples/pricing`)
 
 1. missed m855c8e3c: no test checks `discount()` at `total == 100`
    at src/main/java/com/example/pricing/Pricing.java:17

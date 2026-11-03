@@ -35,6 +35,7 @@ public final class JsonEvents {
     var fields = new LinkedHashMap<String, Object>();
     fields.put("project", project);
     fields.put("rules", MutantCommand.RULE);
+    fields.put("decline", MutantCommand.DECLINE);
     emit("run-started", fields);
   }
 
