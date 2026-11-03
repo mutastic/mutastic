@@ -27,12 +27,12 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
     var fastest = result.coveredBy().getFirst();
     var testClass = fastest.contains("#") ? fastest.substring(0, fastest.indexOf('#')) : fastest;
     var source = sources.testSource(testClass);
-    boolean assertJ = source.map(text -> text.contains("import static org.assertj.")).orElse(false);
+    var style = Style.of(source.orElse(""));
     var name = freeName(name(result.mutant().methodName(), suggestion), source.orElse(""));
     var lines = new ArrayList<String>();
     lines.add("@Test");
-    lines.add("void %s() {".formatted(name));
-    lines.add("  " + assertion(suggestion, assertJ) + " // " + outcomes(suggestion));
+    lines.add((style == Style.TESTNG ? "public void %s() {" : "void %s() {").formatted(name));
+    lines.add("  " + assertion(suggestion, style) + " // " + outcomes(suggestion));
     lines.add("}");
     return Optional.of(
         new SuggestedTest(
@@ -42,8 +42,27 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
             outcomes(suggestion)));
   }
 
-  /// `assertEquals(10, new Pricing().discount(100));`, or the AssertJ equivalent.
-  static String assertion(Suggestion suggestion, boolean assertJ) {
+  /// How the test class writes its tests: JUnit's assertions, AssertJ's, or TestNG's, whose test
+  /// methods must be public and whose `assertEquals` takes the actual value first.
+  enum Style {
+    JUNIT,
+    ASSERTJ,
+    TESTNG;
+
+    /// The style of a test class's source, by what it imports.
+    static Style of(String source) {
+      if (source.contains("import static org.assertj.")) {
+        return ASSERTJ;
+      }
+      return source.contains("import static org.testng.") || source.contains("import org.testng.")
+          ? TESTNG
+          : JUNIT;
+    }
+  }
+
+  /// `assertEquals(10, new Pricing().discount(100));`, or the AssertJ or TestNG equivalent.
+  static String assertion(Suggestion suggestion, Style style) {
+    boolean assertJ = style == Style.ASSERTJ;
     var call = suggestion.call();
     var today = suggestion.today();
     if (!suggestion.returnsValue()) {
@@ -60,9 +79,11 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
           ? "assertThat(%s).isNull();".formatted(call)
           : "assertNull(%s);".formatted(call);
     }
-    return assertJ
-        ? "assertThat(%s).isEqualTo(%s);".formatted(call, today)
-        : "assertEquals(%s, %s);".formatted(today, call);
+    return switch (style) {
+      case ASSERTJ -> "assertThat(%s).isEqualTo(%s);".formatted(call, today);
+      case TESTNG -> "assertEquals(%s, %s);".formatted(call, today);
+      case JUNIT -> "assertEquals(%s, %s);".formatted(today, call);
+    };
   }
 
   private static String booleanAssertion(String call, String today, boolean assertJ) {

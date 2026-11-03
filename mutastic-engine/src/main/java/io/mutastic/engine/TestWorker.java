@@ -316,6 +316,17 @@ final class TestWorker implements AutoCloseable {
     return started;
   }
 
+  /// The worker first, then the project's test classpath, then what mutastic brings for its tests
+  /// to run on the JUnit Platform, when they need it ([TestFrameworks]).
+  private String classpath() {
+    return join(
+        Stream.of(
+                Stream.of(workerJar),
+                project.dependencies().stream(),
+                TestFrameworks.support(project.dependencies()).stream())
+            .flatMap(each -> each));
+  }
+
   /// The worker's command line: the project's own JDK and JVM arguments, with the worker as agent.
   private List<String> command() {
     var command = new ArrayList<String>();
@@ -325,7 +336,7 @@ final class TestWorker implements AutoCloseable {
     command.addAll(
         List.of(
             "-cp",
-            join(Stream.concat(Stream.of(workerJar), project.dependencies().stream())),
+            classpath(),
             "io.mutastic.worker.Worker",
             "--production="
                 + join(

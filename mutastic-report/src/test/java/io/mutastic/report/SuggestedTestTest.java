@@ -45,22 +45,33 @@ class SuggestedTestTest {
 
   @Test
   void booleansNullsAndExceptions() {
-    assertThat(SuggestedTest.assertion(suggestion("true", "false"), false))
+    assertThat(SuggestedTest.assertion(suggestion("true", "false"), SuggestedTest.Style.JUNIT))
         .isEqualTo("assertTrue(new Pricing().discount(100));");
-    assertThat(SuggestedTest.assertion(suggestion("false", "true"), true))
+    assertThat(SuggestedTest.assertion(suggestion("false", "true"), SuggestedTest.Style.ASSERTJ))
         .isEqualTo("assertThat(new Pricing().discount(100)).isFalse();");
-    assertThat(SuggestedTest.assertion(suggestion("null", "\"x\""), false))
+    assertThat(SuggestedTest.assertion(suggestion("null", "\"x\""), SuggestedTest.Style.JUNIT))
         .isEqualTo("assertNull(new Pricing().discount(100));");
     assertThat(
             SuggestedTest.assertion(
-                suggestion("throws java.lang.IllegalStateException", "0"), false))
+                suggestion("throws java.lang.IllegalStateException", "0"),
+                SuggestedTest.Style.JUNIT))
         .isEqualTo(
             "assertThrows(java.lang.IllegalStateException.class, () -> new Pricing().discount(100));");
     assertThat(
             SuggestedTest.assertion(
-                suggestion("throws java.lang.IllegalStateException", "0"), true))
+                suggestion("throws java.lang.IllegalStateException", "0"),
+                SuggestedTest.Style.ASSERTJ))
         .isEqualTo(
             "assertThatThrownBy(() -> new Pricing().discount(100)).isInstanceOf(java.lang.IllegalStateException.class);");
+  }
+
+  /// TestNG's `assertEquals` takes the actual value first, and its test methods are public.
+  @Test
+  void testNgTestsAreWrittenTheTestNgWay() {
+    assertThat(SuggestedTest.Style.of("import static org.testng.Assert.assertEquals;\n"))
+        .isEqualTo(SuggestedTest.Style.TESTNG);
+    assertThat(SuggestedTest.assertion(suggestion("10", "0"), SuggestedTest.Style.TESTNG))
+        .isEqualTo("assertEquals(new Pricing().discount(100), 10);");
   }
 
   @Test

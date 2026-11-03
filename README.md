@@ -70,9 +70,9 @@ release. mutastic runs on JDK 25; the project it tests can be on JDK 17 or later
 
 Early. Nine operators (boundaries, negated and removed conditions, arithmetic, returned defaults,
 removed void calls, stream stages and matches), plugins that add more as rules files or Java,
-Gradle and Maven projects with JUnit Platform tests, parallel workers, suggested tests,
-flaky-test detection, and output for people, coding agents and tools (JSON Lines, and JSON, HTML
-and XML reports). Expect it to change before 1.0. Each release's changes are in its
+Gradle and Maven projects with JUnit Platform or TestNG tests and more than one test suite,
+parallel workers, suggested tests, flaky-test detection, and output for people, coding agents and
+tools (JSON Lines, and JSON, HTML and XML reports). Expect it to change before 1.0. Each release's changes are in its
 [release notes](https://github.com/mutastic/mutastic/releases).
 
 ## Contributing

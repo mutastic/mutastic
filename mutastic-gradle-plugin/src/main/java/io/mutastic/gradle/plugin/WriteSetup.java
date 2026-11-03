@@ -25,6 +25,7 @@ import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.testing.Test;
 import org.gradle.api.tasks.testing.junitplatform.JUnitPlatformOptions;
+import org.gradle.api.tasks.testing.testng.TestNGOptions;
 import org.gradle.jvm.tasks.Jar;
 import org.jspecify.annotations.Nullable;
 
@@ -137,11 +138,18 @@ public abstract class WriteSetup extends DefaultTask {
   private static void selection(Properties setup, Test task) {
     setup.setProperty("testIncludes", String.join("\n", task.getIncludes()));
     setup.setProperty("testExcludes", String.join("\n", task.getExcludes()));
-    var platform = task.getOptions() instanceof JUnitPlatformOptions options ? options : null;
-    setup.setProperty(
-        "includeTags", platform == null ? "" : String.join("\n", platform.getIncludeTags()));
-    setup.setProperty(
-        "excludeTags", platform == null ? "" : String.join("\n", platform.getExcludeTags()));
+    // TestNG's groups are tags on the platform, as its engine runs them.
+    Set<String> include = Set.of();
+    Set<String> exclude = Set.of();
+    if (task.getOptions() instanceof JUnitPlatformOptions platform) {
+      include = platform.getIncludeTags();
+      exclude = platform.getExcludeTags();
+    } else if (task.getOptions() instanceof TestNGOptions testng) {
+      include = testng.getIncludeGroups();
+      exclude = testng.getExcludeGroups();
+    }
+    setup.setProperty("includeTags", String.join("\n", include));
+    setup.setProperty("excludeTags", String.join("\n", exclude));
   }
 
   /// The task's environment starts as Gradle's own: only what it sets beyond that.

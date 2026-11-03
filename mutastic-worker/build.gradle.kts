@@ -22,6 +22,11 @@ tasks.withType<JavaCompile>().configureEach {
 dependencies {
     // The project's own JUnit Platform runs its tests; the worker only drives it.
     compileOnly(libs.junit.platform.launcher.floor)
+    // Shipped beside the worker for TestNG projects, which often have no JUnit Platform at all:
+    // the engine adds it to a worker's classpath only when the project needs it. (TestNG's own
+    // engine ships inside the engine's jar, where no platform finds it by accident.)
+    runtimeOnly(platform(libs.junit.bom))
+    runtimeOnly(libs.junit.platform.launcher)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)

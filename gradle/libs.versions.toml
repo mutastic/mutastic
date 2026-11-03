@@ -9,6 +9,8 @@ archunit = "1.4.1"
 maven = "3.9.9"
 # The Maven plugin's annotations, read at build time into its descriptor.
 maven-plugin-annotations = "3.15.2"
+# Runs TestNG tests on the JUnit Platform, for a project whose tests are TestNG's.
+testng-engine = "1.1.0"
 
 [libraries]
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
@@ -17,6 +19,7 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 junit-platform-launcher-floor = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform-floor" }
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 archunit = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+testng-engine = { module = "org.junit.support:testng-engine", version.ref = "testng-engine" }
 maven-core = { module = "org.apache.maven:maven-core", version.ref = "maven" }
 maven-plugin-api = { module = "org.apache.maven:maven-plugin-api", version.ref = "maven" }
 maven-plugin-annotations = { module = "org.apache.maven.plugin-tools:maven-plugin-annotations", version.ref = "maven-plugin-annotations" }

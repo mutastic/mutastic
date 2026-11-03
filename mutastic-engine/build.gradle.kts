@@ -26,3 +26,21 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
 }
+
+// TestNG's engine for the JUnit Platform, for a project whose tests are TestNG's: inside the jar
+// as a resource, not on any classpath, since a platform that finds it there would try to run
+// TestNG. The engine copies it out for the workers that need it.
+val testngEngine by configurations.creating {
+    isTransitive = false
+}
+
+dependencies {
+    testngEngine(libs.testng.engine)
+}
+
+tasks.processResources {
+    from(testngEngine) {
+        into("io/mutastic/engine")
+        rename { "testng-engine.jar" }
+    }
+}

@@ -89,8 +89,10 @@ allprojects {
                 setup["testIncludes"] = task.includes.joinToString("\n")
                 setup["testExcludes"] = task.excludes.joinToString("\n")
                 val platform = task.options as? org.gradle.api.tasks.testing.junitplatform.JUnitPlatformOptions
-                setup["includeTags"] = platform?.includeTags.orEmpty().joinToString("\n")
-                setup["excludeTags"] = platform?.excludeTags.orEmpty().joinToString("\n")
+                // TestNG's groups are tags on the platform, as its engine runs them.
+                val testng = task.options as? org.gradle.api.tasks.testing.testng.TestNGOptions
+                setup["includeTags"] = (platform?.includeTags ?: testng?.includeGroups).orEmpty().joinToString("\n")
+                setup["excludeTags"] = (platform?.excludeTags ?: testng?.excludeGroups).orEmpty().joinToString("\n")
                 // The task's environment starts as Gradle's own: only what it sets beyond that.
                 val inherited = System.getenv()
                 setup["environment"] = task.environment
