@@ -32,7 +32,7 @@ the tests tried, so the missing edge is easy to spot.
 ```java
 @Test
 void shippingIsFreeFromExactly100() {
-  assertEquals(0, new Checkout().shipping(100));
+  assertEquals(0, new Checkout().shipping(100));   // free from 100, so nothing to pay
 }
 ```
 
@@ -60,6 +60,8 @@ only ever took one path, the happy one, and nothing checks what happens on the o
 ```java
 @Test
 void unpaidOrdersDontShip() {
+  var warehouse = new Warehouse();
+  var checkout = new Checkout(warehouse);
   var order = Order.unpaid();
   checkout.complete(order);
   assertThat(warehouse.shipped()).doesNotContain(order);
@@ -88,7 +90,7 @@ for `+` and `-`. Those are exactly the values a quick test tends to pick.
 ```java
 @Test
 void totalIsPriceTimesQuantity() {
-  assertEquals(1500, new LineItem(500, 3).total());
+  assertEquals(1500, new LineItem(500, 3).total());   // 500 × 3; with / it would be 166
 }
 ```
 
@@ -102,7 +104,9 @@ passes every test, the tests run the method without checking it. Its line counts
 the coverage report says it's tested when it isn't.
 
 ```java
-return customer.isEligible();   // becomes: return false;
+boolean isEligible() {
+  return orders >= 10;   // becomes: return false;
+}
 ```
 
 **The test that catches it:** one that asserts on the result. When `false` is missed, a test that
@@ -113,7 +117,7 @@ in production.
 ```java
 @Test
 void loyalCustomersAreEligible() {
-  assertTrue(Customer.withOrders(12).isEligible());
+  assertTrue(Customer.withOrders(12).isEligible());   // eligible from 10 orders
 }
 ```
 
