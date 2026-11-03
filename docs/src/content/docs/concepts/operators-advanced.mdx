@@ -141,8 +141,9 @@ written, rather than only that the method returned.
 ```java
 @Test
 void confirmingReservesStock() {
-  orders.confirm(orderFor(item));
-  assertEquals(4, inventory.available(item));
+  inventory.restock(item, 5);
+  orders.confirm(orderFor(item));   // one of the item
+  assertEquals(4, inventory.available(item));   // 5 in stock, 1 reserved
 }
 ```
 
