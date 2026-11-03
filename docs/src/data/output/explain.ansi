@@ -1,0 +1,42 @@
+
+ [41;30;1m ✗ MISSED [0m [1mno test checks [1mdiscount()[0m at [1mtotal == 100[0m[0m
+    [2m┌─[0m src/main/java/com/example/pricing/Pricing.java:17
+    [2m│[0m
+ [2m16[0m [2m│[0m   public int discount(int total) {
+ [2m17[0m [2m│[0m     if (total >= 100) {
+    [2m│[0m               [1;31m^^ changed to >[0m
+ [2m18[0m [2m│[0m       return total / 10;
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mif (total >= 100) {
+              [32m+ [0mif (total > 100) {
+    [2m=[0m [1;34m[1mnote[0m[0m: every test calls [1mdiscount()[0m away from the boundary
+            [2minputs seen: 50, 250 (none is 100)[0m
+            [2mcovered by PricingTest#bigOrdersGetTenPercentOff, PricingTest#smallOrdersPayFullPrice (all 2 covering tests still pass)[0m
+    [2m=[0m [32m[1mhelp[0m[0m: test [1mdiscount()[0m with [1mtotal = 100[0m and assert the result
+
+            [2m// in PricingTest[0m
+            @Test
+            void discountWithTotal100() {
+            [32m  assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0[0m
+            }
+            [2mcheck today's value is the one you intend: the test pins what the code does now[0m
+
+    [2mdone when [0m mutastic verify m855c8e3c samples/pricing[2m passes[0m
+    [2mreproduce [0m mutastic run --only=m855c8e3c samples/pricing[2m[0m
+    [2mor ignore [0m mutastic ignore m855c8e3c --reason="<why>" samples/pricing[2m[0m
+
+[1m About this mutant [0m[2m───────────────────────────────────────────────[0m
+    [2m=[0m [1;34m[1mbytecode[0m[0m  [1mIF_ICMPLT → IF_ICMPLE[0m
+                [2mIF_ICMPLT: jump if the first int is less than the second[0m
+                [2mIF_ICMPLE: jump if the first int is less than or equal to the second[0m
+                [2mjavac compiles `total >= 100` to IF_ICMPLT, a jump past the body when `total < 100`:[0m
+                [2mthe opposite of the source. With IF_ICMPLE it jumps when `total <= 100`, so the body[0m
+                [2mruns only when `total > 100`[0m
+    [2m=[0m [1;34m[1moperator[0m[0m  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
+                edge of a range, which tests that only check values far from the edge never notice.
+    [2m=[0m [1;34m[1mid      [0m[0m  m855c8e3c: `m` and the first 8 hex digits of its fingerprint, 855c8e3ca8a39847, a
+                SHA-256 of the class, method, site and change
+                [2mno line number goes in, so the id stays the same when code above it moves[0m
+    [2m=[0m [1;34m[1msite    [0m[0m  instruction site 1 of discount(I)I, counting from 1 (arithmetic, branches and
+                returns are counted in bytecode order; calls apart)
+    [2m=[0m [1;34m[1mlast run[0m[0m  missed: every covering test still passed

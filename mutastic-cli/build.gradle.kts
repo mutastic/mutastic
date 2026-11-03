@@ -36,6 +36,9 @@ application {
     mainClass = "io.mutastic.cli.Main"
 }
 
+// The output the docs show (docs/src/data/output): mutastic's own, on the pricing sample.
+val docsOutput = rootDir.resolve("docs/src/data/output")
+
 tasks.test {
     useJUnitPlatform()
     // The end-to-end tests run mutastic against the sample projects, each its own Gradle build.
@@ -44,6 +47,9 @@ tasks.test {
     systemProperty("mutastic.docs", rootDir.resolve("docs/src/content/docs").absolutePath)
     // An input, so a change to the docs alone runs it again.
     inputs.dir(rootDir.resolve("docs/src/content/docs")).withPathSensitivity(PathSensitivity.RELATIVE)
+    // DocsOutputTest checks the output the docs show is what mutastic prints.
+    systemProperty("mutastic.docsOutput", docsOutput.absolutePath)
+    inputs.dir(docsOutput).withPathSensitivity(PathSensitivity.RELATIVE)
     // The Maven plugin's test resolves it, and everything it needs, from a repository in the build.
     systemProperty(
         "mutastic.samplesRepository",
@@ -94,4 +100,20 @@ val checkDocsModel by tasks.registering {
 }
 tasks.check {
     dependsOn(checkDocsModel)
+}
+// Writes the docs' copy of mutastic's output again, after a change to what it prints. Committed, so
+// the docs build needs no Java; DocsOutputTest fails while the copy and the code disagree.
+tasks.register<Test>("exportDocsOutput") {
+    description = "Writes the output the docs show to docs/src/data/output."
+    testClassesDirs =
+        sourceSets.test
+            .get()
+            .output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching("io.mutastic.cli.DocsOutputTest") }
+    systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
+    systemProperty("mutastic.docsOutput", docsOutput.absolutePath)
+    systemProperty("mutastic.docsOutput.write", "true")
+    outputs.upToDateWhen { false }
 }
