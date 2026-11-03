@@ -62,6 +62,28 @@ class IgnoreTest {
     assertThat(Files.readString(file)).doesNotContain(ID);
   }
 
+  /// `--as` records the sort of decision, the summary counts ignores by it, and undoing a removal
+  /// keeps it.
+  @Test
+  void anIgnoreCanSayWhatSortOfDecisionItIs() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+
+    var ignored =
+        Samples.mutastic(
+            "ignore", ID, project.toString(), "--as=unreachable", "--reason=totals come in tens");
+    var recorded = Files.readString(project.resolve(".mutastic/ignores.yaml"));
+    var run = Samples.mutastic("run", project.toString(), "--format=concise", "--report=none");
+    var removed = Samples.mutastic("ignore", "--remove", ID, project.toString());
+    var unknown = Samples.mutastic("ignore", ID, project.toString(), "--as=boring", "--reason=x");
+
+    assertThat(ignored.exit()).isEqualTo(Main.PASSED);
+    assertThat(recorded).contains("reason: 'totals come in tens'", "kind: unreachable");
+    assertThat(run.out()).contains("1 ignored as unreachable");
+    assertThat(removed.out()).contains("'--reason=totals come in tens' --as=unreachable");
+    assertThat(unknown.exit()).isEqualTo(Main.USAGE);
+    assertThat(unknown.err()).contains("unknown as boring (one of equivalent, unreachable");
+  }
+
   @Test
   void anIgnoreSaysWhy() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("pricing"));

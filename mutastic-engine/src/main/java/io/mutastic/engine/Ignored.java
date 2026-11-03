@@ -66,7 +66,7 @@ final class Ignored {
     var skipped = mutant.skipped().orElse("");
     boolean overridable =
         skipped.isEmpty() || skipped.startsWith("arid:") || skipped.contains("(rule `");
-    return overridable ? mutant.skippedFor("user: " + ignore.reason() + " (ignored)") : mutant;
+    return overridable ? mutant.skippedFor(ignore.skipReason()) : mutant;
   }
 
   /// The mutant's source line as it is now.

@@ -21,6 +21,7 @@ import java.util.Map;
 ///     change: '`>=` becomes `>`'
 ///     code: 'if (total >= 100) {'
 ///     reason: 'totals are rounded to tens here'
+///     kind: unreachable
 /// ```
 ///
 /// `at` and `change` are for the reader; `code` is the line the decision was made on.
@@ -59,6 +60,9 @@ final class Ignores {
       lines.add("    change: " + quoted(entry.change()));
       lines.add("    code: " + quoted(entry.ignore().code()));
       lines.add("    reason: " + quoted(entry.ignore().reason()));
+      if (!entry.ignore().kind().isEmpty()) {
+        lines.add("    kind: " + entry.ignore().kind());
+      }
     }
     try {
       var file = directory.resolve(FILE);
@@ -104,7 +108,8 @@ final class Ignores {
     }
     entries.add(
         new Entry(
-            new Ignore(id, fields.getOrDefault("code", ""), reason),
+            new Ignore(
+                id, fields.getOrDefault("code", ""), reason, fields.getOrDefault("kind", "")),
             fields.getOrDefault("at", ""),
             fields.getOrDefault("change", "")));
   }

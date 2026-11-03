@@ -354,6 +354,29 @@ class HumanTextTest {
         .hasSize(HumanText.PER_FILE + 2);
   }
 
+  /// Ignores are counted by the sort they were given, and three in one method suggest the rule that
+  /// says it once.
+  @Test
+  void ignoresAreCountedBySortAndRepeatsSuggestARule() {
+    var results = new ArrayList<MutantResult>();
+    for (int ordinal = 0; ordinal < RepeatedIgnores.AT_LEAST; ordinal++) {
+      var ignore =
+          new io.mutastic.api.Ignore("m" + ordinal, "x", "totals come in tens", "unreachable");
+      results.add(MutantResult.skipped(boundary(ordinal).skippedFor(ignore.skipReason())));
+    }
+    results.add(MutantResult.skipped(boundary(9).skippedFor("user: by hand (ignored)")));
+
+    var output =
+        text(HumanText.Detail.CONCISE, Vocabulary.PLAIN)
+            .render(report(results.toArray(MutantResult[]::new)), Optional.empty(), RUN);
+
+    assertThat(output)
+        .contains("4 skipped (1 ignored, 3 ignored as unreachable)")
+        .contains(
+            "note: 4 ignores in com.example.Pricing#discount: one rule says it once, skip:"
+                + " com.example.Pricing#discount in mutastic.yaml");
+  }
+
   @Test
   void plainOutputHasNoEscapes() {
     var output =
@@ -368,11 +391,15 @@ class HumanTextTest {
   }
 
   private static Mutant boundary() {
+    return boundary(0);
+  }
+
+  private static Mutant boundary(int ordinal) {
     return new Mutant(
         "com/example/Pricing",
         "discount",
         "(I)I",
-        0,
+        ordinal,
         5,
         BuiltIn.BOUNDARY,
         "IF_ICMPLT",

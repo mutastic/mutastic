@@ -184,8 +184,8 @@ public final class Main {
   }
 
   /// `ignore`'s own: `--prune` what no longer holds, `--remove` one by id, or else ignore one, for
-  /// `reason`.
-  record Ignoring(boolean prune, boolean remove, String reason) {}
+  /// `reason`, as the sort of decision `kind` says (`--as`, empty when not given).
+  record Ignoring(boolean prune, boolean remove, String reason, String kind) {}
 
   /// A file as the person would type it from where mutastic ran: relative if it's below, else
   /// absolute.
@@ -910,6 +910,7 @@ public final class Main {
       private String suite = BuildTool.DEFAULT_SUITE;
       private Optional<String> since = Optional.empty();
       private String reason = "";
+      private String kind = "";
       private boolean prune = false;
       private boolean remove = false;
       private Optional<Path> setup = Optional.empty();
@@ -993,6 +994,7 @@ public final class Main {
       private void setIgnoringOrForAPlugin(Option option, String given) {
         switch (option.name()) {
           case "--reason" -> reason = given.strip();
+          case "--as" -> kind = choice(option, given);
           case "--remove" -> remove = true;
           case "--prune" -> prune = true;
           case "--setup" -> setup = Optional.of(Path.of(given));
@@ -1092,7 +1094,7 @@ public final class Main {
                 "ignore needs a reason, which every ignore says: --reason=\"…\"");
           }
         }
-        return built(Subcommand.IGNORE).ignoring(new Ignoring(prune, remove, reason));
+        return built(Subcommand.IGNORE).ignoring(new Ignoring(prune, remove, reason, kind));
       }
 
       /// `verify`'s ids: every word before the directory that is one, `m` and eight hex digits, or

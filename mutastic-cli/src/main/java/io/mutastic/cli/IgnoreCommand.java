@@ -33,10 +33,11 @@ final class IgnoreCommand {
     if (how.prune()) {
       return prune(where, found, out);
     }
-    return ignore(found.all().getFirst(), how.reason(), where, out);
+    return ignore(found.all().getFirst(), how, where, out);
   }
 
-  private static int ignore(Mutant mutant, String reason, Where where, PrintStream out) {
+  private static int ignore(Mutant mutant, Main.Ignoring how, Where where, PrintStream out) {
+    var reason = how.reason();
     var already = mutant.skipped().filter(skip -> !skip.endsWith("(ignored)"));
     if (already
         .filter(skip -> skip.startsWith("generated:") || skip.startsWith("equivalent:"))
@@ -46,7 +47,7 @@ final class IgnoreCommand {
       return Main.PASSED;
     }
     var entries = without(mutant.id(), where);
-    entries.add(entry(mutant, reason, where.sources()));
+    entries.add(entry(mutant, how, where.sources()));
     Ignores.write(where.directory(), entries);
     out.printf(
         "mutastic: %s is ignored: %s%n  recorded in %s: commit it, as a decision to review%n"
@@ -67,10 +68,17 @@ final class IgnoreCommand {
     Ignores.write(where.directory(), without(id, where));
     out.printf(
         "mutastic: %s is no longer ignored: it runs again%n  removed from %s%n  to undo: %s%n",
-        id,
-        where.shownFile(),
-        where.command(List.of(id, "--reason=" + removed.get().ignore().reason())));
+        id, where.shownFile(), where.command(undo(removed.get().ignore())));
     return Main.PASSED;
+  }
+
+  /// The words that ignore it again as it was: its reason, and its sort if it had one.
+  private static List<String> undo(Ignore ignore) {
+    var words = new ArrayList<>(List.of(ignore.id(), "--reason=" + ignore.reason()));
+    if (!ignore.kind().isEmpty()) {
+      words.add("--as=" + ignore.kind());
+    }
+    return words;
   }
 
   /// The entries without `id`'s, in order.
@@ -82,13 +90,15 @@ final class IgnoreCommand {
   }
 
   /// The decision, with where the mutant is and what it changes, for whoever reviews it.
-  private static Ignores.Entry entry(Mutant mutant, String reason, SourceView sources) {
+  private static Ignores.Entry entry(Mutant mutant, Main.Ignoring how, SourceView sources) {
     var line = sources.line(mutant).orElse("").strip();
     var at =
         "%s#%s, line %d"
             .formatted(mutant.className().replace('/', '.'), mutant.methodName(), mutant.line());
     return new Ignores.Entry(
-        new Ignore(mutant.id(), line, reason), at, sources.advice(mutant).change());
+        new Ignore(mutant.id(), line, how.reason(), how.kind()),
+        at,
+        sources.advice(mutant).change());
   }
 
   private static int prune(Where where, Engine.Mutants found, PrintStream out) {

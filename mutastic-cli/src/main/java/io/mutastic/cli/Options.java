@@ -255,6 +255,18 @@ final class Options {
               "",
               "mutastic ignore m855c8e3c --reason=\"only logs\""),
           new Option(
+              "--as",
+              Kind.VALUE,
+              Group.IGNORING,
+              "KIND",
+              io.mutastic.api.Ignore.KINDS,
+              "What sort of decision it is, counted apart in the summary",
+              IGNORES,
+              "as",
+              false,
+              "",
+              "mutastic ignore m855c8e3c --as=unreachable --reason=\"totals are rounded to tens\""),
+          new Option(
               "--remove",
               Kind.FLAG,
               Group.IGNORING,

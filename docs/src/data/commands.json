@@ -36,7 +36,7 @@
       "detail": "It goes in .mutastic/ignores.yaml with its line and the reason, to commit and review, and lapses when that line changes. --remove takes one back; ignore --prune takes away every one that has lapsed.",
       "takesMutantId": true,
       "examples": [{ "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.reason=\"only logs\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.reason=\"only logs\"", "commandLine": "mutastic ignore m855c8e3c --reason=\"only logs\"" }, { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.remove", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.remove", "commandLine": "mutastic ignore --remove m855c8e3c" }, { "gradle": "./gradlew mutasticIgnore -Pmutastic.prune", "maven": "mvn mutastic:ignore -Dmutastic.prune", "commandLine": "mutastic ignore --prune" }],
-      "options": ["--reason", "--remove", "--prune"]
+      "options": ["--reason", "--as", "--remove", "--prune"]
     }
   ],
   "options": [
@@ -291,6 +291,20 @@
       "maven": { "property": "-Dmutastic.reason", "setting": null },
       "gradle": { "property": "-Pmutastic.reason", "setting": null },
       "examples": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.reason=\"only logs\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.reason=\"only logs\"", "commandLine": "mutastic ignore m855c8e3c --reason=\"only logs\"", "gradleBuild": "", "mavenBuild": "" }
+    },
+    {
+      "name": "--as",
+      "synopsis": "--as=KIND",
+      "kind": "value",
+      "group": "Ignoring",
+      "value": "KIND",
+      "choices": ["equivalent", "unreachable", "telemetry", "deprecated", "accepted-risk"],
+      "help": "What sort of decision it is, counted apart in the summary",
+      "commands": ["ignore"],
+      "environment": "",
+      "maven": { "property": "-Dmutastic.as", "setting": null },
+      "gradle": { "property": "-Pmutastic.as", "setting": null },
+      "examples": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.as=unreachable -Pmutastic.reason=\"totals are rounded to tens\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.as=unreachable -Dmutastic.reason=\"totals are rounded to tens\"", "commandLine": "mutastic ignore m855c8e3c --as=unreachable --reason=\"totals are rounded to tens\"", "gradleBuild": "", "mavenBuild": "" }
     },
     {
       "name": "--remove",

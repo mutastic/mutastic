@@ -728,6 +728,11 @@ public final class HumanText {
     if (!report.staleIgnores().isEmpty()) {
       lines.add(staleIgnoresWarning(report));
     }
+    RepeatedIgnores.in(report)
+        .forEach(
+            repeated ->
+                lines.add(
+                    " %s %s".formatted(style.blue("note:"), code(RepeatedIgnores.text(repeated)))));
     if (!lines.isEmpty()) {
       out.append('\n');
       lines.forEach(line -> out.append(line).append('\n'));
@@ -1047,22 +1052,36 @@ public final class HumanText {
     return new long[] {byFile.size() - withMisses, withMisses};
   }
 
-  /// `2 skipped (1 equivalent, 1 generated)`: the kind is each reason's first word.
+  /// `2 skipped (1 equivalent, 1 ignored as unreachable)`: the kind is each reason's first word,
+  /// and an ignore's the sort it was given.
   private static String skippedByKind(Report report) {
     var byKind = new TreeMap<String, Long>();
     report.results().stream()
         .filter(result -> result.status() == Status.SKIPPED)
         .forEach(
-            result -> {
-              var reason = result.mutant().skipped().orElse("other: ?");
-              byKind.merge(reason.substring(0, Math.max(0, reason.indexOf(':'))), 1L, Long::sum);
-            });
+            result ->
+                byKind.merge(kind(result.mutant().skipped().orElse("other: ?")), 1L, Long::sum));
     return "%d skipped (%s)"
         .formatted(
             report.count(Status.SKIPPED),
             byKind.entrySet().stream()
                 .map(entry -> entry.getValue() + " " + entry.getKey())
                 .collect(Collectors.joining(", ")));
+  }
+
+  /// `equivalent` for `equivalent: …`; `ignored as unreachable` for `user: unreachable: …
+  /// (ignored)`.
+  private static String kind(String reason) {
+    var first = reason.substring(0, Math.max(0, reason.indexOf(':')));
+    if (!reason.endsWith("(ignored)")) {
+      return first;
+    }
+    var rest = reason.substring(first.length() + 1).strip();
+    return io.mutastic.api.Ignore.KINDS.stream()
+        .filter(kind -> rest.startsWith(kind + ":"))
+        .findFirst()
+        .map(kind -> "ignored as " + kind)
+        .orElse("ignored");
   }
 
   /// ` ▲ 2.0 vs last run (same code)`, when there was one.

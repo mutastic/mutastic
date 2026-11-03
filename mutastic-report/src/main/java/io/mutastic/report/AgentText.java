@@ -68,6 +68,8 @@ public final class AgentText {
     appendVerdict(out, report, missed.size(), notCovered.size());
     appendFlaky(out, report);
     appendStaleIgnores(out, report);
+    RepeatedIgnores.in(report)
+        .forEach(repeated -> out.append("note: %s%n".formatted(RepeatedIgnores.text(repeated))));
     comparison.ifPresent(found -> appendVsLastRun(out, report, found));
     appendSuspects(out, report, comparison);
     appendUnrelatedCatches(out, report);
