@@ -7,7 +7,33 @@ Some mutants are never worth a test. mutastic skips some on its own, and a proje
 
 ## What mutastic skips
 
-Some mutants are skipped, with the reason given: a change that can't be told apart from the original (`return 0` becoming "return the default"), code the compiler wrote (a `switch` on a `String`, a record's `equals()`), calls that only write output (logging, `System.out`), and trivial accessors: a getter that only returns one of its class's fields, or a setter that only stores its argument in one, named for that field. An accessor with any logic (a copy, a check, lazy set-up, a notification) is mutated like any code, and `@DoMutate` (any annotation of that name) on a method or class brings its trivial accessors back. Every `toString()` is a debug representation and every `hashCode()` may return any value consistent with `equals()`, so both are skipped too, with the lambdas they define and the helpers only they call; `@DoMutate` keeps one that's a contract. `@DoNotMutate` or `@CoverageIgnore` skips a method or class, with its `value()` or `reason()` as the reason, and `@Generated` marks code a tool wrote. Annotations are matched by simple name, so your own work; or depend on `io.mutastic:mutastic-annotations`, a small jar with `@DoNotMutate` and `@DoMutate` and nothing else, read from the class files and never needed at run time. Skipped mutants don't count towards the score.
+mutastic skips these on its own, and gives the reason with each. Skipped mutants don't count
+towards the score.
+
+- **Equivalent changes,** which can't be told apart from the original: `return 0` becoming "return
+  the default".
+- **Code the compiler wrote:** a `switch` on a `String`, a record's `equals()`.
+- **Calls that only write output:** logging, `System.out`.
+- **Trivial accessors:** a getter that only returns one of its class's fields, or a setter that
+  only stores its argument in one, named for that field. An accessor with any logic (a copy, a
+  check, lazy set-up, a notification) is mutated like any code.
+- **`toString()` and `hashCode()`,** with the lambdas they define and the helpers only they call.
+  `toString()` is a debug representation, and `hashCode()` may return any value consistent with
+  `equals()`.
+
+`@DoMutate` on a method or class brings back what mutastic would skip there as trivial: its
+accessors, or a `toString()` or `hashCode()` that's a contract.
+
+### Annotations
+
+- `@DoNotMutate` or `@CoverageIgnore` skips a method or class, with its `value()` or `reason()` as
+  the reason.
+- `@DoMutate` brings back trivial code, as above.
+- `@Generated` marks code a tool wrote.
+
+Annotations are matched by simple name, so your own work. Or depend on
+`io.mutastic:mutastic-annotations`, a small jar with `@DoNotMutate` and `@DoMutate` and nothing
+else. mutastic reads them from the class files, so the jar is never needed at run time.
 
 ## mutastic.yaml
 
