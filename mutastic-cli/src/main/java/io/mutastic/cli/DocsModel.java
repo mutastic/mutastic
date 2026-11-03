@@ -128,8 +128,9 @@ final class DocsModel {
     return entries.stream()
         .map(
             entry ->
-                "    { \"name\": %s, \"meaning\": %s }"
-                    .formatted(quoted(entry.name()), quoted(entry.meaning())))
+                "    { \"name\": %s, \"meaning\": %s, \"detail\": %s }"
+                    .formatted(
+                        quoted(entry.name()), quoted(entry.meaning()), quoted(entry.detail())))
         .collect(Collectors.joining(",\n"));
   }
 

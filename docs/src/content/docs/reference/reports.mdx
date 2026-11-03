@@ -1,10 +1,86 @@
 ---
 title: Report files
-description: "The report files a full run writes: their formats, and where they go."
+description: "The report files a run writes: which formats, what reads each, where they go, and how to choose."
 ---
 
-A full run also writes report files to `build/mutastic/` (for a Gradle module, `build/mutastic/<module>/`; for Maven, the module's own `target/mutastic/`), by default `mutation.json` and `mutation.html`. `--report` chooses (it can be given more than once, and replaces the defaults): `--report=xml` adds `mutations.xml`, `--report=json:reports/m.json` writes somewhere else, and `--report=none` writes nothing.
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-- `json` follows the open mutation-testing report schema (version 2), which report viewers, dashboards and badges read.
-- `html` is that report in the schema's own viewer, embedded in the page, so it opens from disk with no network.
-- `xml` is the `mutations.xml` format that many build-server and code-quality plugins read.
+Besides what it prints, a run writes its results as files, for tools and for reading later: a
+report viewer, a dashboard, a badge, a code-quality plugin. Every run writes them except a run of
+one mutant (`--only`, and so `verify` and `explain`), which says nothing about the rest. The
+summary's `Reports` line lists the files it wrote.
+
+## Formats
+
+| Kind | File | What it is |
+|---|---|---|
+| `json` | `mutation.json` | The open mutation-testing report schema, version 2, which report viewers, dashboards and badges read. |
+| `html` | `mutation.html` | The same report in the schema's own viewer. Everything is in the one file, so it opens from disk with no network. |
+| `xml` | `mutations.xml` | The `mutations.xml` format that many build-server and code-quality plugins read. |
+
+`json` and `html` are written unless you choose otherwise.
+
+## Where they go
+
+| Build | Directory |
+|---|---|
+| Gradle | `build/mutastic/`, or `build/mutastic/<module>/` for a module (`:data` → `build/mutastic/data/`) |
+| Maven | the module's own `target/mutastic/` |
+
+The same goes for a run from the command line and from either build plugin. A file given a path
+of its own goes there instead, relative to the project's directory.
+
+## Choosing which
+
+`--report=KIND[:PATH]` names one report. Given at all, it replaces the defaults, so name each one
+you want; it can be given more than once.
+
+- `--report=xml` writes only `mutations.xml`.
+- `--report=json --report=xml` writes `mutation.json` and `mutations.xml`.
+- `--report=json:reports/mutation.json` writes the JSON report to `reports/mutation.json`.
+- `--report=none` writes nothing.
+
+From a build plugin, `reports` takes the same values as a list, on the command line or in the
+build file:
+
+<Tabs syncKey="runner">
+<TabItem label="Gradle">
+
+```sh
+./gradlew mutasticRun -Pmutastic.reports=json,xml
+```
+
+```kotlin title="build.gradle.kts"
+mutastic {
+    reports = listOf("json", "xml")
+}
+```
+
+</TabItem>
+<TabItem label="Maven">
+
+```sh
+mvn mutastic:run -Dmutastic.reports=json,xml
+```
+
+```xml title="pom.xml"
+<configuration>
+  <reports>
+    <report>json</report>
+    <report>xml</report>
+  </reports>
+</configuration>
+```
+
+</TabItem>
+<TabItem label="Command line">
+
+```sh
+mutastic run --report=json --report=xml
+```
+
+</TabItem>
+</Tabs>
+
+A list on the command line replaces the build file's. See [`--report`](/reference/run/#report)
+for the option itself.

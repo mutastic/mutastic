@@ -112,3 +112,8 @@ kbd,
 .sl-markdown-content .runners code {
   overflow-wrap: anywhere;
 }
+/* The environment and exit codes tables: an option's name, a variable's, never broken. */
+.sl-markdown-content .entries th code,
+.sl-markdown-content .entries td a code {
+  white-space: nowrap;
+}

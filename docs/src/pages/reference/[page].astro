@@ -7,6 +7,7 @@
 // prose.
 import { Code, TabItem, Tabs } from '@astrojs/starlight/components';
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { getEntry, render } from 'astro:content';
 import model from '../../data/commands.json';
 
 /**
@@ -35,6 +36,38 @@ const options: Option[] = command
   ? command.options.map((name) => model.options.find((option) => option.name === name)!)
   : [];
 const anchor = (option: Option) => option.name.replace(/^--/, '');
+
+/** `MUTASTIC_AGENT=1` → `MUTASTIC_AGENT`. */
+const variable = (name: string) => name.split('=')[0];
+
+/** The option an environment variable stands in for, which wins when it's given. */
+function optionFor(name: string): Option | undefined {
+  return model.options.find((option) =>
+    option.environment.split(', ').includes(variable(name)),
+  );
+}
+
+/**
+ * A meaning or detail as the page shows it: --help's plain words, with `--format`, `verify` and
+ * `` `code` `` as code, and a capital to start.
+ */
+function marked(text: string): string {
+  const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const coded = escaped
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/(^|\s)(--[a-z-]+)/g, '$1<code>$2</code>')
+    .replace(/\bfor verify\b/g, 'for <code>verify</code>');
+  // mutastic is always written lower-case, even to start a sentence.
+  if (coded.startsWith('mutastic')) return coded;
+  return coded.charAt(0).toUpperCase() + coded.slice(1);
+}
+
+/** Where Troubleshooting says what to do about each exit status: its `## 1: …` headings. */
+const troubleshooting = command
+  ? []
+  : (await render((await getEntry('docs', 'guides/troubleshooting'))!)).headings;
+const whatToDo = (status: string) =>
+  troubleshooting.find((heading) => heading.depth === 2 && heading.text.startsWith(`${status}:`));
 const output = command ? outputs[`../../data/output/${command.name}.ansi`] : undefined;
 
 /** When in the quickstart's tour each output was taken, as DocsOutputTest takes it. */
@@ -218,37 +251,89 @@ const headings = command
       </div>
     ) : (
       <>
+        <p>
+          Settings that belong to a machine or a person rather than a project can come from the
+          environment: a CI job that always wants one format, or a terminal that can't show colour.
+          An option given on the command line always wins.
+        </p>
         <h2 id="environment">Environment</h2>
-        <table>
+        <table class="entries">
+          <thead>
+            <tr>
+              <th scope="col">Variable</th>
+              <th scope="col">What it does</th>
+              <th scope="col">Option</th>
+            </tr>
+          </thead>
           <tbody>
-            {model.environment.map((entry) => (
-              <tr>
-                <th scope="row">
-                  <code>{entry.name}</code>
-                </th>
-                <td>{entry.meaning}</td>
-              </tr>
-            ))}
+            {model.environment.map((entry) => {
+              const option = optionFor(entry.name);
+              return (
+                <tr>
+                  <th scope="row">
+                    <code>{entry.name}</code>
+                  </th>
+                  <td>
+                    <Fragment set:html={marked(entry.meaning) + '.'} />
+                    {entry.detail && (
+                      <>
+                        {' '}
+                        <Fragment set:html={marked(entry.detail)} />
+                      </>
+                    )}
+                  </td>
+                  <td>
+                    {option ? (
+                      <a href={`${import.meta.env.BASE_URL}reference/run/#${anchor(option)}`}>
+                        <code>{option.name}</code>
+                      </a>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         <h2 id="exit-codes">Exit codes</h2>
-        <table>
+        <p>
+          Every command exits with one of these. The build plugins fail the build on any status but
+          0.
+        </p>
+        <table class="entries">
+          <thead>
+            <tr>
+              <th scope="col">Status</th>
+              <th scope="col">Means</th>
+              <th scope="col">What to do</th>
+            </tr>
+          </thead>
           <tbody>
-            {model.exitCodes.map((entry) => (
-              <tr>
-                <th scope="row">
-                  <code>{entry.name}</code>
-                </th>
-                <td>{entry.meaning}</td>
-              </tr>
-            ))}
+            {model.exitCodes.map((entry) => {
+              const heading = whatToDo(entry.name);
+              return (
+                <tr>
+                  <th scope="row">
+                    <code>{entry.name}</code>
+                  </th>
+                  <td>
+                    <Fragment set:html={marked(entry.meaning) + '.'} />
+                  </td>
+                  <td>
+                    {heading ? (
+                      <a href={`${import.meta.env.BASE_URL}guides/troubleshooting/#${heading.slug}`}>
+                        Troubleshooting
+                      </a>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
-        <p>
-          The build plugins fail the build on any status but 0. See{' '}
-          <a href={`${import.meta.env.BASE_URL}guides/troubleshooting/`}>Troubleshooting</a> for what
-          to do about each.
-        </p>
       </>
     )
   }

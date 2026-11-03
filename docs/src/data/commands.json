@@ -266,19 +266,19 @@
     }
   ],
   "environment": [
-    { "name": "MUTASTIC_FORMAT", "meaning": "The format when --format isn't given" },
-    { "name": "MUTASTIC_AGENT=1", "meaning": "The agent format, for coding agents" },
-    { "name": "MUTASTIC_VOCABULARY", "meaning": "plain or classic, when --vocabulary isn't given" },
-    { "name": "MUTASTIC_PILLS", "meaning": "Labels: square (the default), rounded (for a Nerd Font) or off" },
-    { "name": "MUTASTIC_ARID=audit", "meaning": "Run the mutants the arid filters skip, and say what happened" },
-    { "name": "NO_COLOR", "meaning": "No colour" },
-    { "name": "FORCE_COLOR", "meaning": "Colour even off a terminal" }
+    { "name": "MUTASTIC_FORMAT", "meaning": "The format when --format isn't given", "detail": "For a machine or a CI job that always wants the same format, `concise` say." },
+    { "name": "MUTASTIC_AGENT=1", "meaning": "The agent format, for coding agents", "detail": "Coding agents set it, so mutastic answers in the format they read best. `MUTASTIC_FORMAT` still wins." },
+    { "name": "MUTASTIC_VOCABULARY", "meaning": "plain or classic, when --vocabulary isn't given", "detail": "`classic` says killed and survived instead of caught and missed. The JSON report and the event stream always use the standard names." },
+    { "name": "MUTASTIC_PILLS", "meaning": "Labels: square (the default), rounded (for a Nerd Font) or off", "detail": "How labels such as MISSED and PASS are drawn. `rounded` needs a terminal font with Nerd Font glyphs; `off` leaves out the coloured blocks and keeps the words." },
+    { "name": "MUTASTIC_ARID=audit", "meaning": "Run the mutants the arid filters skip, and say what happened", "detail": "Adds an Arid audit row to the summary: how many of those mutants ran, and how many the tests caught." },
+    { "name": "NO_COLOR", "meaning": "No colour", "detail": "Set to anything, it turns colour off, as it does for many tools." },
+    { "name": "FORCE_COLOR", "meaning": "Colour even off a terminal", "detail": "Set to anything, it turns colour on where mutastic can't tell a person is reading, such as a CI log that shows colour." }
   ],
   "exitCodes": [
-    { "name": "0", "meaning": "The score reaches the threshold; for verify, the mutant is caught" },
-    { "name": "1", "meaning": "It doesn't" },
-    { "name": "2", "meaning": "A usage error, or a build mutastic couldn't read" },
-    { "name": "3", "meaning": "The tests fail without any mutant" },
-    { "name": "4", "meaning": "mutastic itself went wrong" }
+    { "name": "0", "meaning": "The score reaches the threshold; for verify, the mutant is caught", "detail": "" },
+    { "name": "1", "meaning": "The score is below the threshold; for verify, the mutant is still missed", "detail": "" },
+    { "name": "2", "meaning": "A usage error, or a build mutastic couldn't read", "detail": "" },
+    { "name": "3", "meaning": "The tests fail without any mutant", "detail": "" },
+    { "name": "4", "meaning": "mutastic itself went wrong", "detail": "" }
   ]
 }

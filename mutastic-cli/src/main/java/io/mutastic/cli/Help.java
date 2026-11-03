@@ -31,29 +31,60 @@ final class Help {
   private static final int COLUMN = 26;
 
   /// A name and what it means: an exit status, an environment variable.
-  record Entry(String name, String meaning) {}
+  ///
+  /// @param meaning one line, for `--help`
+  /// @param detail more, for the docs' reference; empty when the meaning says it all
+  record Entry(String name, String meaning, String detail) {
+    Entry(String name, String meaning) {
+      this(name, meaning, "");
+    }
+  }
 
   /// What each exit status means.
   static final List<Entry> EXIT_CODES =
       List.of(
           new Entry("0", "The score reaches the threshold; for verify, the mutant is caught"),
-          new Entry("1", "It doesn't"),
+          new Entry(
+              "1", "The score is below the threshold; for verify, the mutant is still missed"),
           new Entry("2", "A usage error, or a build mutastic couldn't read"),
           new Entry("3", "The tests fail without any mutant"),
           new Entry("4", "mutastic itself went wrong"));
 
   static final List<Entry> ENVIRONMENT =
       List.of(
-          new Entry("MUTASTIC_FORMAT", "The format when --format isn't given"),
-          new Entry("MUTASTIC_AGENT=1", "The agent format, for coding agents"),
-          new Entry("MUTASTIC_VOCABULARY", "plain or classic, when --vocabulary isn't given"),
           new Entry(
-              "MUTASTIC_PILLS", "Labels: square (the default), rounded (for a Nerd Font) or off"),
+              "MUTASTIC_FORMAT",
+              "The format when --format isn't given",
+              "For a machine or a CI job that always wants the same format, `concise` say."),
+          new Entry(
+              "MUTASTIC_AGENT=1",
+              "The agent format, for coding agents",
+              "Coding agents set it, so mutastic answers in the format they read best."
+                  + " `MUTASTIC_FORMAT` still wins."),
+          new Entry(
+              "MUTASTIC_VOCABULARY",
+              "plain or classic, when --vocabulary isn't given",
+              "`classic` says killed and survived instead of caught and missed. The JSON report"
+                  + " and the event stream always use the standard names."),
+          new Entry(
+              "MUTASTIC_PILLS",
+              "Labels: square (the default), rounded (for a Nerd Font) or off",
+              "How labels such as MISSED and PASS are drawn. `rounded` needs a terminal font with"
+                  + " Nerd Font glyphs; `off` leaves out the coloured blocks and keeps the words."),
           new Entry(
               "MUTASTIC_ARID=audit",
-              "Run the mutants the arid filters skip, and say what happened"),
-          new Entry("NO_COLOR", "No colour"),
-          new Entry("FORCE_COLOR", "Colour even off a terminal"));
+              "Run the mutants the arid filters skip, and say what happened",
+              "Adds an Arid audit row to the summary: how many of those mutants ran, and how many"
+                  + " the tests caught."),
+          new Entry(
+              "NO_COLOR",
+              "No colour",
+              "Set to anything, it turns colour off, as it does for many tools."),
+          new Entry(
+              "FORCE_COLOR",
+              "Colour even off a terminal",
+              "Set to anything, it turns colour on where mutastic can't tell a person is reading,"
+                  + " such as a CI log that shows colour."));
 
   /// `mutastic --help`: every command, examples, every option, the environment and exit codes.
   static String general(String version) {
