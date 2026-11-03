@@ -71,6 +71,7 @@ final class TestWorker implements AutoCloseable {
       switch (parts[0]) {
         case "TEST" -> coverage.recordTest(parts[1], Duration.ofNanos(Long.parseLong(parts[2])));
         case "LINE" -> coverage.recordLines(parts[1], commaSeparated(parts[2], Integer::valueOf));
+        case "LOADING" -> coverage.recordOnlyAtLoad(commaSeparated(parts[1], Integer::valueOf));
         case "VALUE" ->
             coverage.recordValues(
                 parts[1], Integer.parseInt(parts[2]), commaSeparated(parts[3], Long::valueOf));
@@ -126,7 +127,17 @@ final class TestWorker implements AutoCloseable {
 
   Run run(String className, byte[] bytes, List<String> tests, Duration timeout) {
     stage(className, bytes);
-    send("RUN\t" + String.join("\t", tests));
+    return result("RUN", tests, timeout);
+  }
+
+  /// The same, with every class loaded anew, so the class's static initialiser runs mutated.
+  Run runFresh(String className, byte[] bytes, List<String> tests, Duration timeout) {
+    stage(className, bytes);
+    return result("FRESH", tests, timeout);
+  }
+
+  private Run result(String command, List<String> tests, Duration timeout) {
+    send(command + "\t" + String.join("\t", tests));
     var answer = await(timeout);
     if (answer.isEmpty()) {
       kill();

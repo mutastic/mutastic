@@ -3,12 +3,17 @@ package io.mutastic.worker;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 /// What instrumented code calls during the coverage pass. The engine instruments every project
 /// class to call `Probes.line(id)` at the start of each source line, and `Probes.value(id, v)` with
 /// each whole-number argument when a method starts.
+///
+/// A class's static initialiser also calls [#loading] as it starts and [#loaded] as it returns, so
+/// lines that run only while a class loads can be told apart: a mutant swapped into a class that's
+/// already loaded never reaches them.
 ///
 /// Probes run on every executed line, so they must be nearly free: a line probe sets one element of
 /// the running test's `boolean[]`, as JaCoCo does, and the array is filed under the test when the
@@ -32,6 +37,15 @@ public final class Probes {
   private static final AtomicReference<boolean[]> HITS =
       shared("hits", () -> new AtomicReference<>(new boolean[1 << 12]));
 
+  /// Lines run with no static initialiser running, in any test.
+  private static final AtomicReference<boolean[]> OUTSIDE_LOADING =
+      shared("outside-loading", () -> new AtomicReference<>(new boolean[1 << 12]));
+
+  /// Static initialisers running now, on any thread. One running on another thread makes a line
+  /// look as if it ran only at class load, which costs that line's mutants a fresh class loader,
+  /// never a wrong result.
+  private static final AtomicInteger LOADING = shared("loading", AtomicInteger::new);
+
   private Probes() {}
 
   /// The state every copy of this class shares, `mutastic.probes.<key>`, made by the first.
@@ -45,12 +59,30 @@ public final class Probes {
 
   /// Called at the start of every source line of the project's code.
   public static void line(int lineId) {
-    var current = HITS.get();
+    mark(HITS, lineId);
+    if (LOADING.get() == 0) {
+      mark(OUTSIDE_LOADING, lineId);
+    }
+  }
+
+  private static void mark(AtomicReference<boolean[]> hits, int lineId) {
+    var current = hits.get();
     if (lineId < current.length) {
       current[lineId] = true;
     } else {
-      grow(lineId)[lineId] = true;
+      grow(hits, lineId)[lineId] = true;
     }
+  }
+
+  /// Called as a static initialiser starts.
+  public static void loading() {
+    LOADING.incrementAndGet();
+  }
+
+  /// Called as a static initialiser returns. One that throws never calls it: the next test starts
+  /// the count again.
+  public static void loaded() {
+    LOADING.decrementAndGet();
   }
 
   /// Called when a method starts, with one whole-number argument (`int`, `long`, `short`, `byte` or
@@ -71,6 +103,7 @@ public final class Probes {
     synchronized (HITS) {
       flush();
       TEST.set(name);
+      LOADING.set(0);
     }
   }
 
@@ -112,6 +145,8 @@ public final class Probes {
       VALUES.set(new ConcurrentHashMap<>());
       TEST.set(OUTSIDE);
       HITS.set(new boolean[HITS.get().length]);
+      OUTSIDE_LOADING.set(new boolean[OUTSIDE_LOADING.get().length]);
+      LOADING.set(0);
     }
   }
 
@@ -123,13 +158,30 @@ public final class Probes {
     return VALUES_BY_TEST;
   }
 
-  private static boolean[] grow(int lineId) {
+  /// The lines some test ran, but only ever while a class was loading.
+  static Set<Integer> onlyAtLoad() {
+    var outside = OUTSIDE_LOADING.get();
+    var lines = new java.util.TreeSet<Integer>();
+    LINES_BY_TEST
+        .values()
+        .forEach(
+            hit ->
+                hit.forEach(
+                    id -> {
+                      if (id >= outside.length || !outside[id]) {
+                        lines.add(id);
+                      }
+                    }));
+    return lines;
+  }
+
+  private static boolean[] grow(AtomicReference<boolean[]> hits, int lineId) {
     synchronized (HITS) {
-      var current = HITS.get();
+      var current = hits.get();
       if (lineId >= current.length) {
         var bigger = new boolean[Math.max(current.length * 2, lineId + 1)];
         System.arraycopy(current, 0, bigger, 0, current.length);
-        HITS.set(bigger);
+        hits.set(bigger);
         return bigger;
       }
       return current;

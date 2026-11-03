@@ -13,6 +13,7 @@ import java.lang.classfile.CodeTransform;
 import java.lang.classfile.MethodModel;
 import java.lang.classfile.MethodTransform;
 import java.lang.classfile.instruction.LineNumber;
+import java.lang.classfile.instruction.ReturnInstruction;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.MethodTypeDesc;
 import java.time.Duration;
@@ -31,6 +32,7 @@ final class Coverage {
 
   private static final MethodTypeDesc LINE = MethodTypeDesc.of(CD_void, CD_int);
   private static final MethodTypeDesc VALUE = MethodTypeDesc.of(CD_void, CD_int, CD_long);
+  private static final MethodTypeDesc NONE = MethodTypeDesc.of(CD_void);
 
   /// One recorded parameter: whose, and its name in the source (or `arg0` without debug info).
   private record Parameter(String className, String method, String name) {}
@@ -44,6 +46,9 @@ final class Coverage {
   private final Map<String, Set<Integer>> linesByTest = new HashMap<>();
   private final Map<String, Duration> durations = new HashMap<>();
 
+  /// Lines the tests ran only while a class was loading: see [#onlyAtLoad].
+  private final Set<Integer> onlyAtLoad = new HashSet<>();
+
   Coverage(ClassFile context) {
     this(context, WORKER_PROBES);
   }
@@ -54,7 +59,8 @@ final class Coverage {
     this.probes = probes;
   }
 
-  /// The class with a probe at every line of every method that can have mutants.
+  /// The class with a probe at every line of every method that can have mutants, and its static
+  /// initialiser saying when it starts and returns.
   byte[] instrument(ClassModel model) {
     var className = model.thisClass().asInternalName();
     return context.transformClass(
@@ -75,6 +81,18 @@ final class Coverage {
 
   void recordLines(String test, Set<Integer> lines) {
     linesByTest.computeIfAbsent(test, ignored -> new HashSet<>()).addAll(lines);
+  }
+
+  void recordOnlyAtLoad(Set<Integer> lines) {
+    onlyAtLoad.addAll(lines);
+  }
+
+  /// Whether the tests reach the mutant's line only while its class is loading: in a static
+  /// initialiser, or a method only one calls. A mutant swapped into a class already loaded never
+  /// runs there, so it needs the class loaded anew.
+  boolean onlyAtLoad(Mutant mutant) {
+    var lineId = lineIds.get(key(mutant));
+    return lineId != null && onlyAtLoad.contains(lineId);
   }
 
   void recordValues(String test, int parameter, Set<Long> values) {
@@ -138,21 +156,38 @@ final class Coverage {
     return durations.size();
   }
 
-  /// The tests that reach the mutant's line, fastest first, so a catch is found soonest.
+  /// The tests that reach the mutant's line, fastest first, so a catch is found soonest. For a line
+  /// run only at class load, only the test that loaded the class reached it, but every test that
+  /// uses the class depends on what loading it did: those are the tests that reach any of its
+  /// lines.
   List<String> coveringTests(Mutant mutant) {
-    var lineId =
-        lineIds.get(
-            key(mutant.className(), mutant.methodName() + mutant.descriptor(), mutant.line()));
+    var lineId = lineIds.get(key(mutant));
     if (lineId == null) {
       return List.of();
     }
+    var reaching = onlyAtLoad.contains(lineId) ? linesOf(mutant.className()) : Set.of(lineId);
     return linesByTest.entrySet().stream()
-        .filter(entry -> entry.getValue().contains(lineId) && durations.containsKey(entry.getKey()))
+        .filter(
+            entry ->
+                durations.containsKey(entry.getKey())
+                    && entry.getValue().stream().anyMatch(reaching::contains))
         .map(Map.Entry::getKey)
         .sorted(
             Comparator.comparing((String test) -> durations.get(test))
                 .thenComparing(Comparator.naturalOrder()))
         .toList();
+  }
+
+  private Set<Integer> linesOf(String className) {
+    var prefix = className + "#";
+    var lines = new HashSet<Integer>();
+    lineIds.forEach(
+        (key, id) -> {
+          if (key.startsWith(prefix)) {
+            lines.add(id);
+          }
+        });
+    return lines;
   }
 
   /// What these tests took between them in the coverage pass.
@@ -165,14 +200,21 @@ final class Coverage {
   private CodeTransform probes(String className, MethodModel method) {
     var methodKey = method.methodName().stringValue() + method.methodType().stringValue();
     var recorded = wholeNumberParameters(className, method, methodKey);
+    boolean initialiser = method.methodName().equalsString("<clinit>");
     return new CodeTransform() {
       @Override
       public void atStart(CodeBuilder builder) {
+        if (initialiser) {
+          builder.invokestatic(probes, "loading", NONE);
+        }
         passParameterValues(builder, recorded);
       }
 
       @Override
       public void accept(CodeBuilder builder, CodeElement element) {
+        if (initialiser && element instanceof ReturnInstruction) {
+          builder.invokestatic(probes, "loaded", NONE);
+        }
         builder.with(element);
         if (element instanceof LineNumber lineNumber) {
           builder.loadConstant(lineId(key(className, methodKey, lineNumber.line())));
@@ -241,6 +283,10 @@ final class Coverage {
 
   /// Keyed by method as well as line: a record's header line holds its constructor, accessors and
   /// generated methods, so a test that only constructs one would otherwise "cover" them all.
+  private static String key(Mutant mutant) {
+    return key(mutant.className(), mutant.methodName() + mutant.descriptor(), mutant.line());
+  }
+
   private static String key(String className, String method, int line) {
     return className + "#" + method + ":" + line;
   }

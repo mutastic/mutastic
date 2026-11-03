@@ -865,7 +865,10 @@ public final class Engine {
     /// `tests` against the mutant, in order until one fails, each allowed a little over its time in
     /// the coverage pass.
     TestWorker.Run run(List<String> tests) {
-      return worker.run(mutant.binaryName(), bytes, tests, timeoutFor(coverage.timeOf(tests)));
+      var timeout = timeoutFor(coverage.timeOf(tests));
+      return coverage.onlyAtLoad(mutant)
+          ? worker.runFresh(mutant.binaryName(), bytes, tests, timeout)
+          : worker.run(mutant.binaryName(), bytes, tests, timeout);
     }
 
     TestWorker worker() {

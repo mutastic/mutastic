@@ -50,7 +50,9 @@ import org.junit.platform.launcher.core.LauncherFactory;
 /// |---|---|
 /// | `CLASS <name> <base64>`: use these bytes for the next command | nothing |
 /// | `COVER <test>...`: run every test, recording lines and arguments | `TEST <id> <nanos>`, `LINE <id> <ids>` and `VALUE <id> <parameter> <values>` lines, then `DONE PASSED` or `DONE FAILED <id>...` |
+/// | `COVER` answers also hold `LOADING <ids>`: the lines some test ran, but only while a class was loading | |
 /// | `RUN <test>...`: run in order until one fails | `RESULT PASSED <ran>`, `RESULT FAILED <ran> <test> <exception> <origin> <port-clash or ->` or `RESULT ERROR <why>` |
+/// | `FRESH <test>...`: the same, with every class loaded anew, so static initialisers run with the staged classes | as for `RUN` |
 /// | `SUGGEST <class> <method> <descriptor> <base64> <inputs> <receiver>`: find inputs where a mutant changes the result; inputs are `1;2\|3;4`, `-` for none; the receiver is `-` for a static method, else a constructor descriptor whose arguments start each input, or for an inner class its outer class's receiver, `>`, then its own | `SUGGESTED <inputs> <today> <with mutant> <stuck or ->`, or `SUGGESTED -` |
 /// | `EXIT` | nothing; the worker exits |
 ///
@@ -153,6 +155,7 @@ public final class Worker {
       case "CLASS" -> staged.put(command[1], Base64.getDecoder().decode(command[2]));
       case "COVER" -> coverInstrumented(tests);
       case "RUN" -> runWithStaged(tests);
+      case "FRESH" -> runFresh(tests);
       case "SUGGEST" -> suggest(command);
       default -> protocol.println("RESULT\tERROR\tunknown command " + command[0]);
     }
@@ -189,18 +192,33 @@ public final class Worker {
     var loader = production();
     loader.swapIn(staged);
     try {
-      run(tests);
+      run(tests, loader);
     } finally {
       loader.swapBack(staged.keySet());
       staged.clear();
     }
   }
 
+  /// Runs with the staged classes in a production loader of their own, discarded after: a mutant
+  /// that changes what a static initialiser does needs its class loaded anew. A framework loads the
+  /// app itself, so there the mutant is swapped in as usual.
+  private void runFresh(List<String> tests) throws Exception {
+    if (framework != null) {
+      runInTheFramework(framework, tests);
+      return;
+    }
+    var fresh =
+        new ProductionLoader(
+            productionRoots, staged, testRoots, splitTests, getClass().getClassLoader());
+    staged.clear();
+    run(tests, fresh);
+  }
+
   /// The same, with the staged classes swapped into the framework's copies of them.
   private void runInTheFramework(Framework framework, List<String> tests) throws Exception {
     try {
       framework.swapIn(staged);
-      run(tests);
+      run(tests, production());
     } catch (IllegalStateException e) {
       protocol.println("RESULT\tERROR\t" + e.getMessage());
     } finally {
@@ -265,9 +283,10 @@ public final class Worker {
 
   private void cover(List<String> tests) {
     Probes.reset();
-    var failing = execute(tests, timingTests());
+    var failing = execute(tests, timingTests(), production());
     Probes.flush();
     reportLines();
+    reportOnlyAtLoad();
     reportValues();
     protocol.println(
         "DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
@@ -295,6 +314,14 @@ public final class Worker {
             });
   }
 
+  private void reportOnlyAtLoad() {
+    var lines = Probes.onlyAtLoad();
+    if (!lines.isEmpty()) {
+      protocol.println(
+          "LOADING\t" + lines.stream().map(String::valueOf).collect(Collectors.joining(",")));
+    }
+  }
+
   private void reportValues() {
     Probes.valuesByTest()
         .forEach(
@@ -314,12 +341,12 @@ public final class Worker {
   }
 
   /// The engine orders tests fastest first; the worker stops at the first failure.
-  private void run(List<String> tests) {
+  private void run(List<String> tests, ProductionLoader loader) {
     int ran = 0;
     for (String test : tests) {
       ran++;
       var started = new StartedTests();
-      var failing = execute(List.of(test), started);
+      var failing = execute(List.of(test), started, loader);
       // A selector that matches nothing runs nothing and fails nothing: that's not a pass.
       if (started.count == 0 && failing.isEmpty()) {
         protocol.println("RESULT\tERROR\tno test ran for " + test);
@@ -358,14 +385,15 @@ public final class Worker {
         + (lastPortClash ? "port-clash" : "-");
   }
 
-  private List<String> execute(List<String> tests, TestExecutionListener observer) {
+  private List<String> execute(
+      List<String> tests, TestExecutionListener observer, ProductionLoader production) {
     if (framework != null) {
       // By name: the framework's loader must load the test classes itself.
       var failing = new ArrayList<String>();
       framework.launcher().execute(byName(tests), recordingFailures(failing), observer);
       return failing;
     }
-    var loader = new TestLoader(testRoots, production(), ++runs);
+    var loader = new TestLoader(testRoots, production, ++runs);
     var thread = Thread.currentThread();
     var previous = thread.getContextClassLoader();
     thread.setContextClassLoader(loader);
