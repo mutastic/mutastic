@@ -61,6 +61,11 @@ class ReportTest {
             "pricing", 17, List.of(), 1, List.of(), Duration.ZERO, 2, 5, Duration.ofSeconds(1));
 
     assertThat(report.replaced()).isEqualTo(3);
+    // Fewer started than there were workers for: none replaced, not "-1 replaced".
+    var fewer =
+        new Report(
+            "pricing", 17, List.of(), 1, List.of(), Duration.ZERO, 4, 3, Duration.ofSeconds(1));
+    assertThat(fewer.replaced()).isZero();
   }
 
   private static Report report(Status... statuses) {

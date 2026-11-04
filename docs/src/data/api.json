@@ -1328,7 +1328,7 @@
               "name": "replaced",
               "anchor": "replaced",
               "signature": "int replaced()",
-              "doc": "Workers started again after one was killed for taking too long.",
+              "doc": "Workers started again after one was killed for taking too long: never fewer than none.",
               "params": [],
               "returns": "",
               "throws": []

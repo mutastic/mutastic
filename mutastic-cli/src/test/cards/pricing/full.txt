@@ -35,7 +35,7 @@
  Test runs  11 (27 without coverage selection)
   Start at  …
   Duration  … (setup …, coverage …, mutants …)
-     Tests  3 on JDK 17 · 4 workers
+     Tests  3 on JDK 17 · … workers
      Score  88.9%  = vs last run (same code)  threshold 80
 
  [PASS] 1 missed, above the threshold.

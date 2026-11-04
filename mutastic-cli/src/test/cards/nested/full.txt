@@ -128,7 +128,7 @@
  Test runs  23 (138 without coverage selection)
   Start at  …
   Duration  … (setup …, coverage …, mutants …)
-     Tests  6 on JDK 17 · 4 workers
+     Tests  6 on JDK 17 · … workers
      Score  70.8%  = vs last run (same code)  threshold 80  · 73.9% where tests reach
 
  [FAIL] Score below 80: 6 missed, 1 not covered.

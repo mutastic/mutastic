@@ -167,7 +167,9 @@ public final class Engine {
           plan.mutantRun().coverage().testCount(),
           pass.flaky(),
           pass.took(),
-          workers.size(),
+          // The workers that ran something: a run with fewer mutants to run than workers leaves
+          // some unstarted, and "4 workers (-1 replaced)" said so wrongly.
+          (int) Math.max(1, workers.stream().filter(worker -> worker.started() > 0).count()),
           workers.stream().mapToInt(TestWorker::started).sum(),
           Duration.ofNanos(System.nanoTime() - start),
           inOrderFound(plan.mutantRun().audited(), plan.mutants()),

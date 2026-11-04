@@ -103,9 +103,9 @@ public record Report(
         : mine.alsoCoveredBy(theirs.coveredBy());
   }
 
-  /// Workers started again after one was killed for taking too long.
+  /// Workers started again after one was killed for taking too long: never fewer than none.
   public int replaced() {
-    return started - workers;
+    return Math.max(0, started - workers);
   }
 
   public long count(Status status) {

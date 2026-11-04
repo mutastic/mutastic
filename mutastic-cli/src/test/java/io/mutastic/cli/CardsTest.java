@@ -30,6 +30,11 @@ class CardsTest {
   private static final Pattern TIMINGS =
       Pattern.compile("\\d+(\\.\\d+)?(ms|s)\\b|\\d\\d:\\d\\d:\\d\\d|Ms\":\\d+");
 
+  /// How many workers ran, and how many were replaced: how the machine ran it, not what the cards
+  /// say, and it differs from one machine to the next.
+  private static final Pattern WORKERS =
+      Pattern.compile("\\d+ workers?( \\(\\d+ replaced after a timeout\\))?");
+
   private static final Pattern MISSED = Pattern.compile("(?m)^\\d+\\. missed (?<id>m[0-9a-f]{8})");
 
   @TempDir Path work;
@@ -88,7 +93,12 @@ class CardsTest {
   private static void kept(String sample, String name, Path project, String output)
       throws Exception {
     var text =
-        TIMINGS.matcher(output.replace(project.toString(), "samples/" + sample)).replaceAll("…");
+        WORKERS
+            .matcher(
+                TIMINGS
+                    .matcher(output.replace(project.toString(), "samples/" + sample))
+                    .replaceAll("…"))
+            .replaceAll("… workers");
     var file = CARDS.resolve(sample).resolve(name);
     if (WRITE) {
       Files.createDirectories(file.getParent());
