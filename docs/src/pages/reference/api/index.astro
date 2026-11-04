@@ -1,0 +1,74 @@
+---
+// The API plugins are written against, as an index: each package, then each of its public types
+// with its first sentence. Written from api.json, the API's own doc comments as the doclet in
+// mutastic-api reads them (./gradlew :mutastic-api:exportApiModel), so it can't drift from them.
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import model from '../../../data/api.json';
+import { markdown } from '../../../lib/markdown';
+
+/** Where each package comes from, for a build file. */
+const artifacts: Record<string, string> = {
+  'io.mutastic.api': 'io.mutastic:mutastic-api',
+  'io.mutastic.annotations': 'io.mutastic:mutastic-annotations',
+};
+
+/** The API first: it's what a plugin is written against. */
+const packages = [...model.packages].sort((a, b) =>
+  a.name === 'io.mutastic.api' ? -1 : b.name === 'io.mutastic.api' ? 1 : a.name.localeCompare(b.name),
+);
+const headings = packages.map((pkg) => ({ depth: 2, slug: pkg.name.replace(/\./g, '-'), text: pkg.name }));
+/** Each package's comment and each type's first sentence, as HTML: links between the type pages
+ * go one level up, and this page is that level. */
+const html = new Map<string, string>();
+for (const pkg of packages) {
+  html.set(pkg.name, await markdown(pkg.doc));
+  for (const type of pkg.types) {
+    html.set(type.slug, await markdown(type.summary.replace(/\.\.\//g, ''), true));
+  }
+}
+---
+
+<StarlightPage
+  frontmatter={{
+    title: 'Plugin API',
+    description:
+      "The types a plugin is written against: operators, filters, build tools and the results they see, with the annotations a project puts in its code.",
+  }}
+  headings={headings}
+>
+  <p>
+    A <a href="../../guides/plugins/">plugin</a> is a jar built against these types. Depend on
+    them for compiling only: mutastic provides them when it loads the plugin. This reference is
+    written from the API's own doc comments.
+  </p>
+  {
+    packages.map((pkg) => (
+      <section>
+        <h2 id={pkg.name.replace(/\./g, '-')}>{pkg.name}</h2>
+        {artifacts[pkg.name] && (
+          <p>
+            In <code>{artifacts[pkg.name]}</code>.
+          </p>
+        )}
+        {pkg.doc && <Fragment set:html={html.get(pkg.name)} />}
+        <table>
+          <tbody>
+            {pkg.types.map((type) => (
+              <tr>
+                <th scope="row">
+                  <a href={`${type.slug}/`}>
+                    <code>{type.name}</code>
+                  </a>
+                </th>
+                <td>{type.kind}</td>
+                <td>
+                  <Fragment set:html={html.get(type.slug)} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    ))
+  }
+</StarlightPage>

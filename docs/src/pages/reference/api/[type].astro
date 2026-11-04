@@ -1,0 +1,135 @@
+---
+// One type of the API plugins are written against: its declaration, its comment, a record's
+// components, then its constants, constructors and methods, each with an anchor others link to.
+// Written from api.json, the API's own doc comments (./gradlew :mutastic-api:exportApiModel).
+import { Code } from '@astrojs/starlight/components';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import model from '../../../data/api.json';
+import { markdown } from '../../../lib/markdown';
+
+type Package = (typeof model.packages)[number];
+type Type = Package['types'][number];
+type Member = Type['members'][number];
+
+export function getStaticPaths() {
+  return model.packages.flatMap((pkg) =>
+    pkg.types.map((type) => ({ params: { type: type.slug }, props: { pkg: pkg.name, type } })),
+  );
+}
+
+const { pkg, type } = Astro.props as { pkg: string; type: Type };
+
+/** Constants first, as a reader looks for them, then constructors, then methods. */
+const groups: { title: string; slug: string; members: Member[] }[] = [
+  {
+    title: 'Constants',
+    slug: 'constants',
+    members: type.members.filter((m) => m.kind === 'enum constant' || m.kind === 'field'),
+  },
+  { title: 'Constructors', slug: 'constructors', members: type.members.filter((m) => m.kind === 'constructor') },
+  { title: 'Methods', slug: 'methods', members: type.members.filter((m) => m.kind === 'method') },
+].filter((group) => group.members.length > 0);
+
+/** Every comment on the page as HTML, rendered before the page is. */
+const html = new Map<string, string>();
+const render = async (key: string, text: string, inline = false) =>
+  html.set(key, text ? await markdown(text, inline) : '');
+await render('doc', type.doc);
+for (const param of type.params) await render(`param:${param.name}`, param.doc, true);
+for (const member of type.members) {
+  await render(member.anchor, member.doc);
+  await render(`returns:${member.anchor}`, member.returns, true);
+  for (const param of member.params) await render(`${member.anchor}:${param.name}`, param.doc, true);
+  for (const thrown of member.throws) await render(`${member.anchor}!${thrown.name}`, thrown.doc, true);
+}
+
+const headings = [
+  ...(type.params.length ? [{ depth: 2, slug: 'components', text: type.kind === 'record' ? 'Components' : 'Parameters' }] : []),
+  ...groups.flatMap((group) => [
+    { depth: 2, slug: group.slug, text: group.title },
+    ...group.members.map((member) => ({ depth: 3, slug: member.anchor, text: member.name })),
+  ]),
+];
+---
+
+<StarlightPage
+  frontmatter={{ title: type.name, description: type.summary.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') }}
+  headings={headings}
+>
+  <p class="api-where">
+    {type.kind} in <a href={`../#${pkg.replace(/\./g, '-')}`}><code>{pkg}</code></a>
+  </p>
+  <Code code={type.signature} lang="java" />
+  <Fragment set:html={html.get('doc')} />
+  {
+    type.params.length > 0 && (
+      <>
+        <h2 id="components">{type.kind === 'record' ? 'Components' : 'Parameters'}</h2>
+        <table>
+          <tbody>
+            {type.params.map((param) => (
+              <tr>
+                <th scope="row">
+                  <code>{param.name}</code>
+                </th>
+                <td>
+                  <Fragment set:html={html.get(`param:${param.name}`)} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    )
+  }
+  {
+    groups.map((group) => (
+      <>
+        <h2 id={group.slug}>{group.title}</h2>
+        {group.members.map((member) => (
+          <section class="api-member">
+            <h3 id={member.anchor}>
+              <code>{member.name}</code>
+            </h3>
+            <Code code={member.signature} lang="java" />
+            <Fragment set:html={html.get(member.anchor)} />
+            {(member.params.length > 0 || member.returns || member.throws.length > 0) && (
+              <table>
+                <tbody>
+                  {member.params.map((param) => (
+                    <tr>
+                      <th scope="row">
+                        <code>{param.name}</code>
+                      </th>
+                      <td>
+                        <Fragment set:html={html.get(`${member.anchor}:${param.name}`)} />
+                      </td>
+                    </tr>
+                  ))}
+                  {member.returns && (
+                    <tr>
+                      <th scope="row">Returns</th>
+                      <td>
+                        <Fragment set:html={html.get(`returns:${member.anchor}`)} />
+                      </td>
+                    </tr>
+                  )}
+                  {member.throws.map((thrown) => (
+                    <tr>
+                      <th scope="row">
+                        Throws <code>{thrown.name}</code>
+                      </th>
+                      <td>
+                        <Fragment set:html={html.get(`${member.anchor}!${thrown.name}`)} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+        ))}
+      </>
+    ))
+  }
+</StarlightPage>

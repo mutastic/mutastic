@@ -1,6 +1,8 @@
 // docs.mutastic.io. Guides and concepts are Markdown under src/content/docs; the command
 // reference is src/pages/reference, written from src/data/commands.json, which the CLI's own
 // declarations produce (./gradlew :mutastic-cli:exportDocsModel), so it can't drift from them.
+// The plugin API's, src/pages/reference/api, is written the same way from src/data/api.json, the
+// API's own doc comments (./gradlew :mutastic-api:exportApiModel).
 //
 // Every release's docs stay published. scripts/build-versions.mjs builds each from its own tag,
 // under its own path, and tells each build which it is through the environment:
@@ -104,6 +106,7 @@ export default defineConfig({
             { label: 'mutastic ignore', link: `${base}reference/ignore/` },
             { label: 'Environment and exit codes', link: `${base}reference/environment/` },
             'reference/reports',
+            { label: 'Plugin API', link: `${base}reference/api/` },
           ],
         },
         {

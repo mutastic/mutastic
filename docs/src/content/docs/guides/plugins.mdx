@@ -76,7 +76,7 @@ knowing that its mutants get new ids.
 ## Java plugins
 
 For an operator a rules file can't describe, write it in Java: implement
-[`io.mutastic.api.Mutator`](https://github.com/mutastic/mutastic/blob/main/mutastic-api/src/main/java/io/mutastic/api/Mutator.java),
+[`io.mutastic.api.Mutator`](/reference/api/mutator/),
 with the JDK's `java.lang.classfile` API, which mutastic is built on. This one makes every
 whole-number constant one more:
 
@@ -147,7 +147,7 @@ Labels are part of mutant ids, as a rules file's are: keep them once the operato
 ## Filters
 
 A jar can also hold filters, which decide that a method's mutants shouldn't run:
-[`io.mutastic.api.Filter`](https://github.com/mutastic/mutastic/blob/main/mutastic-api/src/main/java/io/mutastic/api/Filter.java),
+[`io.mutastic.api.Filter`](/reference/api/filter/),
 named in `META-INF/services/io.mutastic.api.Filter`. Unlike operators, a plugin's filters run only
 when `filters:` in `mutastic.yaml` names them: see [Configuration and
 skipping](/guides/configuration/).

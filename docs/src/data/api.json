@@ -1,0 +1,1733 @@
+{
+  "packages": [
+    {
+      "name": "io.mutastic.annotations",
+      "doc": "Annotations for code mutastic tests: [`DoNotMutate`](donotmutate/) to skip, [`DoMutate`](domutate/) to keep what would be\nskipped. Read from the class files, so they cost nothing at run time.",
+      "types": [
+        {
+          "name": "DoMutate",
+          "slug": "domutate",
+          "kind": "annotation",
+          "signature": "@interface DoMutate",
+          "summary": "mutastic mutates this method, or every method of this class, even where it would skip it as arid: a `toString()` that customers see, a getter that is a contract.",
+          "doc": "mutastic mutates this method, or every method of this class, even where it would skip it as\narid: a `toString()` that customers see, a getter that is a contract.",
+          "params": [],
+          "members": [
+            {
+              "kind": "method",
+              "name": "value",
+              "anchor": "value",
+              "signature": "String value()",
+              "doc": "Why it matters: for the reader.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "DoNotMutate",
+          "slug": "donotmutate",
+          "kind": "annotation",
+          "signature": "@interface DoNotMutate",
+          "summary": "mutastic skips the mutants in this method, or in every method of this class, and reports them as skipped with `value` as the reason: `@DoNotMutate(\"measured by the load tests\")`.",
+          "doc": "mutastic skips the mutants in this method, or in every method of this class, and reports them as\nskipped with `value` as the reason: `@DoNotMutate(\"measured by the load tests\")`.",
+          "params": [],
+          "members": [
+            {
+              "kind": "method",
+              "name": "value",
+              "anchor": "value",
+              "signature": "String value()",
+              "doc": "Why: shown with each skipped mutant.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "io.mutastic.api",
+      "doc": "",
+      "types": [
+        {
+          "name": "BuildTool",
+          "slug": "buildtool",
+          "kind": "interface",
+          "signature": "interface BuildTool",
+          "summary": "A build tool mutastic reads a project's setup from, found with `java.util.ServiceLoader`: each is asked in turn whether a directory is one of its builds.",
+          "doc": "A build tool mutastic reads a project's setup from, found with `java.util.ServiceLoader`: each\nis asked in turn whether a directory is one of its builds.",
+          "params": [],
+          "members": [
+            {
+              "kind": "method",
+              "name": "name",
+              "anchor": "name",
+              "signature": "String name()",
+              "doc": "`Gradle`: how messages name it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "buildFiles",
+              "anchor": "buildfiles",
+              "signature": "String buildFiles()",
+              "doc": "The files that make a directory one of its builds, as a person would look for them:\n`settings.gradle(.kts) or build.gradle(.kts)`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "recognises",
+              "anchor": "recognises",
+              "signature": "boolean recognises(Path directory)",
+              "doc": "Whether `directory` is one of its builds.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "workDirectory",
+              "anchor": "workdirectory",
+              "signature": "Path workDirectory(Path directory, String module)",
+              "doc": "Where a module keeps mutastic's run record, logs and reports, so each module keeps its own:\n`build/mutastic` for the build in `directory`, `build/mutastic/data` for `:data`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "dependents",
+              "anchor": "dependents",
+              "signature": "default List<String> dependents(Path directory, String module, Path workDirectory)",
+              "doc": "The modules whose tests can reach `module`'s code: the ones that depend on it, directly or\nthrough others, in the tool's own names for them (`:app`).",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "read",
+              "anchor": "read",
+              "signature": "Project read(Path directory, String module, Path workDirectory, String typed)",
+              "doc": "The module's code and tests, and how its build runs them.",
+              "params": [
+                {
+                  "name": "module",
+                  "doc": "`:` for the build in `directory`, else the module as the tool names it"
+                },
+                {
+                  "name": "typed",
+                  "doc": "the directory as the person would type it, for the commands a failure suggests"
+                }
+              ],
+              "returns": "",
+              "throws": [
+                {
+                  "name": "SetupFailed",
+                  "doc": "when the build can't be read, saying what to do instead"
+                }
+              ]
+            },
+            {
+              "kind": "field",
+              "name": "DEFAULT_SUITE",
+              "anchor": "default_suite",
+              "signature": "static String DEFAULT_SUITE",
+              "doc": "The test suite a run uses unless told otherwise: Gradle's `test` task, Maven's Surefire.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "read",
+              "anchor": "read-2",
+              "signature": "default Project read(BuildTool.Request request)",
+              "doc": "The module's code and the tests of one of its suites, and how its build runs them. A tool with\none suite has only [`DEFAULT_SUITE`](#default_suite).",
+              "params": [],
+              "returns": "",
+              "throws": [
+                {
+                  "name": "SetupFailed",
+                  "doc": "when the build has no such suite, saying which it has"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "read",
+              "anchor": "read-3",
+              "signature": "Project read(Path directory, String module, Path setup)",
+              "doc": "The module's code and tests from `setup`, a file in [`ProjectSetup`](../projectsetup/)'s format the build already\nwrote: for an entry point inside the build, such as a build plugin, which needn't run it\nagain. Named as [`read(Path, String, Path, String)`](#read) names it, so their runs compare.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "BuildTool.Request",
+          "slug": "buildtool-request",
+          "kind": "record",
+          "signature": "record Request(\n    Path directory,\n    String module,\n    Path workDirectory,\n    String typed,\n    String suite)",
+          "summary": "What to read: a module of the build in `directory`, and which of its test suites.",
+          "doc": "What to read: a module of the build in `directory`, and which of its test suites.",
+          "params": [
+            {
+              "name": "module",
+              "doc": "`:` for the build in `directory`, else the module as the tool names it"
+            },
+            {
+              "name": "typed",
+              "doc": "the directory as the person would type it, for the commands a failure suggests"
+            },
+            {
+              "name": "suite",
+              "doc": "a Gradle `Test` task by name, or Maven's `integration-test` (Failsafe); else [`DEFAULT_SUITE`](#default_suite)"
+            }
+          ],
+          "members": []
+        },
+        {
+          "name": "BuildTool.SetupFailed",
+          "slug": "buildtool-setupfailed",
+          "kind": "class",
+          "signature": "static class SetupFailed",
+          "summary": "The build couldn't be read: the message says what to do instead.",
+          "doc": "The build couldn't be read: the message says what to do instead.",
+          "params": [],
+          "members": [
+            {
+              "kind": "method",
+              "name": "noSuite",
+              "anchor": "nosuite",
+              "signature": "static Optional<BuildTool.SetupFailed> noSuite(Stream<String> log)",
+              "doc": "What a build says when it has no suite of that name, from its log: the line after `mutastic:\nno test suite `, if it said so.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "field",
+              "name": "ID_HINT",
+              "anchor": "id_hint",
+              "signature": "static final String ID_HINT",
+              "doc": "For someone who ran a command that names a mutant from somewhere else.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "SetupFailed",
+              "anchor": "setupfailed",
+              "signature": "SetupFailed(String message)",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "BuiltIn",
+          "slug": "builtin",
+          "kind": "enum",
+          "signature": "enum BuiltIn implements Operator",
+          "summary": "mutastic's own operators.",
+          "doc": "mutastic's own operators. How each finds its sites and rewrites them is the engine's.",
+          "params": [],
+          "members": [
+            {
+              "kind": "enum constant",
+              "name": "BOUNDARY",
+              "anchor": "boundary",
+              "signature": "BOUNDARY",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "NEGATE_CONDITIONAL",
+              "anchor": "negate_conditional",
+              "signature": "NEGATE_CONDITIONAL",
+              "doc": "In `stronger`, not `defaults`: a test that catches it can still leave both of\n[`REMOVE_CONDITIONAL`](#remove_conditional)'s mutants alive, and not the other way round, so in the defaults its\ncatches only add to the score. PIT made the same change in 1.7.2.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "MATH",
+              "anchor": "math",
+              "signature": "MATH",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "RETURN_DEFAULT",
+              "anchor": "return_default",
+              "signature": "RETURN_DEFAULT",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "REMOVE_VOID_CALL",
+              "anchor": "remove_void_call",
+              "signature": "REMOVE_VOID_CALL",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "REMOVE_CONDITIONAL",
+              "anchor": "remove_conditional",
+              "signature": "REMOVE_CONDITIONAL",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "ARITHMETIC_REPLACEMENT",
+              "anchor": "arithmetic_replacement",
+              "signature": "ARITHMETIC_REPLACEMENT",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "id",
+              "anchor": "id",
+              "signature": "String id()",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "explanation",
+              "anchor": "explanation",
+              "signature": "String explanation()",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "onCalls",
+              "anchor": "oncalls",
+              "signature": "boolean onCalls()",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "tier",
+              "anchor": "tier",
+              "signature": "Operator.Tier tier()",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "first",
+              "anchor": "first",
+              "signature": "boolean first()",
+              "doc": "One of the first five, whose mutants' ids were fixed before operators were open: their ids\nleave the operator out, and stay as they were. Every other operator's put it in.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "ChangedLines",
+          "slug": "changedlines",
+          "kind": "record",
+          "signature": "record ChangedLines(String since, Map<Path, Set<Integer>> lines)",
+          "summary": "The source lines a change touched, by file: what a run scoped to a change mutates.",
+          "doc": "The source lines a change touched, by file: what a run scoped to a change mutates. Lines only a\ndeletion touched aren't here, since there's no code left on them to mutate.",
+          "params": [
+            {
+              "name": "since",
+              "doc": "what the change is measured from, as given: `main`, `HEAD`"
+            },
+            {
+              "name": "lines",
+              "doc": "each changed source file, absolute, and its changed lines, from 1"
+            }
+          ],
+          "members": [
+            {
+              "kind": "method",
+              "name": "covers",
+              "anchor": "covers",
+              "signature": "boolean covers(Path file, int line)",
+              "doc": "Whether `line` of `file` (absolute) changed.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "within",
+              "anchor": "within",
+              "signature": "ChangedLines within(List<Path> roots)",
+              "doc": "Only the files under `roots`: one module's sources, of a change across a repository.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "files",
+              "anchor": "files",
+              "signature": "int files()",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "lineCount",
+              "anchor": "linecount",
+              "signature": "int lineCount()",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Comparison",
+          "slug": "comparison",
+          "kind": "record",
+          "signature": "record Comparison(\n    OptionalDouble previousScore,\n    boolean sameCode,\n    boolean sameTool,\n    List<Comparison.Flip> flips)",
+          "summary": "This run against the last one.",
+          "doc": "This run against the last one.\n\nWith the code and mutastic unchanged, a mutant is caught or missed the same way every time\nunless a test behaves differently between runs. So a mutant that was caught last run and is\nmissed now, or the other way round, points at the test that caught it: likely flaky. With either\nchanged, a flip is just the change at work.",
+          "params": [
+            {
+              "name": "previousScore",
+              "doc": "the last run's score; none when it had no mutants to score"
+            },
+            {
+              "name": "sameCode",
+              "doc": "whether the code and tests are byte for byte what the last run had"
+            },
+            {
+              "name": "sameTool",
+              "doc": "whether the same mutastic ran"
+            },
+            {
+              "name": "flips",
+              "doc": "mutants caught in one run and not the other"
+            }
+          ],
+          "members": [
+            {
+              "kind": "method",
+              "name": "sameness",
+              "anchor": "sameness",
+              "signature": "String sameness()",
+              "doc": "`same code`, `code changed` or `mutastic changed`: what explains a difference.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "likelyFlaky",
+              "anchor": "likelyflaky",
+              "signature": "Map<String, List<String>> likelyFlaky()",
+              "doc": "Each likely flaky test and the mutants whose results it changed: empty unless the code and\nmutastic are the same.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Comparison.Flip",
+          "slug": "comparison-flip",
+          "kind": "record",
+          "signature": "record Flip(\n    String id,\n    Status before,\n    Status after,\n    Optional<String> caughtBy)",
+          "summary": "A mutant caught in one run and not the other.",
+          "doc": "A mutant caught in one run and not the other.",
+          "params": [
+            {
+              "name": "caughtBy",
+              "doc": "the test that caught it, in whichever run it was caught; empty for a timeout"
+            }
+          ],
+          "members": []
+        },
+        {
+          "name": "CoveragePass",
+          "slug": "coveragepass",
+          "kind": "record",
+          "signature": "record CoveragePass(\n    int jdk,\n    int tests,\n    Duration took,\n    int mutants,\n    List<String> flaky)",
+          "summary": "What the coverage pass found, before any mutant runs.",
+          "doc": "What the coverage pass found, before any mutant runs.",
+          "params": [
+            {
+              "name": "jdk",
+              "doc": "the feature version the tests run on"
+            },
+            {
+              "name": "tests",
+              "doc": "how many tests ran"
+            },
+            {
+              "name": "took",
+              "doc": "how long the pass took"
+            },
+            {
+              "name": "mutants",
+              "doc": "how many will run (or be reported as skipped or not covered)"
+            },
+            {
+              "name": "flaky",
+              "doc": "tests left out because they failed and then passed"
+            }
+          ],
+          "members": []
+        },
+        {
+          "name": "Filter",
+          "slug": "filter",
+          "kind": "interface",
+          "signature": "interface Filter",
+          "summary": "Decides that a method's mutants shouldn't run, and says why.",
+          "doc": "Decides that a method's mutants shouldn't run, and says why. A filter acts only on positive\nevidence in the bytecode, never on a name alone: one that skips too much makes the score lie,\nand nobody can tell.",
+          "params": [],
+          "members": [
+            {
+              "kind": "method",
+              "name": "id",
+              "anchor": "id",
+              "signature": "String id()",
+              "doc": "`mutastic:trivial-accessors`: how configuration and audits name it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "prepare",
+              "anchor": "prepare",
+              "signature": "default void prepare(List<ClassModel> module)",
+              "doc": "Sees the whole module's classes once, before any [`skip`](#skip): a filter that judges a method by who\ncalls it needs them all.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "skip",
+              "anchor": "skip",
+              "signature": "Optional<Skip> skip(ClassModel owner, MethodModel method)",
+              "doc": "Why `method`'s mutants shouldn't run, if they shouldn't.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Ignore",
+          "slug": "ignore",
+          "kind": "record",
+          "signature": "record Ignore(\n    String id,\n    String code,\n    String reason,\n    String kind)",
+          "summary": "A mutant the project has decided not to test, by id, from `.mutastic/ignores.yaml`: written by `mutastic ignore`, committed, and reviewed like code.",
+          "doc": "A mutant the project has decided not to test, by id, from `.mutastic/ignores.yaml`: written by\n`mutastic ignore`, committed, and reviewed like code.",
+          "params": [
+            {
+              "name": "code",
+              "doc": "the source line the mutant was on, trimmed, when it was ignored: once the line changes, the decision no longer holds and the mutant runs again"
+            },
+            {
+              "name": "kind",
+              "doc": "what sort of decision it is, one of [`KINDS`](#kinds), or empty when it doesn't say"
+            }
+          ],
+          "members": [
+            {
+              "kind": "constructor",
+              "name": "Ignore",
+              "anchor": "ignore",
+              "signature": "Ignore(String id, String code, String reason)",
+              "doc": "A decision that doesn't say its sort.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "field",
+              "name": "KINDS",
+              "anchor": "kinds",
+              "signature": "static final List<String> KINDS",
+              "doc": "The sorts of decision: the change can't be told apart, its case can't happen in practice, it\nonly feeds logs or metrics, the code is on its way out, or the risk is accepted. Counted\napart, so what the ignores hide can be reviewed by sort.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "skipReason",
+              "anchor": "skipreason",
+              "signature": "String skipReason()",
+              "doc": "`user: unreachable: totals are rounded (ignored)`: the skip reason its mutant gets.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "holdsFor",
+              "anchor": "holdsfor",
+              "signature": "boolean holdsFor(String line)",
+              "doc": "Whether the decision still holds for the line as it is now.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Listener",
+          "slug": "listener",
+          "kind": "interface",
+          "signature": "interface Listener",
+          "summary": "Hears about a run as it happens, for progress and streamed output.",
+          "doc": "Hears about a run as it happens, for progress and streamed output.",
+          "params": [],
+          "members": [
+            {
+              "kind": "method",
+              "name": "coverageFinished",
+              "anchor": "coveragefinished",
+              "signature": "default void coverageFinished(CoveragePass pass)",
+              "doc": "The coverage pass is done, and the mutants are about to run.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "mutantFinished",
+              "anchor": "mutantfinished",
+              "signature": "void mutantFinished(MutantResult result)",
+              "doc": "One mutant's result, as soon as it's known.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "fileFinished",
+              "anchor": "filefinished",
+              "signature": "default void fileFinished(String topLevelClass, List<MutantResult> results)",
+              "doc": "Every mutant in one source file's classes has its result: a top-level class and the classes\nnested in it, in the order found. Comes after their `mutantFinished` calls.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Mutant",
+          "slug": "mutant",
+          "kind": "record",
+          "signature": "record Mutant(\n    String className,\n    String methodName,\n    String descriptor,\n    int ordinal,\n    int line,\n    Operator operator,\n    String original,\n    String replacement,\n    Optional<String> skipped,\n    List<Integer> copies,\n    List<String> operands)",
+          "summary": "One mutation of one instruction: which method, which mutation site in it (counted in bytecode order), and what the instruction becomes.",
+          "doc": "One mutation of one instruction: which method, which mutation site in it (counted in bytecode\norder), and what the instruction becomes. A skipped mutant never runs: the change can't be told\napart from the original, or it's code no test is meant to pin.",
+          "params": [
+            {
+              "name": "className",
+              "doc": "the class's internal name, `com/example/Pricing`"
+            },
+            {
+              "name": "ordinal",
+              "doc": "which site in the method, counted per kind of site: every arithmetic, branch and return instruction counts as an instruction site, and every call as a call site, whichever operators apply, so a new operator never shifts the ids of existing mutants"
+            },
+            {
+              "name": "original",
+              "doc": "the instruction: an opcode, `IF_ICMPLT`, or a call, `INVOKEVIRTUAL com/example/Audit.record(Ljava/lang/String;)V`"
+            },
+            {
+              "name": "replacement",
+              "doc": "what it becomes: `IF_ICMPLE`, `return default` or `remove call`"
+            },
+            {
+              "name": "skipped",
+              "doc": "why it doesn't run, `equivalent: already returns the default`, if it doesn't"
+            },
+            {
+              "name": "copies",
+              "doc": "more sites (of the same kind) that get the same change at the same time: the copies javac makes of a `finally` block, one per way out of the `try`"
+            },
+            {
+              "name": "operands",
+              "doc": "what the instruction works on, as the source names it (`total`, `100`), when the bytecode before it says; not part of the fingerprint"
+            }
+          ],
+          "members": [
+            {
+              "kind": "constructor",
+              "name": "Mutant",
+              "anchor": "mutant",
+              "signature": "Mutant(String className, String methodName, String descriptor, int ordinal, int line, Operator operator, String original, String replacement, Optional<String> skipped, List<Integer> copies)",
+              "doc": "A mutant whose operands aren't known.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "Mutant",
+              "anchor": "mutant-2",
+              "signature": "Mutant(String className, String methodName, String descriptor, int ordinal, int line, Operator operator, String original, String replacement, Optional<String> skipped)",
+              "doc": "A mutant of one site.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "skippedFor",
+              "anchor": "skippedfor",
+              "signature": "Mutant skippedFor(String reason)",
+              "doc": "The same mutant, skipped for `reason` (`user: …`).",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "unskipped",
+              "anchor": "unskipped",
+              "signature": "Mutant unskipped()",
+              "doc": "The same mutant, to run: for an audit of what a filter skips.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "changes",
+              "anchor": "changes",
+              "signature": "boolean changes(int site)",
+              "doc": "Whether the change is made at `site` (counted in this mutant's kind of site).",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "fingerprint",
+              "anchor": "fingerprint",
+              "signature": "String fingerprint()",
+              "doc": "Stable across runs and line moves: class, method, site and replacement, and the operator for\nall but the first five ([`BuiltIn#first`](../builtin/#first)), but no line number, because code moves during review\nfar more often than it changes. A `finally` block's copies share the first copy's fingerprint.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "id",
+              "anchor": "id",
+              "signature": "String id()",
+              "doc": "`m11989fc0`: what people type.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "binaryName",
+              "anchor": "binaryname",
+              "signature": "String binaryName()",
+              "doc": "`com.example.Pricing`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "MutantResult",
+          "slug": "mutantresult",
+          "kind": "record",
+          "signature": "record MutantResult(\n    Mutant mutant,\n    Status status,\n    List<String> coveredBy,\n    Optional<String> caughtBy,\n    Optional<String> failure,\n    Optional<String> failureOrigin,\n    int testsRun,\n    Optional<String> unconfirmed,\n    Map<String, List<Long>> inputs,\n    Optional<Suggestion> suggestion,\n    Duration took)",
+          "summary": "One mutant's outcome.",
+          "doc": "One mutant's outcome.",
+          "params": [
+            {
+              "name": "coveredBy",
+              "doc": "the tests that reach the mutant's line, fastest first"
+            },
+            {
+              "name": "caughtBy",
+              "doc": "the test that failed, if one did"
+            },
+            {
+              "name": "failure",
+              "doc": "what it failed with: the exception's class"
+            },
+            {
+              "name": "failureOrigin",
+              "doc": "where that came from: `assertion` (a check failed), `test` (the test's own code threw) or `code` (the code under test threw)"
+            },
+            {
+              "name": "testsRun",
+              "doc": "how many covering tests ran before the result was known"
+            },
+            {
+              "name": "unconfirmed",
+              "doc": "a test whose catch didn't repeat when run again, if catches were confirmed"
+            },
+            {
+              "name": "inputs",
+              "doc": "the whole numbers the covering tests passed to the mutant's method, by parameter name: what the tests tried, so what they didn't is plain"
+            },
+            {
+              "name": "suggestion",
+              "doc": "a call whose result the mutant changes, for a missed mutant, if one was found"
+            }
+          ],
+          "members": [
+            {
+              "kind": "method",
+              "name": "notCovered",
+              "anchor": "notcovered",
+              "signature": "static MutantResult notCovered(Mutant mutant)",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "skipped",
+              "anchor": "skipped",
+              "signature": "static MutantResult skipped(Mutant mutant)",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "alsoCoveredBy",
+              "anchor": "alsocoveredby",
+              "signature": "MutantResult alsoCoveredBy(List<String> tests)",
+              "doc": "The same result, reached by `tests` too: another run's, over the same mutant.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withSuggestion",
+              "anchor": "withsuggestion",
+              "signature": "MutantResult withSuggestion(Optional<Suggestion> found)",
+              "doc": "The same result with a suggested test.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Mutator",
+          "slug": "mutator",
+          "kind": "interface",
+          "signature": "non-sealed interface Mutator extends Operator",
+          "summary": "An operator a plugin adds, or a rules file describes: which instructions it changes, how, and what a missed mutant's card says.",
+          "doc": "An operator a plugin adds, or a rules file describes: which instructions it changes, how, and\nwhat a missed mutant's card says. Plugins provide theirs as a `java.util.ServiceLoader` service,\nin a jar `mutastic.yaml` lists under `plugins:`.\n\nEach mutant's id is made from its method, its site and its change's label, with the operator's\nid, so a change's label must never change once released. A call operator's sites are calls,\ncounted as the built-in call operators count them; any other operator's are every instruction in\nthe method, counted in order.",
+          "params": [],
+          "members": [
+            {
+              "kind": "method",
+              "name": "changes",
+              "anchor": "changes",
+              "signature": "List<Mutator.Change> changes(Mutator.Site site)",
+              "doc": "The changes this operator makes at `site`, each by its label; none when it doesn't apply.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "write",
+              "anchor": "write",
+              "signature": "void write(CodeBuilder builder, Instruction instruction, String label)",
+              "doc": "Writes `instruction` in its place, changed as `label` says. The stack afterwards must hold\nwhat the original left; a change that doesn't verify is skipped as unviable, never run.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "words",
+              "anchor": "words",
+              "signature": "Mutator.Words words(Mutant mutant)",
+              "doc": "What a missed mutant's card says.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "tier",
+              "anchor": "tier",
+              "signature": "default Operator.Tier tier()",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Mutator.Change",
+          "slug": "mutator-change",
+          "kind": "record",
+          "signature": "record Change(String label, Optional<String> skipped)",
+          "summary": "One change at a site.",
+          "doc": "One change at a site.",
+          "params": [
+            {
+              "name": "label",
+              "doc": "what the instruction becomes, short: `allMatch`, `stage removed`"
+            },
+            {
+              "name": "skipped",
+              "doc": "why it shouldn't run, if it shouldn't, kind first: `equivalent: …`"
+            }
+          ],
+          "members": [
+            {
+              "kind": "method",
+              "name": "of",
+              "anchor": "of",
+              "signature": "static Mutator.Change of(String label)",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Mutator.Site",
+          "slug": "mutator-site",
+          "kind": "record",
+          "signature": "record Site(\n    ClassModel owner,\n    MethodModel method,\n    List<CodeElement> code,\n    int index,\n    Instruction instruction)",
+          "summary": "One instruction, with the code around it.",
+          "doc": "One instruction, with the code around it.",
+          "params": [
+            {
+              "name": "index",
+              "doc": "where `instruction` is in `code`"
+            }
+          ],
+          "members": []
+        },
+        {
+          "name": "Mutator.Words",
+          "slug": "mutator-words",
+          "kind": "record",
+          "signature": "record Words(String changed, String headline, String help)",
+          "summary": "A missed mutant's card, in words.",
+          "doc": "A missed mutant's card, in words.",
+          "params": [
+            {
+              "name": "changed",
+              "doc": "what the source line now does: `stage removed`, `changed to allMatch`"
+            },
+            {
+              "name": "headline",
+              "doc": "the gap it shows: ``no test needs `.filter(…)` in total()``"
+            },
+            {
+              "name": "help",
+              "doc": "the test that would catch it"
+            }
+          ],
+          "members": []
+        },
+        {
+          "name": "Operator",
+          "slug": "operator",
+          "kind": "interface",
+          "signature": "sealed interface Operator",
+          "summary": "A kind of change mutastic makes: one of its own ([`BuiltIn`](../builtin/)), or one a plugin or rules file adds ([`Mutator`](../mutator/)).",
+          "doc": "A kind of change mutastic makes: one of its own ([`BuiltIn`](../builtin/)), or one a plugin or rules file adds\n([`Mutator`](../mutator/)). How each finds its sites and rewrites them is the engine's, or the mutator's own.\n\nOperators work on two kinds of site, counted apart: instructions (arithmetic, branches, returns)\nand calls. A new operator never shifts the ids of existing mutants.",
+          "params": [],
+          "members": [
+            {
+              "kind": "method",
+              "name": "id",
+              "anchor": "id",
+              "signature": "String id()",
+              "doc": "`mutastic/boundary`, `stream/remove-stage`: how reports, rules and `--operators` name it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "explanation",
+              "anchor": "explanation",
+              "signature": "String explanation()",
+              "doc": "What it changes, and when a test misses that, in plain words: for `mutastic explain`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "onCalls",
+              "anchor": "oncalls",
+              "signature": "boolean onCalls()",
+              "doc": "Whether it works on call sites rather than instruction sites.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "tier",
+              "anchor": "tier",
+              "signature": "Operator.Tier tier()",
+              "doc": "Which set of operators it's in: what runs unless `--operators` says otherwise.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Operator.Tier",
+          "slug": "operator-tier",
+          "kind": "enum",
+          "signature": "enum Tier",
+          "summary": "The sets operators come in.",
+          "doc": "The sets operators come in. A run takes `defaults` unless told otherwise; `stronger` adds the\noperators that find more but cost more, or need more care to read.",
+          "params": [],
+          "members": [
+            {
+              "kind": "enum constant",
+              "name": "DEFAULTS",
+              "anchor": "defaults",
+              "signature": "DEFAULTS",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "STRONGER",
+              "anchor": "stronger",
+              "signature": "STRONGER",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "word",
+              "anchor": "word",
+              "signature": "String word()",
+              "doc": "`defaults`, `stronger`: as `--operators` takes it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Policy",
+          "slug": "policy",
+          "kind": "record",
+          "signature": "record Policy(\n    List<Rule> rules,\n    List<Filter> filters,\n    List<Ignore> ignores,\n    List<String> operators,\n    List<Mutator> mutators)",
+          "summary": "A project's own say over which mutants run: the mutants it ignores by id (from `.mutastic/ignores.yaml`), and from `mutastic.yaml` its rules, then filters of its own (found in its plugins, run only when named), after the built-in ones; which operators run, and the operators its plugins and rules files add.",
+          "doc": "A project's own say over which mutants run: the mutants it ignores by id (from\n`.mutastic/ignores.yaml`), and from `mutastic.yaml` its rules, then filters of its own (found in\nits plugins, run only when named), after the built-in ones; which operators run, and the\noperators its plugins and rules files add.",
+          "params": [
+            {
+              "name": "operators",
+              "doc": "which operators run, as `--operators` or `operators:` says: sets (`defaults`, `stronger`), operator ids (`mutastic/arithmetic-replacement`) and their namespaces (`stream`), any with a `-` in front to leave it out; none means `defaults`"
+            },
+            {
+              "name": "mutators",
+              "doc": "the operators the project's plugins and rules files add"
+            }
+          ],
+          "members": [
+            {
+              "kind": "constructor",
+              "name": "Policy",
+              "anchor": "policy",
+              "signature": "Policy(List<Rule> rules, List<Filter> filters, List<Ignore> ignores)",
+              "doc": "Rules, filters and ignores, with the default operators.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "Policy",
+              "anchor": "policy-2",
+              "signature": "Policy(List<Rule> rules, List<Filter> filters)",
+              "doc": "Rules and filters, ignoring nothing.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "field",
+              "name": "NONE",
+              "anchor": "none",
+              "signature": "static final Policy NONE",
+              "doc": "No rules, no filters and no ignores of the project's own, and the default operators.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withIgnores",
+              "anchor": "withignores",
+              "signature": "Policy withIgnores(List<Ignore> found)",
+              "doc": "The same, with these ignores.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withOperators",
+              "anchor": "withoperators",
+              "signature": "Policy withOperators(List<String> chosen, List<Mutator> added)",
+              "doc": "The same, with these operators chosen and these added.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Project",
+          "slug": "project",
+          "kind": "record",
+          "signature": "record Project(\n    String name,\n    Path java,\n    List<String> jvmArgs,\n    Path workingDirectory,\n    List<Path> classes,\n    List<Path> resources,\n    List<Path> testClasses,\n    List<Path> testResources,\n    List<Path> sources,\n    List<Path> testSources,\n    List<Path> dependencies,\n    List<Path> alongside,\n    List<Path> outputs,\n    TestSelection tests,\n    Map<String, String> environment)",
+          "summary": "One module's code and tests, and how its build runs them: what a build-tool integration reads from the module's test task.",
+          "doc": "One module's code and tests, and how its build runs them: what a build-tool integration reads\nfrom the module's test task.",
+          "params": [
+            {
+              "name": "name",
+              "doc": "what reports call it, `pricing` or `app/api`"
+            },
+            {
+              "name": "java",
+              "doc": "the `java` the test task runs, so tests run on the project's own JDK"
+            },
+            {
+              "name": "jvmArgs",
+              "doc": "the test task's JVM arguments (`--enable-preview`, system properties)"
+            },
+            {
+              "name": "workingDirectory",
+              "doc": "where the test task runs, since tests read files by relative path"
+            },
+            {
+              "name": "classes",
+              "doc": "the main class directories: what gets mutated"
+            },
+            {
+              "name": "resources",
+              "doc": "the main resource directories"
+            },
+            {
+              "name": "testClasses",
+              "doc": "the test class directories"
+            },
+            {
+              "name": "testResources",
+              "doc": "the test resource directories"
+            },
+            {
+              "name": "sources",
+              "doc": "the main source directories, for showing code"
+            },
+            {
+              "name": "testSources",
+              "doc": "the test source directories, for writing suggested tests in their style"
+            },
+            {
+              "name": "dependencies",
+              "doc": "the rest of the test runtime classpath, which brings JUnit"
+            },
+            {
+              "name": "alongside",
+              "doc": "production classes loaded with the mutated ones but not mutated: another module's own code, when its tests run over this module's mutants"
+            },
+            {
+              "name": "outputs",
+              "doc": "what another module's classpath has of this one (its class directories, its jar), taken off that classpath when its tests run over this module's mutants"
+            },
+            {
+              "name": "tests",
+              "doc": "which tests the build runs"
+            },
+            {
+              "name": "environment",
+              "doc": "the environment variables the build sets for its tests, beyond its own"
+            }
+          ],
+          "members": [
+            {
+              "kind": "method",
+              "name": "withTests",
+              "anchor": "withtests",
+              "signature": "Project withTests(TestSelection chosen)",
+              "doc": "The same project, its tests chosen by `chosen`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "runningTestsOf",
+              "anchor": "runningtestsof",
+              "signature": "Project runningTestsOf(Project runner)",
+              "doc": "The project whose mutants are this one's, run by `runner`'s tests, as `runner`'s build runs\nthem: its JDK, JVM arguments, working directory, tests, environment and classpath, with this\nmodule's outputs taken off it and its own code loaded beside the mutated classes.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "ProjectSetup",
+          "slug": "projectsetup",
+          "kind": "class",
+          "signature": "class ProjectSetup",
+          "summary": "The setup file a build tool's own code writes from inside the build (Gradle's init script, Maven's extension): a properties file with what the module's tests run with.",
+          "doc": "The setup file a build tool's own code writes from inside the build (Gradle's init script,\nMaven's extension): a properties file with what the module's tests run with. One format, so\nevery build tool reads it the same way.\n\nKeys: `java`, `jvmArgs` (one per line), `workingDirectory`, and path lists joined with the\nplatform's separator: `classes`, `resources`, `testClasses`, `testResources`, `sources`,\n`testSources`, `dependencies` (the test runtime classpath without the module's own directories).\n`outputs`: what another module's classpath has of this one. Which tests run: `testIncludes` and\n`testExcludes` (one class-file pattern per line, see [`TestSelection`](../testselection/)), `includeTags` and\n`excludeTags` (one per line). `environment`: one `NAME=value` per line. Keys a build doesn't set\nare empty.",
+          "params": [],
+          "members": [
+            {
+              "kind": "method",
+              "name": "read",
+              "anchor": "read",
+              "signature": "static Project read(String name, Path file)",
+              "doc": "The project in `file`, named `name` in reports.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Report",
+          "slug": "report",
+          "kind": "record",
+          "signature": "record Report(\n    String project,\n    int jdk,\n    List<MutantResult> results,\n    int tests,\n    List<String> flaky,\n    Duration coverage,\n    int workers,\n    int started,\n    Duration took,\n    List<MutantResult> audited,\n    Optional<ChangedLines> scope,\n    List<Ignore> staleIgnores)",
+          "summary": "A finished run: every mutant's result, in the order they were found.",
+          "doc": "A finished run: every mutant's result, in the order they were found.",
+          "params": [
+            {
+              "name": "jdk",
+              "doc": "the feature version the tests ran on"
+            },
+            {
+              "name": "flaky",
+              "doc": "tests that failed in the coverage pass and passed when run again: left out of every mutant's run, so their catches don't count"
+            },
+            {
+              "name": "coverage",
+              "doc": "how long the coverage pass took, of `took`"
+            },
+            {
+              "name": "workers",
+              "doc": "how many workers ran side by side"
+            },
+            {
+              "name": "started",
+              "doc": "how many worker JVMs started: one per worker, plus one after each kill"
+            },
+            {
+              "name": "audited",
+              "doc": "in an audit of the arid filters, each arid mutant's result when run anyway; the mutant itself is in `results` as skipped, as in any run"
+            },
+            {
+              "name": "scope",
+              "doc": "the change the run was scoped to, when it was: only mutants on its lines ran"
+            },
+            {
+              "name": "staleIgnores",
+              "doc": "the ignores whose line has changed since: they no longer hold, and their mutants ran"
+            }
+          ],
+          "members": [
+            {
+              "kind": "constructor",
+              "name": "Report",
+              "anchor": "report",
+              "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took)",
+              "doc": "A run without an audit.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "merge",
+              "anchor": "merge",
+              "signature": "Report merge(Report other)",
+              "doc": "This run's results with `other`'s, a run of other tests (another module's) over the same\nmutants: a mutant is caught if either caught it, missed rather than not covered if either\nreached it, and covered by the tests of both.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "replaced",
+              "anchor": "replaced",
+              "signature": "int replaced()",
+              "doc": "Workers started again after one was killed for taking too long.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "count",
+              "anchor": "count",
+              "signature": "long count(Status status)",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "scored",
+              "anchor": "scored",
+              "signature": "long scored()",
+              "doc": "The mutants that ran or could have: all but the skipped ones.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "score",
+              "anchor": "score",
+              "signature": "OptionalDouble score()",
+              "doc": "Detected mutants as a share of the scored ones, from 0 to 100; none when nothing was scored,\nwhich is no evidence either way, not a perfect score.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "coveredScore",
+              "anchor": "coveredscore",
+              "signature": "OptionalDouble coveredScore()",
+              "doc": "Detected mutants as a share of those some test reached: how well the tests check the code they\nrun, apart from the code they don't. None when no test reached any; the threshold is still on\n[`score`](#score).",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "passes",
+              "anchor": "passes",
+              "signature": "boolean passes(int threshold)",
+              "doc": "At or above `threshold`, or nothing to score: with no mutants there is nothing to fail.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Rule",
+          "slug": "rule",
+          "kind": "record",
+          "signature": "record Rule(boolean mutate, String target, String reason)",
+          "summary": "A project's own decision, from `mutastic.yaml`: skip the mutants in some code, or mutate code a built-in filter would skip as arid, with the reason.",
+          "doc": "A project's own decision, from `mutastic.yaml`: skip the mutants in some code, or mutate code a\nbuilt-in filter would skip as arid, with the reason.",
+          "params": [
+            {
+              "name": "mutate",
+              "doc": "`mutate:`, else `skip:`"
+            },
+            {
+              "name": "target",
+              "doc": "a class or method pattern: `com.acme.generated.**` (any depth), `*` (one name), `com.acme.Money#toString` (one method)"
+            }
+          ],
+          "members": [
+            {
+              "kind": "method",
+              "name": "covers",
+              "anchor": "covers",
+              "signature": "boolean covers(String className, String method)",
+              "doc": "Whether the rule covers method `method` of class `className` (`com.acme.Money`).",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "written",
+              "anchor": "written",
+              "signature": "String written()",
+              "doc": "`skip: com.acme.generated.**`, as the rule was written.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Skip",
+          "slug": "skip",
+          "kind": "record",
+          "signature": "record Skip(Skip.Kind kind, String reason)",
+          "summary": "Why a mutant doesn't run.",
+          "doc": "Why a mutant doesn't run. Skipped mutants stay in the report with their reason and out of the\nscore.",
+          "params": [
+            {
+              "name": "reason",
+              "doc": "in words, after the kind: `trivial getter of name`"
+            }
+          ],
+          "members": [
+            {
+              "kind": "method",
+              "name": "toString",
+              "anchor": "tostring",
+              "signature": "String toString()",
+              "doc": "`arid: trivial getter of name`, as reports show it: the kind first, so it can be counted.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Skip.Kind",
+          "slug": "skip-kind",
+          "kind": "enum",
+          "signature": "enum Kind",
+          "summary": "What the skip claims: `GENERATED`, `EQUIVALENT` and `UNVIABLE` are facts about the bytecode (an unviable change wouldn't load); `ARID` is a judgement that the mutant isn't worth a test; `USER` is the project's own decision.",
+          "doc": "What the skip claims: `GENERATED`, `EQUIVALENT` and `UNVIABLE` are facts about the bytecode\n(an unviable change wouldn't load); `ARID` is a judgement that the mutant isn't worth a test;\n`USER` is the project's own decision.",
+          "params": [],
+          "members": [
+            {
+              "kind": "enum constant",
+              "name": "GENERATED",
+              "anchor": "generated",
+              "signature": "GENERATED",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "EQUIVALENT",
+              "anchor": "equivalent",
+              "signature": "EQUIVALENT",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "UNVIABLE",
+              "anchor": "unviable",
+              "signature": "UNVIABLE",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "ARID",
+              "anchor": "arid",
+              "signature": "ARID",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "USER",
+              "anchor": "user",
+              "signature": "USER",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Status",
+          "slug": "status",
+          "kind": "enum",
+          "signature": "enum Status",
+          "summary": "What happened to a mutant.",
+          "doc": "What happened to a mutant. Reports say \"caught\" and \"missed\"; the JSONL stream uses the\nmutation-testing report schema's names, so it folds into tools that read that schema.",
+          "params": [],
+          "members": [
+            {
+              "kind": "enum constant",
+              "name": "CAUGHT",
+              "anchor": "caught",
+              "signature": "CAUGHT",
+              "doc": "A test failed with the mutant in.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "MISSED",
+              "anchor": "missed",
+              "signature": "MISSED",
+              "doc": "Every test that reaches the mutant still passes: a gap in the tests.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "TIMED_OUT",
+              "anchor": "timed_out",
+              "signature": "TIMED_OUT",
+              "doc": "The tests didn't finish in time, usually a loop that no longer ends. Counts as caught.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "NOT_COVERED",
+              "anchor": "not_covered",
+              "signature": "NOT_COVERED",
+              "doc": "No test reaches the mutant's line.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "SKIPPED",
+              "anchor": "skipped",
+              "signature": "SKIPPED",
+              "doc": "Never run, for the reason on the mutant: left out of the score.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "schemaName",
+              "anchor": "schemaname",
+              "signature": "String schemaName()",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "detected",
+              "anchor": "detected",
+              "signature": "boolean detected()",
+              "doc": "Whether the tests noticed the change.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Suggestion",
+          "slug": "suggestion",
+          "kind": "record",
+          "signature": "record Suggestion(\n    String call,\n    List<String> parameters,\n    List<Long> inputs,\n    List<Suggestion.Instance> receiver,\n    String today,\n    String mutated)",
+          "summary": "A call that tells a missed mutant from the code today, found by running both: the test to write is an assertion of today's value.",
+          "doc": "A call that tells a missed mutant from the code today, found by running both: the test to write\nis an assertion of today's value. Today's value is what the code does, not necessarily what it\nshould, so the person checks it before keeping the test.",
+          "params": [
+            {
+              "name": "call",
+              "doc": "the call as Java source, `new Pricing().discount(100)`"
+            },
+            {
+              "name": "parameters",
+              "doc": "the method's parameter names, in order"
+            },
+            {
+              "name": "inputs",
+              "doc": "the arguments, one per parameter"
+            },
+            {
+              "name": "receiver",
+              "doc": "the instances made to call the method on, outermost first: the receiver, after the outer class's instance it's made in if it's an inner class; empty for a static method"
+            },
+            {
+              "name": "today",
+              "doc": "what the call returns today, as Java source: `10`, `true`, `\"text\"`, `throws java.lang.IllegalStateException`"
+            },
+            {
+              "name": "mutated",
+              "doc": "what it returns with the mutant in, the same way, or `doesn't return`"
+            }
+          ],
+          "members": [
+            {
+              "kind": "constructor",
+              "name": "Suggestion",
+              "anchor": "suggestion",
+              "signature": "Suggestion(String call, List<String> parameters, List<Long> inputs, String today, String mutated)",
+              "doc": "A call with no receiver arguments: a static method, or a no-argument constructor.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "receiverTakesArguments",
+              "anchor": "receivertakesarguments",
+              "signature": "boolean receiverTakesArguments()",
+              "doc": "Whether making the receiver takes any arguments.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "returnsValue",
+              "anchor": "returnsvalue",
+              "signature": "boolean returnsValue()",
+              "doc": "Whether today's result is a value (not an exception), which an assertion can pin.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Suggestion.Instance",
+          "slug": "suggestion-instance",
+          "kind": "record",
+          "signature": "record Instance(String type, List<Long> arguments)",
+          "summary": "An instance a suggestion makes: its class's simple name and constructor arguments, `Window` and `[5, 10]`.",
+          "doc": "An instance a suggestion makes: its class's simple name and constructor arguments, `Window`\nand `[5, 10]`.",
+          "params": [],
+          "members": []
+        },
+        {
+          "name": "TestSelection",
+          "slug": "testselection",
+          "kind": "record",
+          "signature": "record TestSelection(\n    List<String> includes,\n    List<String> excludes,\n    List<String> includeTags,\n    List<String> excludeTags)",
+          "summary": "Which of a module's tests its build runs: the test task's or Surefire's patterns and JUnit tags.",
+          "doc": "Which of a module's tests its build runs: the test task's or Surefire's patterns and JUnit tags.\nmutastic runs the same tests, so a test the build leaves out (an integration test, a slow tag)\nneither catches nor misses a mutant.",
+          "params": [
+            {
+              "name": "includes",
+              "doc": "class-file patterns, relative to a test class directory: globs as Ant writes them (`**/*Test.class`, where `**/` also matches no directory), or `regex:` and a regular expression; empty includes every class"
+            },
+            {
+              "name": "excludes",
+              "doc": "class-file patterns to leave out, in the same form"
+            },
+            {
+              "name": "includeTags",
+              "doc": "JUnit tags (or tag expressions) a test must have; empty means any"
+            },
+            {
+              "name": "excludeTags",
+              "doc": "JUnit tags (or tag expressions) a test must not have"
+            }
+          ],
+          "members": [
+            {
+              "kind": "field",
+              "name": "ALL",
+              "anchor": "all",
+              "signature": "static final TestSelection ALL",
+              "doc": "Every test, as when a build says nothing.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "leavingOut",
+              "anchor": "leavingout",
+              "signature": "TestSelection leavingOut(List<String> classes)",
+              "doc": "The same, leaving out these test classes as well: each by its name (`RacyTest`, in any\npackage) or its full name (`com.example.RacyTest`).",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "runs",
+              "anchor": "runs",
+              "signature": "boolean runs(String className)",
+              "doc": "Whether the build runs the top-level test class `className` (`com.example.PricingTest`).",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
