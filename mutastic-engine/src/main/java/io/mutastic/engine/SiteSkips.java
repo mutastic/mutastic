@@ -7,6 +7,7 @@ import java.lang.classfile.Instruction;
 import java.lang.classfile.Label;
 import java.lang.classfile.Opcode;
 import java.lang.classfile.instruction.BranchInstruction;
+import java.lang.classfile.instruction.ConstantInstruction;
 import java.lang.classfile.instruction.ConvertInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.LabelTarget;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /// Mutants judged by the code right around their instruction, on positive evidence in the bytecode:
 ///
@@ -23,8 +25,8 @@ import java.util.Set;
 ///   ArrayList<>(n * 2)`) or sets how long to wait (`Thread.sleep(seconds * 1000)`), and a removed
 ///   call that only waits. What a test sees doesn't change, only how fast it runs.
 /// - **equivalent:** a boundary where both sides give the same value at the edge: `if (x > max) max
-///   = x;` stores the value `max` already holds when they're equal, and `a < b ? a : b` gives
-///   either, as they're the same.
+///   = x;` stores the value `max` already holds when they're equal, `a < b ? a : b` gives either,
+///   as they're the same, and so do `x < 10 ? 10 : x` and `if (x < 2) x = 2;`.
 final class SiteSkips {
   /// Classes whose `int` constructor argument is only the capacity to start with.
   private static final Set<String> SIZED =
@@ -103,19 +105,78 @@ final class SiteSkips {
     return Optional.of(first);
   }
 
-  /// `load a; load b; if a ? b goto L; ...` where both ways leave the same value when `a == b`: the
-  /// body stores one into the other's slot and ends at `L`, or the two branches load one each and
-  /// meet.
+  /// `if a ? b goto L; ...` where both ways leave the same value when `a == b`: the body stores one
+  /// into the other's slot and ends at `L`, or the two branches give one each and meet. `a` and `b`
+  /// are `int` or `long` locals, or one of them a constant: `x < 10 ? 10 : x`, `if (x < 2) x = 2;`
+  /// (`x < 0 ? 0 : x` compares with zero, `IFLT`, and a `long` goes through `LCMP` first). Not
+  /// `float` or `double`, where `-0.0` and `0.0` compare equal but aren't the same value.
   private static boolean sameValueAtTheEdge(List<CodeElement> code, int at) {
-    if (!(code.get(at) instanceof BranchInstruction branch) || !comparesTwoInts(branch)) {
+    if (!(code.get(at) instanceof BranchInstruction branch)) {
       return false;
     }
-    var compared = loadsBefore(code, at);
-    if (compared.size() != 2) {
+    var compared = comparedBefore(code, at, branch);
+    if (compared.size() != 2 || compared.get(0).equals(compared.get(1))) {
       return false;
     }
     return storesOneIntoTheOther(code, at, branch.target(), compared)
         || picksOneOrTheOther(code, at, branch.target(), compared);
+  }
+
+  /// What the jump compares, as [#value]s: two ints (`IF_ICMPLT`), an int with zero (`IFLT`), or
+  /// two longs (`LCMP; IFLT`). Empty if it isn't one of those, or something else jumps in between.
+  private static List<String> comparedBefore(
+      List<CodeElement> code, int at, BranchInstruction branch) {
+    var opcode = branch.opcode();
+    if (comparesTwoInts(branch)) {
+      return values(ImpliedOr.instructionsBefore(code, at, 2));
+    }
+    if (!isEdge(opcode)) {
+      return List.of();
+    }
+    var before = ImpliedOr.instructionsBefore(code, at, 3);
+    if (before.size() == 3 && before.get(2).opcode() == Opcode.LCMP) {
+      return values(before.subList(0, 2));
+    }
+    return !before.isEmpty()
+            && before.getLast() instanceof LoadInstruction load
+            && load.opcode().name().startsWith("ILOAD")
+        ? List.of(value(load), "constant 0")
+        : List.of();
+  }
+
+  private static boolean isEdge(Opcode opcode) {
+    return opcode == Opcode.IFLT
+        || opcode == Opcode.IFLE
+        || opcode == Opcode.IFGT
+        || opcode == Opcode.IFGE;
+  }
+
+  /// Each instruction's [#value], or nothing if one isn't a value.
+  private static List<String> values(List<Instruction> instructions) {
+    var found = new ArrayList<String>();
+    for (var instruction : instructions) {
+      var value = value(instruction);
+      if (value == null) {
+        return List.of();
+      }
+      found.add(value);
+    }
+    return found;
+  }
+
+  /// What an instruction puts on the stack, said so two can be compared: `slot 3` for a load of an
+  /// `int` or `long` local, `constant 10` for a constant; null for anything else.
+  private static @Nullable String value(CodeElement element) {
+    if (element instanceof LoadInstruction load
+        && (load.opcode().name().startsWith("ILOAD") || load.opcode().name().startsWith("LLOAD"))) {
+      return "slot " + load.slot();
+    }
+    if (element instanceof ConstantInstruction constant
+        && (constant.constantValue() instanceof Integer
+            || constant.constantValue() instanceof Long)) {
+      return "constant " + ((Number) constant.constantValue()).longValue();
+    }
+    return null;
   }
 
   private static boolean comparesTwoInts(BranchInstruction branch) {
@@ -125,46 +186,34 @@ final class SiteSkips {
     };
   }
 
-  /// The slots of the two `int` loads just before `code[at]`, with no label between: nothing else
-  /// jumps in. Empty if it isn't that.
-  private static List<Integer> loadsBefore(List<CodeElement> code, int at) {
-    var slots = new ArrayList<Integer>();
-    for (int index = at - 1; index >= 0 && slots.size() < 2; index--) {
-      var element = code.get(index);
-      if (element instanceof LoadInstruction load && load.opcode().name().startsWith("ILOAD")) {
-        slots.addFirst(load.slot());
-      } else if (element instanceof Instruction || element instanceof LabelTarget) {
-        return List.of();
-      }
-    }
-    return slots;
-  }
-
-  /// `if (x > max) max = x;`: `load one; store the other; target:`.
+  /// `if (x > max) max = x;`, `if (x < 2) x = 2;`: `push one; store the other; target:`.
   private static boolean storesOneIntoTheOther(
-      List<CodeElement> code, int at, Label target, List<Integer> compared) {
+      List<CodeElement> code, int at, Label target, List<String> compared) {
     var next = significantAfter(code, at, 3);
     return next.size() == 3
-        && next.get(0) instanceof LoadInstruction load
         && next.get(1) instanceof StoreInstruction store
         && next.get(2) instanceof LabelTarget end
         && end.label().equals(target)
-        && compared.contains(load.slot())
-        && compared.contains(store.slot())
-        && load.slot() != store.slot();
+        && bothOf(compared, value(next.get(0)), "slot " + store.slot());
   }
 
-  /// `a < b ? a : b`: `load one; goto END; target: load the other; END:`.
+  /// `a < b ? a : b`, `x < 10 ? 10 : x`: `push one; goto END; target: push the other; END:`.
   private static boolean picksOneOrTheOther(
-      List<CodeElement> code, int at, Label target, List<Integer> compared) {
+      List<CodeElement> code, int at, Label target, List<String> compared) {
     var next = significantAfter(code, at, 5);
     return next.size() == 5
-        && next.get(0) instanceof LoadInstruction first
-        && next.get(3) instanceof LoadInstruction second
         && armsMeet(next, target)
-        && compared.contains(first.slot())
-        && compared.contains(second.slot())
-        && first.slot() != second.slot();
+        && bothOf(compared, value(next.get(0)), value(next.get(3)));
+  }
+
+  /// Whether `one` and `other` are the two compared values, either way round.
+  private static boolean bothOf(
+      List<String> compared, @Nullable String one, @Nullable String other) {
+    return one != null
+        && other != null
+        && !one.equals(other)
+        && compared.contains(one)
+        && compared.contains(other);
   }
 
   /// `goto END; target: …; END:`: the first arm jumps past the second, which starts at `target`.

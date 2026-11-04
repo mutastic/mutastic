@@ -50,6 +50,8 @@ class CardTruthTest {
   private static final Pattern CONSTANT =
       Pattern.compile("static final int (?<name>[A-Z_]+) = (?<value>-?\\d+);");
 
+  private static final Pattern LONG_LITERAL = Pattern.compile("\\b(\\d+)[lL]\\b");
+
   private static final Pattern LITERAL = Pattern.compile("\\b(?:true|false)\\b");
   private static final Pattern REVERSED = Pattern.compile("with `(?<condition>[^`]+)` reversed");
 
@@ -179,6 +181,12 @@ class CardTruthTest {
                 "impliedComparison", BuiltIn.REMOVE_CONDITIONAL, "never jump"),
             org.assertj.core.groups.Tuple.tuple(
                 "impliedComparison", BuiltIn.BOUNDARY, "IF_ICMPGE"));
+    assertThat(equivalent)
+        .as("the edges where both sides give the same value")
+        .filteredOn(mutant -> mutant.skipped().get().contains("same value at the edge"))
+        .extracting(Mutant::methodName)
+        .contains("clampLow", "clampZero", "clampLong", "raiseTo")
+        .doesNotContain("notAClamp", "clampToSomethingElse");
     assertThat(failures).as("mutants skipped as equivalent that aren't").isEmpty();
   }
 
@@ -283,8 +291,8 @@ class CardTruthTest {
   }
 
   /// `static final int EDGE = 3;` and each use of `EDGE` as `3`, as javac inlines it and a card
-  /// quotes it: the same code, so a claim about `a > 3` can be found and written in. Line numbers
-  /// stay as they were.
+  /// quotes it, and `1L` as `1`: the same code, so a claim about `a > 3` can be found and written
+  /// in. Line numbers stay as they were.
   private static String withConstantsAsValues(String text) {
     var constants = CONSTANT.matcher(text);
     var resolved = text;
@@ -292,7 +300,9 @@ class CardTruthTest {
       var use = Pattern.compile("(?<![\\w.])" + constants.group("name") + "(?![\\w(])(?! = )");
       resolved = use.matcher(resolved).replaceAll(constants.group("value"));
     }
-    return resolved;
+    // `1L` is a long `1` in the bytecode, as a widened int `1` is: a card can't tell which the
+    // source wrote, and quotes `1`. The same code either way.
+    return LONG_LITERAL.matcher(resolved).replaceAll("$1");
   }
 
   /// Where `words` is in `text`, if it's there exactly once.

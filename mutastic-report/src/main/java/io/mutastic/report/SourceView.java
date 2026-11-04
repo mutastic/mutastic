@@ -301,12 +301,28 @@ public final class SourceView {
                 .flatMap(_ -> replacedOnce(text, " " + before + " ", " " + after + " ")));
   }
 
-  /// `text` with `found` replaced, when it's there exactly once.
+  private static boolean startsAWord(char c) {
+    return Character.isLetterOrDigit(c) || c == '_' || c == '.';
+  }
+
+  /// `text` with `found` replaced, when it's there exactly once as whole words: not run on into a
+  /// name, a literal's suffix or a member (`1` in `1L`, `day` in `days`, `a` in `a.b`).
   private static Optional<String> replacedOnce(String text, String found, String replacement) {
-    int at = text.indexOf(found);
-    return at >= 0 && at == text.lastIndexOf(found)
-        ? Optional.of(text.replace(found, replacement))
-        : Optional.empty();
+    // A boundary only where `found` itself starts or ends with part of a word: ` > ` is its own.
+    var whole =
+        java.util.regex.Pattern.compile(
+            (startsAWord(found.charAt(0)) ? "(?<![\\w.])" : "")
+                + java.util.regex.Pattern.quote(found)
+                + (startsAWord(found.charAt(found.length() - 1)) ? "(?![\\w.])" : ""));
+    var at = whole.matcher(text);
+    if (!at.find()) {
+      return Optional.empty();
+    }
+    int start = at.start();
+    return at.find()
+        ? Optional.empty()
+        : Optional.of(
+            text.substring(0, start) + replacement + text.substring(start + found.length()));
   }
 
   /// `return balance > 0;` → `return true;`: the condition as the source writes it, once on the
@@ -316,11 +332,8 @@ public final class SourceView {
     if (!always.matches()) {
       return Optional.empty();
     }
-    var condition = always.group("condition");
-    int at = text.indexOf(condition);
-    return at >= 0 && at == text.lastIndexOf(condition)
-        ? Optional.of(text.replace(condition, always.group("value")))
-        : Optional.empty();
+    // Whole words: `wide < 1` is in `wide < 1L`, and replacing it there would leave `falseL`.
+    return replacedOnce(text, always.group("condition"), always.group("value"));
   }
 
   private Optional<Path> sourceFile(Mutant mutant) {

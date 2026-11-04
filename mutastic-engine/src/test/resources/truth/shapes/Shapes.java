@@ -264,6 +264,35 @@ public final class Shapes {
     return 2;
   }
 
+  static int clampLow(int a, int b) {
+    return a < 3 ? 3 : a;
+  }
+
+  static int clampZero(int a, int b) {
+    return a < 0 ? 0 : a;
+  }
+
+  static int clampLong(int a, int b) {
+    long wide = a;
+    return (int) (wide < 1L ? 1L : wide);
+  }
+
+  static int raiseTo(int a, int b) {
+    int x = a;
+    if (x < 2) {
+      x = 2;
+    }
+    return x + b;
+  }
+
+  static int notAClamp(int a, int b) {
+    return a < 3 ? 4 : a;
+  }
+
+  static int clampToSomethingElse(int a, int b) {
+    return a > 2 ? 2 : a + b;
+  }
+
   static int switchGuard(int a, int b) {
     Object boxed = a;
     return switch (boxed) {
