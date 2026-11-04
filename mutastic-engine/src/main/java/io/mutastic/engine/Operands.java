@@ -75,7 +75,15 @@ final class Operands {
   private final List<Instruction> recent = new ArrayList<>();
   private int position;
 
+  /// The class the code is in, as `com/example/Rates`: its own statics, the source names bare.
+  private final String self;
+
   Operands(CodeModel code) {
+    self =
+        code.parent()
+            .flatMap(java.lang.classfile.MethodModel::parent)
+            .map(owner -> owner.thisClass().asInternalName())
+            .orElse("");
     code.findAttribute(Attributes.localVariableTable())
         .ifPresent(
             table -> {
@@ -138,7 +146,8 @@ final class Operands {
       case BranchInstruction _ when afterCompare -> 2;
       // `start == null`: the value, then `null` as a comparison with zero has `0`.
       case BranchInstruction branch when isNullCheck(branch) -> 1;
-      case BranchInstruction branch when branch.opcode().name().startsWith("IF_ACMP") -> 0;
+      // `operator != BuiltIn.BOUNDARY`: two references, compared as objects.
+      case BranchInstruction branch when branch.opcode().name().startsWith("IF_ACMP") -> 2;
       case BranchInstruction branch when branch.opcode() == Opcode.GOTO -> 0;
       case BranchInstruction _ -> 1; // compares with zero
       case OperatorInstruction _ -> 2;
@@ -158,6 +167,8 @@ final class Operands {
       case ConvertInstruction _ -> endingAt(before, end - 1);
       case FieldInstruction field when field.opcode() == Opcode.GETFIELD ->
           field(before, end, field);
+      case FieldInstruction field when field.opcode() == Opcode.GETSTATIC ->
+          staticField(field, end - 1);
       // `start <= day` with an `Integer start`: javac unboxes with `intValue()`. Still `start`.
       case InvokeInstruction call when isUnboxing(call) -> unboxed(before, end, call);
       case InvokeInstruction call -> call(before, end, call);
@@ -250,7 +261,7 @@ final class Operands {
     }
     var list = "(" + String.join(", ", arguments) + ")";
     if (call.opcode() == Opcode.INVOKESTATIC) {
-      return new Operand(call.owner().asSymbol().displayName() + "." + name + list, at, predicate);
+      return new Operand(owned(call.owner()) + name + list, at, predicate);
     }
     var receiver = endingAt(before, at);
     // A local with no name is javac's own, like a for-each loop's iterator: leave it out.
@@ -272,6 +283,19 @@ final class Operands {
 
   private static String literal(Object value) {
     return value instanceof String text ? "\"" + text + "\"" : String.valueOf(value);
+  }
+
+  /// `BuiltIn.BOUNDARY`, `limit`: a static field, as a static call is named.
+  private Operand staticField(FieldInstruction field, int start) {
+    return new Operand(
+        owned(field.owner()) + field.name().stringValue(),
+        start,
+        field.typeSymbol().descriptorString().equals("Z"));
+  }
+
+  /// `Rates.` before a static of another class; nothing before one of this class's own.
+  private String owned(java.lang.classfile.constantpool.ClassEntry owner) {
+    return owner.asInternalName().equals(self) ? "" : owner.asSymbol().displayName() + ".";
   }
 
   private static boolean isNullCheck(Instruction instruction) {

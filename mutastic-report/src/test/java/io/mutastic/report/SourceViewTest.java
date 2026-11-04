@@ -119,7 +119,11 @@ class SourceViewTest {
     assertThat(sources.advice(second).change()).isEqualTo("`<` becomes `<=`");
     assertThat(sources.place(first))
         .isEqualTo(new SourceView.Place(26, 5, 32)); // `<` occurs twice: the statement
-    assertThat(sources.mutatedLine(first, sources.advice(first))).isEmpty(); // so no rewrite either
+    // The operands say which `<` each is, so each line is rewritten where its own comparison is.
+    assertThat(sources.mutatedLine(first, sources.advice(first)))
+        .hasValue("if (c0 <= 0 || length < 2) {");
+    assertThat(sources.mutatedLine(second, sources.advice(second)))
+        .hasValue("if (c0 < 0 || length <= 2) {");
   }
 
   private static Mutant boundary(String method, int line, String original, String replacement) {

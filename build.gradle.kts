@@ -113,6 +113,8 @@ subprojects {
     configure<com.diffplug.gradle.spotless.SpotlessExtension> {
         java {
             target("src/**/*.java")
+            // The cards' truth check compiles these as written: their layout is what's tested.
+            targetExclude("src/test/resources/truth/**")
             googleJavaFormat("1.36.1") // 1.35 turns a wrapped `///` comment into a dangling `//`
             removeUnusedImports()
             trimTrailingWhitespace()

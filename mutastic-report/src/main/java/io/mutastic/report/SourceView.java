@@ -267,11 +267,7 @@ public final class SourceView {
         .flatMap(
             text -> {
               if (advice.before().isPresent() && advice.after().isPresent()) {
-                var before = " " + advice.before().get() + " ";
-                int at = text.indexOf(before);
-                return at >= 0 && at == text.lastIndexOf(before)
-                    ? Optional.of(text.replace(before, " " + advice.after().get() + " "))
-                    : Optional.empty();
+                return operatorChanged(mutant, advice, text);
               }
               if (mutant.operator() == BuiltIn.REMOVE_CONDITIONAL) {
                 return conditionReplaced(text, advice);
@@ -282,6 +278,34 @@ public final class SourceView {
                       && text.indexOf("return ", 1) < 0;
               return advice.after().filter(after -> singleReturn && after.startsWith("return "));
             });
+  }
+
+  /// The line with the comparison changed: `b > 1` found once on it, from the operands, so a
+  /// condition split over lines changes where the mutant is, not whichever `>` javac's line has.
+  /// Without the operands, only an operator the whole statement has once.
+  private Optional<String> operatorChanged(Mutant mutant, Advice advice, String text) {
+    var operands = mutant.operands();
+    var before = advice.before().orElseThrow();
+    var after = advice.after().orElseThrow();
+    if (operands.size() == 2) {
+      var left = operands.get(0);
+      var right = operands.get(1);
+      return replacedOnce(
+          text,
+          "%s %s %s".formatted(left, before, right),
+          "%s %s %s".formatted(left, after, right));
+    }
+    var statement = String.join("\n", statement(mutant));
+    return replacedOnce(statement, " " + before + " ", " " + after + " ")
+        .flatMap(_ -> replacedOnce(text, " " + before + " ", " " + after + " "));
+  }
+
+  /// `text` with `found` replaced, when it's there exactly once.
+  private static Optional<String> replacedOnce(String text, String found, String replacement) {
+    int at = text.indexOf(found);
+    return at >= 0 && at == text.lastIndexOf(found)
+        ? Optional.of(text.replace(found, replacement))
+        : Optional.empty();
   }
 
   /// `return balance > 0;` → `return true;`: the condition as the source writes it, once on the

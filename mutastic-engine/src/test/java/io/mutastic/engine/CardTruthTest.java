@@ -36,6 +36,9 @@ class CardTruthTest {
   private static final Path FIXTURE = Path.of("src/test/resources/truth");
   private static final String CLASS = "shapes.Shapes";
 
+  /// Another class, whose static a condition reads.
+  private static final Path OTHER = FIXTURE.resolve("shapes/Other.java");
+
   /// The predicates the conditions call: not conditions of their own.
   private static final Set<String> HELPERS = Set.of("even", "small");
 
@@ -44,22 +47,21 @@ class CardTruthTest {
 
   private static final Pattern ALWAYS =
       Pattern.compile("`(?<condition>[^`]+)` is always (?<value>true|false)");
+  private static final Pattern LITERAL = Pattern.compile("\\b(?:true|false)\\b");
   private static final Pattern REVERSED = Pattern.compile("with `(?<condition>[^`]+)` reversed");
-
-  /// `Shapes.even(a)`, as the operands name a call, is `even(a)` in the source.
-  private static final Pattern OWNER = Pattern.compile("\\b[A-Z]\\w*\\.(?=\\w+\\()");
 
   private static final int LOW = -4;
   private static final int HIGH = 5;
 
   @TempDir Path temp;
 
-  /// One mutant's card, and the source that says what the card says it does.
-  private record Claim(Mutant mutant, Advice advice, String variant, String source) {}
+  /// One mutant's card, and the source that says what one of its claims says it does: what happens
+  /// to the condition, or the changed line the card shows.
+  private record Claim(Mutant mutant, Advice advice, String variant, String source, String what) {}
 
   @Test
   void everyConditionsCardSaysWhatItsMutantDoes() throws Exception {
-    var original = compile(List.of(FIXTURE.resolve("shapes/Shapes.java")), "original");
+    var original = compile(List.of(FIXTURE.resolve("shapes/Shapes.java"), OTHER), "original");
     var bytes = Files.readAllBytes(original.resolve("shapes/Shapes.class"));
     var model = ClassFile.of().parse(bytes);
     var mutations =
@@ -82,9 +84,20 @@ class CardTruthTest {
       var variant = "Shapes" + claims.size();
       claim(text, mutant, advice, variant)
           .ifPresentOrElse(
-              source -> claims.add(new Claim(mutant, advice, variant, source)),
+              source -> claims.add(new Claim(mutant, advice, variant, source, "its words")),
               () ->
                   failures.add(describe(mutant, advice) + "\n  its condition isn't in the source"));
+      var shown = sources.mutatedLine(mutant, advice);
+      if (shown.isPresent()) {
+        var lineVariant = "Shapes" + claims.size();
+        claims.add(
+            new Claim(
+                mutant,
+                advice,
+                lineVariant,
+                withLine(text, mutant.line(), shown.get(), lineVariant),
+                "its changed line, `" + shown.get() + "`"));
+      }
     }
 
     var variants = temp.resolve("variants/shapes");
@@ -92,21 +105,24 @@ class CardTruthTest {
     for (var claim : claims) {
       Files.writeString(variants.resolve(claim.variant() + ".java"), claim.source());
     }
-    var claimed =
-        compile(
-            claims.stream().map(claim -> variants.resolve(claim.variant() + ".java")).toList(),
-            "claimed");
+    // With the fixture itself, and the other class whose static a condition reads.
+    var files = new ArrayList<Path>(List.of(FIXTURE.resolve("shapes/Shapes.java"), OTHER));
+    claims.forEach(claim -> files.add(variants.resolve(claim.variant() + ".java")));
+    var claimed = compile(files, "claimed");
 
     try (var loader = new URLClassLoader(new java.net.URL[] {claimed.toUri().toURL()})) {
       for (var claim : claims) {
         var said = loader.loadClass("shapes." + claim.variant());
-        var mutated = new OneClass(CLASS, mutations.apply(model, claim.mutant())).loadClass(CLASS);
+        var mutated =
+            new OneClass(CLASS, mutations.apply(model, claim.mutant()), original).loadClass(CLASS);
         differs(claim.mutant().methodName(), said, mutated)
             .ifPresent(
                 input ->
                     failures.add(
                         describe(claim.mutant(), claim.advice())
-                            + "\n  but at "
+                            + "\n  "
+                            + claim.what()
+                            + ": but at "
                             + input
                             + " the mutant does otherwise"));
       }
@@ -160,7 +176,7 @@ class CardTruthTest {
   /// itself: where it's found once, as whole words, on the mutant's line, or else in its method.
   private static Optional<String> replaceIn(
       String text, Mutant mutant, String condition, String replacement, String variant) {
-    var written = OWNER.matcher(condition).replaceAll("");
+    var written = condition;
     var words = Pattern.compile("(?<!\\w)" + Pattern.quote(written) + "(?!\\w)");
     var line = text.lines().toList().get(mutant.line() - 1);
     int lineStart = text.indexOf(line + "\n");
@@ -192,6 +208,20 @@ class CardTruthTest {
             + replacement.replace("%s", written)
             + body.substring(at + written.length());
     return Optional.of(renamed(text.substring(0, start) + changed + text.substring(end), variant));
+  }
+
+  /// The source with line `number` (from 1) replaced by `shown`, kept at its indentation. Its
+  /// `true` and `false` are written `Boolean.TRUE` and `Boolean.FALSE`, the same values: javac
+  /// won't take a constant as a `case` guard, and folds `while (true)` into a loop with no end.
+  private static String withLine(String text, int number, String shown, String variant) {
+    var lines = new ArrayList<>(text.lines().toList());
+    var old = lines.get(number - 1);
+    var boxed =
+        LITERAL
+            .matcher(shown)
+            .replaceAll(found -> "Boolean." + found.group().toUpperCase(java.util.Locale.ROOT));
+    lines.set(number - 1, old.substring(0, old.length() - old.stripLeading().length()) + boxed);
+    return renamed(String.join("\n", lines) + "\n", variant);
   }
 
   /// Where `words` is in `text`, if it's there exactly once.
@@ -267,26 +297,41 @@ class CardTruthTest {
     return out;
   }
 
-  /// One class from bytes, and everything else from the loader that loaded the test.
+  /// The mutated class from its bytes, and the fixture's other classes from where they were
+  /// compiled, all in one loader: they share a package, and its package-private members.
   private static final class OneClass extends ClassLoader {
     private final String name;
     private final byte[] bytes;
+    private final Path classes;
 
-    OneClass(String name, byte[] bytes) {
+    OneClass(String name, byte[] bytes, Path classes) {
       super(CardTruthTest.class.getClassLoader());
       this.name = name;
       this.bytes = bytes.clone();
+      this.classes = classes;
     }
 
     @Override
     protected Class<?> loadClass(String className, boolean resolve) throws ClassNotFoundException {
-      if (className.equals(name)) {
-        synchronized (getClassLoadingLock(className)) {
-          var loaded = findLoadedClass(className);
-          return loaded != null ? loaded : defineClass(className, bytes, 0, bytes.length);
-        }
+      if (!className.startsWith("shapes.")) {
+        return super.loadClass(className, resolve);
       }
-      return super.loadClass(className, resolve);
+      synchronized (getClassLoadingLock(className)) {
+        var loaded = findLoadedClass(className);
+        if (loaded != null) {
+          return loaded;
+        }
+        var defined = className.equals(name) ? bytes : compiled(className);
+        return defineClass(className, defined, 0, defined.length);
+      }
+    }
+
+    private byte[] compiled(String className) throws ClassNotFoundException {
+      try {
+        return Files.readAllBytes(classes.resolve(className.replace('.', '/') + ".class"));
+      } catch (IOException e) {
+        throw new ClassNotFoundException(className, e);
+      }
     }
   }
 }

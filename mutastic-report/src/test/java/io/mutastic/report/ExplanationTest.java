@@ -37,6 +37,13 @@ class ExplanationTest {
           }
 
           private void audit(int total) {}
+
+          public int band(int total) {
+            if (total < 0 || total > 500) {
+              return 0;
+            }
+            return 1;
+          }
         }
         """);
     explanation =
@@ -112,6 +119,49 @@ class ExplanationTest {
     assertThat(lastRun(math, Status.SKIPPED)).contains("last run  skipped");
     assertThat(lastRun(math, Status.CAUGHT)).contains("caught\n").doesNotContain("caught by");
     assertThat(lastRun(math, Status.SKIPPED)).contains(", and the operator");
+  }
+
+  /// The first test of an `||` jumps into the body when it holds: it reads as the source does.
+  @Test
+  void theFirstTestOfAnOrReadsAsWritten() {
+    var first = condition(BuiltIn.BOUNDARY, "IFLT", "IFLE", 15, "total", "0");
+    assertThat(explanation.render(first, Optional.empty()))
+        .contains("here the jump is taken when the condition holds")
+        .doesNotContain("javac compiles");
+
+    var second =
+        condition(BuiltIn.REMOVE_CONDITIONAL, "IF_ICMPLE", "never jump", 15, "total", "500");
+    assertThat(explanation.render(second, Optional.empty()))
+        .contains("a jump past its body when the condition is false");
+    var negated =
+        condition(BuiltIn.NEGATE_CONDITIONAL, "IF_ICMPLE", "IF_ICMPGT", 15, "total", "500");
+    assertThat(explanation.render(negated, Optional.empty()))
+        .contains("javac compiles `total > 500` to IF_ICMPLE");
+  }
+
+  /// A comparison with zero has no int-comparing symbol to put the jump in the source's terms.
+  @Test
+  void aComparisonWithZeroIsSaidInGeneral() {
+    var zero = condition(BuiltIn.NEGATE_CONDITIONAL, "IFEQ", "IFNE", 5, "total", "0");
+    assertThat(explanation.render(zero, Optional.empty()))
+        .contains("a jump past its body when the condition is false")
+        .doesNotContain("javac compiles `");
+  }
+
+  private static Mutant condition(
+      BuiltIn operator, String original, String replacement, int line, String... operands) {
+    return new Mutant(
+        "com/example/Pricing",
+        line == 15 ? "band" : "discount",
+        "(I)I",
+        0,
+        line,
+        operator,
+        original,
+        replacement,
+        Optional.empty(),
+        List.of(),
+        List.of(operands));
   }
 
   private String lastRun(Mutant mutant, Status status) {

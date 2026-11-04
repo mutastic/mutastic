@@ -6,6 +6,7 @@ import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Operator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -41,6 +42,105 @@ class AdviceTest {
     assertThat(removed("IFEQ", "never jump").change()).isEqualTo("`inCredit(b)` is always true");
     assertThat(removed("IFEQ", "never jump").headline())
         .isEqualTo("no test needs `inCredit(b)` to be false in `discount()`");
+  }
+
+  @Test
+  void saysTheOtherValueATestNeeds() {
+    // IFNE never jumping: as if `inCredit(b)` were always false, so a test needs it true.
+    assertThat(removed("IFNE", "never jump").headline())
+        .isEqualTo("no test needs `inCredit(b)` to be true in `discount()`");
+    assertThat(removed("IFNE", "never jump").fix())
+        .isEqualTo(
+            "add a test where `inCredit(b)` is true, and assert what `discount()` does then");
+  }
+
+  /// `if (count != 0)` compiles to IFEQ past the body; `if (count == 0)` to IFNE.
+  @Test
+  void readsAComparisonWithZeroAsTheSourceWritesIt() {
+    var notZero = with(BuiltIn.REMOVE_CONDITIONAL, "IFEQ", "never jump", "count", "0");
+    assertThat(Advice.of(notZero).change()).isEqualTo("`count != 0` is always true");
+    var zero = with(BuiltIn.REMOVE_CONDITIONAL, "IFNE", "always jump", "count", "0");
+    assertThat(Advice.of(zero).change()).isEqualTo("`count == 0` is always false");
+    var negated = with(BuiltIn.NEGATE_CONDITIONAL, "IFEQ", "IFNE", "count", "0");
+    assertThat(Advice.of(negated).change()).isEqualTo("`!=` becomes `==`");
+    assertThat(Advice.of(negated).fix())
+        .isEqualTo("assert the result on both sides of `count != 0`");
+  }
+
+  @Test
+  void saysTheInputsTheTestsPassed() {
+    var seen = Map.of("total", List.of(5L, 20L));
+    var removed = with(BuiltIn.REMOVE_CONDITIONAL, "IF_ICMPLT", "never jump", "total", "100");
+    assertThat(Advice.of(removed, seen, false).notes())
+        .containsExactly("inputs seen: total = 5, 20");
+    assertThat(Advice.of(removed).notes()).isEmpty();
+    // At a boundary, the inputs say how far from it the tests stay.
+    var boundary = with(BuiltIn.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", "total", "100");
+    assertThat(Advice.of(boundary, seen, false).notes())
+        .containsExactly(
+            "every test calls `discount()` away from the boundary",
+            "inputs seen: 5, 20 (none is 100)");
+  }
+
+  @Test
+  void namesTheArithmeticWhenItsOperandsAreKnown() {
+    var known = Advice.of(with(BuiltIn.MATH, "IMUL", "IDIV", "price", "quantity"));
+    assertThat(known.headline()).isEqualTo("tests pass even when `*` becomes `/` in `discount()`");
+    assertThat(known.fix())
+        .isEqualTo(
+            "use inputs where `price * quantity` and `price / quantity` differ, and assert the"
+                + " result");
+    var unknown = Advice.of(mutant(BuiltIn.MATH, "IMUL", "IDIV", "(I)I"));
+    assertThat(unknown.fix())
+        .isEqualTo("use inputs where `*` and `/` differ, and assert the result");
+  }
+
+  @Test
+  void namesALambdaAndAnAnonymousClassAsTheSourceHasThem() {
+    var inLambda =
+        new Mutant(
+            "com/example/Pricing",
+            "lambda$discount$0",
+            "(I)Z",
+            0,
+            5,
+            BuiltIn.NEGATE_CONDITIONAL,
+            "IF_ICMPLT",
+            "IF_ICMPGE",
+            Optional.empty(),
+            List.of(),
+            List.of("total", "100"));
+    assertThat(Advice.of(inLambda).headline())
+        .isEqualTo("A lambda in `discount()` behaves the same with `total >= 100` reversed");
+    var anonymous =
+        new Mutant(
+            "com/example/Pricing$1",
+            "compare",
+            "(II)I",
+            0,
+            5,
+            BuiltIn.RETURN_DEFAULT,
+            "IRETURN",
+            "return default",
+            Optional.empty());
+    assertThat(Advice.of(anonymous).headline())
+        .isEqualTo("no test checks what `compare()` in an anonymous class returns here");
+  }
+
+  private static Mutant with(
+      Operator operator, String original, String replacement, String left, String right) {
+    return new Mutant(
+        "com/example/Pricing",
+        "discount",
+        "(I)I",
+        0,
+        5,
+        operator,
+        original,
+        replacement,
+        Optional.empty(),
+        List.of(),
+        List.of(left, right));
   }
 
   private static Advice removed(String jump, String replacement) {

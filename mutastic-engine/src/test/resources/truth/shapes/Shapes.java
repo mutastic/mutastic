@@ -7,6 +7,12 @@ package shapes;
 public final class Shapes {
   private Shapes() {}
 
+  /// Read as a static field, not inlined as a constant would be.
+  static int limit = 2;
+
+  static final Object FIRST = new Object();
+  static final Object SECOND = new Object();
+
   /// A predicate for the conditions on a boolean, not mutated by the check.
   static boolean even(int x) {
     return x % 2 == 0;
@@ -191,6 +197,36 @@ public final class Shapes {
       return name.length();
     }
     return 0;
+  }
+
+  static int staticField(int a, int b) {
+    if (a > limit || b == Other.LIMIT) {
+      return 1;
+    }
+    return 2;
+  }
+
+  static int sameObject(int a, int b) {
+    Object picked = a > 0 ? FIRST : SECOND;
+    if (picked == FIRST && b != 1) {
+      return 1;
+    }
+    return 2;
+  }
+
+  static int splitOverLines(int a, int b) {
+    if (a > 0
+        && b > 1) {
+      return 1;
+    }
+    return 2;
+  }
+
+  static int splitReturn(int a, int b) {
+    return a >= -1
+            && b <= 2
+        ? 1
+        : 2;
   }
 
   static int switchGuard(int a, int b) {
