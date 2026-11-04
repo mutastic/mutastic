@@ -20,6 +20,8 @@ dependencies {
     testImplementation(libs.assertj)
     // The fixtures use mutastic's own annotations as a project would; the engine itself never does.
     testImplementation(project(":mutastic-annotations"))
+    // The cards' truth check reads a mutant's card as a person would, from the report.
+    testImplementation(project(":mutastic-report"))
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

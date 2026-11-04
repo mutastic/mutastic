@@ -26,7 +26,7 @@ import org.jspecify.annotations.Nullable;
 /// Fed every instruction in order, and told when a jump target is passed: what came before a jump
 /// target isn't the only way in, so it doesn't count.
 final class Operands {
-  private record Local(int slot, String name, int from, int to) {}
+  private record Local(int slot, String name, int from, int to, boolean predicate) {}
 
   /// `this$0`: the outer instance, in an inner class.
   private static final java.util.regex.Pattern OUTER =
@@ -43,8 +43,32 @@ final class Operands {
           "java/lang/Float",
           "java/lang/Double");
 
-  /// One value on the stack and where its instructions start; `start` is -1 when unknown.
-  private record Operand(String text, int start, boolean predicate) {}
+  /// One value on the stack and where its instructions start; `start` is -1 when unknown. Its
+  /// precedence is the operator's, for an operation, so an operation around it knows to bracket it.
+  private record Operand(String text, int start, boolean predicate, int precedence) {
+    /// A value with no operator of its own: a load, a constant, a call.
+    Operand(String text, int start, boolean predicate) {
+      this(text, start, predicate, ATOM);
+    }
+  }
+
+  /// The precedence of a value that isn't an operation: above every operator's.
+  private static final int ATOM = 100;
+
+  /// The arithmetic the operands name, with Java's precedence: `*` binds tighter than `+`.
+  private record Arithmetic(String symbol, int precedence) {}
+
+  /// The arithmetic an operator instruction is, if it's one the operands name.
+  private static @Nullable Arithmetic arithmetic(Opcode opcode) {
+    return switch (opcode) {
+      case IMUL, LMUL -> new Arithmetic("*", 12);
+      case IDIV, LDIV -> new Arithmetic("/", 12);
+      case IREM, LREM -> new Arithmetic("%", 12);
+      case IADD, LADD -> new Arithmetic("+", 11);
+      case ISUB, LSUB -> new Arithmetic("-", 11);
+      default -> null;
+    };
+  }
 
   private final List<Local> locals = new ArrayList<>();
   private final IdentityHashMap<Instruction, Integer> positions = new IdentityHashMap<>();
@@ -61,7 +85,8 @@ final class Operands {
                         variable.slot(),
                         variable.name().stringValue(),
                         variable.startPc(),
-                        variable.startPc() + variable.length()));
+                        variable.startPc() + variable.length(),
+                        variable.type().equalsString("Z")));
               }
             });
   }
@@ -101,7 +126,7 @@ final class Operands {
       predicate = operand.predicate();
     }
     if (wanted == 1 && !predicate) {
-      names.add("0");
+      names.add(isNullCheck(instruction) ? "null" : "0");
     }
     return names;
   }
@@ -111,9 +136,8 @@ final class Operands {
     return switch (instruction) {
       case BranchInstruction branch when branch.opcode().name().startsWith("IF_ICMP") -> 2;
       case BranchInstruction _ when afterCompare -> 2;
-      case BranchInstruction branch
-          when branch.opcode() == Opcode.IFNULL || branch.opcode() == Opcode.IFNONNULL ->
-          0;
+      // `start == null`: the value, then `null` as a comparison with zero has `0`.
+      case BranchInstruction branch when isNullCheck(branch) -> 1;
       case BranchInstruction branch when branch.opcode().name().startsWith("IF_ACMP") -> 0;
       case BranchInstruction branch when branch.opcode() == Opcode.GOTO -> 0;
       case BranchInstruction _ -> 1; // compares with zero
@@ -127,7 +151,7 @@ final class Operands {
       return null;
     }
     return switch (before.get(end - 1)) {
-      case LoadInstruction load -> new Operand(nameOf(load), end - 1, false);
+      case LoadInstruction load -> local(load, end - 1);
       case ConstantInstruction constant ->
           new Operand(literal(constant.constantValue()), end - 1, false);
       // `price * quantity` with a long and an int: javac widens `quantity` first. Still `quantity`.
@@ -137,6 +161,8 @@ final class Operands {
       // `start <= day` with an `Integer start`: javac unboxes with `intValue()`. Still `start`.
       case InvokeInstruction call when isUnboxing(call) -> unboxed(before, end, call);
       case InvokeInstruction call -> call(before, end, call);
+      case OperatorInstruction operation when arithmetic(operation.opcode()) != null ->
+          operation(before, end, java.util.Objects.requireNonNull(arithmetic(operation.opcode())));
       // An empty varargs array (`Files.isRegularFile(git)` passes `new LinkOption[0]`): no
       // argument.
       case NewReferenceArrayInstruction _
@@ -157,7 +183,36 @@ final class Operands {
     var name = field.name().stringValue();
     // `this$0` is the outer instance javac gives an inner class: the source names its fields bare.
     boolean own = owner.text().equals("this") || OUTER.matcher(owner.text()).matches();
-    return new Operand(own ? name : owner.text() + "." + name, owner.start(), false);
+    return new Operand(
+        own ? name : owner.text() + "." + name,
+        owner.start(),
+        field.typeSymbol().descriptorString().equals("Z"));
+  }
+
+  /// `b + 1`, `(a + b) * 2`: an operation on two values the operands can name, bracketed where
+  /// Java's precedence needs it. The right of a `-` or `/` is bracketed at the same precedence too,
+  /// since `a - (b - c)` isn't `a - b - c`.
+  private @Nullable Operand operation(List<Instruction> before, int end, Arithmetic arithmetic) {
+    var right = endingAt(before, end - 1);
+    if (right == null || right.start() < 0) {
+      return null;
+    }
+    var left = endingAt(before, right.start());
+    if (left == null || left.start() < 0) {
+      return null;
+    }
+    int precedence = arithmetic.precedence();
+    var text =
+        "%s %s %s"
+            .formatted(
+                bracketed(left, left.precedence() < precedence),
+                arithmetic.symbol(),
+                bracketed(right, right.precedence() <= precedence));
+    return new Operand(text, left.start(), false, precedence);
+  }
+
+  private static String bracketed(Operand operand, boolean needed) {
+    return needed ? "(" + operand.text() + ")" : operand.text();
   }
 
   private @Nullable Operand unboxed(List<Instruction> before, int end, InvokeInstruction call) {
@@ -206,17 +261,21 @@ final class Operands {
 
   /// The source name for a local, by where it's read: javac reuses a slot for variables in
   /// different scopes, so the name depends on the position.
-  private String nameOf(LoadInstruction load) {
+  private Operand local(LoadInstruction load, int start) {
     int at = positions.getOrDefault(load, -1);
     return locals.stream()
         .filter(local -> local.slot() == load.slot() && local.from() <= at && at < local.to())
-        .map(Local::name)
         .findFirst()
-        .orElse("local" + load.slot());
+        .map(local -> new Operand(local.name(), start, local.predicate()))
+        .orElse(new Operand("local" + load.slot(), start, false));
   }
 
   private static String literal(Object value) {
     return value instanceof String text ? "\"" + text + "\"" : String.valueOf(value);
+  }
+
+  private static boolean isNullCheck(Instruction instruction) {
+    return instruction.opcode() == Opcode.IFNULL || instruction.opcode() == Opcode.IFNONNULL;
   }
 
   private static boolean isCompare(Instruction instruction) {

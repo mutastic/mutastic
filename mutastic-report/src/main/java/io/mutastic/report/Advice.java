@@ -106,7 +106,7 @@ public record Advice(
   private static Advice removeConditional(
       Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
     var method = method(mutant);
-    var token = jump(mutant.original(), asWritten);
+    var token = jump(mutant.original(), mutant.operands(), asWritten);
     var condition = condition(mutant.operands(), token);
     boolean always = mutant.replacement().equals("always jump");
     // javac's usual jump skips the body when the condition is false: always taken, the body never
@@ -127,8 +127,8 @@ public record Advice(
 
   private static Advice boundary(Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
     var method = method(mutant);
-    var before = jump(mutant.original(), asWritten).orElseThrow();
-    var after = jump(mutant.replacement(), asWritten).orElseThrow();
+    var before = jump(mutant.original(), mutant.operands(), asWritten).orElseThrow();
+    var after = jump(mutant.replacement(), mutant.operands(), asWritten).orElseThrow();
     var comparison = Comparison.of(mutant.operands());
     return new Advice(
         Optional.of(before),
@@ -181,8 +181,8 @@ public record Advice(
   private static Advice negateConditional(
       Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
     var method = method(mutant);
-    var before = jump(mutant.original(), asWritten);
-    var after = jump(mutant.replacement(), asWritten);
+    var before = jump(mutant.original(), mutant.operands(), asWritten);
+    var after = jump(mutant.replacement(), mutant.operands(), asWritten);
     var condition = condition(mutant.operands(), before);
     return new Advice(
         before,
@@ -332,8 +332,10 @@ public record Advice(
         : Optional.empty();
   }
 
-  static Optional<String> jump(String opcode, boolean asWritten) {
-    if (opcode.equals("IFEQ") || opcode.equals("IFNE")) {
+  /// The source operator a jump stands for. `IFEQ` and `IFNE` test a boolean, with nothing to show,
+  /// or compare an int with zero, as in `count != 0`, when its operands are the int and `0`.
+  static Optional<String> jump(String opcode, List<String> operands, boolean asWritten) {
+    if ((opcode.equals("IFEQ") || opcode.equals("IFNE")) && operands.size() != 2) {
       return Optional.empty();
     }
     var condition = opcode.substring(opcode.startsWith("IF_") ? "IF_ICMP".length() : "IF".length());

@@ -1,0 +1,42 @@
+
+ Missed ────────────────────────────────────────────────────────────
+
+ ❯ src/main/java/com/example/pricing/Pricing.java  1 missed in 1 method
+
+ [✗ MISSED] no test checks discount() at total == 100
+    ┌─ src/main/java/com/example/pricing/Pricing.java:17
+    │
+ 16 │   public int discount(int total) {
+ 17 │     if (total >= 100) {
+    │               ^^ changed to >
+ 18 │       return total / 10;
+    │
+    = mutant  - if (total >= 100) {
+              + if (total > 100) {
+    = note: every test calls discount() away from the boundary
+            inputs seen: 50, 250 (none is 100)
+            covered by PricingTest#bigOrdersGetTenPercentOff, PricingTest#smallOrdersPayFullPrice (all 2 covering tests still pass)
+    = help: test discount() with total = 100 and assert the result
+
+            // in PricingTest
+            @Test
+            void discountWithTotal100() {
+              assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m855c8e3c samples/pricing passes
+    reproduce  mutastic run --only=m855c8e3c samples/pricing
+    or ignore  mutastic ignore m855c8e3c --reason="<why>" samples/pricing
+
+   Classes  0 clean | 1 with misses (1)
+   Mutants  ✓ 8 caught · ✗ 1 missed · 2 skipped (2 equivalent) (11)
+  Worst at  Pricing.discount() 1 ✗
+ Test runs  11 (27 without coverage selection)
+  Start at  …
+  Duration  … (setup …, coverage …, mutants …)
+     Tests  3 on JDK 17 · 4 workers
+     Score  88.9%  = vs last run (same code)  threshold 80
+
+ [PASS] 1 missed, above the threshold.
+ Next: mutastic verify <id> samples/pricing · mutastic run --only=<id> samples/pricing · mutastic explain <id> samples/pricing

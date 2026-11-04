@@ -39,6 +39,9 @@ application {
 // The output the docs show (docs/src/data/output): mutastic's own, on the pricing sample.
 val docsOutput = rootDir.resolve("docs/src/data/output")
 
+// Every card mutastic gives on the samples (src/test/cards), so a change to their words is a diff.
+val cards = layout.projectDirectory.dir("src/test/cards").asFile
+
 tasks.test {
     useJUnitPlatform()
     // The end-to-end tests run mutastic against the sample projects, each its own Gradle build.
@@ -50,6 +53,9 @@ tasks.test {
     // DocsOutputTest checks the output the docs show is what mutastic prints.
     systemProperty("mutastic.docsOutput", docsOutput.absolutePath)
     inputs.dir(docsOutput).withPathSensitivity(PathSensitivity.RELATIVE)
+    // CardsTest checks every card on the samples is the one kept.
+    systemProperty("mutastic.cards", cards.absolutePath)
+    inputs.dir(cards).withPathSensitivity(PathSensitivity.RELATIVE)
     // DocsPluginsTest reads the example plugins the docs show.
     inputs.dir(rootDir.resolve("docs/src/data/plugins")).withPathSensitivity(PathSensitivity.RELATIVE)
     // The Maven plugin's test resolves it, and everything it needs, from a repository in the build.
@@ -134,5 +140,21 @@ tasks.register<Test>("exportDocsOutput") {
     systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
     systemProperty("mutastic.docsOutput", docsOutput.absolutePath)
     systemProperty("mutastic.docsOutput.write", "true")
+    outputs.upToDateWhen { false }
+}
+
+// Writes the samples' cards again, after a change to what they say: read the diff before committing.
+tasks.register<Test>("exportCards") {
+    description = "Writes every card on the samples to src/test/cards."
+    testClassesDirs =
+        sourceSets.test
+            .get()
+            .output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching("io.mutastic.cli.CardsTest") }
+    systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
+    systemProperty("mutastic.cards", cards.absolutePath)
+    systemProperty("mutastic.cards.write", "true")
     outputs.upToDateWhen { false }
 }

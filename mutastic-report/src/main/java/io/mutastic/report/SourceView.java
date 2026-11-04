@@ -143,8 +143,8 @@ public final class SourceView {
     if (onBoolean.isPresent()) {
       return onBoolean.get();
     }
-    var inverted = Advice.jump(mutant.original(), false);
-    var written = Advice.jump(mutant.original(), true);
+    var inverted = Advice.jump(mutant.original(), mutant.operands(), false);
+    var written = Advice.jump(mutant.original(), mutant.operands(), true);
     if (inverted.isEmpty() || written.isEmpty()) {
       return false;
     }

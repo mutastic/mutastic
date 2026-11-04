@@ -1,0 +1,59 @@
+
+ Missed ────────────────────────────────────────────────────────────
+
+ ❯ src/main/java/com/example/selection/Fees.java  2 missed in 2 methods
+
+ [✗ MISSED] no test checks fee() at amount == 10
+   ┌─ src/main/java/com/example/selection/Fees.java:6
+   │
+ 5 │   public int fee(int amount) {
+ 6 │     if (amount < 10) {
+   │                ^ changed to <=
+ 7 │       return 0;
+   │
+   = mutant  - if (amount < 10) {
+             + if (amount <= 10) {
+   = note: every test calls fee() away from the boundary
+           inputs seen: 5, 25 (none is 10)
+           covered by FeesTest#chargesTheRatePerTenStarted (its 1 covering test still passes)
+   = help: test fee() with amount = 10 and assert the result
+
+           // in FeesTest
+           @Test
+           void feeWithAmount10() {
+             assertEquals(2, new Fees().fee(10)); // today 2 · with this mutant 0
+           }
+           check today's value is the one you intend: the test pins what the code does now
+
+   done when  mutastic verify md5554dc3 samples/selection passes
+   reproduce  mutastic run --only=md5554dc3 samples/selection
+   or ignore  mutastic ignore md5554dc3 --reason="<why>" samples/selection
+
+ [✗ MISSED] no test needs rate == null to be true in rate()
+    ┌─ src/main/java/com/example/selection/Fees.java:14
+    │
+ 13 │     var rate = System.getenv("FEE_RATE");
+ 14 │     return rate == null ? 1 : Integer.parseInt(rate);
+    │                 ^^ now always false
+ 15 │   }
+    │
+    = mutant  - return rate == null ? 1 : Integer.parseInt(rate);
+              + return false ? 1 : Integer.parseInt(rate);
+    = note: covered by FeesTest#chargesTheRatePerTenStarted (its 1 covering test still passes)
+    = help: add a test where rate == null is true, and assert what rate() does then
+
+    done when  mutastic verify m71d455f1 samples/selection passes
+    reproduce  mutastic run --only=m71d455f1 samples/selection
+    or ignore  mutastic ignore m71d455f1 --reason="<why>" samples/selection
+
+   Classes  0 clean | 1 with misses (1)
+   Mutants  ✓ 8 caught · ✗ 2 missed · 1 skipped (1 equivalent) (11)
+  Worst at  Fees.fee() 1 ✗ · Fees.rate() 1 ✗
+ Test runs  10 (10 without coverage selection)
+  Start at  …
+  Duration  … (setup …, coverage …, mutants …)
+     Tests  1 on JDK 17 · 4 workers
+     Score  80.0%  = vs last run (same code)  threshold 80
+
+ [PASS] 2 missed, above the threshold.
+ Next: mutastic verify <id> samples/selection · mutastic run --only=<id> samples/selection · mutastic explain <id> samples/selection

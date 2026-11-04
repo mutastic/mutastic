@@ -1,0 +1,163 @@
+mutastic: FAIL · score 54.5% (threshold 80) · 10 missed, 0 not covered, 12 caught of 22 mutants (3 more skipped)
+rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/suggestions passes`
+decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and ignore it with that reason (`mutastic ignore <id> --reason="<why>" samples/suggestions`)
+
+1. missed m2e491c40: no test checks `lateFee()` at `daysLate == 7`
+   at src/main/java/com/example/rates/Rates.java:10
+   - if (daysLate <= 7) {
+   + if (daysLate < 7) {
+   covered by: RatesTest#lateFeesAccrueAfterAWeek; all still pass with the change
+   evidence: every test calls `lateFee()` away from the boundary
+   evidence: inputs seen: 2, 20 (none is 7)
+   fix: test `lateFee()` with `daysLate = 7` and assert the result
+   test to add in RatesTest:
+     @Test
+     void lateFeeWithDaysLate7() {
+       assertThat(Rates.lateFee(7L)).isEqualTo(0L); // today 0L · with this mutant 5L
+     }
+     // check today's value is the one you intend: the test pins what the code does now
+   done when: mutastic verify m2e491c40 samples/suggestions passes
+   reproduce: mutastic run --only=m2e491c40 samples/suggestions
+   or ignore: mutastic ignore m2e491c40 --reason="<why>" samples/suggestions
+
+2. missed md4db94d8: no test checks `inCredit()` at `balance == 0`
+   at src/main/java/com/example/rates/Rates.java:18
+   - return balance > 0;
+   + return balance >= 0;
+   covered by: RatesTest#aPositiveBalanceIsInCredit; all still pass with the change
+   evidence: every test calls `inCredit()` away from the boundary
+   evidence: inputs seen: 50 (none is 0)
+   fix: test `inCredit()` with `balance = 0` and assert the result
+   test to add in RatesTest:
+     @Test
+     void inCreditWithBalance0() {
+       assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
+     }
+     // check today's value is the one you intend: the test pins what the code does now
+   done when: mutastic verify md4db94d8 samples/suggestions passes
+   reproduce: mutastic run --only=md4db94d8 samples/suggestions
+   or ignore: mutastic ignore md4db94d8 --reason="<why>" samples/suggestions
+
+3. missed m05382fc9: no test needs `balance > 0` to be false in `inCredit()`
+   at src/main/java/com/example/rates/Rates.java:18
+   - return balance > 0;
+   + return true;
+   covered by: RatesTest#aPositiveBalanceIsInCredit; all still pass with the change
+   evidence: inputs seen: balance = 50
+   fix: add a test where `balance > 0` is false, and assert what `inCredit()` does then
+   test to add in RatesTest:
+     @Test
+     void inCreditWithBalance0() {
+       assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
+     }
+     // check today's value is the one you intend: the test pins what the code does now
+   done when: mutastic verify m05382fc9 samples/suggestions passes
+   reproduce: mutastic run --only=m05382fc9 samples/suggestions
+   or ignore: mutastic ignore m05382fc9 --reason="<why>" samples/suggestions
+
+4. missed m90db0c4e: no test needs `start == null` to be false in `openOn()`
+   at src/main/java/com/example/rates/Window.java:6
+   - return (start == null || start <= day) && day < end;
+   + return (true || start <= day) && day < end;
+   covered by: WindowTest#openInTheMiddle; all still pass with the change
+   evidence: inputs seen: day = 5
+   fix: add a test where `start == null` is false, and assert what `openOn()` does then
+   test to add in WindowTest:
+     @Test
+     void openOnWithDay0ForWindow5And5() {
+       assertThat(new Window(5, 5L).openOn(0)).isFalse(); // today false · with this mutant true
+     }
+     // check today's value is the one you intend: the test pins what the code does now
+   done when: mutastic verify m90db0c4e samples/suggestions passes
+   reproduce: mutastic run --only=m90db0c4e samples/suggestions
+   or ignore: mutastic ignore m90db0c4e --reason="<why>" samples/suggestions
+
+5. missed mc1631e8f: no test needs `start == null` to be true in `openOn()`
+   at src/main/java/com/example/rates/Window.java:6
+   - return (start == null || start <= day) && day < end;
+   + return (false || start <= day) && day < end;
+   covered by: WindowTest#openInTheMiddle; all still pass with the change
+   evidence: inputs seen: day = 5
+   fix: add a test where `start == null` is true, and assert what `openOn()` does then
+   done when: mutastic verify mc1631e8f samples/suggestions passes
+   reproduce: mutastic run --only=mc1631e8f samples/suggestions
+   or ignore: mutastic ignore mc1631e8f --reason="<why>" samples/suggestions
+
+6. missed m6cb7282e: no test checks `openOn()` at `start == day`
+   at src/main/java/com/example/rates/Window.java:6
+   - return (start == null || start <= day) && day < end;
+   + return (start == null || start < day) && day < end;
+   covered by: WindowTest#openInTheMiddle; all still pass with the change
+   evidence: inputs seen: day = 5
+   fix: test `openOn()` with `start = day` and assert the result
+   test to add in WindowTest:
+     @Test
+     void openOnWithDay5ForWindow5And10() {
+       assertThat(new Window(5, 10L).openOn(5)).isTrue(); // today true · with this mutant false
+     }
+     // check today's value is the one you intend: the test pins what the code does now
+   done when: mutastic verify m6cb7282e samples/suggestions passes
+   reproduce: mutastic run --only=m6cb7282e samples/suggestions
+   or ignore: mutastic ignore m6cb7282e --reason="<why>" samples/suggestions
+
+7. missed m00c02bf2: no test needs `start <= day` to be false in `openOn()`
+   at src/main/java/com/example/rates/Window.java:6
+   - return (start == null || start <= day) && day < end;
+   + return (start == null || true) && day < end;
+   covered by: WindowTest#openInTheMiddle; all still pass with the change
+   evidence: inputs seen: day = 5
+   fix: add a test where `start <= day` is false, and assert what `openOn()` does then
+   test to add in WindowTest:
+     @Test
+     void openOnWithDay0ForWindow5And5() {
+       assertThat(new Window(5, 5L).openOn(0)).isFalse(); // today false · with this mutant true
+     }
+     // check today's value is the one you intend: the test pins what the code does now
+   done when: mutastic verify m00c02bf2 samples/suggestions passes
+   reproduce: mutastic run --only=m00c02bf2 samples/suggestions
+   or ignore: mutastic ignore m00c02bf2 --reason="<why>" samples/suggestions
+
+8. missed madf99876: no test checks `openOn()` at `day == end`
+   at src/main/java/com/example/rates/Window.java:6
+   - return (start == null || start <= day) && day < end;
+   + return (start == null || start <= day) && day <= end;
+   covered by: WindowTest#openInTheMiddle; all still pass with the change
+   evidence: inputs seen: day = 5
+   fix: test `openOn()` with `day = end` and assert the result
+   test to add in WindowTest:
+     @Test
+     void openOnWithDay5ForWindow5And5() {
+       assertThat(new Window(5, 5L).openOn(5)).isFalse(); // today false · with this mutant true
+     }
+     // check today's value is the one you intend: the test pins what the code does now
+   done when: mutastic verify madf99876 samples/suggestions passes
+   reproduce: mutastic run --only=madf99876 samples/suggestions
+   or ignore: mutastic ignore madf99876 --reason="<why>" samples/suggestions
+
+9. missed m45713261: no test needs `day < end` to be false in `openOn()`
+   at src/main/java/com/example/rates/Window.java:6
+   - return (start == null || start <= day) && day < end;
+   + return (start == null || start <= day) && true;
+   covered by: WindowTest#openInTheMiddle; all still pass with the change
+   evidence: inputs seen: day = 5
+   fix: add a test where `day < end` is false, and assert what `openOn()` does then
+   test to add in WindowTest:
+     @Test
+     void openOnWithDay5ForWindow5And5() {
+       assertThat(new Window(5, 5L).openOn(5)).isFalse(); // today false · with this mutant true
+     }
+     // check today's value is the one you intend: the test pins what the code does now
+   done when: mutastic verify m45713261 samples/suggestions passes
+   reproduce: mutastic run --only=m45713261 samples/suggestions
+   or ignore: mutastic ignore m45713261 --reason="<why>" samples/suggestions
+
+10. missed m5a0bdd3e: tests pass even when `+` becomes `-` in `jitter()`
+   at src/main/java/com/example/rates/Rates.java:23
+   - return price + new Random().nextInt(5);
+   + return price - new Random().nextInt(5);
+   covered by: RatesTest#jitterIsAPrice; all still pass with the change
+   evidence: inputs seen: price = 100
+   fix: use inputs where `+` and `-` differ, and assert the result
+   done when: mutastic verify m5a0bdd3e samples/suggestions passes
+   reproduce: mutastic run --only=m5a0bdd3e samples/suggestions
+   or ignore: mutastic ignore m5a0bdd3e --reason="<why>" samples/suggestions

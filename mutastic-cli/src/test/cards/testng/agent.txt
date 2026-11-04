@@ -1,0 +1,21 @@
+mutastic: FAIL · score 75.0% (threshold 80) · 1 missed, 0 not covered, 3 caught of 4 mutants (1 more skipped)
+rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/testng passes`
+decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and ignore it with that reason (`mutastic ignore <id> --reason="<why>" samples/testng`)
+
+1. missed m48bf36cf: no test checks `lateFee()` at `days == 30`
+   at src/main/java/com/example/rates/Rates.java:6
+   - if (days >= 30) {
+   + if (days > 30) {
+   covered by: RatesTest#aLongWayLateHasAFee; all still pass with the change
+   evidence: every test calls `lateFee()` away from the boundary
+   evidence: inputs seen: 1, 60 (none is 30)
+   fix: test `lateFee()` with `days = 30` and assert the result
+   test to add in RatesTest:
+     @Test
+     public void lateFeeWithDays30() {
+       assertEquals(new Rates().lateFee(30), 25); // today 25 · with this mutant 0
+     }
+     // check today's value is the one you intend: the test pins what the code does now
+   done when: mutastic verify m48bf36cf samples/testng passes
+   reproduce: mutastic run --only=m48bf36cf samples/testng
+   or ignore: mutastic ignore m48bf36cf --reason="<why>" samples/testng

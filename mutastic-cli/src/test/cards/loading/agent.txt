@@ -1,0 +1,1 @@
+mutastic: PASS · score 100.0% (threshold 80) · 0 missed, 0 not covered, 6 caught of 6 mutants

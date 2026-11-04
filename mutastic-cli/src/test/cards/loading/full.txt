@@ -1,0 +1,10 @@
+
+   Classes  1 clean (1)
+   Mutants  ✓ 6 caught (6)
+ Test runs  8 (12 without coverage selection)
+  Start at  …
+  Duration  … (setup …, coverage …, mutants …)
+     Tests  2 on JDK 17 · 4 workers
+     Score  100.0%  = vs last run (same code)  threshold 80
+
+ [PASS] Every mutant was caught.

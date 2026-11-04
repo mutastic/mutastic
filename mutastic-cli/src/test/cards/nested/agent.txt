@@ -1,0 +1,80 @@
+mutastic: FAIL · score 70.8% (threshold 80; 73.9% where tests reach) · 6 missed, 1 not covered, 17 caught of 24 mutants (5 more skipped)
+rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/nested passes`
+decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and ignore it with that reason (`mutastic ignore <id> --reason="<why>" samples/nested`)
+
+1. missed m746574d6: no test checks what `cheapestFirst()` returns here
+   at src/main/java/com/example/nested/Shipping.java:53
+   - return new Comparator<>() {
+   + (returns `null` instead)
+   covered by: ShippingTest#cheapestComesFirstSomehow; all still pass with the change
+   evidence: tests reach this return but never assert its value
+   fix: assert the value `cheapestFirst()` returns on this path
+   done when: mutastic verify m746574d6 samples/nested passes
+   reproduce: mutastic run --only=m746574d6 samples/nested
+   or ignore: mutastic ignore m746574d6 --reason="<why>" samples/nested
+
+2. missed m3a700d03: no test checks a lambda in `heavyOnes()` at `weight == heavyFrom`
+   at src/main/java/com/example/nested/Shipping.java:77
+   - return weights.stream().filter(weight -> weight >= heavyFrom).count();
+   + return weights.stream().filter(weight -> weight > heavyFrom).count();
+   covered by: ShippingTest#heavyOnesAreCountedWellOverTheLimit; all still pass with the change
+   fix: test a lambda in `heavyOnes()` with `weight = heavyFrom` and assert the result
+   done when: mutastic verify m3a700d03 samples/nested passes
+   reproduce: mutastic run --only=m3a700d03 samples/nested
+   or ignore: mutastic ignore m3a700d03 --reason="<why>" samples/nested
+
+3. missed m17d30bd5: no test checks what `compare()` in an anonymous class returns here
+   at src/main/java/com/example/nested/Shipping.java:56
+   - return left - right;
+   + return 0;
+   covered by: ShippingTest#cheapestComesFirstSomehow; all still pass with the change
+   evidence: tests reach this return but never assert its value
+   fix: assert the value `compare()` in an anonymous class returns on this path
+   done when: mutastic verify m17d30bd5 samples/nested passes
+   reproduce: mutastic run --only=m17d30bd5 samples/nested
+   or ignore: mutastic ignore m17d30bd5 --reason="<why>" samples/nested
+
+4. missed m657726cd: no test checks `heavy()` at `weight == heavyFrom`
+   at src/main/java/com/example/nested/Shipping.java:47
+   - return weight >= heavyFrom;
+   + return weight > heavyFrom;
+   covered by: ShippingTest$Parcels#heavyIsWellOverTheLimit; all still pass with the change
+   fix: test `heavy()` with `weight = heavyFrom` and assert the result
+   test to add in ShippingTest.Parcels:
+     @Test
+     void heavyResultForParcel0InShipping0() {
+       assertTrue(new Shipping(0).new Parcel(0).heavy()); // today true · with this mutant false
+     }
+     // check today's value is the one you intend: the test pins what the code does now
+   done when: mutastic verify m657726cd samples/nested passes
+   reproduce: mutastic run --only=m657726cd samples/nested
+   or ignore: mutastic ignore m657726cd --reason="<why>" samples/nested
+
+5. missed m5587d380: no test checks `surcharge()` at `distance == 100`
+   at src/main/java/com/example/nested/Shipping.java:25
+   - if (distance >= 100) {
+   + if (distance > 100) {
+   covered by: ShippingTest$Zones#farIsSurcharged; all still pass with the change
+   fix: test `surcharge()` with `distance = 100` and assert the result
+   test to add in ShippingTest.Zones:
+     @Test
+     void surchargeResultForZone100() {
+       assertEquals(3, new Shipping.Zone(100).surcharge()); // today 3 · with this mutant 0
+     }
+     // check today's value is the one you intend: the test pins what the code does now
+   done when: mutastic verify m5587d380 samples/nested passes
+   reproduce: mutastic run --only=m5587d380 samples/nested
+   or ignore: mutastic ignore m5587d380 --reason="<why>" samples/nested
+
+6. missed m39ac4d93: tests pass even when `-` becomes `+` in `compare()` in an anonymous class
+   at src/main/java/com/example/nested/Shipping.java:56
+   - return left - right;
+   + return left + right;
+   covered by: ShippingTest#cheapestComesFirstSomehow; all still pass with the change
+   fix: use inputs where `left - right` and `left + right` differ, and assert the result
+   done when: mutastic verify m39ac4d93 samples/nested passes
+   reproduce: mutastic run --only=m39ac4d93 samples/nested
+   or ignore: mutastic ignore m39ac4d93 --reason="<why>" samples/nested
+
+not covered (no test reaches these lines; fix the missed mutants first):
+- src/main/java/com/example/nested/Shipping.java:85 days() in an anonymous class (1 mutant)

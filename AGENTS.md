@@ -15,6 +15,7 @@ build failure.
 ./gradlew lockDependencies --write-locks  # after changing a version: rewrites gradle.lockfile
 ./gradlew :mutastic-cli:exportDocsModel    # after changing an option or command: the docs' reference
 ./gradlew :mutastic-cli:exportDocsOutput   # after changing what a command prints: the output the docs show
+./gradlew :mutastic-cli:exportCards        # after changing a card's words: every card on the samples; read the diff
 ./gradlew :mutastic-cli:installDist && ./mutastic-cli/build/install/mutastic/bin/mutastic run samples/pricing
 ```
 
@@ -67,5 +68,11 @@ applied by google-java-format through Spotless: that is the spec, not taste.
 - **A false catch is worse than a miss.** Anything that can make a mutant look caught when the
   tests didn't catch it (a flaky test, a port clash, a mutant that doesn't load) is treated as
   not caught, and said so.
+- **A card says what its mutant does.** People and agents both act on a card's words, so a wrong
+  one costs an agent's tokens, or a wrong ignore, as well as trust. `CardTruthTest` writes each
+  condition card's claim into the source and checks the mutant behaves as that source does, for
+  every shape javac compiles a condition to: a new way of saying a condition, or a new shape the
+  engine reads, goes in its fixture. `CardsTest` keeps every card on the samples, so a change to
+  their words is a reviewed diff.
 - **Check claims against real projects,** not only the samples: the bugs that mattered were found
   there.

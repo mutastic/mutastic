@@ -1,0 +1,31 @@
+
+ Missed ────────────────────────────────────────────────────────────
+
+ ❯ src/main/java/com/example/observable/Person.java  1 missed in 1 method
+
+ [✗ MISSED] no test checks the effect of calling firePropertyChange() in setEmail()
+    ┌─ src/main/java/com/example/observable/Person.java:35
+    │
+ 34 │     this.email = email;
+ 35 │     changes.firePropertyChange("email", old, email);
+    │             ^^^^^^^^^^^^^^^^^^ call removed
+ 36 │   }
+    │
+    = note: covered by PersonTest#anEmailIsKept (its 1 covering test still passes)
+    = help: assert what firePropertyChange() does: the state it changes or the call it makes
+
+    done when  mutastic verify mddb9663e samples/observable passes
+    reproduce  mutastic run --only=mddb9663e samples/observable
+    or ignore  mutastic ignore mddb9663e --reason="<why>" samples/observable
+
+   Classes  0 clean | 1 with misses (1)
+   Mutants  ✓ 2 caught · ✗ 1 missed · 3 skipped (3 arid) (6)
+  Worst at  Person.setEmail() 1 ✗
+ Test runs  3 (9 without coverage selection)
+  Start at  …
+  Duration  … (setup …, coverage …, mutants …)
+     Tests  3 on JDK 17 · 4 workers (-1 replaced after a timeout)
+     Score  66.7%  = vs last run (same code)  threshold 80
+
+ [FAIL] Score below 80: 1 missed, 0 not covered.
+ Next: mutastic verify <id> samples/observable · mutastic run --only=<id> samples/observable · mutastic explain <id> samples/observable

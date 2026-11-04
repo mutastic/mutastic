@@ -1,0 +1,44 @@
+$ mutastic explain m855c8e3c
+
+ [✗ MISSED] no test checks discount() at total == 100
+    ┌─ src/main/java/com/example/pricing/Pricing.java:17
+    │
+ 16 │   public int discount(int total) {
+ 17 │     if (total >= 100) {
+    │               ^^ changed to >
+ 18 │       return total / 10;
+    │
+    = mutant  - if (total >= 100) {
+              + if (total > 100) {
+    = note: every test calls discount() away from the boundary
+            inputs seen: 50, 250 (none is 100)
+            covered by PricingTest#bigOrdersGetTenPercentOff, PricingTest#smallOrdersPayFullPrice (all 2 covering tests still pass)
+    = help: test discount() with total = 100 and assert the result
+
+            // in PricingTest
+            @Test
+            void discountWithTotal100() {
+              assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m855c8e3c samples/pricing passes
+    reproduce  mutastic run --only=m855c8e3c samples/pricing
+    or ignore  mutastic ignore m855c8e3c --reason="<why>" samples/pricing
+
+ About this mutant ───────────────────────────────────────────────
+    = bytecode  IF_ICMPLT → IF_ICMPLE
+                IF_ICMPLT: jump if the first int is less than the second
+                IF_ICMPLE: jump if the first int is less than or equal to the second
+                javac compiles `total >= 100` to IF_ICMPLT, a jump past the body when `total < 100`:
+                the opposite of the source. With IF_ICMPLE it jumps when `total <= 100`, so the body
+                runs only when `total > 100`
+    = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
+                edge of a range, which tests that only check values far from the edge never notice.
+    = id        m855c8e3c: `m` and the first 8 hex digits of its fingerprint, 855c8e3ca8a39847, a
+                SHA-256 of the class, method, site and change
+                no line number goes in, so the id stays the same when code above it moves
+    = site      instruction site 1 of discount(I)I, counting from 1 (arithmetic, branches and
+                returns are counted in bytecode order; calls apart)
+    = last run  missed: every covering test still passed
+

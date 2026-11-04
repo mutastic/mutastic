@@ -1,0 +1,31 @@
+mutastic: PASS · score 80.0% (threshold 80) · 2 missed, 0 not covered, 8 caught of 10 mutants (1 more skipped)
+rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/selection passes`
+decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and ignore it with that reason (`mutastic ignore <id> --reason="<why>" samples/selection`)
+
+1. missed md5554dc3: no test checks `fee()` at `amount == 10`
+   at src/main/java/com/example/selection/Fees.java:6
+   - if (amount < 10) {
+   + if (amount <= 10) {
+   covered by: FeesTest#chargesTheRatePerTenStarted; all still pass with the change
+   evidence: every test calls `fee()` away from the boundary
+   evidence: inputs seen: 5, 25 (none is 10)
+   fix: test `fee()` with `amount = 10` and assert the result
+   test to add in FeesTest:
+     @Test
+     void feeWithAmount10() {
+       assertEquals(2, new Fees().fee(10)); // today 2 · with this mutant 0
+     }
+     // check today's value is the one you intend: the test pins what the code does now
+   done when: mutastic verify md5554dc3 samples/selection passes
+   reproduce: mutastic run --only=md5554dc3 samples/selection
+   or ignore: mutastic ignore md5554dc3 --reason="<why>" samples/selection
+
+2. missed m71d455f1: no test needs `rate == null` to be true in `rate()`
+   at src/main/java/com/example/selection/Fees.java:14
+   - return rate == null ? 1 : Integer.parseInt(rate);
+   + return false ? 1 : Integer.parseInt(rate);
+   covered by: FeesTest#chargesTheRatePerTenStarted; all still pass with the change
+   fix: add a test where `rate == null` is true, and assert what `rate()` does then
+   done when: mutastic verify m71d455f1 samples/selection passes
+   reproduce: mutastic run --only=m71d455f1 samples/selection
+   or ignore: mutastic ignore m71d455f1 --reason="<why>" samples/selection

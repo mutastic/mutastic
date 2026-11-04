@@ -1,0 +1,42 @@
+
+ Missed ────────────────────────────────────────────────────────────
+
+ ❯ src/main/java/com/example/rates/Rates.java  1 missed in 1 method
+
+ [✗ MISSED] no test checks lateFee() at days == 30
+   ┌─ src/main/java/com/example/rates/Rates.java:6
+   │
+ 5 │   public int lateFee(int days) {
+ 6 │     if (days >= 30) {
+   │              ^^ changed to >
+ 7 │       return 25;
+   │
+   = mutant  - if (days >= 30) {
+             + if (days > 30) {
+   = note: every test calls lateFee() away from the boundary
+           inputs seen: 1, 60 (none is 30)
+           covered by RatesTest#aLongWayLateHasAFee (its 1 covering test still passes)
+   = help: test lateFee() with days = 30 and assert the result
+
+           // in RatesTest
+           @Test
+           public void lateFeeWithDays30() {
+             assertEquals(new Rates().lateFee(30), 25); // today 25 · with this mutant 0
+           }
+           check today's value is the one you intend: the test pins what the code does now
+
+   done when  mutastic verify m48bf36cf samples/testng passes
+   reproduce  mutastic run --only=m48bf36cf samples/testng
+   or ignore  mutastic ignore m48bf36cf --reason="<why>" samples/testng
+
+   Classes  0 clean | 1 with misses (1)
+   Mutants  ✓ 3 caught · ✗ 1 missed · 1 skipped (1 equivalent) (5)
+  Worst at  Rates.lateFee() 1 ✗
+ Test runs  4 (4 without coverage selection)
+  Start at  …
+  Duration  … (setup …, coverage …, mutants …)
+     Tests  1 on JDK 17 · 4 workers
+     Score  75.0%  = vs last run (same code)  threshold 80
+
+ [FAIL] Score below 80: 1 missed, 0 not covered.
+ Next: mutastic verify <id> samples/testng · mutastic run --only=<id> samples/testng · mutastic explain <id> samples/testng
