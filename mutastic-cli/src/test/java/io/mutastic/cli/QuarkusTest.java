@@ -26,12 +26,34 @@ class QuarkusTest {
     var run = Samples.mutastic("run", project.toString(), "--format=agent", "--report=none");
 
     assertThat(run.err()).doesNotContain("mutastic: internal error");
+    // Once, under load, every mutant here was caught: if it happens again, say what the workers
+    // saw, not only the summary.
     assertThat(run.out())
+        .as("the run:%n%s%nits workers:%n%s", run.out(), workerLogs(project))
         .contains("5 missed, 0 not covered, 9 caught of 14 mutants")
         .contains("no test has duplicate items for `.select().distinct()` in top() to remove")
         .contains("no test has more items than `.select().first(…)` in top() lets through")
         .contains(
             "no test makes scoreOrZero() fail, so `.onFailure().recoverWithItem(…)` is never needed")
         .contains("no test checks `isHigh()` at `score == 90`");
+  }
+
+  /// Every worker's log, the last lines of each.
+  private static String workerLogs(Path project) throws java.io.IOException {
+    var logs = new StringBuilder();
+    try (var files = Files.list(project.resolve("build/mutastic"))) {
+      for (var log :
+          files
+              .filter(file -> file.getFileName().toString().startsWith("worker"))
+              .sorted()
+              .toList()) {
+        var lines = Files.readAllLines(log);
+        logs.append("== ").append(log.getFileName()).append('\n');
+        lines
+            .subList(Math.max(0, lines.size() - 80), lines.size())
+            .forEach(line -> logs.append(line).append('\n'));
+      }
+    }
+    return logs.toString();
   }
 }
