@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Operator;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -29,6 +30,33 @@ class AdviceTest {
         .isEqualTo("`!=` becomes `==`");
     assertThat(Advice.of(mutant(BuiltIn.NEGATE_CONDITIONAL, "IFEQ", "IFNE", "(I)I")).headline())
         .isEqualTo("`discount()` behaves the same with the condition reversed");
+  }
+
+  @Test
+  void readsAJumpOnABooleanByItsOpcode() {
+    // `if (inCredit(b) || ...)`: IFNE into the body, so never jumping is as if it were false.
+    assertThat(removed("IFNE", "never jump").change()).isEqualTo("`inCredit(b)` is always false");
+    assertThat(removed("IFNE", "always jump").change()).isEqualTo("`inCredit(b)` is always true");
+    // `if (inCredit(b))`: IFEQ past the body, javac's usual way round.
+    assertThat(removed("IFEQ", "never jump").change()).isEqualTo("`inCredit(b)` is always true");
+    assertThat(removed("IFEQ", "never jump").headline())
+        .isEqualTo("no test needs `inCredit(b)` to be false in `discount()`");
+  }
+
+  private static Advice removed(String jump, String replacement) {
+    return Advice.of(
+        new Mutant(
+            "com/example/Pricing",
+            "discount",
+            "(I)I",
+            0,
+            5,
+            BuiltIn.REMOVE_CONDITIONAL,
+            jump,
+            replacement,
+            Optional.empty(),
+            List.of(),
+            List.of("inCredit(b)")));
   }
 
   @Test

@@ -131,13 +131,17 @@ public final class SourceView {
 
   /// Whether the mutant's jump tests the condition as written: the statement has the written form
   /// of the jump's condition and not its opposite. When it has both or neither, javac's usual
-  /// inverted jump.
+  /// inverted jump. A jump on a boolean goes by its opcode.
   boolean asWritten(Mutant mutant) {
     var operator = mutant.operator();
     if (operator != io.mutastic.api.BuiltIn.BOUNDARY
         && operator != io.mutastic.api.BuiltIn.NEGATE_CONDITIONAL
         && operator != io.mutastic.api.BuiltIn.REMOVE_CONDITIONAL) {
       return false;
+    }
+    var onBoolean = Advice.jumpsWhenTrue(mutant);
+    if (onBoolean.isPresent()) {
+      return onBoolean.get();
     }
     var inverted = Advice.jump(mutant.original(), false);
     var written = Advice.jump(mutant.original(), true);

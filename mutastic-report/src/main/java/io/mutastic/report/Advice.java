@@ -73,6 +73,7 @@ public record Advice(
   ///
   /// @param asWritten the jump tests the source's own condition, not its opposite
   static Advice of(Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
+    asWritten = jumpsWhenTrue(mutant).orElse(asWritten);
     return switch (mutant.operator()) {
       case Mutator mutator -> added(mutator, mutant, seen);
       case BuiltIn builtIn ->
@@ -320,7 +321,17 @@ public record Advice(
   }
 
   /// `>=` for `IF_ICMPLT`, or `<` when the jump reads as written; empty for a test of a `boolean`
-  /// (`IFEQ`, `IFNE`), whose source has no operator to show.
+  /// (`IFEQ`, `IFNE`), whose source has no operator to show. Whether a jump on a boolean goes when
+  /// it's true, as `IFNE` does: javac compiles the first test of an `||` that way, jumping into the
+  /// body, and `if (!done)` past it. The opcode says, whatever the source looks like. Empty for a
+  /// jump on a comparison, whose operands are two.
+  static Optional<Boolean> jumpsWhenTrue(Mutant mutant) {
+    var opcode = mutant.original();
+    return mutant.operands().size() == 1 && (opcode.equals("IFEQ") || opcode.equals("IFNE"))
+        ? Optional.of(opcode.equals("IFNE"))
+        : Optional.empty();
+  }
+
   static Optional<String> jump(String opcode, boolean asWritten) {
     if (opcode.equals("IFEQ") || opcode.equals("IFNE")) {
       return Optional.empty();
