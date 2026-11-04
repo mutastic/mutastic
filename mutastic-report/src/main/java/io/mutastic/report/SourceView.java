@@ -282,22 +282,23 @@ public final class SourceView {
 
   /// The line with the comparison changed: `b > 1` found once on it, from the operands, so a
   /// condition split over lines changes where the mutant is, not whichever `>` javac's line has.
-  /// Without the operands, only an operator the whole statement has once.
+  /// Otherwise (the operands unknown, or a constant the source names, `-SMALL_OVERDRAFT` for
+  /// `-1000`) only an operator the whole statement has once.
   private Optional<String> operatorChanged(Mutant mutant, Advice advice, String text) {
     var operands = mutant.operands();
     var before = advice.before().orElseThrow();
     var after = advice.after().orElseThrow();
-    if (operands.size() == 2) {
-      var left = operands.get(0);
-      var right = operands.get(1);
-      return replacedOnce(
-          text,
-          "%s %s %s".formatted(left, before, right),
-          "%s %s %s".formatted(left, after, right));
-    }
-    var statement = String.join("\n", statement(mutant));
-    return replacedOnce(statement, " " + before + " ", " " + after + " ")
-        .flatMap(_ -> replacedOnce(text, " " + before + " ", " " + after + " "));
+    var exact =
+        operands.size() == 2
+            ? replacedOnce(
+                text,
+                "%s %s %s".formatted(operands.get(0), before, operands.get(1)),
+                "%s %s %s".formatted(operands.get(0), after, operands.get(1)))
+            : Optional.<String>empty();
+    return exact.or(
+        () ->
+            replacedOnce(String.join("\n", statement(mutant)), " " + before + " ", "")
+                .flatMap(_ -> replacedOnce(text, " " + before + " ", " " + after + " ")));
   }
 
   /// `text` with `found` replaced, when it's there exactly once.

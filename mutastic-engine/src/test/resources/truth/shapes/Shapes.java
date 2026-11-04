@@ -7,6 +7,9 @@ package shapes;
 public final class Shapes {
   private Shapes() {}
 
+  /// A constant javac inlines: the bytecode has `3`, the source `EDGE`.
+  static final int EDGE = 3;
+
   /// Read as a static field, not inlined as a constant would be.
   static int limit = 2;
 
@@ -20,6 +23,10 @@ public final class Shapes {
 
   static boolean small(int x) {
     return x < 2;
+  }
+
+  static boolean atLeastOne(int x) {
+    return x >= 1;
   }
 
   static int plainIf(int a, int b) {
@@ -227,6 +234,34 @@ public final class Shapes {
             && b <= 2
         ? 1
         : 2;
+  }
+
+  static int impliedByACall(int a, int b) {
+    if (atLeastOne(a) || a > -2) {
+      return 1;
+    }
+    return 2 + b;
+  }
+
+  static int impliedComparison(int a, int b) {
+    if (a > 2 || a > 0) {
+      return 1;
+    }
+    return 2 + b;
+  }
+
+  static int notImplied(int a, int b) {
+    if (a > 0 || a > 2) {
+      return 1;
+    }
+    return 2 + b;
+  }
+
+  static int namedConstant(int a, int b) {
+    if (b < 0 || a > EDGE) {
+      return 1;
+    }
+    return 2;
   }
 
   static int switchGuard(int a, int b) {

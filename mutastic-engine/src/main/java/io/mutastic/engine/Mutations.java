@@ -295,7 +295,7 @@ final class Mutations {
               : found
                   .skippedByOperator()
                   .or(() -> skipReason(operator, instruction))
-                  .or(() -> SiteSkips.reason(operator, code, at))
+                  .or(() -> atTheSite(found, at))
                   .or(() -> filtered);
       return new Mutant(
           model.thisClass().asInternalName(),
@@ -309,6 +309,15 @@ final class Mutations {
           skipped,
           List.of(),
           workedOn);
+    }
+
+    /// Why a mutant shouldn't run, judged by the code around it: its own and an `||`'s.
+    private Optional<String> atTheSite(Found found, int at) {
+      return SiteSkips.reason(found.operator(), code, at)
+          .or(
+              () ->
+                  ImpliedOr.reason(
+                      found.operator(), found.label(), new ImpliedOr.Site(model, code, at)));
     }
 
     /// Why a mutant shouldn't run, if it shouldn't: the reason's first word is its kind.

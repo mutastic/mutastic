@@ -40,13 +40,16 @@ class CardTruthTest {
   private static final Path OTHER = FIXTURE.resolve("shapes/Other.java");
 
   /// The predicates the conditions call: not conditions of their own.
-  private static final Set<String> HELPERS = Set.of("even", "small");
+  private static final Set<String> HELPERS = Set.of("even", "small", "atLeastOne", "isAbove");
 
   private static final Set<BuiltIn> CONDITIONS =
       Set.of(BuiltIn.BOUNDARY, BuiltIn.REMOVE_CONDITIONAL, BuiltIn.NEGATE_CONDITIONAL);
 
   private static final Pattern ALWAYS =
       Pattern.compile("`(?<condition>[^`]+)` is always (?<value>true|false)");
+  private static final Pattern CONSTANT =
+      Pattern.compile("static final int (?<name>[A-Z_]+) = (?<value>-?\\d+);");
+
   private static final Pattern LITERAL = Pattern.compile("\\b(?:true|false)\\b");
   private static final Pattern REVERSED = Pattern.compile("with `(?<condition>[^`]+)` reversed");
 
@@ -132,7 +135,51 @@ class CardTruthTest {
     assertThat(claims.stream().map(claim -> claim.mutant().methodName()).distinct())
         .as("the shapes with a claim checked")
         .hasSizeGreaterThan(20);
+    // A constant the source names still gets its changed line, quoted as the source has it.
+    assertThat(claims)
+        .extracting(Claim::what)
+        .contains("its changed line, `if (b < 0 || a >= EDGE) {`");
     assertThat(failures).as("cards that say something their mutant doesn't do").isEmpty();
+  }
+
+  /// A mutant skipped as equivalent behaves as the code does on every input: a skip rule that's
+  /// wrong hides a mutant a test could catch, which is worse than a card that's vague.
+  @Test
+  void everyEquivalentSkipIsEquivalent() throws Exception {
+    var original = compile(List.of(FIXTURE.resolve("shapes/Shapes.java"), OTHER), "original");
+    var model = ClassFile.of().parse(Files.readAllBytes(original.resolve("shapes/Shapes.class")));
+    var mutations =
+        new Mutations(
+            ClassFile.of(),
+            new Policy(List.of(), List.of(), List.of(), List.of("stronger"), List.of()));
+    var equivalent =
+        mutations.find(model).stream()
+            .filter(mutant -> mutant.skipped().orElse("").startsWith("equivalent:"))
+            .filter(mutant -> !HELPERS.contains(mutant.methodName()))
+            .toList();
+    var code =
+        new OneClass(CLASS, Files.readAllBytes(original.resolve("shapes/Shapes.class")), original)
+            .loadClass(CLASS);
+    var failures = new ArrayList<String>();
+    for (var mutant : equivalent) {
+      var mutated = new OneClass(CLASS, mutations.apply(model, mutant), original).loadClass(CLASS);
+      differs(mutant.methodName(), code, mutated)
+          .ifPresent(
+              input -> failures.add(mutant + " (" + mutant.skipped().get() + ") at " + input));
+    }
+
+    assertThat(equivalent)
+        .as("the `||` shapes whose first test the second covers")
+        .filteredOn(mutant -> mutant.skipped().get().contains("`||`"))
+        .extracting(Mutant::methodName, Mutant::operator, Mutant::replacement)
+        .containsExactlyInAnyOrder(
+            org.assertj.core.groups.Tuple.tuple(
+                "impliedByACall", BuiltIn.REMOVE_CONDITIONAL, "never jump"),
+            org.assertj.core.groups.Tuple.tuple(
+                "impliedComparison", BuiltIn.REMOVE_CONDITIONAL, "never jump"),
+            org.assertj.core.groups.Tuple.tuple(
+                "impliedComparison", BuiltIn.BOUNDARY, "IF_ICMPGE"));
+    assertThat(failures).as("mutants skipped as equivalent that aren't").isEmpty();
   }
 
   /// The source with the card's claim written into the mutant's method, as class `variant`.
@@ -175,7 +222,8 @@ class CardTruthTest {
   /// The source with `condition` replaced by `replacement`, in which `%s` stands for the condition
   /// itself: where it's found once, as whole words, on the mutant's line, or else in its method.
   private static Optional<String> replaceIn(
-      String text, Mutant mutant, String condition, String replacement, String variant) {
+      String source, Mutant mutant, String condition, String replacement, String variant) {
+    var text = withConstantsAsValues(source);
     var written = condition;
     var words = Pattern.compile("(?<!\\w)" + Pattern.quote(written) + "(?!\\w)");
     var line = text.lines().toList().get(mutant.line() - 1);
@@ -190,6 +238,16 @@ class CardTruthTest {
                   + text.substring(at + written.length()),
               variant));
     }
+    return replaceInMethod(text, mutant, words, written, replacement, variant);
+  }
+
+  private static Optional<String> replaceInMethod(
+      String text,
+      Mutant mutant,
+      Pattern words,
+      String written,
+      String replacement,
+      String variant) {
     var method = mutant.methodName();
     var start = text.indexOf(" " + method + "(int a, int b)");
     if (start < 0) {
@@ -222,6 +280,19 @@ class CardTruthTest {
             .replaceAll(found -> "Boolean." + found.group().toUpperCase(java.util.Locale.ROOT));
     lines.set(number - 1, old.substring(0, old.length() - old.stripLeading().length()) + boxed);
     return renamed(String.join("\n", lines) + "\n", variant);
+  }
+
+  /// `static final int EDGE = 3;` and each use of `EDGE` as `3`, as javac inlines it and a card
+  /// quotes it: the same code, so a claim about `a > 3` can be found and written in. Line numbers
+  /// stay as they were.
+  private static String withConstantsAsValues(String text) {
+    var constants = CONSTANT.matcher(text);
+    var resolved = text;
+    while (constants.find()) {
+      var use = Pattern.compile("(?<![\\w.])" + constants.group("name") + "(?![\\w(])(?! = )");
+      resolved = use.matcher(resolved).replaceAll(constants.group("value"));
+    }
+    return resolved;
   }
 
   /// Where `words` is in `text`, if it's there exactly once.
