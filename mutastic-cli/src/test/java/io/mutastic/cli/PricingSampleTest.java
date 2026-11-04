@@ -73,6 +73,21 @@ class PricingSampleTest {
         .contains(
             id
                 + " is caught by com.example.pricing.PricingTest#anOrderOfExactlyOneHundredGetsTheDiscount");
+
+    // A skipped mutant has nothing to catch: verify says why it's skipped, and passes, rather
+    // than send anyone looking for the test that should reach it.
+    var skipped =
+        run.out()
+            .lines()
+            .filter(line -> line.contains("\"status\":\"Ignored\""))
+            .findFirst()
+            .orElseThrow();
+    var skippedId = skipped.replaceAll(".*\"id\":\"(m[0-9a-f]{8})\".*", "$1");
+    var reason = skipped.replaceAll(".*\"statusReason\":\"([^\"]+)\".*", "$1");
+    var skip = Samples.mutastic("verify", skippedId, project.toString());
+    assertThat(skip.exit()).isEqualTo(Main.PASSED);
+    assertThat(skip.out())
+        .contains(skippedId + " is skipped (" + reason + "), so it isn't run and needs no test");
   }
 
   @Test

@@ -43,7 +43,8 @@ final class Help {
   /// What each exit status means.
   static final List<Entry> EXIT_CODES =
       List.of(
-          new Entry("0", "The score reaches the threshold; for verify, the mutant is caught"),
+          new Entry(
+              "0", "The score reaches the threshold; for verify, the mutant is caught or skipped"),
           new Entry(
               "1", "The score is below the threshold; for verify, the mutant is still missed"),
           new Entry("2", "A usage error, or a build mutastic couldn't read"),

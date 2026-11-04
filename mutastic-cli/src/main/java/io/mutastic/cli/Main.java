@@ -476,15 +476,26 @@ public final class Main {
     return exit;
   }
 
-  /// What `verify` says of one of its mutants, and whether it passed.
+  /// What `verify` says of one of its mutants, and whether it passed: caught, or skipped, which
+  /// leaves nothing to catch. A skipped mutant once read "isn't reached by any test", and an agent
+  /// went looking for the test that should reach it.
   private static int verified(MutantResult result, PrintStream out) {
-    out.printf(
-        "mutastic: %s %s%n",
-        result.mutant().id(),
-        result.status().detected()
-            ? "is caught by " + result.caughtBy().orElse("a timeout")
-            : result.status() == Status.MISSED ? "is still missed" : "isn't reached by any test");
-    return result.status().detected() ? PASSED : FAILED;
+    var fate =
+        switch (result.status()) {
+          case CAUGHT, TIMED_OUT -> "is caught by " + result.caughtBy().orElse("a timeout");
+          case MISSED -> "is still missed";
+          case NOT_COVERED -> "isn't reached by any test";
+          case SKIPPED ->
+              "is skipped (%s), so it isn't run and needs no test"
+                  .formatted(result.mutant().skipped().orElse("skipped"));
+        };
+    out.printf("mutastic: %s %s%n", result.mutant().id(), fate);
+    return settled(result) ? PASSED : FAILED;
+  }
+
+  /// Whether a mutant asked for by id passes: caught, or skipped, with nothing to catch.
+  private static boolean settled(MutantResult result) {
+    return result.status().detected() || result.status() == Status.SKIPPED;
   }
 
   /// Prints a finished run's result.
@@ -614,12 +625,10 @@ public final class Main {
   }
 
   private static int exitCode(Command command, Report report) {
-    // One mutant asked for by id passes when it's caught, as `verify` does; a whole run, on its
-    // score.
+    // One mutant asked for by id passes when it's caught or skipped, as `verify` does; a whole
+    // run, on its score.
     if (!command.only().isEmpty()) {
-      return report.results().stream().allMatch(result -> result.status().detected())
-          ? PASSED
-          : FAILED;
+      return report.results().stream().allMatch(Main::settled) ? PASSED : FAILED;
     }
     return report.passes(command.threshold()) ? PASSED : FAILED;
   }
@@ -706,7 +715,7 @@ public final class Main {
     VERIFY(
         true,
         "verify ID... [DIR] [:MODULE]",
-        "Run mutants' tests: it passes when they catch every one",
+        "Run mutants' tests: it passes when they catch every one not skipped",
         "How a fix is proved: each missed mutant offers it as \"done when\", and a card with"
             + " several mutants names them all.",
         List.of(

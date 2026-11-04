@@ -14,7 +14,7 @@
     {
       "name": "verify",
       "synopsis": "mutastic verify ID... [DIR] [:MODULE]",
-      "summary": "Run mutants' tests: it passes when they catch every one",
+      "summary": "Run mutants' tests: it passes when they catch every one not skipped",
       "detail": "How a fix is proved: each missed mutant offers it as \"done when\", and a card with several mutants names them all.",
       "takesMutantId": true,
       "examples": [{ "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c", "commandLine": "mutastic verify m855c8e3c" }, { "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c -p samples/pricing", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -f samples/pricing", "commandLine": "mutastic verify m855c8e3c samples/pricing" }, { "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c -p m2e491c40", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -f m2e491c40", "commandLine": "mutastic verify m855c8e3c m2e491c40" }],
@@ -75,7 +75,7 @@
       "group": "Running",
       "value": "ID",
       "choices": [],
-      "help": "Run one mutant, or several split by commas; the run passes when each is caught",
+      "help": "Run one mutant, or several split by commas; the run passes when each is caught or skipped",
       "commands": ["run"],
       "environment": "",
       "maven": { "property": "-Dmutastic.only", "setting": null },
@@ -345,7 +345,7 @@
     { "name": "FORCE_COLOR", "meaning": "Colour even off a terminal", "detail": "Set to anything, it turns colour on where mutastic can't tell a person is reading, such as a CI log that shows colour." }
   ],
   "exitCodes": [
-    { "name": "0", "meaning": "The score reaches the threshold; for verify, the mutant is caught", "detail": "" },
+    { "name": "0", "meaning": "The score reaches the threshold; for verify, the mutant is caught or skipped", "detail": "" },
     { "name": "1", "meaning": "The score is below the threshold; for verify, the mutant is still missed", "detail": "" },
     { "name": "2", "meaning": "A usage error, or a build mutastic couldn't read", "detail": "" },
     { "name": "3", "meaning": "The tests fail without any mutant", "detail": "" },

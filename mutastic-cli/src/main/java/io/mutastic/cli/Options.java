@@ -62,7 +62,7 @@ final class Options {
               Group.RUNNING,
               "ID",
               List.of(),
-              "Run one mutant, or several split by commas; the run passes when each is caught",
+              "Run one mutant, or several split by commas; the run passes when each is caught or skipped",
               RUNS,
               "only",
               false,
