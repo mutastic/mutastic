@@ -62,7 +62,7 @@ public final class Worker {
   private final List<Path> productionRoots;
   private final List<Path> testRoots;
   private final Tags tags;
-  private final Set<String> splitTests;
+  private final TestSplit splitTests;
   private final Set<String> testClassNames;
   private final PrintStream protocol;
   private final Map<String, byte[]> staged = new HashMap<>();
@@ -113,7 +113,10 @@ public final class Worker {
     this.testRoots = testRoots;
     this.tags = tags;
     this.protocol = protocol;
-    this.splitTests = splitTests(productionRoots, testRoots);
+    var providers = TestSplit.providersIn(concat(testRoots, productionRoots));
+    var renamed = new HashSet<>(splitTests(productionRoots, testRoots));
+    renamed.removeAll(providers);
+    this.splitTests = new TestSplit(renamed, providers);
     this.testClassNames = classNamesIn(testRoots);
     this.framework =
         framework ? new Framework(productionRoots, classNamesIn(productionRoots)) : null;
@@ -178,6 +181,7 @@ public final class Worker {
         new ProductionLoader(
             productionRoots, staged, testRoots, splitTests, getClass().getClassLoader());
     production = instrumented;
+    SystemLoader.project(instrumented);
     cover(tests);
     instrumented.restoreAll();
     staged.clear();
@@ -277,6 +281,7 @@ public final class Worker {
       production =
           new ProductionLoader(
               productionRoots, Map.of(), testRoots, splitTests, getClass().getClassLoader());
+      SystemLoader.project(production);
     }
     return production;
   }
@@ -531,6 +536,12 @@ public final class Worker {
   private static String parameters(String test) {
     int open = test.indexOf('(');
     return open < 0 ? "" : test.substring(open + 1, test.length() - 1);
+  }
+
+  private static List<Path> concat(List<Path> first, List<Path> second) {
+    var all = new java.util.ArrayList<>(first);
+    all.addAll(second);
+    return all;
   }
 
   /// Top-level test classes whose package also holds production classes.

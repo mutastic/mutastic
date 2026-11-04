@@ -30,7 +30,7 @@ final class TestLoader extends RootsLoader {
   /// must get a class of the name it asked for, so the original name never gives a copy.
   @Override
   protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
-    if (production.splitTopLevel(Renamer.original(name)) != null) {
+    if (production.splitTopLevel(Renamer.original(name)) != null || production.shared(name)) {
       return production.loadClass(name);
     }
     return super.loadClass(name, resolve);

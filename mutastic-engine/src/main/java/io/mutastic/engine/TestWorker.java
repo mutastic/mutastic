@@ -366,6 +366,18 @@ final class TestWorker implements AutoCloseable {
         : List.of(agent.replace("{worker}", java.util.UUID.randomUUID().toString()));
   }
 
+  /// The worker's system class loader, so the JDK's own service lookups find the project as they do
+  /// in the build; not in framework mode, where the framework loads the app.
+  private List<String> systemLoader() {
+    return TestFrameworks.loadsTheApp(project.dependencies())
+        ? List.of()
+        : List.of(
+            "-Djava.system.class.loader=io.mutastic.worker.SystemLoader",
+            // The JVM warns on stdout, the worker's protocol, that a system class loader of its
+            // own turns off its archive of application classes.
+            "-Xlog:cds=off");
+  }
+
   /// Framework mode, for tests run in a framework that loads the app itself.
   private List<String> mode() {
     return TestFrameworks.loadsTheApp(project.dependencies()) ? List.of("--framework") : List.of();
@@ -377,6 +389,7 @@ final class TestWorker implements AutoCloseable {
     command.add(project.java().toString());
     command.addAll(project.jvmArgs());
     command.addAll(measured());
+    command.addAll(systemLoader());
     command.add("-javaagent:" + workerJar);
     command.addAll(
         List.of(

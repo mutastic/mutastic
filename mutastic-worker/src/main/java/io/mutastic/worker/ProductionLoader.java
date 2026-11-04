@@ -31,7 +31,7 @@ final class ProductionLoader extends RootsLoader {
 
   private final Map<String, Class<?>> loaded = new ConcurrentHashMap<>();
   private final List<Path> testRoots;
-  private final Set<String> splitTests;
+  private final TestSplit splitTests;
 
   /// `splitTests` are the top-level test classes in a package production code also uses: they are
   /// defined here, renamed per run (see [Renamer]).
@@ -39,12 +39,12 @@ final class ProductionLoader extends RootsLoader {
       List<Path> roots,
       Map<String, byte[]> replacements,
       List<Path> testRoots,
-      Set<String> splitTests,
+      TestSplit splitTests,
       ClassLoader parent) {
     super("mutastic-production", roots, concat(testRoots, roots), parent);
     this.replacements = new HashMap<>(replacements);
     this.testRoots = List.copyOf(testRoots);
-    this.splitTests = Set.copyOf(splitTests);
+    this.splitTests = splitTests;
   }
 
   @Override
@@ -55,7 +55,9 @@ final class ProductionLoader extends RootsLoader {
         throw new ClassNotFoundException(name);
       }
       var internalNames =
-          splitTests.stream().map(test -> test.replace('.', '/')).collect(Collectors.toSet());
+          splitTests.renamed().stream()
+              .map(test -> test.replace('.', '/'))
+              .collect(Collectors.toSet());
       return Renamer.rename(original, internalNames, Renamer.runOf(name));
     }
     if (replacements.containsKey(name)) {
@@ -90,7 +92,13 @@ final class ProductionLoader extends RootsLoader {
   @Nullable String splitTopLevel(String name) {
     int dollar = name.indexOf('$');
     var topLevel = dollar < 0 ? name : name.substring(0, dollar);
-    return splitTests.contains(topLevel) ? topLevel : null;
+    return splitTests.renamed().contains(topLevel) ? topLevel : null;
+  }
+
+  /// Whether `name` is a class the JDK makes for a service ([TestSplit#shared]): this loader's
+  /// alone, by its own name, for every run.
+  boolean shared(String name) {
+    return splitTests.shared().contains(name);
   }
 
   /// Puts mutants in: redefines classes already loaded, and leaves the rest to be defined with the

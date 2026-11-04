@@ -20,7 +20,11 @@ class TestLoaderTest {
     var roots = roots();
     var production =
         new ProductionLoader(
-            List.of(), Map.of(), roots, Set.of(COUNTER), ClassLoader.getPlatformClassLoader());
+            List.of(),
+            Map.of(),
+            roots,
+            new TestSplit(Set.of(COUNTER), Set.of()),
+            ClassLoader.getPlatformClassLoader());
     var tests = new TestLoader(roots, production, 2);
 
     assertThat(Class.forName(COUNTER, false, tests).getName()).isEqualTo(COUNTER);

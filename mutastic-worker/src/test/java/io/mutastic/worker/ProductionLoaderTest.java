@@ -18,7 +18,11 @@ class ProductionLoaderTest {
   void aSplitTestNamedInAStringLoadsByItsOriginalName() throws Exception {
     var production =
         new ProductionLoader(
-            List.of(), Map.of(), roots(), Set.of(COUNTER), ClassLoader.getPlatformClassLoader());
+            List.of(),
+            Map.of(),
+            roots(),
+            new TestSplit(Set.of(COUNTER), Set.of()),
+            ClassLoader.getPlatformClassLoader());
     var copy = Class.forName(Renamer.renamed(COUNTER, COUNTER, 4), false, production);
 
     var byOriginalName = Class.forName(COUNTER, false, copy.getClassLoader());
@@ -33,7 +37,11 @@ class ProductionLoaderTest {
   void aRenamedCopysBytecodeIsAResource() throws Exception {
     var production =
         new ProductionLoader(
-            List.of(), Map.of(), roots(), Set.of(COUNTER), ClassLoader.getPlatformClassLoader());
+            List.of(),
+            Map.of(),
+            roots(),
+            new TestSplit(Set.of(COUNTER), Set.of()),
+            ClassLoader.getPlatformClassLoader());
     var copy = Renamer.renamed(COUNTER, COUNTER, 4);
 
     try (var in = production.getResourceAsStream(copy.replace('.', '/') + ".class")) {
