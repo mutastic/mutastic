@@ -75,13 +75,35 @@ public final class Engine {
     /// Not serialised: nothing sends this exception anywhere, it's reported where it's caught.
     private final transient List<String> failing;
 
-    BaselineFailed(List<String> failing, Path log) {
+    /// @param services the JDK services the project provides that the worker can't install: each a
+    ///   likely reason tests that pass in the build fail here
+    BaselineFailed(List<String> failing, Path log, List<String> services) {
       super(
           "the tests fail without any mutant: "
               + String.join(", ", failing)
               + "; their output is in "
-              + log);
+              + log
+              + loadedElsewhere(failing, services));
       this.failing = List.copyOf(failing);
+    }
+
+    /// Why tests that pass in the build can fail here, when the project provides a JDK service.
+    private static String loadedElsewhere(List<String> failing, List<String> services) {
+      if (services.isEmpty()) {
+        return "";
+      }
+      var classes =
+          failing.stream()
+              .map(test -> test.replaceFirst("#.*", ""))
+              .map(test -> test.substring(test.lastIndexOf('.') + 1))
+              .distinct()
+              .map(name -> "--exclude-tests=" + name)
+              .collect(Collectors.joining(" "));
+      return ("%nIf they pass in the build, this is likely why: the project provides %s in"
+              + " META-INF/services, which the JDK looks for on the system class path. mutastic"
+              + " loads the project in class loaders of its own, so the JDK doesn't find it here."
+              + " To run without those tests: %s")
+          .formatted(String.join(" and ", services), classes);
     }
 
     public List<String> failing() {
@@ -285,7 +307,9 @@ public final class Engine {
     long coverageStart = System.nanoTime();
     var baseline = first.cover(plan.instrumented(), testClasses, coverage);
     var flaky =
-        baseline.passed() ? List.<String>of() : flakyOrFail(baseline.failing(), coverage, first);
+        baseline.passed()
+            ? List.<String>of()
+            : flakyOrFail(baseline.failing(), coverage, first, project);
     coverage.exclude(flaky);
     var coverageTook = Duration.ofNanos(System.nanoTime() - coverageStart);
     if (coverage.testCount() == 0) {
@@ -453,7 +477,8 @@ public final class Engine {
   ///
   /// A flaky test left in would fail at random against mutants too, and its failures would count as
   /// catches it never made.
-  private List<String> flakyOrFail(List<String> failing, Coverage coverage, TestWorker worker) {
+  private List<String> flakyOrFail(
+      List<String> failing, Coverage coverage, TestWorker worker, Project project) {
     // A test class that failed as a whole (a `@BeforeAll`) is reported by its unique id, which
     // can't be run again on its own.
     boolean rerunnable = failing.stream().allMatch(test -> test.contains("#"));
@@ -464,7 +489,7 @@ public final class Engine {
                 .toList()
             : failing;
     if (!stillFailing.isEmpty()) {
-      throw new BaselineFailed(stillFailing, log);
+      throw new BaselineFailed(stillFailing, log, SystemServices.providedBy(project));
     }
     return failing;
   }
