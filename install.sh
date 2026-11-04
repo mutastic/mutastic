@@ -101,7 +101,22 @@ main() {
   check_java
   case ":$PATH:" in
     *":$bin:"*) say "next, in a Gradle or Maven project: mutastic run" ;;
-    *) say "add $bin to your PATH, then, in a Gradle or Maven project: mutastic run" ;;
+    *)
+      say "$bin isn't on your PATH: add it, then open a new terminal"
+      path_line "$bin"
+      say "then, in a Gradle or Maven project: mutastic run"
+      ;;
+  esac
+}
+
+# The line that puts `bin` on the PATH, for the shell the person uses: zsh, as macOS starts with,
+# reads ~/.zshrc; bash ~/.bashrc; fish has its own command.
+path_line() {
+  case "${SHELL##*/}" in
+    zsh) printf "  echo 'export PATH=\"%s:\$PATH\"' >> ~/.zshrc\n" "$1" ;;
+    bash) printf "  echo 'export PATH=\"%s:\$PATH\"' >> ~/.bashrc\n" "$1" ;;
+    fish) printf '  fish_add_path %s\n' "$1" ;;
+    *) printf '  export PATH="%s:$PATH"   (in your shell'"'"'s startup file)\n' "$1" ;;
   esac
 }
 
