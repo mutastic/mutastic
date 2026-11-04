@@ -92,6 +92,7 @@ export default defineConfig({
             'concepts/results',
             'concepts/operators',
             'concepts/operators-advanced',
+            'concepts/equivalence',
             'concepts/output',
             'concepts/suggested-tests',
             'concepts/flaky-tests',
