@@ -46,8 +46,9 @@ public final class SystemLoader extends ClassLoader {
     agents.add(new JarFile(path));
   }
 
-  /// From now on, what the JDK can't find on the class path is looked for in `loader`.
-  static void project(RootsLoader loader) {
+  /// From now on, what the JDK can't find on the class path is looked for in `loader`; nowhere, for
+  /// null.
+  static void project(@Nullable RootsLoader loader) {
     project = loader;
   }
 
