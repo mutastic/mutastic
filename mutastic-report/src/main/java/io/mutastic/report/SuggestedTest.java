@@ -46,11 +46,24 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
   /// condition get the same call, and pasting it twice wouldn't compile.
   static List<SuggestedTest> distinct(Finding finding, SourceView sources) {
     var byName = new java.util.LinkedHashMap<String, SuggestedTest>();
+    boolean shared = finding.mutants().size() > 1;
     for (MutantResult result : finding.mutants()) {
       of(result, sources)
+          .map(test -> shared ? test.naming(result.mutant().id()) : test)
           .ifPresent(test -> byName.putIfAbsent(test.testClass() + "#" + test.name(), test));
     }
     return List.copyOf(byName.values());
+  }
+
+  /// The same test, its comment naming the mutant it was found for, `with md4db94d8 true`: on a
+  /// card with others, "this mutant" could be any of them.
+  SuggestedTest naming(String id) {
+    var named = "with " + id + " ";
+    return new SuggestedTest(
+        testClass,
+        name,
+        lines.stream().map(line -> line.replace("with this mutant ", named)).toList(),
+        outcomes.replace("with this mutant ", named));
   }
 
   /// For mutants no test reaches, an assertion to start each method's first test with, at most

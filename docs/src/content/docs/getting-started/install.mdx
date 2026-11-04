@@ -45,20 +45,8 @@ mutastic --version`}
 </TabItem>
 <TabItem label="Gradle">
 
-Until the Gradle Plugin Portal lists it, add Maven Central to where Gradle finds plugins, in
-`settings.gradle.kts`:
-
-```kotlin
-pluginManagement {
-    repositories {
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-```
-
-Then apply it in `build.gradle.kts`. The project's own repositories need Maven Central too, for the
-`mutastic` command the tasks run:
+Apply the plugin, from the Gradle Plugin Portal, in `build.gradle.kts`. The project's repositories
+need Maven Central, for the `mutastic` command the tasks run:
 
 <Code
   lang="kotlin"

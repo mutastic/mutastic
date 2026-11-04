@@ -395,7 +395,7 @@ public final class HumanText {
     var gutter = " ".repeat(width);
     var lines = new ArrayList<String>();
     lines.add("");
-    addHead(lines, advice, mutant, gutter);
+    addHead(lines, advice, gutter, finding);
     lines.addAll(frame(mutant, advice, place, width));
     addBeforeAndAfter(lines, mutant, advice, gutter);
     finding.others().forEach(other -> addOther(lines, other, gutter));
@@ -500,13 +500,16 @@ public final class HumanText {
     }
   }
 
-  /// `✗ MISSED headline`, then `┌─ src/…/Pricing.java:17`.
-  private void addHead(List<String> lines, Advice advice, Mutant mutant, String gutter) {
+  /// `✗ MISSED headline`, then `┌─ src/…/Pricing.java:17`, for the finding's lead; with its id
+  /// after the headline when the card has others, as each of theirs follows its own.
+  private void addHead(List<String> lines, Advice advice, String gutter, Finding finding) {
+    var mutant = finding.lead().mutant();
     lines.add(
-        " %s %s"
+        " %s %s%s"
             .formatted(
                 style.label("✗ " + words.undetected.toUpperCase(Locale.ROOT), Style.RED),
-                style.bold(code(advice.headline()))));
+                style.bold(code(advice.headline())),
+                finding.mutants().size() > 1 ? style.dim(" · " + mutant.id()) : ""));
     lines.add(" %s %s %s".formatted(gutter, style.dim("┌─"), location(mutant)));
   }
 
@@ -609,7 +612,7 @@ public final class HumanText {
     var gutter = " ".repeat(width);
     var lines = new ArrayList<String>();
     lines.add("");
-    addHead(lines, advice, mutant, gutter);
+    addHead(lines, advice, gutter, finding);
     sources
         .lines(mutant)
         .filter(all -> place.line() >= 1 && place.line() <= all.size())

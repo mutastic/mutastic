@@ -11,6 +11,7 @@ import concise from '../../../data/output/format-concise.ansi?raw';
 import grouped from '../../../data/output/format-grouped.ansi?raw';
 import jsonl from '../../../data/output/format-jsonl.ansi?raw';
 import full from '../../../data/output/run.ansi?raw';
+import shared from '../../../data/output/shared-card.ansi?raw';
 
 mutastic prints its result on stdout and its progress on stderr. How the result looks is `--format`'s choice.
 
@@ -38,15 +39,30 @@ The same run of the pricing sample, in each:
 <TabItem label="jsonl"><Code code={jsonl} lang="ansi" /></TabItem>
 </Tabs>
 
-- **The mutants of one line share a card** (and an entry in the agent format): one test there usually catches them all, the edge of a condition its boundary and its removal alike. The card is written about one of them, lists the others with their changes, and its `done when` checks them all at once (`mutastic verify m855c8e3c,m2e491c40`). Each is still counted, and ignored, on its own. `--each-mutant` gives every missed mutant a card of its own.
-- **Cards** are grouped by file, and in each file the method with the most misses comes first. A file shows at most seven cards, and counts the rest (`--each-mutant` shows them all): more than a few at once go unread.
-- **The agent format's ten entries** are those most worth a test first: a condition or a removal no test checks before arithmetic, and among those, code more tests run without checking. On a terminal, file locations are links (`--hyperlinks`) that terminals supporting OSC 8 open; others show the text.
+- **Cards** are grouped by file, and in each file the method with the most misses comes first. A file shows at most seven cards, and counts the rest (`--each-mutant` shows them all): more than a few at once go unread. On a terminal, file locations are links (`--hyperlinks`) that terminals supporting OSC 8 open; others show the text.
+- **The agent format's ten entries** are those most worth a test first: a condition or a removal no test checks before arithmetic, and among those, code more tests run without checking.
 - **The agent format** puts the verdict first, so a truncated read still has it, and the rule that a fix changes tests, never production code. It also says when not to write one: a mutant whose case can't happen in practice, or whose change no caller can see, is declined with its reason and ignored, not given a contrived test.
 - **`MUTASTIC_FORMAT`** sets the format when `--format` isn't given. While it runs, each source file gets a line as it finishes, on stderr, with its misses under it.
 - **`--vocabulary=classic`** (or `MUTASTIC_VOCABULARY=classic`) says killed and survived instead of caught and missed. JSON and the report files always use the standard statuses.
 - **Colour** follows the usual rules: only on a terminal, never with `NO_COLOR` or `TERM=dumb`, always with `FORCE_COLOR`. Every colour has a symbol beside it (✓ caught, ✗ missed, ○ not covered, ⏱ timed out), so nothing is lost without it. Labels such as `MISSED` and `PASS` are coloured blocks, `[MISSED]` without colour, and have rounded ends with `MUTASTIC_PILLS=rounded` for terminals with a Nerd Font. `MUTASTIC_PILLS=off` draws no blocks: the label's words in its colour.
 - **`jsonl`** writes `mutastic.events/v1` events. Statuses follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`, `NoCoverage`.
 - **A mutant's id** comes from its class, method, position and change, not its line number, so it stays the same while code around it moves.
+
+## Shared cards
+
+The mutants of one line share a card, and an entry in the agent format: one test there usually
+catches them all, the edge of a condition its boundary and its removal alike. The card is written
+about one of them, with its id after the headline, and lists each of the others under `also`, with
+its id and the line as it changes. A suggested test says which mutant it was found for. The card's
+`done when` checks them all at once, so the test proves the whole fix; each is still counted, and
+ignored, on its own.
+
+In the `suggestions` sample, `inCredit()` misses both its boundary and the condition always being
+true. A test at `balance = 0` catches both:
+
+<Code code={shared} lang="ansi" />
+
+`--each-mutant` gives every missed mutant a card of its own.
 
 ## Streams
 

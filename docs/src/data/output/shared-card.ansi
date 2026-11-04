@@ -1,0 +1,27 @@
+ [41;30;1m ✗ MISSED [0m [1mno test checks [1minCredit()[0m at [1mbalance == 0[0m[0m[2m · md4db94d8[0m
+    [2m┌─[0m src/main/java/com/example/rates/Rates.java:18
+    [2m│[0m
+ [2m17[0m [2m│[0m   public static boolean inCredit(int balance) {
+ [2m18[0m [2m│[0m     return balance > 0;
+    [2m│[0m                    [1;31m^ changed to >=[0m
+ [2m19[0m [2m│[0m   }
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mreturn balance > 0;
+              [32m+ [0mreturn balance >= 0;
+    [2m=[0m also    [1;31m✗[0m no test needs [1mbalance > 0[0m to be false in [1minCredit()[0m [2m· m05382fc9[0m
+              [32m+ [0mreturn true;
+    [2m=[0m [1;34m[1mnote[0m[0m: every test calls [1minCredit()[0m away from the boundary
+            [2minputs seen: 50 (none is 0)[0m
+            [2mcovered by RatesTest#aPositiveBalanceIsInCredit (its 1 covering test still passes)[0m
+    [2m=[0m [32m[1mhelp[0m[0m: test [1minCredit()[0m with [1mbalance = 0[0m and assert the result
+
+            [2m// in RatesTest[0m
+            @Test
+            void inCreditWithBalance0() {
+            [32m  assertThat(Rates.inCredit(0)).isFalse(); // today false · with md4db94d8 true[0m
+            }
+            [2mcheck today's value is the one you intend: the test pins what the code does now[0m
+
+    [2mdone when [0m mutastic verify md4db94d8,m05382fc9 samples/suggestions[2m passes[0m
+    [2mreproduce [0m mutastic run --only=md4db94d8,m05382fc9 samples/suggestions
+    [2mor ignore [0m mutastic ignore <id> --reason="<why>" samples/suggestions for each of md4db94d8, m05382fc9

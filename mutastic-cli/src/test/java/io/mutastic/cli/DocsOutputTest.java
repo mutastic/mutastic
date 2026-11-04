@@ -23,6 +23,8 @@ class DocsOutputTest {
   private static final boolean WRITE = Boolean.getBoolean("mutastic.docsOutput.write");
   private static final String ID = "m855c8e3c";
   private static final Path FLAKY = Path.of(System.getProperty("mutastic.samples"), "flaky");
+  private static final Path SUGGESTIONS =
+      Path.of(System.getProperty("mutastic.samples"), "suggestions");
 
   /// Colour and style codes, to find a line by its words.
   private static final Pattern ANSI = Pattern.compile("\u001B\\[[0-9;]*m");
@@ -82,6 +84,35 @@ class DocsOutputTest {
 
     assertThat(result.exit()).isEqualTo(Main.FAILED);
     shown("flaky.ansi", project, fromTheFirstWarning(result));
+  }
+
+  /// The suggestions sample's `inCredit()` card: two mutants on one line, one card. Only that card
+  /// is shown.
+  @Test
+  void aSharedCard() throws Exception {
+    var project = Samples.copy(SUGGESTIONS, work.resolve("suggestions"));
+
+    var result =
+        Samples.mutastic(TERMINAL, "run", project.toString(), "--workers=1", "--report=none");
+
+    assertThat(result.exit()).isEqualTo(Main.FAILED);
+    shown("shared-card.ansi", project, theCard(result, "no test checks inCredit()"));
+  }
+
+  /// The card whose headline starts `headline`, up to the next card or file.
+  private static Samples.Result theCard(Samples.Result result, String headline) {
+    var lines = result.out().lines().toList();
+    int first = 0;
+    while (!ANSI.matcher(lines.get(first)).replaceAll("").contains(headline)) {
+      first++;
+    }
+    int end = first + 1;
+    while (end < lines.size()
+        && !ANSI.matcher(lines.get(end)).replaceAll("").strip().matches("\\[?✗ MISSED.*|❯ .*")) {
+      end++;
+    }
+    var shown = String.join("\n", lines.subList(first, end)).stripTrailing() + "\n";
+    return new Samples.Result(result.exit(), shown, result.err());
   }
 
   private static Samples.Result fromTheFirstWarning(Samples.Result result) {

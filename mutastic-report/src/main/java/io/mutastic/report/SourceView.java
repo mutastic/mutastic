@@ -1,5 +1,6 @@
 package io.mutastic.report;
 
+import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -176,6 +177,10 @@ public final class SourceView {
   /// The longest statement searched for the changed operator.
   private static final int STATEMENT_LINES = 12;
 
+  /// A removed condition's change, `` `balance > 0` is always true ``: the condition and its value.
+  private static final java.util.regex.Pattern ALWAYS =
+      java.util.regex.Pattern.compile("`(?<condition>[^`]+)` is always (?<value>true|false)");
+
   /// Where the mutant's change is in the source.
   ///
   /// javac gives a whole statement the line it starts on, so `return !over && location < 9` split
@@ -264,12 +269,29 @@ public final class SourceView {
                     ? Optional.of(text.replace(before, " " + advice.after().get() + " "))
                     : Optional.empty();
               }
+              if (mutant.operator() == BuiltIn.REMOVE_CONDITIONAL) {
+                return conditionReplaced(text, advice);
+              }
               boolean singleReturn =
                   text.startsWith("return ")
                       && text.endsWith(";")
                       && text.indexOf("return ", 1) < 0;
               return advice.after().filter(after -> singleReturn && after.startsWith("return "));
             });
+  }
+
+  /// `return balance > 0;` → `return true;`: the condition as the source writes it, once on the
+  /// line, replaced by the value it now always has. Nothing when the line doesn't write it so.
+  private static Optional<String> conditionReplaced(String text, Advice advice) {
+    var always = ALWAYS.matcher(advice.change());
+    if (!always.matches()) {
+      return Optional.empty();
+    }
+    var condition = always.group("condition");
+    int at = text.indexOf(condition);
+    return at >= 0 && at == text.lastIndexOf(condition)
+        ? Optional.of(text.replace(condition, always.group("value")))
+        : Optional.empty();
   }
 
   private Optional<Path> sourceFile(Mutant mutant) {

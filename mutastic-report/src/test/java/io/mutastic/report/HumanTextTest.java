@@ -306,7 +306,8 @@ class HumanTextTest {
 
     assertThat(full.lines().filter(line -> line.contains("✗ MISSED"))).hasSize(1);
     assertThat(full)
-        .contains("✗ MISSED] no test checks discount() at total == 100")
+        .contains("✗ MISSED] no test checks discount() at total == 100 · " + boundary().id())
+        .containsPattern("\\+ if \\((true|false)\\) \\{")
         .contains("= also    ✗ ")
         .contains("· " + always.id())
         .contains("done when  mutastic verify " + ids + " passes")
