@@ -59,9 +59,14 @@ mutastic verify m855c8e3c samples/pricing
 
 ## Install
 
+```sh
+curl -fsSL https://mutastic.io/install.sh | sh
+```
+
+Then `mutastic run` in a Gradle or Maven project. Or from the build:
+
 - **Gradle:** apply the plugin `id("io.mutastic")`, then `./gradlew mutasticRun`.
 - **Maven:** add `io.mutastic:mutastic-maven-plugin` to the build, then `mvn mutastic:run`.
-- **Command line:** download the release's zip, then `mutastic run` in a Gradle or Maven project.
 
 The [Install](https://docs.mutastic.io/getting-started/install/) page has the setup for the current
 release. mutastic runs on JDK 25; the project it tests can be on JDK 17 or later.

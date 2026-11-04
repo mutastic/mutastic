@@ -66,10 +66,13 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+      # With their checksums, which install.sh checks a download against.
       - name: Attach the CLI to the release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
         run: |
           ./gradlew :mutastic-cli:distZip :mutastic-cli:distTar -PreleaseVersion="$VERSION"
-          gh release upload "$TAG" mutastic-cli/build/distributions/mutastic-"$VERSION".{zip,tar}
+          cd mutastic-cli/build/distributions
+          sha256sum mutastic-"$VERSION".zip mutastic-"$VERSION".tar > SHA256SUMS
+          gh release upload "$TAG" mutastic-"$VERSION".{zip,tar} SHA256SUMS
