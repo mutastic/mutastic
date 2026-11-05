@@ -43,9 +43,15 @@ doesn't.
 ## When it hands over
 
 An agent can't always get there, and sometimes shouldn't: you asked for the change without tests,
-or a test needs something only you know. So a hook's `gate check` sends the agent back only a few
-times in a row (`--tries`). After that it lets the agent stop, and tells you what's still missed.
-The count starts again when a check passes.
+or a test needs something only you know. So a hook's `gate check` lets the agent stop, and tells
+you what's still missed:
+
+- **when the agent changed nothing** since the gate last sent it back: it has declined, and
+  sending it back again only spends its turns;
+- **after a few tries** in a row (`--tries`) that didn't get there.
+
+The count starts again when a check passes. "Nothing changed" is the working tree as git sees it,
+so a project whose build output git doesn't ignore always looks changed, and gets only the tries.
 
 ## As a hook
 

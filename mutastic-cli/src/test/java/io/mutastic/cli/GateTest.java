@@ -28,6 +28,7 @@ class GateTest {
   @BeforeEach
   void aProjectInGit() throws Exception {
     project = Samples.copy(SAMPLE, work.resolve("pricing"));
+    Files.writeString(project.resolve(".gitignore"), "build/\n.gradle/\n");
     git("init", "-q", "-b", "main");
     git("add", "-A");
     git(
@@ -106,6 +107,7 @@ class GateTest {
     var again = hooked("{\"session_id\":\"s1\"}", "gate", "open", "--hook=claude");
     aDiscountForOrdersOverFifty();
     var blocked = hooked("{\"session_id\":\"s1\"}", "gate", "check", "--hook=claude", "--tries=1");
+    anotherTry();
     var gaveUp = hooked("{\"session_id\":\"s1\"}", "gate", "check", "--hook=claude", "--tries=1");
     mutastic("gate", "close", project.toString());
     var closed = hooked("{\"session_id\":\"s1\"}", "gate", "check", "--hook=claude");
@@ -120,12 +122,37 @@ class GateTest {
     assertThat(closed.out()).isEmpty(); // nothing gated: the agent may stop
   }
 
+  /// Sent back, an agent that changes nothing has declined, as it may when the person said no
+  /// tests: it's over to the person at once, not after every try.
+  @Test
+  void anAgentThatChangesNothingWhenSentBackIsLetStop() throws Exception {
+    hooked("{\"session_id\":\"s1\"}", "gate", "open", "--hook=claude");
+    aDiscountForOrdersOverFifty();
+    var blocked = hooked("{\"session_id\":\"s1\"}", "gate", "check", "--hook=claude");
+    var declined = hooked("{\"session_id\":\"s1\"}", "gate", "check", "--hook=claude");
+    var again = hooked("{\"session_id\":\"s1\"}", "gate", "check", "--hook=claude");
+
+    assertThat(blocked.out()).startsWith("{\"decision\": \"block\"");
+    assertThat(declined.out())
+        .startsWith("{\"systemMessage\": ")
+        .contains("nothing changed since the agent was sent back, so it's over to you")
+        .contains("1. missed m");
+    assertThat(again.out()).startsWith("{\"decision\": \"block\""); // a new stop, a new try
+  }
+
   @Test
   void gateNeedsToBeToldWhatToDo() {
     var bare = mutastic("gate");
     assertThat(bare.exit()).isEqualTo(Main.USAGE);
     assertThat(bare.err()).contains("gate needs what to do: open, check or close");
     assertThat(mutastic("gate", "open", "--help").out()).contains("Usage: mutastic gate open");
+  }
+
+  /// A change the agent makes when sent back that doesn't close the gap: a test that checks
+  /// nothing.
+  private void anotherTry() throws Exception {
+    var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
+    Files.writeString(test, Files.readString(test) + "\n// tried\n");
   }
 
   /// `discount()` for orders over fifty as well: a change whose boundary no test checks.

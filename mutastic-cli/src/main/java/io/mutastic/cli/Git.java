@@ -39,6 +39,29 @@ final class Git {
         .strip();
   }
 
+  /// The working tree as git would commit it, untracked files included and ignored ones not: the
+  /// same hash for the same files. A scratch index takes the files, so the real one is untouched.
+  String tree() {
+    try {
+      var index = Files.createTempFile("mutastic-gate", ".index");
+      try {
+        var real =
+            Path.of(output(List.of("rev-parse", "--git-path", "index"), "no git index").strip());
+        Files.copy(
+            directory.resolve(real), index, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        var scratch = Map.of("GIT_INDEX_FILE", index.toString());
+        if (run(List.of("add", "--all"), scratch).isEmpty()) {
+          throw new Main.UsageException("git couldn't read the working tree");
+        }
+        return run(List.of("write-tree"), scratch).orElse("").strip();
+      } finally {
+        Files.deleteIfExists(index);
+      }
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
   /// The lines changed since `since`, or since the repository's default branch for `""`.
   ChangedLines changedSince(String since) {
     var root =
@@ -134,11 +157,16 @@ final class Git {
 
   /// What git printed, or none if it failed (or isn't there).
   private Optional<String> run(List<String> args) {
+    return run(args, Map.of());
+  }
+
+  private Optional<String> run(List<String> args, Map<String, String> environment) {
     var command = new ArrayList<>(List.of("git", "-C", directory.toString()));
     command.addAll(args);
     try {
-      var process =
-          new ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.DISCARD).start();
+      var builder = new ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.DISCARD);
+      builder.environment().putAll(environment);
+      var process = builder.start();
       var out = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
       return process.waitFor() == 0 ? Optional.of(out) : Optional.empty();
     } catch (IOException e) {

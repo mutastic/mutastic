@@ -42,17 +42,25 @@ final class Gate {
   /// Where a task started, and how often the gate has sent the agent back since it last passed.
   ///
   /// @param session the agent's session that opened it, when a hook did: empty otherwise
-  record State(String session, String base, Set<String> ignored, Shape shape, int blocks) {
+  /// @param tree the working tree when the gate last sent the agent back, as [Git#tree] gives it:
+  ///   empty when it hasn't since it last passed
+  record State(
+      String session, String base, Set<String> ignored, Shape shape, int blocks, String tree) {
     State {
       ignored = Set.copyOf(ignored);
     }
 
-    State blockedOnce() {
-      return new State(session, base, ignored, shape, blocks + 1);
+    State blockedOnce(String now) {
+      return new State(session, base, ignored, shape, blocks + 1, now);
     }
 
     State passed() {
-      return new State(session, base, ignored, shape, 0);
+      return new State(session, base, ignored, shape, 0, "");
+    }
+
+    /// Whether the agent was sent back, and has changed nothing since.
+    boolean unchangedSinceBlocked(String now) {
+      return blocks > 0 && !tree.isEmpty() && tree.equals(now);
     }
 
     static Optional<State> read(Path work) {
@@ -75,7 +83,8 @@ final class Gate {
               new Shape(
                   Integer.parseInt(properties.getProperty("tests", "0")),
                   Integer.parseInt(properties.getProperty("disabled", "0"))),
-              Integer.parseInt(properties.getProperty("blocks", "0"))));
+              Integer.parseInt(properties.getProperty("blocks", "0")),
+              properties.getProperty("tree", "")));
     }
 
     void write(Path work) {
@@ -86,6 +95,7 @@ final class Gate {
       properties.setProperty("tests", String.valueOf(shape.tests()));
       properties.setProperty("disabled", String.valueOf(shape.disabled()));
       properties.setProperty("blocks", String.valueOf(blocks));
+      properties.setProperty("tree", tree);
       try {
         Files.createDirectories(work);
         try (var out = Files.newBufferedWriter(work.resolve(FILE))) {

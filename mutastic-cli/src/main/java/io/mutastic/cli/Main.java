@@ -215,7 +215,7 @@ public final class Main {
     var directory = gated.prepared().directory();
     var base = new Git(directory).head();
     var shape = Gate.Shape.of(gated.prepared().project().testSources());
-    new Gate.State(session, base, ignored(directory), shape, 0).write(gated.work());
+    new Gate.State(session, base, ignored(directory), shape, 0, "").write(gated.work());
     gated
         .output()
         .out()
@@ -248,14 +248,34 @@ public final class Main {
       return gated.hooked() ? PASSED : USAGE; // nothing gated: a hooked agent may stop
     }
     var verdict = gateVerdict(gated, open.get());
-    var state = verdict.passes() ? open.get().passed() : open.get().blockedOnce();
-    int tries = gated.command().gating().tries();
-    if (gated.hooked() && state.blocks() > tries) {
-      verdict = new Gate.Verdict(true, true, gaveUp(tries, verdict.text()));
-      state = state.passed();
+    if (verdict.passes()) {
+      open.get().passed().write(gated.work());
+      return answer(gated, verdict);
     }
-    state.write(gated.work());
-    return answer(gated, verdict);
+    return notDone(gated, open.get(), verdict);
+  }
+
+  /// The agent is sent back, unless, as a hook, it changed nothing since it last was, or it has had
+  /// its tries: then it's let stop, and the person told what's left.
+  private static int notDone(Gated gated, Gate.State open, Gate.Verdict verdict) {
+    var tree = new Git(gated.prepared().directory()).tree();
+    var state = open.blockedOnce(tree);
+    int tries = gated.command().gating().tries();
+    var answer = verdict;
+    if (gated.hooked() && open.unchangedSinceBlocked(tree)) {
+      answer = new Gate.Verdict(true, true, declined(verdict.text()));
+    } else if (gated.hooked() && state.blocks() > tries) {
+      answer = new Gate.Verdict(true, true, gaveUp(tries, verdict.text()));
+    }
+    (answer.passes() ? state.passed() : state).write(gated.work());
+    return answer(gated, answer);
+  }
+
+  /// Sent back, the agent changed nothing: it's declined, as it may when told to, so sending it
+  /// back again only spends its turns.
+  private static String declined(String left) {
+    return "mutastic gate: nothing changed since the agent was sent back, so it's over to you. %s"
+        .formatted(left);
   }
 
   private static String gaveUp(int tries, String left) {
