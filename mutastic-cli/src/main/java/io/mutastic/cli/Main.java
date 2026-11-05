@@ -1076,6 +1076,18 @@ public final class Main {
       this.examples = examples;
     }
 
+    /// The command a command line gives, `mutastic gate check --hook=claude` say: the longest that
+    /// matches, so `gate check`, not some shorter one.
+    static Optional<Subcommand> in(String commandLine) {
+      return java.util.Arrays.stream(values())
+          .filter(
+              command -> {
+                var start = "mutastic " + command.word();
+                return commandLine.equals(start) || commandLine.startsWith(start + " ");
+              })
+          .max(java.util.Comparator.comparingInt(command -> command.word().length()));
+    }
+
     /// As typed: `run`, `gate open`.
     String word() {
       return name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ');

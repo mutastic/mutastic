@@ -185,7 +185,7 @@ const headings = command
           </p>
         </section>
         {options.length > 0 && <h2 id="options">Options</h2>}
-        {options.map((option) => (
+        {options.map((option) => { const example = option.examples[command.name]; return (
           <section class="reference-row">
             <div class="reference-prose">
               <h3 id={anchor(option)} class="option-heading">
@@ -245,30 +245,30 @@ const headings = command
               </table>
             </div>
             <aside class="reference-examples" aria-label={`Example of ${option.name}`}>
-              {!option.examples.gradle ? (
-                <Code code={continued(option.examples.commandLine)} lang="sh" wrap />
+              {!example.gradle ? (
+                <Code code={continued(example.commandLine)} lang="sh" wrap />
               ) : (
               <Tabs syncKey="runner">
                 <TabItem label="Gradle">
-                  <Code code={continued(option.examples.gradle)} lang="sh" wrap />
-                  {option.examples.gradleBuild && (
-                    <Code code={option.examples.gradleBuild} lang="kotlin" title="build.gradle.kts" wrap />
+                  <Code code={continued(example.gradle)} lang="sh" wrap />
+                  {example.gradleBuild && (
+                    <Code code={example.gradleBuild} lang="kotlin" title="build.gradle.kts" wrap />
                   )}
                 </TabItem>
                 <TabItem label="Maven">
-                  <Code code={continued(option.examples.maven)} lang="sh" wrap />
-                  {option.examples.mavenBuild && (
-                    <Code code={option.examples.mavenBuild} lang="xml" title="pom.xml" wrap />
+                  <Code code={continued(example.maven)} lang="sh" wrap />
+                  {example.mavenBuild && (
+                    <Code code={example.mavenBuild} lang="xml" title="pom.xml" wrap />
                   )}
                 </TabItem>
                 <TabItem label="Command line">
-                  <Code code={continued(option.examples.commandLine)} lang="sh" wrap />
+                  <Code code={continued(example.commandLine)} lang="sh" wrap />
                 </TabItem>
               </Tabs>
               )}
             </aside>
           </section>
-        ))}
+        ); })}
       </div>
     ) : (
       <>

@@ -36,6 +36,27 @@ record Option(
     commands = Set.copyOf(commands);
   }
 
+  /// The mutant a command that takes one is shown with, when an example is moved onto it.
+  private static final String SHOWN_ID = "m855c8e3c";
+
+  /// Its example as `command` would be given it: the example is written once, for one of the
+  /// option's commands, and shown on each of their pages as that page's own command. A mutant id
+  /// comes with it, or goes, as the command takes one or doesn't.
+  String exampleFor(Main.Subcommand command) {
+    var written = Main.Subcommand.in(example);
+    if (written.isEmpty() || written.get() == command) {
+      return example;
+    }
+    var from = written.get();
+    var rest = example.substring(("mutastic " + from.word()).length()).strip();
+    if (from.takesMutantId && !command.takesMutantId) {
+      rest = rest.replaceFirst("^\\S+\\s*", "");
+    } else if (!from.takesMutantId && command.takesMutantId) {
+      rest = (SHOWN_ID + " " + rest).strip();
+    }
+    return ("mutastic " + command.word() + " " + rest).strip();
+  }
+
   /// Whether, and how, it takes a value.
   enum Kind {
     /// `--confirm-catches`: on when given.

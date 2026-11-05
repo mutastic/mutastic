@@ -99,15 +99,24 @@ final class DocsModel {
         .collect(Collectors.joining(", ", "[", "]"));
   }
 
-  /// The option's example in each runner, and its setting in each build file when it has one.
+  /// The option's example on each command's page, as that command, in each runner; and its setting
+  /// in each build file when it has one.
   private static String optionExamples(Option option) {
-    return "{ \"gradle\": %s, \"maven\": %s, \"commandLine\": %s, \"gradleBuild\": %s, \"mavenBuild\": %s }"
-        .formatted(
-            quoted(Runners.gradle(option.example())),
-            quoted(Runners.maven(option.example())),
-            quoted(option.example()),
-            quoted(Runners.gradleBuild(option)),
-            quoted(Runners.mavenBuild(option)));
+    return option.commands().stream()
+        .sorted(java.util.Comparator.comparing(Main.Subcommand::word))
+        .map(
+            command -> {
+              var example = option.exampleFor(command);
+              return "%s: { \"gradle\": %s, \"maven\": %s, \"commandLine\": %s, \"gradleBuild\": %s, \"mavenBuild\": %s }"
+                  .formatted(
+                      quoted(command.word()),
+                      quoted(Runners.gradle(example)),
+                      quoted(Runners.maven(example)),
+                      quoted(example),
+                      quoted(Runners.gradleBuild(option)),
+                      quoted(Runners.mavenBuild(option)));
+            })
+        .collect(Collectors.joining(", ", "{ ", " }"));
   }
 
   /// How a build plugin sets it: the property on the command line, and the build-file setting when

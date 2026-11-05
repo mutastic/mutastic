@@ -93,7 +93,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.threshold", "setting": "<threshold>…</threshold>" },
       "gradle": { "property": "-Pmutastic.threshold", "setting": "threshold = …" },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.threshold=70", "maven": "mvn mutastic:run -Dmutastic.threshold=70", "commandLine": "mutastic run --threshold=70", "gradleBuild": "mutastic {\n    threshold = 70\n}", "mavenBuild": "<configuration>\n  <threshold>70</threshold>\n</configuration>" }
+      "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.threshold=70", "maven": "mvn mutastic:run -Dmutastic.threshold=70", "commandLine": "mutastic run --threshold=70", "gradleBuild": "mutastic {\n    threshold = 70\n}", "mavenBuild": "<configuration>\n  <threshold>70</threshold>\n</configuration>" } }
     },
     {
       "name": "--since",
@@ -107,7 +107,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.since", "setting": "<since>…</since>" },
       "gradle": { "property": "-Pmutastic.since", "setting": "since = …" },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.since=main", "maven": "mvn mutastic:run -Dmutastic.since=main", "commandLine": "mutastic run --since=main", "gradleBuild": "mutastic {\n    since = \"main\"\n}", "mavenBuild": "<configuration>\n  <since>main</since>\n</configuration>" }
+      "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.since=main", "maven": "mvn mutastic:run -Dmutastic.since=main", "commandLine": "mutastic run --since=main", "gradleBuild": "mutastic {\n    since = \"main\"\n}", "mavenBuild": "<configuration>\n  <since>main</since>\n</configuration>" } }
     },
     {
       "name": "--only",
@@ -121,7 +121,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.only", "setting": null },
       "gradle": { "property": "-Pmutastic.only", "setting": null },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.only=m855c8e3c", "maven": "mvn mutastic:run -Dmutastic.only=m855c8e3c", "commandLine": "mutastic run --only=m855c8e3c", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.only=m855c8e3c", "maven": "mvn mutastic:run -Dmutastic.only=m855c8e3c", "commandLine": "mutastic run --only=m855c8e3c", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--tests-from",
@@ -135,7 +135,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.testsFrom", "setting": "<testsFrom>…</testsFrom>" },
       "gradle": { "property": "-Pmutastic.testsFrom", "setting": "testsFrom = …" },
-      "examples": { "gradle": "./gradlew :core:mutasticRun -Pmutastic.testsFrom=dependents", "maven": "mvn mutastic:run -Dmutastic.testsFrom=dependents -pl core", "commandLine": "mutastic run . :core --tests-from=dependents", "gradleBuild": "mutastic {\n    testsFrom = listOf(\"dependents\")\n}", "mavenBuild": "<configuration>\n  <testsFrom>\n    <module>dependents</module>\n  </testsFrom>\n</configuration>" }
+      "examples": { "explain": { "gradle": "./gradlew :core:mutasticExplain -Pmutastic.mutant=m855c8e3c -Pmutastic.testsFrom=dependents", "maven": "mvn mutastic:explain -Dmutastic.mutant=m855c8e3c -Dmutastic.testsFrom=dependents -pl core", "commandLine": "mutastic explain m855c8e3c . :core --tests-from=dependents", "gradleBuild": "mutastic {\n    testsFrom = listOf(\"dependents\")\n}", "mavenBuild": "<configuration>\n  <testsFrom>\n    <module>dependents</module>\n  </testsFrom>\n</configuration>" }, "run": { "gradle": "./gradlew :core:mutasticRun -Pmutastic.testsFrom=dependents", "maven": "mvn mutastic:run -Dmutastic.testsFrom=dependents -pl core", "commandLine": "mutastic run . :core --tests-from=dependents", "gradleBuild": "mutastic {\n    testsFrom = listOf(\"dependents\")\n}", "mavenBuild": "<configuration>\n  <testsFrom>\n    <module>dependents</module>\n  </testsFrom>\n</configuration>" }, "verify": { "gradle": "./gradlew :core:mutasticVerify -Pmutastic.mutant=m855c8e3c -Pmutastic.testsFrom=dependents", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -Dmutastic.testsFrom=dependents -pl core", "commandLine": "mutastic verify m855c8e3c . :core --tests-from=dependents", "gradleBuild": "mutastic {\n    testsFrom = listOf(\"dependents\")\n}", "mavenBuild": "<configuration>\n  <testsFrom>\n    <module>dependents</module>\n  </testsFrom>\n</configuration>" } }
     },
     {
       "name": "--workers",
@@ -149,7 +149,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.workers", "setting": "<workers>…</workers>" },
       "gradle": { "property": "-Pmutastic.workers", "setting": "workers = …" },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.workers=2", "maven": "mvn mutastic:run -Dmutastic.workers=2", "commandLine": "mutastic run --workers=2", "gradleBuild": "mutastic {\n    workers = 2\n}", "mavenBuild": "<configuration>\n  <workers>2</workers>\n</configuration>" }
+      "examples": { "explain": { "gradle": "./gradlew mutasticExplain -Pmutastic.mutant=m855c8e3c -Pmutastic.workers=2", "maven": "mvn mutastic:explain -Dmutastic.mutant=m855c8e3c -Dmutastic.workers=2", "commandLine": "mutastic explain m855c8e3c --workers=2", "gradleBuild": "mutastic {\n    workers = 2\n}", "mavenBuild": "<configuration>\n  <workers>2</workers>\n</configuration>" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.workers=2", "maven": "mvn mutastic:run -Dmutastic.workers=2", "commandLine": "mutastic run --workers=2", "gradleBuild": "mutastic {\n    workers = 2\n}", "mavenBuild": "<configuration>\n  <workers>2</workers>\n</configuration>" }, "verify": { "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c -Pmutastic.workers=2", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -Dmutastic.workers=2", "commandLine": "mutastic verify m855c8e3c --workers=2", "gradleBuild": "mutastic {\n    workers = 2\n}", "mavenBuild": "<configuration>\n  <workers>2</workers>\n</configuration>" } }
     },
     {
       "name": "--confirm-catches",
@@ -163,7 +163,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.confirmCatches", "setting": "<confirmCatches>true</confirmCatches>" },
       "gradle": { "property": "-Pmutastic.confirmCatches", "setting": "confirmCatches = true" },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.confirmCatches", "maven": "mvn mutastic:run -Dmutastic.confirmCatches", "commandLine": "mutastic run --confirm-catches", "gradleBuild": "mutastic {\n    confirmCatches = true\n}", "mavenBuild": "<configuration>\n  <confirmCatches>true</confirmCatches>\n</configuration>" }
+      "examples": { "explain": { "gradle": "./gradlew mutasticExplain -Pmutastic.mutant=m855c8e3c -Pmutastic.confirmCatches", "maven": "mvn mutastic:explain -Dmutastic.mutant=m855c8e3c -Dmutastic.confirmCatches", "commandLine": "mutastic explain m855c8e3c --confirm-catches", "gradleBuild": "mutastic {\n    confirmCatches = true\n}", "mavenBuild": "<configuration>\n  <confirmCatches>true</confirmCatches>\n</configuration>" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.confirmCatches", "maven": "mvn mutastic:run -Dmutastic.confirmCatches", "commandLine": "mutastic run --confirm-catches", "gradleBuild": "mutastic {\n    confirmCatches = true\n}", "mavenBuild": "<configuration>\n  <confirmCatches>true</confirmCatches>\n</configuration>" }, "verify": { "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c -Pmutastic.confirmCatches", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -Dmutastic.confirmCatches", "commandLine": "mutastic verify m855c8e3c --confirm-catches", "gradleBuild": "mutastic {\n    confirmCatches = true\n}", "mavenBuild": "<configuration>\n  <confirmCatches>true</confirmCatches>\n</configuration>" } }
     },
     {
       "name": "--no-suggestions",
@@ -177,7 +177,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.suggestions", "setting": "<suggestions>false</suggestions>" },
       "gradle": { "property": "-Pmutastic.suggestions", "setting": "suggestions = false" },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.suggestions=false", "maven": "mvn mutastic:run -Dmutastic.suggestions=false", "commandLine": "mutastic run --no-suggestions", "gradleBuild": "mutastic {\n    suggestions = false\n}", "mavenBuild": "<configuration>\n  <suggestions>false</suggestions>\n</configuration>" }
+      "examples": { "explain": { "gradle": "./gradlew mutasticExplain -Pmutastic.mutant=m855c8e3c -Pmutastic.suggestions=false", "maven": "mvn mutastic:explain -Dmutastic.mutant=m855c8e3c -Dmutastic.suggestions=false", "commandLine": "mutastic explain m855c8e3c --no-suggestions", "gradleBuild": "mutastic {\n    suggestions = false\n}", "mavenBuild": "<configuration>\n  <suggestions>false</suggestions>\n</configuration>" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.suggestions=false", "maven": "mvn mutastic:run -Dmutastic.suggestions=false", "commandLine": "mutastic run --no-suggestions", "gradleBuild": "mutastic {\n    suggestions = false\n}", "mavenBuild": "<configuration>\n  <suggestions>false</suggestions>\n</configuration>" } }
     },
     {
       "name": "--exclude-tests",
@@ -191,7 +191,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.excludeTests", "setting": null },
       "gradle": { "property": "-Pmutastic.excludeTests", "setting": null },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.excludeTests=CheckoutRaceTest", "maven": "mvn mutastic:run -Dmutastic.excludeTests=CheckoutRaceTest", "commandLine": "mutastic run --exclude-tests=CheckoutRaceTest", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "explain": { "gradle": "./gradlew mutasticExplain -Pmutastic.mutant=m855c8e3c -Pmutastic.excludeTests=CheckoutRaceTest", "maven": "mvn mutastic:explain -Dmutastic.mutant=m855c8e3c -Dmutastic.excludeTests=CheckoutRaceTest", "commandLine": "mutastic explain m855c8e3c --exclude-tests=CheckoutRaceTest", "gradleBuild": "", "mavenBuild": "" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.excludeTests=CheckoutRaceTest", "maven": "mvn mutastic:run -Dmutastic.excludeTests=CheckoutRaceTest", "commandLine": "mutastic run --exclude-tests=CheckoutRaceTest", "gradleBuild": "", "mavenBuild": "" }, "verify": { "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c -Pmutastic.excludeTests=CheckoutRaceTest", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -Dmutastic.excludeTests=CheckoutRaceTest", "commandLine": "mutastic verify m855c8e3c --exclude-tests=CheckoutRaceTest", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--suite",
@@ -205,7 +205,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.suite", "setting": "<suite>…</suite>" },
       "gradle": { "property": "-Pmutastic.suite", "setting": "suite = …" },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.suite=integrationTest", "maven": "mvn mutastic:run -Dmutastic.suite=integrationTest", "commandLine": "mutastic run --suite=integrationTest", "gradleBuild": "mutastic {\n    suite = \"integrationTest\"\n}", "mavenBuild": "<configuration>\n  <suite>integrationTest</suite>\n</configuration>" }
+      "examples": { "explain": { "gradle": "./gradlew mutasticExplain -Pmutastic.mutant=m855c8e3c -Pmutastic.suite=integrationTest", "maven": "mvn mutastic:explain -Dmutastic.mutant=m855c8e3c -Dmutastic.suite=integrationTest", "commandLine": "mutastic explain m855c8e3c --suite=integrationTest", "gradleBuild": "mutastic {\n    suite = \"integrationTest\"\n}", "mavenBuild": "<configuration>\n  <suite>integrationTest</suite>\n</configuration>" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.suite=integrationTest", "maven": "mvn mutastic:run -Dmutastic.suite=integrationTest", "commandLine": "mutastic run --suite=integrationTest", "gradleBuild": "mutastic {\n    suite = \"integrationTest\"\n}", "mavenBuild": "<configuration>\n  <suite>integrationTest</suite>\n</configuration>" }, "verify": { "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c -Pmutastic.suite=integrationTest", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -Dmutastic.suite=integrationTest", "commandLine": "mutastic verify m855c8e3c --suite=integrationTest", "gradleBuild": "mutastic {\n    suite = \"integrationTest\"\n}", "mavenBuild": "<configuration>\n  <suite>integrationTest</suite>\n</configuration>" } }
     },
     {
       "name": "--operators",
@@ -219,7 +219,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.operators", "setting": null },
       "gradle": { "property": "-Pmutastic.operators", "setting": null },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.operators=stronger", "maven": "mvn mutastic:run -Dmutastic.operators=stronger", "commandLine": "mutastic run --operators=stronger", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.operators=stronger", "maven": "mvn mutastic:run -Dmutastic.operators=stronger", "commandLine": "mutastic run --operators=stronger", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--report",
@@ -233,7 +233,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.reports", "setting": "<reports>…</reports>" },
       "gradle": { "property": "-Pmutastic.reports", "setting": "reports = …" },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.reports=xml", "maven": "mvn mutastic:run -Dmutastic.reports=xml", "commandLine": "mutastic run --report=xml", "gradleBuild": "mutastic {\n    reports = listOf(\"xml\")\n}", "mavenBuild": "<configuration>\n  <reports>\n    <report>xml</report>\n  </reports>\n</configuration>" }
+      "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.reports=xml", "maven": "mvn mutastic:run -Dmutastic.reports=xml", "commandLine": "mutastic run --report=xml", "gradleBuild": "mutastic {\n    reports = listOf(\"xml\")\n}", "mavenBuild": "<configuration>\n  <reports>\n    <report>xml</report>\n  </reports>\n</configuration>" } }
     },
     {
       "name": "--format",
@@ -247,7 +247,7 @@
       "environment": "MUTASTIC_FORMAT, MUTASTIC_AGENT",
       "maven": { "property": "-Dmutastic.format", "setting": "<format>…</format>" },
       "gradle": { "property": "-Pmutastic.format", "setting": "format = …" },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.format=agent", "maven": "mvn mutastic:run -Dmutastic.format=agent", "commandLine": "mutastic run --format=agent", "gradleBuild": "mutastic {\n    format = \"agent\"\n}", "mavenBuild": "<configuration>\n  <format>agent</format>\n</configuration>" }
+      "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.format=agent", "maven": "mvn mutastic:run -Dmutastic.format=agent", "commandLine": "mutastic run --format=agent", "gradleBuild": "mutastic {\n    format = \"agent\"\n}", "mavenBuild": "<configuration>\n  <format>agent</format>\n</configuration>" } }
     },
     {
       "name": "--each-mutant",
@@ -261,7 +261,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.eachMutant", "setting": "<eachMutant>true</eachMutant>" },
       "gradle": { "property": "-Pmutastic.eachMutant", "setting": "eachMutant = true" },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.eachMutant", "maven": "mvn mutastic:run -Dmutastic.eachMutant", "commandLine": "mutastic run --each-mutant", "gradleBuild": "mutastic {\n    eachMutant = true\n}", "mavenBuild": "<configuration>\n  <eachMutant>true</eachMutant>\n</configuration>" }
+      "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.eachMutant", "maven": "mvn mutastic:run -Dmutastic.eachMutant", "commandLine": "mutastic run --each-mutant", "gradleBuild": "mutastic {\n    eachMutant = true\n}", "mavenBuild": "<configuration>\n  <eachMutant>true</eachMutant>\n</configuration>" } }
     },
     {
       "name": "--vocabulary",
@@ -275,7 +275,7 @@
       "environment": "MUTASTIC_VOCABULARY",
       "maven": { "property": "-Dmutastic.vocabulary", "setting": null },
       "gradle": { "property": "-Pmutastic.vocabulary", "setting": null },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.vocabulary=classic", "maven": "mvn mutastic:run -Dmutastic.vocabulary=classic", "commandLine": "mutastic run --vocabulary=classic", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "explain": { "gradle": "./gradlew mutasticExplain -Pmutastic.mutant=m855c8e3c -Pmutastic.vocabulary=classic", "maven": "mvn mutastic:explain -Dmutastic.mutant=m855c8e3c -Dmutastic.vocabulary=classic", "commandLine": "mutastic explain m855c8e3c --vocabulary=classic", "gradleBuild": "", "mavenBuild": "" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.vocabulary=classic", "maven": "mvn mutastic:run -Dmutastic.vocabulary=classic", "commandLine": "mutastic run --vocabulary=classic", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--color",
@@ -289,7 +289,7 @@
       "environment": "NO_COLOR, FORCE_COLOR",
       "maven": { "property": "-Dmutastic.color", "setting": null },
       "gradle": { "property": "-Pmutastic.color", "setting": null },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.color=never", "maven": "mvn mutastic:run -Dmutastic.color=never", "commandLine": "mutastic run --color=never", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "explain": { "gradle": "./gradlew mutasticExplain -Pmutastic.mutant=m855c8e3c -Pmutastic.color=never", "maven": "mvn mutastic:explain -Dmutastic.mutant=m855c8e3c -Dmutastic.color=never", "commandLine": "mutastic explain m855c8e3c --color=never", "gradleBuild": "", "mavenBuild": "" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.color=never", "maven": "mvn mutastic:run -Dmutastic.color=never", "commandLine": "mutastic run --color=never", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--hyperlinks",
@@ -303,7 +303,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.hyperlinks", "setting": null },
       "gradle": { "property": "-Pmutastic.hyperlinks", "setting": null },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.hyperlinks=never", "maven": "mvn mutastic:run -Dmutastic.hyperlinks=never", "commandLine": "mutastic run --hyperlinks=never", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "explain": { "gradle": "./gradlew mutasticExplain -Pmutastic.mutant=m855c8e3c -Pmutastic.hyperlinks=never", "maven": "mvn mutastic:explain -Dmutastic.mutant=m855c8e3c -Dmutastic.hyperlinks=never", "commandLine": "mutastic explain m855c8e3c --hyperlinks=never", "gradleBuild": "", "mavenBuild": "" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.hyperlinks=never", "maven": "mvn mutastic:run -Dmutastic.hyperlinks=never", "commandLine": "mutastic run --hyperlinks=never", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--progress",
@@ -317,7 +317,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.progress", "setting": null },
       "gradle": { "property": "-Pmutastic.progress", "setting": null },
-      "examples": { "gradle": "./gradlew mutasticRun -Pmutastic.progress=counter", "maven": "mvn mutastic:run -Dmutastic.progress=counter", "commandLine": "mutastic run --progress=counter", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "explain": { "gradle": "./gradlew mutasticExplain -Pmutastic.mutant=m855c8e3c -Pmutastic.progress=counter", "maven": "mvn mutastic:explain -Dmutastic.mutant=m855c8e3c -Dmutastic.progress=counter", "commandLine": "mutastic explain m855c8e3c --progress=counter", "gradleBuild": "", "mavenBuild": "" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.progress=counter", "maven": "mvn mutastic:run -Dmutastic.progress=counter", "commandLine": "mutastic run --progress=counter", "gradleBuild": "", "mavenBuild": "" }, "verify": { "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c -Pmutastic.progress=counter", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -Dmutastic.progress=counter", "commandLine": "mutastic verify m855c8e3c --progress=counter", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--reason",
@@ -331,7 +331,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.reason", "setting": null },
       "gradle": { "property": "-Pmutastic.reason", "setting": null },
-      "examples": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.reason=\"only logs\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.reason=\"only logs\"", "commandLine": "mutastic ignore m855c8e3c --reason=\"only logs\"", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "ignore": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.reason=\"only logs\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.reason=\"only logs\"", "commandLine": "mutastic ignore m855c8e3c --reason=\"only logs\"", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--as",
@@ -345,7 +345,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.as", "setting": null },
       "gradle": { "property": "-Pmutastic.as", "setting": null },
-      "examples": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.as=unreachable -Pmutastic.reason=\"totals are rounded to tens\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.as=unreachable -Dmutastic.reason=\"totals are rounded to tens\"", "commandLine": "mutastic ignore m855c8e3c --as=unreachable --reason=\"totals are rounded to tens\"", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "ignore": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.as=unreachable -Pmutastic.reason=\"totals are rounded to tens\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.as=unreachable -Dmutastic.reason=\"totals are rounded to tens\"", "commandLine": "mutastic ignore m855c8e3c --as=unreachable --reason=\"totals are rounded to tens\"", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--remove",
@@ -359,7 +359,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.remove", "setting": null },
       "gradle": { "property": "-Pmutastic.remove", "setting": null },
-      "examples": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.remove", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.remove", "commandLine": "mutastic ignore --remove m855c8e3c", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "ignore": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.remove", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.remove", "commandLine": "mutastic ignore --remove m855c8e3c", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--propose",
@@ -373,7 +373,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.propose", "setting": null },
       "gradle": { "property": "-Pmutastic.propose", "setting": null },
-      "examples": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.propose -Pmutastic.as=unreachable -Pmutastic.reason=\"totals are rounded to tens\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.propose -Dmutastic.as=unreachable -Dmutastic.reason=\"totals are rounded to tens\"", "commandLine": "mutastic ignore m855c8e3c --propose --as=unreachable --reason=\"totals are rounded to tens\"", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "ignore": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.propose -Pmutastic.as=unreachable -Pmutastic.reason=\"totals are rounded to tens\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.propose -Dmutastic.as=unreachable -Dmutastic.reason=\"totals are rounded to tens\"", "commandLine": "mutastic ignore m855c8e3c --propose --as=unreachable --reason=\"totals are rounded to tens\"", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--accept",
@@ -387,7 +387,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.accept", "setting": null },
       "gradle": { "property": "-Pmutastic.accept", "setting": null },
-      "examples": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.accept", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.accept", "commandLine": "mutastic ignore --accept m855c8e3c", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "ignore": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.accept", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.accept", "commandLine": "mutastic ignore --accept m855c8e3c", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--prune",
@@ -401,7 +401,7 @@
       "environment": "",
       "maven": { "property": "-Dmutastic.prune", "setting": null },
       "gradle": { "property": "-Pmutastic.prune", "setting": null },
-      "examples": { "gradle": "./gradlew mutasticIgnore -Pmutastic.prune", "maven": "mvn mutastic:ignore -Dmutastic.prune", "commandLine": "mutastic ignore --prune", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "ignore": { "gradle": "./gradlew mutasticIgnore -Pmutastic.prune", "maven": "mvn mutastic:ignore -Dmutastic.prune", "commandLine": "mutastic ignore --prune", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--hook",
@@ -415,7 +415,7 @@
       "environment": "",
       "maven": null,
       "gradle": null,
-      "examples": { "gradle": "", "maven": "", "commandLine": "mutastic gate check --hook=claude", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "gate check": { "gradle": "", "maven": "", "commandLine": "mutastic gate check --hook=claude", "gradleBuild": "", "mavenBuild": "" }, "gate close": { "gradle": "", "maven": "", "commandLine": "mutastic gate close --hook=claude", "gradleBuild": "", "mavenBuild": "" }, "gate open": { "gradle": "", "maven": "", "commandLine": "mutastic gate open --hook=claude", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--tries",
@@ -429,7 +429,7 @@
       "environment": "",
       "maven": null,
       "gradle": null,
-      "examples": { "gradle": "", "maven": "", "commandLine": "mutastic gate check --hook=claude --tries=5", "gradleBuild": "", "mavenBuild": "" }
+      "examples": { "gate check": { "gradle": "", "maven": "", "commandLine": "mutastic gate check --hook=claude --tries=5", "gradleBuild": "", "mavenBuild": "" } }
     }
   ],
   "environment": [

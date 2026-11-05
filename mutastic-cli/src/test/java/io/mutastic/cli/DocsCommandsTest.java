@@ -51,7 +51,7 @@ class DocsCommandsTest {
     var commandLines = new ArrayList<String>();
     for (Option option : Options.ALL) {
       if (!option.example().isEmpty()) {
-        commandLines.add(option.example());
+        option.commands().forEach(command -> commandLines.add(option.exampleFor(command)));
       }
     }
     for (Main.Subcommand command : Main.Subcommand.values()) {
@@ -70,6 +70,38 @@ class DocsCommandsTest {
             .isEqualTo(Main.Command.parse(arguments(commandLine).toArray(String[]::new)));
       }
     }
+  }
+
+  /// An option's example on a command's page is that command, so `gate close`'s page doesn't show
+  /// `gate check`, and `verify`'s gives it a mutant.
+  @Test
+  void anOptionsExampleOnACommandsPageIsThatCommand() {
+    for (Option option : Options.ALL) {
+      for (Main.Subcommand command : option.commands()) {
+        if (!option.example().isEmpty()) {
+          var example = option.exampleFor(command);
+
+          assertThat(Main.Subcommand.in(example)).as(example).contains(command);
+          assertThat(Main.Command.parse(arguments(example).toArray(String[]::new)).subcommand())
+              .as(example)
+              .isEqualTo(command);
+        }
+      }
+    }
+    var hook =
+        Options.ALL.stream()
+            .filter(option -> option.name().equals("--hook"))
+            .findFirst()
+            .orElseThrow();
+    var workers =
+        Options.ALL.stream()
+            .filter(option -> option.name().equals("--workers"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(hook.exampleFor(Main.Subcommand.GATE_CLOSE))
+        .isEqualTo("mutastic gate close --hook=claude");
+    assertThat(workers.exampleFor(Main.Subcommand.VERIFY))
+        .isEqualTo("mutastic verify m855c8e3c --workers=2");
   }
 
   /// A command line from a code block, and the file and line it's on.
