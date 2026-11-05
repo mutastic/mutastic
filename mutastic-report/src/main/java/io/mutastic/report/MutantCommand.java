@@ -17,6 +17,9 @@ public enum MutantCommand {
   REPRODUCE("reproduce", "reproduce", "run --only=%s", "", Shown.EVERYWHERE),
   /// How to decide it isn't worth a test: recorded, with the reason, for review.
   IGNORE("or ignore", "ignore", "ignore %s --reason=\"<why>\"", "", Shown.WITH_A_MUTANT),
+  /// How a coding agent says it isn't worth a test: a proposal, for a person to accept. Offered to
+  /// agents instead of [#IGNORE]: whether a case can happen is a person's decision.
+  PROPOSE("or propose", "propose", "ignore %s --propose --reason=\"<why>\"", "", Shown.TO_AGENTS),
   /// Everything known of it, for a line that only names it.
   EXPLAIN("explain", "explain", "explain %s", "", Shown.IN_THE_SUMMARY);
 
@@ -26,7 +29,8 @@ public enum MutantCommand {
   enum Shown {
     EVERYWHERE,
     WITH_A_MUTANT,
-    IN_THE_SUMMARY
+    IN_THE_SUMMARY,
+    TO_AGENTS
   }
 
   /// The rule a fix follows, wherever an agent reads the commands.
@@ -36,7 +40,9 @@ public enum MutantCommand {
   /// and an agent told only to close gaps will contrive one.
   public static final String DECLINE =
       "if a mutant's case can't happen in practice, or the change is one no caller can see, don't"
-          + " contrive a test: say why, and ignore it with that reason";
+          + " contrive a test: say why, and propose ignoring it with that reason (and --as"
+          + " equivalent, unreachable, telemetry, deprecated or accepted-risk) for a person to"
+          + " accept";
 
   private final String label;
   private final String key;
@@ -53,10 +59,19 @@ public enum MutantCommand {
     this.shown = shown;
   }
 
-  /// The commands offered with each mutant, in the order shown.
+  /// The commands offered with each mutant, in the order shown, as a person reads them.
   public static List<MutantCommand> withAMutant() {
     return List.of(values()).stream()
-        .filter(command -> command.shown != Shown.IN_THE_SUMMARY)
+        .filter(
+            command -> command.shown == Shown.EVERYWHERE || command.shown == Shown.WITH_A_MUTANT)
+        .toList();
+  }
+
+  /// The commands offered with each mutant as a coding agent reads them: a proposal where a person
+  /// gets an ignore.
+  public static List<MutantCommand> toAnAgent() {
+    return List.of(values()).stream()
+        .filter(command -> command.shown == Shown.EVERYWHERE || command.shown == Shown.TO_AGENTS)
         .toList();
   }
 
@@ -90,7 +105,7 @@ public enum MutantCommand {
   /// The command for every mutant in `finding`: one run proves or shows them all, but each is
   /// ignored on its own, for its own reason.
   String text(Finding finding, Invocation invocation) {
-    if (this == IGNORE && finding.mutants().size() > 1) {
+    if ((this == IGNORE || this == PROPOSE) && finding.mutants().size() > 1) {
       return command("<id>", invocation) + " for each of " + finding.ids().replace(",", ", ");
     }
     return text(finding.ids(), invocation);
@@ -104,7 +119,8 @@ public enum MutantCommand {
   /// `mutastic verify <id> · mutastic run --only=<id> · mutastic explain <id>`: the summary's.
   public static String next(Invocation invocation) {
     return List.of(values()).stream()
-        .filter(command -> command.shown != Shown.WITH_A_MUTANT)
+        .filter(
+            command -> command.shown == Shown.EVERYWHERE || command.shown == Shown.IN_THE_SUMMARY)
         .map(command -> command.command("<id>", invocation))
         .collect(Collectors.joining(" · "));
   }

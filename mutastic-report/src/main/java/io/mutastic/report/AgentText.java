@@ -101,7 +101,8 @@ public final class AgentText {
     out.append(
         "decline: %s (`%s`)%n"
             .formatted(
-                MutantCommand.DECLINE, MutantCommand.IGNORE.command("<id>", sources.invocation())));
+                MutantCommand.DECLINE,
+                MutantCommand.PROPOSE.command("<id>", sources.invocation())));
     appendMissed(out, missed);
     if (!notCovered.isEmpty()) {
       appendNotCovered(out, report, notCovered, missed.isEmpty());
@@ -315,7 +316,7 @@ public final class AgentText {
     advice.notes().forEach(note -> lines.add("   evidence: " + note));
     lines.add("   fix: " + advice.fix());
     SuggestedTest.distinct(finding, sources).forEach(test -> addSuggestedTest(lines, test));
-    for (MutantCommand command : MutantCommand.withAMutant()) {
+    for (MutantCommand command : MutantCommand.toAnAgent()) {
       lines.add(
           "   %s: %s".formatted(command.label(), command.text(finding, sources.invocation())));
     }

@@ -33,10 +33,10 @@
       "name": "ignore",
       "synopsis": "mutastic ignore ID [DIR] [:MODULE] --reason=WHY",
       "summary": "Record a decision not to test one mutant",
-      "detail": "It goes in .mutastic/ignores.yaml with its line and the reason, to commit and review, and lapses when that line changes. --remove takes one back; ignore --prune takes away every one that has lapsed.",
+      "detail": "It goes in .mutastic/ignores.yaml with its line and the reason, to commit and review, and lapses when that line changes. --remove takes one back; ignore --prune takes away every one that has lapsed. --propose records it in .mutastic/proposals.yaml instead, for a person to accept with --accept: how a coding agent says a mutant isn't worth a test, since until then it still counts as missed.",
       "takesMutantId": true,
-      "examples": [{ "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.reason=\"only logs\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.reason=\"only logs\"", "commandLine": "mutastic ignore m855c8e3c --reason=\"only logs\"" }, { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.remove", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.remove", "commandLine": "mutastic ignore --remove m855c8e3c" }, { "gradle": "./gradlew mutasticIgnore -Pmutastic.prune", "maven": "mvn mutastic:ignore -Dmutastic.prune", "commandLine": "mutastic ignore --prune" }],
-      "options": ["--reason", "--as", "--remove", "--prune"]
+      "examples": [{ "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.reason=\"only logs\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.reason=\"only logs\"", "commandLine": "mutastic ignore m855c8e3c --reason=\"only logs\"" }, { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.propose -Pmutastic.as=unreachable -Pmutastic.reason=\"totals are rounded to tens\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.propose -Dmutastic.as=unreachable -Dmutastic.reason=\"totals are rounded to tens\"", "commandLine": "mutastic ignore m855c8e3c --propose --as=unreachable --reason=\"totals are rounded to tens\"" }, { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.accept", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.accept", "commandLine": "mutastic ignore --accept m855c8e3c" }, { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.remove", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.remove", "commandLine": "mutastic ignore --remove m855c8e3c" }, { "gradle": "./gradlew mutasticIgnore -Pmutastic.prune", "maven": "mvn mutastic:ignore -Dmutastic.prune", "commandLine": "mutastic ignore --prune" }],
+      "options": ["--reason", "--as", "--remove", "--propose", "--accept", "--prune"]
     }
   ],
   "options": [
@@ -319,6 +319,34 @@
       "maven": { "property": "-Dmutastic.remove", "setting": null },
       "gradle": { "property": "-Pmutastic.remove", "setting": null },
       "examples": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.remove", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.remove", "commandLine": "mutastic ignore --remove m855c8e3c", "gradleBuild": "", "mavenBuild": "" }
+    },
+    {
+      "name": "--propose",
+      "synopsis": "--propose",
+      "kind": "flag",
+      "group": "Ignoring",
+      "value": "",
+      "choices": [],
+      "help": "Propose the ignore for a person to accept, rather than make it: a coding agent's way",
+      "commands": ["ignore"],
+      "environment": "",
+      "maven": { "property": "-Dmutastic.propose", "setting": null },
+      "gradle": { "property": "-Pmutastic.propose", "setting": null },
+      "examples": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.propose -Pmutastic.as=unreachable -Pmutastic.reason=\"totals are rounded to tens\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.propose -Dmutastic.as=unreachable -Dmutastic.reason=\"totals are rounded to tens\"", "commandLine": "mutastic ignore m855c8e3c --propose --as=unreachable --reason=\"totals are rounded to tens\"", "gradleBuild": "", "mavenBuild": "" }
+    },
+    {
+      "name": "--accept",
+      "synopsis": "--accept",
+      "kind": "flag",
+      "group": "Ignoring",
+      "value": "",
+      "choices": [],
+      "help": "Accept a proposed ignore: it moves into the ignores, as proposed",
+      "commands": ["ignore"],
+      "environment": "",
+      "maven": { "property": "-Dmutastic.accept", "setting": null },
+      "gradle": { "property": "-Pmutastic.accept", "setting": null },
+      "examples": { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.accept", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.accept", "commandLine": "mutastic ignore --accept m855c8e3c", "gradleBuild": "", "mavenBuild": "" }
     },
     {
       "name": "--prune",

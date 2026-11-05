@@ -1,6 +1,6 @@
 mutastic: FAIL · score 66.7% (threshold 80) · 1 missed, 0 not covered, 2 caught of 3 mutants (3 more skipped)
 rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/observable passes`
-decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and ignore it with that reason (`mutastic ignore <id> --reason="<why>" samples/observable`)
+decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and propose ignoring it with that reason (and --as equivalent, unreachable, telemetry, deprecated or accepted-risk) for a person to accept (`mutastic ignore <id> --propose --reason="<why>" samples/observable`)
 
 1. missed mddb9663e: no test checks the effect of calling `firePropertyChange()` in `setEmail()`
    at src/main/java/com/example/observable/Person.java:35
@@ -10,4 +10,4 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    fix: assert what `firePropertyChange()` does: the state it changes or the call it makes
    done when: mutastic verify mddb9663e samples/observable passes
    reproduce: mutastic run --only=mddb9663e samples/observable
-   or ignore: mutastic ignore mddb9663e --reason="<why>" samples/observable
+   or propose: mutastic ignore mddb9663e --propose --reason="<why>" samples/observable

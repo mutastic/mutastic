@@ -1,6 +1,6 @@
 mutastic: FAIL · score 75.0% (threshold 80) · 1 missed, 0 not covered, 3 caught of 4 mutants (1 more skipped)
 rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/testng passes`
-decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and ignore it with that reason (`mutastic ignore <id> --reason="<why>" samples/testng`)
+decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and propose ignoring it with that reason (and --as equivalent, unreachable, telemetry, deprecated or accepted-risk) for a person to accept (`mutastic ignore <id> --propose --reason="<why>" samples/testng`)
 
 1. missed m48bf36cf: no test checks `lateFee()` at `days == 30`
    at src/main/java/com/example/rates/Rates.java:6
@@ -18,4 +18,4 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify m48bf36cf samples/testng passes
    reproduce: mutastic run --only=m48bf36cf samples/testng
-   or ignore: mutastic ignore m48bf36cf --reason="<why>" samples/testng
+   or propose: mutastic ignore m48bf36cf --propose --reason="<why>" samples/testng

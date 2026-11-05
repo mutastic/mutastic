@@ -28,6 +28,10 @@ import java.util.Map;
 final class Ignores {
   static final Path FILE = Path.of(".mutastic", "ignores.yaml");
 
+  /// Ignores proposed, by a coding agent mostly, waiting for a person: `mutastic ignore --propose`
+  /// writes them, `--accept` moves one into [#FILE]. A proposed mutant still counts as missed.
+  static final Path PROPOSALS = Path.of(".mutastic", "proposals.yaml");
+
   private static final List<String> HEADER =
       List.of(
           "# Mutants this project has decided not to test, written by `mutastic ignore`. Commit it:",
@@ -35,25 +39,52 @@ final class Ignores {
           "# those with `mutastic ignore --prune`.",
           "ignores:");
 
+  private static final List<String> PROPOSALS_HEADER =
+      List.of(
+          "# Ignores proposed and waiting for a person, written by `mutastic ignore --propose`: until",
+          "# one is accepted (`mutastic ignore --accept ID`), its mutant still counts as missed.",
+          "proposals:");
+
   /// One decision, with what the reader needs to review it.
   record Entry(Ignore ignore, String at, String change) {}
 
   private Ignores() {}
 
   static List<Entry> read(Path directory) {
-    var file = directory.resolve(FILE);
+    return read(directory, FILE);
+  }
+
+  /// The proposed ignores, waiting for a person.
+  static List<Entry> proposed(Path directory) {
+    return read(directory, PROPOSALS);
+  }
+
+  private static List<Entry> read(Path directory, Path name) {
+    var file = directory.resolve(name);
     if (!Files.isRegularFile(file)) {
       return List.of();
     }
     try {
-      return parse(Files.readAllLines(file));
+      return parse(Files.readAllLines(file), name);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
   }
 
   static void write(Path directory, List<Entry> entries) {
-    var lines = new ArrayList<>(HEADER);
+    write(directory, entries, FILE, HEADER);
+  }
+
+  static void propose(Path directory, List<Entry> entries) {
+    write(directory, entries, PROPOSALS, PROPOSALS_HEADER);
+  }
+
+  private static void write(Path directory, List<Entry> entries, Path name, List<String> header) {
+    if (name.equals(PROPOSALS) && entries.isEmpty()) {
+      delete(directory.resolve(name)); // none waiting: nothing to commit
+      return;
+    }
+    var lines = new ArrayList<>(header);
     for (Entry entry : entries) {
       lines.add("  - id: " + entry.ignore().id());
       lines.add("    at: " + quoted(entry.at()));
@@ -65,7 +96,7 @@ final class Ignores {
       }
     }
     try {
-      var file = directory.resolve(FILE);
+      var file = directory.resolve(name);
       Files.createDirectories(file.getParent());
       Files.write(file, lines);
     } catch (IOException e) {
@@ -73,38 +104,49 @@ final class Ignores {
     }
   }
 
+  private static void delete(Path file) {
+    try {
+      Files.deleteIfExists(file);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
   /// Entries in the shape written: an `- id:` line, then its fields, one per line.
-  private static List<Entry> parse(List<String> lines) {
+  private static List<Entry> parse(List<String> lines, Path name) {
     var entries = new ArrayList<Entry>();
     Map<String, String> fields = new LinkedHashMap<>();
     for (String raw : lines) {
       var line = raw.strip();
-      if (line.isEmpty() || line.startsWith("#") || line.equals("ignores:")) {
+      if (line.isEmpty()
+          || line.startsWith("#")
+          || line.equals("ignores:")
+          || line.equals("proposals:")) {
         continue;
       }
       if (line.startsWith("- ")) {
-        add(entries, fields);
+        add(entries, fields, name);
         fields = new LinkedHashMap<>();
         line = line.substring(2);
       }
       int colon = line.indexOf(':');
       if (colon < 0) {
-        throw new Main.UsageException("%s: can't read the line `%s`".formatted(FILE, raw));
+        throw new Main.UsageException("%s: can't read the line `%s`".formatted(name, raw));
       }
       fields.put(line.substring(0, colon), unquoted(line.substring(colon + 1).strip()));
     }
-    add(entries, fields);
+    add(entries, fields, name);
     return entries;
   }
 
-  private static void add(List<Entry> entries, Map<String, String> fields) {
+  private static void add(List<Entry> entries, Map<String, String> fields, Path name) {
     if (fields.isEmpty()) {
       return;
     }
     var id = fields.get("id");
     var reason = fields.get("reason");
     if (id == null || reason == null) {
-      throw new Main.UsageException("%s: every entry needs an id and a reason".formatted(FILE));
+      throw new Main.UsageException("%s: every entry needs an id and a reason".formatted(name));
     }
     entries.add(
         new Entry(

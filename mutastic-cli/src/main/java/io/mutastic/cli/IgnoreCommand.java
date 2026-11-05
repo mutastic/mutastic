@@ -13,7 +13,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /// `mutastic ignore`: records a decision not to test a mutant in `.mutastic/ignores.yaml`, with the
-/// line it's on and the reason; removes one; or removes those that no longer hold. Runs no tests,
+/// line it's on and the reason; proposes one, in `.mutastic/proposals.yaml`, for a person to
+/// accept; accepts a proposal; removes one; or removes those that no longer hold. Runs no tests,
 /// and says how to undo what it did.
 final class IgnoreCommand {
   private IgnoreCommand() {}
@@ -27,13 +28,68 @@ final class IgnoreCommand {
       all.addAll(words);
       return sources.invocation().command(all);
     }
+
+    /// The proposals file, as the person would type it: beside the ignores.
+    String shownProposals() {
+      return Path.of(shownFile).resolveSibling(Ignores.PROPOSALS.getFileName()).toString();
+    }
   }
 
   static int run(Main.Ignoring how, Where where, Engine.Mutants found, PrintStream out) {
     if (how.prune()) {
       return prune(where, found, out);
     }
-    return ignore(found.all().getFirst(), how, where, out);
+    return how.propose()
+        ? propose(found.all().getFirst(), how, where, out)
+        : ignore(found.all().getFirst(), how, where, out);
+  }
+
+  /// A proposal, waiting for a person: its mutant still counts as missed until it's accepted.
+  private static int propose(Mutant mutant, Main.Ignoring how, Where where, PrintStream out) {
+    var proposals = withoutProposal(mutant.id(), where);
+    proposals.add(entry(mutant, how, where.sources()));
+    Ignores.propose(where.directory(), proposals);
+    out.printf(
+        "mutastic: %s is proposed for ignoring: %s%n  recorded in %s: it counts as missed until a"
+            + " person accepts it%n  to accept: %s%n  to withdraw: %s%n",
+        mutant.id(),
+        how.reason(),
+        where.shownProposals(),
+        where.command(List.of("--accept", mutant.id())),
+        where.command(List.of("--remove", mutant.id())));
+    return Main.PASSED;
+  }
+
+  /// A proposal accepted: it moves into the ignores, with its reason and sort as proposed.
+  static int accept(String id, Where where, PrintStream out) {
+    var proposal =
+        Ignores.proposed(where.directory()).stream()
+            .filter(entry -> entry.ignore().id().equals(id))
+            .findFirst();
+    if (proposal.isEmpty()) {
+      out.printf(
+          "mutastic: %s isn't proposed in %s: nothing to accept%n", id, where.shownProposals());
+      return Main.FAILED;
+    }
+    var entries = without(id, where);
+    entries.add(proposal.get());
+    Ignores.write(where.directory(), entries);
+    Ignores.propose(where.directory(), withoutProposal(id, where));
+    out.printf(
+        "mutastic: %s is ignored, as proposed: %s%n  recorded in %s: commit it, as a decision to"
+            + " review%n  to undo: %s%n",
+        id,
+        proposal.get().ignore().reason(),
+        where.shownFile(),
+        where.command(List.of("--remove", id)));
+    return Main.PASSED;
+  }
+
+  private static List<Ignores.Entry> withoutProposal(String id, Where where) {
+    return new ArrayList<>(
+        Ignores.proposed(where.directory()).stream()
+            .filter(existing -> !existing.ignore().id().equals(id))
+            .toList());
   }
 
   private static int ignore(Mutant mutant, Main.Ignoring how, Where where, PrintStream out) {
@@ -49,6 +105,7 @@ final class IgnoreCommand {
     var entries = without(mutant.id(), where);
     entries.add(entry(mutant, how, where.sources()));
     Ignores.write(where.directory(), entries);
+    Ignores.propose(where.directory(), withoutProposal(mutant.id(), where)); // decided now
     out.printf(
         "mutastic: %s is ignored: %s%n  recorded in %s: commit it, as a decision to review%n"
             + "  to undo: %s%n",
@@ -61,6 +118,9 @@ final class IgnoreCommand {
         Ignores.read(where.directory()).stream()
             .filter(entry -> entry.ignore().id().equals(id))
             .findFirst();
+    if (removed.isEmpty() && withdraw(id, where, out)) {
+      return Main.PASSED;
+    }
     if (removed.isEmpty()) {
       out.printf("mutastic: %s isn't ignored in %s: nothing to remove%n", id, where.shownFile());
       return Main.PASSED;
@@ -70,6 +130,24 @@ final class IgnoreCommand {
         "mutastic: %s is no longer ignored: it runs again%n  removed from %s%n  to undo: %s%n",
         id, where.shownFile(), where.command(undo(removed.get().ignore())));
     return Main.PASSED;
+  }
+
+  /// A proposal taken back, if `id` was proposed.
+  private static boolean withdraw(String id, Where where, PrintStream out) {
+    var proposal =
+        Ignores.proposed(where.directory()).stream()
+            .filter(entry -> entry.ignore().id().equals(id))
+            .findFirst();
+    if (proposal.isEmpty()) {
+      return false;
+    }
+    Ignores.propose(where.directory(), withoutProposal(id, where));
+    var again = new ArrayList<>(undo(proposal.get().ignore()));
+    again.add(1, "--propose");
+    out.printf(
+        "mutastic: %s is no longer proposed%n  removed from %s%n  to undo: %s%n",
+        id, where.shownProposals(), where.command(again));
+    return true;
   }
 
   /// The words that ignore it again as it was: its reason, and its sort if it had one.

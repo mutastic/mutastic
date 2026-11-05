@@ -142,23 +142,32 @@ public final class Main {
       return explained(command, prepared, passes, output);
     }
     if (command.ignore().isPresent()) {
-      var where =
-          new IgnoreCommand.Where(
-              prepared.directory(),
-              prepared.sources(),
-              shown(prepared.directory().resolve(Ignores.FILE)));
-      // Removing needs no mutant: its code may be gone.
-      return command.ignore().get().remove()
-          ? IgnoreCommand.remove(command.only().getFirst(), where, out)
-          : IgnoreCommand.run(
-              command.ignore().get(),
-              where,
-              passes.engine().find(prepared.project(), passes.options()),
-              out);
+      return ignored(command, prepared, passes, out);
     }
     var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
     return verified(report.results(), out);
+  }
+
+  /// `ignore`: records, proposes, accepts or removes a decision; runs no tests.
+  private static int ignored(Command command, Prepared prepared, Passes passes, PrintStream out) {
+    var where =
+        new IgnoreCommand.Where(
+            prepared.directory(),
+            prepared.sources(),
+            shown(prepared.directory().resolve(Ignores.FILE)));
+    // Removing or accepting needs no mutant: its code may be gone, and a proposal says the rest.
+    var how = command.ignore().get();
+    if (how.accept()) {
+      return IgnoreCommand.accept(command.only().getFirst(), where, out);
+    }
+    return how.remove()
+        ? IgnoreCommand.remove(command.only().getFirst(), where, out)
+        : IgnoreCommand.run(
+            command.ignore().get(),
+            where,
+            passes.engine().find(prepared.project(), passes.options()),
+            out);
   }
 
   /// `explain`: everything known of one mutant, with how the last full run went.
@@ -185,7 +194,10 @@ public final class Main {
 
   /// `ignore`'s own: `--prune` what no longer holds, `--remove` one by id, or else ignore one, for
   /// `reason`, as the sort of decision `kind` says (`--as`, empty when not given).
-  record Ignoring(boolean prune, boolean remove, String reason, String kind) {}
+  ///
+  /// `--propose` records it as waiting for a person, `--accept` makes a proposal an ignore.
+  record Ignoring(
+      boolean prune, boolean remove, String reason, String kind, boolean propose, boolean accept) {}
 
   /// A file as the person would type it from where mutastic ran: relative if it's below, else
   /// absolute.
@@ -735,9 +747,14 @@ public final class Main {
         "Record a decision not to test one mutant",
         "It goes in .mutastic/ignores.yaml with its line and the reason, to commit and review, and"
             + " lapses when that line changes. --remove takes one back; ignore --prune takes away"
-            + " every one that has lapsed.",
+            + " every one that has lapsed. --propose records it in .mutastic/proposals.yaml"
+            + " instead, for a person to accept with --accept: how a coding agent says a mutant"
+            + " isn't worth a test, since until then it still counts as missed.",
         List.of(
             "mutastic ignore m855c8e3c --reason=\"only logs\"",
+            "mutastic ignore m855c8e3c --propose --as=unreachable --reason=\"totals are rounded to"
+                + " tens\"",
+            "mutastic ignore --accept m855c8e3c",
             "mutastic ignore --remove m855c8e3c",
             "mutastic ignore --prune"));
 
@@ -922,6 +939,8 @@ public final class Main {
       private String kind = "";
       private boolean prune = false;
       private boolean remove = false;
+      private boolean propose = false;
+      private boolean accept = false;
       private Optional<Path> setup = Optional.empty();
       private String commands = "mutastic";
 
@@ -1005,6 +1024,8 @@ public final class Main {
           case "--reason" -> reason = given.strip();
           case "--as" -> kind = choice(option, given);
           case "--remove" -> remove = true;
+          case "--propose" -> propose = true;
+          case "--accept" -> accept = true;
           case "--prune" -> prune = true;
           case "--setup" -> setup = Optional.of(Path.of(given));
           case "--commands" -> commands = commands(given);
@@ -1098,12 +1119,17 @@ public final class Main {
       private Command ignoring() {
         if (!prune) {
           only = List.of(mutantId("ignore"));
-          if (!remove && reason.isBlank()) {
+          if (!remove && !accept && reason.isBlank()) {
             throw new UsageException(
                 "ignore needs a reason, which every ignore says: --reason=\"…\"");
           }
         }
-        return built(Subcommand.IGNORE).ignoring(new Ignoring(prune, remove, reason, kind));
+        if (propose && (accept || remove || prune)) {
+          throw new UsageException(
+              "--propose records a proposal: not with --accept, --remove or --prune");
+        }
+        return built(Subcommand.IGNORE)
+            .ignoring(new Ignoring(prune, remove, reason, kind, propose, accept));
       }
 
       /// `verify`'s ids: every word before the directory that is one, `m` and eight hex digits, or

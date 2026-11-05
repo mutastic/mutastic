@@ -43,6 +43,59 @@ class IgnoreTest {
     assertThat(Files.readString(project.resolve(".mutastic/ignores.yaml"))).doesNotContain(ID);
   }
 
+  /// A proposal waits for a person: its mutant still counts as missed until it's accepted, and then
+  /// it's an ignore like any other, with its reason and sort as proposed.
+  @Test
+  void aProposedIgnoreCountsAsMissedUntilAPersonAcceptsIt() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+    var proposals = project.resolve(".mutastic/proposals.yaml");
+
+    var proposed =
+        Samples.mutastic(
+            "ignore",
+            ID,
+            project.toString(),
+            "--propose",
+            "--as=unreachable",
+            "--reason=never 100");
+    var stillMissed =
+        Samples.mutastic(
+            "run", project.toString(), "--only=" + ID, "--format=jsonl", "--report=none");
+    var accepted = Samples.mutastic("ignore", "--accept", ID, project.toString());
+    var nowIgnored =
+        Samples.mutastic(
+            "run", project.toString(), "--only=" + ID, "--format=jsonl", "--report=none");
+
+    assertThat(proposed.exit()).isEqualTo(Main.PASSED);
+    assertThat(proposed.out())
+        .contains(ID + " is proposed for ignoring: never 100")
+        .contains("it counts as missed until a person accepts it")
+        .contains("to accept: mutastic ignore --accept " + ID);
+    assertThat(stillMissed.out()).contains("\"status\":\"Survived\"");
+    assertThat(accepted.out()).contains(ID + " is ignored, as proposed: never 100");
+    assertThat(Files.readString(project.resolve(".mutastic/ignores.yaml")))
+        .contains("- id: " + ID, "reason: 'never 100'", "kind: unreachable");
+    assertThat(proposals).doesNotExist(); // none left waiting
+    assertThat(nowIgnored.out()).contains("\"status\":\"Ignored\"");
+  }
+
+  /// A proposal can be withdrawn; accepting one that isn't there fails, and says so.
+  @Test
+  void aProposalCanBeWithdrawn() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+
+    Samples.mutastic("ignore", ID, project.toString(), "--propose", "--reason=never 100");
+    var withdrawn = Samples.mutastic("ignore", "--remove", ID, project.toString());
+    var nothing = Samples.mutastic("ignore", "--accept", ID, project.toString());
+
+    assertThat(withdrawn.out())
+        .contains(ID + " is no longer proposed")
+        .contains("to undo: mutastic ignore " + ID + " --propose '--reason=never 100'");
+    assertThat(project.resolve(".mutastic/proposals.yaml")).doesNotExist();
+    assertThat(nothing.exit()).isEqualTo(Main.FAILED);
+    assertThat(nothing.out()).contains(ID + " isn't proposed");
+  }
+
   /// Each says where it wrote, and how to undo it.
   @Test
   void anIgnoreAndItsRemovalEachSayHowToUndoThem() throws Exception {
