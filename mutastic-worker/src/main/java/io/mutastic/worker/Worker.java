@@ -11,6 +11,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.io.UncheckedIOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -585,7 +587,7 @@ public final class Worker {
                   file ->
                       root.relativize(file)
                           .toString()
-                          .replace(File.separatorChar, '.')
+                          .replace(root.getFileSystem().getSeparator(), ".")
                           .replaceAll("\\.class$", ""))
               .forEach(names::add);
         }
@@ -627,6 +629,20 @@ public final class Worker {
         .flatMap(arg -> Arrays.stream(arg.substring(flag.length()).split(File.pathSeparator, -1)))
         .filter(entry -> !entry.isEmpty())
         .map(Path::of)
+        .map(Worker::root)
         .toList();
+  }
+
+  /// A directory as it is; a jar as the root of what's in it, as another module of the build
+  /// reaches a module's tests.
+  static Path root(Path entry) {
+    if (!entry.toString().endsWith(".jar") || !Files.isRegularFile(entry)) {
+      return entry;
+    }
+    try {
+      return FileSystems.newFileSystem(entry).getPath("/");
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 }

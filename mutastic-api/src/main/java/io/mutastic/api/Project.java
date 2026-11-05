@@ -64,11 +64,17 @@ public record Project(
   /// The project whose mutants are this one's, run by `runner`'s tests, as `runner`'s build runs
   /// them: its JDK, JVM arguments, working directory, tests, environment and classpath, with this
   /// module's outputs taken off it and its own code loaded beside the mutated classes.
-  public Project runningTestsOf(Project runner) {
+  ///
+  /// So is any other module of the `build` on its classpath, as one may use this module's classes:
+  /// loaded as a library, it would find none of them. A third-party library is outside the build.
+  public Project runningTestsOf(Project runner, Path build) {
     var mine = new java.util.HashSet<>(outputs);
-    var dependencies = runner.dependencies().stream().filter(path -> !mine.contains(path)).toList();
+    var root = build.toAbsolutePath().normalize();
+    var others = runner.dependencies().stream().filter(path -> !mine.contains(path)).toList();
     var beside = new java.util.ArrayList<>(runner.classes());
     beside.addAll(runner.resources());
+    others.stream().filter(path -> inside(path, root)).forEach(beside::add);
+    var dependencies = others.stream().filter(path -> !inside(path, root)).toList();
     return new Project(
         name,
         runner.java(),
@@ -85,6 +91,10 @@ public record Project(
         outputs,
         runner.tests(),
         runner.environment());
+  }
+
+  private static boolean inside(Path path, Path root) {
+    return path.toAbsolutePath().normalize().startsWith(root);
   }
 
   public Project {

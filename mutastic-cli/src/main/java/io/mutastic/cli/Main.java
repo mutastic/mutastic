@@ -478,7 +478,9 @@ public final class Main {
         progress.testsFrom(module);
         var pass =
             engine.run(
-                prepared.project().runningTestsOf(runner), options.among(uncaught), counting());
+                prepared.project().runningTestsOf(runner, prepared.directory()),
+                options.among(uncaught),
+                counting());
         merged = merged.merge(pass);
       }
       return new Tested(merged, otherTests);

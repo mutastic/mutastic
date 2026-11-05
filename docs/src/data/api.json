@@ -1305,8 +1305,8 @@
               "kind": "method",
               "name": "runningTestsOf",
               "anchor": "runningtestsof",
-              "signature": "Project runningTestsOf(Project runner)",
-              "doc": "The project whose mutants are this one's, run by `runner`'s tests, as `runner`'s build runs\nthem: its JDK, JVM arguments, working directory, tests, environment and classpath, with this\nmodule's outputs taken off it and its own code loaded beside the mutated classes.",
+              "signature": "Project runningTestsOf(Project runner, Path build)",
+              "doc": "The project whose mutants are this one's, run by `runner`'s tests, as `runner`'s build runs\nthem: its JDK, JVM arguments, working directory, tests, environment and classpath, with this\nmodule's outputs taken off it and its own code loaded beside the mutated classes.\n\nSo is any other module of the `build` on its classpath, as one may use this module's classes:\nloaded as a library, it would find none of them. A third-party library is outside the build.",
               "params": [],
               "returns": "",
               "throws": []

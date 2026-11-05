@@ -3,11 +3,15 @@ package io.mutastic.worker;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.worker.fixture.CounterTest;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class ProductionLoaderTest {
   private static final String COUNTER = "io.mutastic.worker.fixture.CounterTest";
@@ -48,6 +52,29 @@ class ProductionLoaderTest {
       assertThat(in).isNotNull();
       assertThat(in.readAllBytes()).isEqualTo(production.bytesFor(copy));
     }
+  }
+
+  /// Another module of the build reaches the tests as its jar.
+  @Test
+  void aJarIsARootToo(@TempDir Path dir) throws Exception {
+    var jar = dir.resolve("fixture.jar");
+    var entry = COUNTER.replace('.', '/') + ".class";
+    try (var out = new JarOutputStream(Files.newOutputStream(jar))) {
+      out.putNextEntry(new JarEntry(entry));
+      out.write(Files.readAllBytes(roots().get(0).resolve(entry)));
+    }
+    var production =
+        new ProductionLoader(
+            List.of(),
+            Map.of(),
+            List.of(Worker.root(jar)),
+            new TestSplit(Set.of(), Set.of()),
+            ClassLoader.getPlatformClassLoader());
+
+    var loaded = Class.forName(COUNTER, false, production);
+
+    assertThat(loaded.getClassLoader()).isSameAs(production);
+    assertThat(production.getResource(entry)).hasProtocol("jar");
   }
 
   private static List<Path> roots() throws Exception {
