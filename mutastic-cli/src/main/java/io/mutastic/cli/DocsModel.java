@@ -53,6 +53,7 @@ final class DocsModel {
                   field("synopsis", quoted("mutastic " + command.synopsis)),
                   field("summary", quoted(command.summary)),
                   field("detail", quoted(command.detail)),
+                  field("exits", quoted(command.exits)),
                   field("takesMutantId", String.valueOf(command.takesMutantId)),
                   field("examples", examples(command.examples)),
                   field("options", strings(options)))));

@@ -978,6 +978,7 @@ public final class Main {
             + " (:app), or as Maven's -pl takes it (:services/api). The run passes when the score"
             + " reaches the threshold. A full run writes report files, keeps a record the next run"
             + " compares with, and offers the commands to work on each missed mutant.",
+        "0 when the score reaches the threshold, 1 when it doesn't.",
         List.of(
             "mutastic run",
             "mutastic run samples/pricing --threshold=70",
@@ -989,6 +990,7 @@ public final class Main {
         "Run mutants' tests: it passes when they catch every one not skipped",
         "How a fix is proved: each missed mutant offers it as \"done when\", and a card with"
             + " several mutants names them all.",
+        "0 when it catches each mutant named, or the mutant is skipped; 1 while one is still missed.",
         List.of(
             "mutastic verify m855c8e3c",
             "mutastic verify m855c8e3c samples/pricing",
@@ -999,6 +1001,7 @@ public final class Main {
         "Everything known of one mutant, with its tests run",
         "Its card, the change in its bytecode, what its operator does, and its result in the last"
             + " full run.",
+        "0 whatever the mutant's result: it explains, it doesn't judge.",
         List.of("mutastic explain m855c8e3c")),
     IGNORE(
         true,
@@ -1009,6 +1012,7 @@ public final class Main {
             + " every one that has lapsed. --propose records it in .mutastic/proposals.yaml"
             + " instead, for a person to accept with --accept: how a coding agent says a mutant"
             + " isn't worth a test, since until then it still counts as missed.",
+        "0 when the decision is recorded, proposed, accepted or removed; 1 when --accept names a mutant that isn't proposed.",
         List.of(
             "mutastic ignore m855c8e3c --reason=\"only logs\"",
             "mutastic ignore m855c8e3c --propose --as=unreachable --reason=\"totals are rounded to"
@@ -1023,6 +1027,7 @@ public final class Main {
         "Keeps the commit the task starts from, its ignores, and how many tests run and are"
             + " disabled, in the module's work directory, so gate check can say whether the task is"
             + " done. With --hook, once for each of the agent's sessions.",
+        "0 once it has kept where the task starts; 2 outside a git repository with a commit.",
         List.of("mutastic gate open", "mutastic gate open --hook=claude")),
     GATE_CHECK(
         false,
@@ -1031,20 +1036,26 @@ public final class Main {
         "Runs the mutants on the lines changed since gate open. The task is done when each is"
             + " caught or proposed for a person to ignore, no ignore was made by the task, and no"
             + " test was taken away or disabled; until then it says what's left, as the agent"
-            + " format does. It passes when done, and fails otherwise; with --hook it answers as"
-            + " the agent's hook, and after --tries lets the agent stop and says what's left.",
+            + " format does. With --hook it answers as the agent's hook, and lets the agent stop,"
+            + " saying what's left, when it changed nothing since it was sent back, or after"
+            + " --tries.",
+        "0 when the task is done, 1 when it isn't, 2 when no task is open. With --hook, 0 either way: the answer is what it prints, a block or a message, as the agent's hooks read it, and with nothing open the agent may stop.",
         List.of("mutastic gate check", "mutastic gate check --hook=claude")),
     GATE_CLOSE(
         false,
         "gate close [DIR] [:MODULE]",
         "Stop gating a task: forget where it started",
         "The next gate open starts a new task.",
+        "0 whether a task was open or not: it says which, or with --hook says nothing.",
         List.of("mutastic gate close"));
 
     final boolean takesMutantId;
     final String synopsis;
     final String summary;
     final String detail;
+
+    /// How it exits, beyond the statuses every command shares (a usage error, failing tests).
+    final String exits;
 
     // Always a List.of, which can't change: the check goes by the declared type, which can.
     @SuppressWarnings("ImmutableEnumChecker")
@@ -1055,11 +1066,13 @@ public final class Main {
         String synopsis,
         String summary,
         String detail,
+        String exits,
         List<String> examples) {
       this.takesMutantId = takesMutantId;
       this.synopsis = synopsis;
       this.summary = summary;
       this.detail = detail;
+      this.exits = exits;
       this.examples = examples;
     }
 

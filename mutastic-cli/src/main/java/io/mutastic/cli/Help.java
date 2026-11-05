@@ -44,9 +44,13 @@ final class Help {
   static final List<Entry> EXIT_CODES =
       List.of(
           new Entry(
-              "0", "The score reaches the threshold; for verify, the mutant is caught or skipped"),
+              "0",
+              "The score reaches the threshold; for verify, the mutant is caught or skipped; for"
+                  + " gate check, the task is done"),
           new Entry(
-              "1", "The score is below the threshold; for verify, the mutant is still missed"),
+              "1",
+              "The score is below the threshold; for verify, the mutant is still missed; for gate"
+                  + " check, the task isn't done"),
           new Entry("2", "A usage error, or a build mutastic couldn't read"),
           new Entry("3", "The tests fail without any mutant"),
           new Entry("4", "mutastic itself went wrong"));
@@ -130,6 +134,8 @@ final class Help {
     out.add("Usage: mutastic " + command.synopsis);
     out.add("");
     out.addAll(wrapped(command.summary + ". " + command.detail, WIDTH));
+    out.add("");
+    out.addAll(wrapped("Exits " + command.exits, WIDTH));
     out.add("");
     out.add("Examples:");
     command.examples.forEach(example -> out.add("  " + example));

@@ -114,6 +114,7 @@ const headings = command
   ? [
       { depth: 2, slug: 'usage', text: 'Usage' },
       ...(output ? [{ depth: 2, slug: 'output', text: 'Output' }] : []),
+      { depth: 2, slug: 'exit-status', text: 'Exit status' },
       ...(options.length ? [{ depth: 2, slug: 'options', text: 'Options' }] : []),
       ...options.map((option) => ({ depth: 3, slug: anchor(option), text: option.name })),
     ]
@@ -175,6 +176,14 @@ const headings = command
             <Code code={output} lang="ansi" />
           </section>
         )}
+        <section class="reference-output">
+          <h2 id="exit-status">Exit status</h2>
+          <p>
+            {command.exits} Any command exits 2 for a usage error or a build it couldn't read, and 4
+            when mutastic itself went wrong; one that runs tests, 3 when they fail without any mutant:
+            see <a href={`${import.meta.env.BASE_URL}reference/environment/#exit-codes`}>exit codes</a>.
+          </p>
+        </section>
         {options.length > 0 && <h2 id="options">Options</h2>}
         {options.map((option) => (
           <section class="reference-row">
