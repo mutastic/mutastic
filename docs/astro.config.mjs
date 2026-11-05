@@ -99,10 +99,6 @@ export default defineConfig({
           ],
         },
         {
-          label: 'Coding agents',
-          items: ['agents', 'agents/claude-code', 'agents/gate', 'agents/other-agents'],
-        },
-        {
           label: 'Reference',
           items: [
             { label: 'mutastic run', link: `${base}reference/run/` },
@@ -120,6 +116,10 @@ export default defineConfig({
         {
           label: 'Guides',
           items: ['guides/build-plugins', 'guides/scoping', 'guides/configuration', 'guides/plugins'],
+        },
+        {
+          label: 'Coding agents',
+          items: ['agents', 'agents/claude-code', 'agents/gate', 'agents/other-agents'],
         },
         {
           label: 'Help',
