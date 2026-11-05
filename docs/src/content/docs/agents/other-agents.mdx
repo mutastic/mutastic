@@ -8,20 +8,16 @@ The gate is three commands, so any agent that can run a command at the right mom
 
 ## opencode
 
-The [opencode](https://opencode.ai) plugin is one file, beside the Claude Code plugin in
-[tasticlabs/plugins](https://github.com/tasticlabs/plugins). For one project:
+The [opencode](https://opencode.ai) plugin is the `opencode-mutastic` package, with the gate and the
+mutastic skill in it:
 
 ```sh
-mkdir -p .opencode/plugins .opencode/skills/mutastic
-curl -fsSL https://raw.githubusercontent.com/tasticlabs/plugins/main/opencode/mutastic.js \
-  -o .opencode/plugins/mutastic.js
-curl -fsSL https://raw.githubusercontent.com/tasticlabs/plugins/main/plugins/mutastic/skills/mutastic/SKILL.md \
-  -o .opencode/skills/mutastic/SKILL.md
+opencode plugin opencode-mutastic        # for this project
+opencode plugin opencode-mutastic -g     # for every project
 ```
 
-or into `~/.config/opencode/plugins/` and `~/.config/opencode/skills/mutastic/` for every project,
-then restart opencode. It reads skills from `.claude/skills/` too, so a project set up for Claude
-Code has the skill already.
+then restart opencode. `opencode plugin opencode-mutastic --force` updates it. Its source is beside
+the Claude Code plugin, in [tasticlabs/plugins](https://github.com/tasticlabs/plugins).
 
 opencode can't hold an agent's stop, so the gate works a little differently there. The first
 prompt of a session opens it, and when the session goes idle, the plugin runs `mutastic gate check`.
