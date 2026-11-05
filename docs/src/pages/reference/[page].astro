@@ -26,7 +26,7 @@ type Option = (typeof model.options)[number];
 
 export function getStaticPaths() {
   return [
-    ...model.commands.map((command) => ({ params: { page: command.name }, props: { command } })),
+    ...model.commands.map((command) => ({ params: { page: command.page }, props: { command } })),
     { params: { page: 'environment' }, props: { command: undefined } },
   ];
 }
@@ -68,7 +68,7 @@ const troubleshooting = command
   : (await render((await getEntry('docs', 'guides/troubleshooting'))!)).headings;
 const whatToDo = (status: string) =>
   troubleshooting.find((heading) => heading.depth === 2 && heading.text.startsWith(`${status}:`));
-const output = command ? outputs[`../../data/output/${command.name}.ansi`] : undefined;
+const output = command ? outputs[`../../data/output/${command.page}.ansi`] : undefined;
 
 /** When in the quickstart's tour each output was taken, as DocsOutputTest takes it. */
 const when: Record<string, string> = {
@@ -134,12 +134,19 @@ const headings = command
             </p>
             <h2 id="usage">Usage</h2>
             <Code code={command.synopsis} lang="sh" wrap />
-            <p>
-              The build plugins run the same command, with each option as a{' '}
-              <code>mutastic.</code> property of the same name.
-            </p>
+            {command.examples[0]?.gradle ? (
+              <p>
+                The build plugins run the same command, with each option as a{' '}
+                <code>mutastic.</code> property of the same name.
+              </p>
+            ) : (
+              <p>A coding agent's hooks run it as the command: the build plugins don't.</p>
+            )}
           </div>
           <aside class="reference-examples" aria-label="Examples">
+            {!command.examples[0]?.gradle ? (
+              <Code code={command.examples.map((example) => continued(example.commandLine)).join('\n')} lang="sh" wrap />
+            ) : (
             <Tabs syncKey="runner">
               <TabItem label="Gradle">
                 <Code code={command.examples.map((example) => continued(example.gradle)).join('\n')} lang="sh" wrap />
@@ -155,6 +162,7 @@ const headings = command
                 />
               </TabItem>
             </Tabs>
+            )}
           </aside>
         </section>
         {output && (
@@ -228,6 +236,9 @@ const headings = command
               </table>
             </div>
             <aside class="reference-examples" aria-label={`Example of ${option.name}`}>
+              {!option.examples.gradle ? (
+                <Code code={continued(option.examples.commandLine)} lang="sh" wrap />
+              ) : (
               <Tabs syncKey="runner">
                 <TabItem label="Gradle">
                   <Code code={continued(option.examples.gradle)} lang="sh" wrap />
@@ -245,6 +256,7 @@ const headings = command
                   <Code code={continued(option.examples.commandLine)} lang="sh" wrap />
                 </TabItem>
               </Tabs>
+              )}
             </aside>
           </section>
         ))}

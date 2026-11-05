@@ -33,7 +33,8 @@ class CommandTest {
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                "mutastic"));
+                "mutastic",
+                new Main.Gating("", 3)));
   }
 
   @Test
@@ -63,7 +64,8 @@ class CommandTest {
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                "mutastic"));
+                "mutastic",
+                new Main.Gating("", 3)));
   }
 
   /// What the build plugins pass: the setup they wrote, and their goals as the commands offered.

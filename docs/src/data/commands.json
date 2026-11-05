@@ -4,6 +4,7 @@
   "commands": [
     {
       "name": "run",
+      "page": "run",
       "synopsis": "mutastic run [DIR] [:MODULE] [OPTIONS]",
       "summary": "Mutate the code and run its tests against each mutant",
       "detail": "DIR is the build, here unless given, and :MODULE one of its modules: as Gradle names it (:app), or as Maven's -pl takes it (:services/api). The run passes when the score reaches the threshold. A full run writes report files, keeps a record the next run compares with, and offers the commands to work on each missed mutant.",
@@ -13,6 +14,7 @@
     },
     {
       "name": "verify",
+      "page": "verify",
       "synopsis": "mutastic verify ID... [DIR] [:MODULE]",
       "summary": "Run mutants' tests: it passes when they catch every one not skipped",
       "detail": "How a fix is proved: each missed mutant offers it as \"done when\", and a card with several mutants names them all.",
@@ -22,6 +24,7 @@
     },
     {
       "name": "explain",
+      "page": "explain",
       "synopsis": "mutastic explain ID [DIR] [:MODULE]",
       "summary": "Everything known of one mutant, with its tests run",
       "detail": "Its card, the change in its bytecode, what its operator does, and its result in the last full run.",
@@ -31,12 +34,43 @@
     },
     {
       "name": "ignore",
+      "page": "ignore",
       "synopsis": "mutastic ignore ID [DIR] [:MODULE] --reason=WHY",
       "summary": "Record a decision not to test one mutant",
       "detail": "It goes in .mutastic/ignores.yaml with its line and the reason, to commit and review, and lapses when that line changes. --remove takes one back; ignore --prune takes away every one that has lapsed. --propose records it in .mutastic/proposals.yaml instead, for a person to accept with --accept: how a coding agent says a mutant isn't worth a test, since until then it still counts as missed.",
       "takesMutantId": true,
       "examples": [{ "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.reason=\"only logs\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.reason=\"only logs\"", "commandLine": "mutastic ignore m855c8e3c --reason=\"only logs\"" }, { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.propose -Pmutastic.as=unreachable -Pmutastic.reason=\"totals are rounded to tens\"", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.propose -Dmutastic.as=unreachable -Dmutastic.reason=\"totals are rounded to tens\"", "commandLine": "mutastic ignore m855c8e3c --propose --as=unreachable --reason=\"totals are rounded to tens\"" }, { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.accept", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.accept", "commandLine": "mutastic ignore --accept m855c8e3c" }, { "gradle": "./gradlew mutasticIgnore -Pmutastic.mutant=m855c8e3c -Pmutastic.remove", "maven": "mvn mutastic:ignore -Dmutastic.mutant=m855c8e3c -Dmutastic.remove", "commandLine": "mutastic ignore --remove m855c8e3c" }, { "gradle": "./gradlew mutasticIgnore -Pmutastic.prune", "maven": "mvn mutastic:ignore -Dmutastic.prune", "commandLine": "mutastic ignore --prune" }],
       "options": ["--reason", "--as", "--remove", "--propose", "--accept", "--prune"]
+    },
+    {
+      "name": "gate open",
+      "page": "gate-open",
+      "synopsis": "mutastic gate open [DIR] [:MODULE]",
+      "summary": "Start gating a coding agent's task: keep where it starts",
+      "detail": "Keeps the commit the task starts from, its ignores, and how many tests run and are disabled, in the module's work directory, so gate check can say whether the task is done. With --hook, once for each of the agent's sessions.",
+      "takesMutantId": false,
+      "examples": [{ "gradle": "", "maven": "", "commandLine": "mutastic gate open" }, { "gradle": "", "maven": "", "commandLine": "mutastic gate open --hook=claude" }],
+      "options": ["--hook"]
+    },
+    {
+      "name": "gate check",
+      "page": "gate-check",
+      "synopsis": "mutastic gate check [DIR] [:MODULE]",
+      "summary": "Say whether a gated task is done: its changed lines' mutants caught",
+      "detail": "Runs the mutants on the lines changed since gate open. The task is done when each is caught or proposed for a person to ignore, no ignore was made by the task, and no test was taken away or disabled; until then it says what's left, as the agent format does. It passes when done, and fails otherwise; with --hook it answers as the agent's hook, and after --tries lets the agent stop and says what's left.",
+      "takesMutantId": false,
+      "examples": [{ "gradle": "", "maven": "", "commandLine": "mutastic gate check" }, { "gradle": "", "maven": "", "commandLine": "mutastic gate check --hook=claude" }],
+      "options": ["--hook", "--tries"]
+    },
+    {
+      "name": "gate close",
+      "page": "gate-close",
+      "synopsis": "mutastic gate close [DIR] [:MODULE]",
+      "summary": "Stop gating a task: forget where it started",
+      "detail": "The next gate open starts a new task.",
+      "takesMutantId": false,
+      "examples": [{ "gradle": "", "maven": "", "commandLine": "mutastic gate close" }],
+      "options": ["--hook"]
     }
   ],
   "options": [
@@ -361,6 +395,34 @@
       "maven": { "property": "-Dmutastic.prune", "setting": null },
       "gradle": { "property": "-Pmutastic.prune", "setting": null },
       "examples": { "gradle": "./gradlew mutasticIgnore -Pmutastic.prune", "maven": "mvn mutastic:ignore -Dmutastic.prune", "commandLine": "mutastic ignore --prune", "gradleBuild": "", "mavenBuild": "" }
+    },
+    {
+      "name": "--hook",
+      "synopsis": "--hook=AGENT",
+      "kind": "value",
+      "group": "Gate",
+      "value": "AGENT",
+      "choices": ["claude"],
+      "help": "Run as the agent's hook: read its input on stdin, and answer as its hooks do",
+      "commands": ["gate check", "gate close", "gate open"],
+      "environment": "",
+      "maven": null,
+      "gradle": null,
+      "examples": { "gradle": "", "maven": "", "commandLine": "mutastic gate check --hook=claude", "gradleBuild": "", "mavenBuild": "" }
+    },
+    {
+      "name": "--tries",
+      "synopsis": "--tries=N",
+      "kind": "value",
+      "group": "Gate",
+      "value": "N",
+      "choices": [],
+      "help": "With --hook, how many times check sends the agent back before it lets it stop and says what's left; 3 unless set",
+      "commands": ["gate check"],
+      "environment": "",
+      "maven": null,
+      "gradle": null,
+      "examples": { "gradle": "", "maven": "", "commandLine": "mutastic gate check --hook=claude --tries=5", "gradleBuild": "", "mavenBuild": "" }
     }
   ],
   "environment": [

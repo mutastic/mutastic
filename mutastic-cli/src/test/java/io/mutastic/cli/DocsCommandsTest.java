@@ -58,8 +58,11 @@ class DocsCommandsTest {
       commandLines.addAll(command.examples);
     }
     for (String commandLine : commandLines) {
-      for (String line :
-          List.of(commandLine, Runners.gradle(commandLine), Runners.maven(commandLine))) {
+      var forms =
+          Runners.byThePlugins(commandLine)
+              ? List.of(commandLine, Runners.gradle(commandLine), Runners.maven(commandLine))
+              : List.of(commandLine);
+      for (String line : forms) {
         var args = arguments(line);
 
         assertThat(Main.Command.parse(args.toArray(String[]::new)))

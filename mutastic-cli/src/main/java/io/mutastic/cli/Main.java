@@ -117,19 +117,17 @@ public final class Main {
     var human = humanText(command, output, prepared.sources());
     showFileLines(command, output, human, prepared);
     var engine = new Engine(workerJar(), prepared.work().resolve("worker.log"));
-    var options = options(command, terminal, prepared.directory());
-    var passes = new Passes(engine, options, progress, tool);
+    var passes =
+        new Passes(engine, options(command, terminal, prepared.directory()), progress, tool);
     if (command.subcommand() != Subcommand.RUN) {
-      return single(command, prepared, passes, output);
+      return command.subcommand().gate()
+          ? gated(new Gated(command, prepared, passes, output, terminal))
+          : single(command, prepared, passes, output);
     }
     var display = display(command, prepared, output, human);
     var tested = passes.run(command, prepared, display.listener());
     progress.finished();
-    // Only full runs compare, are kept and write reports: one mutant says nothing about the rest.
-    var kept =
-        command.only().isEmpty()
-            ? keep(command, prepared, tested.report(), tested.otherTests())
-            : Kept.NOTHING;
+    var kept = kept(command, prepared, tested);
     display.printer().print(tested.report(), kept.comparison(), kept.written());
     return exitCode(command, tested.report());
   }
@@ -170,6 +168,241 @@ public final class Main {
             out);
   }
 
+  /// Only full runs compare, are kept and write reports: one mutant says nothing about the rest.
+  private static Kept kept(Command command, Prepared prepared, Tested tested) {
+    return command.only().isEmpty()
+        ? keep(command, prepared, tested.report(), tested.otherTests())
+        : Kept.NOTHING;
+  }
+
+  /// A `gate` command, with what running it needs.
+  private record Gated(
+      Command command, Prepared prepared, Passes passes, Output output, Terminal terminal) {
+    boolean hooked() {
+      return !command.gating().hook().isEmpty();
+    }
+
+    Path work() {
+      return prepared.work();
+    }
+  }
+
+  /// `gate open`, `gate check` or `gate close` (see [Gate]).
+  private static int gated(Gated gated) {
+    var session = gated.hooked() ? Gate.session(stdin()) : "";
+    return switch (gated.command().subcommand()) {
+      case GATE_OPEN -> gateOpen(gated, session);
+      case GATE_CLOSE -> {
+        boolean closed = Gate.State.close(gated.work());
+        if (!gated.hooked()) {
+          gated
+              .output()
+              .out()
+              .println(closed ? "mutastic gate: closed" : "mutastic gate: none open here");
+        }
+        yield PASSED;
+      }
+      default -> gateCheck(gated);
+    };
+  }
+
+  /// Keeps where the task starts; with a hook, once for each session. A hook's output is the
+  /// agent's to read: it's told the task is gated, and how to check its work as it goes.
+  private static int gateOpen(Gated gated, String session) {
+    if (gated.hooked() && openFor(gated, session)) {
+      return PASSED;
+    }
+    var directory = gated.prepared().directory();
+    var base = new Git(directory).head();
+    var shape = Gate.Shape.of(gated.prepared().project().testSources());
+    new Gate.State(session, base, ignored(directory), shape, 0).write(gated.work());
+    gated
+        .output()
+        .out()
+        .printf(
+            "mutastic gate: this task is gated from %s: before you finish, check the lines it"
+                + " changes with `mutastic run --since=%s --format=agent`; `mutastic gate check`"
+                + " says when it's done%n",
+            base.substring(0, Math.min(7, base.length())), base);
+    return PASSED;
+  }
+
+  /// Whether a task is open already for this session.
+  private static boolean openFor(Gated gated, String session) {
+    return !session.isEmpty()
+        && Gate.State.read(gated.work())
+            .filter(state -> state.session().equals(session))
+            .isPresent();
+  }
+
+  /// Whether the task is done: as a hook's answer, or as the exit status, with what's left.
+  private static int gateCheck(Gated gated) {
+    var open = Gate.State.read(gated.work());
+    if (open.isEmpty()) {
+      if (!gated.hooked()) {
+        gated
+            .output()
+            .out()
+            .println("mutastic gate: none open here: `mutastic gate open` starts one");
+      }
+      return gated.hooked() ? PASSED : USAGE; // nothing gated: a hooked agent may stop
+    }
+    var verdict = gateVerdict(gated, open.get());
+    var state = verdict.passes() ? open.get().passed() : open.get().blockedOnce();
+    int tries = gated.command().gating().tries();
+    if (gated.hooked() && state.blocks() > tries) {
+      verdict = new Gate.Verdict(true, true, gaveUp(tries, verdict.text()));
+      state = state.passed();
+    }
+    state.write(gated.work());
+    return answer(gated, verdict);
+  }
+
+  private static String gaveUp(int tries, String left) {
+    return "mutastic gate: the agent was sent back %d times, so it's over to you. %s"
+        .formatted(tries, left);
+  }
+
+  /// The verdict, as the hook's answer, or printed, with the exit status.
+  private static int answer(Gated gated, Gate.Verdict verdict) {
+    var out = gated.output().out();
+    if (gated.hooked()) {
+      out.println(Gate.claudeHook(verdict));
+      return PASSED;
+    }
+    out.println(verdict.text());
+    return verdict.passes() ? PASSED : FAILED;
+  }
+
+  /// What the gate says of the task: done, or what's left.
+  private static Gate.Verdict gateVerdict(Gated gated, Gate.State state) {
+    var directory = gated.prepared().directory();
+    if (new Git(directory).changedSince(state.base()).lines().isEmpty()) {
+      return Gate.Verdict.pass("mutastic gate: passed: the task changed no lines mutastic mutates");
+    }
+    return selfIgnored(directory, state)
+        .or(() -> fewerTests(gated, state))
+        .orElseGet(() -> mutantsVerdict(gated, state));
+  }
+
+  /// An ignore the task made itself: a person's call, so it's proposed instead.
+  private static Optional<Gate.Verdict> selfIgnored(Path directory, Gate.State state) {
+    var added = new java.util.TreeSet<>(ignored(directory));
+    added.removeAll(state.ignored());
+    return added.isEmpty()
+        ? Optional.empty()
+        : Optional.of(
+            Gate.Verdict.block(
+                ("mutastic gate: the task ignored %s itself, and whether a mutant is worth a test"
+                        + " is a person's call. Take it back with `mutastic ignore --remove ID`, and"
+                        + " propose it instead: `mutastic ignore ID --propose --as=KIND"
+                        + " --reason=\"…\"`")
+                    .formatted(String.join(", ", added))));
+  }
+
+  /// Fewer tests running than when the task started: taken away, or disabled.
+  private static Optional<Gate.Verdict> fewerTests(Gated gated, Gate.State state) {
+    var before = state.shape();
+    var now = Gate.Shape.of(gated.prepared().project().testSources());
+    return !now.fewerThan(before)
+        ? Optional.empty()
+        : Optional.of(
+            Gate.Verdict.block(
+                ("mutastic gate: fewer tests run than when the task started (%d, %d disabled; now"
+                        + " %d, %d disabled). Put them back: the gate doesn't pass a change by"
+                        + " taking tests away")
+                    .formatted(before.tests(), before.disabled(), now.tests(), now.disabled())));
+  }
+
+  /// The mutants on the lines the task changed: each caught, or proposed for a person to ignore.
+  private static Gate.Verdict mutantsVerdict(Gated gated, Gate.State state) {
+    Report report;
+    try {
+      report = gateRun(gated, state.base());
+    } catch (Engine.BaselineFailed e) {
+      return Gate.Verdict.block("mutastic gate: " + e.getMessage() + ". Make them pass first");
+    }
+    var proposed = proposedIds(gated.prepared().directory());
+    var missed = missedIds(report);
+    var open = missed.stream().filter(id -> !proposed.contains(id)).toList();
+    if (open.isEmpty()) {
+      return Gate.Verdict.pass(passed(report, missed));
+    }
+    return Gate.Verdict.block(
+        ("mutastic gate: %d mutant%s on the lines the task changed %s missed, so it isn't done."
+                + " For each card: write the test, and run its `done when` before you move on; if a"
+                + " case can't happen, propose ignoring it, for a person to accept.%n%n%s")
+            .formatted(
+                open.size(),
+                open.size() == 1 ? "" : "s",
+                open.size() == 1 ? "is" : "are",
+                cards(gated, report)));
+  }
+
+  /// The run on the lines changed since `base`.
+  private static Report gateRun(Gated gated, String base) {
+    var run = gated.command().runSince(base);
+    var passes = gated.passes();
+    var options = options(run, gated.terminal(), gated.prepared().directory());
+    var report =
+        new Passes(passes.engine(), options, passes.progress(), passes.tool())
+            .run(run, gated.prepared(), passes.progress())
+            .report();
+    passes.progress().finished();
+    return report;
+  }
+
+  /// What a pass says: how many the tests catch, and any proposals waiting for a person.
+  private static String passed(Report report, List<String> waiting) {
+    return "mutastic gate: passed: the tests catch %d of the %d mutants on the lines the task changed%s"
+        .formatted(
+            report.count(Status.CAUGHT) + report.count(Status.TIMED_OUT),
+            report.results().size() - report.count(Status.SKIPPED),
+            waiting.isEmpty()
+                ? ""
+                : "; the rest wait for a person, proposed in .mutastic/proposals.yaml: "
+                    + String.join(", ", waiting));
+  }
+
+  /// The missed mutants' cards, as the agent format has them, without its verdict line.
+  private static String cards(Gated gated, Report report) {
+    return new AgentText(gated.prepared().sources(), 0, gated.output().words())
+        .render(report, Optional.empty(), false)
+        .lines()
+        .dropWhile(line -> line.startsWith("mutastic: "))
+        .collect(java.util.stream.Collectors.joining("\n"));
+  }
+
+  /// The mutants no test catches: missed, or reached by none.
+  private static List<String> missedIds(Report report) {
+    return report.results().stream()
+        .filter(each -> each.status() == Status.MISSED || each.status() == Status.NOT_COVERED)
+        .map(each -> each.mutant().id())
+        .toList();
+  }
+
+  private static java.util.Set<String> proposedIds(Path directory) {
+    return Ignores.proposed(directory).stream()
+        .map(entry -> entry.ignore().id())
+        .collect(java.util.stream.Collectors.toSet());
+  }
+
+  /// The ids the project ignores.
+  private static java.util.Set<String> ignored(Path directory) {
+    return Ignores.read(directory).stream()
+        .map(entry -> entry.ignore().id())
+        .collect(java.util.stream.Collectors.toSet());
+  }
+
+  /// A hook's input: what the agent says of the event, as JSON.
+  private static String stdin() {
+    try {
+      return new String(System.in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+    } catch (java.io.IOException e) {
+      return "";
+    }
+  }
+
   /// `explain`: everything known of one mutant, with how the last full run went.
   private static int explained(Command command, Prepared prepared, Passes passes, Output output) {
     var lastRun = lastRun(prepared, command.only().getFirst());
@@ -196,6 +429,10 @@ public final class Main {
   /// `reason`, as the sort of decision `kind` says (`--as`, empty when not given).
   ///
   /// `--propose` records it as waiting for a person, `--accept` makes a proposal an ignore.
+  /// `gate`'s own: `--hook=claude` to answer as that agent's hook, empty for a person; and how many
+  /// times `check` sends a hooked agent back before it lets it stop.
+  record Gating(String hook, int tries) {}
+
   record Ignoring(
       boolean prune, boolean remove, String reason, String kind, boolean propose, boolean accept) {}
 
@@ -326,7 +563,7 @@ public final class Main {
     if (!help && !words.contains("--help") && !words.contains("-h")) {
       return Optional.empty();
     }
-    var command = Subcommand.of(help && words.size() > 1 ? words.get(1) : words.getFirst());
+    var command = Subcommand.at(help ? words.subList(1, words.size()) : words);
     return Optional.of(
         command.map(each -> Help.of(each, version())).orElseGet(() -> Help.general(version())));
   }
@@ -756,7 +993,31 @@ public final class Main {
                 + " tens\"",
             "mutastic ignore --accept m855c8e3c",
             "mutastic ignore --remove m855c8e3c",
-            "mutastic ignore --prune"));
+            "mutastic ignore --prune")),
+    GATE_OPEN(
+        false,
+        "gate open [DIR] [:MODULE]",
+        "Start gating a coding agent's task: keep where it starts",
+        "Keeps the commit the task starts from, its ignores, and how many tests run and are"
+            + " disabled, in the module's work directory, so gate check can say whether the task is"
+            + " done. With --hook, once for each of the agent's sessions.",
+        List.of("mutastic gate open", "mutastic gate open --hook=claude")),
+    GATE_CHECK(
+        false,
+        "gate check [DIR] [:MODULE]",
+        "Say whether a gated task is done: its changed lines' mutants caught",
+        "Runs the mutants on the lines changed since gate open. The task is done when each is"
+            + " caught or proposed for a person to ignore, no ignore was made by the task, and no"
+            + " test was taken away or disabled; until then it says what's left, as the agent"
+            + " format does. It passes when done, and fails otherwise; with --hook it answers as"
+            + " the agent's hook, and after --tries lets the agent stop and says what's left.",
+        List.of("mutastic gate check", "mutastic gate check --hook=claude")),
+    GATE_CLOSE(
+        false,
+        "gate close [DIR] [:MODULE]",
+        "Stop gating a task: forget where it started",
+        "The next gate open starts a new task.",
+        List.of("mutastic gate close"));
 
     final boolean takesMutantId;
     final String synopsis;
@@ -780,8 +1041,30 @@ public final class Main {
       this.examples = examples;
     }
 
+    /// As typed: `run`, `gate open`.
     String word() {
-      return name().toLowerCase(java.util.Locale.ROOT);
+      return name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
+    }
+
+    /// Its page in the docs: `run`, `gate-open`.
+    String page() {
+      return word().replace(' ', '-');
+    }
+
+    boolean gate() {
+      return word().startsWith("gate ");
+    }
+
+    /// How many of `words`, from the first, name a command: two for `gate open`, one otherwise.
+    static int length(List<String> words) {
+      return words.size() > 1 && words.getFirst().equals("gate") ? 2 : 1;
+    }
+
+    /// The command `words` start with, if any.
+    static Optional<Subcommand> at(List<String> words) {
+      return words.isEmpty()
+          ? Optional.empty()
+          : of(String.join(" ", words.subList(0, length(words))));
     }
 
     static Optional<Subcommand> of(String word) {
@@ -843,7 +1126,8 @@ public final class Main {
       Optional<String> since,
       Optional<Ignoring> ignore,
       Optional<Path> setup,
-      String commands) {
+      String commands,
+      Gating gating) {
     Optional<String> format() {
       return shown.format();
     }
@@ -896,16 +1180,48 @@ public final class Main {
           since,
           Optional.of(how),
           setup,
-          commands);
+          commands,
+          gating);
+    }
+
+    /// The run `gate check` makes: this command's project and operators, on the lines changed since
+    /// `base`, every mutant reported, no report files.
+    Command runSince(String base) {
+      return new Command(
+          Subcommand.RUN,
+          directory,
+          module,
+          shown,
+          0,
+          List.of(),
+          confirmCatches,
+          workers,
+          suggestions,
+          List.of(),
+          testsFrom,
+          operators,
+          excludeTests,
+          suite,
+          Optional.of(base),
+          Optional.empty(),
+          setup,
+          commands,
+          gating);
     }
 
     static Command parse(String[] args) {
-      if (args.length == 0 || Subcommand.of(args[0]).isEmpty()) {
-        throw new UsageException(args.length == 0 ? "no command" : "unknown command " + args[0]);
+      var words = List.of(args);
+      if (words.isEmpty() || Subcommand.at(words).isEmpty()) {
+        throw new UsageException(
+            words.isEmpty()
+                ? "no command"
+                : words.getFirst().equals("gate")
+                    ? "gate needs what to do: open, check or close"
+                    : "unknown command " + words.getFirst());
       }
-      var subcommand = Subcommand.of(args[0]).orElseThrow();
+      var subcommand = Subcommand.at(words).orElseThrow();
       var parser = new Parser();
-      var rest = new java.util.ArrayDeque<>(List.of(args).subList(1, args.length));
+      var rest = new java.util.ArrayDeque<>(words.subList(Subcommand.length(words), args.length));
       while (!rest.isEmpty()) {
         parser.read(rest.removeFirst(), rest);
       }
@@ -940,6 +1256,8 @@ public final class Main {
       private boolean prune = false;
       private boolean remove = false;
       private boolean propose = false;
+      private String hook = "";
+      private int tries = 3;
       private boolean accept = false;
       private Optional<Path> setup = Optional.empty();
       private String commands = "mutastic";
@@ -1027,6 +1345,11 @@ public final class Main {
           case "--propose" -> propose = true;
           case "--accept" -> accept = true;
           case "--prune" -> prune = true;
+          case "--hook" -> {
+            hook = choice(option, given);
+            progress = "none"; // a hook's stderr is the agent's to read, not progress
+          }
+          case "--tries" -> tries = number(option, given, 1, 100);
           case "--setup" -> setup = Optional.of(Path.of(given));
           case "--commands" -> commands = commands(given);
           default -> throw new IllegalStateException("no reader for " + option.name());
@@ -1109,7 +1432,7 @@ public final class Main {
         }
         if (subcommand == Subcommand.VERIFY) {
           only = mutantIds();
-        } else if (subcommand != Subcommand.RUN) {
+        } else if (subcommand.takesMutantId) {
           only = List.of(mutantId(subcommand.word()));
         }
         return built(subcommand);
@@ -1168,7 +1491,8 @@ public final class Main {
             since,
             Optional.empty(),
             setup,
-            commands);
+            commands,
+            new Gating(hook, tries));
       }
 
       /// `:app`: another module, named as the module run is; or `dependents`, every module that

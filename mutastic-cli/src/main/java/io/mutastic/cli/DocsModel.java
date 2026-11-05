@@ -49,6 +49,7 @@ final class DocsModel {
           object(
               List.of(
                   field("name", quoted(command.word())),
+                  field("page", quoted(command.page())),
                   field("synopsis", quoted("mutastic " + command.synopsis)),
                   field("summary", quoted(command.summary)),
                   field("detail", quoted(command.detail)),

@@ -27,6 +27,8 @@ final class Options {
   private static final Set<Main.Subcommand> SHOWN = EnumSet.of(RUN, EXPLAIN);
 
   private static final Set<Main.Subcommand> IGNORES = EnumSet.of(IGNORE);
+  private static final Set<Main.Subcommand> GATES =
+      EnumSet.of(Main.Subcommand.GATE_OPEN, Main.Subcommand.GATE_CHECK, Main.Subcommand.GATE_CLOSE);
   private static final Set<Main.Subcommand> EVERY = EnumSet.allOf(Main.Subcommand.class);
   private static final List<String> SWITCHES = List.of("auto", "always", "never");
 
@@ -314,6 +316,31 @@ final class Options {
               false,
               "",
               "mutastic ignore --prune"),
+          new Option(
+              "--hook",
+              Kind.VALUE,
+              Group.GATE,
+              "AGENT",
+              List.of("claude"),
+              "Run as the agent's hook: read its input on stdin, and answer as its hooks do",
+              GATES,
+              "",
+              false,
+              "",
+              "mutastic gate check --hook=claude"),
+          new Option(
+              "--tries",
+              Kind.VALUE,
+              Group.GATE,
+              "N",
+              List.of(),
+              "With --hook, how many times check sends the agent back before it lets it stop and"
+                  + " says what's left; 3 unless set",
+              EnumSet.of(Main.Subcommand.GATE_CHECK),
+              "",
+              false,
+              "",
+              "mutastic gate check --hook=claude --tries=5"),
           new Option(
               "--setup",
               Kind.VALUE,

@@ -53,6 +53,7 @@ record Option(
     RUNNING("Running"),
     OUTPUT("Output"),
     IGNORING("Ignoring"),
+    GATE("Gate"),
     /// Passed by the build plugins, which run inside the build; never shown in help.
     BUILD_PLUGINS("");
 

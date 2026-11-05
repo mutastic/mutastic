@@ -141,7 +141,7 @@ final class Help {
     }
     out.addAll(section("Exit codes:", EXIT_CODES));
     out.add("");
-    out.add("Docs: " + docs(version) + "reference/" + command.word() + "/");
+    out.add("Docs: " + docs(version) + "reference/" + command.page() + "/");
     return String.join("\n", out) + "\n";
   }
 

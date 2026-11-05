@@ -35,7 +35,16 @@ final class Runners {
     }
   }
 
+  /// Whether a build plugin runs it: not `gate`, which an agent's hooks call as the command.
+  static boolean byThePlugins(String commandLine) {
+    return !commandLine.startsWith("mutastic gate ");
+  }
+
+  /// Empty for a command the plugins don't run.
   static String gradle(String commandLine) {
+    if (!byThePlugins(commandLine)) {
+      return "";
+    }
     var read = read(commandLine);
     var task =
         "mutastic"
@@ -54,7 +63,11 @@ final class Runners {
     return String.join(" ", words);
   }
 
+  /// Empty for a command the plugins don't run.
   static String maven(String commandLine) {
+    if (!byThePlugins(commandLine)) {
+      return "";
+    }
     var read = read(commandLine);
     var words = new ArrayList<>(List.of("mvn", "mutastic:" + read.command));
     if (!read.id.isEmpty()) {

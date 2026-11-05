@@ -33,6 +33,12 @@ final class Git {
     this.directory = directory;
   }
 
+  /// The commit checked out: where a gated task starts.
+  String head() {
+    return output(List.of("rev-parse", "HEAD"), "the gate needs a git repository with a commit")
+        .strip();
+  }
+
   /// The lines changed since `since`, or since the repository's default branch for `""`.
   ChangedLines changedSince(String since) {
     var root =
