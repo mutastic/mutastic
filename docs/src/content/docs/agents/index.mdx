@@ -1,0 +1,59 @@
+---
+title: Coding agents
+description: "What mutastic does for a coding agent's work: each gap in the lines it changed, handed back while it's still in the code, and what's left for you to decide."
+---
+
+A coding agent writes tests as readily as code, and they pass. Whether they check what the change
+does is another matter: a test can run every line and assert nothing that matters. mutastic finds
+out the way it always does, by planting a bug in each line the agent changed and seeing whether a
+test notices. What changes with an agent is when you hear about it.
+
+## Before the change reaches you
+
+Run by hand, or in CI, mutastic tells you after the work: a score, and a list of mutants to chase.
+With an agent, it tells the agent, while it's still in the code. The agent gets a card for each gap,
+with the test to write and a command that says when it's closed, and it works through them before
+it says it's done. You don't wait for CI or a review to find tests that check nothing, and you don't
+need to read the cards, or the score, at all: what reaches you is a change whose tests catch what it
+does.
+
+```
+❯ Cap the monthly fee at £25.
+
+● The monthly fee is now capped at £25. All 12 tests pass, and
+  mutastic gate check passed with all 6 mutants on the changed lines caught.
+
+  Stop says: mutastic gate: passed: the tests catch 6 of the 6 mutants on the lines the task changed
+```
+
+## Three parts
+
+- **The agent format.** `mutastic run --format=agent` writes the cards for an agent to act on: the
+  rules (tests only, never production code), each missed mutant's line as it changes, the test to
+  add, and its `done when` command. See [the agent format](/concepts/output/#formats).
+- **The gate.** [`mutastic gate`](/agents/gate/) holds "done": it notes where a task starts, and
+  when the agent says it's finished, checks the mutants on the lines it changed since. While one
+  is missed, the agent is sent back with its cards.
+- **A plugin for your agent.** The [Claude Code plugin](/agents/claude-code/) wires the gate into
+  Claude Code's hooks and teaches it the loop. Other agents can run the same commands; see
+  [other agents](/agents/other-agents/).
+
+## What stays yours
+
+An agent decides how to test a line. Whether a case can happen in practice is a different
+question, and it's yours. When the agent thinks a mutant's case can't happen (a balance the ledger
+caps, a log line no caller reads), it doesn't contrive a test, and it doesn't ignore the mutant: it
+**proposes** the ignore, with its reason.
+
+```sh
+mutastic ignore m90db0c4e --propose --as=unreachable --reason="balances are capped by the ledger"
+```
+
+The proposal goes in `.mutastic/proposals.yaml`, and the mutant still counts as missed until you
+accept it (`mutastic ignore --accept ID`) or withdraw it (`--remove`). Commit the proposals with the
+change, and a pull request's reviewer decides them. [Configuration](/guides/configuration/) has the
+details, and [equivalent mutants](/concepts/equivalence/) says which kinds mutastic skips on its own.
+
+The gate holds the rest of the line: a task that ignores a mutant itself, or deletes or disables a
+test, isn't done either. And when the agent can't get there, or you've told it not to, the gate
+lets it stop and tells you what's still missed, rather than send it round again.

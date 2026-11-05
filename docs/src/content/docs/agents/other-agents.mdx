@@ -1,0 +1,55 @@
+---
+title: Other agents
+description: "The mutastic gate in opencode, and in any other coding agent that can run a command when a task starts and when it says it's done."
+---
+
+The gate is three commands, so any agent that can run a command at the right moments can be gated.
+[Claude Code](/agents/claude-code/) has a plugin, and so does opencode.
+
+## opencode
+
+The [opencode](https://opencode.ai) plugin is one file, beside the Claude Code plugin in
+[tasticlabs/plugins](https://github.com/tasticlabs/plugins). For one project:
+
+```sh
+mkdir -p .opencode/plugins .opencode/skills/mutastic
+curl -fsSL https://raw.githubusercontent.com/tasticlabs/plugins/main/opencode/mutastic.js \
+  -o .opencode/plugins/mutastic.js
+curl -fsSL https://raw.githubusercontent.com/tasticlabs/plugins/main/plugins/mutastic/skills/mutastic/SKILL.md \
+  -o .opencode/skills/mutastic/SKILL.md
+```
+
+or into `~/.config/opencode/plugins/` and `~/.config/opencode/skills/mutastic/` for every project,
+then restart opencode. It reads skills from `.claude/skills/` too, so a project set up for Claude
+Code has the skill already.
+
+opencode can't hold an agent's stop, so the gate works a little differently there. The first
+prompt of a session opens it, and when the session goes idle, the plugin runs `mutastic gate check`.
+If the task isn't done, the cards go back as the next prompt; when it passes, or the gate hands
+over to you, you see it in a toast. An idle after an error, or after you abort, isn't checked, and
+nor are a subagent's sessions.
+
+If you've set bash commands to `ask`, allow mutastic in `opencode.json`:
+
+```json
+{ "permission": { "bash": { "mutastic *": "allow" } } }
+```
+
+## Any other agent
+
+Run `mutastic gate open` when a task starts, and `mutastic gate check` when the agent says it's
+done. `check` exits 0 when the task is done and 1 when it isn't, and prints why: the cards, in
+[the agent format](/concepts/output/#formats), to give the agent as its next instruction. Then
+`gate close`, or open the next task.
+
+```sh
+mutastic gate open                # at the start: prints where the task starts, for the agent
+mutastic gate check || send-back  # when it says it's done: 1, and the cards, if it isn't
+```
+
+Without a hook, `check` never hands over: it says what's left however often it's asked. So stop
+sending the agent back after a few tries, and tell the person what's left. [The gate](/agents/gate/) says what holds a task, and the
+mutastic skill, in
+[tasticlabs/plugins](https://github.com/tasticlabs/plugins/blob/main/plugins/mutastic/skills/mutastic/SKILL.md),
+is a starting point for the agent's instructions: most agents read a `SKILL.md`, or the same text
+in their own instructions file.

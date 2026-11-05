@@ -11,6 +11,9 @@ hero:
     - text: Install
       link: getting-started/install/
       variant: minimal
+    - text: Coding agents
+      link: agents/
+      variant: minimal
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
@@ -29,7 +32,8 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
     results, the same options.
   </Card>
   <Card title="Made for agents too">
-    `--format=agent` gives coding agents the verdict first, then each gap and the rule that a fix
-    changes tests, never production code.
+    While your coding agent is still in the code, mutastic hands it each gap in the lines it
+    changed, and the gate holds "done" until they're closed. [Coding agents](agents/) has the
+    Claude Code and opencode plugins.
   </Card>
 </CardGrid>

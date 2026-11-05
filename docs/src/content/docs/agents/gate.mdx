@@ -1,0 +1,58 @@
+---
+title: The gate
+description: "How mutastic gate decides whether a coding agent's task is done: where a task starts, what holds it, and when it hands over to you."
+---
+
+`mutastic gate` holds an agent's "done" to what mutastic says of the lines it changed. A plugin runs
+it from the agent's hooks ([Claude Code](/agents/claude-code/)); anything else can run the same
+three commands.
+
+```sh
+mutastic gate open     # the task starts here
+mutastic gate check    # is it done?
+mutastic gate close    # forget the task
+```
+
+## Where a task starts
+
+`gate open` keeps the commit the task starts from, the ignores there are, and how many tests there
+are and how many are disabled. It tells the agent how to check its own work as it goes:
+`mutastic run --since=<that commit> --format=agent`. Uncommitted changes count as the task's, so
+start from a clean tree to gate only what the agent does.
+
+## When it's done
+
+`gate check` runs mutastic on the lines changed since the task started, committed or not. The task
+is done when:
+
+- **each mutant on those lines is caught, or proposed** for a person to ignore. A proposed mutant
+  still counts as missed in the score, but it doesn't hold the gate: deciding it is yours;
+- **the task added no ignore of its own.** Ignoring a mutant is a person's call: the agent
+  proposes, with `mutastic ignore ID --propose`;
+- **no test was taken away**: there are no fewer tests than when the task started, and no more
+  disabled.
+
+A task that changes no lines mutastic mutates (docs, build files, tests only) passes at once.
+Mutants on lines the task didn't touch aren't its business: they were missed before it started.
+
+When it isn't done, `gate check` says why, as [the agent format](/concepts/output/#formats)
+does: a card for each missed mutant, with the test to write and its `done when` command. As a hook,
+that's the agent's next instruction. Exit codes follow `run`'s: 0 when it passes, 1 when it
+doesn't.
+
+## When it hands over
+
+An agent can't always get there, and sometimes shouldn't: you asked for the change without tests,
+or a test needs something only you know. So a hook's `gate check` sends the agent back only a few
+times in a row (`--tries`). After that it lets the agent stop, and tells you what's still missed.
+The count starts again when a check passes.
+
+## As a hook
+
+With `--hook=claude`, `open` and `check` read the hook's input on stdin and answer as Claude Code's
+hooks do: `open` once per session, and `check` with a block, whose reason is the cards, or a
+message for you. Other agents' hooks can call the commands without `--hook` and act on the exit
+code and the text: see [other agents](/agents/other-agents/).
+
+The flags each command takes are in the reference: [`gate open`](/reference/gate-open/),
+[`gate check`](/reference/gate-check/) and [`gate close`](/reference/gate-close/).

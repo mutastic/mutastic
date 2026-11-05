@@ -1,0 +1,78 @@
+---
+title: Claude Code
+description: "Installing the mutastic plugin for Claude Code, in the terminal or an IDE, what it adds, and how to update or turn it off."
+---
+
+The mutastic plugin brings the [gate](/agents/gate/) and the mutastic skill into
+[Claude Code](https://claude.com/claude-code). It's in the `tasticlabs` marketplace, on GitHub at
+[tasticlabs/plugins](https://github.com/tasticlabs/plugins).
+
+## What you need
+
+- **mutastic 0.5.0 or later**, which has the gate: `curl -fsSL https://mutastic.io/install.sh | sh`.
+  The plugin tells you, and Claude, if it's missing or too old.
+- **A Java project in git,** built with Gradle or Maven. Anywhere else, the plugin stays out of
+  the way: it's on in every project, and does nothing where there's nothing to gate.
+
+## Installing it
+
+In Claude Code in a terminal:
+
+```
+/plugin marketplace add tasticlabs/plugins
+/plugin install mutastic@tasticlabs
+```
+
+then `/reload-plugins`, or start `claude` again.
+
+**In VS Code**, the extension has no `/plugin` command. Install from a
+terminal instead, then reload VS Code's window, so the extension starts Claude Code with the plugin:
+
+```sh
+claude plugin marketplace add tasticlabs/plugins
+claude plugin install mutastic@tasticlabs
+```
+
+**If your user settings are read-only,** as they are when a tool such as Nix's home-manager
+manages `~/.claude/settings.json`, installing for your user fails. Install it for the project
+instead, which records it in the project's `.claude/settings.json`, where everyone working on the
+project gets it too:
+
+```sh
+claude plugin install mutastic@tasticlabs --scope project
+```
+
+## Letting Claude run mutastic
+
+A plugin can't grant permissions. Without one, Claude asks each time it runs `mutastic`. To allow
+it, add this to the project's `.claude/settings.json`, or your own:
+
+```json
+{ "permissions": { "allow": ["Bash(mutastic:*)"] } }
+```
+
+## What it adds
+
+- **The gate, as two hooks.** When you send a prompt, `mutastic gate open` notes where the task
+  starts, once per session, and tells Claude. When Claude says it's finished, `mutastic gate check`
+  runs mutastic on the lines changed since. If a mutant there is missed, Claude's stop is blocked,
+  and its cards are Claude's next instruction. When it passes, or the gate hands over to you, you
+  see the gate's message in the conversation ("Stop says: …").
+- **The mutastic skill.** It teaches Claude the loop: run mutastic on what it changed, write the
+  test each card asks for, prove it with the card's `mutastic verify`, and propose an ignore,
+  rather than contrive a test, when a case can't happen. Running the loop as it goes is quicker
+  than waiting for the gate to send it back.
+
+Where mutastic can't run (it fails, or the build doesn't), the gate says so and lets Claude stop: a
+gate that can't check holds nothing.
+
+## Updating, and turning it off
+
+```
+/plugin marketplace update tasticlabs
+```
+
+then `/reload-plugins`. `claude plugin update mutastic@tasticlabs` does the same from a terminal.
+
+To stop gating one task, `mutastic gate close`; the next prompt opens a new one. To turn the plugin
+off, `/plugin disable mutastic@tasticlabs`.
