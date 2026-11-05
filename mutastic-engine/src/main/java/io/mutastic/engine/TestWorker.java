@@ -60,11 +60,14 @@ final class TestWorker implements AutoCloseable {
   }
 
   /// The tests' result with every class in `instrumented` swapped for its instrumented copy.
-  record Baseline(boolean passed, List<String> failing) {}
+  ///
+  /// @param failures each failing test's exception and its causes, `a.B>c.D`
+  record Baseline(boolean passed, List<String> failing, Map<String, String> failures) {}
 
   Baseline cover(Map<String, byte[]> instrumented, List<String> testClasses, Coverage coverage) {
     instrumented.forEach(this::stage);
     send("COVER\t" + String.join("\t", testClasses));
+    var failures = new java.util.LinkedHashMap<String, String>();
     while (true) {
       var answer = coverageAnswer();
       var parts = answer.split("\t", -1);
@@ -75,10 +78,12 @@ final class TestWorker implements AutoCloseable {
         case "VALUE" ->
             coverage.recordValues(
                 parts[1], Integer.parseInt(parts[2]), commaSeparated(parts[3], Long::valueOf));
+        case "FAILURE" -> failures.put(parts[1], parts[2]);
         case "DONE" -> {
           return new Baseline(
               parts[1].equals("PASSED"),
-              Arrays.asList(parts).subList(Math.min(2, parts.length), parts.length));
+              Arrays.asList(parts).subList(Math.min(2, parts.length), parts.length),
+              failures);
         }
         default -> throw new IllegalStateException("the worker said: " + answer);
       }

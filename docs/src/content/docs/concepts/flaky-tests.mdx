@@ -47,6 +47,33 @@ They have to pass then: a mutant is only caught when a test that passed fails.
 - **A test class that fails as a whole,** in a `@BeforeAll` say, can't be run again on its own,
   so it stops the run too.
 
+### Why it's flaky, and what to do
+
+What to do about a flaky test depends on why it's flaky, so mutastic says what it saw: the
+exception the test failed with, and anything the test, or the code it ran, reaches that answers
+differently every run. A seeded `new Random(42)` answers the same each time, so only the unseeded
+sources count: `new Random()`, `ThreadLocalRandom`, `SecureRandom`, `Math.random`,
+`UUID.randomUUID`, `Collections.shuffle`, the system clock and the `now()`s.
+
+| What mutastic saw | Why it's likely flaky | What it says to do |
+|---|---|---|
+| The test's own code reaches one, as a stand-in service with a random delay does | Its own doing, even when it fails on the network | Make it the same every run, and if it stands in for something real, like a slow service, keep that checked by a test of its own |
+| It failed with an exception from the network, a database or a file, and nothing in the test varies | The environment: a shared service, a database that's sometimes slow | Leave the test and the code alone, since changing them to get past it would hide it; tell the person, and run without it with `--exclude-tests` |
+| The code it ran reaches one | The code's own randomness or clock | Make it the same every run, through the code's own seam (a `Random` or a `Clock` passed in), so long as the test still checks what it did |
+| None of these | Unknown | Leave it unless the cause is plain in the code, and say it's flaky |
+
+Whichever it is, never remove, disable or loosen the test to get a run through. The agent format
+gives the reason and the advice beside the test's name, the human formats the reason (`; it reaches
+new Random()`), and the JSON Lines `run-finished` event has the evidence for each, as
+`flakyEvidence`.
+
+The advice came from watching coding agents work on flaky tests. Told only to fix a flaky test,
+they did the right thing when the flakiness was the test's own, a stand-in service with a random
+delay, and made it deterministic. Against a shared service that was sometimes too slow, they wrapped
+every call in a retry, which turns the suite green and hides that the client times out. Told
+instead that the failure came from outside and nothing in the test varies, they left the test
+alone and asked the person what to do.
+
 Leaving a flaky test out has a price you'll see: lines that only it reached are now reached by
 nothing. Their mutants are counted as not covered, under the heading "no test reaches these lines,
 or only a flaky one does", and they lower the score until the test is fixed.

@@ -78,6 +78,11 @@ public final class Worker {
   private String lastOrigin = "unknown";
   private boolean lastPortClash;
 
+  /// Each failing test's exception and its causes, `java.io.UncheckedIOException>java.net
+  /// .ConnectException`: for the coverage pass's `FAILURE` lines, which say why a test that then
+  /// passed was flaky.
+  private final Map<String, String> failures = new java.util.LinkedHashMap<>();
+
   /// The JUnit tags the build's test task runs by: every run here is filtered the same way.
   record Tags(List<String> include, List<String> exclude) {
     static Tags of(String[] args) {
@@ -288,11 +293,13 @@ public final class Worker {
 
   private void cover(List<String> tests) {
     Probes.reset();
+    failures.clear();
     var failing = execute(tests, timingTests(), production());
     Probes.flush();
     reportLines();
     reportOnlyAtLoad();
     reportValues();
+    failures.forEach((test, chain) -> protocol.println("FAILURE\t" + test + "\t" + chain));
     protocol.println(
         "DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
   }
@@ -460,11 +467,24 @@ public final class Worker {
               result.getThrowable().map(thrown -> thrown.getClass().getName()).orElse("unknown");
           lastOrigin = result.getThrowable().map(Worker.this::origin).orElse("unknown");
           lastPortClash = result.getThrowable().map(Worker::portClash).orElse(false);
+          result.getThrowable().ifPresent(thrown -> failures.put(id(test), causes(thrown)));
           System.err.println("FAILED\t" + id(test));
           result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
         }
       }
     };
+  }
+
+  /// The exception and its causes, outermost first, by class: each once, so a chain that loops back
+  /// on itself still ends.
+  private static String causes(Throwable thrown) {
+    var visited =
+        java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Throwable, Boolean>());
+    var names = new ArrayList<String>();
+    for (Throwable cause = thrown; cause != null && visited.add(cause); cause = cause.getCause()) {
+      names.add(cause.getClass().getName());
+    }
+    return String.join(">", names);
   }
 
   /// Whether a port in use caused it, anywhere in its causes: with workers running side by side,

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Comparison;
+import io.mutastic.api.FlakyTest;
 import io.mutastic.api.Ignore;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
@@ -219,8 +220,7 @@ class AgentTextTest {
   }
 
   @Test
-  void flakyTestsAreNamedInTheRightNumber() {
-    var one = text.render(report(List.of(), List.of("com.example.PricingTest#a"), List.of()));
+  void eachFlakyTestIsNamedOnItsOwnLine() {
     var two =
         text.render(
             report(
@@ -228,12 +228,81 @@ class AgentTextTest {
                 List.of("com.example.PricingTest#a", "com.example.PricingTest#b"),
                 List.of()));
 
-    assertThat(one)
-        .contains("flaky: PricingTest#a failed, then passed when run again")
-        .contains("so its catches don't count. Fix it first: it depends");
     assertThat(two)
-        .contains("flaky: PricingTest#a, PricingTest#b failed")
-        .contains("so their catches don't count. Fix them first: they depend");
+        .contains("flaky: PricingTest#a failed, then passed when run again")
+        .contains("flaky: PricingTest#b failed, then passed when run again")
+        .contains("so its catches don't count.")
+        .contains("Never remove, disable or loosen it to get a run through");
+  }
+
+  /// The advice goes by the evidence: a test that's its own doing can be made the same every run;
+  /// one that failed on the network would only be hidden by changing it; with neither, it's said.
+  @Test
+  void whatToDoAboutAFlakyTestGoesByWhatMutasticSaw() {
+    var standIn =
+        new FlakyTest(
+            "com.example.QuoteClientTest#aPrice",
+            List.of("java.io.UncheckedIOException", "java.net.http.HttpTimeoutException"),
+            List.of(),
+            List.of("ThreadLocalRandom.current"));
+    var network =
+        new FlakyTest(
+            "com.example.QuoteClientTest#aPrice",
+            List.of("java.io.UncheckedIOException", "java.net.ConnectException"),
+            List.of(),
+            List.of());
+    var random =
+        new FlakyTest(
+            "com.example.LotteryTest#draws",
+            List.of("java.lang.AssertionError"),
+            List.of("new Random()"),
+            List.of());
+    var unknown =
+        new FlakyTest(
+            "com.example.OrderTest#x",
+            List.of("java.lang.IllegalStateException"),
+            List.of(),
+            List.of());
+
+    // A stand-in with a random delay times out on the network, but by the test's own doing.
+    assertThat(withEvidence(standIn))
+        .contains(
+            "Its own code reaches ThreadLocalRandom.current, which answers differently every run")
+        .contains("so it makes its own flakiness (it failed with HttpTimeoutException)")
+        .contains("keep that checked by a test of its own")
+        .doesNotContain("leave both");
+    assertThat(withEvidence(network))
+        .contains("It failed with ConnectException, from outside the code")
+        .contains("nothing in the test varies: that's the environment")
+        .contains(
+            "so leave both, tell the person, and run without it with `--exclude-tests=QuoteClientTest`")
+        .doesNotContain("likely safe");
+    assertThat(withEvidence(random))
+        .contains("The code it runs reaches new Random(), which answers differently every run")
+        .contains("is likely safe, so long as the test still checks what it did");
+    assertThat(withEvidence(unknown))
+        .contains("mutastic can't tell why (it failed with IllegalStateException)")
+        .contains("say in your final message that it's flaky");
+    assertThat(text.render(report(List.of(), List.of("com.example.OrderTest#y"), List.of())))
+        .contains("mutastic can't tell why: leave it unless the cause is plain in the code");
+  }
+
+  private String withEvidence(FlakyTest evidence) {
+    return text.render(
+        new Report(
+            "pricing",
+            17,
+            List.of(),
+            2,
+            List.of(evidence.test()),
+            Duration.ofMillis(100),
+            1,
+            1,
+            Duration.ofMillis(300),
+            List.of(),
+            Optional.empty(),
+            List.of(),
+            List.of(evidence)));
   }
 
   @Test

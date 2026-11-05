@@ -19,6 +19,8 @@ import org.jspecify.annotations.Nullable;
 /// @param scope the change the run was scoped to, when it was: only mutants on its lines ran
 /// @param staleIgnores the ignores whose line has changed since: they no longer hold, and their
 ///   mutants ran
+/// @param flakyEvidence for each of the `flaky` tests the run found out about, what it failed with
+///   and what it reaches that changes from run to run
 public record Report(
     String project,
     int jdk,
@@ -31,13 +33,50 @@ public record Report(
     Duration took,
     List<MutantResult> audited,
     Optional<ChangedLines> scope,
-    List<Ignore> staleIgnores) {
+    List<Ignore> staleIgnores,
+    List<FlakyTest> flakyEvidence) {
 
   public Report {
     staleIgnores = List.copyOf(staleIgnores);
+    flakyEvidence = List.copyOf(flakyEvidence);
     results = List.copyOf(results);
     flaky = List.copyOf(flaky);
     audited = List.copyOf(audited);
+  }
+
+  /// A run with nothing known of why its flaky tests are flaky.
+  public Report(
+      String project,
+      int jdk,
+      List<MutantResult> results,
+      int tests,
+      List<String> flaky,
+      Duration coverage,
+      int workers,
+      int started,
+      Duration took,
+      List<MutantResult> audited,
+      Optional<ChangedLines> scope,
+      List<Ignore> staleIgnores) {
+    this(
+        project,
+        jdk,
+        results,
+        tests,
+        flaky,
+        coverage,
+        workers,
+        started,
+        took,
+        audited,
+        scope,
+        staleIgnores,
+        List.of());
+  }
+
+  /// What's known of why the flaky test `test` is flaky, if anything is.
+  public Optional<FlakyTest> whyFlaky(String test) {
+    return flakyEvidence.stream().filter(evidence -> evidence.test().equals(test)).findFirst();
   }
 
   /// A run without an audit.
@@ -76,6 +115,8 @@ public record Report(
         results.stream().map(mine -> combined(mine, theirs.get(mine.mutant().id()))).toList();
     var allFlaky = new java.util.ArrayList<>(flaky);
     allFlaky.addAll(other.flaky());
+    var allEvidence = new java.util.ArrayList<>(flakyEvidence);
+    allEvidence.addAll(other.flakyEvidence());
     return new Report(
         project,
         jdk,
@@ -88,7 +129,8 @@ public record Report(
         took.plus(other.took()),
         audited,
         scope,
-        staleIgnores);
+        staleIgnores,
+        allEvidence);
   }
 
   private static MutantResult combined(MutantResult mine, @Nullable MutantResult theirs) {

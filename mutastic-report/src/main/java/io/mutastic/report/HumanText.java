@@ -723,7 +723,7 @@ public final class HumanText {
 
   private void warnings(Report report, Optional<Comparison> comparison, StringBuilder out) {
     var lines = new ArrayList<String>();
-    report.flaky().forEach(test -> lines.add(flakyWarning(test)));
+    report.flaky().forEach(test -> lines.add(flakyWarning(test, report.whyFlaky(test))));
     Suspects.changedBetweenRuns(comparison)
         .forEach(suspect -> lines.add(changedBetweenRunsWarning(suspect)));
     Suspects.unconfirmed(report).forEach(suspect -> lines.add(unconfirmedWarning(suspect)));
@@ -758,9 +758,27 @@ public final class HumanText {
   /// `ignore --prune`: what removes the ignores that no longer hold.
   static final List<String> PRUNE = List.of("ignore", "--prune");
 
-  private String flakyWarning(String test) {
-    return " %s %s failed, then passed when run again; left out of this run"
-        .formatted(style.amber("! flaky:"), AgentText.shortName(test));
+  private String flakyWarning(String test, Optional<io.mutastic.api.FlakyTest> why) {
+    return " %s %s failed, then passed when run again; left out of this run%s"
+        .formatted(style.amber("! flaky:"), AgentText.shortName(test), flakyReason(why));
+  }
+
+  /// `; it failed with HttpTimeoutException, from outside the code`, or what it reaches that
+  /// changes from run to run.
+  private static String flakyReason(Optional<io.mutastic.api.FlakyTest> why) {
+    if (why.isEmpty()) {
+      return "";
+    }
+    if (!why.get().reachesInTest().isEmpty()) {
+      return "; its own code reaches %s".formatted(String.join(", ", why.get().reachesInTest()));
+    }
+    var outside = why.get().outsideCause();
+    if (why.get().failedOutside() && outside.isPresent()) {
+      return "; it failed with %s, from outside the code".formatted(outside.get());
+    }
+    return why.get().reaches().isEmpty()
+        ? ""
+        : "; it reaches %s".formatted(String.join(", ", why.get().reaches()));
   }
 
   private String changedBetweenRunsWarning(Suspects.Suspect suspect) {

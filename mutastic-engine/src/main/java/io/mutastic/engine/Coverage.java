@@ -138,6 +138,19 @@ final class Coverage {
     return inputs;
   }
 
+  /// The methods `test` ran, as `com/example/Lottery#draw(Ljava/util/List;)Ljava/lang/String;`.
+  Set<String> methodsRunBy(String test) {
+    var ran = linesByTest.getOrDefault(test, Set.of());
+    var methods = new java.util.TreeSet<String>();
+    lineIds.forEach(
+        (key, id) -> {
+          if (ran.contains(id)) {
+            methods.add(key.substring(0, key.lastIndexOf(':')));
+          }
+        });
+    return methods;
+  }
+
   /// Leaves `tests` out: no mutant runs them.
   void exclude(List<String> tests) {
     tests.forEach(

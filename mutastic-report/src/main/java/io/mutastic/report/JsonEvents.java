@@ -141,6 +141,7 @@ public final class JsonEvents {
     putVerdict(fields, report, oneMutant);
     fields.put("tests", report.tests());
     fields.put("flaky", report.flaky());
+    fields.put("flakyEvidence", flakyEvidence(report));
     comparison.ifPresent(found -> putComparison(fields, found));
     fields.put("likelyFlaky", Suspects.json(comparison, report));
     fields.put("unrelatedCatches", unrelatedCatches(report));
@@ -153,7 +154,23 @@ public final class JsonEvents {
     emit("run-finished", fields);
   }
 
-  /// The change a run was scoped to: what it's since, and how much it touched.
+  /// The change a run was scoped to: what it's since, and how much it touched. Each flaky test's
+  /// failure, outermost first, what it reaches that changes from run to run, and whether the
+  /// failure came from outside the code.
+  private static List<Map<String, Object>> flakyEvidence(Report report) {
+    var all = new java.util.ArrayList<Map<String, Object>>();
+    for (var evidence : report.flakyEvidence()) {
+      var fields = new LinkedHashMap<String, Object>();
+      fields.put("test", evidence.test());
+      fields.put("failure", evidence.failure());
+      fields.put("reaches", evidence.reaches());
+      fields.put("reachesInTest", evidence.reachesInTest());
+      fields.put("outside", evidence.failedOutside());
+      all.add(fields);
+    }
+    return all;
+  }
+
   private static Map<String, Object> scopeOf(ChangedLines scope) {
     var found = new LinkedHashMap<String, Object>();
     found.put("since", scope.since());

@@ -494,7 +494,7 @@
           "name": "CoveragePass",
           "slug": "coveragepass",
           "kind": "record",
-          "signature": "record CoveragePass(\n    int jdk,\n    int tests,\n    Duration took,\n    int mutants,\n    List<String> flaky)",
+          "signature": "record CoveragePass(\n    int jdk,\n    int tests,\n    Duration took,\n    int mutants,\n    List<String> flaky,\n    List<FlakyTest> flakyEvidence)",
           "summary": "What the coverage pass found, before any mutant runs.",
           "doc": "What the coverage pass found, before any mutant runs.",
           "params": [
@@ -517,9 +517,24 @@
             {
               "name": "flaky",
               "doc": "tests left out because they failed and then passed"
+            },
+            {
+              "name": "flakyEvidence",
+              "doc": "for each flaky test, what it failed with and what it reaches that changes from run to run"
             }
           ],
-          "members": []
+          "members": [
+            {
+              "kind": "constructor",
+              "name": "CoveragePass",
+              "anchor": "coveragepass",
+              "signature": "CoveragePass(int jdk, int tests, Duration took, int mutants, List<String> flaky)",
+              "doc": "A pass with nothing known of why its flaky tests are flaky.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
         },
         {
           "name": "Filter",
@@ -556,6 +571,64 @@
               "anchor": "skip",
               "signature": "Optional<Skip> skip(ClassModel owner, MethodModel method)",
               "doc": "Why `method`'s mutants shouldn't run, if they shouldn't.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "FlakyTest",
+          "slug": "flakytest",
+          "kind": "record",
+          "signature": "record FlakyTest(\n    String test,\n    List<String> failure,\n    List<String> reaches,\n    List<String> reachesInTest)",
+          "summary": "What a flaky test's failure and reach say about why it's flaky: the difference between a test that's its own doing (an unseeded `Random`, the clock), which can be made to give the same answer every time, and one that reaches outside the code (the network, a database), where changing the test or the code to get past it would hide what's wrong.",
+          "doc": "What a flaky test's failure and reach say about why it's flaky: the difference between a test\nthat's its own doing (an unseeded `Random`, the clock), which can be made to give the same\nanswer every time, and one that reaches outside the code (the network, a database), where\nchanging the test or the code to get past it would hide what's wrong.",
+          "params": [
+            {
+              "name": "test",
+              "doc": "the test, as `com.example.QuoteClientTest#aPriceComesFromTheFeed`"
+            },
+            {
+              "name": "failure",
+              "doc": "the exception it failed with and its causes, outermost first, by class name; empty when the worker didn't say"
+            },
+            {
+              "name": "reaches",
+              "doc": "calls the code the test ran makes that give a different answer from one run to the next: `new Random()`, `Instant.now`, `System.nanoTime`"
+            },
+            {
+              "name": "reachesInTest",
+              "doc": "the same, in the test's own class: its set-up, a stand-in it starts. A test whose own code varies makes its own flakiness, even when it fails on the network: a stand-in feed with a random delay times out by the test's doing, not the network's."
+            }
+          ],
+          "members": [
+            {
+              "kind": "method",
+              "name": "failedOutside",
+              "anchor": "failedoutside",
+              "signature": "boolean failedOutside()",
+              "doc": "Whether it failed with something from outside the code: an exception, or a cause of one, from\nthe network, a database, a channel or a file, or a timeout waiting on one.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "failedWith",
+              "anchor": "failedwith",
+              "signature": "Optional<String> failedWith()",
+              "doc": "The exception it failed with, by its simple name, if the worker said.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "outsideCause",
+              "anchor": "outsidecause",
+              "signature": "Optional<String> outsideCause()",
+              "doc": "The innermost cause from outside the code, by simple name: `HttpTimeoutException`.",
               "params": [],
               "returns": "",
               "throws": []
@@ -1265,7 +1338,7 @@
           "name": "Report",
           "slug": "report",
           "kind": "record",
-          "signature": "record Report(\n    String project,\n    int jdk,\n    List<MutantResult> results,\n    int tests,\n    List<String> flaky,\n    Duration coverage,\n    int workers,\n    int started,\n    Duration took,\n    List<MutantResult> audited,\n    Optional<ChangedLines> scope,\n    List<Ignore> staleIgnores)",
+          "signature": "record Report(\n    String project,\n    int jdk,\n    List<MutantResult> results,\n    int tests,\n    List<String> flaky,\n    Duration coverage,\n    int workers,\n    int started,\n    Duration took,\n    List<MutantResult> audited,\n    Optional<ChangedLines> scope,\n    List<Ignore> staleIgnores,\n    List<FlakyTest> flakyEvidence)",
           "summary": "A finished run: every mutant's result, in the order they were found.",
           "doc": "A finished run: every mutant's result, in the order they were found.",
           "params": [
@@ -1300,6 +1373,10 @@
             {
               "name": "staleIgnores",
               "doc": "the ignores whose line has changed since: they no longer hold, and their mutants ran"
+            },
+            {
+              "name": "flakyEvidence",
+              "doc": "for each of the `flaky` tests the run found out about, what it failed with and what it reaches that changes from run to run"
             }
           ],
           "members": [
@@ -1307,8 +1384,28 @@
               "kind": "constructor",
               "name": "Report",
               "anchor": "report",
+              "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores)",
+              "doc": "A run with nothing known of why its flaky tests are flaky.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "Report",
+              "anchor": "report-2",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took)",
               "doc": "A run without an audit.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "whyFlaky",
+              "anchor": "whyflaky",
+              "signature": "Optional<FlakyTest> whyFlaky(String test)",
+              "doc": "What's known of why the flaky test `test` is flaky, if anything is.",
               "params": [],
               "returns": "",
               "throws": []

@@ -159,22 +159,20 @@ public final class Engine {
     try {
       var pass = coveragePass(project, plan, workers.getFirst());
       listener.coverageFinished(pass);
-      var results = new SideBySide(plan.mutants(), plan.mutantRun(), workers, listener).runAll();
       return new Report(
           project.name(),
           workers.getFirst().jdk(),
-          results,
+          new SideBySide(plan.mutants(), plan.mutantRun(), workers, listener).runAll(),
           plan.mutantRun().coverage().testCount(),
           pass.flaky(),
           pass.took(),
-          // The workers that ran something: a run with fewer mutants to run than workers leaves
-          // some unstarted, and "4 workers (-1 replaced)" said so wrongly.
-          (int) Math.max(1, workers.stream().filter(worker -> worker.started() > 0).count()),
+          ran(workers),
           workers.stream().mapToInt(TestWorker::started).sum(),
           Duration.ofNanos(System.nanoTime() - start),
           inOrderFound(plan.mutantRun().audited(), plan.mutants()),
           options.changed().map(changed -> changed.within(project.sources())),
-          plan.stale());
+          plan.stale(),
+          pass.flakyEvidence());
     } finally {
       workers.forEach(TestWorker::close);
     }
@@ -287,7 +285,13 @@ public final class Engine {
         .collect(Collectors.toSet());
   }
 
-  /// A worker for each mutant to run side by side, up to `wanted`; none has started yet.
+  /// A worker for each mutant to run side by side, up to `wanted`; none has started yet. The
+  /// workers that ran something: a run with fewer mutants to run than workers leaves some
+  /// unstarted, and "4 workers (-1 replaced)" said so wrongly.
+  private static int ran(List<TestWorker> workers) {
+    return (int) Math.max(1, workers.stream().filter(worker -> worker.started() > 0).count());
+  }
+
   private List<TestWorker> workersFor(Project project, int wanted, int mutantCount) {
     var workers = new ArrayList<TestWorker>();
     for (int number = 1; number <= Math.min(wanted, Math.max(1, mutantCount)); number++) {
@@ -312,6 +316,10 @@ public final class Engine {
         baseline.passed()
             ? List.<String>of()
             : flakyOrFail(baseline.failing(), coverage, first, project);
+    // Before they're left out: what each flaky test reached is in what the pass recorded.
+    var evidence =
+        new FlakyEvidence(coverage, plan.mutantRun().models(), project)
+            .about(flaky, baseline.failures());
     coverage.exclude(flaky);
     var coverageTook = Duration.ofNanos(System.nanoTime() - coverageStart);
     if (coverage.testCount() == 0) {
@@ -319,7 +327,7 @@ public final class Engine {
           "no tests ran in " + project.name() + "; mutastic runs JUnit Platform tests");
     }
     return new CoveragePass(
-        first.jdk(), coverage.testCount(), coverageTook, plan.mutants().size(), flaky);
+        first.jdk(), coverage.testCount(), coverageTook, plan.mutants().size(), flaky, evidence);
   }
 
   /// Every mutant, on the workers side by side, in the order they were found. A catch that a port

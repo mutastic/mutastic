@@ -1,6 +1,7 @@
 package io.mutastic.report;
 
 import io.mutastic.api.Comparison;
+import io.mutastic.api.FlakyTest;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
@@ -167,18 +168,60 @@ public final class AgentText {
     }
   }
 
+  /// Each flaky test, and what to do about it by what mutastic saw: a test that's its own doing (an
+  /// unseeded `Random`, the clock) can be made to answer the same every run, but one that failed on
+  /// the network or a database would only be hidden by changing it. "Fix it first" told an agent to
+  /// do the second as readily as the first.
   private static void appendFlaky(StringBuilder out, Report report) {
-    if (!report.flaky().isEmpty()) {
+    for (var test : report.flaky()) {
       out.append(
-          "flaky: %s failed, then passed when run again; left out of this run, so %s catches don't count. "
-                  .formatted(
-                      String.join(", ", shortNames(report.flaky())),
-                      report.flaky().size() == 1 ? "its" : "their")
-              + "Fix %s first: %s on something that changes from run to run%n"
-                  .formatted(
-                      report.flaky().size() == 1 ? "it" : "them",
-                      report.flaky().size() == 1 ? "it depends" : "they depend"));
+          "flaky: %s failed, then passed when run again; left out of this run, so its catches don't count. %s Never remove, disable or loosen it to get a run through%n"
+              .formatted(shortName(test), flakyAdvice(test, report.whyFlaky(test))));
     }
+  }
+
+  /// What the evidence says to do about a flaky test, in this order: the test's own code varies
+  /// (its doing, even if it fails on the network, as a stand-in with a random delay does); it fails
+  /// from outside with nothing of its own varying (the environment's doing); the code it runs
+  /// varies; or nothing is known.
+  static String flakyAdvice(String test, Optional<FlakyTest> why) {
+    if (why.isPresent() && !why.get().reachesInTest().isEmpty()) {
+      return ownDoing(why.get());
+    }
+    var outside = why.flatMap(FlakyTest::outsideCause);
+    if (why.isPresent() && why.get().failedOutside() && outside.isPresent()) {
+      return ("It failed with %s, from outside the code (the network, a database, a file), and"
+              + " nothing in the test varies: that's the environment, and changing the test or the"
+              + " code to get past it would hide it, so leave both, tell the person, and run"
+              + " without it with `--exclude-tests=%s`.")
+          .formatted(outside.get(), testClass(test));
+    }
+    if (why.isPresent() && !why.get().reaches().isEmpty()) {
+      return ("The code it runs reaches %s, which answers differently every run: making that the"
+              + " same every time (a seed, a fixed clock, through the code's own seam) is likely"
+              + " safe, so long as the test still checks what it did.")
+          .formatted(String.join(", ", why.get().reaches()));
+    }
+    return "mutastic can't tell why%s: leave it unless the cause is plain in the code, and say in your final message that it's flaky."
+        .formatted(
+            why.flatMap(FlakyTest::failedWith).map(" (it failed with %s)"::formatted).orElse(""));
+  }
+
+  /// A test whose own code varies: making it the same every run is its fix.
+  private static String ownDoing(FlakyTest why) {
+    return ("Its own code reaches %s, which answers differently every run, so it makes its own"
+            + " flakiness%s: making that the same every time is likely safe, and if it stands in"
+            + " for something real (a slow service), keep that checked by a test of its own.")
+        .formatted(
+            String.join(", ", why.reachesInTest()),
+            why.outsideCause().map(" (it failed with %s)"::formatted).orElse(""));
+  }
+
+  /// `QuoteClientTest`, the class `--exclude-tests` takes, of `com.example.QuoteClientTest#a`.
+  private static String testClass(String test) {
+    var name = shortName(test);
+    int hash = name.indexOf('#');
+    return hash < 0 ? name : name.substring(0, hash);
   }
 
   /// The tests whose catches can't be trusted, strongest signal first.

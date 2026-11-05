@@ -10,8 +10,22 @@ import java.util.List;
 /// @param took how long the pass took
 /// @param mutants how many will run (or be reported as skipped or not covered)
 /// @param flaky tests left out because they failed and then passed
-public record CoveragePass(int jdk, int tests, Duration took, int mutants, List<String> flaky) {
+/// @param flakyEvidence for each flaky test, what it failed with and what it reaches that changes
+///   from run to run
+public record CoveragePass(
+    int jdk,
+    int tests,
+    Duration took,
+    int mutants,
+    List<String> flaky,
+    List<FlakyTest> flakyEvidence) {
   public CoveragePass {
     flaky = List.copyOf(flaky);
+    flakyEvidence = List.copyOf(flakyEvidence);
+  }
+
+  /// A pass with nothing known of why its flaky tests are flaky.
+  public CoveragePass(int jdk, int tests, Duration took, int mutants, List<String> flaky) {
+    this(jdk, tests, took, mutants, flaky, List.of());
   }
 }
