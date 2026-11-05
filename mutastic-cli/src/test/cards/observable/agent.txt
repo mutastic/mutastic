@@ -1,5 +1,5 @@
 mutastic: FAIL · score 66.7% (threshold 80) · 1 missed, 0 not covered, 2 caught of 3 mutants (3 more skipped)
-rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/observable passes`
+rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/observable` passes
 decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and propose ignoring it with that reason (and --as equivalent, unreachable, telemetry, deprecated or accepted-risk) for a person to accept (`mutastic ignore <id> --propose --reason="<why>" samples/observable`)
 
 1. missed mddb9663e: no test checks the effect of calling `firePropertyChange()` in `setEmail()`

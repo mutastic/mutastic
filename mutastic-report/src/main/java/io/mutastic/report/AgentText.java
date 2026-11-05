@@ -95,9 +95,9 @@ public final class AgentText {
   private void appendGaps(
       StringBuilder out, Report report, List<MutantResult> missed, List<MutantResult> notCovered) {
     out.append(
-        "rules: %s; a fix counts when `%s`%n"
+        "rules: %s; a fix counts when `%s` passes%n"
             .formatted(
-                MutantCommand.RULE, MutantCommand.DONE_WHEN.text("<id>", sources.invocation())));
+                MutantCommand.RULE, MutantCommand.DONE_WHEN.command("<id>", sources.invocation())));
     out.append(
         "decline: %s (`%s`)%n"
             .formatted(
@@ -115,10 +115,10 @@ public final class AgentText {
     out.append("mutastic: %s %s%n".formatted(result.mutant().id(), fate(result)));
     if (result.status() == Status.MISSED) {
       out.append(
-          "rules: %s; a fix counts when `%s`%n%n"
+          "rules: %s; a fix counts when `%s` passes%n%n"
               .formatted(
                   MutantCommand.RULE,
-                  MutantCommand.DONE_WHEN.text(result.mutant().id(), sources.invocation())));
+                  MutantCommand.DONE_WHEN.command(result.mutant().id(), sources.invocation())));
       out.append(entry(0, result));
     }
     return out.toString();

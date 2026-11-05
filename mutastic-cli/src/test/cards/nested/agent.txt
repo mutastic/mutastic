@@ -1,5 +1,5 @@
 mutastic: FAIL · score 70.8% (threshold 80; 73.9% where tests reach) · 6 missed, 1 not covered, 17 caught of 24 mutants (5 more skipped)
-rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/nested passes`
+rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/nested` passes
 decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and propose ignoring it with that reason (and --as equivalent, unreachable, telemetry, deprecated or accepted-risk) for a person to accept (`mutastic ignore <id> --propose --reason="<why>" samples/nested`)
 
 1. missed m746574d6: no test checks what `cheapestFirst()` returns here
