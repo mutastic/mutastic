@@ -13,7 +13,6 @@ import java.lang.classfile.ClassTransform;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -22,11 +21,8 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.regex.Pattern;
-import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /// Each card a removed assignment or field write gets says what its mutant does, checked against
 /// Java itself: "the assignment to `x` is removed" takes the assignment out of the source, and that
@@ -65,8 +61,6 @@ class StoreTruthTest {
           "Writes",
           BuiltIn.REMOVE_FIELD_WRITE,
           "the write to `%s` is removed, so it keeps its earlier value");
-
-  @TempDir Path temp;
 
   @Test
   void anAssignmentIsChangedOnlyWhereTheVariableAlreadyHasAValue() throws Exception {
@@ -138,9 +132,9 @@ class StoreTruthTest {
 
   @Test
   void codeWithoutItsTableOfVariablesHasNoAssignmentsToChange() throws Exception {
-    var classes = compile(List.of(ASSIGNMENTS.source()), "bare", "-g:lines,source");
+    var model = model(ASSIGNMENTS, "-g:lines,source");
 
-    assertThat(ASSIGNMENTS.mutations().find(model(classes, ASSIGNMENTS))).isEmpty();
+    assertThat(ASSIGNMENTS.mutations().find(model)).isEmpty();
   }
 
   @Test
@@ -155,7 +149,7 @@ class StoreTruthTest {
 
   @Test
   void whatIsSkippedAsEquivalentBehavesAsTheOriginal() throws Exception {
-    var model = model(compile(List.of(ASSIGNMENTS.source()), "original"), ASSIGNMENTS);
+    var model = model(ASSIGNMENTS);
     var skipped =
         ASSIGNMENTS.mutations().find(model).stream()
             .filter(
@@ -172,7 +166,7 @@ class StoreTruthTest {
 
   /// What the operator changes in each method: the name, and why it's skipped if it is.
   private Map<String, List<String>> sites(Fixture fixture) throws IOException {
-    var model = model(compile(List.of(fixture.source()), "original"), fixture);
+    var model = model(fixture);
     var sites = new LinkedHashMap<String, List<String>>();
     for (Mutant mutant : fixture.mutations().find(model)) {
       sites
@@ -185,25 +179,24 @@ class StoreTruthTest {
   /// Every card whose words its mutant doesn't bear out: the name isn't what the line assigns, the
   /// mutant isn't the source with the assignment taken out, or it changes nothing at all.
   private List<String> cardsThatLie(Fixture fixture) throws Exception {
-    var model = model(compile(List.of(fixture.source()), "original"), fixture);
+    var model = model(fixture);
     var mutations = fixture.mutations();
     var mutants =
         mutations.find(model).stream().filter(mutant -> mutant.skipped().isEmpty()).toList();
     var lines = Files.readAllLines(fixture.source());
     var failures = new ArrayList<String>(wordsThatLie(fixture, mutants, lines));
-    var claimed = compile(variants(fixture, mutants, lines), "claimed");
+    var variants = variants(fixture, mutants, lines);
+    var loader = Javac.loader(Javac.compile(variants, List.of()));
 
     var original = outcomes(load(fixture, unchanged(model)));
-    try (var loader = new URLClassLoader(new java.net.URL[] {claimed.toUri().toURL()})) {
-      for (int at = 0; at < mutants.size(); at++) {
-        var mutant = mutants.get(at);
-        var mutated = outcomes(load(fixture, mutations.apply(model, mutant)));
-        if (!outcomes(loader.loadClass(fixture.className() + at)).equals(mutated)) {
-          failures.add(describe(mutant) + ": the mutant isn't the assignment taken out");
-        }
-        if (mutated.equals(original)) {
-          failures.add(describe(mutant) + ": changes nothing");
-        }
+    for (int at = 0; at < mutants.size(); at++) {
+      var mutant = mutants.get(at);
+      var mutated = outcomes(load(fixture, mutations.apply(model, mutant)));
+      if (!outcomes(loader.loadClass(variants.get(at).className())).equals(mutated)) {
+        failures.add(describe(mutant) + ": the mutant isn't the assignment taken out");
+      }
+      if (mutated.equals(original)) {
+        failures.add(describe(mutant) + ": changes nothing");
       }
     }
     assertThat(mutants).as("the cards checked").hasSizeGreaterThan(10);
@@ -232,21 +225,20 @@ class StoreTruthTest {
   }
 
   /// The source once for each mutant, as a class of its own, with what the card claims done to it.
-  private List<Path> variants(Fixture fixture, List<Mutant> mutants, List<String> lines)
-      throws IOException {
-    var directory = Files.createDirectories(temp.resolve("variants/" + fixture.name()));
-    var files = new ArrayList<Path>();
-    for (int at = 0; at < mutants.size(); at++) {
-      var name = fixture.name() + at;
+  private static List<Javac.Source> variants(
+      Fixture fixture, List<Mutant> mutants, List<String> lines) {
+    var variants = new ArrayList<Javac.Source>();
+    for (var mutant : mutants) {
       var changed = new ArrayList<>(lines);
-      int line = mutants.get(at).line() - 1;
-      changed.set(line, without(lines.get(line), named(mutants.get(at))));
-      var file = directory.resolve(name + ".java");
-      Files.writeString(
-          file, String.join("\n", changed).replaceAll("\\b" + fixture.name() + "\\b", name));
-      files.add(file);
+      int line = mutant.line() - 1;
+      changed.set(line, without(lines.get(line), named(mutant)));
+      var text = String.join("\n", changed);
+      var name = Javac.nameFor(fixture.name(), text);
+      variants.add(
+          new Javac.Source(
+              "stores." + name, text.replaceAll("\\b" + fixture.name() + "\\b", name)));
     }
-    return files;
+    return variants;
   }
 
   /// The line with `name`'s assignment gone: what its `// without name:` comment says, or nothing.
@@ -267,9 +259,10 @@ class StoreTruthTest {
     return ClassFile.of().transformClass(model, ClassTransform.ACCEPT_ALL);
   }
 
-  private static ClassModel model(Path classes, Fixture fixture) throws IOException {
-    return ClassFile.of()
-        .parse(Files.readAllBytes(classes.resolve("stores/" + fixture.name() + ".class")));
+  private static ClassModel model(Fixture fixture, String... options) throws IOException {
+    var source = Javac.Source.read(fixture.source(), fixture.className());
+    var compiled = Javac.compile(List.of(source), List.of(), options);
+    return ClassFile.of().parse(compiled.get(fixture.className()));
   }
 
   private static Class<?> load(Fixture fixture, byte[] bytes) throws ClassNotFoundException {
@@ -311,19 +304,6 @@ class StoreTruthTest {
 
   private static String describe(Mutant mutant) {
     return "%s line %d %s".formatted(mutant.methodName(), mutant.line(), mutant.replacement());
-  }
-
-  private Path compile(List<Path> files, String name, String... debug) throws IOException {
-    var out = Files.createDirectories(temp.resolve(name));
-    var args = new ArrayList<>(debug.length == 0 ? List.of("-g") : List.of(debug));
-    args.addAll(List.of("-d", out.toString()));
-    files.forEach(file -> args.add(file.toString()));
-    var errors = new java.io.ByteArrayOutputStream();
-    int status =
-        Objects.requireNonNull(ToolProvider.getSystemJavaCompiler())
-            .run(null, null, errors, args.toArray(String[]::new));
-    assertThat(status).as("javac: %s", errors).isZero();
-    return out;
   }
 
   /// The fixture's class from the given bytes, in a loader of its own.

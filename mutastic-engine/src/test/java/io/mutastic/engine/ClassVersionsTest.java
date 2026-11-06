@@ -5,40 +5,30 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
 import java.lang.classfile.ClassFile;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import javax.tools.ToolProvider;
+import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /// A class compiled for Java 8 is mutated as Java 8: its mutants keep class-file version 52,
 /// verify, and change what it does, as the spike checked of an engine on a newer JDK.
 class ClassVersionsTest {
-  @TempDir Path work;
-
   @Test
   void java8BytecodeIsMutatedAsJava8() throws Exception {
-    var source = work.resolve("legacy/Fees.java");
-    Files.createDirectories(source.getParent());
-    Files.writeString(
-        source,
-        """
-        package legacy;
+    var source =
+        new Javac.Source(
+            "legacy.Fees",
+            """
+            package legacy;
 
-        public class Fees {
-          public int fee(int days) {
-            if (days >= 30) {
-              return 25;
+            public class Fees {
+              public int fee(int days) {
+                if (days >= 30) {
+                  return 25;
+                }
+                return 0;
+              }
             }
-            return 0;
-          }
-        }
-        """);
-    int compiled =
-        ToolProvider.getSystemJavaCompiler()
-            .run(null, null, null, "--release", "8", "-d", work.toString(), source.toString());
-    assertThat(compiled).isZero();
-    var bytes = Files.readAllBytes(work.resolve("legacy/Fees.class"));
+            """);
+    var bytes = Javac.compile(List.of(source), List.of(), "--release", "8").get("legacy.Fees");
     var mutations = new Mutations(ClassFile.of());
     var model = ClassFile.of().parse(bytes);
 

@@ -12,20 +12,16 @@ import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /// Each card a changed return gets says what its mutant does, checked against Java itself.
 ///
@@ -48,12 +44,10 @@ class ReturnTruthTest {
           new Policy(
               List.of(), List.of(), List.of(), List.of(BuiltIn.RETURN_VALUE.id()), List.of()));
 
-  @TempDir Path temp;
-
   @Test
   void eachShapeGetsTheValueItMostPlausiblyGetsWrong() throws Exception {
     var changes = new LinkedHashMap<String, List<String>>();
-    for (Mutant mutant : mutations.find(model(compile(List.of(SOURCE), "original")))) {
+    for (Mutant mutant : mutations.find(model())) {
       changes
           .computeIfAbsent(mutant.methodName(), name -> new ArrayList<>())
           .add(mutant.replacement() + mutant.skipped().map(why -> " (" + why + ")").orElse(""));
@@ -109,14 +103,12 @@ class ReturnTruthTest {
 
   @Test
   void everyReturnsCardSaysWhatItsMutantDoes() throws Exception {
-    var original = compile(List.of(SOURCE), "original");
-    var model = model(original);
+    var model = model();
     var sources = new SourceView(FIXTURE, List.of(FIXTURE));
     var text = Files.readString(SOURCE);
     var mutants =
         mutations.find(model).stream().filter(mutant -> mutant.skipped().isEmpty()).toList();
-    var variants = Files.createDirectories(temp.resolve("variants/returns"));
-    var files = new ArrayList<Path>(List.of(SOURCE));
+    var variants = new ArrayList<Javac.Source>();
     var failures = new ArrayList<String>();
     var cards = new ArrayList<Advice>();
     for (var mutant : mutants) {
@@ -127,36 +119,32 @@ class ReturnTruthTest {
         failures.add(describe(mutant, advice) + "\n  has no changed line");
         continue;
       }
-      var variant = variants.resolve("Returns" + (cards.size() - 1) + ".java");
-      Files.writeString(variant, withLine(text, mutant.line(), shown.get(), variant));
-      files.add(variant);
+      variants.add(variant(text, mutant.line(), shown.get()));
     }
-    var claimed = compile(files, "claimed");
+    assertThat(failures).as("cards with no changed line").isEmpty();
+    var loader = Javac.loader(Javac.compile(variants, List.of()));
 
     var code = load(model, Optional.empty());
-    try (var loader = new URLClassLoader(new java.net.URL[] {claimed.toUri().toURL()})) {
-      for (int at = 0; at < mutants.size(); at++) {
-        var mutant = mutants.get(at);
-        var advice = cards.get(at);
-        var mutated = load(model, Optional.of(mutant));
-        var said = loader.loadClass("returns.Returns" + at);
-        var name = mutant.methodName();
-        differs(name, said, mutated)
-            .ifPresent(
-                input ->
-                    failures.add(
-                        describe(mutant, advice) + "\n  its changed line: but at " + input));
-        if (outcomes(name, code).equals(outcomes(name, mutated))) {
-          failures.add(describe(mutant, advice) + "\n  changes nothing, so it's equivalent");
-        }
-        var today = today(advice);
-        if (today.isPresent() && !changesToday(name, code, mutated, today.get())) {
-          failures.add(
-              describe(mutant, advice)
-                  + "\n  no input returns `"
-                  + today.get()
-                  + "` that the mutant changes");
-        }
+    for (int at = 0; at < mutants.size(); at++) {
+      var mutant = mutants.get(at);
+      var advice = cards.get(at);
+      var mutated = load(model, Optional.of(mutant));
+      var said = loader.loadClass(variants.get(at).className());
+      var name = mutant.methodName();
+      differs(name, said, mutated)
+          .ifPresent(
+              input ->
+                  failures.add(describe(mutant, advice) + "\n  its changed line: but at " + input));
+      if (outcomes(name, code).equals(outcomes(name, mutated))) {
+        failures.add(describe(mutant, advice) + "\n  changes nothing, so it's equivalent");
+      }
+      var today = today(advice);
+      if (today.isPresent() && !changesToday(name, code, mutated, today.get())) {
+        failures.add(
+            describe(mutant, advice)
+                + "\n  no input returns `"
+                + today.get()
+                + "` that the mutant changes");
       }
     }
 
@@ -167,8 +155,7 @@ class ReturnTruthTest {
   /// A return skipped as equivalent behaves as the code does on every input.
   @Test
   void everyEquivalentReturnIsEquivalent() throws Exception {
-    var original = compile(List.of(SOURCE), "original");
-    var model = model(original);
+    var model = model();
     var code = load(model, Optional.empty());
     var equivalent =
         mutations.find(model).stream()
@@ -205,8 +192,9 @@ class ReturnTruthTest {
     return false;
   }
 
-  private static ClassModel model(Path classes) throws IOException {
-    return ClassFile.of().parse(Files.readAllBytes(classes.resolve("returns/Returns.class")));
+  private static ClassModel model() throws IOException {
+    var original = Javac.compile(List.of(Javac.Source.read(SOURCE, CLASS)), List.of());
+    return ClassFile.of().parse(original.get(CLASS));
   }
 
   private Class<?> load(ClassModel model, Optional<Mutant> mutant) throws ClassNotFoundException {
@@ -217,15 +205,19 @@ class ReturnTruthTest {
     return new OneClass(bytes).loadClass(CLASS);
   }
 
-  /// The line `number` (from 1) replaced by `shown`, kept at its indentation, as class `variant`.
-  private static String withLine(String text, int number, String shown, Path variant) {
+  /// The line `number` (from 1) replaced by `shown`, kept at its indentation, as a class of its
+  /// own.
+  private static Javac.Source variant(String text, int number, String shown) {
     var lines = new ArrayList<>(text.lines().toList());
     var old = lines.get(number - 1);
     lines.set(number - 1, old.substring(0, old.length() - old.stripLeading().length()) + shown);
-    var name = variant.getFileName().toString().replace(".java", "");
-    return String.join("\n", lines)
-        .replace("final class Returns ", "final class " + name + " ")
-        .replace("private Returns()", "private " + name + "()");
+    var changed = String.join("\n", lines);
+    var name = Javac.nameFor("Returns", changed);
+    return new Javac.Source(
+        "returns." + name,
+        changed
+            .replace("final class Returns ", "final class " + name + " ")
+            .replace("private Returns()", "private " + name + "()"));
   }
 
   /// The first input on which the two classes' `method` differ, if any.
@@ -279,18 +271,6 @@ class ReturnTruthTest {
             advice.change(),
             advice.headline(),
             advice.fix());
-  }
-
-  private Path compile(List<Path> files, String name) throws IOException {
-    var out = Files.createDirectories(temp.resolve(name));
-    var args = new ArrayList<>(List.of("-g", "-d", out.toString()));
-    files.forEach(file -> args.add(file.toString()));
-    var errors = new java.io.ByteArrayOutputStream();
-    int status =
-        Objects.requireNonNull(ToolProvider.getSystemJavaCompiler())
-            .run(null, null, errors, args.toArray(String[]::new));
-    assertThat(status).as("javac: %s", errors).isZero();
-    return out;
   }
 
   /// The fixture's class from the given bytes, in a loader of its own.

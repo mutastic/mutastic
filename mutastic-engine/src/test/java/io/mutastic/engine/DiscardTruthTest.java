@@ -12,17 +12,13 @@ import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
-import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /// Each card a removed call whose result was thrown away gets says what its mutant does, checked
 /// against Java itself: "the call to `add()` is removed" takes the call's line out of the source,
@@ -44,12 +40,10 @@ class DiscardTruthTest {
               List.of(BuiltIn.REMOVE_DISCARDED_CALL.id()),
               List.of()));
 
-  @TempDir Path temp;
-
   @Test
   void aCallIsRemovedOnlyWhereItsResultIsThrownAway() throws Exception {
     var calls = new LinkedHashMap<String, List<String>>();
-    for (Mutant mutant : mutations.find(model(compile(List.of(SOURCE), "original")))) {
+    for (Mutant mutant : mutations.find(model())) {
       calls
           .computeIfAbsent(mutant.methodName(), name -> new ArrayList<>())
           .add(called(mutant) + mutant.skipped().map(why -> " (" + why + ")").orElse(""));
@@ -70,14 +64,12 @@ class DiscardTruthTest {
 
   @Test
   void everyRemovedCallsCardSaysWhatItsMutantDoes() throws Exception {
-    var original = compile(List.of(SOURCE), "original");
-    var model = model(original);
+    var model = model();
     var sources = new SourceView(FIXTURE, List.of(FIXTURE));
     var lines = Files.readAllLines(SOURCE);
     var mutants =
         mutations.find(model).stream().filter(mutant -> mutant.skipped().isEmpty()).toList();
-    var variants = Files.createDirectories(temp.resolve("variants/discards"));
-    var files = new ArrayList<Path>(List.of(SOURCE));
+    var variants = new ArrayList<Javac.Source>();
     var failures = new ArrayList<String>();
     var cards = new ArrayList<Advice>();
     for (var mutant : mutants) {
@@ -89,25 +81,21 @@ class DiscardTruthTest {
           || !line.contains(name + "(")) {
         failures.add(describe(mutant, advice) + "\n  doesn't name the call on its line");
       }
-      var variant = variants.resolve("Discards" + (cards.size() - 1) + ".java");
-      Files.writeString(variant, withoutLine(lines, mutant.line(), variant));
-      files.add(variant);
+      variants.add(withoutLine(lines, mutant.line()));
     }
-    var claimed = compile(files, "claimed");
+    var loader = Javac.loader(Javac.compile(variants, List.of()));
 
     var code = load(model, Optional.empty());
-    try (var loader = new URLClassLoader(new java.net.URL[] {claimed.toUri().toURL()})) {
-      for (int at = 0; at < mutants.size(); at++) {
-        var mutant = mutants.get(at);
-        var name = mutant.methodName();
-        var mutated = load(model, Optional.of(mutant));
-        var said = loader.loadClass("discards.Discards" + at);
-        if (!outcomes(name, said).equals(outcomes(name, mutated))) {
-          failures.add(describe(mutant, cards.get(at)) + "\n  the mutant isn't the line removed");
-        }
-        if (outcomes(name, code).equals(outcomes(name, mutated))) {
-          failures.add(describe(mutant, cards.get(at)) + "\n  changes nothing");
-        }
+    for (int at = 0; at < mutants.size(); at++) {
+      var mutant = mutants.get(at);
+      var name = mutant.methodName();
+      var mutated = load(model, Optional.of(mutant));
+      var said = loader.loadClass(variants.get(at).className());
+      if (!outcomes(name, said).equals(outcomes(name, mutated))) {
+        failures.add(describe(mutant, cards.get(at)) + "\n  the mutant isn't the line removed");
+      }
+      if (outcomes(name, code).equals(outcomes(name, mutated))) {
+        failures.add(describe(mutant, cards.get(at)) + "\n  changes nothing");
       }
     }
 
@@ -122,8 +110,9 @@ class DiscardTruthTest {
     return target.substring(target.lastIndexOf('.') + 1);
   }
 
-  private static ClassModel model(Path classes) throws IOException {
-    return ClassFile.of().parse(Files.readAllBytes(classes.resolve("discards/Discards.class")));
+  private static ClassModel model() throws IOException {
+    var original = Javac.compile(List.of(Javac.Source.read(SOURCE, CLASS)), List.of());
+    return ClassFile.of().parse(original.get(CLASS));
   }
 
   private Class<?> load(ClassModel model, Optional<Mutant> mutant) throws ClassNotFoundException {
@@ -134,14 +123,16 @@ class DiscardTruthTest {
     return new OneClass(bytes).loadClass(CLASS);
   }
 
-  /// The source with line `number` (from 1) left blank, as class `variant`.
-  private static String withoutLine(List<String> lines, int number, Path variant) {
+  /// The source with line `number` (from 1) left blank, as a class of its own.
+  private static Javac.Source withoutLine(List<String> lines, int number) {
     var changed = new ArrayList<>(lines);
     changed.set(number - 1, "");
-    var name = variant.getFileName().toString().replace(".java", "");
-    return String.join("\n", changed)
-        .replace("final class Discards ", "final class " + name + " ")
-        .replace("private Discards()", "private " + name + "()");
+    var text = String.join("\n", changed);
+    var name = Javac.nameFor("Discards", text);
+    return new Javac.Source(
+        "discards." + name,
+        text.replace("final class Discards ", "final class " + name + " ")
+            .replace("private Discards()", "private " + name + "()"));
   }
 
   /// What `name` gives for each pair of inputs, as text, or what it threw.
@@ -166,18 +157,6 @@ class DiscardTruthTest {
     return "%s line %d %s: %s; %s"
         .formatted(
             mutant.methodName(), mutant.line(), mutant.original(), advice.change(), advice.fix());
-  }
-
-  private Path compile(List<Path> files, String name) throws IOException {
-    var out = Files.createDirectories(temp.resolve(name));
-    var args = new ArrayList<>(List.of("-g", "-d", out.toString()));
-    files.forEach(file -> args.add(file.toString()));
-    var errors = new java.io.ByteArrayOutputStream();
-    int status =
-        Objects.requireNonNull(ToolProvider.getSystemJavaCompiler())
-            .run(null, null, errors, args.toArray(String[]::new));
-    assertThat(status).as("javac: %s", errors).isZero();
-    return out;
   }
 
   /// The fixture's class from the given bytes, in a loader of its own.
