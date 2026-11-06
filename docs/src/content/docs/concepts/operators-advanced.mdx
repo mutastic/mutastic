@@ -272,8 +272,18 @@ counter that's never incremented.
 seen.add(order.id());   // becomes: nothing, the line is gone
 ```
 
-**The test that catches it:** one that checks the effect: that the order is seen afterwards, not
-only that the method ran.
+**The test that catches it:** one that checks the effect: that an order already seen isn't handled
+again, not only that the method ran.
+
+```java
+@Test
+void anOrderIsHandledOnce() {
+  var order = Order.numbered(7);
+  orders.handle(order);
+  orders.handle(order);   // the same order again
+  assertEquals(1, orders.handledCount());
+}
+```
 
 ## Stream stage removal
 
