@@ -161,6 +161,19 @@ public enum BuiltIn implements Operator {
       "A method's whole body is replaced by returning the value its kind of method most plausibly"
           + " gets wrong, or by nothing. It goes unnoticed when no test depends on the method at"
           + " all: a quick way to find those, not a measure of how well the rest is tested.",
+      Tier.EXTENDED),
+
+  /// Experimental: no study shows what these catch. One type of a `catch (A | B e)` taken out.
+  DROP_CATCH_TYPE(
+      "A multi-catch stops catching one of its types: `catch (A | B e)` becomes `catch (B e)`. It"
+          + " goes unnoticed when no test has that type thrown there.",
+      Tier.EXTENDED),
+
+  /// Experimental: no study shows what these catch. A `throw` gone, and the code carries on, where
+  /// that verifies: at the end of a method nothing comes next, and the mutant is unviable.
+  REMOVE_THROW(
+      "A `throw` is removed, and the code carries on with what comes next. It goes unnoticed when"
+          + " no test needs that exception to be thrown.",
       Tier.EXTENDED);
 
   private final String explanation;

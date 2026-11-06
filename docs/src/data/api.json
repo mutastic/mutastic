@@ -476,6 +476,26 @@
               "throws": []
             },
             {
+              "kind": "enum constant",
+              "name": "DROP_CATCH_TYPE",
+              "anchor": "drop_catch_type",
+              "signature": "DROP_CATCH_TYPE",
+              "doc": "Experimental: no study shows what these catch. One type of a `catch (A | B e)` taken out.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "REMOVE_THROW",
+              "anchor": "remove_throw",
+              "signature": "REMOVE_THROW",
+              "doc": "Experimental: no study shows what these catch. A `throw` gone, and the code carries on, where\nthat verifies: at the end of a method nothing comes next, and the mutant is unviable.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
               "kind": "method",
               "name": "id",
               "anchor": "id",

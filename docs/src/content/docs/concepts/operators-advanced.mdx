@@ -923,6 +923,53 @@ void anOrdersTotalAddsItsLines() {
 Use it as a first pass, with `--operators=mutastic/replace-body`: each miss is a whole method to look
 at. Catching these says little on its own, as any test that looks at the result does.
 
+## Drop catch type
+
+**The bug it stands for:** an exception nobody meant to let out, or a type added to a `catch` that no
+one checked.
+
+**Where it costs:** the failure that only happens in production: a timeout, a bad file. The handler
+looks complete, and only one of its types has ever been tried.
+
+```java
+catch (IOException | TimeoutException e)   // becomes: catch (TimeoutException e)
+```
+
+**The test that catches it:** one where the `try` throws that type, asserting what the handler does.
+
+```java
+@Test
+void aFailedReadFallsBackToTheCache() {
+  when(source.read()).thenThrow(new IOException());
+  assertEquals(cached, reader.load());
+}
+```
+
+Run it with `--operators=defaults,extended`.
+
+## Remove throw
+
+**The bug it stands for:** a check that doesn't stop anything, or an exception swallowed where it
+should have gone up.
+
+**Where it costs:** validation. Bad input carries on into the code that assumed it had been refused,
+and what comes out is wrong rather than an error.
+
+```java
+if (quantity < 0) throw new IllegalArgumentException();   // becomes: if (quantity < 0) { }
+```
+
+**The test that catches it:** one where it throws, asserting that it does.
+
+```java
+@Test
+void aNegativeQuantityIsRefused() {
+  assertThrows(IllegalArgumentException.class, () -> order.add(item, -1));
+}
+```
+
+Run it with `--operators=defaults,extended`.
+
 ## When a miss is fine
 
 Not every missed mutant is a gap worth closing. mutastic already skips the changes that would

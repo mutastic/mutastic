@@ -101,6 +101,8 @@ public record Advice(
       case REMOVE_NEGATION -> removedNegation(mutant, seen);
       case REMOVE_SWITCH_ARM -> switchArm(mutant, seen, UnaryOperator.identity());
       case REPLACE_BODY -> replacedBody(mutant, seen);
+      case DROP_CATCH_TYPE -> droppedCatch(mutant, seen);
+      case REMOVE_THROW -> removedThrow(mutant, seen);
     };
   }
 
@@ -663,6 +665,40 @@ public record Advice(
         "no test notices %s doing nothing but returning `%s`".formatted(method, value),
         inputsSeen(seen),
         "add a test that calls %s and asserts a result other than `%s`".formatted(method, value));
+  }
+
+  /// One type of a multi-catch gone. The label ends in the type's internal name.
+  private static Advice droppedCatch(Mutant mutant, Map<String, List<Long>> seen) {
+    var label = mutant.replacement();
+    var type = "`%s`".formatted(label.substring(label.lastIndexOf('/') + 1));
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        "this `catch` no longer catches %s".formatted(type),
+        "no longer catches it",
+        "no test has %s reach this `catch` in %s".formatted(type, method(mutant)),
+        inputsSeen(seen),
+        "add a test where the `try` throws %s, and assert what the `catch` does".formatted(type));
+  }
+
+  /// A `throw` gone. The label is `remove throw X`, with what's thrown if the code just before it
+  /// says: a type, or a variable.
+  private static Advice removedThrow(Mutant mutant, Map<String, List<Long>> seen) {
+    var label = mutant.replacement();
+    var named = label.length() > "remove throw".length();
+    var what = named ? "`%s`".formatted(label.substring(label.lastIndexOf(' ') + 1)) : "this";
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        named
+            ? "the `throw` of %s is removed, so the code carries on".formatted(what)
+            : "this `throw` is removed, so the code carries on",
+        "throw removed",
+        "no test needs %s to throw %s here".formatted(method(mutant), what),
+        inputsSeen(seen),
+        named
+            ? "add a test where this throws %s, and assert that it does".formatted(what)
+            : "add a test where this throws, and assert that it does");
   }
 
   /// A variable's step the other way. The label is the step the mutant takes, `i by -1`.

@@ -219,7 +219,8 @@ final class ClaimFixture {
   private String claimOf(Mutant mutant) {
     var method = sourceMethod(mutant);
     var label = mutant.replacement();
-    var named = method + "Claim_" + label.substring(label.lastIndexOf(' ') + 1);
+    var lastWord = label.substring(label.lastIndexOf(' ') + 1);
+    var named = method + "Claim_" + lastWord.substring(lastWord.lastIndexOf('/') + 1);
     return java.util.Arrays.stream(original.getDeclaredMethods())
             .anyMatch(each -> each.getName().equals(named))
         ? named

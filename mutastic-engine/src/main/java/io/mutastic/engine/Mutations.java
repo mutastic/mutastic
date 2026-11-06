@@ -24,6 +24,7 @@ import java.lang.classfile.attribute.RuntimeInvisibleTypeAnnotationsAttribute;
 import java.lang.classfile.attribute.RuntimeVisibleTypeAnnotationsAttribute;
 import java.lang.classfile.instruction.BranchInstruction;
 import java.lang.classfile.instruction.ConstantInstruction;
+import java.lang.classfile.instruction.ExceptionCatch;
 import java.lang.classfile.instruction.FieldInstruction;
 import java.lang.classfile.instruction.IncrementInstruction;
 import java.lang.classfile.instruction.InvokeDynamicInstruction;
@@ -70,7 +71,9 @@ final class Mutations {
           BuiltIn.NULL_PARAMETER,
           BuiltIn.DROP_VARARG,
           BuiltIn.REMOVE_SWITCH_ARM,
-          BuiltIn.REPLACE_BODY);
+          BuiltIn.REPLACE_BODY,
+          BuiltIn.DROP_CATCH_TYPE,
+          BuiltIn.REMOVE_THROW);
 
   private final ClassFile context;
   private final Policy policy;
@@ -421,7 +424,25 @@ final class Mutations {
             found.add(new Found(builtIn, ordinal, label, Optional.empty()));
           }
         }
+        default -> wholeCodeChanges(builtIn, instruction, at, found);
+      }
+    }
+
+    /// An operator that reads more of the method than the code just around its site.
+    private void wholeCodeChanges(
+        BuiltIn builtIn, Instruction instruction, int at, List<Found> found) {
+      switch (builtIn) {
         case REPLACE_BODY -> bodyChanges(found);
+        case DROP_CATCH_TYPE -> {
+          for (String label : Exceptions.droppedCatches(code, at)) {
+            found.add(new Found(builtIn, index, label, Optional.empty()));
+          }
+        }
+        case REMOVE_THROW -> {
+          for (Mutator.Change change : Exceptions.removedThrow(code, at, stores)) {
+            found.add(new Found(builtIn, index, change.label(), change.skipped()));
+          }
+        }
         case REMOVE_SWITCH_ARM -> {
           for (var arm : SwitchArms.at(code, at)) {
             found.add(new Found(builtIn, index, arm.label(), arm.skipped(), arm.line()));
@@ -517,7 +538,8 @@ final class Mutations {
           found.site(),
           found.line() >= 0 ? found.line() : line,
           operator,
-          describe(instruction),
+          // A handler's first instruction isn't what changes, and differs between finally's copies.
+          operator == BuiltIn.DROP_CATCH_TYPE ? "catch" : describe(instruction),
           found.label(),
           skipped,
           List.of(),
@@ -626,10 +648,32 @@ final class Mutations {
         mutant.operator() == BuiltIn.LOGICAL_CONNECTOR
             ? connectorTargets(model, mutant)
             : List.<Optional<java.lang.classfile.Label>>of();
-    var transform = CodeTransform.ofStateful(() -> new MutantTransform(mutant, targets));
+    var handlers =
+        mutant.operator() == BuiltIn.DROP_CATCH_TYPE
+            ? handlersChanged(model, mutant)
+            : Set.<java.lang.classfile.Label>of();
+    var transform = CodeTransform.ofStateful(() -> new MutantTransform(mutant, targets, handlers));
     return context.transformClass(
         model,
         ClassTransform.transformingMethodBodies(method -> isMethodOf(mutant, method), transform));
+  }
+
+  /// The handlers that start a dropped `catch` type's sites.
+  private static Set<java.lang.classfile.Label> handlersChanged(ClassModel model, Mutant mutant) {
+    var handlers = new HashSet<java.lang.classfile.Label>();
+    for (MethodModel method : model.methods()) {
+      if (isMethodOf(mutant, method)) {
+        var code = method.code().orElseThrow().elementList();
+        var sites = new SiteCounter();
+        for (int at = 0; at < code.size(); at++) {
+          if (code.get(at) instanceof Instruction instruction
+              && sites.changedBy(mutant, instruction)) {
+            handlers.addAll(Exceptions.handlersAt(code, at));
+          }
+        }
+      }
+    }
+    return handlers;
   }
 
   /// Where each of a connector mutant's first jumps goes instead, site by site: the second's
@@ -660,14 +704,19 @@ final class Mutations {
     private final Mutant mutant;
     private final SiteCounter sites = new SiteCounter();
     private final List<Optional<java.lang.classfile.Label>> connectorTargets;
+    private final Set<java.lang.classfile.Label> catchHandlers;
     private int connectorsChanged;
 
     /// A label to bind just after the next jump: where a connector's first jump now goes.
     private java.lang.classfile.@Nullable Label pastTheSecond;
 
-    MutantTransform(Mutant mutant, List<Optional<java.lang.classfile.Label>> connectorTargets) {
+    MutantTransform(
+        Mutant mutant,
+        List<Optional<java.lang.classfile.Label>> connectorTargets,
+        Set<java.lang.classfile.Label> catchHandlers) {
       this.mutant = mutant;
       this.connectorTargets = connectorTargets;
+      this.catchHandlers = catchHandlers;
     }
 
     @Override
@@ -680,11 +729,11 @@ final class Mutations {
       // Type annotations in the code (JSpecify's `@Nullable` on a local) say where each annotated
       // local lives by bytecode offset, which the API doesn't move when a mutant changes the
       // code's length: they'd point past the end, and the class wouldn't load. They go too.
-      if (isOffsetBound(element) || mutant.operator() == BuiltIn.REPLACE_BODY) {
-        return; // a replaced body's code is written by atStart: none of this goes with it
+      if (isOffsetBound(element) || isLeftOut(element)) {
+        return;
       }
       if (element instanceof Instruction instruction
-          && mutant.operator() != BuiltIn.NULL_PARAMETER
+          && !leavesInstructions(mutant.operator())
           && sites.changedBy(mutant, instruction)) {
         if (mutant.operator() == BuiltIn.LOGICAL_CONNECTOR) {
           swapConnector(builder, (BranchInstruction) instruction);
@@ -698,6 +747,20 @@ final class Mutations {
         builder.labelBinding(pastTheSecond);
         pastTheSecond = null;
       }
+    }
+
+    /// A replaced body's code, which atStart has written instead, or a dropped `catch` type's
+    /// entry.
+    private boolean isLeftOut(CodeElement element) {
+      return mutant.operator() == BuiltIn.REPLACE_BODY
+          || (element instanceof ExceptionCatch entry
+              && Exceptions.drops(entry, catchHandlers, mutant.replacement()));
+    }
+
+    /// Whether its change isn't to the instruction at its site: a `null` written at the start, or
+    /// an entry out of the exception table.
+    private static boolean leavesInstructions(Operator operator) {
+      return operator == BuiltIn.NULL_PARAMETER || operator == BuiltIn.DROP_CATCH_TYPE;
     }
 
     private static boolean isOffsetBound(CodeElement element) {
@@ -769,7 +832,9 @@ final class Mutations {
         || operator == BuiltIn.FLIP_INCREMENT
         || operator == BuiltIn.CONSTANT_VALUE
         || operator == BuiltIn.REMOVE_SWITCH_ARM
-        || operator == BuiltIn.REPLACE_BODY;
+        || operator == BuiltIn.REPLACE_BODY
+        || operator == BuiltIn.DROP_CATCH_TYPE
+        || operator == BuiltIn.REMOVE_THROW;
   }
 
   private static boolean isFieldWrite(FieldInstruction field) {
@@ -860,10 +925,13 @@ final class Mutations {
 
   /// A change to an instruction with no kind of its own in [#emit].
   private static void emitWhole(CodeBuilder builder, Instruction instruction, Mutant mutant) {
-    if (mutant.operator() != BuiltIn.REMOVE_SWITCH_ARM) {
+    if (mutant.operator() == BuiltIn.REMOVE_SWITCH_ARM) {
+      SwitchArms.write(builder, instruction, mutant.replacement());
+    } else if (mutant.operator() == BuiltIn.REMOVE_THROW) {
+      builder.pop();
+    } else {
       throw new IllegalStateException("not a mutation site: " + instruction);
     }
-    SwitchArms.write(builder, instruction, mutant.replacement());
   }
 
   /// A built-in call operator's change.

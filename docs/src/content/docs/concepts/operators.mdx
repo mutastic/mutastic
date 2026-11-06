@@ -51,6 +51,8 @@ For why each one is worth catching, the bugs it stands for and the test that cat
 | [`optional/no-default`](#optional-default) | `opt.orElse(x)` to `opt.get()` | extended |
 | [`mutastic/remove-switch-arm`](#remove-switch-arm) | an arm of a `switch`, its values sent to the default | extended |
 | [`mutastic/replace-body`](#replace-body) | a method's whole body, to returning one value or nothing | extended |
+| [`mutastic/drop-catch-type`](#drop-catch-type) | one type of a multi-catch, no longer caught | extended |
+| [`mutastic/remove-throw`](#remove-throw) | a `throw`, removed, and the code carries on | extended |
 
 A run uses the `defaults` set unless you [choose otherwise](#choosing-operators). Plugins can add
 operators of their own: see [Plugins](/guides/plugins/).
@@ -588,6 +590,32 @@ always `false` are different gaps, and neither shows the other. A value the meth
 already gives isn't used. Constructors and static initialisers are left alone, and trivial getters
 and setters, `toString()` and `hashCode()` are skipped as arid. A body that's only the return of
 that value is skipped as equivalent, as with `return null;`.
+
+## Drop catch type
+
+`mutastic/drop-catch-type`, in the `extended` set, and experimental. A multi-catch stops catching one
+of its types, one mutant for each. It goes unnoticed when no test has that type thrown there.
+
+```java
+catch (IOException | TimeoutException e)   // becomes: catch (TimeoutException e)
+```
+
+Separate `catch` blocks aren't changed, and a `finally` can't be: javac copies it onto every way out
+of the `try`, so there's nothing to remove.
+
+## Remove throw
+
+`mutastic/remove-throw`, in the `extended` set, and experimental. A `throw` is removed, and the code
+carries on with what comes next. It goes unnoticed when no test needs that exception to be thrown.
+
+```java
+if (quantity < 0) throw new IllegalArgumentException();   // becomes: if (quantity < 0) { }
+```
+
+The code after it has to be able to run: with nothing after it, as at the end of a method, the mutant
+is skipped as `unviable:`. javac's own throws aren't changed: the rethrow it writes for a `finally`, a
+`synchronized` or a try-with-resources, and the default it writes for a switch with none. The `throw`
+of a failed `assert` is skipped as arid.
 
 ## Choosing operators
 
