@@ -143,23 +143,54 @@ final class Comparisons {
     }
     var jump = Jump.of(branch.opcode());
     var before = ImpliedOr.instructionsBefore(code, at, 4);
+    var site = new Site(jump, before, code);
     boolean neverNegative =
         jump.family() == Family.WITH_ZERO && !before.isEmpty() && neverNegative(before.getLast());
     var changes = new ArrayList<Mutator.Change>();
-    for (Relation change : relations(operator, jump, before, code)) {
+    for (Relation change : relations(operator, site)) {
       var label = jump.family().opcode(change).name();
-      changes.add(
-          neverNegative && differsOnlyBelowZero(jump.relation(), change)
-              ? new Mutator.Change(label, Optional.of(NEVER_NEGATIVE))
-              : Mutator.Change.of(label));
+      if (neverNegative && sameFromZero(jump.relation(), change)) {
+        changes.add(new Mutator.Change(label, Optional.of(NEVER_NEGATIVE)));
+      } else if (!neverNegative || madeHere(operator, site, change)) {
+        changes.add(Mutator.Change.of(label));
+      }
     }
     return changes;
   }
 
+  /// For a value that's never negative, whether `operator` is the one to make `change`: not when,
+  /// for zero and above, the changed jump always goes one way, as remove-conditional's mutants do,
+  /// or goes as an earlier change's does (boundary's first, then comparison's, then the others), so
+  /// no jump gets the same change twice. Which one makes it doesn't depend on the operators a run
+  /// uses, so an id found by one run is found by any.
+  private static boolean madeHere(BuiltIn operator, Site site, Relation change) {
+    if (change.holds(0) == change.holds(1)) {
+      return false; // remove-conditional's
+    }
+    for (BuiltIn earlier :
+        List.of(BuiltIn.BOUNDARY, BuiltIn.COMPARISON, BuiltIn.OTHER_COMPARISON)) {
+      for (Relation made : relations(earlier, site)) {
+        if (earlier == operator && made == change) {
+          return true;
+        }
+        boolean madeEarlier =
+            !sameFromZero(site.jump().relation(), made) && made.holds(0) != made.holds(1);
+        if (madeEarlier && sameFromZero(made, change)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  /// A comparison's jump, the instructions just before it, and its method's code.
+  private record Site(Jump jump, List<Instruction> before, List<CodeElement> code) {}
+
   /// What the operator changes the jump's relation to.
-  private static List<Relation> relations(
-      BuiltIn operator, Jump jump, List<Instruction> before, List<CodeElement> code) {
-    boolean ordered = jump.family().numbers() && ofNumbers(jump, before, code);
+  private static List<Relation> relations(BuiltIn operator, Site site) {
+    var jump = site.jump();
+    var before = site.before();
+    boolean ordered = jump.family().numbers() && ofNumbers(jump, before, site.code());
     var relation = jump.relation();
     var sufficient = ordered ? relation.sufficient() : List.<Relation>of();
     List<Relation> wanted =
@@ -173,8 +204,8 @@ final class Comparisons {
   }
 
   /// Whether the two relations give the same answer for zero and every value above it.
-  private static boolean differsOnlyBelowZero(Relation original, Relation change) {
-    return original.holds(0) == change.holds(0) && original.holds(1) == change.holds(1);
+  private static boolean sameFromZero(Relation one, Relation other) {
+    return one.holds(0) == other.holds(0) && one.holds(1) == other.holds(1);
   }
 
   /// A value its type's contract keeps at zero or above: an array's length, a collection's

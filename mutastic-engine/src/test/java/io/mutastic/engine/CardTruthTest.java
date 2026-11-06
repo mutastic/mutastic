@@ -208,6 +208,52 @@ class CardTruthTest {
     assertThat(failures).as("mutants skipped as equivalent that aren't").isEmpty();
   }
 
+  /// No jump gets the same change twice: two mutants of one condition that behave the same on every
+  /// input are one mutant counted twice. A size compared with zero is where it would happen
+  /// (`size() > 0` to `size() >= 0` is the condition always true). Only those shapes are checked:
+  /// elsewhere two different changes can happen to agree on the few inputs tried.
+  @Test
+  void noConditionGetsTheSameChangeTwice() throws Exception {
+    var original = compile(List.of(FIXTURE.resolve("shapes/Shapes.java"), OTHER), "original");
+    var model = ClassFile.of().parse(Files.readAllBytes(original.resolve("shapes/Shapes.class")));
+    var mutations =
+        new Mutations(
+            ClassFile.of(), new Policy(List.of(), List.of(), List.of(), List.of("all"), List.of()));
+    var bySite = new java.util.LinkedHashMap<String, List<String>>();
+    var twice = new ArrayList<String>();
+    for (var mutant : mutations.find(model)) {
+      if (mutant.skipped().isPresent()
+          || !CONDITIONS.contains(mutant.operator())
+          || !Set.of("sizeAboveZero", "lengthNotZero").contains(mutant.methodName())) {
+        continue;
+      }
+      var mutated = new OneClass(CLASS, mutations.apply(model, mutant), original).loadClass(CLASS);
+      var behaviour = behaviour(mutant.methodName(), mutated);
+      var site = mutant.methodName() + "@" + mutant.ordinal();
+      var seen = bySite.computeIfAbsent(site, key -> new ArrayList<>());
+      if (seen.contains(behaviour)) {
+        twice.add(site + " " + mutant.operator().id() + " " + mutant.replacement());
+      }
+      seen.add(behaviour);
+    }
+
+    assertThat(bySite).containsKeys("sizeAboveZero@0", "lengthNotZero@0");
+    assertThat(twice).as("changes made twice at one condition").isEmpty();
+  }
+
+  /// What `method` gives on every input, in order.
+  private static String behaviour(String method, Class<?> type)
+      throws ReflectiveOperationException {
+    var called = method(type, method);
+    var outcomes = new StringBuilder();
+    for (int a = LOW; a <= HIGH; a++) {
+      for (int b = LOW; b <= HIGH; b++) {
+        outcomes.append(outcome(called, a, b)).append(' ');
+      }
+    }
+    return outcomes.toString();
+  }
+
   /// Only numbers are ordered: `==` on two `boolean`s gets only its opposite. A `float`'s
   /// comparison gets no change that `NaN` would make differ somewhere the card doesn't say.
   @Test

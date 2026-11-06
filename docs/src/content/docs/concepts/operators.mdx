@@ -57,7 +57,10 @@ With [boundary](#boundary) and [remove conditional](#remove-conditional), these 
 set of changes that is enough for a comparison: tests that catch the edge moved, the side changed
 and the condition always true or false catch every other way the comparison could be written
 wrong. For `a < b` the three are `a <= b`, `a != b` and `false`. Each is one operator's, so no
-condition gets the same change twice.
+condition gets the same change twice. Nor does a size: for a value that's never negative,
+`items.size() > 0` becoming `items.size() >= 0` is the condition always true, so it's left to
+remove conditional, and of two changes that agree for every size only the first is made (boundary's,
+then comparison's, then other comparison's).
 
 Only numbers have an order: `==` on two `boolean`s or references, and `== null`, get no mutant
 here. A comparison of `float`s or `double`s gets only changes that treat `NaN` as Java does, so `x
