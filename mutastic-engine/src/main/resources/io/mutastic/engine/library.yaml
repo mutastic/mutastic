@@ -6,7 +6,6 @@
 
 - id: library/swap-string
   explanation: A `String` method becomes the similar one, `startsWith` and `endsWith`, `toUpperCase` and `toLowerCase`, `stripLeading` and `stripTrailing`. It goes unnoticed when no test has text where the two differ.
-  tier: stronger
   owners: java.lang.String
   methods: startsWith, endsWith, toUpperCase, toLowerCase, stripLeading, stripTrailing
   descriptors: (Ljava/lang/String;)Z, ()Ljava/lang/String;, (Ljava/util/Locale;)Ljava/lang/String;
@@ -36,7 +35,6 @@
 
 - id: library/swap-math
   explanation: `Math.min` and `Math.max` swap places, and so do `Math.floor` and `Math.ceil`. It goes unnoticed when no test has values where the two differ.
-  tier: stronger
   owners: java.lang.Math
   methods: min, max, floor, ceil
   rewrite: rename min->max, max->min, floor->ceil, ceil->floor
