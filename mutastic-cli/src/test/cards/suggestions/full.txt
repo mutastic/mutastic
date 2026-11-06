@@ -1,7 +1,7 @@
 
  Missed ────────────────────────────────────────────────────────────
 
- ❯ src/main/java/com/example/rates/Rates.java  4 missed in 3 methods
+ ❯ src/main/java/com/example/rates/Rates.java  5 missed in 3 methods
 
  [✗ MISSED] no test checks inCredit() at balance == 0
     ┌─ src/main/java/com/example/rates/Rates.java:18
@@ -54,6 +54,32 @@
     reproduce  mutastic run --only=m05382fc9 samples/suggestions
     or ignore  mutastic ignore m05382fc9 --reason="<why>" samples/suggestions
 
+ [✗ MISSED] no test checks inCredit() returning false here
+    ┌─ src/main/java/com/example/rates/Rates.java:18
+    │
+ 17 │   public static boolean inCredit(int balance) {
+ 18 │     return balance > 0;
+    │     ^^^^^^^^^^^^^^^^^^^ now returns true
+ 19 │   }
+    │
+    = mutant  - return balance > 0;
+              + return true;
+    = note: tests reach this return, but none fails when it returns true
+            inputs seen: balance = 50
+            covered by RatesTest#aPositiveBalanceIsInCredit (its 1 covering test still passes)
+    = help: add a test where inCredit() returns false here, and assert it
+
+            // in RatesTest
+            @Test
+            void inCreditWithBalance0() {
+              assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m193b6dcc samples/suggestions passes
+    reproduce  mutastic run --only=m193b6dcc samples/suggestions
+    or ignore  mutastic ignore m193b6dcc --reason="<why>" samples/suggestions
+
  [✗ MISSED] no test checks lateFee() at daysLate == 7
     ┌─ src/main/java/com/example/rates/Rates.java:10
     │
@@ -98,7 +124,7 @@
     reproduce  mutastic run --only=m5a0bdd3e samples/suggestions
     or ignore  mutastic ignore m5a0bdd3e --reason="<why>" samples/suggestions
 
- ❯ src/main/java/com/example/rates/Window.java  6 missed in 1 method
+ ❯ src/main/java/com/example/rates/Window.java  7 missed in 1 method
 
  [✗ MISSED] no test needs start == null to be false in openOn()
    ┌─ src/main/java/com/example/rates/Window.java:6
@@ -243,14 +269,40 @@
    reproduce  mutastic run --only=m45713261 samples/suggestions
    or ignore  mutastic ignore m45713261 --reason="<why>" samples/suggestions
 
+ [✗ MISSED] no test checks openOn() returning false here
+   ┌─ src/main/java/com/example/rates/Window.java:6
+   │
+ 5 │   public boolean openOn(int day) {
+ 6 │     return (start == null || start <= day) && day < end;
+   │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now returns true
+ 7 │   }
+   │
+   = mutant  - return (start == null || start <= day) && day < end;
+             + return true;
+   = note: tests reach this return, but none fails when it returns true
+           inputs seen: day = 5
+           covered by WindowTest#openInTheMiddle (its 1 covering test still passes)
+   = help: add a test where openOn() returns false here, and assert it
+
+           // in WindowTest
+           @Test
+           void openOnWithDay0ForWindow0And0() {
+             assertThat(new Window(0, 0L).openOn(0)).isFalse(); // today false · with this mutant true
+           }
+           check today's value is the one you intend: the test pins what the code does now
+
+   done when  mutastic verify m1339c5fd samples/suggestions passes
+   reproduce  mutastic run --only=m1339c5fd samples/suggestions
+   or ignore  mutastic ignore m1339c5fd --reason="<why>" samples/suggestions
+
    Classes  0 clean | 2 with misses (2)
-   Mutants  ✓ 12 caught · ✗ 10 missed · 3 skipped (2 arid, 1 equivalent) (25)
-  Worst at  Window.openOn() 6 ✗ · Rates.inCredit() 2 ✗ · Rates.lateFee() 1 ✗
- Test runs  22 (88 without coverage selection)
+   Mutants  ✓ 13 caught · ✗ 12 missed · 2 skipped (2 arid) (27)
+  Worst at  Window.openOn() 7 ✗ · Rates.inCredit() 3 ✗ · Rates.lateFee() 1 ✗
+ Test runs  25 (100 without coverage selection)
   Start at  …
   Duration  … (setup …, coverage …, mutants …)
      Tests  4 on JDK 17 · … workers
-     Score  54.5%  = vs last run (same code)  threshold 80
+     Score  52.0%  = vs last run (same code)  threshold 80
 
- [FAIL] Score below 80: 10 missed, 0 not covered.
+ [FAIL] Score below 80: 12 missed, 0 not covered.
  Next: mutastic verify <id> samples/suggestions · mutastic run --only=<id> samples/suggestions · mutastic explain <id> samples/suggestions

@@ -119,9 +119,9 @@ class AdviceTest {
             "(II)I",
             0,
             5,
-            BuiltIn.RETURN_DEFAULT,
+            BuiltIn.RETURN_VALUE,
             "IRETURN",
-            "return default",
+            "return 0",
             Optional.empty());
     assertThat(Advice.of(anonymous).headline())
         .isEqualTo("no test checks what `compare()` in an anonymous class returns here");
@@ -160,19 +160,37 @@ class AdviceTest {
   }
 
   @Test
-  void returnsTheDefaultForTheReturnType() {
-    assertThat(
-            Advice.of(mutant(BuiltIn.RETURN_DEFAULT, "IRETURN", "return default", "(I)Z")).after())
-        .contains("return false;");
-    assertThat(
-            Advice.of(mutant(BuiltIn.RETURN_DEFAULT, "LRETURN", "return default", "(I)J")).after())
-        .contains("return 0L;");
-    assertThat(
-            Advice.of(
-                    mutant(
-                        BuiltIn.RETURN_DEFAULT, "ARETURN", "return default", "()Ljava/util/List;"))
-                .change())
-        .isEqualTo("returns `null` instead");
+  void aChangedReturnSaysTheValueItGivesAndAsksForTheOneItTookAway() {
+    var flipped = Advice.of(mutant(BuiltIn.RETURN_VALUE, "IRETURN", "return false", "(I)Z"));
+    assertThat(flipped.after()).contains("return false;");
+    assertThat(flipped.headline()).isEqualTo("no test checks `discount()` returning `true` here");
+    assertThat(flipped.fix())
+        .isEqualTo("add a test where `discount()` returns `true` here, and assert it");
+
+    var one = Advice.of(mutant(BuiltIn.RETURN_VALUE, "LRETURN", "return 1L", "(I)J"));
+    assertThat(one.change()).isEqualTo("returns `1L` instead");
+    assertThat(one.headline()).isEqualTo("no test checks `discount()` returning `0L` here");
+
+    var zero = Advice.of(mutant(BuiltIn.RETURN_VALUE, "IRETURN", "return 0", "(I)I"));
+    assertThat(zero.headline()).isEqualTo("no test checks what `discount()` returns here");
+    assertThat(zero.fix())
+        .isEqualTo(
+            "assert the value `discount()` returns on this path, with inputs where it isn't `0`");
+
+    var empty =
+        Advice.of(
+            mutant(BuiltIn.RETURN_VALUE, "ARETURN", "return List.of()", "()Ljava/util/List;"));
+    assertThat(empty.change()).isEqualTo("returns `List.of()` instead");
+    assertThat(empty.notes())
+        .first()
+        .isEqualTo("tests reach this return, but none fails when it returns `List.of()`");
+    assertThat(empty.fix())
+        .isEqualTo(
+            "assert the value `discount()` returns on this path, with inputs where it isn't empty");
+
+    var none =
+        Advice.of(mutant(BuiltIn.RETURN_VALUE, "ARETURN", "return null", "()Ljava/lang/Object;"));
+    assertThat(none.fix()).isEqualTo("assert the value `discount()` returns on this path");
   }
 
   @Test

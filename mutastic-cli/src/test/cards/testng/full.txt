@@ -30,13 +30,13 @@
    or ignore  mutastic ignore m48bf36cf --reason="<why>" samples/testng
 
    Classes  0 clean | 1 with misses (1)
-   Mutants  ✓ 3 caught · ✗ 1 missed · 1 skipped (1 equivalent) (5)
+   Mutants  ✓ 4 caught · ✗ 1 missed (5)
   Worst at  Rates.lateFee() 1 ✗
- Test runs  4 (4 without coverage selection)
+ Test runs  5 (5 without coverage selection)
   Start at  …
   Duration  … (setup …, coverage …, mutants …)
      Tests  1 on JDK 17 · … workers
-     Score  75.0%  = vs last run (same code)  threshold 80
+     Score  80.0%  = vs last run (same code)  threshold 80
 
- [FAIL] Score below 80: 1 missed, 0 not covered.
+ [PASS] 1 missed, above the threshold.
  Next: mutastic verify <id> samples/testng · mutastic run --only=<id> samples/testng · mutastic explain <id> samples/testng

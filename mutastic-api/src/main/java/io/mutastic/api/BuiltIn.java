@@ -18,9 +18,13 @@ public enum BuiltIn implements Operator {
 
   MATH("`+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`."),
 
-  RETURN_DEFAULT(
-      "A method returns its type's default (`0`, `false`, `null`) instead of what it computed. It"
-          + " goes unnoticed when tests call the method but never look at what it returns."),
+  /// Replaced `mutastic/return-default` (6 Nov 2026), which returned each type's default: a `return
+  /// false` already returned it, and `null` is rarely what a method returning a list gets wrong.
+  RETURN_VALUE(
+      "A method returns the value its kind of method most plausibly gets wrong: a `boolean` the"
+          + " other one, a number `0` (`1` where it returns `0`), an `Optional`, string,"
+          + " collection or stream an empty one, anything else `null`. It goes unnoticed when"
+          + " tests call the method but never look at what it returns."),
 
   REMOVE_VOID_CALL(
       "A call that returns nothing is removed. It goes unnoticed when no test checks what the call"
@@ -67,11 +71,11 @@ public enum BuiltIn implements Operator {
     return tier;
   }
 
-  /// One of the first five, whose mutants' ids were fixed before operators were open: their ids
-  /// leave the operator out, and stay as they were. Every other operator's put it in.
+  /// One of the operators whose mutants' ids were fixed before operators were open: their ids leave
+  /// the operator out, and stay as they were. Every other operator's put it in.
   public boolean first() {
     return switch (this) {
-      case BOUNDARY, NEGATE_CONDITIONAL, MATH, RETURN_DEFAULT, REMOVE_VOID_CALL -> true;
+      case BOUNDARY, NEGATE_CONDITIONAL, MATH, REMOVE_VOID_CALL -> true;
       default -> false;
     };
   }

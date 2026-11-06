@@ -7,7 +7,6 @@ import io.mutastic.api.Status;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.lang.constant.MethodTypeDesc;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -281,14 +280,22 @@ public final class ReportFiles {
           case MATH, ARITHMETIC_REPLACEMENT -> "MathMutator";
           case REMOVE_CONDITIONAL -> "RemoveConditionalMutator";
           case REMOVE_VOID_CALL -> "VoidMethodCallMutator";
-          case RETURN_DEFAULT ->
-              switch (MethodTypeDesc.ofDescriptor(mutant.descriptor())
-                  .returnType()
-                  .descriptorString()) {
-                case "Z" -> "returns.BooleanFalseReturnValsMutator";
-                case "I", "J", "S", "B", "C", "F", "D" -> "returns.PrimitiveReturnsMutator";
-                default -> "returns.NullReturnValsMutator";
-              };
+          case RETURN_VALUE -> returnsMutator(mutant.replacement());
+        };
+  }
+
+  /// The value mutator `mutations.xml` readers know for the value a return now gives.
+  private static String returnsMutator(String replacement) {
+    var value = replacement.substring("return ".length());
+    return "returns."
+        + switch (value) {
+          case "true" -> "BooleanTrueReturnValsMutator";
+          case "false" -> "BooleanFalseReturnValsMutator";
+          case "null" -> "NullReturnValsMutator";
+          default ->
+              Character.isDigit(value.charAt(0))
+                  ? "PrimitiveReturnsMutator"
+                  : "EmptyObjectReturnValsMutator";
         };
   }
 

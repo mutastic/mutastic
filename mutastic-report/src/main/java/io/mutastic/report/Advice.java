@@ -6,7 +6,6 @@ import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Mutator;
-import java.lang.constant.MethodTypeDesc;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -81,7 +80,7 @@ public record Advice(
             case BOUNDARY -> boundary(mutant, seen, asWritten);
             case NEGATE_CONDITIONAL -> negateConditional(mutant, seen, asWritten);
             case MATH, ARITHMETIC_REPLACEMENT -> math(mutant, seen);
-            case RETURN_DEFAULT -> returnDefault(mutant, seen);
+            case RETURN_VALUE -> returnValue(mutant, seen);
             case REMOVE_VOID_CALL -> removeVoidCall(mutant, seen);
             case REMOVE_CONDITIONAL -> removeConditional(mutant, seen, asWritten);
           };
@@ -218,20 +217,48 @@ public record Advice(
         "use inputs where %s and %s differ, and assert the result".formatted(original, swapped));
   }
 
-  private static Advice returnDefault(Mutant mutant, Map<String, List<Long>> seen) {
+  /// The return gives another value: the card says which, and asks for a test that needs the one it
+  /// gives today. A `boolean`, or a number that's `0` today, names that value.
+  private static Advice returnValue(Mutant mutant, Map<String, List<Long>> seen) {
     var method = method(mutant);
-    var value = defaultValue(mutant.descriptor());
+    var value = mutant.replacement().substring("return ".length());
     var notes = new ArrayList<String>();
-    notes.add("tests reach this return but never assert its value");
+    notes.add("tests reach this return, but none fails when it returns `%s`".formatted(value));
     notes.addAll(inputsSeen(seen));
+    var today = returnedToday(value);
     return new Advice(
         Optional.empty(),
-        Optional.of("return " + value + ";"),
+        Optional.of(mutant.replacement() + ";"),
         "returns `%s` instead".formatted(value),
         "now returns " + value,
-        "no test checks what %s returns here".formatted(method),
+        today
+            .map(was -> "no test checks %s returning `%s` here".formatted(method, was))
+            .orElse("no test checks what %s returns here".formatted(method)),
         notes,
-        "assert the value %s returns on this path".formatted(method));
+        today
+            .map(
+                was ->
+                    "add a test where %s returns `%s` here, and assert it".formatted(method, was))
+            .orElseGet(() -> returnHelp(method, value)));
+  }
+
+  /// What a return gives today, when the mutant's value says: the other `boolean`, or the `0` a
+  /// mutant that returns `1` took away.
+  private static Optional<String> returnedToday(String value) {
+    return switch (value) {
+      case "true" -> Optional.of("false");
+      case "false" -> Optional.of("true");
+      default -> value.startsWith("1") ? Optional.of("0" + value.substring(1)) : Optional.empty();
+    };
+  }
+
+  private static String returnHelp(String method, String value) {
+    if (value.equals("null")) {
+      return "assert the value %s returns on this path".formatted(method);
+    }
+    var other = value.startsWith("0") ? "`" + value + "`" : "empty";
+    return "assert the value %s returns on this path, with inputs where it isn't %s"
+        .formatted(method, other);
   }
 
   private static Advice removeVoidCall(Mutant mutant, Map<String, List<Long>> seen) {
@@ -340,17 +367,5 @@ public record Advice(
     }
     var condition = opcode.substring(opcode.startsWith("IF_") ? "IF_ICMP".length() : "IF".length());
     return Optional.ofNullable((asWritten ? JUMP_AS_WRITTEN : JUMP_TO_SOURCE).get(condition));
-  }
-
-  /// `0`, `false`, `null`: what the method returns instead, from its descriptor.
-  private static String defaultValue(String descriptor) {
-    return switch (MethodTypeDesc.ofDescriptor(descriptor).returnType().descriptorString()) {
-      case "Z" -> "false";
-      case "J" -> "0L";
-      case "F" -> "0.0f";
-      case "D" -> "0.0";
-      case "I", "S", "B", "C" -> "0";
-      default -> "null";
-    };
   }
 }

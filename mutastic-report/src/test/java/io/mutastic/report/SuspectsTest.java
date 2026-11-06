@@ -70,9 +70,9 @@ class SuspectsTest {
             "()I",
             ordinal++,
             1,
-            BuiltIn.RETURN_DEFAULT,
+            BuiltIn.RETURN_VALUE,
             "IRETURN",
-            "return default",
+            "return 0",
             Optional.empty());
     return new MutantResult(
         mutant,

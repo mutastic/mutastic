@@ -17,7 +17,7 @@ import java.util.Optional;
 ///   operators apply, so a new operator never shifts the ids of existing mutants
 /// @param original the instruction: an opcode, `IF_ICMPLT`, or a call, `INVOKEVIRTUAL
 ///   com/example/Audit.record(Ljava/lang/String;)V`
-/// @param replacement what it becomes: `IF_ICMPLE`, `return default` or `remove call`
+/// @param replacement what it becomes: `IF_ICMPLE`, `return false` or `remove call`
 /// @param skipped why it doesn't run, `equivalent: already returns the default`, if it doesn't
 /// @param copies more sites (of the same kind) that get the same change at the same time: the
 ///   copies javac makes of a `finally` block, one per way out of the `try`

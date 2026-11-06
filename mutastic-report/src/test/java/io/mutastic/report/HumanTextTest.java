@@ -261,9 +261,9 @@ class HumanTextTest {
                 "()I",
                 0,
                 7,
-                BuiltIn.RETURN_DEFAULT,
+                BuiltIn.RETURN_VALUE,
                 "IRETURN",
-                "return default",
+                "return 0",
                 Optional.empty()),
             Map.of());
 

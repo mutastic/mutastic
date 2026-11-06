@@ -35,10 +35,13 @@ in the summary (`3 skipped (2 equivalent, 1 arid)`), and none of them counts in 
 Each of these is matched in the bytecode, around the mutant's own instruction, and the reason is
 said with the mutant (`equivalent: …`). `mutastic explain ID` shows it.
 
-**It already returns the default.** Changing `return 0;` to "return the default" changes nothing.
+**It already returns that value.** A changed return that gives what the return already does
+changes nothing: an empty list where it already returns one, `null` where it already returns
+`null`. A `return 0;`, `return true;` or `return false;` is changed to the other value instead.
 
 ```java
-if (items.isEmpty()) return 0;   // "returns 0 instead": it already does
+if (items.isEmpty()) return List.of();        // "returns List.of() instead": it already does
+if (items.isEmpty()) return Collections.emptyList();   // so it does here
 ```
 
 **Both sides give the same value at the edge.** A boundary mutant only changes what happens when

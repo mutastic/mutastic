@@ -44,8 +44,8 @@ class OpcodesTest {
     assertThat(Opcodes.describe("ARETURN"))
         .hasValue("return the value on the stack (one of the references)");
     assertThat(Opcodes.describe("XRETURN")).isEmpty();
-    assertThat(Opcodes.describe("return default"))
-        .hasValue("return the type's default (0, false or null) instead");
+    assertThat(Opcodes.describe("return false")).hasValue("return false instead");
+    assertThat(Opcodes.describe("return List.of()")).hasValue("return List.of() instead");
     assertThat(Opcodes.describe("remove call"))
         .hasValue("nothing: the call is gone, and so is whatever it would have done");
     assertThat(Opcodes.describe("INVOKEVIRTUAL com/acme/Audit.record(Ljava/lang/String;)V"))

@@ -122,9 +122,11 @@ class ReportFilesTest {
             result(at(BuiltIn.ARITHMETIC_REPLACEMENT, "(I)I"), Status.CAUGHT),
             result(at(BuiltIn.REMOVE_CONDITIONAL, "(I)I"), Status.MISSED),
             result(at(BuiltIn.REMOVE_VOID_CALL, "(I)V"), Status.MISSED),
-            result(at(BuiltIn.RETURN_DEFAULT, "(I)Z"), Status.MISSED),
-            result(at(BuiltIn.RETURN_DEFAULT, "(I)J"), Status.MISSED),
-            result(at(BuiltIn.RETURN_DEFAULT, "(I)Ljava/lang/String;"), Status.MISSED));
+            result(at(BuiltIn.RETURN_VALUE, "(I)Z"), Status.MISSED),
+            result(at(BuiltIn.RETURN_VALUE, "(I)J"), Status.MISSED),
+            result(at(BuiltIn.RETURN_VALUE, "(I)Ljava/lang/String;"), Status.MISSED),
+            result(at(BuiltIn.RETURN_VALUE, "(I)Ljava/lang/Object;"), Status.MISSED),
+            result(at(BuiltIn.RETURN_VALUE, "(I)Z", "return true"), Status.MISSED));
     var report =
         new Report(
             "pricing",
@@ -161,7 +163,9 @@ class ReportFilesTest {
             "SURVIVED VoidMethodCallMutator",
             "SURVIVED returns.BooleanFalseReturnValsMutator",
             "SURVIVED returns.PrimitiveReturnsMutator",
-            "SURVIVED returns.NullReturnValsMutator");
+            "SURVIVED returns.EmptyObjectReturnValsMutator",
+            "SURVIVED returns.NullReturnValsMutator",
+            "SURVIVED returns.BooleanTrueReturnValsMutator");
   }
 
   @Test
@@ -221,10 +225,10 @@ class ReportFilesTest {
             "(I)I",
             3,
             8,
-            BuiltIn.RETURN_DEFAULT,
+            BuiltIn.RETURN_VALUE,
             "IRETURN",
-            "return default",
-            Optional.of("equivalent: already returns the default"));
+            "return 1",
+            Optional.of("equivalent: already returns null"));
     // A test id with a character XML must escape, and a `</` the HTML must keep out of its script.
     var tests = List.of("com.example.PricingTest#a<b", "com.example.PricingTest#c</script>");
     return new Report(
@@ -243,6 +247,18 @@ class ReportFilesTest {
   }
 
   private static Mutant at(BuiltIn operator, String descriptor) {
+    return at(
+        operator,
+        descriptor,
+        switch (descriptor.substring(descriptor.indexOf(')') + 1)) {
+          case "Z" -> "return false";
+          case "Ljava/lang/String;" -> "return \"\"";
+          case "Ljava/lang/Object;" -> "return null";
+          default -> "return 0";
+        });
+  }
+
+  private static Mutant at(BuiltIn operator, String descriptor, String returned) {
     return new Mutant(
         "com/example/Pricing",
         "discount",
@@ -253,13 +269,13 @@ class ReportFilesTest {
         switch (operator) {
           case MATH, ARITHMETIC_REPLACEMENT -> "IDIV";
           case REMOVE_VOID_CALL -> "INVOKEVIRTUAL com/example/Pricing.audit(I)V";
-          case RETURN_DEFAULT -> "IRETURN";
+          case RETURN_VALUE -> "IRETURN";
           default -> "IF_ICMPLT";
         },
         switch (operator) {
           case MATH, ARITHMETIC_REPLACEMENT -> "IMUL";
           case REMOVE_VOID_CALL -> "remove call";
-          case RETURN_DEFAULT -> "return default";
+          case RETURN_VALUE -> returned;
           case REMOVE_CONDITIONAL -> "never jump";
           default -> "IF_ICMPGE";
         },

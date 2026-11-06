@@ -28,7 +28,7 @@ class FlakyRunsTest {
     // The second doesn't: the catch didn't repeat, and with the same code the result changed.
     assertThat(second.out())
         .contains(
-            "vs last run: 62.5% → 50.0% (same code)",
+            "vs last run: 66.7% → 55.6% (same code)",
             "likely flaky: StockTest#restockingWorks; with the code unchanged, whether it catches",
             "likely flaky: StockTest#restockingWorks; its catches of",
             "(StockTest#restockingWorks failed once, then passed: flaky)");
@@ -54,7 +54,7 @@ class FlakyRunsTest {
         .contains(
             "\"sameCodeAsLastRun\":true",
             "\"before\":\"Killed\",\"after\":\"Survived\"",
-            "\"likelyFlaky\":[{\"test\":\"com.example.stock.StockTest#restockingWorks\",\"mutants\":[\"m4b6a65ac\",\"m7610241c\"],"
+            "\"likelyFlaky\":[{\"test\":\"com.example.stock.StockTest#restockingWorks\",\"mutants\":[\"m4b6a65ac\",\"mb3b4bcf9\"],"
                 + "\"reasons\":[\"changed-since-last-run\",\"catch-not-repeated\"]}]");
     assertThat(second.out())
         .contains("\"unconfirmedCatchBy\":\"com.example.stock.StockTest#restockingWorks\"");

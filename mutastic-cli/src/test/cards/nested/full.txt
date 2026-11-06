@@ -30,13 +30,13 @@
     │
     = mutant  - return left - right;
               + return 0;
-    = note: tests reach this return but never assert its value
+    = note: tests reach this return, but none fails when it returns 0
             covered by ShippingTest#cheapestComesFirstSomehow (its 1 covering test still passes)
-    = help: assert the value compare() in an anonymous class returns on this path
+    = help: assert the value compare() in an anonymous class returns on this path, with inputs where it isn't 0
 
-    done when  mutastic verify m17d30bd5 samples/nested passes
-    reproduce  mutastic run --only=m17d30bd5 samples/nested
-    or ignore  mutastic ignore m17d30bd5 --reason="<why>" samples/nested
+    done when  mutastic verify mc4eb4916 samples/nested passes
+    reproduce  mutastic run --only=mc4eb4916 samples/nested
+    or ignore  mutastic ignore mc4eb4916 --reason="<why>" samples/nested
 
  [✗ MISSED] no test checks what cheapestFirst() returns here
     ┌─ src/main/java/com/example/nested/Shipping.java:53
@@ -46,13 +46,13 @@
     │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^ now returns null
  54 │       @Override
     │
-    = note: tests reach this return but never assert its value
+    = note: tests reach this return, but none fails when it returns null
             covered by ShippingTest#cheapestComesFirstSomehow (its 1 covering test still passes)
     = help: assert the value cheapestFirst() returns on this path
 
-    done when  mutastic verify m746574d6 samples/nested passes
-    reproduce  mutastic run --only=m746574d6 samples/nested
-    or ignore  mutastic ignore m746574d6 --reason="<why>" samples/nested
+    done when  mutastic verify m87a4dced samples/nested passes
+    reproduce  mutastic run --only=m87a4dced samples/nested
+    or ignore  mutastic ignore m87a4dced --reason="<why>" samples/nested
 
  [✗ MISSED] no test checks a lambda in heavyOnes() at weight == heavyFrom
     ┌─ src/main/java/com/example/nested/Shipping.java:77
@@ -123,13 +123,13 @@
    ○ src/main/java/com/example/nested/Shipping.java:85 days() in an anonymous class (1 mutant)
 
    Classes  0 clean | 1 with misses (1)
-   Mutants  ✓ 17 caught · ✗ 6 missed · ○ 1 not covered · 5 skipped (4 arid, 1 equivalent) (29)
+   Mutants  ✓ 20 caught · ✗ 6 missed · ○ 1 not covered · 4 skipped (4 arid) (31)
   Worst at  Shipping.compare() (an anonymous class) 2 ✗ · Shipping.cheapestFirst() 1 ✗ · Shipping.heavyOnes() (a lambda) 1 ✗
- Test runs  23 (138 without coverage selection)
+ Test runs  26 (156 without coverage selection)
   Start at  …
   Duration  … (setup …, coverage …, mutants …)
      Tests  6 on JDK 17 · … workers
-     Score  70.8%  = vs last run (same code)  threshold 80  · 73.9% where tests reach
+     Score  74.1%  = vs last run (same code)  threshold 80  · 76.9% where tests reach
 
  [FAIL] Score below 80: 6 missed, 1 not covered.
  Next: mutastic verify <id> samples/nested · mutastic run --only=<id> samples/nested · mutastic explain <id> samples/nested

@@ -32,9 +32,9 @@ class SourceNamesTest {
             "()I",
             0,
             1,
-            BuiltIn.RETURN_DEFAULT,
+            BuiltIn.RETURN_VALUE,
             "IRETURN",
-            "return default",
+            "return 0",
             Optional.empty()));
   }
 }

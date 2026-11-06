@@ -23,8 +23,9 @@ class PricingSampleTest {
     assertThat(run.exit()).as(run.err()).isEqualTo(Main.PASSED);
     assertThat(run.out()).contains("\"reason\":\"run-finished\",\"jdk\":17");
     assertThat(run.out())
-        .contains("\"Killed\":8,\"Survived\":1,\"Timeout\":0,\"NoCoverage\":0,\"Ignored\":2");
-    assertThat(run.out()).contains("\"statusReason\":\"equivalent: already returns the default\"");
+        .contains("\"Killed\":10,\"Survived\":1,\"Timeout\":0,\"NoCoverage\":0,\"Ignored\":0");
+    // `return 0` can't become 0: it becomes 1, and the tests notice.
+    assertThat(run.out()).contains("\"bytecode\":\"IRETURN -> return 1\"");
     var missed =
         run.out()
             .lines()
@@ -73,21 +74,6 @@ class PricingSampleTest {
         .contains(
             id
                 + " is caught by com.example.pricing.PricingTest#anOrderOfExactlyOneHundredGetsTheDiscount");
-
-    // A skipped mutant has nothing to catch: verify says why it's skipped, and passes, rather
-    // than send anyone looking for the test that should reach it.
-    var skipped =
-        run.out()
-            .lines()
-            .filter(line -> line.contains("\"status\":\"Ignored\""))
-            .findFirst()
-            .orElseThrow();
-    var skippedId = skipped.replaceAll(".*\"id\":\"(m[0-9a-f]{8})\".*", "$1");
-    var reason = skipped.replaceAll(".*\"statusReason\":\"([^\"]+)\".*", "$1");
-    var skip = Samples.mutastic("verify", skippedId, project.toString());
-    assertThat(skip.exit()).isEqualTo(Main.PASSED);
-    assertThat(skip.out())
-        .contains(skippedId + " is skipped (" + reason + "), so it isn't run and needs no test");
   }
 
   @Test
@@ -98,7 +84,7 @@ class PricingSampleTest {
 
     assertThat(run.out().lines().findFirst().orElseThrow())
         .isEqualTo(
-            "mutastic: PASS · score 88.9% (threshold 80) · 1 missed, 0 not covered, 8 caught of 9 mutants (2 more skipped)");
+            "mutastic: PASS · score 90.9% (threshold 80) · 1 missed, 0 not covered, 10 caught of 11 mutants");
     assertThat(run.out()).contains("   - if (total >= 100) {", "   + if (total > 100) {");
   }
 
@@ -118,7 +104,7 @@ class PricingSampleTest {
                 .filter(line -> line.contains("Score"))
                 .findFirst()
                 .orElseThrow())
-        .isEqualTo("     Score  88.9%  threshold 80");
+        .isEqualTo("     Score  90.9%  threshold 80");
     assertThat(run.out().strip().lines().toList())
         .contains(" [PASS] 1 missed, above the threshold.");
     // Progress goes to stderr, so stdout is only the result: in a log, a line per file as it

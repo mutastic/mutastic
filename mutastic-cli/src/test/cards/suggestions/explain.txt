@@ -131,6 +131,49 @@ $ mutastic explain m05382fc9
                 returns are counted in bytecode order; calls apart)
     = last run  missed: every covering test still passed
 
+$ mutastic explain m193b6dcc
+
+ [✗ MISSED] no test checks inCredit() returning false here
+    ┌─ src/main/java/com/example/rates/Rates.java:18
+    │
+ 17 │   public static boolean inCredit(int balance) {
+ 18 │     return balance > 0;
+    │     ^^^^^^^^^^^^^^^^^^^ now returns true
+ 19 │   }
+    │
+    = mutant  - return balance > 0;
+              + return true;
+    = note: tests reach this return, but none fails when it returns true
+            inputs seen: balance = 50
+            covered by RatesTest#aPositiveBalanceIsInCredit (its 1 covering test still passes)
+    = help: add a test where inCredit() returns false here, and assert it
+
+            // in RatesTest
+            @Test
+            void inCreditWithBalance0() {
+              assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m193b6dcc samples/suggestions passes
+    reproduce  mutastic run --only=m193b6dcc samples/suggestions
+    or ignore  mutastic ignore m193b6dcc --reason="<why>" samples/suggestions
+
+ About this mutant ───────────────────────────────────────────────
+    = bytecode  IRETURN → return true
+                IRETURN: return the value on the stack (one of the ints)
+                return true: return true instead
+    = operator  mutastic/return-value: A method returns the value its kind of method most plausibly
+                gets wrong: a `boolean` the other one, a number `0` (`1` where it returns `0`), an
+                `Optional`, string, collection or stream an empty one, anything else `null`. It goes
+                unnoticed when tests call the method but never look at what it returns.
+    = id        m193b6dcc: `m` and the first 8 hex digits of its fingerprint, 193b6dcc716697d5, a
+                SHA-256 of the class, method, site and change, and the operator
+                no line number goes in, so the id stays the same when code above it moves
+    = site      instruction site 3 of inCredit(I)Z, counting from 1 (arithmetic, branches and
+                returns are counted in bytecode order; calls apart)
+    = last run  missed: every covering test still passed
+
 $ mutastic explain m90db0c4e
 
  [✗ MISSED] no test needs start == null to be false in openOn()
@@ -381,38 +424,6 @@ $ mutastic explain m45713261
                 SHA-256 of the class, method, site and change, and the operator
                 no line number goes in, so the id stays the same when code above it moves
     = site      instruction site 4 of openOn(I)Z, counting from 1 (arithmetic, branches and returns
-                are counted in bytecode order; calls apart)
-    = last run  missed: every covering test still passed
-
-$ mutastic explain m5a0bdd3e
-
- [✗ MISSED] tests pass even when + becomes - in jitter()
-    ┌─ src/main/java/com/example/rates/Rates.java:23
-    │
- 22 │   public static int jitter(int price) {
- 23 │     return price + new Random().nextInt(5);
-    │                  ^ changed to -
- 24 │   }
-    │
-    = mutant  - return price + new Random().nextInt(5);
-              + return price - new Random().nextInt(5);
-    = note: inputs seen: price = 100
-            covered by RatesTest#jitterIsAPrice (its 1 covering test still passes)
-    = help: use inputs where + and - differ, and assert the result
-
-    done when  mutastic verify m5a0bdd3e samples/suggestions passes
-    reproduce  mutastic run --only=m5a0bdd3e samples/suggestions
-    or ignore  mutastic ignore m5a0bdd3e --reason="<why>" samples/suggestions
-
- About this mutant ───────────────────────────────────────────────
-    = bytecode  IADD → ISUB
-                IADD: add two ints
-                ISUB: subtract two ints
-    = operator  mutastic/math: `+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`.
-    = id        m5a0bdd3e: `m` and the first 8 hex digits of its fingerprint, 5a0bdd3eaf056092, a
-                SHA-256 of the class, method, site and change
-                no line number goes in, so the id stays the same when code above it moves
-    = site      instruction site 1 of jitter(I)I, counting from 1 (arithmetic, branches and returns
                 are counted in bytecode order; calls apart)
     = last run  missed: every covering test still passed
 

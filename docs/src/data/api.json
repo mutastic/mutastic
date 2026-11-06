@@ -277,10 +277,10 @@
             },
             {
               "kind": "enum constant",
-              "name": "RETURN_DEFAULT",
-              "anchor": "return_default",
-              "signature": "RETURN_DEFAULT",
-              "doc": "",
+              "name": "RETURN_VALUE",
+              "anchor": "return_value",
+              "signature": "RETURN_VALUE",
+              "doc": "Replaced `mutastic/return-default` (6 Nov 2026), which returned each type's default: a `return\nfalse` already returned it, and `null` is rarely what a method returning a list gets wrong.",
               "params": [],
               "returns": "",
               "throws": []
@@ -360,7 +360,7 @@
               "name": "first",
               "anchor": "first",
               "signature": "boolean first()",
-              "doc": "One of the first five, whose mutants' ids were fixed before operators were open: their ids\nleave the operator out, and stay as they were. Every other operator's put it in.",
+              "doc": "One of the operators whose mutants' ids were fixed before operators were open: their ids leave\nthe operator out, and stay as they were. Every other operator's put it in.",
               "params": [],
               "returns": "",
               "throws": []
@@ -758,7 +758,7 @@
             },
             {
               "name": "replacement",
-              "doc": "what it becomes: `IF_ICMPLE`, `return default` or `remove call`"
+              "doc": "what it becomes: `IF_ICMPLE`, `return false` or `remove call`"
             },
             {
               "name": "skipped",

@@ -1,4 +1,4 @@
-mutastic: FAIL · score 54.5% (threshold 80) · 10 missed, 0 not covered, 12 caught of 22 mutants (3 more skipped)
+mutastic: FAIL · score 52.0% (threshold 80) · 12 missed, 0 not covered, 13 caught of 25 mutants (2 more skipped)
 rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/suggestions` passes
 decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and propose ignoring it with that reason (and --as equivalent, unreachable, telemetry, deprecated or accepted-risk) for a person to accept (`mutastic ignore <id> --propose --reason="<why>" samples/suggestions`)
 
@@ -55,7 +55,25 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    reproduce: mutastic run --only=m05382fc9 samples/suggestions
    or propose: mutastic ignore m05382fc9 --propose --reason="<why>" samples/suggestions
 
-4. missed m90db0c4e: no test needs `start == null` to be false in `openOn()`
+4. missed m193b6dcc: no test checks `inCredit()` returning `false` here
+   at src/main/java/com/example/rates/Rates.java:18
+   - return balance > 0;
+   + return true;
+   covered by: RatesTest#aPositiveBalanceIsInCredit; all still pass with the change
+   evidence: tests reach this return, but none fails when it returns `true`
+   evidence: inputs seen: balance = 50
+   fix: add a test where `inCredit()` returns `false` here, and assert it
+   test to add in RatesTest:
+     @Test
+     void inCreditWithBalance0() {
+       assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
+     }
+     // check today's value is the one you intend: the test pins what the code does now
+   done when: mutastic verify m193b6dcc samples/suggestions passes
+   reproduce: mutastic run --only=m193b6dcc samples/suggestions
+   or propose: mutastic ignore m193b6dcc --propose --reason="<why>" samples/suggestions
+
+5. missed m90db0c4e: no test needs `start == null` to be false in `openOn()`
    at src/main/java/com/example/rates/Window.java:6
    - return (start == null || start <= day) && day < end;
    + return (true || start <= day) && day < end;
@@ -72,7 +90,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    reproduce: mutastic run --only=m90db0c4e samples/suggestions
    or propose: mutastic ignore m90db0c4e --propose --reason="<why>" samples/suggestions
 
-5. missed mc1631e8f: no test needs `start == null` to be true in `openOn()`
+6. missed mc1631e8f: no test needs `start == null` to be true in `openOn()`
    at src/main/java/com/example/rates/Window.java:6
    - return (start == null || start <= day) && day < end;
    + return (false || start <= day) && day < end;
@@ -83,7 +101,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    reproduce: mutastic run --only=mc1631e8f samples/suggestions
    or propose: mutastic ignore mc1631e8f --propose --reason="<why>" samples/suggestions
 
-6. missed m6cb7282e: no test checks `openOn()` at `start == day`
+7. missed m6cb7282e: no test checks `openOn()` at `start == day`
    at src/main/java/com/example/rates/Window.java:6
    - return (start == null || start <= day) && day < end;
    + return (start == null || start < day) && day < end;
@@ -100,7 +118,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    reproduce: mutastic run --only=m6cb7282e samples/suggestions
    or propose: mutastic ignore m6cb7282e --propose --reason="<why>" samples/suggestions
 
-7. missed m00c02bf2: no test needs `start <= day` to be false in `openOn()`
+8. missed m00c02bf2: no test needs `start <= day` to be false in `openOn()`
    at src/main/java/com/example/rates/Window.java:6
    - return (start == null || start <= day) && day < end;
    + return (start == null || true) && day < end;
@@ -117,7 +135,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    reproduce: mutastic run --only=m00c02bf2 samples/suggestions
    or propose: mutastic ignore m00c02bf2 --propose --reason="<why>" samples/suggestions
 
-8. missed madf99876: no test checks `openOn()` at `day == end`
+9. missed madf99876: no test checks `openOn()` at `day == end`
    at src/main/java/com/example/rates/Window.java:6
    - return (start == null || start <= day) && day < end;
    + return (start == null || start <= day) && day <= end;
@@ -134,7 +152,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    reproduce: mutastic run --only=madf99876 samples/suggestions
    or propose: mutastic ignore madf99876 --propose --reason="<why>" samples/suggestions
 
-9. missed m45713261: no test needs `day < end` to be false in `openOn()`
+10. missed m45713261: no test needs `day < end` to be false in `openOn()`
    at src/main/java/com/example/rates/Window.java:6
    - return (start == null || start <= day) && day < end;
    + return (start == null || start <= day) && true;
@@ -151,13 +169,4 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    reproduce: mutastic run --only=m45713261 samples/suggestions
    or propose: mutastic ignore m45713261 --propose --reason="<why>" samples/suggestions
 
-10. missed m5a0bdd3e: tests pass even when `+` becomes `-` in `jitter()`
-   at src/main/java/com/example/rates/Rates.java:23
-   - return price + new Random().nextInt(5);
-   + return price - new Random().nextInt(5);
-   covered by: RatesTest#jitterIsAPrice; all still pass with the change
-   evidence: inputs seen: price = 100
-   fix: use inputs where `+` and `-` differ, and assert the result
-   done when: mutastic verify m5a0bdd3e samples/suggestions passes
-   reproduce: mutastic run --only=m5a0bdd3e samples/suggestions
-   or propose: mutastic ignore m5a0bdd3e --propose --reason="<why>" samples/suggestions
+2 more missed mutants: run again after fixing these

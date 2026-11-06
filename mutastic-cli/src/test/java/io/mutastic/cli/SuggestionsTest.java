@@ -16,6 +16,28 @@ class SuggestionsTest {
 
   @TempDir Path work;
 
+  /// A skipped mutant has nothing to catch: verify says why it's skipped, and passes, rather than
+  /// send anyone looking for the test that should reach it.
+  @Test
+  void verifyingASkippedMutantSaysWhyAndPasses() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("suggestions"));
+
+    var run = Samples.mutastic("run", project.toString(), "--format=jsonl");
+    var skipped =
+        run.out()
+            .lines()
+            .filter(line -> line.contains("\"status\":\"Ignored\""))
+            .findFirst()
+            .orElseThrow();
+    var skippedId = skipped.replaceAll(".*\"id\":\"(m[0-9a-f]{8})\".*", "$1");
+    var reason = skipped.replaceAll(".*\"statusReason\":\"([^\"]+)\".*", "$1");
+    var skip = Samples.mutastic("verify", skippedId, project.toString());
+
+    assertThat(skip.exit()).isEqualTo(Main.PASSED);
+    assertThat(skip.out())
+        .contains(skippedId + " is skipped (" + reason + "), so it isn't run and needs no test");
+  }
+
   @Test
   void suggestionsPastedInCatchTheirMutantsAndRandomnessGetsNone() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("suggestions"));
@@ -54,6 +76,11 @@ class SuggestionsTest {
         @Test
         void inCreditWithBalance0() {
           assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
+        }""",
+            """
+        @Test
+        void openOnWithDay0ForWindow0And0() {
+          assertThat(new Window(0, 0L).openOn(0)).isFalse(); // today false · with this mutant true
         }""",
             """
         @Test

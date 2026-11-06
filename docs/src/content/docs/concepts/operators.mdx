@@ -17,7 +17,7 @@ For why each one is worth catching, the bugs it stands for and the test that cat
 | [`mutastic/remove-conditional`](#remove-conditional) | a condition to always true, or always false | defaults |
 | [`mutastic/math`](#math) | `+` and `-`, `*` and `/` | defaults |
 | [`mutastic/arithmetic-replacement`](#arithmetic-replacement) | `+` to `*` | stronger |
-| [`mutastic/return-default`](#return-default) | a returned value to `0`, `false` or `null` | defaults |
+| [`mutastic/return-value`](#return-value) | a returned value to the other `boolean`, `0`, an empty one or `null` | defaults |
 | [`mutastic/remove-void-call`](#remove-void-call) | a call that returns nothing, removed | defaults |
 | [`stream/remove-stage`](#stream-stage-removal) | a stream stage, removed | defaults |
 | [`stream/swap-match`](#stream-match-swap) | `anyMatch`, `allMatch` and `noneMatch`, swapped | defaults |
@@ -79,16 +79,33 @@ goes unnoticed when tests only add numbers whose sum and product agree, `2 + 2` 
 return price + shipping;   // becomes: return price * shipping;
 ```
 
-## Return default
+## Return value
 
-`mutastic/return-default`. A method returns its type's default (`0`, `false`, `null`) instead of
-what it computed. It goes unnoticed when tests call the method but never look at what it returns.
+`mutastic/return-value`. A method returns the value its kind of method most plausibly gets wrong,
+instead of what it computed. It goes unnoticed when tests call the method but never look at what it
+returns.
+
+| The method returns | The mutant returns |
+|---|---|
+| `boolean` | the other one: `true` becomes `false`, `false` becomes `true`, and a computed one becomes each |
+| a number | `0`, or `1` where it returns `0` |
+| `Optional` | `Optional.empty()` |
+| `String` | `""` |
+| `List`, `Collection` or `Iterable` | `List.of()` |
+| `Set`, `Map` | `Set.of()`, `Map.of()` |
+| `Stream` | `Stream.empty()` |
+| `Boolean`, `Integer`, `Long` and the other boxed numbers | as their primitive does |
+| anything else | `null` |
 
 ```java
 return subtotal + shipping;      // becomes: return 0;
-return customer.isEligible();    // becomes: return false;
-return "Order " + id;            // becomes: return null;
+return customer.isEligible();    // becomes: return false; and: return true;
+return "Order " + id;            // becomes: return "";
+return orders.stream().filter(Order::isPaid).toList();   // becomes: return List.of();
 ```
+
+A return that already gives that value, `return List.of();` say, can't be changed by it, and is
+[skipped as equivalent](/concepts/equivalence/).
 
 ## Remove void call
 

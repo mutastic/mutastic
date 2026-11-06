@@ -187,9 +187,9 @@ class AgentTextTest {
             "(I)I",
             9,
             8,
-            BuiltIn.RETURN_DEFAULT,
+            BuiltIn.RETURN_VALUE,
             "IRETURN",
-            "return default",
+            "return 0",
             Optional.empty());
     var uncovered =
         report(

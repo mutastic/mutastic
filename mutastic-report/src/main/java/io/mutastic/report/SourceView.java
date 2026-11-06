@@ -217,7 +217,7 @@ public final class SourceView {
         found =
             operator.onCalls()
                 ? new Place(number, at + 1, at + token.length())
-                : operator == io.mutastic.api.BuiltIn.RETURN_DEFAULT
+                : operator == io.mutastic.api.BuiltIn.RETURN_VALUE
                     ? new Place(number, at + 1, text.stripTrailing().length() + 1)
                     : new Place(number, at + 2, at + token.length()); // inside its spaces
       }
@@ -242,7 +242,7 @@ public final class SourceView {
             () ->
                 mutant.operator().onCalls()
                     ? Optional.of(calledName(mutant.original()) + "(")
-                    : mutant.operator() == io.mutastic.api.BuiltIn.RETURN_DEFAULT
+                    : mutant.operator() == io.mutastic.api.BuiltIn.RETURN_VALUE
                         ? Optional.of("return ")
                         : Optional.empty());
   }

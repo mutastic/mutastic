@@ -98,10 +98,10 @@ final class Opcodes {
         : Optional.of(operation + " two " + type);
   }
 
-  /// `IRETURN`: `return an int`; `return default`: `return 0, false or null instead`.
+  /// `IRETURN`: `return an int`; `return false`: `return false instead`.
   private static Optional<String> returns(String opcode) {
-    if (opcode.equals("return default")) {
-      return Optional.of("return the type's default (0, false or null) instead");
+    if (opcode.startsWith("return ")) {
+      return Optional.of(opcode + " instead");
     }
     if (opcode.endsWith("RETURN") && opcode.length() == 7) {
       var type = TYPES.get(opcode.substring(0, 1));

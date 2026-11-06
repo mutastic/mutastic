@@ -150,25 +150,29 @@ void totalAddsShipping() {
 
 Run it with `--operators=stronger`.
 
-## Return default
+## Return value
 
 **The bug it stands for:** a method that doesn't return what it worked out. This is less a typo
 than a sign: tests that call the method but never look at its answer.
 
-**Where it costs:** everywhere a result is used. If returning `0`, `false` or `null` instead
-passes every test, the tests run the method without checking it. Its line counts as covered, and
-the coverage report says it's tested when it isn't.
+**Where it costs:** everywhere a result is used. If returning the other `boolean`, `0`, an empty
+list or `null` instead passes every test, the tests run the method without checking it. Its line
+counts as covered, and the coverage report says it's tested when it isn't. The value is the one a
+method of that kind most plausibly gets wrong: a check that answers the wrong way, a count of
+nothing, a search that finds nothing. That's why a list becomes an empty list rather than `null`:
+code that forgot to add the results returns one, and a `null` would fail on its first use, which
+any test notices.
 
 ```java
 boolean isEligible() {
-  return orders >= 10;   // becomes: return false;
+  return orders >= 10;   // becomes: return false; and: return true;
 }
 ```
 
-**The test that catches it:** one that asserts on the result. When `false` is missed, a test that
-expects `true` catches it, and the other way round. When `null` is missed, a test that checks the
-returned value catches it, and code that uses the value without checking it for `null` would fail
-in production.
+**The test that catches it:** one that asserts on the result. A computed `boolean` gets both
+mutants, so it needs a test where the answer is `true` and one where it's `false`. A number
+becomes `0`, caught by a test whose answer isn't `0`; a list becomes empty, caught by a test whose
+answer has something in it.
 
 ```java
 @Test

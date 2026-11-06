@@ -43,10 +43,6 @@ import org.jspecify.annotations.Nullable;
 
 /// Finds the mutants in a class and applies one at a time, with only `java.lang.classfile`.
 final class Mutations {
-  private static final Set<Opcode> DEFAULT_CONSTANTS =
-      Set.of(
-          Opcode.ICONST_0, Opcode.LCONST_0, Opcode.FCONST_0, Opcode.DCONST_0, Opcode.ACONST_NULL);
-
   /// Calls whose only effect is output: removing one changes what a person reads, not what the code
   /// does, so no test is expected to notice.
   private static final Set<String> OUTPUT_OWNERS =
@@ -240,7 +236,7 @@ final class Mutations {
       var found = new ArrayList<Found>();
       for (Operator operator : operators) {
         switch (operator) {
-          case io.mutastic.api.BuiltIn builtIn -> builtInChanges(builtIn, instruction, found);
+          case io.mutastic.api.BuiltIn builtIn -> builtInChanges(builtIn, instruction, at, found);
           case Mutator mutator -> addedChanges(mutator, instruction, at, found);
         }
       }
@@ -260,11 +256,26 @@ final class Mutations {
         Operator operator, int site, String label, Optional<String> skippedByOperator) {}
 
     private void builtInChanges(
-        io.mutastic.api.BuiltIn builtIn, Instruction instruction, List<Found> found) {
+        io.mutastic.api.BuiltIn builtIn, Instruction instruction, int at, List<Found> found) {
+      if (builtIn == BuiltIn.RETURN_VALUE) {
+        returnChanges(instruction, at, found);
+        return;
+      }
       boolean call = instruction instanceof InvokeInstruction;
       if ((call || isSite(instruction)) && builtIn.onCalls() == call) {
         for (String label : Operators.replacements(builtIn, instruction)) {
           found.add(new Found(builtIn, call ? callOrdinal : ordinal, label, Optional.empty()));
+        }
+      }
+    }
+
+    /// A return's changes, which depend on the method's type and the code just before it.
+    private void returnChanges(Instruction instruction, int at, List<Found> found) {
+      if (instruction instanceof ReturnInstruction returning
+          && returning.typeKind() != TypeKind.VOID) {
+        var returned = method.methodTypeSymbol().returnType();
+        for (Mutator.Change change : ReturnValues.changes(model, returned, code, at)) {
+          found.add(new Found(BuiltIn.RETURN_VALUE, ordinal, change.label(), change.skipped()));
         }
       }
     }
@@ -294,7 +305,7 @@ final class Mutations {
               ? Optional.of("generated: closes a try-with-resources resource")
               : found
                   .skippedByOperator()
-                  .or(() -> skipReason(operator, instruction))
+                  .or(() -> skipReason(instruction))
                   .or(() -> atTheSite(found, at))
                   .or(() -> filtered);
       return new Mutant(
@@ -321,12 +332,7 @@ final class Mutations {
     }
 
     /// Why a mutant shouldn't run, if it shouldn't: the reason's first word is its kind.
-    private Optional<String> skipReason(Operator operator, Instruction instruction) {
-      if (operator == BuiltIn.RETURN_DEFAULT
-          && previous instanceof ConstantInstruction constant
-          && DEFAULT_CONSTANTS.contains(constant.opcode())) {
-        return Optional.of("equivalent: already returns the default");
-      }
+    private Optional<String> skipReason(Instruction instruction) {
       if (instruction instanceof BranchInstruction
           && stringSwitchLines.contains(line)
           && isCall(previous, "java/lang/String", "equals")) {
@@ -550,7 +556,7 @@ final class Mutations {
               BranchInstruction.of(Operators.replace(operator, branch.opcode()), branch.target()));
       case OperatorInstruction arithmetic ->
           builder.with(OperatorInstruction.of(Operators.replace(operator, arithmetic.opcode())));
-      case ReturnInstruction returning -> returnDefault(builder, returning.typeKind());
+      case ReturnInstruction returning -> ReturnValues.write(builder, returning, mutant);
       case InvokeInstruction call -> removeCall(builder, call);
       default -> throw new IllegalStateException("not a mutation site: " + instruction);
     }
@@ -566,18 +572,6 @@ final class Mutations {
     if (change.equals(Operators.ALWAYS_JUMP)) {
       builder.goto_(branch.target());
     }
-  }
-
-  private static void returnDefault(CodeBuilder builder, TypeKind kind) {
-    pop(builder, kind);
-    switch (kind) {
-      case LONG -> builder.lconst_0();
-      case FLOAT -> builder.fconst_0();
-      case DOUBLE -> builder.dconst_0();
-      case REFERENCE -> builder.aconst_null();
-      default -> builder.iconst_0(); // int, and the boolean, char, short and byte it carries
-    }
-    builder.return_(kind);
   }
 
   private static void removeCall(CodeBuilder builder, InvokeInstruction call) {

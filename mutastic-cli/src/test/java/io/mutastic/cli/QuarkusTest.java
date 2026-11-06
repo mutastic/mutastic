@@ -30,7 +30,7 @@ class QuarkusTest {
     // saw, not only the summary.
     assertThat(run.out())
         .as("the run:%n%s%nits workers:%n%s", run.out(), workerLogs(project))
-        .contains("5 missed, 0 not covered, 9 caught of 14 mutants")
+        .contains("5 missed, 0 not covered, 11 caught of 16 mutants")
         .contains("no test has duplicate items for `.select().distinct()` in top() to remove")
         .contains("no test has more items than `.select().first(…)` in top() lets through")
         .contains(

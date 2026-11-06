@@ -46,11 +46,10 @@ class MutationsTest {
             org.assertj.core.groups.Tuple.tuple(
                 BuiltIn.REMOVE_CONDITIONAL, "IF_ICMPLT", "never jump", 10),
             org.assertj.core.groups.Tuple.tuple(BuiltIn.MATH, "IDIV", "IMUL", 11),
-            org.assertj.core.groups.Tuple.tuple(
-                BuiltIn.RETURN_DEFAULT, "IRETURN", "return default", 11),
-            org.assertj.core.groups.Tuple.tuple(
-                BuiltIn.RETURN_DEFAULT, "IRETURN", "return default", 13));
-    assertThat(found.getLast().skipped()).contains("equivalent: already returns the default");
+            org.assertj.core.groups.Tuple.tuple(BuiltIn.RETURN_VALUE, "IRETURN", "return 0", 11),
+            org.assertj.core.groups.Tuple.tuple(BuiltIn.RETURN_VALUE, "IRETURN", "return 1", 13));
+    // `return 0` can't be changed to return 0: it's changed to return 1.
+    assertThat(found).allSatisfy(mutant -> assertThat(mutant.skipped()).isEmpty());
   }
 
   @Test
@@ -200,11 +199,10 @@ class MutationsTest {
   }
 
   @Test
-  void returnDefaultReturnsZero() throws Exception {
+  void aComputedNumberReturnsZero() throws Exception {
     var mutant =
         mutantsOf("discount").stream()
-            .filter(
-                found -> found.operator() == BuiltIn.RETURN_DEFAULT && found.skipped().isEmpty())
+            .filter(found -> found.operator() == BuiltIn.RETURN_VALUE && found.skipped().isEmpty())
             .findFirst()
             .orElseThrow();
     var pricing = mutated(mutant);
@@ -220,11 +218,11 @@ class MutationsTest {
                 .filter(found -> found.original().equals("LADD"))
                 .findFirst()
                 .orElseThrow());
-    var audit = mutated(only("audit", BuiltIn.RETURN_DEFAULT));
+    var audit = mutated(only("audit", BuiltIn.RETURN_VALUE));
 
     assertThat(total.getClass().getMethod("total", long.class, int.class).invoke(total, 10L, 3))
         .isEqualTo(25L); // was 35
-    assertThat(audit.getClass().getMethod("audit").invoke(audit)).isNull();
+    assertThat(audit.getClass().getMethod("audit").invoke(audit)).isEqualTo(List.of());
   }
 
   @Test
@@ -329,7 +327,7 @@ class MutationsTest {
                 assertThat(mutant.skipped()).contains("generated: part of a switch on a String"));
     // The cases' own returns are the user's.
     assertThat(inSize)
-        .filteredOn(mutant -> mutant.operator() == BuiltIn.RETURN_DEFAULT)
+        .filteredOn(mutant -> mutant.operator() == BuiltIn.RETURN_VALUE)
         .allSatisfy(mutant -> assertThat(mutant.skipped()).isEmpty());
     assertThat(inIsSmall).isNotEmpty().allSatisfy(mutant -> assertThat(mutant.skipped()).isEmpty());
   }
@@ -409,7 +407,7 @@ class MutationsTest {
         .anyMatch(original -> original.contains("addSuppressed"))
         .anyMatch(original -> original.equals("IFNULL"));
     // `return reader.readLine()` is the user's: its mutants still run.
-    assertThat(userCode).extracting(Mutant::operator).containsExactly(BuiltIn.RETURN_DEFAULT);
+    assertThat(userCode).extracting(Mutant::operator).containsExactly(BuiltIn.RETURN_VALUE);
   }
 
   @Test

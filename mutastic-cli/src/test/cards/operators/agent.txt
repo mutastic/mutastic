@@ -1,4 +1,4 @@
-mutastic: FAIL · score 66.7% (threshold 80) · 3 missed, 0 not covered, 6 caught of 9 mutants
+mutastic: FAIL · score 60.0% (threshold 80) · 4 missed, 0 not covered, 6 caught of 10 mutants
 rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/operators` passes
 decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and propose ignoring it with that reason (and --as equivalent, unreachable, telemetry, deprecated or accepted-risk) for a person to accept (`mutastic ignore <id> --propose --reason="<why>" samples/operators`)
 
@@ -22,7 +22,18 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    reproduce: mutastic run --only=m911a2864 samples/operators
    or propose: mutastic ignore m911a2864 --propose --reason="<why>" samples/operators
 
-3. missed me98ceb51: no test needs `.filter(…)` in large()
+3. missed m378f41b1: no test checks a lambda in `large()` returning `false` here
+   at src/main/java/com/example/orders/Orders.java:8
+   - return totals.stream().filter(total -> total >= 100).count();
+   + return true;
+   covered by: OrdersTest#countsLargeOrders; all still pass with the change
+   evidence: tests reach this return, but none fails when it returns `true`
+   fix: add a test where a lambda in `large()` returns `false` here, and assert it
+   done when: mutastic verify m378f41b1 samples/operators passes
+   reproduce: mutastic run --only=m378f41b1 samples/operators
+   or propose: mutastic ignore m378f41b1 --propose --reason="<why>" samples/operators
+
+4. missed me98ceb51: no test needs `.filter(…)` in large()
    at src/main/java/com/example/orders/Orders.java:8
    - return totals.stream().filter(total -> total >= 100).count();
    + (stage removed)

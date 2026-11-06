@@ -10,6 +10,8 @@
               [32m+ [0mreturn balance >= 0;
     [2m=[0m also    [1;31m✗[0m no test needs [1mbalance > 0[0m to be false in [1minCredit()[0m [2m· m05382fc9[0m
               [32m+ [0mreturn true;
+    [2m=[0m also    [1;31m✗[0m no test checks [1minCredit()[0m returning [1mfalse[0m here [2m· m193b6dcc[0m
+              [32m+ [0mreturn true;
     [2m=[0m [1;34m[1mnote[0m[0m: every test calls [1minCredit()[0m away from the boundary
             [2minputs seen: 50 (none is 0)[0m
             [2mcovered by RatesTest#aPositiveBalanceIsInCredit (its 1 covering test still passes)[0m
@@ -22,6 +24,6 @@
             }
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m
 
-    [2mdone when [0m mutastic verify md4db94d8,m05382fc9 samples/suggestions[2m passes[0m
-    [2mreproduce [0m mutastic run --only=md4db94d8,m05382fc9 samples/suggestions
-    [2mor ignore [0m mutastic ignore <id> --reason="<why>" samples/suggestions for each of md4db94d8, m05382fc9
+    [2mdone when [0m mutastic verify md4db94d8,m05382fc9,m193b6dcc samples/suggestions[2m passes[0m
+    [2mreproduce [0m mutastic run --only=md4db94d8,m05382fc9,m193b6dcc samples/suggestions
+    [2mor ignore [0m mutastic ignore <id> --reason="<why>" samples/suggestions for each of md4db94d8, m05382fc9, m193b6dcc

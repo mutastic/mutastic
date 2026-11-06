@@ -1,17 +1,17 @@
-mutastic: FAIL · score 70.8% (threshold 80; 73.9% where tests reach) · 6 missed, 1 not covered, 17 caught of 24 mutants (5 more skipped)
+mutastic: FAIL · score 74.1% (threshold 80; 76.9% where tests reach) · 6 missed, 1 not covered, 20 caught of 27 mutants (4 more skipped)
 rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/nested` passes
 decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and propose ignoring it with that reason (and --as equivalent, unreachable, telemetry, deprecated or accepted-risk) for a person to accept (`mutastic ignore <id> --propose --reason="<why>" samples/nested`)
 
-1. missed m746574d6: no test checks what `cheapestFirst()` returns here
+1. missed m87a4dced: no test checks what `cheapestFirst()` returns here
    at src/main/java/com/example/nested/Shipping.java:53
    - return new Comparator<>() {
    + (returns `null` instead)
    covered by: ShippingTest#cheapestComesFirstSomehow; all still pass with the change
-   evidence: tests reach this return but never assert its value
+   evidence: tests reach this return, but none fails when it returns `null`
    fix: assert the value `cheapestFirst()` returns on this path
-   done when: mutastic verify m746574d6 samples/nested passes
-   reproduce: mutastic run --only=m746574d6 samples/nested
-   or propose: mutastic ignore m746574d6 --propose --reason="<why>" samples/nested
+   done when: mutastic verify m87a4dced samples/nested passes
+   reproduce: mutastic run --only=m87a4dced samples/nested
+   or propose: mutastic ignore m87a4dced --propose --reason="<why>" samples/nested
 
 2. missed m3a700d03: no test checks a lambda in `heavyOnes()` at `weight == heavyFrom`
    at src/main/java/com/example/nested/Shipping.java:77
@@ -23,16 +23,16 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    reproduce: mutastic run --only=m3a700d03 samples/nested
    or propose: mutastic ignore m3a700d03 --propose --reason="<why>" samples/nested
 
-3. missed m17d30bd5: no test checks what `compare()` in an anonymous class returns here
+3. missed mc4eb4916: no test checks what `compare()` in an anonymous class returns here
    at src/main/java/com/example/nested/Shipping.java:56
    - return left - right;
    + return 0;
    covered by: ShippingTest#cheapestComesFirstSomehow; all still pass with the change
-   evidence: tests reach this return but never assert its value
-   fix: assert the value `compare()` in an anonymous class returns on this path
-   done when: mutastic verify m17d30bd5 samples/nested passes
-   reproduce: mutastic run --only=m17d30bd5 samples/nested
-   or propose: mutastic ignore m17d30bd5 --propose --reason="<why>" samples/nested
+   evidence: tests reach this return, but none fails when it returns `0`
+   fix: assert the value `compare()` in an anonymous class returns on this path, with inputs where it isn't `0`
+   done when: mutastic verify mc4eb4916 samples/nested passes
+   reproduce: mutastic run --only=mc4eb4916 samples/nested
+   or propose: mutastic ignore mc4eb4916 --propose --reason="<why>" samples/nested
 
 4. missed m657726cd: no test checks `heavy()` at `weight == heavyFrom`
    at src/main/java/com/example/nested/Shipping.java:47

@@ -31,11 +31,9 @@ import static java.util.Objects.requireNonNull;
 import io.mutastic.api.BuiltIn;
 import java.lang.classfile.Instruction;
 import java.lang.classfile.Opcode;
-import java.lang.classfile.TypeKind;
 import java.lang.classfile.instruction.BranchInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.OperatorInstruction;
-import java.lang.classfile.instruction.ReturnInstruction;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -91,11 +89,7 @@ final class Operators {
   /// operator doesn't apply.
   static List<String> replacements(BuiltIn operator, Instruction instruction) {
     return switch (operator) {
-      case RETURN_DEFAULT ->
-          instruction instanceof ReturnInstruction returning
-                  && returning.typeKind() != TypeKind.VOID
-              ? List.of("return default")
-              : List.of();
+      case RETURN_VALUE -> List.of(); // ReturnValues: it reads the code before the return
       case REMOVE_VOID_CALL ->
           instruction instanceof InvokeInstruction call
                   && call.typeSymbol().returnType().descriptorString().equals("V")
