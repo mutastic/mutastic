@@ -30,7 +30,11 @@ is done when:
 - **the task added no ignore of its own.** Ignoring a mutant is a person's call: the agent
   proposes, with `mutastic ignore ID --propose`;
 - **no test was taken away**: there are no fewer tests than when the task started, and no more
-  disabled.
+  disabled;
+- **the tests pass.** When a test that was there when the task started fails, the gate says so,
+  and tells the agent to find out whether the change or the test is wrong, and to ask you if it
+  isn't sure, rather than rewrite what the test expects. Every mutant is caught by a test made to
+  fit a wrong change, so the score can't tell you.
 
 A task that changes no lines mutastic mutates (docs, build files, tests only) passes at once.
 Mutants on lines the task didn't touch aren't its business: they were missed before it started.

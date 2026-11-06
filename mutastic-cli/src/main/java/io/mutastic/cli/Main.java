@@ -340,7 +340,7 @@ public final class Main {
     try {
       report = gateRun(gated, state.base());
     } catch (Engine.BaselineFailed e) {
-      return Gate.Verdict.block("mutastic gate: " + e.getMessage() + ". Make them pass first");
+      return Gate.Verdict.block(red(gated, state, e));
     }
     var proposed = proposedIds(gated.prepared().directory());
     var missed = missedIds(report);
@@ -357,6 +357,42 @@ public final class Main {
                 open.size() == 1 ? "" : "s",
                 open.size() == 1 ? "is" : "are",
                 cards(gated, report)));
+  }
+
+  /// Tests that fail before any mutant. One that was there when the task started is most likely
+  /// broken by the change, and rewriting what it expects would pass a wrong change: the agent is
+  /// told to find out which is wrong, and to ask.
+  private static String red(Gated gated, Gate.State state, Engine.BaselineFailed failed) {
+    var before =
+        failed.failing().stream().filter(test -> wasThere(gated, state.base(), test)).toList();
+    if (before.isEmpty()) {
+      return "mutastic gate: " + failed.getMessage() + ". Make them pass first";
+    }
+    return ("mutastic gate: %s.%n%n%s %s there when the task started: if %s passed then, the task's"
+            + " change broke %s. Find out whether the change or the test is wrong. Don't change"
+            + " what a test expects to make it pass unless the task asked for that behaviour, and"
+            + " if you're not sure, ask")
+        .formatted(
+            failed.getMessage(),
+            String.join(", ", before),
+            before.size() == 1 ? "was" : "were",
+            before.size() == 1 ? "it" : "they",
+            before.size() == 1 ? "it" : "them");
+  }
+
+  /// Whether a test, `com.example.ATest#name`, was in its class's source at `base`.
+  private static boolean wasThere(Gated gated, String base, String test) {
+    var type = test.replaceFirst("[#$].*", "");
+    var method = test.replaceFirst("^[^#]*#?", "").replaceFirst("[(\\[].*", "");
+    for (var sources : gated.prepared().project().testSources()) {
+      for (var extension : List.of(".java", ".kt")) {
+        var source = new Git(sources).at(base, Path.of(type.replace('.', '/') + extension));
+        if (source.isPresent() && source.get().contains(method)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /// The run on the lines changed since `base`.

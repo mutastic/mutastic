@@ -140,6 +140,45 @@ class GateTest {
     assertThat(again.out()).startsWith("{\"decision\": \"block\""); // a new stop, a new try
   }
 
+  /// A test the task added that fails is the task's to make pass. One that was there when the task
+  /// started is most likely broken by the change: the agent isn't to rewrite what it expects.
+  @Test
+  void aTestThatWasThereWhenTheTaskStartedIsntTheAgentsToRewrite() throws Exception {
+    mutastic("gate", "open", project.toString());
+    var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
+    var original = Files.readString(test);
+    Files.writeString(
+        test,
+        original.replaceFirst(
+            "\\}\\s*$",
+            """
+
+              @org.junit.jupiter.api.Test
+              void hugeOrders() {
+                assertEquals(1, new Pricing().discount(1000));
+              }
+            }
+            """));
+    aDiscountForOrdersOverFifty();
+    var added = mutastic("gate", "check", project.toString());
+    Files.writeString(test, original);
+    var pricing = project.resolve(PRICING);
+    Files.writeString(pricing, Files.readString(pricing).replace("total / 10", "total / 5"));
+    var broken = mutastic("gate", "check", project.toString());
+
+    assertThat(added.exit()).isEqualTo(Main.FAILED);
+    assertThat(added.out())
+        .contains("PricingTest#hugeOrders")
+        .contains("Make them pass first")
+        .doesNotContain("there when the task started");
+    assertThat(broken.exit()).isEqualTo(Main.FAILED);
+    assertThat(broken.out())
+        .contains("PricingTest#bigOrdersGetTenPercentOff was there when the task started")
+        .contains("Find out whether the change or the test is wrong")
+        .contains("if you're not sure, ask")
+        .doesNotContain("Make them pass first");
+  }
+
   @Test
   void gateNeedsToBeToldWhatToDo() {
     var bare = mutastic("gate");

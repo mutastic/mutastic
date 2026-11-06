@@ -62,6 +62,12 @@ final class Git {
     }
   }
 
+  /// A file as it was at a commit, by its path from this directory: none if it wasn't there, or
+  /// this directory isn't.
+  Optional<String> at(String commit, Path file) {
+    return run(List.of("show", commit + ":./" + file.toString().replace('\\', '/')));
+  }
+
   /// The lines changed since `since`, or since the repository's default branch for `""`.
   ChangedLines changedSince(String since) {
     var root =
