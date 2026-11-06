@@ -153,6 +153,14 @@ public enum BuiltIn implements Operator {
   REMOVE_SWITCH_ARM(
       "An arm of a `switch` is removed, so its values go to the default, or throw if the switch has"
           + " none. It goes unnoticed when no test has a value that reaches the arm.",
+      Tier.EXTENDED),
+
+  /// A whole method's code replaced, as a fast first pass: it finds a method no test notices at
+  /// all. Finer operators' mutants subsume it, so a catch here says little; a miss says a lot.
+  REPLACE_BODY(
+      "A method's whole body is replaced by returning the value its kind of method most plausibly"
+          + " gets wrong, or by nothing. It goes unnoticed when no test depends on the method at"
+          + " all: a quick way to find those, not a measure of how well the rest is tested.",
       Tier.EXTENDED);
 
   private final String explanation;

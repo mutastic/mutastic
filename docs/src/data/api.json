@@ -466,6 +466,16 @@
               "throws": []
             },
             {
+              "kind": "enum constant",
+              "name": "REPLACE_BODY",
+              "anchor": "replace_body",
+              "signature": "REPLACE_BODY",
+              "doc": "A whole method's code replaced, as a fast first pass: it finds a method no test notices at\nall. Finer operators' mutants subsume it, so a catch here says little; a miss says a lot.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
               "kind": "method",
               "name": "id",
               "anchor": "id",

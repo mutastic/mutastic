@@ -100,6 +100,7 @@ public record Advice(
       case CONSTANT_VALUE -> constant(mutant, seen, UnaryOperator.identity());
       case REMOVE_NEGATION -> removedNegation(mutant, seen);
       case REMOVE_SWITCH_ARM -> switchArm(mutant, seen, UnaryOperator.identity());
+      case REPLACE_BODY -> replacedBody(mutant, seen);
     };
   }
 
@@ -636,6 +637,32 @@ public record Advice(
         "no test needs %s in %s".formatted(arm, method(mutant)),
         inputsSeen(seen),
         "add a test with a value that reaches %s, and assert what it does".formatted(arm));
+  }
+
+  /// A whole method's code gone. The label is `body return 0`, or `body emptied` for a method that
+  /// returns nothing.
+  private static Advice replacedBody(Mutant mutant, Map<String, List<Long>> seen) {
+    var method = method(mutant);
+    var label = mutant.replacement();
+    if (!label.startsWith("body return ")) {
+      return new Advice(
+          Optional.empty(),
+          Optional.empty(),
+          "%s does nothing".formatted(capitalised(method)),
+          "body removed",
+          "no test notices %s doing nothing".formatted(method),
+          inputsSeen(seen),
+          "add a test that calls %s and asserts what it does".formatted(method));
+    }
+    var value = label.substring("body return ".length());
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        "%s does nothing but return `%s`".formatted(capitalised(method), value),
+        "now only returns " + value,
+        "no test notices %s doing nothing but returning `%s`".formatted(method, value),
+        inputsSeen(seen),
+        "add a test that calls %s and asserts a result other than `%s`".formatted(method, value));
   }
 
   /// A variable's step the other way. The label is the step the mutant takes, `i by -1`.

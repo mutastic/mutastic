@@ -899,6 +899,30 @@ void goldCustomersGetTwentyPercent() {
 
 Run it with `--operators=defaults,extended`.
 
+## Replace body
+
+**The bug it stands for:** a method that's wrong from top to bottom, or does nothing, and nobody
+would know: not a slip in one line, but code no test depends on.
+
+**Where it costs:** the code everyone assumes is tested because coverage says it runs. A method that
+tests reach but never check can be wrong in any way at all.
+
+```java
+int total(Order order) { … }   // becomes: int total(Order order) { return 0; }
+```
+
+**The test that catches it:** one that calls the method and asserts a result other than that value.
+
+```java
+@Test
+void anOrdersTotalAddsItsLines() {
+  assertEquals(30, pricing.total(new Order(10, 20)));   // it'd be 0
+}
+```
+
+Use it as a first pass, with `--operators=mutastic/replace-body`: each miss is a whole method to look
+at. Catching these says little on its own, as any test that looks at the result does.
+
 ## When a miss is fine
 
 Not every missed mutant is a gap worth closing. mutastic already skips the changes that would

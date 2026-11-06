@@ -273,6 +273,12 @@ final class ReturnValues {
     builder.return_(kind);
   }
 
+  /// Only the return: `label` is what [#changes] calls it, with nothing on the stack to replace.
+  static void writeBody(CodeBuilder builder, ClassDesc returned, String label) {
+    push(builder, label.substring(RETURN.length()), returned);
+    builder.return_(TypeKind.from(returned).asLoadable());
+  }
+
   private static void push(CodeBuilder builder, String value, ClassDesc returned) {
     if (returned.isPrimitive()) {
       constant(builder, TypeKind.from(returned), value);

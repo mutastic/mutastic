@@ -69,7 +69,8 @@ final class Mutations {
           BuiltIn.SWAP_ARGUMENTS,
           BuiltIn.NULL_PARAMETER,
           BuiltIn.DROP_VARARG,
-          BuiltIn.REMOVE_SWITCH_ARM);
+          BuiltIn.REMOVE_SWITCH_ARM,
+          BuiltIn.REPLACE_BODY);
 
   private final ClassFile context;
   private final Policy policy;
@@ -420,12 +421,22 @@ final class Mutations {
             found.add(new Found(builtIn, ordinal, label, Optional.empty()));
           }
         }
+        case REPLACE_BODY -> bodyChanges(found);
         case REMOVE_SWITCH_ARM -> {
           for (var arm : SwitchArms.at(code, at)) {
             found.add(new Found(builtIn, index, arm.label(), arm.skipped(), arm.line()));
           }
         }
         default -> siteChanges(builtIn, instruction, found);
+      }
+    }
+
+    /// The whole method's changes, once, at its first instruction.
+    private void bodyChanges(List<Found> found) {
+      if (index == 0) {
+        for (Mutator.Change change : MethodBodies.changes(model, method, code)) {
+          found.add(new Found(BuiltIn.REPLACE_BODY, index, change.label(), change.skipped()));
+        }
       }
     }
 
@@ -669,8 +680,8 @@ final class Mutations {
       // Type annotations in the code (JSpecify's `@Nullable` on a local) say where each annotated
       // local lives by bytecode offset, which the API doesn't move when a mutant changes the
       // code's length: they'd point past the end, and the class wouldn't load. They go too.
-      if (isOffsetBound(element)) {
-        return;
+      if (isOffsetBound(element) || mutant.operator() == BuiltIn.REPLACE_BODY) {
+        return; // a replaced body's code is written by atStart: none of this goes with it
       }
       if (element instanceof Instruction instruction
           && mutant.operator() != BuiltIn.NULL_PARAMETER
@@ -703,6 +714,9 @@ final class Mutations {
       if (mutant.operator() == BuiltIn.NULL_PARAMETER) {
         var slot = mutant.replacement().substring(NULL_PARAMETER.length() + 1).split(" ", 2)[0];
         builder.aconst_null().astore(Integer.parseInt(slot));
+      } else if (mutant.operator() == BuiltIn.REPLACE_BODY) {
+        var returned = java.lang.constant.MethodTypeDesc.ofDescriptor(mutant.descriptor());
+        MethodBodies.write(builder, returned.returnType(), mutant.replacement());
       }
     }
 
@@ -754,7 +768,8 @@ final class Mutations {
         || operator == BuiltIn.NULL_PARAMETER
         || operator == BuiltIn.FLIP_INCREMENT
         || operator == BuiltIn.CONSTANT_VALUE
-        || operator == BuiltIn.REMOVE_SWITCH_ARM;
+        || operator == BuiltIn.REMOVE_SWITCH_ARM
+        || operator == BuiltIn.REPLACE_BODY;
   }
 
   private static boolean isFieldWrite(FieldInstruction field) {

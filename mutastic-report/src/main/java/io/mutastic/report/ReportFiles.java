@@ -290,18 +290,6 @@ public final class ReportFiles {
   private static String knownMutator(io.mutastic.api.BuiltIn builtIn, Mutant mutant) {
     return switch (builtIn) {
       case BOUNDARY -> "ConditionalsBoundaryMutator";
-      case COMPARISON,
-          OTHER_COMPARISON,
-          LOGICAL_CONNECTOR,
-          REMOVE_ASSIGNMENT,
-          REMOVE_FIELD_WRITE,
-          OMIT_CALL,
-          SWAP_ARGUMENTS,
-          NULL_PARAMETER,
-          DROP_VARARG,
-          KEEP_OPERAND,
-          REMOVE_SWITCH_ARM ->
-          mutant.operator().id();
       case MATH, ARITHMETIC_REPLACEMENT, OTHER_ARITHMETIC -> "MathMutator";
       case CONSTANT_VALUE -> "InlineConstantMutator";
       case FLIP_INCREMENT -> "IncrementsMutator";
@@ -310,6 +298,7 @@ public final class ReportFiles {
       case REMOVE_VOID_CALL -> "VoidMethodCallMutator";
       case REMOVE_DISCARDED_CALL -> "NonVoidMethodCallMutator";
       case RETURN_VALUE -> returnsMutator(mutant.replacement());
+      default -> mutant.operator().id(); // an operator with no established name goes by its own
     };
   }
 

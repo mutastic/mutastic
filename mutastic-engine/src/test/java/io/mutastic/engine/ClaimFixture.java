@@ -94,6 +94,13 @@ final class ClaimFixture {
     return ClassFile.of(ClassFile.ClassHierarchyResolverOption.of(resolver));
   }
 
+  /// Lets the filters see the fixture as a module, as a real run does: what's arid for what calls
+  /// it, say.
+  ClaimFixture prepared() {
+    mutations.prepare(List.of(model));
+    return this;
+  }
+
   /// Every mutant of the fixture's own methods, not of the claims.
   List<Mutant> mutants() {
     return mutations.find(model).stream()
