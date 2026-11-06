@@ -130,9 +130,32 @@ public final class SourceView {
   }
 
   private Advice advice(Mutant mutant, java.util.Map<String, List<Long>> seen) {
-    return mutant.operator() == BuiltIn.LOGICAL_CONNECTOR
-        ? Advice.connector(mutant, seen, connective(mutant))
-        : Advice.of(mutant, seen, asWritten(mutant));
+    return switch (mutant.operator()) {
+      case BuiltIn.LOGICAL_CONNECTOR -> Advice.connector(mutant, seen, connective(mutant));
+      case BuiltIn.CONSTANT_VALUE -> Advice.constant(mutant, seen, charactersOn(mutant));
+      default -> Advice.of(mutant, seen, asWritten(mutant));
+    };
+  }
+
+  /// A number as the line has it: `'a'` for `97`, when the line has that letter in quotes and not
+  /// the number. The mutant's own value goes the same way, if it's a character too.
+  private java.util.function.UnaryOperator<String> charactersOn(Mutant mutant) {
+    var all = lines(mutant).orElse(List.of());
+    var text = mutant.line() >= 1 && mutant.line() <= all.size() ? all.get(mutant.line() - 1) : "";
+    var today = mutant.replacement().split(" ", 4)[1];
+    boolean quoted = isCharacter(today) && text.contains(quoted(today));
+    return value -> quoted && isCharacter(value) ? quoted(value) : value;
+  }
+
+  /// Whether the number is a character that can be written in quotes as it is.
+  private static boolean isCharacter(String value) {
+    return value.matches("\\d{2,3}")
+        && Integer.parseInt(value) >= ' '
+        && Integer.parseInt(value) <= '~';
+  }
+
+  private static String quoted(String value) {
+    return "'" + (char) Integer.parseInt(value) + "'";
   }
 
   /// The connector a connector mutant swaps, when its statement has just one `&&` or `||`; its two
@@ -300,6 +323,9 @@ public final class SourceView {
     return line(mutant)
         .flatMap(
             text -> {
+              if (mutant.operator() == BuiltIn.CONSTANT_VALUE) {
+                return constantChanged(text, advice);
+              }
               if (advice.before().isPresent() && advice.after().isPresent()) {
                 return operatorChanged(mutant, advice, text);
               }
@@ -312,6 +338,16 @@ public final class SourceView {
                       && text.indexOf("return ", 1) < 0;
               return advice.after().filter(after -> singleReturn && after.startsWith("return "));
             });
+  }
+
+  /// The line with the number changed, when it's on the line once and not in a string: one the
+  /// source names, `LIMIT`, isn't there to change.
+  private static Optional<String> constantChanged(String text, Advice advice) {
+    var before = advice.before().orElseThrow();
+    var after = advice.after().orElseThrow();
+    var outsideStrings = text.replaceAll("\"[^\"]*\"", "\"\"");
+    return replacedOnce(outsideStrings, before, after)
+        .flatMap(_ -> replacedOnce(text, before, after));
   }
 
   /// The line with the comparison changed: `b > 1` found once on it, from the operands, so a

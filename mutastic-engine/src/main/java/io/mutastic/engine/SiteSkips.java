@@ -44,14 +44,15 @@ final class SiteSkips {
           "java/lang/StringBuffer",
           "java/io/ByteArrayOutputStream");
 
-  /// The operators that change what a calculation gives.
+  /// The operators that change a value worked out, or given, by the code.
   private static final Set<Operator> CALCULATIONS =
       Set.of(
           BuiltIn.MATH,
           BuiltIn.ARITHMETIC_REPLACEMENT,
           BuiltIn.OTHER_ARITHMETIC,
           BuiltIn.KEEP_OPERAND,
-          BuiltIn.REMOVE_NEGATION);
+          BuiltIn.REMOVE_NEGATION,
+          BuiltIn.CONSTANT_VALUE);
 
   private SiteSkips() {}
 
@@ -268,7 +269,7 @@ final class SiteSkips {
 
   /// The next `count` instructions after `code[at]`, stopping at a label: past one, other code can
   /// jump in.
-  private static List<Instruction> instructionsAfter(List<CodeElement> code, int at, int count) {
+  static List<Instruction> instructionsAfter(List<CodeElement> code, int at, int count) {
     var found = new ArrayList<Instruction>();
     for (var element : significantAfter(code, at, count + 1)) {
       if (element instanceof LabelTarget || found.size() == count) {

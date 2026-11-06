@@ -126,6 +126,14 @@ public enum BuiltIn implements Operator {
           + " when no test has a value of the other that changes the result.",
       Tier.STRONGER),
 
+  /// A number in the code changed, including a `static final` one: javac writes its value where
+  /// it's used, so a threshold set wrong shows here and nowhere else. Numbers that can't be told
+  /// from a `boolean`, and those javac writes itself, are left alone.
+  CONSTANT_VALUE(
+      "A number in the code becomes one next to it, or `0`, `1` or `-1`: `total >= 100` becomes"
+          + " `total >= 101`. It goes unnoticed when no test has a value near the one that matters.",
+      Tier.STRONGER),
+
   /// A variable's own step the other way: `iinc` with its sign flipped. Most are loop counters, and
   /// a loop that never ends costs a whole time limit to catch, so it's in `stronger`.
   FLIP_INCREMENT(

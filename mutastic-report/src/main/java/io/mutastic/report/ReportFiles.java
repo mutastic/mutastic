@@ -302,6 +302,7 @@ public final class ReportFiles {
           KEEP_OPERAND ->
           mutant.operator().id();
       case MATH, ARITHMETIC_REPLACEMENT, OTHER_ARITHMETIC -> "MathMutator";
+      case CONSTANT_VALUE -> "InlineConstantMutator";
       case FLIP_INCREMENT -> "IncrementsMutator";
       case REMOVE_NEGATION -> "InvertNegsMutator";
       case REMOVE_CONDITIONAL -> "RemoveConditionalMutator";

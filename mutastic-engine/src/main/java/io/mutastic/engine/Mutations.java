@@ -404,6 +404,11 @@ final class Mutations {
         io.mutastic.api.BuiltIn builtIn, Instruction instruction, int at, List<Found> found) {
       switch (builtIn) {
         case FLIP_INCREMENT -> incrementChange(instruction, at, found);
+        case CONSTANT_VALUE -> {
+          for (Mutator.Change change : new Constants(code, stores, method).changes(at)) {
+            found.add(new Found(builtIn, index, change.label(), change.skipped()));
+          }
+        }
         case KEEP_OPERAND -> {
           for (String label : Arithmetic.operandsKept(code, at)) {
             found.add(new Found(builtIn, ordinal, label, Optional.empty()));
@@ -736,7 +741,8 @@ final class Mutations {
     return operator == BuiltIn.REMOVE_ASSIGNMENT
         || operator == BuiltIn.REMOVE_FIELD_WRITE
         || operator == BuiltIn.NULL_PARAMETER
-        || operator == BuiltIn.FLIP_INCREMENT;
+        || operator == BuiltIn.FLIP_INCREMENT
+        || operator == BuiltIn.CONSTANT_VALUE;
   }
 
   private static boolean isFieldWrite(FieldInstruction field) {
@@ -815,6 +821,7 @@ final class Mutations {
           // A comparison's change is the jump it takes instead, by name.
           builder.with(BranchInstruction.of(Opcode.valueOf(mutant.replacement()), branch.target()));
       case OperatorInstruction arithmetic -> Arithmetic.write(builder, arithmetic, mutant);
+      case ConstantInstruction constant -> Constants.write(builder, constant, mutant);
       case IncrementInstruction step -> builder.iinc(step.slot(), -step.constant());
       case ReturnInstruction returning -> ReturnValues.write(builder, returning, mutant);
       case InvokeInstruction call -> changeCall(builder, call, mutant);

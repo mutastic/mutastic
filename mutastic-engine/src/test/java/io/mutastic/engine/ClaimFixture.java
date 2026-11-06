@@ -115,6 +115,67 @@ final class ClaimFixture {
     return failures;
   }
 
+  /// [#claimsThatLie], for a fixture whose claims take the value the mutant's label ends in as a
+  /// third parameter: `int atClaim(int a, int b, int limit)`. So one claim is every value's.
+  List<String> valueClaimsThatLie() throws ReflectiveOperationException {
+    var failures = new ArrayList<String>();
+    for (var mutant : running()) {
+      if (!mutant.descriptor().startsWith(inputs.descriptor())) {
+        continue;
+      }
+      var method = sourceMethod(mutant);
+      var mutated = outcomes(mutated(mutant), method);
+      if (!mutated.equals(valueClaim(method, mutant))) {
+        failures.add(describe(mutant) + ": isn't what the claim says");
+      }
+      if (mutated.equals(outcomes(original, method))) {
+        failures.add(describe(mutant) + ": changes nothing");
+      }
+    }
+    return failures;
+  }
+
+  private List<String> valueClaim(String method, Mutant mutant)
+      throws ReflectiveOperationException {
+    var named = method + "Claim";
+    var claim =
+        java.util.Arrays.stream(original.getDeclaredMethods())
+            .filter(each -> each.getName().equals(named) && each.getParameterCount() == 3)
+            .findFirst()
+            .orElseThrow(() -> new NoSuchMethodException(named));
+    claim.setAccessible(true);
+    var label = mutant.replacement();
+    var value = parsed(label.substring(label.lastIndexOf(' ') + 1), claim.getParameterTypes()[2]);
+    var outcomes = new ArrayList<String>();
+    for (Object a : inputs.values()) {
+      for (Object b : inputs.values()) {
+        outcomes.add(a + "," + b + ": " + outcome(claim, a, b, value));
+      }
+    }
+    return outcomes;
+  }
+
+  private static Object parsed(String value, Class<?> type) {
+    if (type == long.class) {
+      return Long.valueOf(value);
+    }
+    if (type == float.class) {
+      return Float.valueOf(value);
+    }
+    if (type == double.class) {
+      return Double.valueOf(value);
+    }
+    return type == char.class ? (Object) (char) Integer.parseInt(value) : Integer.valueOf(value);
+  }
+
+  /// What a mutant's method gives for two of the fixture's inputs.
+  String outcomeOf(Mutant mutant, Object a, Object b) throws ReflectiveOperationException {
+    var method =
+        mutated(mutant).getDeclaredMethod(sourceMethod(mutant), inputs.type(), inputs.type());
+    method.setAccessible(true);
+    return outcome(method, a, b);
+  }
+
   /// The skipped mutants that don't behave as the original does.
   List<String> skippedThatDiffer() throws ReflectiveOperationException {
     var failures = new ArrayList<String>();
@@ -161,8 +222,10 @@ final class ClaimFixture {
     return outcomes;
   }
 
-  String outcomeOfOriginal(String method, String a, String b) throws ReflectiveOperationException {
-    return outcome(original, method, a, b);
+  String outcomeOfOriginal(String method, Object a, Object b) throws ReflectiveOperationException {
+    var found = original.getDeclaredMethod(method, inputs.type(), inputs.type());
+    found.setAccessible(true);
+    return outcome(found, a, b);
   }
 
   /// What the method gives for the inputs, or what it threw.

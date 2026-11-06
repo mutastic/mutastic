@@ -215,6 +215,20 @@ class AdviceTest {
   }
 
   @Test
+  void aConstantsCardNamesTheValueAndAsksForATestNearIt() {
+    var advice = Advice.of(mutant(BuiltIn.CONSTANT_VALUE, "BIPUSH", "constant 100 to 101", "(I)I"));
+    assertThat(advice.before()).contains("100");
+    assertThat(advice.after()).contains("101");
+    assertThat(advice.change()).isEqualTo("the constant `100` becomes `101`");
+    assertThat(advice.changedTo()).isEqualTo("changed to 101");
+    assertThat(advice.headline()).isEqualTo("no test tells `100` from `101` in `discount()`");
+    assertThat(advice.fix())
+        .isEqualTo(
+            "add a test near where `100` takes effect, whose result would differ with `101`, and"
+                + " assert it");
+  }
+
+  @Test
   void aFlippedStepSaysWhichWayTheVariableShouldGo() {
     var down = Advice.of(mutant(BuiltIn.FLIP_INCREMENT, "IINC", "count by -1", "(I)I"));
     assertThat(down.change()).isEqualTo("`count` goes down by 1 instead of up");

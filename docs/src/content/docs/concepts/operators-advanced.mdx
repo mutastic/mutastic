@@ -244,6 +244,35 @@ void theTotalIncludesTheFee() {
 
 Run it with `--operators=stronger`.
 
+## Constant value
+
+**The bug it stands for:** a number set wrong: a threshold of `100` that should be `1000`, a retry
+limit one too high, a rate with a digit out. Nothing else shows these: the comparison is right, and
+only its number is wrong.
+
+**Where it costs:** limits and rates held as `static final` constants, which tests often reuse
+instead of stating: a test that says `assertTrue(isLarge(LIMIT))` passes whatever `LIMIT` is. It's in
+the `stronger` set because every number has several changes, which makes it the costliest arithmetic
+operator to run.
+
+```java
+private static final int FREE_SHIPPING_FROM = 100;
+
+if (total >= FREE_SHIPPING_FROM)   // becomes: if (total >= 101)
+```
+
+**The test that catches it:** one that states the number, with values next to it.
+
+```java
+@Test
+void shippingIsFreeFromExactlyOneHundred() {
+  assertTrue(new Basket(100).shipsFree());   // with 101 it wouldn't
+  assertFalse(new Basket(99).shipsFree());   // with 99 it would
+}
+```
+
+Run it with `--operators=stronger`.
+
 ## Flip increment
 
 **The bug it stands for:** a counter going the wrong way: `--` for `++`, a retry count that climbs

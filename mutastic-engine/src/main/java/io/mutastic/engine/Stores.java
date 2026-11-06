@@ -58,6 +58,35 @@ final class Stores {
     return variableAt(store.slot(), at);
   }
 
+  /// The source variable the store at `at` gives a value, first or not: none for what's javac's, or
+  /// code without the table. A first store comes just before the variable's range starts.
+  Optional<LocalVariable> storedVariable(int at, int slot) {
+    return variables()
+        .filter(local -> local.slot() == slot)
+        .filter(local -> inRange(local, at) || startsJustAfter(local, at))
+        .findFirst();
+  }
+
+  /// The source variable in the slot just before `at`, for what it's declared as.
+  Optional<LocalVariable> variableIn(int at, int slot) {
+    return variables().filter(local -> local.slot() == slot && inRange(local, at)).findFirst();
+  }
+
+  private Stream<LocalVariable> variables() {
+    return code.stream()
+        .<LocalVariable>flatMap(
+            element -> element instanceof LocalVariable local ? Stream.of(local) : Stream.of())
+        .filter(local -> !local.name().stringValue().contains("$"));
+  }
+
+  private boolean startsJustAfter(LocalVariable local, int at) {
+    int start = position(local.startScope());
+    if (start <= at || start >= code.size()) {
+      return false;
+    }
+    return code.subList(at + 1, start).stream().noneMatch(Instruction.class::isInstance);
+  }
+
   /// The source variable in the slot at `at`, which has a value by then: none for what's javac's.
   Optional<String> variableAt(int slot, int at) {
     return code.stream()

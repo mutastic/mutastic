@@ -427,6 +427,16 @@
             },
             {
               "kind": "enum constant",
+              "name": "CONSTANT_VALUE",
+              "anchor": "constant_value",
+              "signature": "CONSTANT_VALUE",
+              "doc": "A number in the code changed, including a `static final` one: javac writes its value where\nit's used, so a threshold set wrong shows here and nowhere else. Numbers that can't be told\nfrom a `boolean`, and those javac writes itself, are left alone.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
               "name": "FLIP_INCREMENT",
               "anchor": "flip_increment",
               "signature": "FLIP_INCREMENT",

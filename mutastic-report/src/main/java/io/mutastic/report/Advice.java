@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -91,6 +92,7 @@ public record Advice(
             case NULL_PARAMETER -> nullParameter(mutant, seen);
             case DROP_VARARG -> droppedElement(mutant, seen);
             case FLIP_INCREMENT -> flippedIncrement(mutant, seen);
+            case CONSTANT_VALUE -> constant(mutant, seen, UnaryOperator.identity());
             case REMOVE_NEGATION -> removedNegation(mutant, seen);
           };
     };
@@ -585,6 +587,27 @@ public record Advice(
         inputsSeen(seen),
         "add a test whose result depends on the last value given to %s, and assert it"
             .formatted(called));
+  }
+
+  /// A number in the code changed. The label is `constant 100 to 101`. A `static final` is written
+  /// where it's used, so the source may have a name instead: the card says the value.
+  ///
+  /// @param written a value as the source would write it: `'a'` for `97`, if that's what it has
+  static Advice constant(
+      Mutant mutant, Map<String, List<Long>> seen, UnaryOperator<String> written) {
+    var label = mutant.replacement().split(" ", 4);
+    var today = written.apply(label[1]);
+    var mutated = written.apply(label[3]);
+    return new Advice(
+        Optional.of(today),
+        Optional.of(mutated),
+        "the constant `%s` becomes `%s`".formatted(today, mutated),
+        "changed to " + mutated,
+        "no test tells `%s` from `%s` in %s".formatted(today, mutated, method(mutant)),
+        inputsSeen(seen),
+        "add a test near where `%s` takes effect, whose result would differ with `%s`, and assert"
+                .formatted(today, mutated)
+            + " it");
   }
 
   /// A variable's step the other way. The label is the step the mutant takes, `i by -1`.

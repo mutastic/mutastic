@@ -14,6 +14,7 @@ class ArithmeticTruthTest {
   private static ClaimFixture negations;
   private static ClaimFixture others;
   private static ClaimFixture kept;
+  private static ClaimFixture constants;
 
   @BeforeAll
   static void compile() throws Exception {
@@ -30,6 +31,13 @@ class ArithmeticTruthTest {
             "arithmetic/OtherArithmetic.java", "mutastic/other-arithmetic", Inputs.NUMBERS);
     kept =
         new ClaimFixture("arithmetic/KeptOperands.java", "mutastic/keep-operand", Inputs.NUMBERS);
+  }
+
+  @BeforeAll
+  static void compileTheConstants() throws Exception {
+    constants =
+        new ClaimFixture(
+            "arithmetic/ConstantValues.java", "mutastic/constant-value", Inputs.NUMBERS);
   }
 
   private static SourceView sources() {
@@ -191,6 +199,162 @@ class ArithmeticTruthTest {
             .isEqualTo(
                 "add a test where `%s` changes the result of %s, and assert it"
                     .formatted(first ? "y" : "x", whole));
+      }
+    }
+  }
+
+  @Test
+  void aChangedConstantIsTheCodeWithThatValue() throws Exception {
+    assertThat(constants.running()).as("the cards checked").hasSizeGreaterThan(80);
+    assertThat(constants.valueClaimsThatLie()).isEmpty();
+  }
+
+  @Test
+  void aConstantBecomesOneNextToItAndZeroOneAndMinusOneOnce() {
+    assertThat(constants.changesIn("threshold"))
+        .containsExactly(
+            "constant 100 to 101",
+            "constant 100 to 99",
+            "constant 100 to 0",
+            "constant 100 to 1",
+            "constant 100 to -1");
+    assertThat(constants.changesIn("plusOne"))
+        .containsExactly("constant 1 to 2", "constant 1 to 0", "constant 1 to -1");
+    assertThat(constants.changesIn("aLaterValue"))
+        .containsExactly("constant 0 to 1", "constant 0 to -1");
+    assertThat(constants.changesIn("aFloat"))
+        .containsExactly(
+            "constant 0.5 to 1.5",
+            "constant 0.5 to -0.5",
+            "constant 0.5 to 0.0",
+            "constant 0.5 to 1.0",
+            "constant 0.5 to -1.0");
+    assertThat(constants.changesIn("aLongZero"))
+        .containsExactly("constant 0 to 1", "constant 0 to -1");
+  }
+
+  /// Nothing can be one past the largest.
+  @Test
+  void aConstantDoesntWrapRound() {
+    assertThat(constants.changesIn("theBiggest"))
+        .contains("constant 2147483647 to 2147483646")
+        .doesNotContain("constant 2147483647 to -2147483648");
+  }
+
+  /// The threshold set wrong that a default mutant can't show: the constant's own value is written
+  /// where it's used. A test at the threshold tells them apart, and one far from it doesn't.
+  @Test
+  void aThresholdNamedByAConstantIsChangedAndATestNearItCatchesIt() throws Exception {
+    var oneMore =
+        constants.running().stream()
+            .filter(mutant -> ClaimFixture.sourceMethod(mutant).equals("inlined"))
+            .filter(mutant -> mutant.replacement().equals("constant 100 to 101"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(constants.outcomeOf(oneMore, 100, 0)).isEqualTo("under");
+    assertThat(constants.outcomeOfOriginal("inlined", 100, 0)).isEqualTo("over");
+    assertThat(constants.outcomeOf(oneMore, 5000, 0)).isEqualTo("over");
+    assertThat(constants.outcomeOfOriginal("inlined", 5000, 0)).isEqualTo("over");
+  }
+
+  /// A `char` never becomes `-1`, where what uses it doesn't show it's a plain number.
+  @Test
+  void aValueStaysInTheTypeItCouldBe() {
+    assertThat(constants.changesIn("aLetterGiven"))
+        .containsExactly(
+            "constant 98 to 99", "constant 98 to 97", "constant 98 to 0", "constant 98 to 1");
+    assertThat(constants.changesIn("aFirstArgument"))
+        .containsExactly(
+            "constant 98 to 99", "constant 98 to 97", "constant 98 to 0", "constant 98 to 1");
+  }
+
+  @Test
+  void whatOnlySizesOrWaitsIsArid() {
+    assertThat(constants.changesIn("anArraySize"))
+        .isNotEmpty()
+        .allMatch(change -> change.endsWith("(arid: only sizes an array)"));
+    assertThat(constants.changesIn("aCapacity"))
+        .isNotEmpty()
+        .allMatch(change -> change.endsWith("(arid: only sizes a collection's first allocation)"));
+    assertThat(constants.changesIn("aWait"))
+        .isNotEmpty()
+        .allMatch(change -> change.endsWith("(arid: only sets how long to wait)"));
+    assertThat(constants.changesIn("aSplitsLimit"))
+        .contains("constant -1 to 0 (arid: only limits a split)");
+    for (var start : List.of("aCounterFromZero", "aTotalFromOne", "aSumFromZero")) {
+      assertThat(constants.changesIn(start))
+          .as(start)
+          .isNotEmpty()
+          .allMatch(change -> change.endsWith("(arid: a variable's first value of 0 or 1)"));
+    }
+    assertThat(constants.changesIn("aLoopFromZero"))
+        .contains("constant 0 to 1 (arid: a variable's first value of 0 or 1)");
+  }
+
+  @Test
+  void whatIsntANumberTheSourceWroteIsLeftAlone() {
+    assertThat(constants.mutants())
+        .extracting(ClaimFixture::sourceMethod)
+        .doesNotContain(
+            "aTrue",
+            "aFalseVariable",
+            "aComparisonsResult",
+            "aBooleanArgument",
+            "comparedWithTrue",
+            "aBooleanArray",
+            "oneOrZero",
+            "theComplement",
+            "anArrayOfVariables",
+            "varargs",
+            "enhancedFor",
+            "stringSwitch");
+  }
+
+  @Test
+  void aConstantsCardNamesTheValueAndAsksForATestNearIt() {
+    var sources = sources();
+    for (var mutant : constants.running()) {
+      var label = mutant.replacement().split(" ", 4);
+      var advice = sources.advice(mutant);
+      var quoted =
+          ClaimFixture.sourceMethod(mutant).startsWith("aLetter")
+              || ClaimFixture.sourceMethod(mutant).equals("aFirstArgument");
+      if (!quoted) {
+        assertThat(advice.change())
+            .as(ClaimFixture.describe(mutant))
+            .isEqualTo("the constant `%s` becomes `%s`".formatted(label[1], label[3]));
+        assertThat(advice.headline()).contains("`%s` from `%s`".formatted(label[1], label[3]));
+        assertThat(advice.fix()).contains("near where `%s` takes effect".formatted(label[1]));
+      }
+    }
+  }
+
+  @Test
+  void aLettersCardSaysItAsTheSourceDoes() {
+    var sources = sources();
+    var letter =
+        constants.running().stream()
+            .filter(mutant -> ClaimFixture.sourceMethod(mutant).equals("aLetter"))
+            .filter(mutant -> mutant.replacement().equals("constant 98 to 99"))
+            .findFirst()
+            .orElseThrow();
+    var advice = sources.advice(letter);
+    assertThat(advice.change()).isEqualTo("the constant `'b'` becomes `'c'`");
+    assertThat(sources.mutatedLine(letter, advice)).contains("return (char) a == 'c';");
+  }
+
+  /// `LIMIT` in the source has nothing to rewrite, and the number where it's written does.
+  @Test
+  void theLineIsRewrittenOnlyWhereItHasTheNumber() {
+    var sources = sources();
+    for (var mutant : constants.running()) {
+      if (mutant.replacement().equals("constant 100 to 101")) {
+        var line = sources.mutatedLine(mutant, sources.advice(mutant));
+        if (ClaimFixture.sourceMethod(mutant).equals("threshold")) {
+          assertThat(line).contains("return a >= 101 ? \"over\" : \"under\";");
+        } else {
+          assertThat(line).as(ClaimFixture.describe(mutant)).isEmpty();
+        }
       }
     }
   }

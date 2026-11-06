@@ -138,4 +138,68 @@ class SourceViewTest {
         replacement,
         Optional.empty());
   }
+
+  /// A file of its own, so each line's number is plain to see.
+  private Mutant constantOn(String line, String label) throws Exception {
+    var file = project.resolve("src/main/java/com/example/Numbers.java");
+    Files.createDirectories(file.getParent());
+    Files.writeString(file, "package com.example;\n" + line + "\n");
+    return new Mutant(
+        "com/example/Numbers",
+        "run",
+        "()I",
+        0,
+        2,
+        BuiltIn.CONSTANT_VALUE,
+        "BIPUSH",
+        label,
+        Optional.empty());
+  }
+
+  private Optional<String> mutatedLine(Mutant mutant) {
+    return sources.mutatedLine(mutant, sources.advice(mutant));
+  }
+
+  @Test
+  void aConstantsLineChangesWhereTheNumberIsOnItOnce() throws Exception {
+    assertThat(mutatedLine(constantOn("return x >= 100;", "constant 100 to 101")))
+        .contains("return x >= 101;");
+  }
+
+  @Test
+  void aConstantTheSourceNamesLeavesTheLineAlone() throws Exception {
+    assertThat(mutatedLine(constantOn("return x >= LIMIT;", "constant 100 to 101"))).isEmpty();
+  }
+
+  @Test
+  void aConstantThatsOnlyInAStringLeavesTheLineAlone() throws Exception {
+    assertThat(mutatedLine(constantOn("return f(\"100\", LIMIT);", "constant 100 to 101")))
+        .isEmpty();
+    assertThat(mutatedLine(constantOn("return f(\"a\", 100);", "constant 100 to 101")))
+        .contains("return f(\"a\", 101);");
+  }
+
+  @Test
+  void aConstantThereTwiceLeavesTheLineAlone() throws Exception {
+    assertThat(mutatedLine(constantOn("return f(100, 100);", "constant 100 to 101"))).isEmpty();
+  }
+
+  @Test
+  void aLetterIsSaidAsTheSourceHasIt() throws Exception {
+    var letter = constantOn("return c == 'a';", "constant 97 to 98");
+    assertThat(sources.advice(letter).change()).isEqualTo("the constant `'a'` becomes `'b'`");
+    assertThat(mutatedLine(letter)).contains("return c == 'b';");
+  }
+
+  @Test
+  void onlyALetterOnTheLineIsSaidAsOne() throws Exception {
+    assertThat(sources.advice(constantOn("return c == 97;", "constant 97 to 98")).change())
+        .isEqualTo("the constant `97` becomes `98`");
+    assertThat(sources.advice(constantOn("return c == 'a';", "constant 97 to 0")).change())
+        .isEqualTo("the constant `'a'` becomes `0`");
+    assertThat(sources.advice(constantOn("return c == ' ';", "constant 32 to 31")).change())
+        .isEqualTo("the constant `' '` becomes `31`");
+    assertThat(sources.advice(constantOn("return c == '~';", "constant 126 to 127")).change())
+        .isEqualTo("the constant `'~'` becomes `127`");
+  }
 }
