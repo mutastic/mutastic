@@ -21,7 +21,7 @@ import java.util.Optional;
 /// In `if (inCredit(balance) || balance > -1000)`, where `inCredit` is `balance >= 1`, every
 /// balance the first test lets into the body, the second does too. Forcing the first false changes
 /// nothing, and no test can tell; an agent once spent turns proving it. So the mutant is skipped,
-/// as is a boundary of the first test whose new edge the second still covers.
+/// as is a change of the first test's comparison whose new range the second still covers.
 ///
 /// The bytecode shows the `||` itself, whatever the source: the first test jumps to the body's
 /// label when it holds; the second, just before that label, jumps past the body when it doesn't.
@@ -47,7 +47,8 @@ final class ImpliedOr {
   static Optional<String> reason(Operator operator, String replacement, Site site) {
     boolean forcedFalse =
         operator == BuiltIn.REMOVE_CONDITIONAL && replacement.equals("never jump");
-    if (!(forcedFalse || operator == BuiltIn.BOUNDARY)
+    boolean compared = Comparisons.changesAComparison(operator);
+    if (!(forcedFalse || compared)
         || !(site.code().get(site.at()) instanceof BranchInstruction first)) {
       return Optional.empty();
     }

@@ -23,13 +23,11 @@ class AdviceTest {
   @Test
   void negatesComparisonsAndNullChecks() {
     assertThat(
-            Advice.of(mutant(BuiltIn.NEGATE_CONDITIONAL, "IF_ICMPNE", "IF_ICMPEQ", "(I)I"))
-                .change())
+            Advice.of(mutant(BuiltIn.OTHER_COMPARISON, "IF_ICMPNE", "IF_ICMPEQ", "(I)I")).change())
         .isEqualTo("`==` becomes `!=`");
-    assertThat(
-            Advice.of(mutant(BuiltIn.NEGATE_CONDITIONAL, "IFNULL", "IFNONNULL", "(I)I")).change())
+    assertThat(Advice.of(mutant(BuiltIn.OTHER_COMPARISON, "IFNULL", "IFNONNULL", "(I)I")).change())
         .isEqualTo("`!=` becomes `==`");
-    assertThat(Advice.of(mutant(BuiltIn.NEGATE_CONDITIONAL, "IFEQ", "IFNE", "(I)I")).headline())
+    assertThat(Advice.of(mutant(BuiltIn.OTHER_COMPARISON, "IFEQ", "IFNE", "(I)I")).headline())
         .isEqualTo("`discount()` behaves the same with the condition reversed");
   }
 
@@ -61,7 +59,7 @@ class AdviceTest {
     assertThat(Advice.of(notZero).change()).isEqualTo("`count != 0` is always true");
     var zero = with(BuiltIn.REMOVE_CONDITIONAL, "IFNE", "always jump", "count", "0");
     assertThat(Advice.of(zero).change()).isEqualTo("`count == 0` is always false");
-    var negated = with(BuiltIn.NEGATE_CONDITIONAL, "IFEQ", "IFNE", "count", "0");
+    var negated = with(BuiltIn.OTHER_COMPARISON, "IFEQ", "IFNE", "count", "0");
     assertThat(Advice.of(negated).change()).isEqualTo("`!=` becomes `==`");
     assertThat(Advice.of(negated).fix())
         .isEqualTo("assert the result on both sides of `count != 0`");
@@ -80,6 +78,55 @@ class AdviceTest {
         .containsExactly(
             "every test calls `discount()` away from the boundary",
             "inputs seen: 5, 20 (none is 100)");
+  }
+
+  /// `total >= 100` to `total == 100`: they disagree only where `total > 100`, so that's the test
+  /// the card asks for; `<` to `!=`, where it's above.
+  @Test
+  void namesTheSideWhereAComparisonAndItsMutantDisagree() {
+    var equal = Advice.of(with(BuiltIn.COMPARISON, "IF_ICMPLT", "IF_ICMPNE", "total", "100"));
+    assertThat(equal.change()).isEqualTo("`>=` becomes `==`");
+    assertThat(equal.headline()).isEqualTo("no test checks `discount()` with `total > 100`");
+    assertThat(equal.fix())
+        .isEqualTo("add a test where `total > 100`, and assert what `discount()` does then");
+    var notEqual = Advice.of(with(BuiltIn.COMPARISON, "IFGE", "IFEQ", "count", "0"));
+    assertThat(notEqual.change()).isEqualTo("`<` becomes `!=`");
+    assertThat(notEqual.headline()).isEqualTo("no test checks `discount()` with `count > 0`");
+    // The edge moved, the boundary's words; reversed, the opposite's.
+    assertThat(Advice.of(with(BuiltIn.BOUNDARY, "IF_ICMPLT", "IF_ICMPLE", "total", "100")))
+        .extracting(Advice::headline)
+        .isEqualTo("no test checks `discount()` at `total == 100`");
+    assertThat(Advice.of(with(BuiltIn.OTHER_COMPARISON, "IF_ICMPLT", "IF_ICMPGE", "total", "100")))
+        .extracting(Advice::headline)
+        .isEqualTo("`discount()` behaves the same with `total >= 100` reversed");
+    var other = Advice.of(with(BuiltIn.OTHER_COMPARISON, "IF_ICMPLT", "IF_ICMPGT", "total", "100"));
+    assertThat(other.headline()).isEqualTo("no test checks `discount()` with `total != 100`");
+  }
+
+  @Test
+  void aComparisonWithoutItsOperandsNamesTheTwoComparisons() {
+    var unknown = Advice.of(mutant(BuiltIn.COMPARISON, "IFEQ", "IFLE", "(I)I"));
+    assertThat(unknown.change()).isEqualTo("`!=` becomes `>`");
+    assertThat(unknown.headline()).isEqualTo("no test tells `!=` from `>` in `discount()`");
+    assertThat(unknown.fix())
+        .isEqualTo("add a test where `!=` and `>` give different answers, and assert the result");
+  }
+
+  /// Every input on the side the comparison keeps: the card says the tests never go where the
+  /// mutant differs.
+  @Test
+  void saysWhenEveryInputIsOnTheOtherSide() {
+    var equal = with(BuiltIn.COMPARISON, "IF_ICMPLT", "IF_ICMPNE", "total", "100");
+    assertThat(Advice.of(equal, Map.of("total", List.of(5L, 100L)), false).notes())
+        .containsExactly(
+            "every test calls `discount()` with `total <= 100`", "inputs seen: 5, 100");
+    assertThat(Advice.of(equal, Map.of("total", List.of(5L, 150L)), false).notes())
+        .containsExactly("inputs seen: total = 5, 150");
+    // `100 < total` to `100 != total`, the name second: they differ below 100.
+    var flipped = with(BuiltIn.COMPARISON, "IF_ICMPGE", "IF_ICMPEQ", "100", "total");
+    assertThat(Advice.of(flipped, Map.of("total", List.of(150L, 100L)), false).notes())
+        .containsExactly(
+            "every test calls `discount()` with `100 <= total`", "inputs seen: 150, 100");
   }
 
   @Test
@@ -104,7 +151,7 @@ class AdviceTest {
             "(I)Z",
             0,
             5,
-            BuiltIn.NEGATE_CONDITIONAL,
+            BuiltIn.OTHER_COMPARISON,
             "IF_ICMPLT",
             "IF_ICMPGE",
             Optional.empty(),

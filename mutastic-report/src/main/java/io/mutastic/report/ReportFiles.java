@@ -273,16 +273,27 @@ public final class ReportFiles {
       return mutant.operator().id();
     }
     var prefix = "org.pitest.mutationtest.engine.gregor.mutators.";
-    return prefix
-        + switch (builtIn) {
-          case BOUNDARY -> "ConditionalsBoundaryMutator";
-          case NEGATE_CONDITIONAL -> "NegateConditionalsMutator";
-          case MATH, ARITHMETIC_REPLACEMENT -> "MathMutator";
-          case REMOVE_CONDITIONAL -> "RemoveConditionalMutator";
-          case REMOVE_VOID_CALL -> "VoidMethodCallMutator";
-          case REMOVE_DISCARDED_CALL -> "NonVoidMethodCallMutator";
-          case RETURN_VALUE -> returnsMutator(mutant.replacement());
-        };
+    return builtIn == io.mutastic.api.BuiltIn.COMPARISON
+            || builtIn == io.mutastic.api.BuiltIn.OTHER_COMPARISON
+        ? comparisonMutator(mutant, prefix)
+        : prefix + knownMutator(builtIn, mutant);
+  }
+
+  /// Readers know a condition reversed; the other comparisons go by their id.
+  private static String comparisonMutator(Mutant mutant, String prefix) {
+    return Advice.reverses(mutant) ? prefix + "NegateConditionalsMutator" : mutant.operator().id();
+  }
+
+  private static String knownMutator(io.mutastic.api.BuiltIn builtIn, Mutant mutant) {
+    return switch (builtIn) {
+      case BOUNDARY -> "ConditionalsBoundaryMutator";
+      case COMPARISON, OTHER_COMPARISON -> mutant.operator().id();
+      case MATH, ARITHMETIC_REPLACEMENT -> "MathMutator";
+      case REMOVE_CONDITIONAL -> "RemoveConditionalMutator";
+      case REMOVE_VOID_CALL -> "VoidMethodCallMutator";
+      case REMOVE_DISCARDED_CALL -> "NonVoidMethodCallMutator";
+      case RETURN_VALUE -> returnsMutator(mutant.replacement());
+    };
   }
 
   /// The value mutator `mutations.xml` readers know for the value a return now gives.

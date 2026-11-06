@@ -25,14 +25,14 @@ class OperatorSetTest {
   void defaultsIsTheDefaultsTier() {
     assertThat(ids(List.of("defaults")))
         .contains("acme/plain", "mutastic/remove-conditional")
-        .doesNotContain("acme/strong", "acme/modern", "mutastic/negate-conditional");
+        .doesNotContain("acme/strong", "acme/modern", "mutastic/other-comparison");
     assertThat(ids(List.of())).isEqualTo(ids(List.of("defaults")));
   }
 
   @Test
   void strongerIsTheDefaultsAndTheStrongerTier() {
     assertThat(ids(List.of("stronger")))
-        .contains("acme/plain", "acme/strong", "mutastic/negate-conditional")
+        .contains("acme/plain", "acme/strong", "mutastic/other-comparison")
         .doesNotContain("acme/modern");
   }
 

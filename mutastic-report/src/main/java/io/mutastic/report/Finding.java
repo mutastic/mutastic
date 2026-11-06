@@ -74,7 +74,8 @@ record Finding(List<MutantResult> mutants) {
             result ->
                 switch (result.mutant().operator()) {
                   case BuiltIn.BOUNDARY,
-                      BuiltIn.NEGATE_CONDITIONAL,
+                      BuiltIn.COMPARISON,
+                      BuiltIn.OTHER_COMPARISON,
                       BuiltIn.REMOVE_CONDITIONAL,
                       BuiltIn.RETURN_VALUE,
                       BuiltIn.REMOVE_VOID_CALL,

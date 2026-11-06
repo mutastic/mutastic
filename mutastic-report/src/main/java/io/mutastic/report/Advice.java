@@ -77,14 +77,40 @@ public record Advice(
       case Mutator mutator -> added(mutator, mutant, seen);
       case BuiltIn builtIn ->
           switch (builtIn) {
-            case BOUNDARY -> boundary(mutant, seen, asWritten);
-            case NEGATE_CONDITIONAL -> negateConditional(mutant, seen, asWritten);
+            case BOUNDARY, COMPARISON, OTHER_COMPARISON -> comparison(mutant, seen, asWritten);
             case MATH, ARITHMETIC_REPLACEMENT -> math(mutant, seen);
             case RETURN_VALUE -> returnValue(mutant, seen);
             case REMOVE_VOID_CALL, REMOVE_DISCARDED_CALL -> removeVoidCall(mutant, seen);
             case REMOVE_CONDITIONAL -> removeConditional(mutant, seen, asWritten);
           };
     };
+  }
+
+  /// Whether the operator changes a conditional jump, so its card reads the jump as the source has
+  /// it.
+  static boolean onJump(io.mutastic.api.Operator operator) {
+    return operator == BuiltIn.BOUNDARY
+        || operator == BuiltIn.COMPARISON
+        || operator == BuiltIn.OTHER_COMPARISON
+        || operator == BuiltIn.REMOVE_CONDITIONAL;
+  }
+
+  /// Whether the mutant turns a condition round, its jump to the opposite one. Which way javac
+  /// compiled the jump doesn't matter: the opposites of two comparisons disagree where they do.
+  static boolean reverses(Mutant mutant) {
+    return comparisonChange(mutant).filter(differ -> differ.equals(Sides.ALL)).isPresent();
+  }
+
+  /// Where a comparison's mutant disagrees with it, for a jump on two values or one and zero.
+  private static Optional<Sides> comparisonChange(Mutant mutant) {
+    if (!onJump(mutant.operator()) || mutant.operator() == BuiltIn.REMOVE_CONDITIONAL) {
+      return Optional.empty();
+    }
+    var before = token(mutant.original(), false);
+    var after = token(mutant.replacement(), false);
+    return before.isPresent() && after.isPresent()
+        ? Optional.of(Sides.of(before.get()).differing(Sides.of(after.get())))
+        : Optional.empty();
   }
 
   /// A plugin's or rules file's operator: its own words for the card.
@@ -124,10 +150,144 @@ public record Advice(
             .formatted(condition, other, method));
   }
 
-  private static Advice boundary(Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
+  /// A comparison changed, by where the two comparisons give different answers: only where its two
+  /// sides are equal, its edge moved (`<` to `<=`), and the advice is the boundary's; everywhere,
+  /// the condition reversed; otherwise on one side of the edge (`<` to `!=` disagree where `a >
+  /// b`), and the advice names that side.
+  private static Advice comparison(Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
+    // A jump on a boolean has no operator to show, but one that's ordered (`IFLT`) compares a
+    // number with zero.
+    boolean numbers =
+        mutant.operands().size() == 2
+            || ordered(mutant.original())
+            || ordered(mutant.replacement());
+    var before = numbers ? token(mutant.original(), asWritten) : Optional.<String>empty();
+    var after = numbers ? token(mutant.replacement(), asWritten) : Optional.<String>empty();
+    if (before.isEmpty() || after.isEmpty()) {
+      return negateConditional(mutant, seen, asWritten);
+    }
+    var differ = Sides.of(before.get()).differing(Sides.of(after.get()));
+    if (differ.equals(Sides.EQUAL)) {
+      return boundary(mutant, seen, before.get(), after.get());
+    }
+    if (differ.equals(Sides.ALL)) {
+      return negateConditional(mutant, seen, asWritten);
+    }
+    return sided(mutant, seen, new Change(before.get(), after.get(), differ));
+  }
+
+  /// A comparison changed to one that gives a different answer on one side of its edge: `before`,
+  /// `after`, and the sides where they disagree.
+  private record Change(String before, String after, Sides differ) {}
+
+  /// `<` to `!=`: they disagree where `a > b`, so the test to add has `a > b`.
+  private static Advice sided(Mutant mutant, Map<String, List<Long>> seen, Change change) {
     var method = method(mutant);
-    var before = jump(mutant.original(), mutant.operands(), asWritten).orElseThrow();
-    var after = jump(mutant.replacement(), mutant.operands(), asWritten).orElseThrow();
+    var operands = mutant.operands();
+    var where = change.differ().token();
+    var headline =
+        operands.size() == 2
+            ? "no test checks %s with `%s %s %s`"
+                .formatted(method, operands.get(0), where, operands.get(1))
+            : "no test tells `%s` from `%s` in %s"
+                .formatted(change.before(), change.after(), method);
+    var fix =
+        operands.size() == 2
+            ? "add a test where `%s %s %s`, and assert what %s does then"
+                .formatted(operands.get(0), where, operands.get(1), method)
+            : "add a test where `%s` and `%s` give different answers, and assert the result"
+                .formatted(change.before(), change.after());
+    return new Advice(
+        Optional.of(change.before()),
+        Optional.of(change.after()),
+        "`%s` becomes `%s`".formatted(change.before(), change.after()),
+        "changed to " + change.after(),
+        headline,
+        sidedNotes(method, operands, change.differ(), seen),
+        fix);
+  }
+
+  /// That no test's input is on the side where the two disagree, when the inputs show it: the name
+  /// compared with a number, and every value it was seen with on the other side.
+  private static List<String> sidedNotes(
+      String method, List<String> operands, Sides differ, Map<String, List<Long>> seen) {
+    var comparison = Comparison.of(operands);
+    if (comparison.isEmpty()
+        || !NUMBER.matcher(comparison.get().value()).matches()
+        || !seen.containsKey(comparison.get().name())) {
+      return inputsSeen(seen);
+    }
+    long value = Long.parseLong(comparison.get().value());
+    // The name's side of the comparison, as the source has it: `100 < total` has `total` second.
+    boolean nameFirst = operands.get(0).equals(comparison.get().name());
+    var values = seen.get(comparison.get().name());
+    boolean noneThere =
+        values.stream()
+            .noneMatch(
+                input ->
+                    differ.has(
+                        nameFirst ? Long.compare(input, value) : Long.compare(value, input)));
+    if (values.isEmpty() || !noneThere) {
+      return inputsSeen(seen);
+    }
+    var other = differ.others().token();
+    return List.of(
+        "every test calls %s with `%s %s %s`"
+            .formatted(method, operands.get(0), other, operands.get(1)),
+        "inputs seen: %s".formatted(join(values)));
+  }
+
+  /// The signs of `a - b` a comparison holds for, from below to above: `<=` holds below and at
+  /// equal.
+  private record Sides(boolean below, boolean equal, boolean above) {
+    static final Sides EQUAL = new Sides(false, true, false);
+    static final Sides ALL = new Sides(true, true, true);
+
+    static Sides of(String token) {
+      return switch (token) {
+        case "<" -> new Sides(true, false, false);
+        case "<=" -> new Sides(true, true, false);
+        case ">" -> new Sides(false, false, true);
+        case ">=" -> new Sides(false, true, true);
+        case "==" -> EQUAL;
+        default -> new Sides(true, false, true); // !=
+      };
+    }
+
+    Sides differing(Sides other) {
+      return new Sides(below != other.below, equal != other.equal, above != other.above);
+    }
+
+    Sides others() {
+      return new Sides(!below, !equal, !above);
+    }
+
+    /// Whether it holds where `a - b` has the sign `sign`.
+    boolean has(int sign) {
+      return sign < 0 ? below : sign == 0 ? equal : above;
+    }
+
+    /// The comparison that holds on these sides: `>` for above only.
+    String token() {
+      return List.of("<", "<=", ">", ">=", "==", "!=").stream()
+          .filter(token -> of(token).equals(this))
+          .findFirst()
+          .orElseThrow(() -> new IllegalStateException("no comparison holds on " + this));
+    }
+  }
+
+  /// A jump that orders what it compares: a comparison of numbers, never of `boolean`s.
+  private static boolean ordered(String opcode) {
+    return opcode.endsWith("LT")
+        || opcode.endsWith("LE")
+        || opcode.endsWith("GT")
+        || opcode.endsWith("GE");
+  }
+
+  /// The edge of the comparison moved: `<` to `<=`.
+  private static Advice boundary(
+      Mutant mutant, Map<String, List<Long>> seen, String before, String after) {
+    var method = method(mutant);
     var comparison = Comparison.of(mutant.operands());
     return new Advice(
         Optional.of(before),
@@ -365,6 +525,11 @@ public record Advice(
     if ((opcode.equals("IFEQ") || opcode.equals("IFNE")) && operands.size() != 2) {
       return Optional.empty();
     }
+    return token(opcode, asWritten);
+  }
+
+  /// The source operator a jump on a comparison stands for, `>=` for `IF_ICMPLT`.
+  private static Optional<String> token(String opcode, boolean asWritten) {
     var condition = opcode.substring(opcode.startsWith("IF_") ? "IF_ICMP".length() : "IF".length());
     return Optional.ofNullable((asWritten ? JUMP_AS_WRITTEN : JUMP_TO_SOURCE).get(condition));
   }

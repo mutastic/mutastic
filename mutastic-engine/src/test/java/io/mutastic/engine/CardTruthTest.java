@@ -43,7 +43,11 @@ class CardTruthTest {
   private static final Set<String> HELPERS = Set.of("even", "small", "atLeastOne", "isAbove");
 
   private static final Set<BuiltIn> CONDITIONS =
-      Set.of(BuiltIn.BOUNDARY, BuiltIn.REMOVE_CONDITIONAL, BuiltIn.NEGATE_CONDITIONAL);
+      Set.of(
+          BuiltIn.BOUNDARY,
+          BuiltIn.COMPARISON,
+          BuiltIn.REMOVE_CONDITIONAL,
+          BuiltIn.OTHER_COMPARISON);
 
   private static final Pattern ALWAYS =
       Pattern.compile("`(?<condition>[^`]+)` is always (?<value>true|false)");
@@ -54,6 +58,9 @@ class CardTruthTest {
 
   private static final Pattern LITERAL = Pattern.compile("\\b(?:true|false)\\b");
   private static final Pattern REVERSED = Pattern.compile("with `(?<condition>[^`]+)` reversed");
+
+  /// A comparison's headline: the inputs where its mutant differs, `with `a > b`` or `at `a == b``.
+  private static final Pattern WHERE = Pattern.compile("(?:with|at) `(?<where>[^`]+)`$");
 
   private static final int LOW = -4;
   private static final int HIGH = 5;
@@ -92,6 +99,11 @@ class CardTruthTest {
               source -> claims.add(new Claim(mutant, advice, variant, source, "its words")),
               () ->
                   failures.add(describe(mutant, advice) + "\n  its condition isn't in the source"));
+      headline(text, mutant, advice, "Shapes" + claims.size())
+          .ifPresent(
+              source ->
+                  claims.add(
+                      new Claim(mutant, advice, "Shapes" + claims.size(), source, "its headline")));
       var shown = sources.mutatedLine(mutant, advice);
       if (shown.isPresent()) {
         var lineVariant = "Shapes" + claims.size();
@@ -179,15 +191,55 @@ class CardTruthTest {
                 "impliedByACall", BuiltIn.REMOVE_CONDITIONAL, "never jump"),
             org.assertj.core.groups.Tuple.tuple(
                 "impliedComparison", BuiltIn.REMOVE_CONDITIONAL, "never jump"),
+            org.assertj.core.groups.Tuple.tuple("impliedComparison", BuiltIn.BOUNDARY, "IF_ICMPGE"),
             org.assertj.core.groups.Tuple.tuple(
-                "impliedComparison", BuiltIn.BOUNDARY, "IF_ICMPGE"));
+                "impliedComparison", BuiltIn.OTHER_COMPARISON, "IF_ICMPEQ"));
     assertThat(equivalent)
         .as("the edges where both sides give the same value")
         .filteredOn(mutant -> mutant.skipped().get().contains("same value at the edge"))
         .extracting(Mutant::methodName)
         .contains("clampLow", "clampZero", "clampLong", "raiseTo")
         .doesNotContain("notAClamp", "clampToSomethingElse");
+    assertThat(equivalent)
+        .as("comparisons of a size or length that differ only below zero")
+        .filteredOn(mutant -> mutant.skipped().get().equals(Comparisons.NEVER_NEGATIVE))
+        .extracting(Mutant::methodName)
+        .contains("lengthNotZero", "sizeAboveZero");
     assertThat(failures).as("mutants skipped as equivalent that aren't").isEmpty();
+  }
+
+  /// Only numbers are ordered: `==` on two `boolean`s gets only its opposite. A `float`'s
+  /// comparison gets no change that `NaN` would make differ somewhere the card doesn't say.
+  @Test
+  void aComparisonChangesOnlyWhatItsOperandsAllow() throws Exception {
+    var original = compile(List.of(FIXTURE.resolve("shapes/Shapes.java"), OTHER), "original");
+    var model = ClassFile.of().parse(Files.readAllBytes(original.resolve("shapes/Shapes.class")));
+    var found =
+        new Mutations(
+                ClassFile.of(),
+                new Policy(List.of(), List.of(), List.of(), List.of("stronger"), List.of()))
+            .find(model);
+
+    assertThat(changes(found, "booleansEqual", BuiltIn.COMPARISON)).isEmpty();
+    assertThat(changes(found, "booleansEqual", BuiltIn.OTHER_COMPARISON))
+        .containsExactly("IF_ICMPEQ");
+    assertThat(changes(found, "equalLongs", BuiltIn.COMPARISON)).containsExactly("IFLT", "IFGT");
+    assertThat(changes(found, "equalsAnExpression", BuiltIn.COMPARISON))
+        .containsExactly("IF_ICMPLT", "IF_ICMPGT");
+    // `x < b` on floats: `x <= b` stays, `x != b` would differ for NaN too.
+    assertThat(changes(found, "belowAFloat", BuiltIn.BOUNDARY)).containsExactly("IFGT");
+    assertThat(changes(found, "belowAFloat", BuiltIn.COMPARISON)).isEmpty();
+    assertThat(changes(found, "equalFloats", BuiltIn.COMPARISON)).isEmpty();
+    assertThat(changes(found, "equalFloats", BuiltIn.OTHER_COMPARISON)).containsExactly("IFEQ");
+  }
+
+  /// The jumps `operator` changes the comparison of `x` (or `a`) with `b` in `method` to.
+  private static List<String> changes(List<Mutant> found, String method, BuiltIn operator) {
+    return found.stream()
+        .filter(mutant -> mutant.methodName().equals(method) && mutant.operator() == operator)
+        .filter(mutant -> mutant.operands().stream().anyMatch(operand -> operand.contains("b")))
+        .map(Mutant::replacement)
+        .toList();
   }
 
   /// The source with the card's claim written into the mutant's method, as class `variant`.
@@ -202,13 +254,35 @@ class CardTruthTest {
                             found.group("condition"),
                             "Boolean." + found.group("value").toUpperCase(java.util.Locale.ROOT)
                           });
-          case NEGATE_CONDITIONAL ->
+          case BOUNDARY, COMPARISON, OTHER_COMPARISON ->
               match(REVERSED, advice.headline())
-                  .map(found -> new String[] {found.group("condition"), "!(%s)"});
-          case BOUNDARY -> boundary(mutant, advice);
+                  .map(found -> new String[] {found.group("condition"), "!(%s)"})
+                  .or(() -> boundary(mutant, advice));
           default -> Optional.empty();
         };
     return edit.flatMap(found -> replaceIn(text, mutant, found[0], found[1], variant));
+  }
+
+  /// A comparison's headline, that the mutant differs only where `a > b`, written in: the condition
+  /// becomes the mutant's there and stays as it is elsewhere, which must behave as the mutant does.
+  /// A headline naming the wrong side fails, as the inputs on the right one then differ.
+  private static Optional<String> headline(
+      String text, Mutant mutant, Advice advice, String variant) {
+    if (mutant.operator() == BuiltIn.REMOVE_CONDITIONAL) {
+      return Optional.empty();
+    }
+    var where = match(WHERE, advice.headline());
+    return where.flatMap(
+        found ->
+            boundary(mutant, advice)
+                .flatMap(
+                    edit ->
+                        replaceIn(
+                            text,
+                            mutant,
+                            edit[0],
+                            "((%s) ? (%s) : (%%s))".formatted(found.group("where"), edit[1]),
+                            variant)));
   }
 
   /// `a >= b` to `a > b`: the comparison as the card says it's written, and as it says it becomes.

@@ -65,8 +65,7 @@ class MutationsTest {
   void readsFieldsAndUnboxedValuesAsTheSourceNamesThem() throws Exception {
     assertThat(operandsIn(Window.class, "after", BuiltIn.BOUNDARY)).containsExactly("start", "day");
     assertThat(operandsIn(Window.class, "before", BuiltIn.BOUNDARY)).containsExactly("day", "end");
-    assertThat(operandsIn(Window.class, "state", BuiltIn.NEGATE_CONDITIONAL))
-        .containsExactly("open");
+    assertThat(operandsIn(Window.class, "state", BuiltIn.OTHER_COMPARISON)).containsExactly("open");
   }
 
   /// Trivial accessors, by exact bytecode shape and matching name, are arid; anything with logic,
@@ -184,8 +183,24 @@ class MutationsTest {
   }
 
   @Test
+  void aComparisonBecomesOneThatDiffersOnOneSide() throws Exception {
+    // `total >= 100` becomes `total == 100`: the same at 100 and below, not above.
+    var pricing =
+        mutated(
+            stronger.find(model(Pricing.class)).stream()
+                .filter(mutant -> mutant.methodName().equals("discount"))
+                .filter(mutant -> mutant.replacement().equals("IF_ICMPNE"))
+                .findFirst()
+                .orElseThrow());
+
+    assertThat(call(pricing, "discount", 100)).isEqualTo(10);
+    assertThat(call(pricing, "discount", 99)).isEqualTo(0);
+    assertThat(call(pricing, "discount", 250)).isEqualTo(0); // was 25
+  }
+
+  @Test
   void negationSwapsTheBranches() throws Exception {
-    var pricing = mutated(only("discount", BuiltIn.NEGATE_CONDITIONAL));
+    var pricing = mutated(only("discount", BuiltIn.OTHER_COMPARISON));
 
     assertThat(call(pricing, "discount", 50)).isEqualTo(5); // was 0
     assertThat(call(pricing, "discount", 250)).isEqualTo(0); // was 25

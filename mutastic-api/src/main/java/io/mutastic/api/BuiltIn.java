@@ -8,12 +8,26 @@ public enum BuiltIn implements Operator {
       "`<` becomes `<=` and the other way round: the off-by-one at the edge of a range, which tests"
           + " that only check values far from the edge never notice."),
 
-  /// In `stronger`, not `defaults`: a test that catches it can still leave both of
-  /// [#REMOVE_CONDITIONAL]'s mutants alive, and not the other way round, so in the defaults its
-  /// catches only add to the score. PIT made the same change in 1.7.2.
-  NEGATE_CONDITIONAL(
-      "A condition goes the other way: `==` becomes `!=`, `<` becomes `>=`. It goes unnoticed when"
-          + " no test checks what happens on one side of an `if`.",
+  /// In `stronger`: with [#BOUNDARY]'s edge moved and [#REMOVE_CONDITIONAL]'s condition always true
+  /// or false, the smallest set of changes whose catches catch every other change of a comparison.
+  /// For `a < b` that's `a <= b` (boundary), `a != b` (this one) and `false`. Measured on
+  /// mutastic's own code (6 Nov 2026), most of its misses were noise: counters that count up to
+  /// their end, sizes compared with a value they never pass.
+  COMPARISON(
+      "A comparison becomes the one that differs from it on one side of its edge: `<` becomes"
+          + " `!=`, `<=` becomes `==`, `==` becomes `<=` and `>=`, `!=` becomes `<` and `>`, and"
+          + " the same for `>` and `>=`. It goes unnoticed when no test checks the side of the"
+          + " comparison where the two disagree.",
+      Tier.STRONGER),
+
+  /// In `stronger`: the rest of what a comparison can become, and a condition the other way round,
+  /// as `mutastic/negate-conditional` was, which it replaced (6 Nov 2026). A test that catches the
+  /// mutants of [#BOUNDARY], [#COMPARISON] and [#REMOVE_CONDITIONAL] catches these too, so in the
+  /// defaults their catches would only add to the score.
+  OTHER_COMPARISON(
+      "A comparison becomes one of the others: `<` becomes `>`, `>=` or `==`, and any condition"
+          + " can go the other way, `== null` to `!= null`. It goes unnoticed when no test checks"
+          + " what happens on one side of an `if`.",
       Tier.STRONGER),
 
   MATH("`+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`."),
@@ -80,10 +94,11 @@ public enum BuiltIn implements Operator {
   }
 
   /// One of the operators whose mutants' ids were fixed before operators were open: their ids leave
-  /// the operator out, and stay as they were. Every other operator's put it in.
+  /// the operator out, and stay as they were. Every other operator's put it in, including
+  /// [#OTHER_COMPARISON], which replaced the negated condition: its ids changed with it.
   public boolean first() {
     return switch (this) {
-      case BOUNDARY, NEGATE_CONDITIONAL, MATH, REMOVE_VOID_CALL -> true;
+      case BOUNDARY, MATH, REMOVE_VOID_CALL -> true;
       default -> false;
     };
   }

@@ -64,9 +64,7 @@ public final class Explanation {
   /// when its condition is false. Said in the mutant's own terms when its operands are known.
   private Optional<String> jump(Mutant mutant) {
     var operator = mutant.operator();
-    if (operator != BuiltIn.BOUNDARY
-        && operator != BuiltIn.NEGATE_CONDITIONAL
-        && operator != BuiltIn.REMOVE_CONDITIONAL) {
+    if (!Advice.onJump(operator)) {
       return Optional.empty();
     }
     if (sources.asWritten(mutant)) {

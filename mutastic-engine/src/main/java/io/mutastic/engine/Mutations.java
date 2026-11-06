@@ -257,16 +257,25 @@ final class Mutations {
 
     private void builtInChanges(
         io.mutastic.api.BuiltIn builtIn, Instruction instruction, int at, List<Found> found) {
-      if (builtIn == BuiltIn.RETURN_VALUE) {
-        returnChanges(instruction, at, found);
-        return;
-      }
-      if (builtIn == BuiltIn.REMOVE_DISCARDED_CALL) {
-        if (isDiscarded(code, at)) {
-          found.add(new Found(builtIn, callOrdinal, "remove call", Optional.empty()));
+      switch (builtIn) {
+        case RETURN_VALUE -> returnChanges(instruction, at, found);
+        case BOUNDARY, COMPARISON, OTHER_COMPARISON -> {
+          for (Mutator.Change change : Comparisons.changes(builtIn, code, at)) {
+            found.add(new Found(builtIn, ordinal, change.label(), change.skipped()));
+          }
         }
-        return;
+        case REMOVE_DISCARDED_CALL -> {
+          if (isDiscarded(code, at)) {
+            found.add(new Found(builtIn, callOrdinal, "remove call", Optional.empty()));
+          }
+        }
+        default -> instructionChanges(builtIn, instruction, found);
       }
+    }
+
+    /// An operator that swaps one instruction for another, or removes a call, whatever's around it.
+    private void instructionChanges(
+        io.mutastic.api.BuiltIn builtIn, Instruction instruction, List<Found> found) {
       boolean call = instruction instanceof InvokeInstruction;
       if ((call || isSite(instruction)) && builtIn.onCalls() == call) {
         for (String label : Operators.replacements(builtIn, instruction)) {
@@ -558,8 +567,8 @@ final class Mutations {
     }
     switch (instruction) {
       case BranchInstruction branch ->
-          builder.with(
-              BranchInstruction.of(Operators.replace(operator, branch.opcode()), branch.target()));
+          // A comparison's change is the jump it takes instead, by name.
+          builder.with(BranchInstruction.of(Opcode.valueOf(mutant.replacement()), branch.target()));
       case OperatorInstruction arithmetic ->
           builder.with(OperatorInstruction.of(Operators.replace(operator, arithmetic.opcode())));
       case ReturnInstruction returning -> ReturnValues.write(builder, returning, mutant);

@@ -35,6 +35,7 @@ class ImpliedOrTest {
             Tuple.tuple("byACall", BuiltIn.REMOVE_CONDITIONAL, "never jump"),
             Tuple.tuple("byAComparison", BuiltIn.REMOVE_CONDITIONAL, "never jump"),
             Tuple.tuple("byAComparison", BuiltIn.BOUNDARY, "IF_ICMPGE"),
+            Tuple.tuple("byAComparison", BuiltIn.OTHER_COMPARISON, "IF_ICMPEQ"),
             Tuple.tuple("atTheSameEdge", BuiltIn.REMOVE_CONDITIONAL, "never jump"));
   }
 }

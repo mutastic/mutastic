@@ -13,7 +13,8 @@ For why each one is worth catching, the bugs it stands for and the test that cat
 | Operator | Changes | Set |
 |---|---|---|
 | [`mutastic/boundary`](#boundary) | `<` and `<=`, `>` and `>=` | defaults |
-| [`mutastic/negate-conditional`](#negate-conditional) | a condition to its opposite | stronger |
+| [`mutastic/comparison`](#comparison) | a comparison to the one that differs on one side: `<` to `!=` | stronger |
+| [`mutastic/other-comparison`](#other-comparison) | a comparison to the others, and a condition to its opposite | stronger |
 | [`mutastic/remove-conditional`](#remove-conditional) | a condition to always true, or always false | defaults |
 | [`mutastic/math`](#math) | `+` and `-`, `*` and `/` | defaults |
 | [`mutastic/arithmetic-replacement`](#arithmetic-replacement) | `+` to `*` | stronger |
@@ -35,16 +36,53 @@ range, which tests that only check values far from the edge never notice.
 if (total >= 100)   // becomes: if (total > 100)
 ```
 
-## Negate conditional
+## Comparison
 
-`mutastic/negate-conditional`, in the `stronger` set. A condition goes the other way: `==` becomes
-`!=`, `<` becomes `>=`, `== null` becomes `!= null`. It goes unnoticed when no test checks what
-happens on one side of an `if`.
+`mutastic/comparison`, in the `stronger` set. A comparison becomes the one that gives the same
+answer at its edge and on one side of it, and the other answer on the other side:
 
-It left the defaults after 0.3.0. [Remove conditional](#remove-conditional) asks more of the same
-condition: a test that catches the condition going the other way can still leave "always true" and
-"always false" both uncaught, but a test that catches either of those catches the opposite too. So
-in the defaults, negate's catches only added to the score. PIT made the same change in 1.7.2.
+| Written | Becomes | Differs where |
+|---|---|---|
+| `a < b` | `a != b` | `a > b` |
+| `a <= b` | `a == b` | `a < b` |
+| `a > b` | `a != b` | `a < b` |
+| `a >= b` | `a == b` | `a > b` |
+| `a == b` | `a <= b`, and `a >= b` | `a < b`, and `a > b` |
+| `a != b` | `a < b`, and `a > b` | `a > b`, and `a < b` |
+
+It goes unnoticed when no test looks at that side, and the card names it: "no test checks
+`shipping()` with `total > freeShippingFrom`".
+
+With [boundary](#boundary) and [remove conditional](#remove-conditional), these make the smallest
+set of changes that is enough for a comparison: tests that catch the edge moved, the side changed
+and the condition always true or false catch every other way the comparison could be written
+wrong. For `a < b` the three are `a <= b`, `a != b` and `false`. Each is one operator's, so no
+condition gets the same change twice.
+
+Only numbers have an order: `==` on two `boolean`s or references, and `== null`, get no mutant
+here. A comparison of `float`s or `double`s gets only changes that treat `NaN` as Java does, so `x
+< y` gets none (`x != y` would differ for `NaN` too). A change that differs only for a negative
+size or length, `items.size() == 0` to `items.size() <= 0`, is skipped as equivalent.
+
+It's in `stronger` because, measured on mutastic's own code, most of what it missed was noise: a
+loop counter that counts up to its end (`i < n` and `i != n` stop at the same place), and a size
+compared with a value it never passes.
+
+```java
+if (total >= 100)   // becomes: if (total == 100)
+```
+
+## Other comparison
+
+`mutastic/other-comparison`, in the `stronger` set. A comparison becomes each of the others, and
+any condition its opposite: `<` becomes `>`, `>=` or `==`; `==` becomes `!=`, `<` or `>`; `==
+null` becomes `!= null`; `if (order.isPaid())` becomes `if (!order.isPaid())`. It goes unnoticed
+when no test checks what happens on one side of an `if`.
+
+A test that catches the mutants of [boundary](#boundary), [comparison](#comparison) and [remove
+conditional](#remove-conditional) catches these too, so in the defaults their catches would only
+add to the score. It replaced `mutastic/negate-conditional`, whose change is the condition's
+opposite.
 
 ```java
 if (order.isPaid())   // becomes: if (!order.isPaid())

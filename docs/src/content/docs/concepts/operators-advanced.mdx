@@ -39,7 +39,30 @@ void shippingIsFreeFromExactly100() {
 A boundary miss is a question for whoever owns the rule as much as for the tests: should 100 get
 free shipping? The test records the answer.
 
-## Negate conditional
+## Comparison
+
+**The bug it stands for:** a comparison that's right at the edge and wrong past it: `==` where
+`>=` was meant, so the rule holds for exactly 100 and stops at 101.
+
+**Where it costs:** the same rules as a boundary, on the side tests skip. Tests often try a value
+below the limit and one exactly at it, and never one well past it.
+
+```java
+if (total >= 100)   // becomes: if (total == 100)
+  shipping = 0;
+```
+
+**The test that catches it:** one on the side where the two disagree, which the card names: here
+a total above 100.
+
+```java
+@Test
+void shippingStaysFreeAbove100() {
+  assertEquals(0, new Checkout().shipping(250));
+}
+```
+
+## Other comparison
 
 **The bug it stands for:** a condition the wrong way round: a missing `!`, `==` for `!=`, a null
 check that guards the wrong case.
@@ -87,7 +110,7 @@ if (user.canEdit(document))   // becomes: if (true)
   document.save(changes);
 ```
 
-**The test that catches it:** one for each answer the condition can give. Negate conditional asks
+**The test that catches it:** one for each answer the condition can give. Other comparison asks
 the same question from a different angle; remove conditional is clearer about which answer no test
 has tried, and catches the case where the condition is checked twice and one check never decides.
 

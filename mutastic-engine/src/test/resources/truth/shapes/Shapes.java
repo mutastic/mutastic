@@ -300,4 +300,87 @@ public final class Shapes {
       default -> 2;
     };
   }
+
+  static int equalsAnExpression(int a, int b) {
+    if (a == b + 1) {
+      return 1;
+    }
+    return 2;
+  }
+
+  static int notEqualAsWritten(int a, int b) {
+    if (a != b || b > 3) {
+      return 1;
+    }
+    return 2;
+  }
+
+  static int lengthNotZero(int a, int b) {
+    String text = "x".repeat(Math.max(0, a));
+    if (text.length() != 0) {
+      return 1;
+    }
+    return 2 + b;
+  }
+
+  static int equalLongs(int a, int b) {
+    long wide = a;
+    if (wide == b) {
+      return 1;
+    }
+    return 2;
+  }
+
+  static int booleansEqual(int a, int b) {
+    if (even(a) == small(b)) {
+      return 1;
+    }
+    return 2;
+  }
+
+  /// `NaN` where `a` is 0: a comparison's mutant must treat it as Java does.
+  static int belowAFloat(int a, int b) {
+    float x = a == 0 ? Float.NaN : a;
+    if (x < b) {
+      return 1;
+    }
+    return 2;
+  }
+
+  static int atLeastAFloatAsWritten(int a, int b) {
+    float x = a == 1 ? Float.NaN : a;
+    if (x >= b || b == 4) {
+      return 1;
+    }
+    return 2;
+  }
+
+  static int aboveADouble(int a, int b) {
+    double x = a == 2 ? Double.NaN : a;
+    return x > b ? 1 : 2;
+  }
+
+  static int equalFloats(int a, int b) {
+    float x = a == -1 ? Float.NaN : a;
+    if (x == b) {
+      return 1;
+    }
+    return 2;
+  }
+
+  static int notEqualDoubles(int a, int b) {
+    double x = a == -2 ? Double.NaN : a;
+    if (x != b) {
+      return 1;
+    }
+    return 2;
+  }
+
+  static int sizeAboveZero(int a, int b) {
+    var copies = java.util.Collections.nCopies(Math.max(0, a), b);
+    if (copies.size() > 0) {
+      return 1;
+    }
+    return 2;
+  }
 }

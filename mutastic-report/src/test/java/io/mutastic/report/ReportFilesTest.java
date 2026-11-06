@@ -118,7 +118,7 @@ class ReportFilesTest {
     var results =
         List.of(
             result(at(BuiltIn.BOUNDARY, "(I)I"), Status.TIMED_OUT),
-            result(at(BuiltIn.NEGATE_CONDITIONAL, "(I)I"), Status.NOT_COVERED),
+            result(at(BuiltIn.OTHER_COMPARISON, "(I)I"), Status.NOT_COVERED),
             result(at(BuiltIn.ARITHMETIC_REPLACEMENT, "(I)I"), Status.CAUGHT),
             result(at(BuiltIn.REMOVE_CONDITIONAL, "(I)I"), Status.MISSED),
             result(at(BuiltIn.REMOVE_VOID_CALL, "(I)V"), Status.MISSED),

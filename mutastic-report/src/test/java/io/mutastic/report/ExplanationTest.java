@@ -133,8 +133,7 @@ class ExplanationTest {
         condition(BuiltIn.REMOVE_CONDITIONAL, "IF_ICMPLE", "never jump", 15, "total", "500");
     assertThat(explanation.render(second, Optional.empty()))
         .contains("a jump past its body when the condition is false");
-    var negated =
-        condition(BuiltIn.NEGATE_CONDITIONAL, "IF_ICMPLE", "IF_ICMPGT", 15, "total", "500");
+    var negated = condition(BuiltIn.OTHER_COMPARISON, "IF_ICMPLE", "IF_ICMPGT", 15, "total", "500");
     assertThat(explanation.render(negated, Optional.empty()))
         .contains("javac compiles `total > 500` to IF_ICMPLE");
   }
@@ -142,7 +141,7 @@ class ExplanationTest {
   /// A comparison with zero has no int-comparing symbol to put the jump in the source's terms.
   @Test
   void aComparisonWithZeroIsSaidInGeneral() {
-    var zero = condition(BuiltIn.NEGATE_CONDITIONAL, "IFEQ", "IFNE", 5, "total", "0");
+    var zero = condition(BuiltIn.OTHER_COMPARISON, "IFEQ", "IFNE", 5, "total", "0");
     assertThat(explanation.render(zero, Optional.empty()))
         .contains("a jump past its body when the condition is false")
         .doesNotContain("javac compiles `");

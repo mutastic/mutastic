@@ -257,10 +257,20 @@
             },
             {
               "kind": "enum constant",
-              "name": "NEGATE_CONDITIONAL",
-              "anchor": "negate_conditional",
-              "signature": "NEGATE_CONDITIONAL",
-              "doc": "In `stronger`, not `defaults`: a test that catches it can still leave both of\n[`REMOVE_CONDITIONAL`](#remove_conditional)'s mutants alive, and not the other way round, so in the defaults its\ncatches only add to the score. PIT made the same change in 1.7.2.",
+              "name": "COMPARISON",
+              "anchor": "comparison",
+              "signature": "COMPARISON",
+              "doc": "In `stronger`: with [`BOUNDARY`](#boundary)'s edge moved and [`REMOVE_CONDITIONAL`](#remove_conditional)'s condition always true\nor false, the smallest set of changes whose catches catch every other change of a comparison.\nFor `a < b` that's `a <= b` (boundary), `a != b` (this one) and `false`. Measured on\nmutastic's own code (6 Nov 2026), most of its misses were noise: counters that count up to\ntheir end, sizes compared with a value they never pass.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "OTHER_COMPARISON",
+              "anchor": "other_comparison",
+              "signature": "OTHER_COMPARISON",
+              "doc": "In `stronger`: the rest of what a comparison can become, and a condition the other way round,\nas `mutastic/negate-conditional` was, which it replaced (6 Nov 2026). A test that catches the\nmutants of [`BOUNDARY`](#boundary), [`COMPARISON`](#comparison) and [`REMOVE_CONDITIONAL`](#remove_conditional) catches these too, so in the\ndefaults their catches would only add to the score.",
               "params": [],
               "returns": "",
               "throws": []
@@ -370,7 +380,7 @@
               "name": "first",
               "anchor": "first",
               "signature": "boolean first()",
-              "doc": "One of the operators whose mutants' ids were fixed before operators were open: their ids leave\nthe operator out, and stay as they were. Every other operator's put it in.",
+              "doc": "One of the operators whose mutants' ids were fixed before operators were open: their ids leave\nthe operator out, and stay as they were. Every other operator's put it in, including\n[`OTHER_COMPARISON`](#other_comparison), which replaced the negated condition: its ids changed with it.",
               "params": [],
               "returns": "",
               "throws": []
@@ -839,7 +849,7 @@
               "name": "fingerprint",
               "anchor": "fingerprint",
               "signature": "String fingerprint()",
-              "doc": "Stable across runs and line moves: class, method, site and replacement, and the operator for\nall but the first five ([`BuiltIn#first`](../builtin/#first)), but no line number, because code moves during review\nfar more often than it changes. A `finally` block's copies share the first copy's fingerprint.",
+              "doc": "Stable across runs and line moves: class, method, site and replacement, and the operator for\nall but the first ones still built in ([`BuiltIn#first`](../builtin/#first)), but no line number, because code\nmoves during review far more often than it changes. A `finally` block's copies share the first\ncopy's fingerprint.",
               "params": [],
               "returns": "",
               "throws": []

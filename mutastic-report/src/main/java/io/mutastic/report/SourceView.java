@@ -134,9 +134,7 @@ public final class SourceView {
   /// inverted jump. A jump on a boolean goes by its opcode.
   boolean asWritten(Mutant mutant) {
     var operator = mutant.operator();
-    if (operator != io.mutastic.api.BuiltIn.BOUNDARY
-        && operator != io.mutastic.api.BuiltIn.NEGATE_CONDITIONAL
-        && operator != io.mutastic.api.BuiltIn.REMOVE_CONDITIONAL) {
+    if (!Advice.onJump(operator)) {
       return false;
     }
     var onBoolean = Advice.jumpsWhenTrue(mutant);

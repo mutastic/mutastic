@@ -129,8 +129,9 @@ public record Mutant(
   }
 
   /// Stable across runs and line moves: class, method, site and replacement, and the operator for
-  /// all but the first five ([BuiltIn#first]), but no line number, because code moves during review
-  /// far more often than it changes. A `finally` block's copies share the first copy's fingerprint.
+  /// all but the first ones still built in ([BuiltIn#first]), but no line number, because code
+  /// moves during review far more often than it changes. A `finally` block's copies share the first
+  /// copy's fingerprint.
   public String fingerprint() {
     var key =
         className
