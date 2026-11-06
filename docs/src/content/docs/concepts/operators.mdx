@@ -40,6 +40,15 @@ For why each one is worth catching, the bugs it stands for and the test that cat
 | [`library/swap-string`](#string-method-swap) | a `String` method and the similar one: `startsWith` and `endsWith`, `toUpperCase` and `toLowerCase` | defaults |
 | [`library/swap-index-of`](#indexof-swap) | `indexOf` and `lastIndexOf` | stronger |
 | [`library/swap-math`](#math-method-swap) | `Math.min` and `Math.max`, `Math.floor` and `Math.ceil` | defaults |
+| [`stream/remove-other-stage`](#other-stage-removal) | `peek`, and `map` on a primitive stream, removed | extended |
+| [`predicate/swap-connector`](#predicate-connector-swap) | `Predicate.and` and `or` | extended |
+| [`predicate/remove-negate`](#predicate-negation-removal) | a predicate's `negate()`, removed | extended |
+| [`predicate/remove-not`](#predicate-negation-removal) | `Predicate.not(p)` to `p` | extended |
+| [`optional/swap-present`](#optional-presence-swap) | `isPresent` and `isEmpty` | extended |
+| [`optional/empty`](#optional-made-empty) | `Optional.of(x)` to `Optional.empty()` | extended |
+| [`optional/remove-filter`](#optional-filter-removal) | `Optional.filter`, removed | extended |
+| [`optional/always-default`](#optional-default) | `opt.orElse(x)` to `x` | extended |
+| [`optional/no-default`](#optional-default) | `opt.orElse(x)` to `opt.get()` | extended |
 
 A run uses the `defaults` set unless you [choose otherwise](#choosing-operators). Plugins can add
 operators of their own: see [Plugins](/guides/plugins/).
@@ -454,6 +463,86 @@ int size = Math.min(requested, limit);   // becomes: Math.max(requested, limit)
 
 Rounding a whole number, `Math.floor((double) count)`, is skipped as equivalent, as it rounds to
 itself either way.
+
+## Other stage removal
+
+`stream/remove-other-stage`, in the `extended` set. `peek` is removed, and so is `map` on an
+`IntStream`, `LongStream` or `DoubleStream`. It goes unnoticed when no test checks what the stage
+does.
+
+```java
+return prices.stream().mapToInt(Price::cents).map(this::withTax).sum();   // becomes: without .map(…)
+```
+
+`map` on a `Stream` is left alone: it can change what the stream holds, and what comes next would
+throw on the wrong type, which would look like a catch.
+
+## Predicate connector swap
+
+`predicate/swap-connector`, in the `extended` set. `and` and `or` swap places, on `Predicate`,
+`BiPredicate` and the primitive predicates. It goes unnoticed when no test has a value one of the two
+accepts and the other doesn't.
+
+```java
+isPaid.and(isShipped)   // becomes: isPaid.or(isShipped)
+```
+
+## Predicate negation removal
+
+`predicate/remove-negate` and `predicate/remove-not`, in the `extended` set. A predicate's `negate()`
+is removed, and `Predicate.not(p)` becomes `p`, so it accepts what it rejected. It goes unnoticed
+when no test checks which values the predicate accepts.
+
+```java
+.filter(Predicate.not(String::isBlank))   // becomes: .filter(String::isBlank)
+```
+
+## Optional presence swap
+
+`optional/swap-present`, in the `extended` set. `isPresent` and `isEmpty` swap places, on `Optional`
+and its primitive forms. It goes unnoticed when no test has both an empty `Optional` and one with a
+value here.
+
+```java
+if (customer.isPresent()) {   // becomes: if (customer.isEmpty()) {
+```
+
+`isEmpty` came in Java 11: in a class file for an older release the mutant is skipped as `unviable:`,
+as the method may not be there, and a missing method would look like a catch.
+
+## Optional made empty
+
+`optional/empty`, in the `extended` set. An `Optional` made with a value is empty instead:
+`Optional.of(x)` and `ofNullable(x)` become `Optional.empty()`, and `x` is still worked out. It goes
+unnoticed when no test checks what's in it.
+
+```java
+return Optional.of(customer);   // becomes: return Optional.empty();
+```
+
+## Optional filter removal
+
+`optional/remove-filter`, in the `extended` set. `Optional.filter` is removed, so the value goes on
+whatever the predicate says. It goes unnoticed when no test has a value the filter turns away.
+
+```java
+return customer.filter(Customer::isActive);   // becomes: return customer;
+```
+
+## Optional default
+
+`optional/always-default` and `optional/no-default`, in the `extended` set. Each takes away one side
+of `orElse`. `opt.orElse(x)` becomes `x`, so the value in the `Optional` is never used, which goes
+unnoticed when no test has a value there. `opt.orElse(x)` and `opt.orElseGet(s)` become `opt.get()`,
+so an empty `Optional` throws, which goes unnoticed when no test has an empty one.
+
+```java
+int limit = configured.orElse(100);   // becomes: int limit = 100;   and: configured.get()
+```
+
+Removing `opt.ifPresent(…)` is [`mutastic/remove-void-call`](#remove-void-call)'s change, as it
+returns nothing. `orElseThrow`'s supplier is left alone: which exception is thrown is rarely worth a
+test.
 
 ## Choosing operators
 

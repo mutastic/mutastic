@@ -41,19 +41,23 @@ public final class CallRules {
           "owners",
           "methods",
           "descriptors",
+          "since",
           "rewrite",
           "source",
           "changed");
 
   private static final Set<String> FIXED_REWRITES =
-      Set.of("remove", CallRule.OMIT_LAST, CallRule.UNCHECKED);
+      Set.of("remove", CallRule.OMIT_LAST, CallRule.UNCHECKED, CallRule.KEEP_ARGUMENT);
 
   private static final List<String> REQUIRED =
       List.of("id", "explanation", "owners", "methods", "rewrite", "headline", "help");
 
-  /// mutastic's own: the stream pipeline operators, and the swaps between similar JDK methods.
+  /// mutastic's own: the stream pipeline operators, the swaps between similar JDK methods, and the
+  /// changes to `Predicate`s and `Optional`s.
   static final List<CallRule> BUILT_IN =
-      Stream.of("streams.yaml", "library.yaml").flatMap(file -> builtIn(file).stream()).toList();
+      Stream.of("streams.yaml", "library.yaml", "predicates.yaml", "optional.yaml")
+          .flatMap(file -> builtIn(file).stream())
+          .toList();
 
   private CallRules() {}
 
@@ -171,6 +175,7 @@ public final class CallRules {
         Set.copyOf(listed(required(fields, "owners"))),
         Set.copyOf(listed(required(fields, "methods"))),
         Set.copyOf(listed(fields.getOrDefault("descriptors", ""))),
+        release(fields.getOrDefault("since", "0"), where, line),
         rewrite,
         fields.getOrDefault("source", ""),
         fields.getOrDefault("changed", "changed"),
@@ -207,9 +212,17 @@ public final class CallRules {
     boolean fixed = FIXED_REWRITES.contains(rewrite);
     if (!fixed && !renames && !call) {
       throw new IllegalArgumentException(
-          "%s:%d: a rewrite is `remove`, `omit last argument`, `unchecked arithmetic`, `rename a->b, …` or `call name(ARGS) with A, B`, not %s"
+          "%s:%d: a rewrite is `remove`, `omit last argument`, `unchecked arithmetic`, `keep argument`, `rename a->b, …` or `call name(ARGS) with A, B`, not %s"
               .formatted(where, line, rewrite));
     }
+  }
+
+  private static int release(String word, String where, int line) {
+    if (!word.matches("\\d{1,3}")) {
+      throw new IllegalArgumentException(
+          "%s:%d: since is a Java release, 11 say, not %s".formatted(where, line, word));
+    }
+    return Integer.parseInt(word);
   }
 
   private static Tier tier(String word, String where, int line) {

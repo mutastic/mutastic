@@ -38,7 +38,9 @@ class OperatorSetTest {
 
   @Test
   void extendedIsItsOwnTierAloneAndAddsToAnotherSet() {
-    assertThat(ids(List.of("extended"))).containsExactly("acme/modern");
+    assertThat(ids(List.of("extended")))
+        .contains("acme/modern", "optional/empty")
+        .doesNotContain("acme/plain", "acme/strong", "mutastic/boundary", "mutastic/comparison");
     assertThat(ids(List.of("defaults", "extended")))
         .contains("acme/plain", "acme/modern")
         .doesNotContain("acme/strong");

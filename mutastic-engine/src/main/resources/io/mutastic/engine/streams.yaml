@@ -28,3 +28,19 @@
   changed: changed to {to}
   headline: no test tells `{name}` from `{to}` in {method}
   help: use input where some but not all elements match, and assert the result
+
+# In extended: the stages that return the type they're given beyond `stream/remove-stage`'s. Only
+# `peek`, and `map` on a primitive stream: `Stream.map` can change what the stream holds, and what
+# came next would throw on the wrong type, which would look like a catch.
+- id: stream/remove-other-stage
+  explanation: `peek`, or `map` on an `IntStream`, `LongStream` or `DoubleStream`, is removed, and the stream goes on without it. It goes unnoticed when no test checks what the stage does.
+  tier: extended
+  owners: java.util.stream.Stream, java.util.stream.IntStream, java.util.stream.LongStream, java.util.stream.DoubleStream
+  methods: peek, map
+  descriptors: (Ljava/util/function/Consumer;)Ljava/util/stream/Stream;, (Ljava/util/function/IntConsumer;)Ljava/util/stream/IntStream;, (Ljava/util/function/LongConsumer;)Ljava/util/stream/LongStream;, (Ljava/util/function/DoubleConsumer;)Ljava/util/stream/DoubleStream;, (Ljava/util/function/IntUnaryOperator;)Ljava/util/stream/IntStream;, (Ljava/util/function/LongUnaryOperator;)Ljava/util/stream/LongStream;, (Ljava/util/function/DoubleUnaryOperator;)Ljava/util/stream/DoubleStream;
+  rewrite: remove
+  changed: stage removed
+  headline: no test needs `.{name}(…)` in {method}
+  headline.peek: no test checks what `.peek(…)` does in {method}
+  help: add a test with a value `.{name}(…)` changes, and assert the result
+  help.peek: add a test that asserts what `.peek(…)` does to each element

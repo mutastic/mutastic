@@ -713,6 +713,169 @@ void aPartPageStillCounts() {
 }
 ```
 
+## Other stage removal
+
+**The bug it stands for:** a conversion that's wrong, or forgotten, in a pipeline of numbers, and a
+`peek` that does real work someone relies on.
+
+**Where it costs:** totals. `.mapToInt(Price::cents).map(this::withTax).sum()` adds the tax in one
+call, and a test of an order with no tax due passes without it.
+
+```java
+return prices.stream().mapToInt(Price::cents).map(this::withTax).sum();   // becomes: without .map(…)
+```
+
+**The test that catches it:** one with a value the stage changes, asserting the result.
+
+```java
+@Test
+void theTotalIncludesTax() {
+  assertEquals(120, order(new Price(100)).total());   // 100 alone without the tax
+}
+```
+
+Run it with `--operators=defaults,extended`.
+
+## Predicate connector swap
+
+**The bug it stands for:** "and" where "or" was meant, in a condition that's built up rather than
+written out.
+
+**Where it costs:** search filters and access rules, composed from smaller predicates: a filter that
+shows too much or nothing at all.
+
+```java
+isPaid.and(isShipped)   // becomes: isPaid.or(isShipped)
+```
+
+**The test that catches it:** a value that one of the two accepts and the other doesn't.
+
+```java
+@Test
+void aPaidOrderNotYetShippedIsLeftOut() {
+  var unshipped = Order.paid();   // accepted by isPaid, not by isShipped
+  assertFalse(orders.complete().test(unshipped));
+}
+```
+
+Run it with `--operators=defaults,extended`.
+
+## Predicate negation removal
+
+**The bug it stands for:** a condition the wrong way round, written as a method rather than a `!`.
+
+**Where it costs:** anything filtered by what it isn't: the blank lines dropped, the banned users
+kept out. Without the negation it keeps exactly what it should drop.
+
+```java
+.filter(Predicate.not(String::isBlank))   // becomes: .filter(String::isBlank)
+```
+
+**The test that catches it:** a value it accepts and one it rejects, asserting which comes out.
+
+```java
+@Test
+void blankLinesAreDropped() {
+  assertEquals(List.of("a"), lines.nonBlank(List.of("a", " ")));   // one of each
+}
+```
+
+Run it with `--operators=defaults,extended`.
+
+## Optional presence swap
+
+**The bug it stands for:** a check the wrong way round, so that the code handles a missing value as
+if it were there.
+
+**Where it costs:** the path a test rarely tries: the customer who isn't found.
+
+```java
+if (customer.isPresent()) {   // becomes: if (customer.isEmpty()) {
+```
+
+**The test that catches it:** one with a value and one without, asserting what each does.
+
+```java
+@Test
+void aMissingCustomerGetsNoInvoice() {
+  assertEquals(List.of(), invoices.forCustomer(Optional.empty()));
+  assertEquals(1, invoices.forCustomer(Optional.of(customer)).size());
+}
+```
+
+Run it with `--operators=defaults,extended`.
+
+## Optional made empty
+
+**The bug it stands for:** a method that gives back nothing where it should give a value, which
+callers treat as "not found" without complaint.
+
+**Where it costs:** lookups. An empty result looks just like a real absence, so a test that only
+checks the call doesn't fail still passes.
+
+```java
+return Optional.of(customer);   // becomes: return Optional.empty();
+```
+
+**The test that catches it:** one that gets the value out.
+
+```java
+@Test
+void aKnownCustomerIsFound() {
+  assertEquals(Optional.of(alice), customers.byName("alice"));
+}
+```
+
+Run it with `--operators=defaults,extended`.
+
+## Optional filter removal
+
+**The bug it stands for:** a check that's missing, or wrong, in a chain: the value is used when it
+shouldn't be.
+
+**Where it costs:** rules that hide in one call: only an active customer, only a discount that's
+still valid.
+
+```java
+return customer.filter(Customer::isActive);   // becomes: return customer;
+```
+
+**The test that catches it:** one with a value the filter must turn away.
+
+```java
+@Test
+void aClosedAccountIsTreatedAsMissing() {
+  assertEquals(Optional.empty(), accounts.active(closed));
+}
+```
+
+Run it with `--operators=defaults,extended`.
+
+## Optional default
+
+**The bug it stands for:** a default that's always used, so the configured value is ignored; or no
+default at all, so a missing value throws.
+
+**Where it costs:** configuration: a setting that does nothing until someone's production value
+matters, or a start-up failure when it's left out.
+
+```java
+int limit = configured.orElse(100);   // becomes: int limit = 100;   and: configured.get()
+```
+
+**The test that catches it:** two tests, one for each side: a value that isn't the default, and an
+empty `Optional`.
+
+```java
+@Test
+void theLimitIsTheConfiguredOneOrAHundred() {
+  assertEquals(5, new Settings(Optional.of(5)).limit());
+  assertEquals(100, new Settings(Optional.empty()).limit());
+}
+```
+
+Run it with `--operators=defaults,extended`.
+
 ## When a miss is fine
 
 Not every missed mutant is a gap worth closing. mutastic already skips the changes that would

@@ -46,6 +46,7 @@ Each rule is a list item with these fields:
 | `owners` | required | The types whose calls it matches, in full: `java.lang.String` |
 | `methods` | required | The method names it matches |
 | `descriptors` | | The overloads it matches, as the JVM writes them: `(Ljava/lang/String;)Z`. Every overload if it's left out. List them when a rename's target doesn't have them all: the rewrite calls the same overload of the other method, and a method that doesn't exist can't be told from a catch |
+| `since` | | The Java release the rewrite needs: `11`. In a class file for an older one its mutants are skipped as `unviable:`, as the method may not be there, and calling one that isn't can't be told from a catch |
 | `rewrite` | required | What the call becomes: [see below](#rewrites) |
 | `headline` | required | A missed mutant's headline, the gap in the tests |
 | `help` | required | The test to write |
@@ -65,6 +66,7 @@ and `{method}` the method the call is in.
 | `rename a->b, c->d` | Calls another method of the same type with the same arguments; each `a->b` is one mutant | `anyMatch->allMatch, anyMatch->noneMatch` |
 | `omit last argument` | Calls the same method without its last argument. List the overloads in `descriptors`, each of which must have the shorter one | `parseInt(text, 16)` becomes `parseInt(text)` |
 | `unchecked arithmetic` | Makes `addExact`, `subtractExact`, `multiplyExact`, `incrementExact`, `decrementExact`, `negateExact` or `toIntExact` the plain operation, which overflows instead of throwing. A method of another name is skipped as unviable | `Math.addExact(a, b)` becomes `a + b` |
+| `keep argument` | What the call was given goes on in its place, and what it was called on is dropped. Only for a call of one argument of the type it returns; any other is skipped as unviable | `opt.orElse(x)` becomes `x` |
 | `call name(ARGS) with A, B` | Drops the arguments and calls another method on the same object, which must return the same type. `ARGS` are the method's parameter types as the JVM writes them (`J` for `long`, `Ljava/util/function/Function;`) | `call first(J) with Long.MAX_VALUE` |
 
 A `call` rewrite's arguments are `0`, `0L`, `true`, `false`, `null`, `Integer.MAX_VALUE`,

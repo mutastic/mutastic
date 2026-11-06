@@ -5,6 +5,7 @@ import io.mutastic.api.Mutator;
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.CodeElement;
 import java.lang.classfile.Instruction;
+import java.lang.classfile.Opcode;
 import java.lang.classfile.TypeKind;
 import java.lang.classfile.instruction.ConstantInstruction;
 import java.lang.classfile.instruction.InvokeDynamicInstruction;
@@ -31,6 +32,8 @@ import java.util.Set;
 ///   `descriptors` lists, each of which must have that shorter one.
 /// - `unchecked arithmetic`: `Math.addExact` and the like as the plain operation, which overflows
 ///   rather than throwing.
+/// - `keep argument`: what the call was given goes on in its place, what it was called on dropped.
+///   Only for a call of one argument of the type it returns: `opt.orElse(x)` becomes `x`.
 /// - `call name(ARGS) with A, B`: drop the arguments and call another method on the same receiver
 ///   with these, returning the same type. An argument is `0`, `0L`, `Integer.MAX_VALUE`,
 ///   `Long.MAX_VALUE`, `true`, `false`, `null` or a static no-argument call, `Function.identity()`
@@ -38,6 +41,9 @@ import java.util.Set;
 ///
 /// @param descriptors the overloads it matches, as the JVM writes them (`(Ljava/lang/String;)Z`),
 ///   all of them when empty
+/// @param since the Java release the rewrite needs, `11`; in a class file older than that the
+///   mutant is skipped as unviable, as the method may not be there and calling it would look like a
+///   catch. `0` for any
 /// @param templates the `headline` and `help` wording, with any per-method variants
 ///   (`headline.sorted`): `{name}` is the call's method, `{to}` a rename's target, `{method}` the
 ///   method it's in
@@ -48,6 +54,7 @@ public record CallRule(
     Set<String> owners,
     Set<String> methods,
     Set<String> descriptors,
+    int since,
     String rewrite,
     String source,
     String changed,
@@ -55,6 +62,10 @@ public record CallRule(
     implements Mutator {
   static final String OMIT_LAST = "omit last argument";
   static final String UNCHECKED = "unchecked arithmetic";
+  static final String KEEP_ARGUMENT = "keep argument";
+
+  /// What a class file's major version is more than the Java release it's for.
+  private static final int RELEASE_TO_MAJOR = 44;
 
   /// The terminal operations whose result doesn't depend on order, or on duplicates.
   private static final Set<String> ORDER_FREE =
@@ -81,6 +92,21 @@ public record CallRule(
     if (!(site.instruction() instanceof InvokeInstruction call) || !matches(call)) {
       return List.of();
     }
+    var changes = rewritten(call, site);
+    return site.owner().majorVersion() >= since + RELEASE_TO_MAJOR
+        ? changes
+        : changes.stream().map(change -> tooOld(change, call)).toList();
+  }
+
+  private Change tooOld(Change change, InvokeInstruction call) {
+    return new Change(
+        change.label(),
+        Optional.of(
+            "unviable: `%s` becomes something that needs Java %d, and this class is for an older one"
+                .formatted(call.name().stringValue(), since)));
+  }
+
+  private List<Change> rewritten(InvokeInstruction call, Site site) {
     var name = call.name().stringValue();
     if (rewrite.equals("remove")) {
       if (!call.typeSymbol().returnType().equals(call.owner().asSymbol())) {
@@ -97,7 +123,7 @@ public record CallRule(
                       pair[1], LibrarySwaps.equivalent(call, pair[1], site.code(), site.index())))
           .toList();
     }
-    if (rewrite.equals(OMIT_LAST) || rewrite.equals(UNCHECKED)) {
+    if (rewrite.equals(OMIT_LAST) || rewrite.equals(UNCHECKED) || rewrite.equals(KEEP_ARGUMENT)) {
       return List.of(Change.of(rewrite));
     }
     return List.of(Change.of(source.isEmpty() ? rewrite.substring("call ".length()) : source));
@@ -166,26 +192,47 @@ public record CallRule(
   @Override
   public void write(CodeBuilder builder, Instruction instruction, String label) {
     var call = (InvokeInstruction) instruction;
-    var type = call.typeSymbol();
     if (rewrite.startsWith("rename ")) {
-      invoke(builder, call, label, type);
+      invoke(builder, call, label, call.typeSymbol());
       return;
     }
-    if (rewrite.equals(UNCHECKED)) {
-      UncheckedArithmetic.write(builder, call);
-      return;
+    switch (rewrite) {
+      case UNCHECKED -> UncheckedArithmetic.write(builder, call);
+      case OMIT_LAST -> omitLast(builder, call);
+      case KEEP_ARGUMENT -> keepArgument(builder, call);
+      default -> dropArguments(builder, call);
     }
-    if (rewrite.equals(OMIT_LAST)) {
-      omitLast(builder, call);
-      return;
-    }
-    for (var parameter : type.parameterList().reversed()) {
+  }
+
+  /// The arguments popped, and for `remove` the receiver left as the stage's result; otherwise the
+  /// other method called on it.
+  private void dropArguments(CodeBuilder builder, InvokeInstruction call) {
+    for (var parameter : call.typeSymbol().parameterList().reversed()) {
       Mutations.pop(builder, TypeKind.from(parameter));
     }
     if (!rewrite.equals("remove")) {
       callInstead(builder, call);
     }
-    // For `remove`, the receiver stays, as the stage's result.
+  }
+
+  /// What it was called on taken from under the argument, which goes on as the result. A static
+  /// call has nothing under it. A plugin's rule can name any call: one whose argument isn't of the
+  /// type it returns would hand later code the wrong type, so it's unviable.
+  private static void keepArgument(CodeBuilder builder, InvokeInstruction call) {
+    var type = call.typeSymbol();
+    if (type.parameterCount() != 1 || !type.parameterType(0).equals(type.returnType())) {
+      throw new IllegalStateException(
+          "`keep argument` needs one argument of the type %s returns"
+              .formatted(call.name().stringValue()));
+    }
+    if (call.opcode() == Opcode.INVOKESTATIC) {
+      return;
+    }
+    if (TypeKind.from(type.returnType()).slotSize() == 2) {
+      builder.dup2_x1().pop2().pop();
+    } else {
+      builder.swap().pop();
+    }
   }
 
   /// The last argument popped, and the overload without it called.

@@ -1,0 +1,32 @@
+# mutastic's own changes to how predicates are combined: call rules, in the same shape as a plugin's
+# rules file, in the extended set.
+
+- id: predicate/swap-connector
+  explanation: `Predicate.and` and `or` swap places, on `BiPredicate` and the primitive predicates too. It goes unnoticed when no test has a value one of the two accepts and the other doesn't.
+  tier: extended
+  owners: java.util.function.Predicate, java.util.function.BiPredicate, java.util.function.IntPredicate, java.util.function.LongPredicate, java.util.function.DoublePredicate
+  methods: and, or
+  rewrite: rename and->or, or->and
+  changed: changed to {to}
+  headline: no test tells `{name}` from `{to}` between two predicates in {method}
+  help: use a value one of the two predicates accepts and the other doesn't, and assert the result
+
+- id: predicate/remove-negate
+  explanation: A predicate's `negate()` is removed, so it accepts what it rejected. It goes unnoticed when no test checks which values the predicate accepts.
+  tier: extended
+  owners: java.util.function.Predicate, java.util.function.BiPredicate, java.util.function.IntPredicate, java.util.function.LongPredicate, java.util.function.DoublePredicate
+  methods: negate
+  rewrite: remove
+  changed: no longer negated
+  headline: no test checks which values the negated predicate accepts in {method}
+  help: use a value the predicate accepts and one it rejects, and assert the result for each
+
+- id: predicate/remove-not
+  explanation: `Predicate.not(p)` becomes `p`, so it accepts what it rejected. It goes unnoticed when no test checks which values the predicate accepts.
+  tier: extended
+  owners: java.util.function.Predicate
+  methods: not
+  rewrite: keep argument
+  changed: no longer negated
+  headline: no test checks which values the negated predicate accepts in {method}
+  help: use a value the predicate accepts and one it rejects, and assert the result for each

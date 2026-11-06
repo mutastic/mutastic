@@ -129,6 +129,39 @@ class CallRulesTest {
         .hasValueSatisfying(why -> assertThat(why).startsWith("unviable: no plain form of first("));
   }
 
+  /// A value of another type in the call's place would verify, and then throw: unviable instead.
+  @Test
+  void keepingAnArgumentOfAnotherTypeIsUnviable() throws Exception {
+    var rules =
+        CallRules.parse(
+            """
+            - id: acme/keep-limit
+              explanation: Not an argument it can keep.
+              owners: io.mutastic.engine.fixture.Pipeline
+              methods: first
+              rewrite: keep argument
+              headline: no test
+              help: add one
+            """,
+            "acme.yaml");
+    var mutations =
+        new Mutations(
+            ClassFile.of(),
+            Policy.NONE.withOperators(List.of("acme/keep-limit"), List.copyOf(rules)));
+
+    var mutant = only(mutations.find(MutationsTest.model(Pipeline.class)), "acme/keep-limit");
+
+    assertThat(mutant.skipped())
+        .hasValueSatisfying(why -> assertThat(why).startsWith("unviable: `keep argument` needs"));
+  }
+
+  @Test
+  void sinceIsAJavaRelease() {
+    var rule = rule("acme/old", "remove", "stronger") + "  since: soon\n";
+    assertThatThrownBy(() -> CallRules.parse(rule, "acme.yaml"))
+        .hasMessageContaining("since is a Java release");
+  }
+
   private static String rule(String id, String rewrite, String tier) {
     return "- id: %s\n  explanation: e\n  tier: %s\n  owners: a.B\n  methods: m\n  rewrite: %s\n  headline: h\n  help: h\n"
         .formatted(id, tier, rewrite);

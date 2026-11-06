@@ -1,0 +1,58 @@
+# mutastic's own changes to `Optional`: call rules, in the same shape as a plugin's rules file, in
+# the extended set. `ifPresent` has no rule of its own: it returns nothing, so
+# `mutastic/remove-void-call` already removes it. `orElseThrow`'s supplier is left alone: which
+# exception's thrown is rarely worth a test.
+
+# `isEmpty` is Java 11's: in an older class file it may not be there, and a missing method that
+# throws would look like a catch.
+- id: optional/swap-present
+  explanation: `isPresent` and `isEmpty` swap places, on `Optional` and its primitive forms. It goes unnoticed when no test has both an empty `Optional` and one with a value here.
+  tier: extended
+  since: 11
+  owners: java.util.Optional, java.util.OptionalInt, java.util.OptionalLong, java.util.OptionalDouble
+  methods: isPresent, isEmpty
+  descriptors: ()Z
+  rewrite: rename isPresent->isEmpty, isEmpty->isPresent
+  changed: changed to {to}
+  headline: no test tells `{name}` from `{to}` in {method}
+  help: add a test with an empty `Optional` and one with a value, and assert the result of each
+
+- id: optional/empty
+  explanation: An `Optional` that's made with a value is empty instead. `Optional.of(x)` and `ofNullable(x)` become `Optional.empty()`, and `x` is still worked out. It goes unnoticed when no test checks what's in it.
+  tier: extended
+  owners: java.util.Optional, java.util.OptionalInt, java.util.OptionalLong, java.util.OptionalDouble
+  methods: of, ofNullable
+  rewrite: call empty()
+  changed: now always empty
+  headline: no test checks the value in the `Optional` made by `{name}(…)` in {method}
+  help: add a test that gets the value out of this `Optional`, and assert it
+
+- id: optional/remove-filter
+  explanation: `Optional.filter` is removed, so the value goes on whatever the predicate says. It goes unnoticed when no test has a value the filter turns away.
+  tier: extended
+  owners: java.util.Optional
+  methods: filter
+  rewrite: remove
+  changed: filter removed
+  headline: no test has a value `.filter(…)` must turn away in {method}
+  help: add a test with a value the filter rejects, and assert the `Optional` comes out empty
+
+- id: optional/always-default
+  explanation: `opt.orElse(x)` becomes `x`, so the value in the `Optional` is never used. It goes unnoticed when no test has an `Optional` with a value here.
+  tier: extended
+  owners: java.util.Optional, java.util.OptionalInt, java.util.OptionalLong, java.util.OptionalDouble
+  methods: orElse
+  rewrite: keep argument
+  changed: now always the default
+  headline: no test needs the value in the `Optional` before `.orElse(…)` in {method}
+  help: add a test where the `Optional` has a value other than the default, and assert it comes back
+
+- id: optional/no-default
+  explanation: `opt.orElse(x)` and `opt.orElseGet(s)` become `opt.get()`, so an empty `Optional` throws. It goes unnoticed when no test has an empty `Optional` here.
+  tier: extended
+  owners: java.util.Optional
+  methods: orElse, orElseGet
+  rewrite: call get()
+  changed: throws when empty
+  headline: no test has an empty `Optional` reach `.{name}(…)` in {method}
+  help: add a test where the `Optional` is empty, and assert the default comes back
