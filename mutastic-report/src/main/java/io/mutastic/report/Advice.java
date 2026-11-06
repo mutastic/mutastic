@@ -89,6 +89,8 @@ public record Advice(
             case SWAP_ARGUMENTS -> swappedArguments(mutant, seen);
             case NULL_PARAMETER -> nullParameter(mutant, seen);
             case DROP_VARARG -> droppedElement(mutant, seen);
+            case FLIP_INCREMENT -> flippedIncrement(mutant, seen);
+            case REMOVE_NEGATION -> removedNegation(mutant, seen);
           };
     };
   }
@@ -545,6 +547,36 @@ public record Advice(
         inputsSeen(seen),
         "add a test whose result depends on the last value given to %s, and assert it"
             .formatted(called));
+  }
+
+  /// A variable's step the other way. The label is the step the mutant takes, `i by -1`.
+  private static Advice flippedIncrement(Mutant mutant, Map<String, List<Long>> seen) {
+    var label = mutant.replacement().split(" ", 3);
+    var name = "`%s`".formatted(label[0]);
+    int step = Integer.parseInt(label[2]);
+    var today = step < 0 ? "up" : "down";
+    var mutated = step < 0 ? "down" : "up";
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        "%s goes %s by %d instead of %s".formatted(name, mutated, Math.abs(step), today),
+        "now goes " + mutated,
+        "no test needs %s to go %s in %s".formatted(name, today, method(mutant)),
+        inputsSeen(seen),
+        "add a test whose result depends on %s going %s here, and assert it"
+            .formatted(name, today));
+  }
+
+  /// A value without its minus sign.
+  private static Advice removedNegation(Mutant mutant, Map<String, List<Long>> seen) {
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        "a minus sign is removed, so the value keeps its sign",
+        "minus sign removed",
+        "no test checks the sign of the negated value in %s".formatted(method(mutant)),
+        inputsSeen(seen),
+        "add a test with a value that isn't zero, and assert the sign of the result");
   }
 
   private static Advice removeVoidCall(Mutant mutant, Map<String, List<Long>> seen) {

@@ -25,6 +25,7 @@ import java.lang.classfile.attribute.RuntimeVisibleTypeAnnotationsAttribute;
 import java.lang.classfile.instruction.BranchInstruction;
 import java.lang.classfile.instruction.ConstantInstruction;
 import java.lang.classfile.instruction.FieldInstruction;
+import java.lang.classfile.instruction.IncrementInstruction;
 import java.lang.classfile.instruction.InvokeDynamicInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.LabelTarget;
@@ -309,7 +310,7 @@ final class Mutations {
         case NULL_PARAMETER -> parameterChanges(found);
         case REMOVE_ASSIGNMENT -> assignmentChange(at, found);
         case REMOVE_FIELD_WRITE -> fieldWriteChange(instruction, found);
-        default -> instructionChanges(builtIn, instruction, found);
+        default -> instructionChanges(builtIn, instruction, at, found);
       }
     }
 
@@ -398,8 +399,37 @@ final class Mutations {
       }
     }
 
-    /// An operator that swaps one instruction for another, or removes a call, whatever's around it.
+    /// An operator whose change is one instruction's, on its own kind of instruction.
     private void instructionChanges(
+        io.mutastic.api.BuiltIn builtIn, Instruction instruction, int at, List<Found> found) {
+      switch (builtIn) {
+        case FLIP_INCREMENT -> incrementChange(instruction, at, found);
+        default -> siteChanges(builtIn, instruction, found);
+      }
+    }
+
+    /// A step of a source variable the other way, unless nothing reads what it leaves. A step of
+    /// `0` has no other way, and `-32768` has no `32768` to become; the table of local variables
+    /// says what's a variable, so an enhanced `for`'s own index isn't one.
+    private void incrementChange(Instruction instruction, int at, List<Found> found) {
+      if (instruction instanceof IncrementInstruction step && Arithmetic.flips(step)) {
+        stores
+            .variableAt(step.slot(), at)
+            .ifPresent(
+                name ->
+                    found.add(
+                        new Found(
+                            BuiltIn.FLIP_INCREMENT,
+                            index,
+                            Arithmetic.flipped(name, step),
+                            stores.slotIsRead(step.slot(), at)
+                                ? Optional.empty()
+                                : Optional.of("equivalent: nothing reads the value it leaves"))));
+      }
+    }
+
+    /// An operator that swaps one instruction for another, or removes a call, whatever's around it.
+    private void siteChanges(
         io.mutastic.api.BuiltIn builtIn, Instruction instruction, List<Found> found) {
       boolean call = instruction instanceof InvokeInstruction;
       if ((call || isSite(instruction)) && builtIn.onCalls() == call) {
@@ -700,7 +730,8 @@ final class Mutations {
   private static boolean isOnAnyInstruction(Operator operator) {
     return operator == BuiltIn.REMOVE_ASSIGNMENT
         || operator == BuiltIn.REMOVE_FIELD_WRITE
-        || operator == BuiltIn.NULL_PARAMETER;
+        || operator == BuiltIn.NULL_PARAMETER
+        || operator == BuiltIn.FLIP_INCREMENT;
   }
 
   private static boolean isFieldWrite(FieldInstruction field) {
@@ -778,8 +809,8 @@ final class Mutations {
       case BranchInstruction branch ->
           // A comparison's change is the jump it takes instead, by name.
           builder.with(BranchInstruction.of(Opcode.valueOf(mutant.replacement()), branch.target()));
-      case OperatorInstruction arithmetic ->
-          builder.with(OperatorInstruction.of(Operators.replace(operator, arithmetic.opcode())));
+      case OperatorInstruction arithmetic -> Arithmetic.write(builder, arithmetic, operator);
+      case IncrementInstruction step -> builder.iinc(step.slot(), -step.constant());
       case ReturnInstruction returning -> ReturnValues.write(builder, returning, mutant);
       case InvokeInstruction call -> changeCall(builder, call, mutant);
       case StoreInstruction store -> pop(builder, store.typeKind());
@@ -951,9 +982,9 @@ final class Mutations {
                         && group.stream().anyMatch(copy -> copy.ordinal() >= start));
   }
 
-  /// The group's first mutant, changing the later copies' sites too. An assignment nothing reads
-  /// after one copy may be read after another: `return` in a `try` runs a copy of the `finally`
-  /// with nothing after it, and so it counts as read if any copy's is.
+  /// The group's first mutant, changing the later copies' sites too. An assignment or step nothing
+  /// reads after one copy may be read after another: `return` in a `try` runs a copy of the
+  /// `finally` with nothing after it, and so it counts as read if any copy's is.
   private static Mutant withLaterCopies(Mutant mutant, List<Mutant> group) {
     return new Mutant(
         mutant.className(),
@@ -964,7 +995,8 @@ final class Mutations {
         mutant.operator(),
         mutant.original(),
         mutant.replacement(),
-        mutant.operator() == BuiltIn.REMOVE_ASSIGNMENT
+        (mutant.operator() == BuiltIn.REMOVE_ASSIGNMENT
+                    || mutant.operator() == BuiltIn.FLIP_INCREMENT)
                 && group.stream().anyMatch(copy -> copy.skipped().isEmpty())
             ? Optional.empty()
             : mutant.skipped(),

@@ -57,5 +57,6 @@ first:
 `@DoMutate` on a method or class brings back what the arid filters skip there, and
 `MUTASTIC_ARID=audit` runs every arid mutant anyway, to check the filters.
 
-mutastic never mutates constructors, static initialisers, `float` and `double` arithmetic, an
-enum's `values()`, or a record's generated `equals`, `hashCode` and `toString`.
+mutastic never mutates constructors, static initialisers, an enum's `values()`, or a record's
+generated `equals`, `hashCode` and `toString`. The `defaults` set also leaves `float` and `double`
+arithmetic alone.

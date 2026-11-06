@@ -177,6 +177,34 @@ class AdviceTest {
   }
 
   @Test
+  void aFlippedStepSaysWhichWayTheVariableShouldGo() {
+    var down = Advice.of(mutant(BuiltIn.FLIP_INCREMENT, "IINC", "count by -1", "(I)I"));
+    assertThat(down.change()).isEqualTo("`count` goes down by 1 instead of up");
+    assertThat(down.changedTo()).isEqualTo("now goes down");
+    assertThat(down.headline()).isEqualTo("no test needs `count` to go up in `discount()`");
+    assertThat(down.fix())
+        .isEqualTo("add a test whose result depends on `count` going up here, and assert it");
+
+    var up = Advice.of(mutant(BuiltIn.FLIP_INCREMENT, "IINC", "left by 5", "(I)I"));
+    assertThat(up.change()).isEqualTo("`left` goes up by 5 instead of down");
+    assertThat(up.changedTo()).isEqualTo("now goes up");
+    assertThat(up.headline()).isEqualTo("no test needs `left` to go down in `discount()`");
+    assertThat(up.fix())
+        .isEqualTo("add a test whose result depends on `left` going down here, and assert it");
+  }
+
+  @Test
+  void aRemovedNegationAsksForTheSign() {
+    var advice = Advice.of(mutant(BuiltIn.REMOVE_NEGATION, "INEG", "remove negation", "(I)I"));
+    assertThat(advice.change()).isEqualTo("a minus sign is removed, so the value keeps its sign");
+    assertThat(advice.changedTo()).isEqualTo("minus sign removed");
+    assertThat(advice.headline())
+        .isEqualTo("no test checks the sign of the negated value in `discount()`");
+    assertThat(advice.fix())
+        .isEqualTo("add a test with a value that isn't zero, and assert the sign of the result");
+  }
+
+  @Test
   void namesALambdaAndAnAnonymousClassAsTheSourceHasThem() {
     var inLambda =
         new Mutant(

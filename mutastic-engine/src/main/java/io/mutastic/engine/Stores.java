@@ -55,9 +55,14 @@ final class Stores {
     if (!(code.get(at) instanceof StoreInstruction store)) {
       return Optional.empty();
     }
+    return variableAt(store.slot(), at);
+  }
+
+  /// The source variable in the slot at `at`, which has a value by then: none for what's javac's.
+  Optional<String> variableAt(int slot, int at) {
     return code.stream()
         .flatMap(element -> element instanceof LocalVariable local ? Stream.of(local) : Stream.of())
-        .filter(local -> local.slot() == store.slot() && inRange(local, at))
+        .filter(local -> local.slot() == slot && inRange(local, at))
         .map(local -> local.name().stringValue())
         .filter(name -> !name.contains("$"))
         .findFirst();
@@ -73,7 +78,12 @@ final class Stores {
 
   /// Whether anything can read the value the store at `at` leaves.
   boolean valueIsRead(int at) {
-    return readFrom(at + 1, ((StoreInstruction) code.get(at)).slot());
+    return slotIsRead(((StoreInstruction) code.get(at)).slot(), at);
+  }
+
+  /// Whether anything after `at` can read the slot before it's stored to again.
+  boolean slotIsRead(int slot, int at) {
+    return readFrom(at + 1, slot);
   }
 
   /// A parameter that holds an object, from the table of local variables.

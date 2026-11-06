@@ -109,6 +109,19 @@ public enum BuiltIn implements Operator {
   ARITHMETIC_REPLACEMENT(
       "`+` becomes `*`, on `int` and `long`. It goes unnoticed when tests only add numbers whose"
           + " sum and product agree, `2 + 2` say.",
+      Tier.STRONGER),
+
+  /// A variable's own step the other way: `iinc` with its sign flipped. Most are loop counters, and
+  /// a loop that never ends costs a whole time limit to catch, so it's in `stronger`.
+  FLIP_INCREMENT(
+      "`i++` becomes `i--`, and `i += 2` becomes `i -= 2`, on a local variable. It goes unnoticed"
+          + " when no test depends on which way the variable moves.",
+      Tier.STRONGER),
+
+  /// A negation taken away: `-x` becomes `x`.
+  REMOVE_NEGATION(
+      "A value's minus sign is removed: `-x` becomes `x`. It goes unnoticed when tests only use"
+          + " zero, or don't check the sign of the result.",
       Tier.STRONGER);
 
   private final String explanation;

@@ -301,6 +301,8 @@ public final class ReportFiles {
           DROP_VARARG ->
           mutant.operator().id();
       case MATH, ARITHMETIC_REPLACEMENT -> "MathMutator";
+      case FLIP_INCREMENT -> "IncrementsMutator";
+      case REMOVE_NEGATION -> "InvertNegsMutator";
       case REMOVE_CONDITIONAL -> "RemoveConditionalMutator";
       case REMOVE_VOID_CALL -> "VoidMethodCallMutator";
       case REMOVE_DISCARDED_CALL -> "NonVoidMethodCallMutator";

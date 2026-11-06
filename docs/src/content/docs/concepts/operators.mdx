@@ -19,6 +19,8 @@ For why each one is worth catching, the bugs it stands for and the test that cat
 | [`mutastic/logical-connector`](#logical-connector) | `&&` and `\|\|` | defaults |
 | [`mutastic/math`](#math) | `+` and `-`, `*` and `/` | defaults |
 | [`mutastic/arithmetic-replacement`](#arithmetic-replacement) | `+` to `*` | stronger |
+| [`mutastic/flip-increment`](#flip-increment) | `i++` and `i--`, `i += 2` and `i -= 2` | stronger |
+| [`mutastic/remove-negation`](#remove-negation) | `-x` to `x` | stronger |
 | [`mutastic/return-value`](#return-value) | a returned value to the other `boolean`, `0`, an empty one or `null` | defaults |
 | [`mutastic/remove-void-call`](#remove-void-call) | a call that returns nothing, removed | defaults |
 | [`mutastic/remove-discarded-call`](#remove-discarded-call) | a call whose result is thrown away, removed | defaults |
@@ -149,6 +151,33 @@ goes unnoticed when tests only add numbers whose sum and product agree, `2 + 2` 
 ```java
 return price + shipping;   // becomes: return price * shipping;
 ```
+
+## Flip increment
+
+`mutastic/flip-increment`, in the `stronger` set. A local variable's step goes the other way: `i++`
+becomes `i--`, and `i += 2` becomes `i -= 2`. It goes unnoticed when no test depends on which way the
+variable moves.
+
+```java
+count++;   // becomes: count--;
+```
+
+A step nothing reads afterwards is skipped as equivalent. The index javac writes for an enhanced
+`for` isn't one of these, as no source names it, and code without its table of local variables has
+none. A loop counter that goes the wrong way either fails at once, on an index out of range, or
+never ends, which takes a whole time limit to catch.
+
+## Remove negation
+
+`mutastic/remove-negation`, in the `stronger` set. A value's minus sign is removed. It goes unnoticed
+when tests only use zero, or don't check the sign of the result.
+
+```java
+return -balance;   // becomes: return balance;
+```
+
+A negative literal or a negated constant is worked out by javac, so there's no negation left in the
+code to remove.
 
 ## Return value
 

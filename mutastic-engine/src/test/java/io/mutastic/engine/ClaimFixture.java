@@ -14,15 +14,46 @@ import java.util.Objects;
 
 /// A fixture class that writes each mutant's claim out as source beside its method: `xClaim` is `x`
 /// as its card says the mutant makes it, and `xClaim_name` if the method has one change for each of
-/// several names. Every method takes two strings. It's compiled with [Javac], once however many
-/// mutants it has, as truth tests run for every mutant that reaches them.
+/// several names. Every method takes two of the fixture's [Inputs]. It's compiled with [Javac],
+/// once however many mutants it has, as truth tests run for every mutant that reaches them.
 final class ClaimFixture {
   static final Path ROOT = Path.of("src/test/resources/truth");
-  private static final List<String> TEXTS =
-      List.of("a", "b", "aa", "ab", "ba", "aba", " a", "a ", " a ", "A", "aB", "1", "abcde", "<b>");
 
-  private static final String TAKES_TWO_STRINGS = "(Ljava/lang/String;Ljava/lang/String;)";
+  /// What a fixture's methods take two of, and the values each is called with. Every numeric shape
+  /// is written as a method that takes two `int`s: `(long) a * 3L`, `(char) a == 'x'`.
+  record Inputs(Class<?> type, String descriptor, List<Object> values) {
+    static final Inputs TEXTS =
+        new Inputs(
+            String.class,
+            "(Ljava/lang/String;Ljava/lang/String;)",
+            List.of(
+                "a", "b", "aa", "ab", "ba", "aba", " a", "a ", " a ", "A", "aB", "1", "abcde",
+                "<b>"));
 
+    /// Either side of `0`, of `1`, of the fixtures' constants, of a letter, and at each end of
+    /// `int`, so that a change near any of them shows and an overflow is reached.
+    static final Inputs NUMBERS =
+        new Inputs(
+            int.class,
+            "(II)",
+            List.of(
+                Integer.MIN_VALUE,
+                -3,
+                -1,
+                0,
+                1,
+                2,
+                3,
+                96,
+                97,
+                98,
+                99,
+                100,
+                101,
+                Integer.MAX_VALUE));
+  }
+
+  private final Inputs inputs;
   private final String className;
   private final Mutations mutations;
   private final ClassModel model;
@@ -30,6 +61,11 @@ final class ClaimFixture {
 
   /// `calls/Omitted.java`, for example, compiled, for the mutants of `operator`.
   ClaimFixture(String file, String operator) throws IOException {
+    this(file, operator, Inputs.TEXTS);
+  }
+
+  ClaimFixture(String file, String operator, Inputs inputs) throws IOException {
+    this.inputs = inputs;
     this.className = file.replace(".java", "").replace('/', '.');
     this.mutations =
         new Mutations(ClassFile.of(), Policy.NONE.withOperators(List.of(operator), List.of()));
@@ -64,7 +100,7 @@ final class ClaimFixture {
   List<String> claimsThatLie() throws ReflectiveOperationException {
     var failures = new ArrayList<String>();
     for (var mutant : running()) {
-      if (!mutant.descriptor().startsWith(TAKES_TWO_STRINGS)) {
+      if (!mutant.descriptor().startsWith(inputs.descriptor())) {
         continue; // a helper, which a test of its own calls through its caller
       }
       var method = sourceMethod(mutant);
@@ -115,9 +151,11 @@ final class ClaimFixture {
 
   private List<String> outcomes(Class<?> owner, String method) throws ReflectiveOperationException {
     var outcomes = new ArrayList<String>();
-    for (String a : TEXTS) {
-      for (String b : TEXTS) {
-        outcomes.add(a + "," + b + ": " + outcome(owner, method, a, b));
+    var found = owner.getDeclaredMethod(method, inputs.type(), inputs.type());
+    found.setAccessible(true);
+    for (Object a : inputs.values()) {
+      for (Object b : inputs.values()) {
+        outcomes.add(a + "," + b + ": " + outcome(found, a, b));
       }
     }
     return outcomes;
@@ -132,10 +170,17 @@ final class ClaimFixture {
       throws ReflectiveOperationException {
     var method = owner.getDeclaredMethod(name, String.class, String.class);
     method.setAccessible(true);
+    return outcome(method, a, b);
+  }
+
+  private static String outcome(java.lang.reflect.Method method, Object... arguments)
+      throws ReflectiveOperationException {
     try {
       var receiver =
-          java.lang.reflect.Modifier.isStatic(method.getModifiers()) ? null : instance(owner);
-      var result = method.invoke(receiver, a, b);
+          java.lang.reflect.Modifier.isStatic(method.getModifiers())
+              ? null
+              : instance(method.getDeclaringClass());
+      var result = method.invoke(receiver, arguments);
       return result instanceof Object[] array
           ? java.util.Arrays.deepToString(array)
           : String.valueOf(result);

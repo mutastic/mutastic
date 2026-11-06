@@ -57,6 +57,7 @@ final class Operators {
               : List.of();
       case REMOVE_CONDITIONAL ->
           isConditional(instruction) ? List.of(ALWAYS_JUMP, NEVER_JUMP) : List.of();
+      case REMOVE_NEGATION -> Arithmetic.negations(instruction.opcode());
       default ->
           (instruction instanceof BranchInstruction || instruction instanceof OperatorInstruction)
                   && REPLACEMENTS.getOrDefault(operator, Map.of()).containsKey(instruction.opcode())

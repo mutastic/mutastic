@@ -197,6 +197,52 @@ void totalAddsShipping() {
 
 Run it with `--operators=stronger`.
 
+## Flip increment
+
+**The bug it stands for:** a counter going the wrong way: `--` for `++`, a retry count that climbs
+when it should fall, a position that steps back.
+
+**Where it costs:** loops and hand-written parsers and scanners, where a position moves through
+text or an array, and remaining-attempts counters. A loop usually fails fast or hangs; a count
+returned or compared later doesn't, and comes out wrong by a little.
+
+```java
+remaining--;   // becomes: remaining++;
+```
+
+**The test that catches it:** one that checks the value after the step, not only that the code ran.
+
+```java
+@Test
+void aFailedAttemptUsesOneUp() {
+  assertEquals(2, new Retries(3).afterFailure().remaining());   // with ++ it would be 4
+}
+```
+
+Run it with `--operators=stronger`.
+
+## Remove negation
+
+**The bug it stands for:** a missing sign: a refund that adds, a delta applied the wrong way round.
+
+**Where it costs:** money and coordinates, where a value and its opposite are both plausible, and
+a test that only uses zero or checks the size of the result can't tell them apart.
+
+```java
+return -amount;   // becomes: return amount;
+```
+
+**The test that catches it:** one with a value that isn't zero, asserting the sign of the result.
+
+```java
+@Test
+void aRefundIsNegative() {
+  assertEquals(-500, Ledger.refund(500));   // without the minus sign it would be 500
+}
+```
+
+Run it with `--operators=stronger`.
+
 ## Return value
 
 **The bug it stands for:** a method that doesn't return what it worked out. This is less a typo
