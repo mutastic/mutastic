@@ -404,6 +404,11 @@ final class Mutations {
         io.mutastic.api.BuiltIn builtIn, Instruction instruction, int at, List<Found> found) {
       switch (builtIn) {
         case FLIP_INCREMENT -> incrementChange(instruction, at, found);
+        case KEEP_OPERAND -> {
+          for (String label : Arithmetic.operandsKept(code, at)) {
+            found.add(new Found(builtIn, ordinal, label, Optional.empty()));
+          }
+        }
         default -> siteChanges(builtIn, instruction, found);
       }
     }
@@ -809,7 +814,7 @@ final class Mutations {
       case BranchInstruction branch ->
           // A comparison's change is the jump it takes instead, by name.
           builder.with(BranchInstruction.of(Opcode.valueOf(mutant.replacement()), branch.target()));
-      case OperatorInstruction arithmetic -> Arithmetic.write(builder, arithmetic, operator);
+      case OperatorInstruction arithmetic -> Arithmetic.write(builder, arithmetic, mutant);
       case IncrementInstruction step -> builder.iinc(step.slot(), -step.constant());
       case ReturnInstruction returning -> ReturnValues.write(builder, returning, mutant);
       case InvokeInstruction call -> changeCall(builder, call, mutant);

@@ -298,9 +298,10 @@ public final class ReportFiles {
           OMIT_CALL,
           SWAP_ARGUMENTS,
           NULL_PARAMETER,
-          DROP_VARARG ->
+          DROP_VARARG,
+          KEEP_OPERAND ->
           mutant.operator().id();
-      case MATH, ARITHMETIC_REPLACEMENT -> "MathMutator";
+      case MATH, ARITHMETIC_REPLACEMENT, OTHER_ARITHMETIC -> "MathMutator";
       case FLIP_INCREMENT -> "IncrementsMutator";
       case REMOVE_NEGATION -> "InvertNegsMutator";
       case REMOVE_CONDITIONAL -> "RemoveConditionalMutator";

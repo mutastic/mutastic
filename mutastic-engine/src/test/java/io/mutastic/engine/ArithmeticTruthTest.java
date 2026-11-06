@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 class ArithmeticTruthTest {
   private static ClaimFixture increments;
   private static ClaimFixture negations;
+  private static ClaimFixture others;
+  private static ClaimFixture kept;
 
   @BeforeAll
   static void compile() throws Exception {
@@ -19,6 +21,15 @@ class ArithmeticTruthTest {
         new ClaimFixture("arithmetic/Increments.java", "mutastic/flip-increment", Inputs.NUMBERS);
     negations =
         new ClaimFixture("arithmetic/Negations.java", "mutastic/remove-negation", Inputs.NUMBERS);
+  }
+
+  @BeforeAll
+  static void compileTheOperators() throws Exception {
+    others =
+        new ClaimFixture(
+            "arithmetic/OtherArithmetic.java", "mutastic/other-arithmetic", Inputs.NUMBERS);
+    kept =
+        new ClaimFixture("arithmetic/KeptOperands.java", "mutastic/keep-operand", Inputs.NUMBERS);
   }
 
   private static SourceView sources() {
@@ -102,6 +113,85 @@ class ArithmeticTruthTest {
       assertThat(advice.change()).isEqualTo("a minus sign is removed, so the value keeps its sign");
       assertThat(advice.headline()).contains("no test checks the sign");
       assertThat(advice.fix()).contains("isn't zero");
+    }
+  }
+
+  @Test
+  void anOperatorBecomesTheOneItsCardNames() throws Exception {
+    assertThat(others.running()).as("the cards checked").hasSizeGreaterThan(50);
+    assertThat(others.claimsThatLie()).isEmpty();
+  }
+
+  /// `mutastic/math` and `mutastic/arithmetic-replacement` keep theirs, and so their ids.
+  @Test
+  void onlyWhatNoOtherOperatorMakesOfAWholeNumber() {
+    assertThat(others.changesIn("anIntAdd")).containsExactly("IDIV", "IREM");
+    assertThat(others.changesIn("anIntSub")).containsExactly("IMUL", "IDIV", "IREM");
+    assertThat(others.changesIn("anIntMul")).containsExactly("IADD", "ISUB", "IREM");
+    assertThat(others.changesIn("anIntDiv")).containsExactly("IADD", "ISUB", "IREM");
+    assertThat(others.changesIn("aLongRem")).containsExactly("LADD", "LSUB", "LMUL", "LDIV");
+    assertThat(others.changesIn("aFloatAdd")).containsExactly("FSUB", "FMUL", "FDIV", "FREM");
+    assertThat(others.changesIn("aDoubleMul")).containsExactly("DADD", "DSUB", "DDIV", "DREM");
+  }
+
+  @Test
+  void aCapacityIsAridAndOtherInstructionsArentArithmetic() {
+    var why = " (arid: only sizes a collection's first allocation)";
+    assertThat(others.changesIn("aCapacity")).containsExactly("IDIV" + why, "IREM" + why);
+    assertThat(kept.changesIn("aCapacity")).containsExactly("keep first" + why);
+    assertThat(others.mutants())
+        .extracting(ClaimFixture::sourceMethod)
+        .doesNotContain("aShift", "aMask", "aLongComparison");
+    assertThat(kept.mutants())
+        .extracting(ClaimFixture::sourceMethod)
+        .doesNotContain("aShift", "aNegation");
+  }
+
+  @Test
+  void anOtherOperatorsCardSaysWhichTwo() {
+    var sources = sources();
+    var symbols = java.util.Map.of("ADD", "+", "SUB", "-", "MUL", "*", "DIV", "/", "REM", "%");
+    for (var mutant : others.running()) {
+      var before = symbols.get(mutant.original().substring(1));
+      var after = symbols.get(mutant.replacement().substring(1));
+      var advice = sources.advice(mutant);
+      assertThat(advice.change())
+          .as(ClaimFixture.describe(mutant))
+          .isEqualTo("`%s` becomes `%s`".formatted(before, after));
+      assertThat(advice.headline()).contains("`%s` becomes `%s`".formatted(before, after));
+    }
+  }
+
+  @Test
+  void aKeptOperandIsThatValueAlone() throws Exception {
+    assertThat(kept.running()).as("the cards checked").hasSizeGreaterThan(17);
+    assertThat(kept.claimsThatLie()).isEmpty();
+  }
+
+  @Test
+  void aConstantBesideAVariableIsNotWhatsKept() {
+    assertThat(kept.changesIn("plusOne")).containsExactly("keep first");
+    assertThat(kept.changesIn("twice")).containsExactly("keep second");
+    assertThat(kept.changesIn("anIntSum")).containsExactly("keep first", "keep second");
+  }
+
+  @Test
+  void aKeptOperandsCardNamesWhatNoTestNeeds() {
+    var sources = sources();
+    for (var mutant : kept.running()) {
+      var operands = mutant.operands();
+      if (ClaimFixture.sourceMethod(mutant).endsWith("Sum")) {
+        boolean first = mutant.replacement().equals(Arithmetic.KEEP_FIRST);
+        var whole = "`x + y`";
+        var advice = sources.advice(mutant);
+        assertThat(operands).containsExactly("x", "y");
+        assertThat(advice.change())
+            .isEqualTo("%s becomes `%s`".formatted(whole, first ? "x" : "y"));
+        assertThat(advice.fix())
+            .isEqualTo(
+                "add a test where `%s` changes the result of %s, and assert it"
+                    .formatted(first ? "y" : "x", whole));
+      }
     }
   }
 }

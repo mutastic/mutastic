@@ -54,7 +54,7 @@ public record Advice(
           "NONNULL", "!=");
 
   private static final Map<String, String> ARITHMETIC =
-      Map.of("ADD", "+", "SUB", "-", "MUL", "*", "DIV", "/");
+      Map.of("ADD", "+", "SUB", "-", "MUL", "*", "DIV", "/", "REM", "%");
 
   private static final Pattern NUMBER = Pattern.compile("-?\\d+");
 
@@ -78,7 +78,8 @@ public record Advice(
       case BuiltIn builtIn ->
           switch (builtIn) {
             case BOUNDARY, COMPARISON, OTHER_COMPARISON -> comparison(mutant, seen, asWritten);
-            case MATH, ARITHMETIC_REPLACEMENT -> math(mutant, seen);
+            case MATH, ARITHMETIC_REPLACEMENT, OTHER_ARITHMETIC -> math(mutant, seen);
+            case KEEP_OPERAND -> keptOperand(mutant, seen);
             case RETURN_VALUE -> returnValue(mutant, seen);
             case REMOVE_VOID_CALL, REMOVE_DISCARDED_CALL -> removeVoidCall(mutant, seen);
             case REMOVE_CONDITIONAL -> removeConditional(mutant, seen, asWritten);
@@ -432,6 +433,43 @@ public record Advice(
         "use inputs where %s and %s differ, and assert the result".formatted(original, swapped));
   }
 
+  /// A calculation down to one of its values: the test to add is one the other changes the result
+  /// of. The label says which is kept, `keep first`.
+  private static Advice keptOperand(Mutant mutant, Map<String, List<Long>> seen) {
+    var method = method(mutant);
+    var symbol = arithmetic(mutant.original());
+    boolean first = mutant.replacement().endsWith("first");
+    var operands = mutant.operands();
+    if (operands.size() != 2) {
+      var lost = "the %s value of `%s`".formatted(first ? "second" : "first", symbol);
+      return kept(
+          "`%s` keeps only its %s value".formatted(symbol, first ? "first" : "second"),
+          "no test needs %s in %s".formatted(lost, method),
+          "add a test where %s changes the result, and assert it".formatted(lost),
+          seen);
+    }
+    var whole = "`%s %s %s`".formatted(operands.get(0), symbol, operands.get(1));
+    var left = "`%s`".formatted(operands.get(first ? 0 : 1));
+    var lost = "`%s`".formatted(operands.get(first ? 1 : 0));
+    return kept(
+        "%s becomes %s".formatted(whole, left),
+        "no test needs %s in %s in %s".formatted(lost, whole, method),
+        "add a test where %s changes the result of %s, and assert it".formatted(lost, whole),
+        seen);
+  }
+
+  private static Advice kept(
+      String change, String headline, String fix, Map<String, List<Long>> seen) {
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        change,
+        "one value kept",
+        headline,
+        inputsSeen(seen),
+        fix);
+  }
+
   /// The return gives another value: the card says which, and asks for a test that needs the one it
   /// gives today. A `boolean`, or a number that's `0` today, names that value.
   private static Advice returnValue(Mutant mutant, Map<String, List<Long>> seen) {
@@ -656,7 +694,7 @@ public record Advice(
     return values.stream().map(String::valueOf).collect(Collectors.joining(", "));
   }
 
-  /// `+` for `IADD` or `LADD`: the math operator only changes these.
+  /// `+` for `IADD` or `DADD`: the arithmetic operators only change these.
   private static String arithmetic(String opcode) {
     return requireNonNull(ARITHMETIC.get(opcode.substring(1)), opcode);
   }

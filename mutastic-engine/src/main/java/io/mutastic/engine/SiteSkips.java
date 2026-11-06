@@ -44,11 +44,20 @@ final class SiteSkips {
           "java/lang/StringBuffer",
           "java/io/ByteArrayOutputStream");
 
+  /// The operators that change what a calculation gives.
+  private static final Set<Operator> CALCULATIONS =
+      Set.of(
+          BuiltIn.MATH,
+          BuiltIn.ARITHMETIC_REPLACEMENT,
+          BuiltIn.OTHER_ARITHMETIC,
+          BuiltIn.KEEP_OPERAND,
+          BuiltIn.REMOVE_NEGATION);
+
   private SiteSkips() {}
 
   /// Why the mutant `operator` makes at `code[at]` shouldn't run, if it shouldn't.
   static Optional<String> reason(Operator operator, List<CodeElement> code, int at) {
-    if (operator == BuiltIn.MATH || operator == BuiltIn.ARITHMETIC_REPLACEMENT) {
+    if (CALCULATIONS.contains(operator)) {
       return next(code, at).flatMap(SiteSkips::onlySizesOrWaits);
     }
     if (code.get(at) instanceof InvokeInstruction call) {

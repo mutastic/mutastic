@@ -197,6 +197,53 @@ void totalAddsShipping() {
 
 Run it with `--operators=stronger`.
 
+## Other arithmetic
+
+**The bug it stands for:** any operator mixed up with another: `%` for `/`, a `-` where a `*`
+belongs, and the same on `float` and `double`, where the defaults don't look.
+
+**Where it costs:** rates, ratios, averages and paging, where the wrong operator gives a plausible
+number. It's in the `stronger` set for its cost: each operator has several changes.
+
+```java
+return total / size;   // becomes: return total % size;
+```
+
+**The test that catches it:** one with values that tell every operator apart, and neither `0`, `1`
+nor two values the same.
+
+```java
+@Test
+void averageDividesTheTotalBySize() {
+  assertEquals(4, Stats.average(17, 4));   // 17 / 4; with % it would be 1
+}
+```
+
+Run it with `--operators=stronger`.
+
+## Keep operand
+
+**The bug it stands for:** a part of a calculation left out: the fee not added, the discount not
+taken off, the offset forgotten.
+
+**Where it costs:** totals of several parts, where tests set the one being looked at and leave the
+rest at `0` or `1`. Those are the values where leaving a part out gives the same answer.
+
+```java
+return price + fee;   // becomes: return price;
+```
+
+**The test that catches it:** one where each part has a value that changes the result.
+
+```java
+@Test
+void theTotalIncludesTheFee() {
+  assertEquals(525, new Order(500, 25).total());   // without the fee it would be 500
+}
+```
+
+Run it with `--operators=stronger`.
+
 ## Flip increment
 
 **The bug it stands for:** a counter going the wrong way: `--` for `++`, a retry count that climbs

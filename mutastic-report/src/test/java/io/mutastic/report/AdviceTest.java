@@ -177,6 +177,44 @@ class AdviceTest {
   }
 
   @Test
+  void otherArithmeticIsTheSameCardAsMath() {
+    var known = Advice.of(with(BuiltIn.OTHER_ARITHMETIC, "IADD", "IREM", "price", "quantity"));
+    assertThat(known.before()).contains("+");
+    assertThat(known.after()).contains("%");
+    assertThat(known.headline()).isEqualTo("tests pass even when `+` becomes `%` in `discount()`");
+    assertThat(known.fix())
+        .isEqualTo(
+            "use inputs where `price + quantity` and `price % quantity` differ, and assert the"
+                + " result");
+  }
+
+  @Test
+  void aKeptOperandNamesTheValueNoTestNeeds() {
+    var first = Advice.of(with(BuiltIn.KEEP_OPERAND, "IADD", "keep first", "price", "fee"));
+    assertThat(first.change()).isEqualTo("`price + fee` becomes `price`");
+    assertThat(first.changedTo()).isEqualTo("one value kept");
+    assertThat(first.before()).isEmpty();
+    assertThat(first.headline()).isEqualTo("no test needs `fee` in `price + fee` in `discount()`");
+    assertThat(first.fix())
+        .isEqualTo("add a test where `fee` changes the result of `price + fee`, and assert it");
+
+    var second = Advice.of(with(BuiltIn.KEEP_OPERAND, "IADD", "keep second", "price", "fee"));
+    assertThat(second.change()).isEqualTo("`price + fee` becomes `fee`");
+    assertThat(second.headline())
+        .isEqualTo("no test needs `price` in `price + fee` in `discount()`");
+
+    var unknown = Advice.of(mutant(BuiltIn.KEEP_OPERAND, "IMUL", "keep second", "(I)I"));
+    assertThat(unknown.change()).isEqualTo("`*` keeps only its second value");
+    assertThat(unknown.headline())
+        .isEqualTo("no test needs the first value of `*` in `discount()`");
+    assertThat(unknown.fix())
+        .isEqualTo("add a test where the first value of `*` changes the result, and assert it");
+
+    var unknownFirst = Advice.of(mutant(BuiltIn.KEEP_OPERAND, "IMUL", "keep first", "(I)I"));
+    assertThat(unknownFirst.change()).isEqualTo("`*` keeps only its first value");
+  }
+
+  @Test
   void aFlippedStepSaysWhichWayTheVariableShouldGo() {
     var down = Advice.of(mutant(BuiltIn.FLIP_INCREMENT, "IINC", "count by -1", "(I)I"));
     assertThat(down.change()).isEqualTo("`count` goes down by 1 instead of up");

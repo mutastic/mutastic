@@ -407,6 +407,26 @@
             },
             {
               "kind": "enum constant",
+              "name": "OTHER_ARITHMETIC",
+              "anchor": "other_arithmetic",
+              "signature": "OTHER_ARITHMETIC",
+              "doc": "In `stronger`: every other change of `+`, `-`, `*`, `/` and `%`, on all four number types,\nbeyond what [`MATH`](#math) and [`ARITHMETIC_REPLACEMENT`](#arithmetic_replacement) make, whose ids stay as they are.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "KEEP_OPERAND",
+              "anchor": "keep_operand",
+              "signature": "KEEP_OPERAND",
+              "doc": "A calculation down to one of its operands. Both are still worked out, so a call in the other\nstill runs. A constant beside a variable isn't what's kept: nothing plausibly forgets it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
               "name": "FLIP_INCREMENT",
               "anchor": "flip_increment",
               "signature": "FLIP_INCREMENT",

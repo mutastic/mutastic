@@ -19,6 +19,8 @@ For why each one is worth catching, the bugs it stands for and the test that cat
 | [`mutastic/logical-connector`](#logical-connector) | `&&` and `\|\|` | defaults |
 | [`mutastic/math`](#math) | `+` and `-`, `*` and `/` | defaults |
 | [`mutastic/arithmetic-replacement`](#arithmetic-replacement) | `+` to `*` | stronger |
+| [`mutastic/other-arithmetic`](#other-arithmetic) | an arithmetic operator to any of the others, on every number type | stronger |
+| [`mutastic/keep-operand`](#keep-operand) | a calculation to one of its values: `a + b` to `a`, or `b` | stronger |
 | [`mutastic/flip-increment`](#flip-increment) | `i++` and `i--`, `i += 2` and `i -= 2` | stronger |
 | [`mutastic/remove-negation`](#remove-negation) | `-x` to `x` | stronger |
 | [`mutastic/return-value`](#return-value) | a returned value to the other `boolean`, `0`, an empty one or `null` | defaults |
@@ -151,6 +153,30 @@ goes unnoticed when tests only add numbers whose sum and product agree, `2 + 2` 
 ```java
 return price + shipping;   // becomes: return price * shipping;
 ```
+
+## Other arithmetic
+
+`mutastic/other-arithmetic`, in the `stronger` set. An arithmetic operator becomes each of the others
+among `+`, `-`, `*`, `/` and `%`, on `int`, `long`, `float` and `double`, beyond the changes
+`mutastic/math` and `mutastic/arithmetic-replacement` make. It goes unnoticed when tests only use
+values where the two give the same answer, or don't check the result.
+
+```java
+return total % size;   // becomes: return total / size;
+```
+
+## Keep operand
+
+`mutastic/keep-operand`, in the `stronger` set. A calculation becomes one of its two values, and a
+mutant is made for each. It goes unnoticed when no test has a value of the other that changes the
+result.
+
+```java
+return price + fee;   // becomes: return price;   and: return fee;
+```
+
+Both values are still worked out, so a call in the other still runs. A constant beside a variable
+isn't what's kept: `count + 1` becomes `count`, not `1`.
 
 ## Flip increment
 

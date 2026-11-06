@@ -111,6 +111,21 @@ public enum BuiltIn implements Operator {
           + " sum and product agree, `2 + 2` say.",
       Tier.STRONGER),
 
+  /// In `stronger`: every other change of `+`, `-`, `*`, `/` and `%`, on all four number types,
+  /// beyond what [#MATH] and [#ARITHMETIC_REPLACEMENT] make, whose ids stay as they are.
+  OTHER_ARITHMETIC(
+      "An arithmetic operator becomes one of the others: `+`, `-`, `*`, `/` and `%`, on `int`,"
+          + " `long`, `float` and `double`. It goes unnoticed when tests only use values where the"
+          + " two give the same answer, or don't check the result.",
+      Tier.STRONGER),
+
+  /// A calculation down to one of its operands. Both are still worked out, so a call in the other
+  /// still runs. A constant beside a variable isn't what's kept: nothing plausibly forgets it.
+  KEEP_OPERAND(
+      "A calculation becomes one of its two values: `a + b` becomes `a`, or `b`. It goes unnoticed"
+          + " when no test has a value of the other that changes the result.",
+      Tier.STRONGER),
+
   /// A variable's own step the other way: `iinc` with its sign flipped. Most are loop counters, and
   /// a loop that never ends costs a whole time limit to catch, so it's in `stronger`.
   FLIP_INCREMENT(
