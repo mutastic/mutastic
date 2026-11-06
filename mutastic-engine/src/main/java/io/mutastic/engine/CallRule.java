@@ -27,6 +27,8 @@ import java.util.Set;
 /// - `remove`: drop the call and its arguments, keeping the receiver as its result. Only for a call
 ///   that returns its receiver's type, a stream stage say.
 /// - `rename a->b, c->d`: the same arguments, another method of the same type.
+/// - `omit last argument`: the same method without its last argument, for the overloads that
+///   `descriptors` lists, each of which must have that shorter one.
 /// - `call name(ARGS) with A, B`: drop the arguments and call another method on the same receiver
 ///   with these, returning the same type. An argument is `0`, `0L`, `Integer.MAX_VALUE`,
 ///   `Long.MAX_VALUE`, `true`, `false`, `null` or a static no-argument call, `Function.identity()`
@@ -49,6 +51,8 @@ public record CallRule(
     String changed,
     Map<String, String> templates)
     implements Mutator {
+  static final String OMIT_LAST = "omit last argument";
+
   /// The terminal operations whose result doesn't depend on order, or on duplicates.
   private static final Set<String> ORDER_FREE =
       Set.of(
@@ -89,6 +93,9 @@ public record CallRule(
                   new Change(
                       pair[1], LibrarySwaps.equivalent(call, pair[1], site.code(), site.index())))
           .toList();
+    }
+    if (rewrite.equals(OMIT_LAST)) {
+      return List.of(Change.of(OMIT_LAST));
     }
     return List.of(Change.of(source.isEmpty() ? rewrite.substring("call ".length()) : source));
   }
@@ -159,6 +166,12 @@ public record CallRule(
     var type = call.typeSymbol();
     if (rewrite.startsWith("rename ")) {
       invoke(builder, call, label, type);
+      return;
+    }
+    if (rewrite.equals(OMIT_LAST)) {
+      int count = type.parameterCount();
+      Mutations.pop(builder, TypeKind.from(type.parameterType(count - 1)));
+      invoke(builder, call, call.name().stringValue(), type.dropParameterTypes(count - 1, count));
       return;
     }
     for (var parameter : type.parameterList().reversed()) {

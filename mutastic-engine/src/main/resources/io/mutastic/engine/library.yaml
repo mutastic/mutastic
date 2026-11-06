@@ -47,3 +47,15 @@
   help.max: use two different values, and assert which comes back
   help.floor: use a value with a fraction, and assert which way it's rounded
   help.ceil: use a value with a fraction, and assert which way it's rounded
+
+# Only overloads whose result shows the argument: a charset, a locale or a `split` limit rarely does.
+- id: library/omit-argument
+  explanation: A call to one of the JDK's overloads leaves out its last argument and calls the shorter one, `indexOf(x, from)` to `indexOf(x)`, `substring(from, to)` to `substring(from)`, `parseInt(text, 16)` to `parseInt(text)`. It goes unnoticed when no test has a value that argument makes a difference to.
+  tier: stronger
+  owners: java.lang.String, java.lang.StringBuilder, java.lang.Integer, java.lang.Long, java.util.regex.Pattern, java.util.Objects
+  methods: indexOf, lastIndexOf, substring, parseInt, parseLong, toString, compile
+  descriptors: (Ljava/lang/String;I)I, (II)I, (II)Ljava/lang/String;, (Ljava/lang/String;I)J, (JI)Ljava/lang/String;, (Ljava/lang/String;I)Ljava/util/regex/Pattern;, (Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/String;
+  rewrite: omit last argument
+  changed: called without its last argument
+  headline: no test needs the last argument of `{name}` in {method}
+  help: use a value that argument makes a difference to, and assert the result

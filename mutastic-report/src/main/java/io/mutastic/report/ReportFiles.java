@@ -296,7 +296,9 @@ public final class ReportFiles {
           REMOVE_ASSIGNMENT,
           REMOVE_FIELD_WRITE,
           OMIT_CALL,
-          SWAP_ARGUMENTS ->
+          SWAP_ARGUMENTS,
+          NULL_PARAMETER,
+          DROP_VARARG ->
           mutant.operator().id();
       case MATH, ARITHMETIC_REPLACEMENT -> "MathMutator";
       case REMOVE_CONDITIONAL -> "RemoveConditionalMutator";

@@ -381,6 +381,71 @@ void aTransferMovesMoneyFromTheFirstToTheSecond() {
 }
 ```
 
+## Null parameter
+
+**The bug it stands for:** a value that's handed in and doesn't matter as it should: a parameter
+ignored on one path, or a caller's `null` going further than it should before it's noticed.
+
+**Where it costs:** code with many inputs where tests pin only some: a method using `carrier` only
+for some orders, an option that only changes the rare case.
+
+```java
+void ship(Order order, Carrier carrier) {   // becomes: carrier = null; as the method starts
+```
+
+**The test that catches it:** one whose result depends on the parameter, on the path where it's used.
+
+```java
+@Test
+void aHeavyOrderGoesByTheCarrierAsked() {
+  shipping.ship(Order.heavy(), freight);
+  assertEquals(1, freight.collections());
+}
+```
+
+## Drop vararg
+
+**The bug it stands for:** a value left out of a list: the role not in the set, the last column not
+in the query, the argument not in the message.
+
+**Where it costs:** lists built in one expression, where one element's absence shows only for inputs
+that need it.
+
+```java
+var line = String.format("%s %s %d", name, code, count);   // becomes: without count
+```
+
+**The test that catches it:** one that depends on the last value, not only on the others.
+
+```java
+@Test
+void theLineEndsWithTheCount() {
+  assertEquals("ab 12 3", Lines.of("ab", 12, 3));
+}
+```
+
+## Omit argument
+
+**The bug it stands for:** the shorter overload where the longer was meant: a search from the start
+instead of from a position, hex read as decimal, a pattern losing its flags.
+
+**Where it costs:** parsing. These reads run, and often return something plausible, on inputs where
+the argument makes no difference.
+
+```java
+int value = Integer.parseInt(text, 16);   // becomes: Integer.parseInt(text)
+```
+
+**The test that catches it:** one with a value the argument changes: a hex number whose digits would
+read as decimal too, a match before the search's starting point.
+
+```java
+@Test
+void theValueIsReadAsHex() {
+  assertEquals(16, Codes.parse("10"));   // 10 in decimal if the radix is gone
+}
+```
+
 ## Stream stage removal
 
 **The bug it stands for:** a stage that's wrong, or in the wrong place, and no test would know: a

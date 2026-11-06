@@ -58,8 +58,21 @@ final class Mutations {
           "org/apache/commons/logging/Log",
           "java/io/PrintStream");
 
+  /// mutastic's own operators whose mutants are verified as a plugin's are: each is built to load,
+  /// but on what another compiler writes, or what a method here doesn't foresee, the mutant is
+  /// skipped rather than stopping the run.
+  private static final Set<Operator> VERIFIED =
+      Set.of(
+          BuiltIn.REMOVE_ASSIGNMENT,
+          BuiltIn.OMIT_CALL,
+          BuiltIn.SWAP_ARGUMENTS,
+          BuiltIn.NULL_PARAMETER,
+          BuiltIn.DROP_VARARG);
+
   private final ClassFile context;
   private final Policy policy;
+
+  private static final String NULL_PARAMETER = "null parameter";
 
   /// The operators this run uses, as the policy chooses.
   private final List<Operator> operators;
@@ -120,10 +133,7 @@ final class Mutations {
     var checked = new ArrayList<Mutant>(found.size());
     for (Mutant mutant : found) {
       var unviable =
-          (mutant.operator() instanceof Mutator
-                      || mutant.operator() == BuiltIn.REMOVE_ASSIGNMENT
-                      || mutant.operator() == BuiltIn.OMIT_CALL
-                      || mutant.operator() == BuiltIn.SWAP_ARGUMENTS)
+          (mutant.operator() instanceof Mutator || VERIFIED.contains(mutant.operator()))
                   && mutant.skipped().isEmpty()
               ? whyUnviable(model, mutant)
               : Optional.<String>empty();
@@ -294,6 +304,18 @@ final class Mutations {
                 Connectors.at(code, at).isPresent(),
                 new Found(builtIn, ordinal, Connectors.SWAPPED, Optional.empty()),
                 found);
+        case REMOVE_DISCARDED_CALL, OMIT_CALL, SWAP_ARGUMENTS, DROP_VARARG ->
+            callChange(builtIn, instruction, at, found);
+        case NULL_PARAMETER -> parameterChanges(found);
+        case REMOVE_ASSIGNMENT -> assignmentChange(at, found);
+        case REMOVE_FIELD_WRITE -> fieldWriteChange(instruction, found);
+        default -> instructionChanges(builtIn, instruction, found);
+      }
+    }
+
+    /// A call operator that reads the code around the call.
+    private void callChange(BuiltIn builtIn, Instruction instruction, int at, List<Found> found) {
+      switch (builtIn) {
         case REMOVE_DISCARDED_CALL ->
             addIf(
                 isDiscarded(code, at),
@@ -301,9 +323,11 @@ final class Mutations {
                 found);
         case OMIT_CALL -> omittedCall(instruction, at, found);
         case SWAP_ARGUMENTS -> swappedArguments(at, found);
-        case REMOVE_ASSIGNMENT -> assignmentChange(at, found);
-        case REMOVE_FIELD_WRITE -> fieldWriteChange(instruction, found);
-        default -> instructionChanges(builtIn, instruction, found);
+        default ->
+            addIf(
+                DroppedElement.at(code, at),
+                new Found(builtIn, callOrdinal, DroppedElement.DROP, Optional.empty()),
+                found);
       }
     }
 
@@ -331,6 +355,23 @@ final class Mutations {
             .ifPresent(
                 change ->
                     found.add(new Found(BuiltIn.OMIT_CALL, callOrdinal, change, Optional.empty())));
+      }
+    }
+
+    /// Each parameter holding an object, at the method's first instruction, unless nothing reads
+    /// the value it comes in with. The label holds the slot, for [MutantTransform#atStart].
+    private void parameterChanges(List<Found> found) {
+      if (index == 0) {
+        for (var parameter : stores.objectParameters(method)) {
+          found.add(
+              new Found(
+                  BuiltIn.NULL_PARAMETER,
+                  index,
+                  "%s %d %s".formatted(NULL_PARAMETER, parameter.slot(), parameter.name()),
+                  stores.parameterIsRead(parameter.slot())
+                      ? Optional.empty()
+                      : Optional.of("equivalent: nothing reads the value it comes in with")));
+        }
       }
     }
 
@@ -577,13 +618,12 @@ final class Mutations {
       // Type annotations in the code (JSpecify's `@Nullable` on a local) say where each annotated
       // local lives by bytecode offset, which the API doesn't move when a mutant changes the
       // code's length: they'd point past the end, and the class wouldn't load. They go too.
-      if (element instanceof LocalVariable
-          || element instanceof LocalVariableType
-          || element instanceof RuntimeVisibleTypeAnnotationsAttribute
-          || element instanceof RuntimeInvisibleTypeAnnotationsAttribute) {
+      if (isOffsetBound(element)) {
         return;
       }
-      if (element instanceof Instruction instruction && sites.changedBy(mutant, instruction)) {
+      if (element instanceof Instruction instruction
+          && mutant.operator() != BuiltIn.NULL_PARAMETER
+          && sites.changedBy(mutant, instruction)) {
         if (mutant.operator() == BuiltIn.LOGICAL_CONNECTOR) {
           swapConnector(builder, (BranchInstruction) instruction);
         } else {
@@ -595,6 +635,23 @@ final class Mutations {
       if (pastTheSecond != null && element instanceof BranchInstruction) {
         builder.labelBinding(pastTheSecond);
         pastTheSecond = null;
+      }
+    }
+
+    private static boolean isOffsetBound(CodeElement element) {
+      return element instanceof LocalVariable
+          || element instanceof LocalVariableType
+          || element instanceof RuntimeVisibleTypeAnnotationsAttribute
+          || element instanceof RuntimeInvisibleTypeAnnotationsAttribute;
+    }
+
+    /// A parameter's `null` goes before everything, a label included: a loop that starts the method
+    /// jumps back past it.
+    @Override
+    public void atStart(CodeBuilder builder) {
+      if (mutant.operator() == BuiltIn.NULL_PARAMETER) {
+        var slot = mutant.replacement().substring(NULL_PARAMETER.length() + 1).split(" ", 2)[0];
+        builder.aconst_null().astore(Integer.parseInt(slot));
       }
     }
 
@@ -637,11 +694,13 @@ final class Mutations {
   /// calls, or one of mutastic's on an instruction that isn't a site of the other kinds, which
   /// can't be counted in with them without moving their ids.
   private static boolean countsInstructions(Operator operator) {
-    return (operator instanceof Mutator && !operator.onCalls()) || isOnStores(operator);
+    return (operator instanceof Mutator && !operator.onCalls()) || isOnAnyInstruction(operator);
   }
 
-  private static boolean isOnStores(Operator operator) {
-    return operator == BuiltIn.REMOVE_ASSIGNMENT || operator == BuiltIn.REMOVE_FIELD_WRITE;
+  private static boolean isOnAnyInstruction(Operator operator) {
+    return operator == BuiltIn.REMOVE_ASSIGNMENT
+        || operator == BuiltIn.REMOVE_FIELD_WRITE
+        || operator == BuiltIn.NULL_PARAMETER;
   }
 
   private static boolean isFieldWrite(FieldInstruction field) {
@@ -735,6 +794,8 @@ final class Mutations {
       Wrappers.omit(builder, call, mutant.replacement());
     } else if (mutant.operator() == BuiltIn.SWAP_ARGUMENTS) {
       SwappedArguments.write(builder, call);
+    } else if (mutant.operator() == BuiltIn.DROP_VARARG) {
+      DroppedElement.write(builder, call);
     } else {
       removeCall(builder, call, mutant.operator() == BuiltIn.REMOVE_DISCARDED_CALL);
     }
@@ -860,7 +921,7 @@ final class Mutations {
     }
 
     List<Integer> forKindOf(Operator operator) {
-      if (isOnStores(operator)) {
+      if (isOnAnyInstruction(operator)) {
         return all;
       }
       return operator.onCalls() ? calls : sites;

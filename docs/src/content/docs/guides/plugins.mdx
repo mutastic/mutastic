@@ -63,6 +63,7 @@ and `{method}` the method the call is in.
 |---|---|---|
 | `remove` | Drops the call and its arguments, and keeps the object it was called on as the result. Only for a method that returns its own type: a stream stage, a builder step, `String.strip()` | `stream.filter(p).count()` becomes `stream.count()` |
 | `rename a->b, c->d` | Calls another method of the same type with the same arguments; each `a->b` is one mutant | `anyMatch->allMatch, anyMatch->noneMatch` |
+| `omit last argument` | Calls the same method without its last argument. List the overloads in `descriptors`, each of which must have the shorter one | `parseInt(text, 16)` becomes `parseInt(text)` |
 | `call name(ARGS) with A, B` | Drops the arguments and calls another method on the same object, which must return the same type. `ARGS` are the method's parameter types as the JVM writes them (`J` for `long`, `Ljava/util/function/Function;`) | `call first(J) with Long.MAX_VALUE` |
 
 A `call` rewrite's arguments are `0`, `0L`, `true`, `false`, `null`, `Integer.MAX_VALUE`,

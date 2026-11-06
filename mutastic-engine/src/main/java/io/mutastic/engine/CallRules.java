@@ -201,9 +201,9 @@ public final class CallRules {
             && listed(rewrite.substring("rename ".length())).stream()
                 .allMatch(pair -> pair.matches("\\w+->\\w+"));
     boolean call = rewrite.matches("call \\w+\\([^)]*\\)( with .+)?");
-    if (!rewrite.equals("remove") && !renames && !call) {
+    if (!rewrite.equals("remove") && !rewrite.equals(CallRule.OMIT_LAST) && !renames && !call) {
       throw new IllegalArgumentException(
-          "%s:%d: a rewrite is `remove`, `rename a->b, …` or `call name(ARGS) with A, B`, not %s"
+          "%s:%d: a rewrite is `remove`, `omit last argument`, `rename a->b, …` or `call name(ARGS) with A, B`, not %s"
               .formatted(where, line, rewrite));
     }
   }

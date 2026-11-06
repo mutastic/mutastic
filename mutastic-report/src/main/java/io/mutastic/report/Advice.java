@@ -87,6 +87,8 @@ public record Advice(
             case REMOVE_FIELD_WRITE -> removedStore(mutant, seen, "write");
             case OMIT_CALL -> omittedCall(mutant, seen);
             case SWAP_ARGUMENTS -> swappedArguments(mutant, seen);
+            case NULL_PARAMETER -> nullParameter(mutant, seen);
+            case DROP_VARARG -> droppedElement(mutant, seen);
           };
     };
   }
@@ -514,6 +516,34 @@ public record Advice(
             .formatted(called, method(mutant)),
         inputsSeen(seen),
         "add a test that passes %s different values for them, and assert the result"
+            .formatted(called));
+  }
+
+  /// A parameter that's `null` however the method is called.
+  private static Advice nullParameter(Mutant mutant, Map<String, List<Long>> seen) {
+    var change = mutant.replacement();
+    var name = "`%s`".formatted(change.substring(change.lastIndexOf(' ') + 1));
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        "%s is `null` from the start of the method".formatted(name),
+        "parameter is null",
+        "no test depends on the value of %s in %s".formatted(name, method(mutant)),
+        inputsSeen(seen),
+        "add a test whose result depends on %s, and assert it".formatted(name));
+  }
+
+  /// The array built for a call, one element short.
+  private static Advice droppedElement(Mutant mutant, Map<String, List<Long>> seen) {
+    var called = "`%s()`".formatted(SourceView.calledName(mutant.original()));
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        "the last value in the array given to %s is left out".formatted(called),
+        "last value left out",
+        "no test needs the last value given to %s in %s".formatted(called, method(mutant)),
+        inputsSeen(seen),
+        "add a test whose result depends on the last value given to %s, and assert it"
             .formatted(called));
   }
 

@@ -1,49 +1,41 @@
 package io.mutastic.engine;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Policy;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.lang.reflect.InvocationTargetException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import javax.tools.ToolProvider;
 
 /// A fixture class that writes each mutant's claim out as source beside its method: `xClaim` is `x`
 /// as its card says the mutant makes it, and `xClaim_name` if the method has one change for each of
-/// several names. Every method is static and takes two strings. It's compiled once, however many
+/// several names. Every method takes two strings. It's compiled with [Javac], once however many
 /// mutants it has, as truth tests run for every mutant that reaches them.
 final class ClaimFixture {
   static final Path ROOT = Path.of("src/test/resources/truth");
   private static final List<String> TEXTS =
       List.of("a", "b", "aa", "ab", "ba", "aba", " a", "a ", " a ", "A", "aB", "1", "abcde", "<b>");
 
+  private static final String TAKES_TWO_STRINGS = "(Ljava/lang/String;Ljava/lang/String;)";
+
   private final String className;
   private final Mutations mutations;
   private final ClassModel model;
   private final Class<?> original;
 
-  /// Compiles `calls/Omitted.java`, for example, under `temp`, for the mutants of `operator`.
-  ClaimFixture(Path temp, String file, String operator) throws IOException {
-    var name = file.replace(".java", "");
-    this.className = name.replace('/', '.');
+  /// `calls/Omitted.java`, for example, compiled, for the mutants of `operator`.
+  ClaimFixture(String file, String operator) throws IOException {
+    this.className = file.replace(".java", "").replace('/', '.');
     this.mutations =
         new Mutations(ClassFile.of(), Policy.NONE.withOperators(List.of(operator), List.of()));
-    var out = Files.createDirectories(temp.resolve(className));
-    var errors = new ByteArrayOutputStream();
-    int status =
-        Objects.requireNonNull(ToolProvider.getSystemJavaCompiler())
-            .run(null, null, errors, "-g", "-d", out.toString(), ROOT.resolve(file).toString());
-    assertThat(status).as("javac: %s", errors).isZero();
-    var bytes = Files.readAllBytes(out.resolve(name + ".class"));
-    this.model = ClassFile.of().parse(bytes);
+    var source = Javac.Source.read(ROOT.resolve(file), className);
+    var bytes = Javac.compile(List.of(source), List.of(), "-g").get(className);
+    this.model = ClassFile.of().parse(Objects.requireNonNull(bytes));
     this.original = load(bytes);
   }
 
@@ -72,6 +64,9 @@ final class ClaimFixture {
   List<String> claimsThatLie() throws ReflectiveOperationException {
     var failures = new ArrayList<String>();
     for (var mutant : running()) {
+      if (!mutant.descriptor().startsWith(TAKES_TWO_STRINGS)) {
+        continue; // a helper, which a test of its own calls through its caller
+      }
       var method = sourceMethod(mutant);
       var mutated = outcomes(mutated(mutant), method);
       if (!mutated.equals(outcomes(original, claimOf(mutant)))) {
@@ -138,7 +133,9 @@ final class ClaimFixture {
     var method = owner.getDeclaredMethod(name, String.class, String.class);
     method.setAccessible(true);
     try {
-      var result = method.invoke(null, a, b);
+      var receiver =
+          java.lang.reflect.Modifier.isStatic(method.getModifiers()) ? null : instance(owner);
+      var result = method.invoke(receiver, a, b);
       return result instanceof Object[] array
           ? java.util.Arrays.deepToString(array)
           : String.valueOf(result);
@@ -147,34 +144,21 @@ final class ClaimFixture {
     }
   }
 
+  private static Object instance(Class<?> owner) throws ReflectiveOperationException {
+    var constructor = owner.getDeclaredConstructor();
+    constructor.setAccessible(true);
+    return constructor.newInstance();
+  }
+
   static String describe(Mutant mutant) {
     return "%s line %d %s".formatted(mutant.methodName(), mutant.line(), mutant.replacement());
   }
 
   private Class<?> load(byte[] bytes) {
     try {
-      return new OneClass(className, bytes).loadClass(className);
+      return Javac.loader(Map.of(className, bytes)).loadClass(className);
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException(e);
-    }
-  }
-
-  /// The fixture's class from the given bytes, in a loader of its own.
-  private static final class OneClass extends ClassLoader {
-    private final String name;
-    private final byte[] bytes;
-
-    OneClass(String name, byte[] bytes) {
-      super(ClaimFixture.class.getClassLoader());
-      this.name = name;
-      this.bytes = bytes.clone();
-    }
-
-    @Override
-    protected Class<?> loadClass(String wanted, boolean resolve) throws ClassNotFoundException {
-      return wanted.equals(name) || wanted.startsWith(name + "$")
-          ? defineClass(wanted, bytes, 0, bytes.length)
-          : super.loadClass(wanted, resolve);
     }
   }
 }

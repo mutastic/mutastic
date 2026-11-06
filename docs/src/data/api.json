@@ -357,6 +357,26 @@
             },
             {
               "kind": "enum constant",
+              "name": "NULL_PARAMETER",
+              "anchor": "null_parameter",
+              "signature": "NULL_PARAMETER",
+              "doc": "A parameter that holds an object, set to `null` as the method starts: a value the method may\nnot really need, or a caller's `null` it doesn't handle.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "DROP_VARARG",
+              "anchor": "drop_vararg",
+              "signature": "DROP_VARARG",
+              "doc": "An array built for a call on the spot, usually a varargs call's, without its last element.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
               "name": "REMOVE_CONDITIONAL",
               "anchor": "remove_conditional",
               "signature": "REMOVE_CONDITIONAL",

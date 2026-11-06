@@ -5,20 +5,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Policy;
 import io.mutastic.report.SourceView;
-import java.io.ByteArrayOutputStream;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.lang.reflect.InvocationTargetException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import javax.tools.ToolProvider;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /// Each card a swap between similar JDK methods gets says what its mutant does: the fixture writes
 /// the swap out beside each method, and the mutant must behave as that source does on every input;
@@ -44,29 +40,15 @@ class LibraryTruthTest {
           "stripLeading", List.of(" a", "x"),
           "stripTrailing", List.of(" a", "x"));
 
-  @TempDir static Path temp;
-
   private static ClassModel model;
   private static Class<?> original;
 
   @BeforeAll
   static void compile() throws Exception {
-    var out = Files.createDirectories(temp.resolve("classes"));
-    var errors = new ByteArrayOutputStream();
-    int status =
-        Objects.requireNonNull(ToolProvider.getSystemJavaCompiler())
-            .run(
-                null,
-                null,
-                errors,
-                "-g",
-                "-d",
-                out.toString(),
-                FIXTURE.resolve("library/Swaps.java").toString());
-    assertThat(status).as("javac: %s", errors).isZero();
-    var bytes = Files.readAllBytes(out.resolve("library/Swaps.class"));
-    model = ClassFile.of().parse(bytes);
-    original = new OneClass(bytes).loadClass(CLASS);
+    var source = Javac.Source.read(FIXTURE.resolve("library/Swaps.java"), CLASS);
+    var bytes = Javac.compile(List.of(source), List.of(), "-g").get(CLASS);
+    model = ClassFile.of().parse(Objects.requireNonNull(bytes));
+    original = load(bytes);
   }
 
   @Test
@@ -208,7 +190,11 @@ class LibraryTruthTest {
   }
 
   private static Mutations mutations() {
-    return new Mutations(ClassFile.of(), Policy.NONE.withOperators(List.of("library"), List.of()));
+    return new Mutations(
+        ClassFile.of(),
+        Policy.NONE.withOperators(
+            List.of("library/swap-string", "library/swap-index-of", "library/swap-math"),
+            List.of()));
   }
 
   /// `inALambda`, for a mutant in `lambda$inALambda$0`.
@@ -218,7 +204,7 @@ class LibraryTruthTest {
   }
 
   private static Class<?> mutantClass(Mutant mutant) throws ClassNotFoundException {
-    return new OneClass(mutations().apply(model, mutant)).loadClass(CLASS);
+    return load(mutations().apply(model, mutant));
   }
 
   private static List<String> outcomes(Class<?> owner, String method)
@@ -247,20 +233,7 @@ class LibraryTruthTest {
     return "%s line %d %s".formatted(mutant.methodName(), mutant.line(), mutant.replacement());
   }
 
-  /// The fixture's class from the given bytes, in a loader of its own.
-  private static final class OneClass extends ClassLoader {
-    private final byte[] bytes;
-
-    OneClass(byte[] bytes) {
-      super(LibraryTruthTest.class.getClassLoader());
-      this.bytes = bytes.clone();
-    }
-
-    @Override
-    protected Class<?> loadClass(String wanted, boolean resolve) throws ClassNotFoundException {
-      return wanted.equals(CLASS)
-          ? defineClass(wanted, bytes, 0, bytes.length)
-          : super.loadClass(wanted, resolve);
-    }
+  private static Class<?> load(byte[] bytes) throws ClassNotFoundException {
+    return Javac.loader(Map.of(CLASS, bytes)).loadClass(CLASS);
   }
 }

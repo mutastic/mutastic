@@ -1,8 +1,11 @@
 package io.mutastic.engine;
 
 import java.lang.classfile.CodeElement;
+import java.lang.classfile.Instruction;
 import java.lang.classfile.Label;
+import java.lang.classfile.MethodModel;
 import java.lang.classfile.Opcode;
+import java.lang.classfile.TypeKind;
 import java.lang.classfile.instruction.BranchInstruction;
 import java.lang.classfile.instruction.ExceptionCatch;
 import java.lang.classfile.instruction.IncrementInstruction;
@@ -15,6 +18,7 @@ import java.lang.classfile.instruction.StoreInstruction;
 import java.lang.classfile.instruction.SwitchCase;
 import java.lang.classfile.instruction.TableSwitchInstruction;
 import java.lang.classfile.instruction.ThrowInstruction;
+import java.lang.reflect.AccessFlag;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -67,13 +71,59 @@ final class Stores {
     return positions.getOrDefault(label, code.size());
   }
 
-  /// Whether anything can read the value the store at `at` leaves: some path from it, through jumps
-  /// and exception handlers, reaches a read of the variable before another store to it.
+  /// Whether anything can read the value the store at `at` leaves.
   boolean valueIsRead(int at) {
-    int slot = ((StoreInstruction) code.get(at)).slot();
+    return readFrom(at + 1, ((StoreInstruction) code.get(at)).slot());
+  }
+
+  /// A parameter that holds an object, from the table of local variables.
+  record Parameter(int slot, String name) {}
+
+  /// The method's parameters that hold an object and that the table names. As for a store, a name
+  /// with a `$` is javac's own, and code without the table has none.
+  List<Parameter> objectParameters(MethodModel method) {
+    var found = new ArrayList<Parameter>();
+    int slot = method.flags().has(AccessFlag.STATIC) ? 0 : 1;
+    for (var type : method.methodTypeSymbol().parameterList()) {
+      if (!type.isPrimitive()) {
+        int at = slot;
+        namedFromTheStart(slot).ifPresent(name -> found.add(new Parameter(at, name)));
+      }
+      slot += TypeKind.from(type).slotSize();
+    }
+    return found;
+  }
+
+  /// Whether anything can read the value a parameter comes in with.
+  boolean parameterIsRead(int slot) {
+    return readFrom(0, slot);
+  }
+
+  private Optional<String> namedFromTheStart(int slot) {
+    int first = firstInstruction();
+    return code.stream()
+        .flatMap(element -> element instanceof LocalVariable local ? Stream.of(local) : Stream.of())
+        .filter(local -> local.slot() == slot && position(local.startScope()) <= first)
+        .map(local -> local.name().stringValue())
+        .filter(name -> !name.contains("$"))
+        .findFirst();
+  }
+
+  private int firstInstruction() {
+    for (int at = 0; at < code.size(); at++) {
+      if (code.get(at) instanceof Instruction) {
+        return at;
+      }
+    }
+    return code.size();
+  }
+
+  /// Whether some path from `from`, through jumps and exception handlers, reaches a read of the
+  /// variable before another store to it.
+  private boolean readFrom(int from, int slot) {
     var handlers = handlers();
     var seen = new BitSet();
-    var waiting = new ArrayDeque<Integer>(List.of(at + 1));
+    var waiting = new ArrayDeque<Integer>(List.of(from));
     while (!waiting.isEmpty()) {
       int here = waiting.pop();
       if (here < code.size() && !seen.get(here)) {

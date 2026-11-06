@@ -82,6 +82,20 @@ public enum BuiltIn implements Operator {
           + " them and checks the result.",
       Tier.STRONGER),
 
+  /// A parameter that holds an object, set to `null` as the method starts: a value the method may
+  /// not really need, or a caller's `null` it doesn't handle.
+  NULL_PARAMETER(
+      "A parameter that holds an object is `null` from the start of the method. It goes unnoticed"
+          + " when no test depends on its value.",
+      Tier.STRONGER),
+
+  /// An array built for a call on the spot, usually a varargs call's, without its last element.
+  DROP_VARARG(
+      "The last value in an array built for a call is left out: `List.of(a, b, c)` gets `a` and"
+          + " `b`, where `List.of` takes an array for that many. It goes unnoticed when no test"
+          + " depends on that value.",
+      Tier.STRONGER),
+
   REMOVE_CONDITIONAL(
       "A condition stops deciding: the code it guards always runs, or never does. It goes"
           + " unnoticed when no test needs the condition to be true one time and false another."),
@@ -122,7 +136,7 @@ public enum BuiltIn implements Operator {
   @Override
   public boolean onCalls() {
     return switch (this) {
-      case REMOVE_VOID_CALL, REMOVE_DISCARDED_CALL, OMIT_CALL, SWAP_ARGUMENTS -> true;
+      case REMOVE_VOID_CALL, REMOVE_DISCARDED_CALL, OMIT_CALL, SWAP_ARGUMENTS, DROP_VARARG -> true;
       default -> false;
     };
   }
