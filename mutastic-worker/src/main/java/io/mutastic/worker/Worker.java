@@ -68,6 +68,7 @@ public final class Worker {
   private final Set<String> testClassNames;
   private final PrintStream protocol;
   private final Map<String, byte[]> staged = new HashMap<>();
+  private final MutantInPlace inPlace = new MutantInPlace();
 
   /// Made by the coverage pass, or by the first command a new worker gets after one was killed.
   private @Nullable ProductionLoader production;
@@ -173,6 +174,9 @@ public final class Worker {
 
   private void handle(String[] command) throws Exception {
     var tests = Arrays.asList(command).subList(1, command.length);
+    if (!command[0].equals("CLASS") && !command[0].equals("RUN") && production != null) {
+      inPlace.restore(production);
+    }
     switch (command[0]) {
       case "CLASS" -> staged.put(command[1], Base64.getDecoder().decode(command[2]));
       case "COVER" -> coverInstrumented(tests);
@@ -206,20 +210,16 @@ public final class Worker {
     staged.clear();
   }
 
-  /// Runs with the staged classes (a mutant) swapped in, then back out.
+  /// Runs with the staged classes (a mutant) swapped in, in place of the last mutant.
   private void runWithStaged(List<String> tests) throws Exception {
     if (framework != null) {
       runInTheFramework(framework, tests);
       return;
     }
     var loader = production();
-    loader.swapIn(staged);
-    try {
-      run(tests, loader);
-    } finally {
-      loader.swapBack(staged.keySet());
-      staged.clear();
-    }
+    inPlace.put(loader, staged);
+    staged.clear();
+    run(tests, loader);
   }
 
   /// Runs with the staged classes in a production loader of their own, discarded after: a mutant

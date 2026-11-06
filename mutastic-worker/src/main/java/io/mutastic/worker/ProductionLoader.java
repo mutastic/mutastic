@@ -25,7 +25,7 @@ import org.jspecify.annotations.Nullable;
 /// One loader per mutant would be simpler, and wrong: JVM-wide registries keep the first copy of a
 /// class. `Security.addProvider` keeps the first loader's provider, so later mutants of that class
 /// never run, and look missed.
-final class ProductionLoader extends RootsLoader {
+final class ProductionLoader extends RootsLoader implements MutantInPlace.Classes {
   /// Bytes to use instead of the build's: instrumented classes, or a mutant not yet loaded.
   private final Map<String, byte[]> replacements;
 
@@ -103,7 +103,8 @@ final class ProductionLoader extends RootsLoader {
 
   /// Puts mutants in: redefines classes already loaded, and leaves the rest to be defined with the
   /// mutant's bytes if a test loads them.
-  void swapIn(Map<String, byte[]> mutants) throws Exception {
+  @Override
+  public void swapIn(Map<String, byte[]> mutants) throws Exception {
     for (var mutant : mutants.entrySet()) {
       var loadedClass = loaded.get(mutant.getKey());
       if (loadedClass != null) {
@@ -154,7 +155,8 @@ final class ProductionLoader extends RootsLoader {
   }
 
   /// Back to the build's bytes, whether the class was redefined or first defined as a mutant.
-  void swapBack(Set<String> names) throws Exception {
+  @Override
+  public void swapBack(Set<String> names) throws Exception {
     for (String name : names) {
       replacements.remove(name);
       var loadedClass = loaded.get(name);
