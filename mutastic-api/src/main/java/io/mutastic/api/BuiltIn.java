@@ -30,6 +30,14 @@ public enum BuiltIn implements Operator {
       "A call that returns nothing is removed. It goes unnoticed when no test checks what the call"
           + " does."),
 
+  /// A call whose result is thrown away, removed: `list.add(item);`, `map.put(key, value);`,
+  /// `text.append(more);`. Its result isn't used, so only what it does matters, as with a call that
+  /// returns nothing. A fluent call that returns its receiver is no different: removing
+  /// `builder.append(x);` loses the append.
+  REMOVE_DISCARDED_CALL(
+      "A call whose result is thrown away is removed: `items.add(item);`, `seen.put(key, value);`."
+          + " It goes unnoticed when no test checks what the call does."),
+
   REMOVE_CONDITIONAL(
       "A condition stops deciding: the code it guards always runs, or never does. It goes"
           + " unnoticed when no test needs the condition to be true one time and false another."),
@@ -63,7 +71,7 @@ public enum BuiltIn implements Operator {
 
   @Override
   public boolean onCalls() {
-    return this == REMOVE_VOID_CALL;
+    return this == REMOVE_VOID_CALL || this == REMOVE_DISCARDED_CALL;
   }
 
   @Override

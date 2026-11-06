@@ -261,6 +261,12 @@ final class Mutations {
         returnChanges(instruction, at, found);
         return;
       }
+      if (builtIn == BuiltIn.REMOVE_DISCARDED_CALL) {
+        if (isDiscarded(code, at)) {
+          found.add(new Found(builtIn, callOrdinal, "remove call", Optional.empty()));
+        }
+        return;
+      }
       boolean call = instruction instanceof InvokeInstruction;
       if ((call || isSite(instruction)) && builtIn.onCalls() == call) {
         for (String label : Operators.replacements(builtIn, instruction)) {
@@ -557,7 +563,8 @@ final class Mutations {
       case OperatorInstruction arithmetic ->
           builder.with(OperatorInstruction.of(Operators.replace(operator, arithmetic.opcode())));
       case ReturnInstruction returning -> ReturnValues.write(builder, returning, mutant);
-      case InvokeInstruction call -> removeCall(builder, call);
+      case InvokeInstruction call ->
+          removeCall(builder, call, operator == io.mutastic.api.BuiltIn.REMOVE_DISCARDED_CALL);
       default -> throw new IllegalStateException("not a mutation site: " + instruction);
     }
   }
@@ -574,13 +581,30 @@ final class Mutations {
     }
   }
 
-  private static void removeCall(CodeBuilder builder, InvokeInstruction call) {
+  /// The call's arguments and receiver popped; for a call whose result is thrown away, a value of
+  /// its type in the result's place, for the `pop` after it.
+  private static void removeCall(CodeBuilder builder, InvokeInstruction call, boolean discarded) {
     // The arguments, last first, then the receiver: the stack as if the call had run.
     for (var parameter : call.typeSymbol().parameterList().reversed()) {
       pop(builder, TypeKind.from(parameter));
     }
     if (call.opcode() != Opcode.INVOKESTATIC) {
       builder.pop();
+    }
+    if (discarded) {
+      placeholder(builder, TypeKind.from(call.typeSymbol().returnType()));
+    }
+  }
+
+  /// A value of the kind a removed call returned, for the `pop` after it to throw away in its
+  /// place.
+  private static void placeholder(CodeBuilder builder, TypeKind kind) {
+    switch (kind) {
+      case LONG -> builder.lconst_0();
+      case FLOAT -> builder.fconst_0();
+      case DOUBLE -> builder.dconst_0();
+      case REFERENCE -> builder.aconst_null();
+      default -> builder.iconst_0();
     }
   }
 
@@ -712,6 +736,31 @@ final class Mutations {
     return instruction instanceof OperatorInstruction
         || instruction instanceof BranchInstruction
         || instruction instanceof ReturnInstruction;
+  }
+
+  /// A call whose result the next instruction throws away: `invoke…; pop`, or `pop2` for a `long`
+  /// or `double`, with no jump landing between them. Never a constructor: `new X();` alone is `new;
+  /// dup; invokespecial; pop`, and its call returns nothing.
+  static boolean isDiscarded(List<CodeElement> code, int at) {
+    if (!(code.get(at) instanceof InvokeInstruction call)) {
+      return false;
+    }
+    var returned = TypeKind.from(call.typeSymbol().returnType());
+    if (returned == TypeKind.VOID) {
+      return false;
+    }
+    for (int index = at + 1; index < code.size(); index++) {
+      switch (code.get(index)) {
+        case LabelTarget _ -> {
+          return false;
+        }
+        case Instruction next -> {
+          return next.opcode() == (returned.slotSize() == 2 ? Opcode.POP2 : Opcode.POP);
+        }
+        default -> {}
+      }
+    }
+    return false;
   }
 
   private static boolean isSwitch(Instruction instruction) {

@@ -77,7 +77,8 @@ record Finding(List<MutantResult> mutants) {
                       BuiltIn.NEGATE_CONDITIONAL,
                       BuiltIn.REMOVE_CONDITIONAL,
                       BuiltIn.RETURN_VALUE,
-                      BuiltIn.REMOVE_VOID_CALL ->
+                      BuiltIn.REMOVE_VOID_CALL,
+                      BuiltIn.REMOVE_DISCARDED_CALL ->
                       2;
                   default -> 1;
                 })

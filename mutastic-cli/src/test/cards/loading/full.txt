@@ -1,7 +1,7 @@
 
    Classes  1 clean (1)
-   Mutants  ✓ 6 caught (6)
- Test runs  9 (12 without coverage selection)
+   Mutants  ✓ 7 caught (7)
+ Test runs  11 (14 without coverage selection)
   Start at  …
   Duration  … (setup …, coverage …, mutants …)
      Tests  2 on JDK 17 · … workers

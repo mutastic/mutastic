@@ -280,6 +280,7 @@ public final class ReportFiles {
           case MATH, ARITHMETIC_REPLACEMENT -> "MathMutator";
           case REMOVE_CONDITIONAL -> "RemoveConditionalMutator";
           case REMOVE_VOID_CALL -> "VoidMethodCallMutator";
+          case REMOVE_DISCARDED_CALL -> "NonVoidMethodCallMutator";
           case RETURN_VALUE -> returnsMutator(mutant.replacement());
         };
   }

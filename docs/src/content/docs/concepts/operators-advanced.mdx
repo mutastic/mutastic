@@ -211,6 +211,23 @@ void confirmingReservesStock() {
 }
 ```
 
+## Remove discarded call
+
+**The bug it stands for:** the same as a removed void call: a step left out. Many calls that do
+something also return something nobody needs: `add` and `remove` on a collection say whether it
+changed, `put` returns what was there, a builder's `append` returns the builder.
+
+**Where it costs:** the same side effects, and the ones that hide best, since a call written for
+its effect reads like a query. A set that never gets its `add`, a map whose `put` is gone, a
+counter that's never incremented.
+
+```java
+seen.add(order.id());   // becomes: nothing, the line is gone
+```
+
+**The test that catches it:** one that checks the effect: that the order is seen afterwards, not
+only that the method ran.
+
 ## Stream stage removal
 
 **The bug it stands for:** a stage that's wrong, or in the wrong place, and no test would know: a

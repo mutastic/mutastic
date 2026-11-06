@@ -51,10 +51,8 @@ final class SiteSkips {
     if (operator == BuiltIn.MATH || operator == BuiltIn.ARITHMETIC_REPLACEMENT) {
       return next(code, at).flatMap(SiteSkips::onlySizesOrWaits);
     }
-    if (operator == BuiltIn.REMOVE_VOID_CALL
-        && code.get(at) instanceof InvokeInstruction call
-        && waits(call)) {
-      return Optional.of("arid: only waits");
+    if (code.get(at) instanceof InvokeInstruction call) {
+      return removedCall(operator, call);
     }
     if (operator == BuiltIn.BOUNDARY && sameValueAtTheEdge(code, at)) {
       return Optional.of("equivalent: both sides give the same value at the edge");
@@ -80,6 +78,27 @@ final class SiteSkips {
       return Optional.of("arid: only sets how long to wait");
     }
     return Optional.empty();
+  }
+
+  /// A removed call that only waits, or only checks a value isn't null.
+  private static Optional<String> removedCall(Operator operator, InvokeInstruction call) {
+    if (operator == BuiltIn.REMOVE_VOID_CALL && waits(call)) {
+      return Optional.of("arid: only waits");
+    }
+    if (operator == BuiltIn.REMOVE_DISCARDED_CALL && onlyChecksForNull(call)) {
+      return Optional.of("arid: only checks the value isn't null");
+    }
+    return Optional.empty();
+  }
+
+  /// `Objects.requireNonNull(x)`, or `x.getClass()`, its result thrown away: what javac writes to
+  /// check a value isn't null (`outer.new Inner()`, `value::method`), and what code writes to check
+  /// an argument. Without it the code fails later, or not at all, on a `null` no test passes.
+  private static boolean onlyChecksForNull(InvokeInstruction call) {
+    var owner = call.owner().asInternalName();
+    var name = call.name().stringValue();
+    return (owner.equals("java/util/Objects") && name.startsWith("requireNonNull"))
+        || (name.equals("getClass") && call.typeSymbol().parameterCount() == 0);
   }
 
   /// `Thread.sleep`, `TimeUnit.sleep`, or `Thread.join` with a time limit.

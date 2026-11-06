@@ -81,7 +81,7 @@ public record Advice(
             case NEGATE_CONDITIONAL -> negateConditional(mutant, seen, asWritten);
             case MATH, ARITHMETIC_REPLACEMENT -> math(mutant, seen);
             case RETURN_VALUE -> returnValue(mutant, seen);
-            case REMOVE_VOID_CALL -> removeVoidCall(mutant, seen);
+            case REMOVE_VOID_CALL, REMOVE_DISCARDED_CALL -> removeVoidCall(mutant, seen);
             case REMOVE_CONDITIONAL -> removeConditional(mutant, seen, asWritten);
           };
     };

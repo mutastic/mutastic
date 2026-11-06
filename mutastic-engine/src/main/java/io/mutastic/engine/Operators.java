@@ -90,6 +90,7 @@ final class Operators {
   static List<String> replacements(BuiltIn operator, Instruction instruction) {
     return switch (operator) {
       case RETURN_VALUE -> List.of(); // ReturnValues: it reads the code before the return
+      case REMOVE_DISCARDED_CALL -> List.of(); // Mutations: it reads the code after the call
       case REMOVE_VOID_CALL ->
           instruction instanceof InvokeInstruction call
                   && call.typeSymbol().returnType().descriptorString().equals("V")

@@ -19,6 +19,7 @@ For why each one is worth catching, the bugs it stands for and the test that cat
 | [`mutastic/arithmetic-replacement`](#arithmetic-replacement) | `+` to `*` | stronger |
 | [`mutastic/return-value`](#return-value) | a returned value to the other `boolean`, `0`, an empty one or `null` | defaults |
 | [`mutastic/remove-void-call`](#remove-void-call) | a call that returns nothing, removed | defaults |
+| [`mutastic/remove-discarded-call`](#remove-discarded-call) | a call whose result is thrown away, removed | defaults |
 | [`stream/remove-stage`](#stream-stage-removal) | a stream stage, removed | defaults |
 | [`stream/swap-match`](#stream-match-swap) | `anyMatch`, `allMatch` and `noneMatch`, swapped | defaults |
 
@@ -115,6 +116,19 @@ checks what the call does.
 ```java
 inventory.reserve(item);   // becomes: nothing, the line is gone
 ```
+
+## Remove discarded call
+
+`mutastic/remove-discarded-call`. A call whose result is thrown away is removed: `items.add(item);`,
+`seen.put(key, value);`. Its result isn't used, so only what it does matters. It goes unnoticed
+when no test checks what the call does.
+
+```java
+order.lines().add(line);   // becomes: nothing, the line is gone
+text.append(", ");         // so does this, though append returns the builder
+```
+
+`Objects.requireNonNull(x);`, which only checks a value isn't `null`, is skipped as arid.
 
 Constructors are left alone: removing one would leave an object half made, not a gap in the tests.
 

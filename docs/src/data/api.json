@@ -297,6 +297,16 @@
             },
             {
               "kind": "enum constant",
+              "name": "REMOVE_DISCARDED_CALL",
+              "anchor": "remove_discarded_call",
+              "signature": "REMOVE_DISCARDED_CALL",
+              "doc": "A call whose result is thrown away, removed: `list.add(item);`, `map.put(key, value);`,\n`text.append(more);`. Its result isn't used, so only what it does matters, as with a call that\nreturns nothing. A fluent call that returns its receiver is no different: removing\n`builder.append(x);` loses the append.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
               "name": "REMOVE_CONDITIONAL",
               "anchor": "remove_conditional",
               "signature": "REMOVE_CONDITIONAL",
