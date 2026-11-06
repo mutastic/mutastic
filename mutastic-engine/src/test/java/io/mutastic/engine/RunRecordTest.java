@@ -31,6 +31,38 @@ class RunRecordTest {
         .containsExactly(Map.entry(FLAKY.get(), List.of("m1", "m3")));
   }
 
+  /// A record's results come back in a different order in each JVM, so without the sort a few flips
+  /// could still be in id order. These ids have scattered hashes, as real ones do, and enough of
+  /// them that it doesn't happen: `m1`, `m2`… would often stay a sorted run.
+  @Test
+  void flipsAreInIdOrder() {
+    var ids =
+        List.of(
+            "m06ed2243",
+            "m13e6f834",
+            "m25a455d1",
+            "m2893419a",
+            "m38cb0f6a",
+            "m443244c1",
+            "m5e72f890",
+            "m6f38d241",
+            "m7b23ae61",
+            "m80884e0b",
+            "m95da3809",
+            "mb6cec5ed");
+    var last = new java.util.HashMap<String, RunRecord.Entry>();
+    var now = new java.util.HashMap<String, RunRecord.Entry>();
+    ids.forEach(
+        id -> {
+          last.put(id, caught(FLAKY));
+          now.put(id, missed());
+        });
+
+    var comparison = record("abc", now).against(record("abc", last));
+
+    assertThat(comparison.flips()).extracting(Comparison.Flip::id).isEqualTo(ids);
+  }
+
   @Test
   void changedCodeExplainsAnyChange() {
     var last = record("abc", Map.of("m1", caught(FLAKY)));
