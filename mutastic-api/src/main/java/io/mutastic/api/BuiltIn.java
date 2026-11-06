@@ -66,6 +66,15 @@ public enum BuiltIn implements Operator {
           + " checks the field afterwards, directly or through what reads it.",
       Tier.STRONGER),
 
+  /// A call that only wraps a value, left out, so the value goes on as it was: the missing
+  /// `escape(text)`. Only for the calls the engine can be sure of, as a call that returns the type
+  /// it's given can still change what it holds.
+  OMIT_CALL(
+      "A call that returns the same type as what it's given is left out, and what it was given goes"
+          + " on in its place: `text.trim()` becomes `text`, `escape(text)` becomes `text`. It goes"
+          + " unnoticed when no test has a value the call changes.",
+      Tier.STRONGER),
+
   REMOVE_CONDITIONAL(
       "A condition stops deciding: the code it guards always runs, or never does. It goes"
           + " unnoticed when no test needs the condition to be true one time and false another."),
@@ -105,7 +114,10 @@ public enum BuiltIn implements Operator {
 
   @Override
   public boolean onCalls() {
-    return this == REMOVE_VOID_CALL || this == REMOVE_DISCARDED_CALL;
+    return switch (this) {
+      case REMOVE_VOID_CALL, REMOVE_DISCARDED_CALL, OMIT_CALL -> true;
+      default -> false;
+    };
   }
 
   @Override

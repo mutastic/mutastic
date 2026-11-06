@@ -85,6 +85,7 @@ public record Advice(
             case LOGICAL_CONNECTOR -> connector(mutant, seen, Optional.empty());
             case REMOVE_ASSIGNMENT -> removedStore(mutant, seen, "assignment");
             case REMOVE_FIELD_WRITE -> removedStore(mutant, seen, "write");
+            case OMIT_CALL -> omittedCall(mutant, seen);
           };
     };
   }
@@ -483,6 +484,21 @@ public record Advice(
         inputsSeen(seen),
         "add a test where this gives %s a different value, and assert what depends on it"
             .formatted(name));
+  }
+
+  /// A call left out: what it was called on, or given, goes on in its place.
+  private static Advice omittedCall(Mutant mutant, Map<String, List<Long>> seen) {
+    var called = "`%s()`".formatted(SourceView.calledName(mutant.original()));
+    var kept =
+        mutant.replacement().endsWith("receiver") ? "what it's called on" : "what it's given";
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        "%s is left out, so %s goes on in its place".formatted(called, kept),
+        "call left out",
+        "no test needs %s in %s".formatted(called, method(mutant)),
+        inputsSeen(seen),
+        "add a test with a value %s changes, and assert the result".formatted(called));
   }
 
   private static Advice removeVoidCall(Mutant mutant, Map<String, List<Long>> seen) {

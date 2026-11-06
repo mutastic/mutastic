@@ -337,6 +337,16 @@
             },
             {
               "kind": "enum constant",
+              "name": "OMIT_CALL",
+              "anchor": "omit_call",
+              "signature": "OMIT_CALL",
+              "doc": "A call that only wraps a value, left out, so the value goes on as it was: the missing\n`escape(text)`. Only for the calls the engine can be sure of, as a call that returns the type\nit's given can still change what it holds.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
               "name": "REMOVE_CONDITIONAL",
               "anchor": "remove_conditional",
               "signature": "REMOVE_CONDITIONAL",

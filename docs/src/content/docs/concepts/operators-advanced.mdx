@@ -333,6 +333,30 @@ void payingMarksTheInvoicePaid() {
 }
 ```
 
+## Omit call
+
+**The bug it stands for:** the step that was never written: the `escape` that isn't around user
+input, the `trim` that isn't on a pasted value, the builder step left out. Real faults have this
+shape, and the code reads as finished without it.
+
+**Where it costs:** anything that cleans or converts a value before it's used. On clean input, the
+call makes no difference, and clean input is what tests tend to have.
+
+```java
+String safe = escape(comment);   // becomes: String safe = comment;
+```
+
+**The test that catches it:** one with a value the call changes: text with something to escape,
+spaces to trim, a negative number for `Math.abs`.
+
+```java
+@Test
+void aCommentIsEscaped() {
+  var page = render(new Comment("<b>hi</b>"));   // has something to escape
+  assertFalse(page.contains("<b>"));
+}
+```
+
 ## Stream stage removal
 
 **The bug it stands for:** a stage that's wrong, or in the wrong place, and no test would know: a

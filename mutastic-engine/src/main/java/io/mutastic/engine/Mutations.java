@@ -39,8 +39,10 @@ import java.lang.reflect.AccessFlag;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 /// Finds the mutants in a class and applies one at a time, with only `java.lang.classfile`.
@@ -68,6 +70,9 @@ final class Mutations {
   /// first with a reason decides.
   private final List<Filter> judges;
 
+  /// The module's classes by internal name, once [#prepare] has seen them.
+  private Map<String, ClassModel> module = Map.of();
+
   Mutations(ClassFile context) {
     this(context, Policy.NONE);
   }
@@ -93,7 +98,12 @@ final class Mutations {
                 code -> {
                   var found =
                       new MethodScan(
-                              model, method, code.elementList(), filtered(model, method), operators)
+                              model,
+                              method,
+                              code.elementList(),
+                              filtered(model, method),
+                              operators,
+                              new Wrappers(module))
                           .mutants();
                   mutants.addAll(viable(model, mergeFinallyCopies(found, code)));
                 });
@@ -110,7 +120,9 @@ final class Mutations {
     var checked = new ArrayList<Mutant>(found.size());
     for (Mutant mutant : found) {
       var unviable =
-          (mutant.operator() instanceof Mutator || mutant.operator() == BuiltIn.REMOVE_ASSIGNMENT)
+          (mutant.operator() instanceof Mutator
+                      || mutant.operator() == BuiltIn.REMOVE_ASSIGNMENT
+                      || mutant.operator() == BuiltIn.OMIT_CALL)
                   && mutant.skipped().isEmpty()
               ? whyUnviable(model, mutant)
               : Optional.<String>empty();
@@ -139,6 +151,9 @@ final class Mutations {
   /// Lets the filters see the whole module, before any of its mutants are found.
   void prepare(java.util.Collection<ClassModel> module) {
     var classes = List.copyOf(module);
+    this.module =
+        classes.stream()
+            .collect(Collectors.toMap(model -> model.thisClass().asInternalName(), model -> model));
     judges.forEach(filter -> filter.prepare(classes));
   }
 
@@ -195,6 +210,7 @@ final class Mutations {
     private final Stores stores;
     private final Optional<String> filtered;
     private final List<Operator> operators;
+    private final Wrappers wrappers;
     private final Set<Integer> stringSwitchLines = new HashSet<>();
     private final List<Mutant> mutants = new ArrayList<>();
     private int line = -1;
@@ -208,8 +224,10 @@ final class Mutations {
         MethodModel method,
         List<CodeElement> code,
         Optional<String> filtered,
-        List<Operator> operators) {
+        List<Operator> operators,
+        Wrappers wrappers) {
       this.model = model;
+      this.wrappers = wrappers;
       this.method = method;
       this.code = code;
       this.filtered = filtered;
@@ -280,9 +298,22 @@ final class Mutations {
             found.add(new Found(builtIn, callOrdinal, "remove call", Optional.empty()));
           }
         }
+        case OMIT_CALL -> omittedCall(instruction, at, found);
         case REMOVE_ASSIGNMENT -> assignmentChange(at, found);
         case REMOVE_FIELD_WRITE -> fieldWriteChange(instruction, found);
         default -> instructionChanges(builtIn, instruction, found);
+      }
+    }
+
+    /// A call that only wraps a value, unless its result is thrown away: taking away one of those
+    /// is [BuiltIn#REMOVE_DISCARDED_CALL]'s change.
+    private void omittedCall(Instruction instruction, int at, List<Found> found) {
+      if (instruction instanceof InvokeInstruction call && !isDiscarded(code, at)) {
+        wrappers
+            .change(model, call)
+            .ifPresent(
+                change ->
+                    found.add(new Found(BuiltIn.OMIT_CALL, callOrdinal, change, Optional.empty())));
       }
     }
 
@@ -674,11 +705,19 @@ final class Mutations {
       case OperatorInstruction arithmetic ->
           builder.with(OperatorInstruction.of(Operators.replace(operator, arithmetic.opcode())));
       case ReturnInstruction returning -> ReturnValues.write(builder, returning, mutant);
-      case InvokeInstruction call ->
-          removeCall(builder, call, operator == io.mutastic.api.BuiltIn.REMOVE_DISCARDED_CALL);
+      case InvokeInstruction call -> changeCall(builder, call, mutant);
       case StoreInstruction store -> pop(builder, store.typeKind());
       case FieldInstruction field -> removeWrite(builder, field);
       default -> throw new IllegalStateException("not a mutation site: " + instruction);
+    }
+  }
+
+  /// A built-in call operator's change.
+  private static void changeCall(CodeBuilder builder, InvokeInstruction call, Mutant mutant) {
+    if (mutant.operator() == BuiltIn.OMIT_CALL) {
+      Wrappers.omit(builder, call, mutant.replacement());
+    } else {
+      removeCall(builder, call, mutant.operator() == BuiltIn.REMOVE_DISCARDED_CALL);
     }
   }
 
@@ -729,7 +768,7 @@ final class Mutations {
     }
   }
 
-  private static void pop(CodeBuilder builder, TypeKind kind) {
+  static void pop(CodeBuilder builder, TypeKind kind) {
     if (kind.slotSize() == 2) {
       builder.pop2();
     } else {
