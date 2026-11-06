@@ -99,10 +99,20 @@ public record Advice(
       case FLIP_INCREMENT -> flippedIncrement(mutant, seen);
       case CONSTANT_VALUE -> constant(mutant, seen, UnaryOperator.identity());
       case REMOVE_NEGATION -> removedNegation(mutant, seen);
-      case REMOVE_SWITCH_ARM -> switchArm(mutant, seen, UnaryOperator.identity());
+      case REMOVE_SWITCH_ARM, REPLACE_BODY, DROP_CATCH_TYPE, REMOVE_THROW ->
+          wholeCode(builtIn, mutant, seen);
+      case STRING_CONSTANT -> changedString(mutant, seen);
+      case REGEX_CONSTANT -> changedRegex(mutant, seen);
+    };
+  }
+
+  /// The operators that change more of the code than one instruction's value.
+  private static Advice wholeCode(BuiltIn builtIn, Mutant mutant, Map<String, List<Long>> seen) {
+    return switch (builtIn) {
       case REPLACE_BODY -> replacedBody(mutant, seen);
       case DROP_CATCH_TYPE -> droppedCatch(mutant, seen);
       case REMOVE_THROW -> removedThrow(mutant, seen);
+      default -> switchArm(mutant, seen, UnaryOperator.identity());
     };
   }
 
@@ -699,6 +709,48 @@ public record Advice(
         named
             ? "add a test where this throws %s, and assert that it does".formatted(what)
             : "add a test where this throws, and assert that it does");
+  }
+
+  /// A string changed. The label is `string "a" to ""`.
+  private static Advice changedString(Mutant mutant, Map<String, List<Long>> seen) {
+    var label = mutant.replacement();
+    int to = label.lastIndexOf(" to ");
+    var today = label.substring("string ".length(), to);
+    var mutated = label.substring(to + " to ".length());
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        "the string `%s` becomes `%s`".formatted(today, mutated),
+        "changed to " + mutated,
+        "no test tells `%s` from `%s` in %s".formatted(today, mutated, method(mutant)),
+        inputsSeen(seen),
+        "add a test whose result depends on `%s`, and assert it".formatted(today));
+  }
+
+  /// A regular expression changed. The label is `regex "^a" to "a"`, with each as a string in the
+  /// source would be written. The card shows them as they mean, and in a field says so: its method
+  /// is javac's.
+  private static Advice changedRegex(Mutant mutant, Map<String, List<Long>> seen) {
+    var label = mutant.replacement();
+    int to = label.lastIndexOf("\" to \"");
+    var today = label.substring("regex \"".length(), to).replace("\\\\", "\\");
+    var mutated =
+        label.substring(to + "\" to \"".length(), label.length() - 1).replace("\\\\", "\\");
+    var where =
+        switch (mutant.methodName()) {
+          case "<clinit>" -> "a static field or initialiser";
+          case "<init>" -> "a field or constructor";
+          default -> method(mutant);
+        };
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        "the regular expression `%s` becomes `%s`".formatted(today, mutated),
+        "changed to " + mutated,
+        "no test tells `%s` from `%s` in %s".formatted(today, mutated, where),
+        inputsSeen(seen),
+        "add a test with text only one of `%s` and `%s` matches, and assert it"
+            .formatted(today, mutated));
   }
 
   /// A variable's step the other way. The label is the step the mutant takes, `i by -1`.

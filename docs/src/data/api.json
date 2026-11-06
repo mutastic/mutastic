@@ -496,6 +496,26 @@
               "throws": []
             },
             {
+              "kind": "enum constant",
+              "name": "STRING_CONSTANT",
+              "anchor": "string_constant",
+              "signature": "STRING_CONSTANT",
+              "doc": "A string in the code emptied. What only tells a person something is arid: what goes into a log\ncall, an exception or a failed check.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "REGEX_CONSTANT",
+              "anchor": "regex_constant",
+              "signature": "REGEX_CONSTANT",
+              "doc": "A regular expression that goes straight into a call, changed to one that still compiles. It\nruns in static initialisers and constructors too, as a `Pattern` is usually a field.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
               "kind": "method",
               "name": "id",
               "anchor": "id",

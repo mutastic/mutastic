@@ -182,6 +182,9 @@ final class ClaimFixture {
   }
 
   private static Object parsed(String value, Class<?> type) {
+    if (type == String.class) {
+      return value.substring(1, value.length() - 1).replace("\\\\", "\\");
+    }
     if (type == long.class) {
       return Long.valueOf(value);
     }

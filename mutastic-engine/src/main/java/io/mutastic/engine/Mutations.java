@@ -51,7 +51,7 @@ import org.jspecify.annotations.Nullable;
 final class Mutations {
   /// Calls whose only effect is output: removing one changes what a person reads, not what the code
   /// does, so no test is expected to notice.
-  private static final Set<String> OUTPUT_OWNERS =
+  static final Set<String> OUTPUT_OWNERS =
       Set.of(
           "org/slf4j/Logger",
           "java/util/logging/Logger",
@@ -73,7 +73,25 @@ final class Mutations {
           BuiltIn.REMOVE_SWITCH_ARM,
           BuiltIn.REPLACE_BODY,
           BuiltIn.DROP_CATCH_TYPE,
-          BuiltIn.REMOVE_THROW);
+          BuiltIn.REMOVE_THROW,
+          BuiltIn.STRING_CONSTANT,
+          BuiltIn.REGEX_CONSTANT);
+
+  /// mutastic's own operators on an instruction that isn't a site of the other kinds, which can't
+  /// be counted in with them without moving their ids.
+  private static final Set<Operator> ON_ANY_INSTRUCTION =
+      Set.of(
+          BuiltIn.REMOVE_ASSIGNMENT,
+          BuiltIn.REMOVE_FIELD_WRITE,
+          BuiltIn.NULL_PARAMETER,
+          BuiltIn.FLIP_INCREMENT,
+          BuiltIn.CONSTANT_VALUE,
+          BuiltIn.REMOVE_SWITCH_ARM,
+          BuiltIn.REPLACE_BODY,
+          BuiltIn.DROP_CATCH_TYPE,
+          BuiltIn.REMOVE_THROW,
+          BuiltIn.STRING_CONSTANT,
+          BuiltIn.REGEX_CONSTANT);
 
   private final ClassFile context;
   private final Policy policy;
@@ -110,7 +128,8 @@ final class Mutations {
   List<Mutant> find(ClassModel model) {
     var mutants = new ArrayList<Mutant>();
     for (MethodModel method : model.methods()) {
-      if (mutable(model, method)) {
+      var here = operatorsIn(model, method);
+      if (!here.isEmpty()) {
         method
             .code()
             .ifPresent(
@@ -121,7 +140,7 @@ final class Mutations {
                               method,
                               code.elementList(),
                               filtered(model, method),
-                              operators,
+                              here,
                               new Wrappers(module))
                           .mutants();
                   mutants.addAll(viable(model, mergeFinallyCopies(found, code)));
@@ -129,6 +148,19 @@ final class Mutations {
       }
     }
     return mutants;
+  }
+
+  /// The operators that change this method: all of them in code the user wrote, and in a
+  /// constructor or static initialiser only a regular expression's, as a `Pattern` is usually a
+  /// field, and left out of those it would have next to nothing to change.
+  private List<Operator> operatorsIn(ClassModel model, MethodModel method) {
+    if (mutable(model, method)) {
+      return operators;
+    }
+    return method.methodName().stringValue().startsWith("<")
+            && operators.contains(BuiltIn.REGEX_CONSTANT)
+        ? List.of(BuiltIn.REGEX_CONSTANT)
+        : List.of();
   }
 
   /// The mutants, with any of a plugin's or rules file's that wouldn't load skipped as unviable:
@@ -433,22 +465,26 @@ final class Mutations {
         BuiltIn builtIn, Instruction instruction, int at, List<Found> found) {
       switch (builtIn) {
         case REPLACE_BODY -> bodyChanges(found);
+        case STRING_CONSTANT -> addChanges(builtIn, TextConstants.strings(code, at, stores), found);
+        case REGEX_CONSTANT -> addChanges(builtIn, TextConstants.regexes(code, at), found);
         case DROP_CATCH_TYPE -> {
           for (String label : Exceptions.droppedCatches(code, at)) {
             found.add(new Found(builtIn, index, label, Optional.empty()));
           }
         }
-        case REMOVE_THROW -> {
-          for (Mutator.Change change : Exceptions.removedThrow(code, at, stores)) {
-            found.add(new Found(builtIn, index, change.label(), change.skipped()));
-          }
-        }
+        case REMOVE_THROW -> addChanges(builtIn, Exceptions.removedThrow(code, at, stores), found);
         case REMOVE_SWITCH_ARM -> {
           for (var arm : SwitchArms.at(code, at)) {
             found.add(new Found(builtIn, index, arm.label(), arm.skipped(), arm.line()));
           }
         }
         default -> siteChanges(builtIn, instruction, found);
+      }
+    }
+
+    private void addChanges(BuiltIn builtIn, List<Mutator.Change> changes, List<Found> found) {
+      for (Mutator.Change change : changes) {
+        found.add(new Found(builtIn, index, change.label(), change.skipped()));
       }
     }
 
@@ -826,15 +862,7 @@ final class Mutations {
   }
 
   private static boolean isOnAnyInstruction(Operator operator) {
-    return operator == BuiltIn.REMOVE_ASSIGNMENT
-        || operator == BuiltIn.REMOVE_FIELD_WRITE
-        || operator == BuiltIn.NULL_PARAMETER
-        || operator == BuiltIn.FLIP_INCREMENT
-        || operator == BuiltIn.CONSTANT_VALUE
-        || operator == BuiltIn.REMOVE_SWITCH_ARM
-        || operator == BuiltIn.REPLACE_BODY
-        || operator == BuiltIn.DROP_CATCH_TYPE
-        || operator == BuiltIn.REMOVE_THROW;
+    return ON_ANY_INSTRUCTION.contains(operator);
   }
 
   private static boolean isFieldWrite(FieldInstruction field) {

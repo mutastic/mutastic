@@ -260,6 +260,10 @@ final class Constants {
 
   /// The number in its place: the label is `constant 100 to 101`.
   static void write(CodeBuilder builder, ConstantInstruction constant, Mutant mutant) {
+    if (constant.constantValue() instanceof String) {
+      TextConstants.write(builder, constant, mutant);
+      return;
+    }
     var label = mutant.replacement();
     var to = label.substring(label.lastIndexOf(' ') + 1);
     switch (constant.constantValue()) {

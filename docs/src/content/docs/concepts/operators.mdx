@@ -53,6 +53,8 @@ For why each one is worth catching, the bugs it stands for and the test that cat
 | [`mutastic/replace-body`](#replace-body) | a method's whole body, to returning one value or nothing | extended |
 | [`mutastic/drop-catch-type`](#drop-catch-type) | one type of a multi-catch, no longer caught | extended |
 | [`mutastic/remove-throw`](#remove-throw) | a `throw`, removed, and the code carries on | extended |
+| [`mutastic/regex-constant`](#regex-constant) | a regular expression, to one that differs and still compiles | extended |
+| [`mutastic/string-constant`](#string-constant) | a string in the code, to `""` | stronger |
 
 A run uses the `defaults` set unless you [choose otherwise](#choosing-operators). Plugins can add
 operators of their own: see [Plugins](/guides/plugins/).
@@ -616,6 +618,38 @@ The code after it has to be able to run: with nothing after it, as at the end of
 is skipped as `unviable:`. javac's own throws aren't changed: the rethrow it writes for a `finally`, a
 `synchronized` or a try-with-resources, and the default it writes for a switch with none. The `throw`
 of a failed `assert` is skipped as arid.
+
+## Regex constant
+
+`mutastic/regex-constant`, in the `extended` set. A regular expression changes, one mutant for each
+place: an anchor (`^` or `$`) goes, a character class or `\\d`, `\\w` or `\\s` turns the other way
+round, or a quantifier goes. It goes unnoticed when no test has text only one of the two matches.
+
+```java
+Pattern.compile("^\\d+$")   // becomes: "\\d+$", "^\\d+", "^\\D+$" and "^\\d$"
+```
+
+It only changes text that goes straight into `Pattern.compile`, `Pattern.matches`, `matches`, `split`,
+`replaceAll` or `replaceFirst`, and only to an expression that compiles, so what doesn't look like a
+regular expression has no mutants. It's the one operator that also runs in constructors and static
+initialisers, as a `Pattern` is usually a field. An anchor is skipped as equivalent on `matches`,
+which has to match all of the text anyway.
+
+## String constant
+
+`mutastic/string-constant`, in the `stronger` set. A string in the code becomes `""`, and an empty one
+a word. It goes unnoticed when no test depends on the text.
+
+```java
+if (type.equals("csv")) {   // becomes: if (type.equals("")) {
+```
+
+Text that only tells a person something is skipped as arid: what goes into a log call or
+`System.out`, an exception's message, including through `String.format` or `formatted`, or a failed
+check's message. An exception is known by being thrown straight away, or by its name ending in
+`Exception` or `Error`. A string in an annotation isn't in the code, and the text in `"total: " + x`
+is in javac's recipe for the call, so neither has a mutant. Text a person reads in other ways, such as
+a command's output, is changed like any other, so expect misses there.
 
 ## Choosing operators
 

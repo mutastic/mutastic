@@ -174,6 +174,21 @@ public enum BuiltIn implements Operator {
   REMOVE_THROW(
       "A `throw` is removed, and the code carries on with what comes next. It goes unnoticed when"
           + " no test needs that exception to be thrown.",
+      Tier.EXTENDED),
+
+  /// A string in the code emptied. What only tells a person something is arid: what goes into a log
+  /// call, an exception or a failed check.
+  STRING_CONSTANT(
+      "A string in the code becomes `\"\"`, and an empty one a word: `\"csv\"` becomes `\"\"`. It"
+          + " goes unnoticed when no test depends on the text.",
+      Tier.STRONGER),
+
+  /// A regular expression that goes straight into a call, changed to one that still compiles. It
+  /// runs in static initialisers and constructors too, as a `Pattern` is usually a field.
+  REGEX_CONSTANT(
+      "A regular expression changes: an anchor goes, a character class or `\\d` turns the other way"
+          + " round, or a quantifier goes. It goes unnoticed when no test has text only one of the"
+          + " two matches.",
       Tier.EXTENDED);
 
   private final String explanation;

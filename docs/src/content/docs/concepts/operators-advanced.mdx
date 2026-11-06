@@ -970,6 +970,54 @@ void aNegativeQuantityIsRefused() {
 
 Run it with `--operators=defaults,extended`.
 
+## Regex constant
+
+**The bug it stands for:** an expression that accepts more than it should, or less: a missing anchor,
+a `+` where one was enough, a class the wrong way round.
+
+**Where it costs:** validation and parsing. Tests of a regular expression tend to try text that
+should match, and an unanchored `\\d+` accepts `abc123` too.
+
+```java
+Pattern.compile("^\\d+$")   // becomes: "\\d+$", "^\\d+", "^\\D+$" and "^\\d$"
+```
+
+**The test that catches it:** text that only one of the two matches.
+
+```java
+@Test
+void anOrderNumberIsOnlyDigits() {
+  assertTrue(OrderNumber.isValid("123"));
+  assertFalse(OrderNumber.isValid("abc123"));   // accepted without the ^
+}
+```
+
+Run it with `--operators=defaults,extended`.
+
+## String constant
+
+**The bug it stands for:** the wrong key, name or format: a typo in a `"content-type"`, or a value
+someone changed in one place and not the other.
+
+**Where it costs:** text the code acts on: map keys, file names, protocol words, what a value is
+compared with. The compiler can't check any of it.
+
+```java
+if (type.equals("csv")) {   // becomes: if (type.equals("")) {
+```
+
+**The test that catches it:** one whose result depends on the text.
+
+```java
+@Test
+void aCsvFileIsReadAsRows() {
+  assertEquals(2, reader.read("csv", "a,b\nc,d").size());
+}
+```
+
+Run it with `--operators=stronger`. Expect misses on text a person reads, such as a command's output:
+ranking puts those after the rest, and most aren't worth a test.
+
 ## When a miss is fine
 
 Not every missed mutant is a gap worth closing. mutastic already skips the changes that would
