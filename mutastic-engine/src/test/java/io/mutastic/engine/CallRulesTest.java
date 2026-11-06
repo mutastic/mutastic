@@ -102,6 +102,33 @@ class CallRulesTest {
     assertThat(rules.getFirst().explanation()).isEqualTo("Quoted.");
   }
 
+  /// A plugin's rule can name any method: one with no plain form is skipped, not a stopped run.
+  @Test
+  void anUncheckedRewriteOfAnythingElseIsUnviable() throws Exception {
+    var rules =
+        CallRules.parse(
+            """
+            - id: acme/unchecked-limit
+              explanation: Not a method it can write.
+              owners: io.mutastic.engine.fixture.Pipeline
+              methods: first
+              rewrite: unchecked arithmetic
+              changed: changed
+              headline: no test
+              help: add one
+            """,
+            "acme.yaml");
+    var mutations =
+        new Mutations(
+            ClassFile.of(),
+            Policy.NONE.withOperators(List.of("acme/unchecked-limit"), List.copyOf(rules)));
+
+    var mutant = only(mutations.find(MutationsTest.model(Pipeline.class)), "acme/unchecked-limit");
+
+    assertThat(mutant.skipped())
+        .hasValueSatisfying(why -> assertThat(why).startsWith("unviable: no plain form of first("));
+  }
+
   private static String rule(String id, String rewrite, String tier) {
     return "- id: %s\n  explanation: e\n  tier: %s\n  owners: a.B\n  methods: m\n  rewrite: %s\n  headline: h\n  help: h\n"
         .formatted(id, tier, rewrite);

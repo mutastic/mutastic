@@ -15,6 +15,7 @@ class ArithmeticTruthTest {
   private static ClaimFixture others;
   private static ClaimFixture kept;
   private static ClaimFixture constants;
+  private static ClaimFixture checked;
 
   @BeforeAll
   static void compile() throws Exception {
@@ -38,6 +39,12 @@ class ArithmeticTruthTest {
     constants =
         new ClaimFixture(
             "arithmetic/ConstantValues.java", "mutastic/constant-value", Inputs.NUMBERS);
+  }
+
+  @BeforeAll
+  static void compileTheChecks() throws Exception {
+    checked =
+        new ClaimFixture("arithmetic/Checked.java", "library/unchecked-arithmetic", Inputs.NUMBERS);
   }
 
   private static SourceView sources() {
@@ -356,6 +363,47 @@ class ArithmeticTruthTest {
           assertThat(line).as(ClaimFixture.describe(mutant)).isEmpty();
         }
       }
+    }
+  }
+
+  /// `claimsThatLie` fails a mutant that changes nothing, so every one of these overflowed.
+  @Test
+  void aCheckedCallIsThePlainOperationAndItsInputsOverflow() throws Exception {
+    assertThat(checked.running()).as("the cards checked").hasSizeGreaterThan(17);
+    assertThat(checked.claimsThatLie()).isEmpty();
+  }
+
+  @Test
+  void anOverflowThrowsTodayAndWrapsRoundWithTheMutant() throws Exception {
+    var add =
+        checked.running().stream()
+            .filter(mutant -> ClaimFixture.sourceMethod(mutant).equals("anAdd"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(checked.outcomeOfOriginal("anAdd", Integer.MAX_VALUE, 1))
+        .isEqualTo("threw ArithmeticException");
+    assertThat(checked.outcomeOf(add, Integer.MAX_VALUE, 1))
+        .isEqualTo(String.valueOf(Integer.MIN_VALUE));
+    assertThat(checked.outcomeOfOriginal("anAdd", 2, 3)).isEqualTo("5");
+    assertThat(checked.outcomeOf(add, 2, 3)).isEqualTo("5");
+  }
+
+  @Test
+  void onlyTheExactMethodsAreChanged() {
+    assertThat(checked.mutants())
+        .extracting(ClaimFixture::sourceMethod)
+        .doesNotContain("anAbsolute", "aFloorDivision", "big");
+  }
+
+  @Test
+  void aCheckedCallsCardAsksForAnOverflow() {
+    var sources = sources();
+    for (var mutant : checked.running()) {
+      var called = CallRule.calledName(mutant.original());
+      var advice = sources.advice(mutant);
+      assertThat(advice.change()).isEqualTo("no longer throws on overflow");
+      assertThat(advice.headline()).startsWith("no test makes `%s` overflow in ".formatted(called));
+      assertThat(advice.fix()).contains("doesn't fit its type").contains("ArithmeticException");
     }
   }
 }

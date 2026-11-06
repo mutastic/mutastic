@@ -45,6 +45,9 @@ public final class CallRules {
           "source",
           "changed");
 
+  private static final Set<String> FIXED_REWRITES =
+      Set.of("remove", CallRule.OMIT_LAST, CallRule.UNCHECKED);
+
   private static final List<String> REQUIRED =
       List.of("id", "explanation", "owners", "methods", "rewrite", "headline", "help");
 
@@ -201,9 +204,10 @@ public final class CallRules {
             && listed(rewrite.substring("rename ".length())).stream()
                 .allMatch(pair -> pair.matches("\\w+->\\w+"));
     boolean call = rewrite.matches("call \\w+\\([^)]*\\)( with .+)?");
-    if (!rewrite.equals("remove") && !rewrite.equals(CallRule.OMIT_LAST) && !renames && !call) {
+    boolean fixed = FIXED_REWRITES.contains(rewrite);
+    if (!fixed && !renames && !call) {
       throw new IllegalArgumentException(
-          "%s:%d: a rewrite is `remove`, `omit last argument`, `rename a->b, …` or `call name(ARGS) with A, B`, not %s"
+          "%s:%d: a rewrite is `remove`, `omit last argument`, `unchecked arithmetic`, `rename a->b, …` or `call name(ARGS) with A, B`, not %s"
               .formatted(where, line, rewrite));
     }
   }

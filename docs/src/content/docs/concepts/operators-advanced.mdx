@@ -568,6 +568,30 @@ void theValueIsReadAsHex() {
 }
 ```
 
+## Unchecked arithmetic
+
+**The bug it stands for:** arithmetic that overflows silently: a total that wraps round to a negative
+number, because nothing checked that it fits.
+
+**Where it costs:** money and sizes, where someone chose `addExact` because a wrong number is worse
+than an exception. If no test overflows, nothing shows that the check is still there.
+
+```java
+int total = Math.addExact(price, fee);   // becomes: int total = price + fee;
+```
+
+**The test that catches it:** one whose result doesn't fit the type, asserting the exception.
+
+```java
+@Test
+void aTotalTooBigToHoldIsRefused() {
+  assertThrows(
+      ArithmeticException.class, () -> new Order(Integer.MAX_VALUE, 1).total());   // it'd wrap round
+}
+```
+
+Run it with `--operators=stronger`.
+
 ## Stream stage removal
 
 **The bug it stands for:** a stage that's wrong, or in the wrong place, and no test would know: a

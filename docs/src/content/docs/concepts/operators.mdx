@@ -34,6 +34,7 @@ For why each one is worth catching, the bugs it stands for and the test that cat
 | [`mutastic/null-parameter`](#null-parameter) | a parameter holding an object, `null` from the start of the method | stronger |
 | [`mutastic/drop-vararg`](#drop-vararg) | the last value in an array built for a call, left out | stronger |
 | [`library/omit-argument`](#omit-argument) | the JDK's overloads, without their last argument: `indexOf(x, from)` to `indexOf(x)` | stronger |
+| [`library/unchecked-arithmetic`](#unchecked-arithmetic) | `Math.addExact` and the like to the plain operation, which overflows | stronger |
 | [`stream/remove-stage`](#stream-stage-removal) | a stream stage, removed | defaults |
 | [`stream/swap-match`](#stream-match-swap) | `anyMatch`, `allMatch` and `noneMatch`, swapped | defaults |
 | [`library/swap-string`](#string-method-swap) | a `String` method and the similar one: `startsWith` and `endsWith`, `toUpperCase` and `toLowerCase` | defaults |
@@ -379,6 +380,19 @@ int value = Integer.parseInt(text, 16);   // becomes: Integer.parseInt(text)
 It covers `indexOf`, `lastIndexOf` and `substring` on a `String` or `StringBuilder`, `parseInt`,
 `parseLong` and `toString` with a radix, `Pattern.compile` with flags, and `Objects.toString` with a
 default. It leaves out a charset, a locale and a `split` limit, whose absence rarely shows.
+
+## Unchecked arithmetic
+
+`library/unchecked-arithmetic`. `Math.addExact` and the like become the plain operation, which
+overflows instead of throwing. It's in the `stronger` set. It goes unnoticed when no test has a result
+too big for its type.
+
+```java
+int total = Math.addExact(price, fee);   // becomes: int total = price + fee;
+```
+
+It covers `addExact`, `subtractExact`, `multiplyExact`, `incrementExact`, `decrementExact`,
+`negateExact` and `toIntExact`, on `Math` and `StrictMath`.
 
 ## Stream stage removal
 

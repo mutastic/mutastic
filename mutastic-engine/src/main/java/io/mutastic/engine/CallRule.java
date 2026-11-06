@@ -29,6 +29,8 @@ import java.util.Set;
 /// - `rename a->b, c->d`: the same arguments, another method of the same type.
 /// - `omit last argument`: the same method without its last argument, for the overloads that
 ///   `descriptors` lists, each of which must have that shorter one.
+/// - `unchecked arithmetic`: `Math.addExact` and the like as the plain operation, which overflows
+///   rather than throwing.
 /// - `call name(ARGS) with A, B`: drop the arguments and call another method on the same receiver
 ///   with these, returning the same type. An argument is `0`, `0L`, `Integer.MAX_VALUE`,
 ///   `Long.MAX_VALUE`, `true`, `false`, `null` or a static no-argument call, `Function.identity()`
@@ -52,6 +54,7 @@ public record CallRule(
     Map<String, String> templates)
     implements Mutator {
   static final String OMIT_LAST = "omit last argument";
+  static final String UNCHECKED = "unchecked arithmetic";
 
   /// The terminal operations whose result doesn't depend on order, or on duplicates.
   private static final Set<String> ORDER_FREE =
@@ -94,8 +97,8 @@ public record CallRule(
                       pair[1], LibrarySwaps.equivalent(call, pair[1], site.code(), site.index())))
           .toList();
     }
-    if (rewrite.equals(OMIT_LAST)) {
-      return List.of(Change.of(OMIT_LAST));
+    if (rewrite.equals(OMIT_LAST) || rewrite.equals(UNCHECKED)) {
+      return List.of(Change.of(rewrite));
     }
     return List.of(Change.of(source.isEmpty() ? rewrite.substring("call ".length()) : source));
   }
@@ -168,23 +171,29 @@ public record CallRule(
       invoke(builder, call, label, type);
       return;
     }
+    if (rewrite.equals(UNCHECKED)) {
+      UncheckedArithmetic.write(builder, call);
+      return;
+    }
     if (rewrite.equals(OMIT_LAST)) {
-      int count = type.parameterCount();
-      Mutations.pop(builder, TypeKind.from(type.parameterType(count - 1)));
-      invoke(builder, call, call.name().stringValue(), type.dropParameterTypes(count - 1, count));
+      omitLast(builder, call);
       return;
     }
     for (var parameter : type.parameterList().reversed()) {
-      if (TypeKind.from(parameter).slotSize() == 2) {
-        builder.pop2();
-      } else {
-        builder.pop();
-      }
+      Mutations.pop(builder, TypeKind.from(parameter));
     }
     if (!rewrite.equals("remove")) {
       callInstead(builder, call);
     }
     // For `remove`, the receiver stays, as the stage's result.
+  }
+
+  /// The last argument popped, and the overload without it called.
+  private static void omitLast(CodeBuilder builder, InvokeInstruction call) {
+    var type = call.typeSymbol();
+    int count = type.parameterCount();
+    Mutations.pop(builder, TypeKind.from(type.parameterType(count - 1)));
+    invoke(builder, call, call.name().stringValue(), type.dropParameterTypes(count - 1, count));
   }
 
   /// `call name(ARGS) with A, B`: the arguments pushed, and the other method called on the

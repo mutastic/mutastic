@@ -57,3 +57,15 @@
   changed: called without its last argument
   headline: no test needs the last argument of `{name}` in {method}
   help: use a value that argument makes a difference to, and assert the result
+
+# A method that exists to throw on overflow, as the plain operation: the bug of not having used it.
+- id: library/unchecked-arithmetic
+  explanation: `Math.addExact` and the like become the plain operation, which overflows instead of throwing. It goes unnoticed when no test has a result too big for its type.
+  tier: stronger
+  owners: java.lang.Math, java.lang.StrictMath
+  methods: addExact, subtractExact, multiplyExact, incrementExact, decrementExact, negateExact, toIntExact
+  descriptors: (II)I, (JJ)J, (JI)J, (I)I, (J)J, (J)I
+  rewrite: unchecked arithmetic
+  changed: no longer throws on overflow
+  headline: no test makes `{name}` overflow in {method}
+  help: add a test whose result doesn't fit its type, and assert it throws `ArithmeticException`
