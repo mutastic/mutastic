@@ -129,6 +129,40 @@ class AdviceTest {
             "every test calls `discount()` with `100 <= total`", "inputs seen: 150, 100");
   }
 
+  /// `&&` and `||` disagree exactly where one side holds and the other doesn't: the card asks for
+  /// that test, naming the sides when the source line gives them.
+  @Test
+  void aSwappedConnectorAsksForOneSideTrueAndTheOtherFalse() {
+    var mutant = mutant(BuiltIn.LOGICAL_CONNECTOR, "IFLE", "&& and || swapped", "(II)I");
+    var named =
+        Advice.connector(
+            mutant,
+            Map.of(),
+            Optional.of(new Advice.Connective("&&", Optional.of("a > 0"), Optional.of("b < 2"))));
+    assertThat(named.change()).isEqualTo("`&&` becomes `||`");
+    assertThat(named.headline())
+        .isEqualTo(
+            "no test checks `discount()` with one of `a > 0` and `b < 2` true and the other false");
+    assertThat(named.fix())
+        .isEqualTo(
+            "add a test where one of `a > 0` and `b < 2` is true and the other false, and assert"
+                + " what `discount()` does then");
+    var sideless =
+        Advice.connector(
+            mutant,
+            Map.of(),
+            Optional.of(new Advice.Connective("||", Optional.empty(), Optional.empty())));
+    assertThat(sideless.change()).isEqualTo("`||` becomes `&&`");
+    assertThat(sideless.headline())
+        .isEqualTo(
+            "no test checks `discount()` with one side of the `||` true and the other false");
+    // Without the source, or with two connectors in the statement, the card can't say which.
+    assertThat(Advice.of(mutant).headline())
+        .isEqualTo(
+            "no test checks `discount()` with one side of a condition true and the other false");
+    assertThat(Advice.of(mutant).before()).isEmpty();
+  }
+
   @Test
   void namesTheArithmeticWhenItsOperandsAreKnown() {
     var known = Advice.of(with(BuiltIn.MATH, "IMUL", "IDIV", "price", "quantity"));

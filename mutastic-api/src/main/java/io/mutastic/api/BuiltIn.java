@@ -56,6 +56,12 @@ public enum BuiltIn implements Operator {
       "A condition stops deciding: the code it guards always runs, or never does. It goes"
           + " unnoticed when no test needs the condition to be true one time and false another."),
 
+  /// `&&` to `||` and back. javac has no opcode for either, so the engine finds the two jumps javac
+  /// writes for a condition of two tests joined by one, and turns the first round.
+  LOGICAL_CONNECTOR(
+      "`&&` becomes `||`, and `||` becomes `&&`, in a condition of two tests. It goes unnoticed"
+          + " when no test has one of them true and the other false."),
+
   ARITHMETIC_REPLACEMENT(
       "`+` becomes `*`, on `int` and `long`. It goes unnoticed when tests only add numbers whose"
           + " sum and product agree, `2 + 2` say.",

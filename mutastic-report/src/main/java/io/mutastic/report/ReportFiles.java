@@ -272,6 +272,9 @@ public final class ReportFiles {
     if (!(mutant.operator() instanceof io.mutastic.api.BuiltIn builtIn)) {
       return mutant.operator().id();
     }
+    if (builtIn == io.mutastic.api.BuiltIn.LOGICAL_CONNECTOR) {
+      return mutant.operator().id(); // readers know no name for it
+    }
     var prefix = "org.pitest.mutationtest.engine.gregor.mutators.";
     return builtIn == io.mutastic.api.BuiltIn.COMPARISON
             || builtIn == io.mutastic.api.BuiltIn.OTHER_COMPARISON
@@ -287,7 +290,7 @@ public final class ReportFiles {
   private static String knownMutator(io.mutastic.api.BuiltIn builtIn, Mutant mutant) {
     return switch (builtIn) {
       case BOUNDARY -> "ConditionalsBoundaryMutator";
-      case COMPARISON, OTHER_COMPARISON -> mutant.operator().id();
+      case COMPARISON, OTHER_COMPARISON, LOGICAL_CONNECTOR -> mutant.operator().id();
       case MATH, ARITHMETIC_REPLACEMENT -> "MathMutator";
       case REMOVE_CONDITIONAL -> "RemoveConditionalMutator";
       case REMOVE_VOID_CALL -> "VoidMethodCallMutator";

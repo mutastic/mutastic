@@ -264,6 +264,11 @@ final class Mutations {
             found.add(new Found(builtIn, ordinal, change.label(), change.skipped()));
           }
         }
+        case LOGICAL_CONNECTOR -> {
+          if (Connectors.at(code, at).isPresent()) {
+            found.add(new Found(builtIn, ordinal, Connectors.SWAPPED, Optional.empty()));
+          }
+        }
         case REMOVE_DISCARDED_CALL -> {
           if (isDiscarded(code, at)) {
             found.add(new Found(builtIn, callOrdinal, "remove call", Optional.empty()));
@@ -435,19 +440,52 @@ final class Mutations {
 
   /// The class with exactly one instruction changed. `CodeBuilder` regenerates the stack maps.
   byte[] apply(ClassModel model, Mutant mutant) {
-    var transform = CodeTransform.ofStateful(() -> new MutantTransform(mutant));
+    var targets =
+        mutant.operator() == BuiltIn.LOGICAL_CONNECTOR
+            ? connectorTargets(model, mutant)
+            : List.<Optional<java.lang.classfile.Label>>of();
+    var transform = CodeTransform.ofStateful(() -> new MutantTransform(mutant, targets));
     return context.transformClass(
         model,
         ClassTransform.transformingMethodBodies(method -> isMethodOf(mutant, method), transform));
+  }
+
+  /// Where each of a connector mutant's first jumps goes instead, site by site: the second's
+  /// target, when the first jumped to just past it; empty when both jumped to one place, and the
+  /// first now jumps to just past the second.
+  private static List<Optional<java.lang.classfile.Label>> connectorTargets(
+      ClassModel model, Mutant mutant) {
+    var targets = new ArrayList<Optional<java.lang.classfile.Label>>();
+    for (MethodModel method : model.methods()) {
+      if (isMethodOf(mutant, method)) {
+        var code = method.code().orElseThrow().elementList();
+        var sites = new SiteCounter();
+        for (int at = 0; at < code.size(); at++) {
+          if (code.get(at) instanceof Instruction instruction
+              && sites.changedBy(mutant, instruction)) {
+            var pair = Connectors.at(code, at).orElseThrow();
+            var second = (BranchInstruction) code.get(pair.second());
+            targets.add(pair.oneTarget() ? Optional.empty() : Optional.of(second.target()));
+          }
+        }
+      }
+    }
+    return targets;
   }
 
   /// Copies a method's code with the mutant's sites changed.
   private static final class MutantTransform implements CodeTransform {
     private final Mutant mutant;
     private final SiteCounter sites = new SiteCounter();
+    private final List<Optional<java.lang.classfile.Label>> connectorTargets;
+    private int connectorsChanged;
 
-    MutantTransform(Mutant mutant) {
+    /// A label to bind just after the next jump: where a connector's first jump now goes.
+    private java.lang.classfile.@Nullable Label pastTheSecond;
+
+    MutantTransform(Mutant mutant, List<Optional<java.lang.classfile.Label>> connectorTargets) {
       this.mutant = mutant;
+      this.connectorTargets = connectorTargets;
     }
 
     @Override
@@ -467,10 +505,28 @@ final class Mutations {
         return;
       }
       if (element instanceof Instruction instruction && sites.changedBy(mutant, instruction)) {
-        emit(builder, instruction, mutant);
+        if (mutant.operator() == BuiltIn.LOGICAL_CONNECTOR) {
+          swapConnector(builder, (BranchInstruction) instruction);
+        } else {
+          emit(builder, instruction, mutant);
+        }
         return;
       }
       builder.with(element);
+      if (pastTheSecond != null && element instanceof BranchInstruction) {
+        builder.labelBinding(pastTheSecond);
+        pastTheSecond = null;
+      }
+    }
+
+    /// The first test's jump the other way round, to the second's target or to just past it.
+    private void swapConnector(CodeBuilder builder, BranchInstruction first) {
+      var target = connectorTargets.get(connectorsChanged++);
+      var to = target.orElseGet(builder::newLabel);
+      if (target.isEmpty()) {
+        pastTheSecond = to;
+      }
+      builder.with(BranchInstruction.of(Connectors.negated(first.opcode()), to));
     }
   }
 

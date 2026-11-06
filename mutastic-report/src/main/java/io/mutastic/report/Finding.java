@@ -77,6 +77,7 @@ record Finding(List<MutantResult> mutants) {
                       BuiltIn.COMPARISON,
                       BuiltIn.OTHER_COMPARISON,
                       BuiltIn.REMOVE_CONDITIONAL,
+                      BuiltIn.LOGICAL_CONNECTOR,
                       BuiltIn.RETURN_VALUE,
                       BuiltIn.REMOVE_VOID_CALL,
                       BuiltIn.REMOVE_DISCARDED_CALL ->

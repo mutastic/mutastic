@@ -47,10 +47,16 @@ class CardTruthTest {
           BuiltIn.BOUNDARY,
           BuiltIn.COMPARISON,
           BuiltIn.REMOVE_CONDITIONAL,
-          BuiltIn.OTHER_COMPARISON);
+          BuiltIn.OTHER_COMPARISON,
+          BuiltIn.LOGICAL_CONNECTOR);
 
   private static final Pattern ALWAYS =
       Pattern.compile("`(?<condition>[^`]+)` is always (?<value>true|false)");
+
+  /// A connector's headline, naming its two sides.
+  private static final Pattern SIDES =
+      Pattern.compile("with one of `(?<left>[^`]+)` and `(?<right>[^`]+)` true");
+
   private static final Pattern CONSTANT =
       Pattern.compile("static final int (?<name>[A-Z_]+) = (?<value>-?\\d+);");
 
@@ -97,8 +103,12 @@ class CardTruthTest {
       claim(text, mutant, advice, variant)
           .ifPresentOrElse(
               source -> claims.add(new Claim(mutant, advice, variant, source, "its words")),
-              () ->
-                  failures.add(describe(mutant, advice) + "\n  its condition isn't in the source"));
+              () -> {
+                // A connector the card can't name (two in the statement) makes no claim to check.
+                if (mutant.operator() != BuiltIn.LOGICAL_CONNECTOR || advice.before().isPresent()) {
+                  failures.add(describe(mutant, advice) + "\n  its condition isn't in the source");
+                }
+              });
       headline(text, mutant, advice, "Shapes" + claims.size())
           .ifPresent(
               source ->
@@ -254,6 +264,43 @@ class CardTruthTest {
     return outcomes.toString();
   }
 
+  /// A connector mutant at every condition of two tests joined by `&&` or `||`, however javac lays
+  /// it out (an `if`, a loop's test, a `do`'s at the bottom, a `return`, through a `!`), and none
+  /// where a condition has three tests or a nested `if` compiles the same.
+  @Test
+  void aConnectorIsFoundInEveryConditionOfTwoTests() throws Exception {
+    var original = compile(List.of(FIXTURE.resolve("shapes/Shapes.java"), OTHER), "original");
+    var model = ClassFile.of().parse(Files.readAllBytes(original.resolve("shapes/Shapes.class")));
+    var found =
+        new Mutations(
+                ClassFile.of(),
+                new Policy(List.of(), List.of(), List.of(), List.of("all"), List.of()))
+            .find(model).stream()
+                .filter(mutant -> mutant.operator() == BuiltIn.LOGICAL_CONNECTOR)
+                .map(Mutant::methodName)
+                .toList();
+
+    assertThat(found)
+        .contains(
+            "and",
+            "or",
+            "orOnABoolean",
+            "andOnBooleans",
+            "notOr",
+            "whileLoop",
+            "forLoop",
+            "doWhile",
+            "nullOr",
+            "notNullAnd",
+            "staticField",
+            "sameObject",
+            "splitOverLines",
+            "splitReturn",
+            "namedConstant")
+        .doesNotContain("mixed", "threeAnds", "nestedIfs", "plainIf", "ternary", "nestedTernary")
+        .doesNotHaveDuplicates();
+  }
+
   /// Only numbers are ordered: `==` on two `boolean`s gets only its opposite. A `float`'s
   /// comparison gets no change that `NaN` would make differ somewhere the card doesn't say.
   @Test
@@ -304,6 +351,7 @@ class CardTruthTest {
               match(REVERSED, advice.headline())
                   .map(found -> new String[] {found.group("condition"), "!(%s)"})
                   .or(() -> boundary(mutant, advice));
+          case LOGICAL_CONNECTOR -> connector(text, advice);
           default -> Optional.empty();
         };
     return edit.flatMap(found -> replaceIn(text, mutant, found[0], found[1], variant));
@@ -329,6 +377,27 @@ class CardTruthTest {
                             edit[0],
                             "((%s) ? (%s) : (%%s))".formatted(found.group("where"), edit[1]),
                             variant)));
+  }
+
+  /// `a > 0 && b < 2` to `a > 0 || b < 2`, from the sides the headline names; or the connector
+  /// alone, `&&` to `||`, found once in the method.
+  private static Optional<String[]> connector(String text, Advice advice) {
+    if (advice.before().isEmpty() || advice.after().isEmpty()) {
+      return Optional.empty();
+    }
+    var before = advice.before().get();
+    var after = advice.after().get();
+    return match(SIDES, advice.headline())
+        .map(
+            found -> {
+              // The card quotes the sides as written; the claim is found with constants as values.
+              var left = withConstantsAsValues(text, found.group("left"));
+              var right = withConstantsAsValues(text, found.group("right"));
+              return new String[] {
+                "%s %s %s".formatted(left, before, right), "%s %s %s".formatted(left, after, right)
+              };
+            })
+        .or(() -> Optional.of(new String[] {before, after}));
   }
 
   /// `a >= b` to `a > b`: the comparison as the card says it's written, and as it says it becomes.
@@ -414,8 +483,13 @@ class CardTruthTest {
   /// quotes it, and `1L` as `1`: the same code, so a claim about `a > 3` can be found and written
   /// in. Line numbers stay as they were.
   private static String withConstantsAsValues(String text) {
+    return withConstantsAsValues(text, text);
+  }
+
+  /// `fragment` with the constants `text` declares as their values.
+  private static String withConstantsAsValues(String text, String fragment) {
     var constants = CONSTANT.matcher(text);
-    var resolved = text;
+    var resolved = fragment;
     while (constants.find()) {
       var use = Pattern.compile("(?<![\\w.])" + constants.group("name") + "(?![\\w(])(?! = )");
       resolved = use.matcher(resolved).replaceAll(constants.group("value"));

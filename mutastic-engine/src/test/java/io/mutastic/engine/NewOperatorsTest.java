@@ -116,6 +116,32 @@ class NewOperatorsTest {
   }
 
   @Test
+  void aConnectorBecomesTheOtherOne() throws Exception {
+    var all =
+        new Mutations(
+            ClassFile.of(), new Policy(List.of(), List.of(), List.of(), List.of("all"), List.of()));
+    var model = MutationsTest.model(io.mutastic.engine.fixture.Connected.class);
+    var connectors =
+        all.find(model).stream()
+            .filter(mutant -> mutant.operator() == BuiltIn.LOGICAL_CONNECTOR)
+            .toList();
+
+    // Not `bound`: its second test reads the pattern's variable, set only when the first passes.
+    assertThat(connectors).extracting(Mutant::methodName).containsExactly("both", "either");
+    var both = load(io.mutastic.engine.fixture.Connected.class, connectors.get(0));
+    var method = both.getClass().getMethod("both", int.class, int.class);
+    assertThat(method.invoke(both, 1, -1)).isEqualTo(1); // was 2: a > 0 || b > 0
+    assertThat(method.invoke(both, -1, -1)).isEqualTo(2);
+    var either = load(io.mutastic.engine.fixture.Connected.class, connectors.get(1));
+    var other = either.getClass().getMethod("either", int.class, int.class);
+    assertThat(other.invoke(either, 1, -1)).isEqualTo(false); // was true: a > 0 && b > 0
+    assertThat(other.invoke(either, 1, 1)).isEqualTo(true);
+    for (Mutant mutant : connectors) {
+      assertThat(all.verify(all.apply(model, mutant))).as(mutant.toString()).isEmpty();
+    }
+  }
+
+  @Test
   void everyNewMutantVerifies() throws Exception {
     // Tail has a local with a type annotation, whose offsets a mutant that changes the code's
     // length mustn't leave behind.

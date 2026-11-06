@@ -383,4 +383,15 @@ public final class Shapes {
     }
     return 2;
   }
+
+  /// The same bytecode as `a > 0 && b > 0`, but with no connector in the source: a line of its
+  /// own keeps it from being one.
+  static int nestedIfs(int a, int b) {
+    if (a > 0) {
+      if (b > 0) {
+        return 1;
+      }
+    }
+    return 2;
+  }
 }

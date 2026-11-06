@@ -327,6 +327,16 @@
             },
             {
               "kind": "enum constant",
+              "name": "LOGICAL_CONNECTOR",
+              "anchor": "logical_connector",
+              "signature": "LOGICAL_CONNECTOR",
+              "doc": "`&&` to `||` and back. javac has no opcode for either, so the engine finds the two jumps javac\nwrites for a condition of two tests joined by one, and turns the first round.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
               "name": "ARITHMETIC_REPLACEMENT",
               "anchor": "arithmetic_replacement",
               "signature": "ARITHMETIC_REPLACEMENT",

@@ -82,6 +82,7 @@ public record Advice(
             case RETURN_VALUE -> returnValue(mutant, seen);
             case REMOVE_VOID_CALL, REMOVE_DISCARDED_CALL -> removeVoidCall(mutant, seen);
             case REMOVE_CONDITIONAL -> removeConditional(mutant, seen, asWritten);
+            case LOGICAL_CONNECTOR -> connector(mutant, seen, Optional.empty());
           };
     };
   }
@@ -111,6 +112,52 @@ public record Advice(
     return before.isPresent() && after.isPresent()
         ? Optional.of(Sides.of(before.get()).differing(Sides.of(after.get())))
         : Optional.empty();
+  }
+
+  /// A connector swapped, as the source has it: `&&` and its two sides, when the source says.
+  ///
+  /// @param connector the connector the statement has, and its sides when they're on one line
+  record Connective(String connector, Optional<String> left, Optional<String> right) {
+    String other() {
+      return connector.equals("&&") ? "||" : "&&";
+    }
+  }
+
+  /// `&&` becomes `||`, or the other way round: they differ exactly where one side holds and the
+  /// other doesn't, so that's the test to add.
+  static Advice connector(
+      Mutant mutant, Map<String, List<Long>> seen, Optional<Connective> connective) {
+    var method = method(mutant);
+    if (connective.isEmpty()) {
+      return unnamedConnector(method, seen);
+    }
+    var known = connective.get();
+    var sides =
+        known.left().isPresent() && known.right().isPresent()
+            ? "one of `%s` and `%s`".formatted(known.left().get(), known.right().get())
+            : "one side of the `%s`".formatted(known.connector());
+    return new Advice(
+        Optional.of(known.connector()),
+        Optional.of(known.other()),
+        "`%s` becomes `%s`".formatted(known.connector(), known.other()),
+        "changed to " + known.other(),
+        "no test checks %s with %s true and the other false".formatted(method, sides),
+        inputsSeen(seen),
+        "add a test where %s is true and the other false, and assert what %s does then"
+            .formatted(sides, method));
+  }
+
+  /// A connector the source doesn't say: the statement has more than one, or isn't there.
+  private static Advice unnamedConnector(String method, Map<String, List<Long>> seen) {
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        "a condition's `&&` becomes `||`, or its `||` `&&`",
+        "&& and || swapped",
+        "no test checks %s with one side of a condition true and the other false".formatted(method),
+        inputsSeen(seen),
+        "add a test where one side of the condition is true and the other false, and assert the"
+            + " result");
   }
 
   /// A plugin's or rules file's operator: its own words for the card.

@@ -121,12 +121,48 @@ public final class SourceView {
 
   /// The advice for a mutant, its jump read the way the source has it.
   public Advice advice(Mutant mutant) {
-    return Advice.of(mutant, java.util.Map.of(), asWritten(mutant));
+    return advice(mutant, java.util.Map.of());
   }
 
   /// The advice with the inputs the covering tests passed, its jump read the way the source has it.
   public Advice advice(io.mutastic.api.MutantResult result) {
-    return Advice.of(result.mutant(), result.inputs(), asWritten(result.mutant()));
+    return advice(result.mutant(), result.inputs());
+  }
+
+  private Advice advice(Mutant mutant, java.util.Map<String, List<Long>> seen) {
+    return mutant.operator() == BuiltIn.LOGICAL_CONNECTOR
+        ? Advice.connector(mutant, seen, connective(mutant))
+        : Advice.of(mutant, seen, asWritten(mutant));
+  }
+
+  /// The connector a connector mutant swaps, when its statement has just one `&&` or `||`; its two
+  /// sides too, when the connector is on the mutant's line and they can be read off it.
+  Optional<Advice.Connective> connective(Mutant mutant) {
+    var statement = String.join("\n", statement(mutant));
+    int ands = occurrences(statement, "&&");
+    int ors = occurrences(statement, "||");
+    if (ands + ors != 1) {
+      return Optional.empty();
+    }
+    var connector = ands == 1 ? "&&" : "||";
+    // javac's line, not `line(mutant)`, whose place is found from this advice.
+    var all = lines(mutant).orElse(List.of());
+    var text = mutant.line() >= 1 && mutant.line() <= all.size() ? all.get(mutant.line() - 1) : "";
+    int at = text.indexOf(connector);
+    if (at < 0) {
+      return Optional.of(new Advice.Connective(connector, Optional.empty(), Optional.empty()));
+    }
+    return Optional.of(
+        new Advice.Connective(
+            connector, Sides.left(text, at), Sides.right(text, at + connector.length())));
+  }
+
+  private static int occurrences(String text, String token) {
+    int count = 0;
+    for (int at = text.indexOf(token); at >= 0; at = text.indexOf(token, at + token.length())) {
+      count++;
+    }
+    return count;
   }
 
   /// Whether the mutant's jump tests the condition as written: the statement has the written form

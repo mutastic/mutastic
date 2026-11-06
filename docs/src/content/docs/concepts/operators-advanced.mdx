@@ -123,6 +123,30 @@ void aReaderCantSave() {
 }
 ```
 
+## Logical connector
+
+**The bug it stands for:** `&&` where `||` was meant, or the other way round: a rule that needs
+both conditions written as either, a discount for members *or* big orders written as *and*.
+
+**Where it costs:** eligibility and permission rules, validation that should reject on any of
+several problems, retries that stop on either of two signals. Tests that set both conditions
+true, or both false, pass either way.
+
+```java
+if (member || total >= 100)   // becomes: if (member && total >= 100)
+  discount = 10;
+```
+
+**The test that catches it:** one where the two conditions disagree: a member with a small
+order, or a big order from someone who isn't one.
+
+```java
+@Test
+void membersGetTheDiscountOnSmallOrders() {
+  assertEquals(10, new Pricing().discount(true, 20));
+}
+```
+
 ## Math
 
 **The bug it stands for:** the wrong operator in a calculation: `-` for `+`, `/` for `*`.
