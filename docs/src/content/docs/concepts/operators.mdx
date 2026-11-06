@@ -22,6 +22,8 @@ For why each one is worth catching, the bugs it stands for and the test that cat
 | [`mutastic/return-value`](#return-value) | a returned value to the other `boolean`, `0`, an empty one or `null` | defaults |
 | [`mutastic/remove-void-call`](#remove-void-call) | a call that returns nothing, removed | defaults |
 | [`mutastic/remove-discarded-call`](#remove-discarded-call) | a call whose result is thrown away, removed | defaults |
+| [`mutastic/remove-assignment`](#remove-assignment) | an assignment to a variable that already has a value, removed | defaults |
+| [`mutastic/remove-field-write`](#remove-field-write) | a write to a field, removed | stronger |
 | [`stream/remove-stage`](#stream-stage-removal) | a stream stage, removed | defaults |
 | [`stream/swap-match`](#stream-match-swap) | `anyMatch`, `allMatch` and `noneMatch`, swapped | defaults |
 
@@ -191,6 +193,37 @@ text.append(", ");         // so does this, though append returns the builder
 `Objects.requireNonNull(x);`, which only checks a value isn't `null`, is skipped as arid.
 
 Constructors are left alone: removing one would leave an object half made, not a gap in the tests.
+
+## Remove assignment
+
+`mutastic/remove-assignment`. An assignment to a variable that already has a value is removed, so
+the variable keeps that value. What it would have been given is still worked out, so a call on the
+right-hand side still runs. It goes unnoticed when no test checks anything that depends on the new
+value.
+
+```java
+total = total + line.price();   // becomes: total stays as it was
+retries = 0;                    // becomes: retries stays as it was
+```
+
+A variable's first value is left alone, as the code wouldn't run without it. So is code compiled
+without its table of local variables (`-g:none`, or no `vars` in `-g`), which doesn't say what's a
+variable. An assignment whose value nothing reads, because the variable is assigned again first or
+never used, is skipped as equivalent. `i++` isn't an assignment here.
+
+## Remove field write
+
+`mutastic/remove-field-write`. A write to a field is removed, so the field keeps the value it had.
+It's in the `stronger` set. It goes unnoticed when no test checks the field afterwards, directly or
+through what reads it.
+
+```java
+this.status = Status.PAID;   // becomes: status stays as it was
+```
+
+Constructors and static initialisers are left alone, as they are for every operator, and a setter
+with nothing else in it is skipped as arid. A write of a default value, `count = 0;` in a `reset()`,
+is kept: that's what `reset()` is for.
 
 ## Stream stage removal
 

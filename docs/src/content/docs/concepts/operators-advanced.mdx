@@ -285,6 +285,54 @@ void anOrderIsHandledOnce() {
 }
 ```
 
+## Remove assignment
+
+**The bug it stands for:** a step left out of a calculation: a running total that isn't updated on
+one path, a value worked out and then not kept, a variable reset in the wrong place.
+
+**Where it costs:** totals, accumulators and anything built up over several statements. The code
+still runs and still returns something, only from a value that's out of date.
+
+```java
+total = total + line.price();   // becomes: total stays as it was
+```
+
+**The test that catches it:** one whose result depends on the new value: more than one line, with
+prices that show in the total, not one where the earlier value happens to be right.
+
+```java
+@Test
+void theTotalAddsEveryLine() {
+  var order = Order.of(Line.priced(300), Line.priced(450));
+  assertEquals(750, order.total());
+}
+```
+
+## Remove field write
+
+**The bug it stands for:** state that never changes: an update left out, or a write lost in a
+refactor, so the object goes on saying what it said before.
+
+**Where it costs:** anything an object has to remember between calls: a status moved on, a balance,
+a cache kept, a flag that stops something happening twice. Each call looks fine alone. What's wrong
+only shows in the next one.
+
+```java
+this.status = Status.PAID;   // becomes: status stays as it was
+```
+
+**The test that catches it:** one that makes the change and then looks: at the field, or at what the
+object does differently now, not only at what the call returned.
+
+```java
+@Test
+void payingMarksTheInvoicePaid() {
+  var invoice = Invoice.forAmount(500);
+  invoice.pay(500);
+  assertEquals(Status.PAID, invoice.status());
+}
+```
+
 ## Stream stage removal
 
 **The bug it stands for:** a stage that's wrong, or in the wrong place, and no test would know: a

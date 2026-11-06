@@ -52,6 +52,8 @@ final class Operators {
       case RETURN_VALUE -> List.of(); // ReturnValues: it reads the code before the return
       case REMOVE_DISCARDED_CALL -> List.of(); // Mutations: it reads the code after the call
       case LOGICAL_CONNECTOR -> List.of(); // Connectors: it reads the test after this one
+      case REMOVE_ASSIGNMENT, REMOVE_FIELD_WRITE ->
+          List.of(); // Mutations: the name is in the label
       case BOUNDARY, COMPARISON, OTHER_COMPARISON -> List.of(); // Comparisons: what's compared
       case REMOVE_VOID_CALL ->
           instruction instanceof InvokeInstruction call

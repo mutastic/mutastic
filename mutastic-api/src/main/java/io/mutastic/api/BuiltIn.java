@@ -52,6 +52,20 @@ public enum BuiltIn implements Operator {
       "A call whose result is thrown away is removed: `items.add(item);`, `seen.put(key, value);`."
           + " It goes unnoticed when no test checks what the call does."),
 
+  /// An assignment to a local variable that already has a value, removed: it keeps that value. A
+  /// declaration's first value isn't changed, as the code wouldn't load without it.
+  REMOVE_ASSIGNMENT(
+      "An assignment to a variable that already has a value is removed, so it keeps that value. It"
+          + " goes unnoticed when no test checks anything that depends on the new one."),
+
+  /// A write to a field, removed: it keeps the value it had. Constructors and static initialisers
+  /// are left alone, as for every operator, and a plain setter is arid, so what's left is state a
+  /// method changes.
+  REMOVE_FIELD_WRITE(
+      "A write to a field is removed, so it keeps the value it had. It goes unnoticed when no test"
+          + " checks the field afterwards, directly or through what reads it.",
+      Tier.STRONGER),
+
   REMOVE_CONDITIONAL(
       "A condition stops deciding: the code it guards always runs, or never does. It goes"
           + " unnoticed when no test needs the condition to be true one time and false another."),

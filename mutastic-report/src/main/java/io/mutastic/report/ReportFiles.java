@@ -290,7 +290,8 @@ public final class ReportFiles {
   private static String knownMutator(io.mutastic.api.BuiltIn builtIn, Mutant mutant) {
     return switch (builtIn) {
       case BOUNDARY -> "ConditionalsBoundaryMutator";
-      case COMPARISON, OTHER_COMPARISON, LOGICAL_CONNECTOR -> mutant.operator().id();
+      case COMPARISON, OTHER_COMPARISON, LOGICAL_CONNECTOR, REMOVE_ASSIGNMENT, REMOVE_FIELD_WRITE ->
+          mutant.operator().id();
       case MATH, ARITHMETIC_REPLACEMENT -> "MathMutator";
       case REMOVE_CONDITIONAL -> "RemoveConditionalMutator";
       case REMOVE_VOID_CALL -> "VoidMethodCallMutator";

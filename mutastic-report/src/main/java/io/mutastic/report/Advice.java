@@ -83,6 +83,8 @@ public record Advice(
             case REMOVE_VOID_CALL, REMOVE_DISCARDED_CALL -> removeVoidCall(mutant, seen);
             case REMOVE_CONDITIONAL -> removeConditional(mutant, seen, asWritten);
             case LOGICAL_CONNECTOR -> connector(mutant, seen, Optional.empty());
+            case REMOVE_ASSIGNMENT -> removedStore(mutant, seen, "assignment");
+            case REMOVE_FIELD_WRITE -> removedStore(mutant, seen, "write");
           };
     };
   }
@@ -466,6 +468,21 @@ public record Advice(
     var other = value.startsWith("0") ? "`" + value + "`" : "empty";
     return "assert the value %s returns on this path, with inputs where it isn't %s"
         .formatted(method, other);
+  }
+
+  /// An assignment or a field write taken away: what's stored keeps the value it had.
+  private static Advice removedStore(Mutant mutant, Map<String, List<Long>> seen, String kind) {
+    var change = mutant.replacement();
+    var name = "`%s`".formatted(change.substring(change.lastIndexOf(' ') + 1));
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        "the %s to %s is removed, so it keeps its earlier value".formatted(kind, name),
+        kind + " removed",
+        "no test checks the value %s is given in %s".formatted(name, method(mutant)),
+        inputsSeen(seen),
+        "add a test where this gives %s a different value, and assert what depends on it"
+            .formatted(name));
   }
 
   private static Advice removeVoidCall(Mutant mutant, Map<String, List<Long>> seen) {

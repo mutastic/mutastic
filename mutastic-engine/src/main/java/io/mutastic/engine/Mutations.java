@@ -24,6 +24,7 @@ import java.lang.classfile.attribute.RuntimeInvisibleTypeAnnotationsAttribute;
 import java.lang.classfile.attribute.RuntimeVisibleTypeAnnotationsAttribute;
 import java.lang.classfile.instruction.BranchInstruction;
 import java.lang.classfile.instruction.ConstantInstruction;
+import java.lang.classfile.instruction.FieldInstruction;
 import java.lang.classfile.instruction.InvokeDynamicInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.LabelTarget;
@@ -33,6 +34,7 @@ import java.lang.classfile.instruction.LocalVariable;
 import java.lang.classfile.instruction.LocalVariableType;
 import java.lang.classfile.instruction.OperatorInstruction;
 import java.lang.classfile.instruction.ReturnInstruction;
+import java.lang.classfile.instruction.StoreInstruction;
 import java.lang.reflect.AccessFlag;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -102,12 +104,14 @@ final class Mutations {
 
   /// The mutants, with any of a plugin's or rules file's that wouldn't load skipped as unviable:
   /// mutastic's own operators are built to verify, and a failure of theirs stops the run, but a
-  /// rule can't know every call it will meet.
+  /// rule can't know every call it will meet. A removed assignment is checked too: javac's table of
+  /// variables says it has a value, but another compiler's might not be so exact.
   private List<Mutant> viable(ClassModel model, List<Mutant> found) {
     var checked = new ArrayList<Mutant>(found.size());
     for (Mutant mutant : found) {
       var unviable =
-          mutant.operator() instanceof Mutator && mutant.skipped().isEmpty()
+          (mutant.operator() instanceof Mutator || mutant.operator() == BuiltIn.REMOVE_ASSIGNMENT)
+                  && mutant.skipped().isEmpty()
               ? whyUnviable(model, mutant)
               : Optional.<String>empty();
       checked.add(unviable.map(why -> mutant.skippedFor("unviable: " + why)).orElse(mutant));
@@ -188,6 +192,7 @@ final class Mutations {
     private final List<CodeElement> code;
     private final Set<Instruction> tryWithResources;
     private final Operands operands;
+    private final Stores stores;
     private final Optional<String> filtered;
     private final List<Operator> operators;
     private final Set<Integer> stringSwitchLines = new HashSet<>();
@@ -211,6 +216,7 @@ final class Mutations {
       this.operators = operators;
       this.tryWithResources = tryWithResources(code);
       this.operands = method.code().map(Operands::new).orElseThrow();
+      this.stores = new Stores(code);
     }
 
     List<Mutant> mutants() {
@@ -274,7 +280,32 @@ final class Mutations {
             found.add(new Found(builtIn, callOrdinal, "remove call", Optional.empty()));
           }
         }
+        case REMOVE_ASSIGNMENT -> assignmentChange(at, found);
+        case REMOVE_FIELD_WRITE -> fieldWriteChange(instruction, found);
         default -> instructionChanges(builtIn, instruction, found);
+      }
+    }
+
+    /// An assignment to a variable that has a value already, unless nothing reads the new one.
+    private void assignmentChange(int at, List<Found> found) {
+      stores
+          .reassigned(at)
+          .ifPresent(
+              name ->
+                  found.add(
+                      new Found(
+                          BuiltIn.REMOVE_ASSIGNMENT,
+                          index,
+                          "remove assignment to " + name,
+                          stores.valueIsRead(at)
+                              ? Optional.empty()
+                              : Optional.of("equivalent: nothing reads the value it's given"))));
+    }
+
+    private void fieldWriteChange(Instruction instruction, List<Found> found) {
+      if (instruction instanceof FieldInstruction field && isFieldWrite(field)) {
+        var label = "remove write to " + field.name().stringValue();
+        found.add(new Found(BuiltIn.REMOVE_FIELD_WRITE, index, label, Optional.empty()));
       }
     }
 
@@ -545,13 +576,28 @@ final class Mutations {
       int callSite = call ? callOrdinal++ : -1;
       int site = !call && isSite(instruction) ? ordinal++ : -1;
       var operator = mutant.operator();
-      if (operator instanceof Mutator && !operator.onCalls()) {
+      if (countsInstructions(operator)) {
         return mutant.changes(at);
       }
       return operator.onCalls()
           ? callSite >= 0 && mutant.changes(callSite)
           : site >= 0 && mutant.changes(site);
     }
+  }
+
+  /// Whether the operator's sites are every instruction, counted in order: a plugin's that isn't on
+  /// calls, or one of mutastic's on an instruction that isn't a site of the other kinds, which
+  /// can't be counted in with them without moving their ids.
+  private static boolean countsInstructions(Operator operator) {
+    return (operator instanceof Mutator && !operator.onCalls()) || isOnStores(operator);
+  }
+
+  private static boolean isOnStores(Operator operator) {
+    return operator == BuiltIn.REMOVE_ASSIGNMENT || operator == BuiltIn.REMOVE_FIELD_WRITE;
+  }
+
+  private static boolean isFieldWrite(FieldInstruction field) {
+    return field.opcode() == Opcode.PUTFIELD || field.opcode() == Opcode.PUTSTATIC;
   }
 
   private static boolean isMethodOf(Mutant mutant, MethodModel method) {
@@ -630,6 +676,8 @@ final class Mutations {
       case ReturnInstruction returning -> ReturnValues.write(builder, returning, mutant);
       case InvokeInstruction call ->
           removeCall(builder, call, operator == io.mutastic.api.BuiltIn.REMOVE_DISCARDED_CALL);
+      case StoreInstruction store -> pop(builder, store.typeKind());
+      case FieldInstruction field -> removeWrite(builder, field);
       default -> throw new IllegalStateException("not a mutation site: " + instruction);
     }
   }
@@ -658,6 +706,14 @@ final class Mutations {
     }
     if (discarded) {
       placeholder(builder, TypeKind.from(call.typeSymbol().returnType()));
+    }
+  }
+
+  /// The value popped, and for an instance field the object it was going into.
+  private static void removeWrite(CodeBuilder builder, FieldInstruction field) {
+    pop(builder, TypeKind.from(field.typeSymbol()));
+    if (field.opcode() == Opcode.PUTFIELD) {
+      builder.pop();
     }
   }
 
@@ -719,27 +775,36 @@ final class Mutations {
   }
 
   /// Where each catch-anything handler starts, counted in each kind of site.
-  private record HandlerStarts(List<Integer> sites, List<Integer> calls) {
+  private record HandlerStarts(List<Integer> sites, List<Integer> calls, List<Integer> all) {
     static HandlerStarts in(
         java.lang.classfile.CodeModel code, Set<java.lang.classfile.Label> handlers) {
       var siteStarts = new ArrayList<Integer>();
       var callStarts = new ArrayList<Integer>();
+      var allStarts = new ArrayList<Integer>();
       int ordinal = 0;
       int callOrdinal = 0;
+      int index = 0;
       for (CodeElement element : code) {
         if (element instanceof LabelTarget target && handlers.contains(target.label())) {
           siteStarts.add(ordinal);
           callStarts.add(callOrdinal);
-        } else if (element instanceof InvokeInstruction) {
-          callOrdinal++;
-        } else if (element instanceof Instruction instruction && isSite(instruction)) {
-          ordinal++;
+          allStarts.add(index);
+        } else if (element instanceof Instruction instruction) {
+          index++;
+          if (instruction instanceof InvokeInstruction) {
+            callOrdinal++;
+          } else if (isSite(instruction)) {
+            ordinal++;
+          }
         }
       }
-      return new HandlerStarts(siteStarts, callStarts);
+      return new HandlerStarts(siteStarts, callStarts, allStarts);
     }
 
     List<Integer> forKindOf(Operator operator) {
+      if (isOnStores(operator)) {
+        return all;
+      }
       return operator.onCalls() ? calls : sites;
     }
   }
@@ -767,7 +832,9 @@ final class Mutations {
                         && group.stream().anyMatch(copy -> copy.ordinal() >= start));
   }
 
-  /// The group's first mutant, changing the later copies' sites too.
+  /// The group's first mutant, changing the later copies' sites too. An assignment nothing reads
+  /// after one copy may be read after another: `return` in a `try` runs a copy of the `finally`
+  /// with nothing after it, and so it counts as read if any copy's is.
   private static Mutant withLaterCopies(Mutant mutant, List<Mutant> group) {
     return new Mutant(
         mutant.className(),
@@ -778,7 +845,10 @@ final class Mutations {
         mutant.operator(),
         mutant.original(),
         mutant.replacement(),
-        mutant.skipped(),
+        mutant.operator() == BuiltIn.REMOVE_ASSIGNMENT
+                && group.stream().anyMatch(copy -> copy.skipped().isEmpty())
+            ? Optional.empty()
+            : mutant.skipped(),
         group.stream().skip(1).map(Mutant::ordinal).toList(),
         mutant.operands());
   }

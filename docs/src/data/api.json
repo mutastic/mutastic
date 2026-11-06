@@ -317,6 +317,26 @@
             },
             {
               "kind": "enum constant",
+              "name": "REMOVE_ASSIGNMENT",
+              "anchor": "remove_assignment",
+              "signature": "REMOVE_ASSIGNMENT",
+              "doc": "An assignment to a local variable that already has a value, removed: it keeps that value. A\ndeclaration's first value isn't changed, as the code wouldn't load without it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "REMOVE_FIELD_WRITE",
+              "anchor": "remove_field_write",
+              "signature": "REMOVE_FIELD_WRITE",
+              "doc": "A write to a field, removed: it keeps the value it had. Constructors and static initialisers\nare left alone, as for every operator, and a plain setter is arid, so what's left is state a\nmethod changes.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
               "name": "REMOVE_CONDITIONAL",
               "anchor": "remove_conditional",
               "signature": "REMOVE_CONDITIONAL",

@@ -80,7 +80,9 @@ record Finding(List<MutantResult> mutants) {
                       BuiltIn.LOGICAL_CONNECTOR,
                       BuiltIn.RETURN_VALUE,
                       BuiltIn.REMOVE_VOID_CALL,
-                      BuiltIn.REMOVE_DISCARDED_CALL ->
+                      BuiltIn.REMOVE_DISCARDED_CALL,
+                      BuiltIn.REMOVE_ASSIGNMENT,
+                      BuiltIn.REMOVE_FIELD_WRITE ->
                       2;
                   default -> 1;
                 })

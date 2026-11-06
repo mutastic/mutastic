@@ -1,4 +1,4 @@
-mutastic: FAIL · score 74.1% (threshold 80; 76.9% where tests reach) · 6 missed, 1 not covered, 20 caught of 27 mutants (4 more skipped)
+mutastic: FAIL · score 75.0% (threshold 80; 77.8% where tests reach) · 6 missed, 1 not covered, 21 caught of 28 mutants (4 more skipped)
 rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/nested` passes
 decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and propose ignoring it with that reason (and --as equivalent, unreachable, telemetry, deprecated or accepted-risk) for a person to accept (`mutastic ignore <id> --propose --reason="<why>" samples/nested`)
 
