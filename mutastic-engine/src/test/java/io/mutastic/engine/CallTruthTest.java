@@ -14,10 +14,55 @@ class CallTruthTest {
   @TempDir static Path temp;
 
   private static ClaimFixture omitted;
+  private static ClaimFixture swapped;
 
   @BeforeAll
   static void compile() throws Exception {
     omitted = new ClaimFixture(temp, "calls/Omitted.java", "mutastic/omit-call");
+    swapped = new ClaimFixture(temp, "calls/Swapped.java", "mutastic/swap-arguments");
+  }
+
+  @Test
+  void swappedArgumentsAreTheCallWithThemTheOtherWayRound() throws Exception {
+    assertThat(swapped.running()).as("the cards checked").hasSizeGreaterThan(9);
+    assertThat(swapped.claimsThatLie()).isEmpty();
+  }
+
+  @Test
+  void onlyArgumentsOfOneRealTypeAreSwapped() {
+    assertThat(swapped.mutants())
+        .extracting(ClaimFixture::sourceMethod)
+        .doesNotContain("differentTypes", "objects", "anEarlierPair", "oneArgument");
+  }
+
+  @Test
+  void aSwapThatCantChangeTheResultIsSkippedAsEquivalent() throws Exception {
+    var swap = SwappedArguments.SWAP;
+    assertThat(swapped.changesIn("aMax"))
+        .containsExactly(swap + " (equivalent: `Math.max` gives the same either way round)");
+    assertThat(swapped.changesIn("aSum"))
+        .containsExactly(swap + " (equivalent: `Integer.sum` gives the same either way round)");
+    assertThat(swapped.changesIn("aHypotenuse"))
+        .containsExactly(swap + " (equivalent: `Math.hypot` gives the same either way round)");
+    assertThat(swapped.changesIn("theSameVariableTwice"))
+        .containsExactly(swap + " (equivalent: both arguments are the same value)");
+    assertThat(swapped.changesIn("theSameConstantTwice"))
+        .containsExactly(swap + " (equivalent: both arguments are the same value)");
+    assertThat(swapped.skippedThatDiffer()).isEmpty();
+  }
+
+  @Test
+  void aSwapsCardSaysWhichCallAndWhatToTest() {
+    var sources = new SourceView(ClaimFixture.ROOT, List.of(ClaimFixture.ROOT));
+    for (var mutant : swapped.running()) {
+      var called = "`%s()`".formatted(CallRule.calledName(mutant.original()));
+      var advice = sources.advice(mutant);
+      assertThat(advice.change())
+          .as(ClaimFixture.describe(mutant))
+          .isEqualTo("the last two arguments of %s swap places".formatted(called));
+      assertThat(advice.headline()).contains(called);
+      assertThat(advice.fix()).contains(called);
+    }
   }
 
   @Test

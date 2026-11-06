@@ -295,7 +295,8 @@ public final class ReportFiles {
           LOGICAL_CONNECTOR,
           REMOVE_ASSIGNMENT,
           REMOVE_FIELD_WRITE,
-          OMIT_CALL ->
+          OMIT_CALL,
+          SWAP_ARGUMENTS ->
           mutant.operator().id();
       case MATH, ARITHMETIC_REPLACEMENT -> "MathMutator";
       case REMOVE_CONDITIONAL -> "RemoveConditionalMutator";

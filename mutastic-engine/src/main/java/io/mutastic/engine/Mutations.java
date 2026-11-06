@@ -122,7 +122,8 @@ final class Mutations {
       var unviable =
           (mutant.operator() instanceof Mutator
                       || mutant.operator() == BuiltIn.REMOVE_ASSIGNMENT
-                      || mutant.operator() == BuiltIn.OMIT_CALL)
+                      || mutant.operator() == BuiltIn.OMIT_CALL
+                      || mutant.operator() == BuiltIn.SWAP_ARGUMENTS)
                   && mutant.skipped().isEmpty()
               ? whyUnviable(model, mutant)
               : Optional.<String>empty();
@@ -288,21 +289,37 @@ final class Mutations {
             found.add(new Found(builtIn, ordinal, change.label(), change.skipped()));
           }
         }
-        case LOGICAL_CONNECTOR -> {
-          if (Connectors.at(code, at).isPresent()) {
-            found.add(new Found(builtIn, ordinal, Connectors.SWAPPED, Optional.empty()));
-          }
-        }
-        case REMOVE_DISCARDED_CALL -> {
-          if (isDiscarded(code, at)) {
-            found.add(new Found(builtIn, callOrdinal, "remove call", Optional.empty()));
-          }
-        }
+        case LOGICAL_CONNECTOR ->
+            addIf(
+                Connectors.at(code, at).isPresent(),
+                new Found(builtIn, ordinal, Connectors.SWAPPED, Optional.empty()),
+                found);
+        case REMOVE_DISCARDED_CALL ->
+            addIf(
+                isDiscarded(code, at),
+                new Found(builtIn, callOrdinal, "remove call", Optional.empty()),
+                found);
         case OMIT_CALL -> omittedCall(instruction, at, found);
+        case SWAP_ARGUMENTS -> swappedArguments(at, found);
         case REMOVE_ASSIGNMENT -> assignmentChange(at, found);
         case REMOVE_FIELD_WRITE -> fieldWriteChange(instruction, found);
         default -> instructionChanges(builtIn, instruction, found);
       }
+    }
+
+    private static void addIf(boolean applies, Found change, List<Found> found) {
+      if (applies) {
+        found.add(change);
+      }
+    }
+
+    private void swappedArguments(int at, List<Found> found) {
+      SwappedArguments.at(code, at)
+          .ifPresent(
+              change ->
+                  found.add(
+                      new Found(
+                          BuiltIn.SWAP_ARGUMENTS, callOrdinal, change.label(), change.skipped())));
     }
 
     /// A call that only wraps a value, unless its result is thrown away: taking away one of those
@@ -716,6 +733,8 @@ final class Mutations {
   private static void changeCall(CodeBuilder builder, InvokeInstruction call, Mutant mutant) {
     if (mutant.operator() == BuiltIn.OMIT_CALL) {
       Wrappers.omit(builder, call, mutant.replacement());
+    } else if (mutant.operator() == BuiltIn.SWAP_ARGUMENTS) {
+      SwappedArguments.write(builder, call);
     } else {
       removeCall(builder, call, mutant.operator() == BuiltIn.REMOVE_DISCARDED_CALL);
     }

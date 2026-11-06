@@ -357,6 +357,30 @@ void aCommentIsEscaped() {
 }
 ```
 
+## Swap arguments
+
+**The bug it stands for:** two arguments the wrong way round. When they have the same type, the
+compiler has nothing to say, and a test whose values are equal, or whose result doesn't depend on
+the order, has nothing to say either.
+
+**Where it costs:** anything with a direction: a transfer's source and destination, a range's start
+and end, a width and a height, a replacement's old and new text.
+
+```java
+transfer(account, from, to);   // becomes: transfer(account, to, from)
+```
+
+**The test that catches it:** one that passes different values and checks which went where.
+
+```java
+@Test
+void aTransferMovesMoneyFromTheFirstToTheSecond() {
+  bank.transfer(account, savings, checking);
+  assertEquals(0, savings.balance());
+  assertEquals(100, checking.balance());
+}
+```
+
 ## Stream stage removal
 
 **The bug it stands for:** a stage that's wrong, or in the wrong place, and no test would know: a

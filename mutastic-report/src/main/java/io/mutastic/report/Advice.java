@@ -86,6 +86,7 @@ public record Advice(
             case REMOVE_ASSIGNMENT -> removedStore(mutant, seen, "assignment");
             case REMOVE_FIELD_WRITE -> removedStore(mutant, seen, "write");
             case OMIT_CALL -> omittedCall(mutant, seen);
+            case SWAP_ARGUMENTS -> swappedArguments(mutant, seen);
           };
     };
   }
@@ -499,6 +500,21 @@ public record Advice(
         "no test needs %s in %s".formatted(called, method(mutant)),
         inputsSeen(seen),
         "add a test with a value %s changes, and assert the result".formatted(called));
+  }
+
+  /// A call's last two arguments, the other way round.
+  private static Advice swappedArguments(Mutant mutant, Map<String, List<Long>> seen) {
+    var called = "`%s()`".formatted(SourceView.calledName(mutant.original()));
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        "the last two arguments of %s swap places".formatted(called),
+        "arguments swapped",
+        "no test notices the last two arguments of %s swapped in %s"
+            .formatted(called, method(mutant)),
+        inputsSeen(seen),
+        "add a test that passes %s different values for them, and assert the result"
+            .formatted(called));
   }
 
   private static Advice removeVoidCall(Mutant mutant, Map<String, List<Long>> seen) {

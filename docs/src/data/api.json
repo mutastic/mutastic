@@ -347,6 +347,16 @@
             },
             {
               "kind": "enum constant",
+              "name": "SWAP_ARGUMENTS",
+              "anchor": "swap_arguments",
+              "signature": "SWAP_ARGUMENTS",
+              "doc": "A call's last two arguments, where they have the same type, swapped: the compiler can't tell.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
               "name": "REMOVE_CONDITIONAL",
               "anchor": "remove_conditional",
               "signature": "REMOVE_CONDITIONAL",

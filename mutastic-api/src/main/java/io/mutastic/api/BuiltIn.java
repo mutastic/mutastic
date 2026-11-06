@@ -75,6 +75,13 @@ public enum BuiltIn implements Operator {
           + " unnoticed when no test has a value the call changes.",
       Tier.STRONGER),
 
+  /// A call's last two arguments, where they have the same type, swapped: the compiler can't tell.
+  SWAP_ARGUMENTS(
+      "A call's last two arguments swap places, where they have the same type: `copy(from, to)`"
+          + " becomes `copy(to, from)`. It goes unnoticed when no test passes different values for"
+          + " them and checks the result.",
+      Tier.STRONGER),
+
   REMOVE_CONDITIONAL(
       "A condition stops deciding: the code it guards always runs, or never does. It goes"
           + " unnoticed when no test needs the condition to be true one time and false another."),
@@ -115,7 +122,7 @@ public enum BuiltIn implements Operator {
   @Override
   public boolean onCalls() {
     return switch (this) {
-      case REMOVE_VOID_CALL, REMOVE_DISCARDED_CALL, OMIT_CALL -> true;
+      case REMOVE_VOID_CALL, REMOVE_DISCARDED_CALL, OMIT_CALL, SWAP_ARGUMENTS -> true;
       default -> false;
     };
   }
