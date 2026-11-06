@@ -250,7 +250,7 @@ public final class Main {
     var verdict = gateVerdict(gated, open.get());
     if (verdict.passes()) {
       open.get().passed().write(gated.work());
-      return answer(gated, verdict);
+      return answer(gated, forThePerson(gated, open.get(), verdict));
     }
     return notDone(gated, open.get(), verdict);
   }
@@ -268,7 +268,22 @@ public final class Main {
       answer = new Gate.Verdict(true, true, gaveUp(tries, verdict.text()));
     }
     (answer.passes() ? state.passed() : state).write(gated.work());
-    return answer(gated, answer);
+    return answer(gated, answer.passes() ? forThePerson(gated, open, answer) : answer);
+  }
+
+  /// A pass or a hand-over, with the tests there when the task started that it changed what they
+  /// expect: the person's to check, since the score can't.
+  private static Gate.Verdict forThePerson(Gated gated, Gate.State state, Gate.Verdict verdict) {
+    var changed = Gate.changedExpectations(gated.prepared().project().testSources(), state.base());
+    if (changed.isEmpty()) {
+      return verdict;
+    }
+    return new Gate.Verdict(
+        true,
+        verdict.gaveUp(),
+        ("%s%n%nThe task changed what tests that were there when it started expect, in %s: check"
+                + " that's what you asked for")
+            .formatted(verdict.text(), String.join(", ", changed)));
   }
 
   /// Sent back, the agent changed nothing: it's declined, as it may when told to, so sending it

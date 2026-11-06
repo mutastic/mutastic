@@ -179,6 +179,37 @@ class GateTest {
         .doesNotContain("Make them pass first");
   }
 
+  /// A pass tells the person when the task changed what an existing test expects: a test made to
+  /// fit a wrong change catches every mutant, and a task that only weakens a test changes no line
+  /// mutastic mutates.
+  @Test
+  void aPassSaysWhenTheTaskChangedWhatAnExistingTestExpects() throws Exception {
+    mutastic("gate", "open", project.toString());
+    var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
+    var original = Files.readString(test);
+    Files.writeString(
+        test, original.replace("assertEquals(0, pricing.shipping(40));", "pricing.shipping(40);"));
+    var weakened = mutastic("gate", "check", project.toString());
+    Files.writeString(test, original.replace("assertEquals(25,", "assertEquals(50,"));
+    var pricing = project.resolve(PRICING);
+    Files.writeString(pricing, Files.readString(pricing).replace("total / 10", "total / 5"));
+    var refitted = mutastic("gate", "check", project.toString());
+    Files.writeString(test, original + "\n// tried\n");
+    git("checkout", "--", PRICING.toString());
+    var untouched = mutastic("gate", "check", project.toString());
+
+    for (var passed : java.util.List.of(weakened, refitted)) {
+      assertThat(passed.exit()).isEqualTo(Main.PASSED);
+      assertThat(passed.out())
+          .contains("passed")
+          .contains(
+              "The task changed what tests that were there when it started expect, in"
+                  + " PricingTest.java: check that's what you asked for");
+    }
+    assertThat(untouched.exit()).isEqualTo(Main.PASSED);
+    assertThat(untouched.out()).doesNotContain("changed what tests");
+  }
+
   @Test
   void gateNeedsToBeToldWhatToDo() {
     var bare = mutastic("gate");

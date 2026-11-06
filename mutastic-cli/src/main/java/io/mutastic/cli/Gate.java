@@ -34,6 +34,12 @@ final class Gate {
   /// By its simple name or its full one: `@org.junit.jupiter.api.Disabled` turns a test off too.
   private static final Pattern DISABLED = Pattern.compile("@(?:[\\w.]+\\.)?(Disabled|Ignore)\\b");
 
+  /// A line the task took out of a test that said what to expect: an assertion, or a mock's
+  /// expectation. Not a comment.
+  private static final Pattern EXPECTATION =
+      Pattern.compile(
+          "^-\\s*+(?!//|\\*).*(?:assert|expect|should|verify\\()", Pattern.CASE_INSENSITIVE);
+
   private static final Pattern SESSION =
       Pattern.compile("\"session_id\"\\s*:\\s*\"(?<session>[^\"]*)\"");
 
@@ -113,6 +119,26 @@ final class Gate {
         throw new UncheckedIOException(e);
       }
     }
+  }
+
+  /// The test files, there when the task started, that it took an expectation out of: by name.
+  /// Every mutant is caught by a test made to fit a wrong change, so the score can't show it.
+  static Set<String> changedExpectations(List<Path> testSources, String base) {
+    var files = new TreeSet<String>();
+    for (var root : testSources) {
+      var file = "";
+      for (var line : new Git(root).diff(base).lines().toList()) {
+        if (line.startsWith("--- ")) {
+          file =
+              line.equals("--- /dev/null")
+                  ? ""
+                  : Path.of(line.substring(6)).getFileName().toString();
+        } else if (!file.isEmpty() && EXPECTATION.matcher(line).find()) {
+          files.add(file);
+        }
+      }
+    }
+    return files;
   }
 
   /// How many tests the test sources have, and how many of them are disabled.

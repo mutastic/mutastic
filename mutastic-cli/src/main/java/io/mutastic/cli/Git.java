@@ -68,6 +68,21 @@ final class Git {
     return run(List.of("show", commit + ":./" + file.toString().replace('\\', '/')));
   }
 
+  /// The diff of everything under this directory, from a commit to the working tree: no context,
+  /// and empty if git can't make it.
+  String diff(String commit) {
+    return run(List.of(
+            "diff",
+            "--unified=0",
+            "--no-color",
+            "--no-ext-diff",
+            "--no-renames",
+            commit,
+            "--",
+            "."))
+        .orElse("");
+  }
+
   /// The lines changed since `since`, or since the repository's default branch for `""`.
   ChangedLines changedSince(String since) {
     var root =
