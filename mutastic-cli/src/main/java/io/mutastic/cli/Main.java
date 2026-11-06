@@ -767,12 +767,13 @@ public final class Main {
 
   /// The project's say, from `mutastic.yaml` and its ignores, with the operators to run: the
   /// command's `--operators`, else `operators:`, else the defaults. One mutant, asked for by id, is
-  /// looked for among every operator, so a stronger one's id is found as any other's.
+  /// looked for among every operator (`all`), so a stronger or extended one's id is found as any
+  /// other's.
   private static Policy policy(Command command, Path directory) {
     var configuration = Configuration.read(directory);
     var chosen =
         !command.only().isEmpty()
-            ? List.of("stronger")
+            ? List.of("all")
             : command.operators().isEmpty() ? configuration.operators() : command.operators();
     var policy =
         configuration

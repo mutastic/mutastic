@@ -128,13 +128,16 @@ items.stream().anyMatch(Item::isFragile)   // becomes: .allMatch(…), and: .non
 
 ## Choosing operators
 
-A run uses the `defaults` set: every operator above but those in `stronger`. To choose, give a list
-of sets, operator ids and namespaces, any with a `-` in front to leave it out:
+A run uses the `defaults` set: every operator above but those in `stronger` and `extended`. To
+choose, give a list of sets, operator ids and namespaces, any with a `-` in front to leave it out:
 
 | Choice | Runs |
 |---|---|
 | `defaults` | What runs unless told otherwise |
-| `stronger` | Every operator, those in `stronger` too |
+| `stronger` | The defaults and the operators in `stronger` |
+| `extended` | The operators on modern APIs alone: add it to another set |
+| `defaults,extended` | The defaults and the operators in `extended` |
+| `all` | Every operator, in every set |
 | `mutastic/arithmetic-replacement` | That one operator |
 | `stream` | Every operator in that namespace: `stream/remove-stage`, `stream/swap-match` |
 | `-stream` | The defaults without the stream operators |
@@ -156,7 +159,7 @@ operators:
 ```
 
 A run of one mutant, by id (`verify`, `explain`, `run --only`), looks among every operator, so a
-mutant a stronger run found can always be checked again.
+mutant any run found can always be checked again.
 
 A mutant's id doesn't depend on which operators run: choosing more adds mutants, and never changes
 the ids of the others.

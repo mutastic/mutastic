@@ -1115,8 +1115,8 @@
           "slug": "operator-tier",
           "kind": "enum",
           "signature": "enum Tier",
-          "summary": "The sets operators come in.",
-          "doc": "The sets operators come in. A run takes `defaults` unless told otherwise; `stronger` adds the\noperators that find more but cost more, or need more care to read.",
+          "summary": "The tiers operators come in.",
+          "doc": "The tiers operators come in. A run takes `defaults` unless told otherwise; `stronger` adds the\noperators that find more but cost more, or need more care to read; `extended` holds the\noperators on modern APIs (streams, `Optional`, switch arms, regular expressions, exceptions),\nchosen on top of another set: `--operators=defaults,extended`.",
           "params": [],
           "members": [
             {
@@ -1140,11 +1140,21 @@
               "throws": []
             },
             {
+              "kind": "enum constant",
+              "name": "EXTENDED",
+              "anchor": "extended",
+              "signature": "EXTENDED",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
               "kind": "method",
               "name": "word",
               "anchor": "word",
               "signature": "String word()",
-              "doc": "`defaults`, `stronger`: as `--operators` takes it.",
+              "doc": "`defaults`, `stronger`, `extended`: as `--operators` and a rules file's `tier:` take it.",
               "params": [],
               "returns": "",
               "throws": []
@@ -1161,7 +1171,7 @@
           "params": [
             {
               "name": "operators",
-              "doc": "which operators run, as `--operators` or `operators:` says: sets (`defaults`, `stronger`), operator ids (`mutastic/arithmetic-replacement`) and their namespaces (`stream`), any with a `-` in front to leave it out; none means `defaults`"
+              "doc": "which operators run, as `--operators` or `operators:` says: sets (`defaults`, `stronger`, `extended`, `all`), operator ids (`mutastic/arithmetic-replacement`) and their namespaces (`stream`), any with a `-` in front to leave it out; none means `defaults`"
             },
             {
               "name": "mutators",

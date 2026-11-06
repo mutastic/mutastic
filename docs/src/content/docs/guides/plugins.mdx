@@ -23,7 +23,7 @@ plugins:
 ```
 
 A plugin's operators then run like mutastic's own: each in the `defaults` set unless it says it's
-`stronger`, chosen by its id or namespace with [`--operators`](/concepts/operators/#choosing-operators)
+`stronger` or `extended`, chosen by its id or namespace with [`--operators`](/concepts/operators/#choosing-operators)
 (`--operators=defaults,-mutiny`), and reported, explained and ignored the same way. A plugin's code
 runs in mutastic's own process, so only list plugins you trust.
 
@@ -50,7 +50,7 @@ Each rule is a list item with these fields:
 | `help` | required | The test to write |
 | `changed` | | What the line now does, in a code frame: `stage removed` |
 | `source` | | How a `call` rewrite reads in the source, for its label: `first(Long.MAX_VALUE)` |
-| `tier` | | `defaults` (unless it says) or `stronger` |
+| `tier` | | `defaults` (unless it says), `stronger` or `extended` |
 
 `headline` and `help` can have a version per method, `headline.sorted`, used for that method
 instead. In all three wordings, `{name}` is the method called, `{to}` what a rename calls instead,
@@ -132,7 +132,7 @@ public class ConstantPlusOne implements Mutator {
 - **`words`** is what a missed mutant's card says: the change, the headline and the test to write.
 - **`onCalls`** says which sites the operator counts: calls, as mutastic's call operators count
   them, or every instruction in the method. **`tier`** defaults to `defaults`; return
-  `Tier.STRONGER` to leave an operator out unless asked for.
+  `Tier.STRONGER` or `Tier.EXTENDED` to leave an operator out unless asked for.
 
 Build it against `io.mutastic:mutastic-api` (`compileOnly`, or Maven's `provided`: mutastic brings
 it), on JDK 25, and name the class in the jar's

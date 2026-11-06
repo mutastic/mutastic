@@ -18,15 +18,16 @@ import java.util.TreeSet;
 ///
 /// A choice is a list of words, each one of:
 ///
-/// - a set: `defaults` (what runs unless told otherwise), or `stronger` (those and the stronger
-///   ones: every operator);
+/// - a set: `defaults` (what runs unless told otherwise); `stronger` (those and the stronger ones);
+///   `extended` (the operators on modern APIs alone, so it's added to another set:
+///   `defaults,extended`); or `all` (every operator, in every tier);
 /// - an operator's id, `mutastic/arithmetic-replacement`;
 /// - a namespace, every operator whose id starts with it, `stream`;
 ///
 /// with a `-` in front to leave it out: `defaults,-stream`. A list that only leaves things out
 /// starts from `defaults`.
 public final class OperatorSet {
-  private static final List<String> SETS = List.of("defaults", "stronger");
+  private static final List<String> SETS = List.of("defaults", "stronger", "extended", "all");
 
   private OperatorSet() {}
 
@@ -69,13 +70,20 @@ public final class OperatorSet {
 
   private static List<Operator> named(String name, List<Operator> all) {
     return switch (name) {
-      case "defaults" -> all.stream().filter(op -> op.tier() == Tier.DEFAULTS).toList();
-      case "stronger" -> all;
+      case "defaults" -> inTiers(all, Tier.DEFAULTS);
+      case "stronger" -> inTiers(all, Tier.DEFAULTS, Tier.STRONGER);
+      case "extended" -> inTiers(all, Tier.EXTENDED);
+      case "all" -> all;
       default ->
           all.stream()
               .filter(op -> op.id().equals(name) || op.id().startsWith(name + "/"))
               .toList();
     };
+  }
+
+  private static List<Operator> inTiers(List<Operator> all, Tier... tiers) {
+    var chosen = Set.of(tiers);
+    return all.stream().filter(op -> chosen.contains(op.tier())).toList();
   }
 
   /// The sets, the namespaces and every operator's id.

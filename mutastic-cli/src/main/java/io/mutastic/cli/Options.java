@@ -151,8 +151,8 @@ final class Options {
               Group.RUNNING,
               "OPERATORS",
               List.of(),
-              "Which operators run: defaults or stronger, an operator's id or namespace, or any with"
-                  + " - in front to leave it out; defaults unless set",
+              "Which operators run: a set (defaults, stronger, extended or all), an operator's id"
+                  + " or namespace, or any with - in front to leave it out; defaults unless set",
               RUNS,
               "operators",
               false,

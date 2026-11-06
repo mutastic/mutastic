@@ -201,7 +201,8 @@ public final class CallRules {
       return Tier.valueOf(word.toUpperCase(Locale.ROOT));
     } catch (IllegalArgumentException e) {
       throw new IllegalArgumentException(
-          "%s:%d: a tier is defaults or stronger, not %s".formatted(where, line, word), e);
+          "%s:%d: a tier is defaults, stronger or extended, not %s".formatted(where, line, word),
+          e);
     }
   }
 

@@ -8,8 +8,8 @@ import java.util.List;
 /// operators its plugins and rules files add.
 ///
 /// @param operators which operators run, as `--operators` or `operators:` says: sets (`defaults`,
-///   `stronger`), operator ids (`mutastic/arithmetic-replacement`) and their namespaces (`stream`),
-///   any with a `-` in front to leave it out; none means `defaults`
+///   `stronger`, `extended`, `all`), operator ids (`mutastic/arithmetic-replacement`) and their
+///   namespaces (`stream`), any with a `-` in front to leave it out; none means `defaults`
 /// @param mutators the operators the project's plugins and rules files add
 public record Policy(
     List<Rule> rules,

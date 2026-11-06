@@ -214,7 +214,7 @@
       "group": "Running",
       "value": "OPERATORS",
       "choices": [],
-      "help": "Which operators run: defaults or stronger, an operator's id or namespace, or any with - in front to leave it out; defaults unless set",
+      "help": "Which operators run: a set (defaults, stronger, extended or all), an operator's id or namespace, or any with - in front to leave it out; defaults unless set",
       "commands": ["run"],
       "environment": "",
       "maven": { "property": "-Dmutastic.operators", "setting": null },

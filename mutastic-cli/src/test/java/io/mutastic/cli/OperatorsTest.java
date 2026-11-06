@@ -126,7 +126,8 @@ class OperatorsTest {
     assertThat(run.exit()).isEqualTo(Main.USAGE);
     assertThat(run.err())
         .contains(
-            "--operators: no operator or set is called streams; there are defaults, stronger,")
+            "--operators: no operator or set is called streams; there are defaults, stronger,"
+                + " extended, all,")
         .contains("stream/remove-stage");
   }
 }

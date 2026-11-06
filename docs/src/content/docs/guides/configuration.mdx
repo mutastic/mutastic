@@ -57,7 +57,11 @@ operators:
 
 `plugins:` lists jars and rules files, relative to the project: see [Plugins](/guides/plugins/).
 `operators:` chooses which operators run, the same way as [`--operators`](/reference/run/#operators),
-which replaces it for one run; see [Choosing operators](/concepts/operators/#choosing-operators).
+which replaces it for one run. The sets are `defaults` (what runs unless told otherwise), `stronger`
+(the defaults and the operators that find more but need more care to read), `extended` (the
+operators on modern APIs, such as streams and `Optional`, added to another set:
+`defaults,extended`) and `all` (every operator); see [Choosing
+operators](/concepts/operators/#choosing-operators).
 
 An annotation on the code comes first, then a rule, then mutastic's own filters. A `mutate:` rule, like `@DoMutate`, brings back only what mutastic would call arid, never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
 

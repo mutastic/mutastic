@@ -75,7 +75,7 @@ class CallRulesTest {
     assertThatThrownBy(() -> CallRules.parse(rule("acme/x", "delete", "defaults"), "a.yaml"))
         .hasMessageStartingWith("a.yaml:1: a rewrite is `remove`");
     assertThatThrownBy(() -> CallRules.parse(rule("acme/x", "remove", "loud"), "a.yaml"))
-        .hasMessage("a.yaml:1: a tier is defaults or stronger, not loud");
+        .hasMessage("a.yaml:1: a tier is defaults, stronger or extended, not loud");
     assertThat(CallRules.parse(rule("acme/x", "rename a->b, c->d", "defaults"), "a.yaml"))
         .singleElement()
         .satisfies(each -> assertThat(each.rewrite()).isEqualTo("rename a->b, c->d"));

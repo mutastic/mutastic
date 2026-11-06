@@ -140,7 +140,7 @@ class NewOperatorsTest {
     assertThat(ids(List.of("mutastic/boundary"))).containsExactly("mutastic/boundary");
     assertThatThrownBy(() -> ids(List.of("streams")))
         .hasMessageStartingWith(
-            "no operator or set is called streams; there are defaults, stronger,");
+            "no operator or set is called streams; there are defaults, stronger, extended, all,");
   }
 
   private static List<String> ids(List<String> chosen) {

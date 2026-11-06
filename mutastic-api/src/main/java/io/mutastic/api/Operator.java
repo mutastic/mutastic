@@ -18,13 +18,16 @@ public sealed interface Operator permits BuiltIn, Mutator {
   /// Which set of operators it's in: what runs unless `--operators` says otherwise.
   Tier tier();
 
-  /// The sets operators come in. A run takes `defaults` unless told otherwise; `stronger` adds the
-  /// operators that find more but cost more, or need more care to read.
+  /// The tiers operators come in. A run takes `defaults` unless told otherwise; `stronger` adds the
+  /// operators that find more but cost more, or need more care to read; `extended` holds the
+  /// operators on modern APIs (streams, `Optional`, switch arms, regular expressions, exceptions),
+  /// chosen on top of another set: `--operators=defaults,extended`.
   enum Tier {
     DEFAULTS,
-    STRONGER;
+    STRONGER,
+    EXTENDED;
 
-    /// `defaults`, `stronger`: as `--operators` takes it.
+    /// `defaults`, `stronger`, `extended`: as `--operators` and a rules file's `tier:` take it.
     public String word() {
       return name().toLowerCase(java.util.Locale.ROOT);
     }
