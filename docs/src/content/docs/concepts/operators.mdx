@@ -26,6 +26,9 @@ For why each one is worth catching, the bugs it stands for and the test that cat
 | [`mutastic/remove-field-write`](#remove-field-write) | a write to a field, removed | stronger |
 | [`stream/remove-stage`](#stream-stage-removal) | a stream stage, removed | defaults |
 | [`stream/swap-match`](#stream-match-swap) | `anyMatch`, `allMatch` and `noneMatch`, swapped | defaults |
+| [`library/swap-string`](#string-method-swap) | a `String` method and the similar one: `startsWith` and `endsWith`, `toUpperCase` and `toLowerCase` | stronger |
+| [`library/swap-index-of`](#indexof-swap) | `indexOf` and `lastIndexOf` | stronger |
+| [`library/swap-math`](#math-method-swap) | `Math.min` and `Math.max`, `Math.floor` and `Math.ceil` | stronger |
 
 A run uses the `defaults` set unless you [choose otherwise](#choosing-operators). Plugins can add
 operators of their own: see [Plugins](/guides/plugins/).
@@ -249,6 +252,42 @@ test has input where some elements match and some don't.
 ```java
 items.stream().anyMatch(Item::isFragile)   // becomes: .allMatch(…), and: .noneMatch(…)
 ```
+
+## String method swap
+
+`library/swap-string`. A `String` method becomes the similar one: `startsWith` and `endsWith`,
+`toUpperCase` and `toLowerCase`, `stripLeading` and `stripTrailing`. It's in the `stronger` set. It
+goes unnoticed when no test
+has text where the two differ.
+
+```java
+if (name.endsWith(".csv")) {   // becomes: name.startsWith(".csv")
+```
+
+## indexOf swap
+
+`library/swap-index-of`. `String.indexOf` and `lastIndexOf` swap places. It's in the `stronger` set.
+It goes unnoticed when no test has text with what's searched for in it twice.
+
+```java
+int dot = name.lastIndexOf('.');   // becomes: name.indexOf('.')
+```
+
+A search whose result is only tested for being there, `name.indexOf('.') >= 0`, is skipped as
+equivalent, as both find it or neither does. A search with a starting point, `indexOf(x, from)`, is
+left alone.
+
+## Math method swap
+
+`library/swap-math`. `Math.min` and `Math.max` swap places, and so do `Math.floor` and `Math.ceil`.
+It's in the `stronger` set. It goes unnoticed when no test has values where the two differ.
+
+```java
+int size = Math.min(requested, limit);   // becomes: Math.max(requested, limit)
+```
+
+Rounding a whole number, `Math.floor((double) count)`, is skipped as equivalent, as it rounds to
+itself either way.
 
 ## Choosing operators
 

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
 /// Rules files: call-site operators as data ([CallRule]). mutastic's own stream rules are one; a
@@ -33,13 +34,23 @@ import org.jspecify.annotations.Nullable;
 /// Read strictly, as exactly this shape: a line it doesn't understand is an error that names it.
 public final class CallRules {
   private static final Set<String> KEYS =
-      Set.of("id", "explanation", "tier", "owners", "methods", "rewrite", "source", "changed");
+      Set.of(
+          "id",
+          "explanation",
+          "tier",
+          "owners",
+          "methods",
+          "descriptors",
+          "rewrite",
+          "source",
+          "changed");
 
   private static final List<String> REQUIRED =
       List.of("id", "explanation", "owners", "methods", "rewrite", "headline", "help");
 
-  /// mutastic's own: the stream pipeline operators.
-  static final List<CallRule> BUILT_IN = builtIn("streams.yaml");
+  /// mutastic's own: the stream pipeline operators, and the swaps between similar JDK methods.
+  static final List<CallRule> BUILT_IN =
+      Stream.of("streams.yaml", "library.yaml").flatMap(file -> builtIn(file).stream()).toList();
 
   private CallRules() {}
 
@@ -156,6 +167,7 @@ public final class CallRules {
         tier(fields.getOrDefault("tier", "defaults"), where, line),
         Set.copyOf(listed(required(fields, "owners"))),
         Set.copyOf(listed(required(fields, "methods"))),
+        Set.copyOf(listed(fields.getOrDefault("descriptors", ""))),
         rewrite,
         fields.getOrDefault("source", ""),
         fields.getOrDefault("changed", "changed"),

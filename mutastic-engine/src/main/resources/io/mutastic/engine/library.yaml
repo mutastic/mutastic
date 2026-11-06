@@ -1,0 +1,49 @@
+# mutastic's own swaps between similar methods of the JDK: call rules, in the same shape as a
+# plugin's rules file. `descriptors` says which overloads: `indexOf(String, int, int)` has no
+# `lastIndexOf` to become, and calling one that doesn't exist would look like a catch. A search
+# with a starting point isn't swapped: it searches a different part of the text, and which inputs
+# show that isn't something a line of help can say.
+
+- id: library/swap-string
+  explanation: A `String` method becomes the similar one, `startsWith` and `endsWith`, `toUpperCase` and `toLowerCase`, `stripLeading` and `stripTrailing`. It goes unnoticed when no test has text where the two differ.
+  tier: stronger
+  owners: java.lang.String
+  methods: startsWith, endsWith, toUpperCase, toLowerCase, stripLeading, stripTrailing
+  descriptors: (Ljava/lang/String;)Z, ()Ljava/lang/String;, (Ljava/util/Locale;)Ljava/lang/String;
+  rewrite: rename startsWith->endsWith, endsWith->startsWith, toUpperCase->toLowerCase, toLowerCase->toUpperCase, stripLeading->stripTrailing, stripTrailing->stripLeading
+  changed: changed to {to}
+  headline: no test tells `{name}` from `{to}` in {method}
+  help: use text where they differ, and assert the result
+  help.startsWith: use text with it at one end and not the other, and assert the result
+  help.endsWith: use text with it at one end and not the other, and assert the result
+  help.toUpperCase: use text with letters in it, and assert the case of the result
+  help.toLowerCase: use text with letters in it, and assert the case of the result
+  help.stripLeading: use text with a space at one end and not the other, and assert the result
+  help.stripTrailing: use text with a space at one end and not the other, and assert the result
+
+# In stronger: measured on mutastic's own code (6 Nov 2026), about 80% of what it left were searches
+# for something the text has only once by its format, a descriptor's `(`.
+- id: library/swap-index-of
+  explanation: `String.indexOf` and `lastIndexOf` swap places. It goes unnoticed when no test has text with what's searched for in it twice.
+  tier: stronger
+  owners: java.lang.String
+  methods: indexOf, lastIndexOf
+  descriptors: (I)I, (Ljava/lang/String;)I
+  rewrite: rename indexOf->lastIndexOf, lastIndexOf->indexOf
+  changed: changed to {to}
+  headline: no test tells `{name}` from `{to}` in {method}
+  help: use text with what's searched for in it twice, and assert which one is found
+
+- id: library/swap-math
+  explanation: `Math.min` and `Math.max` swap places, and so do `Math.floor` and `Math.ceil`. It goes unnoticed when no test has values where the two differ.
+  tier: stronger
+  owners: java.lang.Math
+  methods: min, max, floor, ceil
+  rewrite: rename min->max, max->min, floor->ceil, ceil->floor
+  changed: changed to {to}
+  headline: no test tells `{name}` from `{to}` in {method}
+  help: use values where they differ, and assert the result
+  help.min: use two different values, and assert which comes back
+  help.max: use two different values, and assert which comes back
+  help.floor: use a value with a fraction, and assert which way it's rounded
+  help.ceil: use a value with a fraction, and assert which way it's rounded

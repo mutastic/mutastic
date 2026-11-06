@@ -5,7 +5,6 @@ import io.mutastic.api.Mutator;
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.CodeElement;
 import java.lang.classfile.Instruction;
-import java.lang.classfile.Opcode;
 import java.lang.classfile.TypeKind;
 import java.lang.classfile.instruction.ConstantInstruction;
 import java.lang.classfile.instruction.InvokeDynamicInstruction;
@@ -33,6 +32,8 @@ import java.util.Set;
 ///   `Long.MAX_VALUE`, `true`, `false`, `null` or a static no-argument call, `Function.identity()`
 ///   written in full.
 ///
+/// @param descriptors the overloads it matches, as the JVM writes them (`(Ljava/lang/String;)Z`),
+///   all of them when empty
 /// @param templates the `headline` and `help` wording, with any per-method variants
 ///   (`headline.sorted`): `{name}` is the call's method, `{to}` a rename's target, `{method}` the
 ///   method it's in
@@ -42,6 +43,7 @@ public record CallRule(
     Tier tier,
     Set<String> owners,
     Set<String> methods,
+    Set<String> descriptors,
     String rewrite,
     String source,
     String changed,
@@ -58,6 +60,7 @@ public record CallRule(
   public CallRule {
     owners = Set.copyOf(owners);
     methods = Set.copyOf(methods);
+    descriptors = Set.copyOf(descriptors);
     templates = Map.copyOf(templates);
   }
 
@@ -81,7 +84,10 @@ public record CallRule(
     if (rewrite.startsWith("rename ")) {
       return renames().stream()
           .filter(pair -> pair[0].equals(name))
-          .map(pair -> Change.of(pair[1]))
+          .map(
+              pair ->
+                  new Change(
+                      pair[1], LibrarySwaps.equivalent(call, pair[1], site.code(), site.index())))
           .toList();
     }
     return List.of(Change.of(source.isEmpty() ? rewrite.substring("call ".length()) : source));
@@ -89,7 +95,8 @@ public record CallRule(
 
   private boolean matches(InvokeInstruction call) {
     return owners.contains(call.owner().asInternalName().replace('/', '.'))
-        && methods.contains(call.name().stringValue());
+        && methods.contains(call.name().stringValue())
+        && (descriptors.isEmpty() || descriptors.contains(call.type().stringValue()));
   }
 
   private List<String[]> renames() {
@@ -185,12 +192,7 @@ public record CallRule(
 
   private static void invoke(
       CodeBuilder builder, InvokeInstruction call, String name, MethodTypeDesc type) {
-    var owner = call.owner().asSymbol();
-    if (call.opcode() == Opcode.INVOKEINTERFACE) {
-      builder.invokeinterface(owner, name, type);
-    } else {
-      builder.invokevirtual(owner, name, type);
-    }
+    builder.invoke(call.opcode(), call.owner().asSymbol(), name, type, call.isInterface());
   }
 
   /// One argument, as the parameter it's passed for: a static call returns that type, so the engine

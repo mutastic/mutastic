@@ -387,6 +387,73 @@ void oneBackorderedLineDelaysTheOrder() {
 }
 ```
 
+## String method swap
+
+**The bug it stands for:** the method next to the one you meant. They have the same arguments, the
+compiler can't tell them apart, and on the text tests usually pick they give the same answer.
+
+**Where it costs:** parsing and normalising: a prefix check that's really a suffix check, a key
+that's upper case where the lookup expects lower, a value with its trailing space left on.
+
+```java
+if (name.endsWith(".csv")) {   // becomes: name.startsWith(".csv")
+```
+
+**The test that catches it:** a rejected input as well as an accepted one: text with what's looked
+for at the other end, letters whose case shows, a space on one side only.
+
+```java
+@Test
+void aNameThatOnlyStartsWithTheExtensionIsNotACsv() {
+  assertFalse(Files.isCsv(".csv.bak"));   // at one end, not the other
+}
+```
+
+## indexOf swap
+
+**The bug it stands for:** the first match where the last was meant. On text with one match, they
+agree, and that's the text tests usually have.
+
+**Where it costs:** taking text apart: a file's extension taken from its first dot, a package name
+cut at the wrong separator. It's in `stronger` because much of what it finds can't happen: text
+that has the character once by its format, a method's descriptor and its `(`.
+
+```java
+int dot = name.lastIndexOf('.');   // becomes: name.indexOf('.')
+```
+
+**The test that catches it:** one where what's searched for appears twice.
+
+```java
+@Test
+void theExtensionComesAfterTheLastDot() {
+  assertEquals("gz", Files.extension("archive.tar.gz"));   // two dots
+}
+```
+
+## Math method swap
+
+**The bug it stands for:** `min` where `max` was meant, a limit that's a floor instead of a ceiling,
+or rounding the wrong way. Each reads right at a glance, and tests whose values are all on one side
+of the limit, or whole numbers, can't tell.
+
+**Where it costs:** limits, clamps, page counts and money: a batch larger than its limit, a page
+count one short, an amount rounded in the customer's favour.
+
+```java
+int pages = (int) Math.ceil(items / 20.0);   // becomes: Math.floor(items / 20.0)
+```
+
+**The test that catches it:** one on the side the source guards against: two different values for
+`min` and `max`, and a value with a fraction for `floor` and `ceil`.
+
+```java
+@Test
+void aPartPageStillCounts() {
+  assertEquals(2, Paging.pages(21));   // 21 / 20 isn't whole
+}
+```
+
 ## When a miss is fine
 
 Not every missed mutant is a gap worth closing. mutastic already skips the changes that would

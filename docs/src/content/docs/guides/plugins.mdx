@@ -45,6 +45,7 @@ Each rule is a list item with these fields:
 | `explanation` | required | What it changes, and when a test misses that: shown by `mutastic explain` |
 | `owners` | required | The types whose calls it matches, in full: `java.lang.String` |
 | `methods` | required | The method names it matches |
+| `descriptors` | | The overloads it matches, as the JVM writes them: `(Ljava/lang/String;)Z`. Every overload if it's left out. List them when a rename's target doesn't have them all: the rewrite calls the same overload of the other method, and a method that doesn't exist can't be told from a catch |
 | `rewrite` | required | What the call becomes: [see below](#rewrites) |
 | `headline` | required | A missed mutant's headline, the gap in the tests |
 | `help` | required | The test to write |
