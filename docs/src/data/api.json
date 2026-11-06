@@ -456,6 +456,16 @@
               "throws": []
             },
             {
+              "kind": "enum constant",
+              "name": "REMOVE_SWITCH_ARM",
+              "anchor": "remove_switch_arm",
+              "signature": "REMOVE_SWITCH_ARM",
+              "doc": "One entry of a switch sent to its default. javac's own parts have none: a `String` switch's\nhash lookup, and the default it writes for a switch with no need of one. Where that default\nthrows, the arm's values throw, which is what the mutant really does, so the card says so.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
               "kind": "method",
               "name": "id",
               "anchor": "id",

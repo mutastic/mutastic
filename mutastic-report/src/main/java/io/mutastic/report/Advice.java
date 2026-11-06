@@ -73,28 +73,33 @@ public record Advice(
   ///
   /// @param asWritten the jump tests the source's own condition, not its opposite
   static Advice of(Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
-    asWritten = jumpsWhenTrue(mutant).orElse(asWritten);
+    boolean written = jumpsWhenTrue(mutant).orElse(asWritten);
     return switch (mutant.operator()) {
       case Mutator mutator -> added(mutator, mutant, seen);
-      case BuiltIn builtIn ->
-          switch (builtIn) {
-            case BOUNDARY, COMPARISON, OTHER_COMPARISON -> comparison(mutant, seen, asWritten);
-            case MATH, ARITHMETIC_REPLACEMENT, OTHER_ARITHMETIC -> math(mutant, seen);
-            case KEEP_OPERAND -> keptOperand(mutant, seen);
-            case RETURN_VALUE -> returnValue(mutant, seen);
-            case REMOVE_VOID_CALL, REMOVE_DISCARDED_CALL -> removeVoidCall(mutant, seen);
-            case REMOVE_CONDITIONAL -> removeConditional(mutant, seen, asWritten);
-            case LOGICAL_CONNECTOR -> connector(mutant, seen, Optional.empty());
-            case REMOVE_ASSIGNMENT -> removedStore(mutant, seen, "assignment");
-            case REMOVE_FIELD_WRITE -> removedStore(mutant, seen, "write");
-            case OMIT_CALL -> omittedCall(mutant, seen);
-            case SWAP_ARGUMENTS -> swappedArguments(mutant, seen);
-            case NULL_PARAMETER -> nullParameter(mutant, seen);
-            case DROP_VARARG -> droppedElement(mutant, seen);
-            case FLIP_INCREMENT -> flippedIncrement(mutant, seen);
-            case CONSTANT_VALUE -> constant(mutant, seen, UnaryOperator.identity());
-            case REMOVE_NEGATION -> removedNegation(mutant, seen);
-          };
+      case BuiltIn builtIn -> ofBuiltIn(builtIn, mutant, seen, written);
+    };
+  }
+
+  private static Advice ofBuiltIn(
+      BuiltIn builtIn, Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
+    return switch (builtIn) {
+      case BOUNDARY, COMPARISON, OTHER_COMPARISON -> comparison(mutant, seen, asWritten);
+      case MATH, ARITHMETIC_REPLACEMENT, OTHER_ARITHMETIC -> math(mutant, seen);
+      case KEEP_OPERAND -> keptOperand(mutant, seen);
+      case RETURN_VALUE -> returnValue(mutant, seen);
+      case REMOVE_VOID_CALL, REMOVE_DISCARDED_CALL -> removeVoidCall(mutant, seen);
+      case REMOVE_CONDITIONAL -> removeConditional(mutant, seen, asWritten);
+      case LOGICAL_CONNECTOR -> connector(mutant, seen, Optional.empty());
+      case REMOVE_ASSIGNMENT -> removedStore(mutant, seen, "assignment");
+      case REMOVE_FIELD_WRITE -> removedStore(mutant, seen, "write");
+      case OMIT_CALL -> omittedCall(mutant, seen);
+      case SWAP_ARGUMENTS -> swappedArguments(mutant, seen);
+      case NULL_PARAMETER -> nullParameter(mutant, seen);
+      case DROP_VARARG -> droppedElement(mutant, seen);
+      case FLIP_INCREMENT -> flippedIncrement(mutant, seen);
+      case CONSTANT_VALUE -> constant(mutant, seen, UnaryOperator.identity());
+      case REMOVE_NEGATION -> removedNegation(mutant, seen);
+      case REMOVE_SWITCH_ARM -> switchArm(mutant, seen, UnaryOperator.identity());
     };
   }
 
@@ -608,6 +613,29 @@ public record Advice(
         "add a test near where `%s` takes effect, whose result would differ with `%s`, and assert"
                 .formatted(today, mutated)
             + " it");
+  }
+
+  /// A switch's arm removed. The label is `arm 2 2`, the value in the bytecode and then how the
+  /// source says it, if the bytecode shows that: an `enum`'s has no name, and the card is on the
+  /// arm's own line. `throwing ` in front says the default is javac's, which throws.
+  ///
+  /// @param written a value as the source would write it: `'a'` for `97`, if that's what it has
+  static Advice switchArm(
+      Mutant mutant, Map<String, List<Long>> seen, UnaryOperator<String> written) {
+    var label = mutant.replacement();
+    boolean throwing = label.startsWith("throwing ");
+    var words = label.substring(label.indexOf("arm ") + "arm ".length()).split(" ", 2);
+    var arm = words.length == 2 ? "`case %s`".formatted(written.apply(words[1])) : "this arm";
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        throwing
+            ? "%s is removed, so a value that reached it throws".formatted(arm)
+            : "%s is removed, so its values go to the default".formatted(arm),
+        throwing ? "arm removed, now throws" : "arm removed",
+        "no test needs %s in %s".formatted(arm, method(mutant)),
+        inputsSeen(seen),
+        "add a test with a value that reaches %s, and assert what it does".formatted(arm));
   }
 
   /// A variable's step the other way. The label is the step the mutant takes, `i by -1`.

@@ -145,7 +145,15 @@ public enum BuiltIn implements Operator {
   REMOVE_NEGATION(
       "A value's minus sign is removed: `-x` becomes `x`. It goes unnoticed when tests only use"
           + " zero, or don't check the sign of the result.",
-      Tier.STRONGER);
+      Tier.STRONGER),
+
+  /// One entry of a switch sent to its default. javac's own parts have none: a `String` switch's
+  /// hash lookup, and the default it writes for a switch with no need of one. Where that default
+  /// throws, the arm's values throw, which is what the mutant really does, so the card says so.
+  REMOVE_SWITCH_ARM(
+      "An arm of a `switch` is removed, so its values go to the default, or throw if the switch has"
+          + " none. It goes unnoticed when no test has a value that reaches the arm.",
+      Tier.EXTENDED);
 
   private final String explanation;
   private final Tier tier;

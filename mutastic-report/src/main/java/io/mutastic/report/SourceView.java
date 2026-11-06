@@ -133,6 +133,7 @@ public final class SourceView {
     return switch (mutant.operator()) {
       case BuiltIn.LOGICAL_CONNECTOR -> Advice.connector(mutant, seen, connective(mutant));
       case BuiltIn.CONSTANT_VALUE -> Advice.constant(mutant, seen, charactersOn(mutant));
+      case BuiltIn.REMOVE_SWITCH_ARM -> Advice.switchArm(mutant, seen, charactersOn(mutant));
       default -> Advice.of(mutant, seen, asWritten(mutant));
     };
   }

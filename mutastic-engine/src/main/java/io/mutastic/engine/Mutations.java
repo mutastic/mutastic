@@ -68,7 +68,8 @@ final class Mutations {
           BuiltIn.OMIT_CALL,
           BuiltIn.SWAP_ARGUMENTS,
           BuiltIn.NULL_PARAMETER,
-          BuiltIn.DROP_VARARG);
+          BuiltIn.DROP_VARARG,
+          BuiltIn.REMOVE_SWITCH_ARM);
 
   private final ClassFile context;
   private final Policy policy;
@@ -289,7 +290,12 @@ final class Mutations {
     /// One change an operator makes at the instruction: its site, counted as the operator counts
     /// them, and its label.
     private record Found(
-        Operator operator, int site, String label, Optional<String> skippedByOperator) {}
+        Operator operator, int site, String label, Optional<String> skippedByOperator, int line) {
+      /// A change on the line the scan has reached.
+      Found(Operator operator, int site, String label, Optional<String> skippedByOperator) {
+        this(operator, site, label, skippedByOperator, -1);
+      }
+    }
 
     private void builtInChanges(
         io.mutastic.api.BuiltIn builtIn, Instruction instruction, int at, List<Found> found) {
@@ -414,6 +420,11 @@ final class Mutations {
             found.add(new Found(builtIn, ordinal, label, Optional.empty()));
           }
         }
+        case REMOVE_SWITCH_ARM -> {
+          for (var arm : SwitchArms.at(code, at)) {
+            found.add(new Found(builtIn, index, arm.label(), arm.skipped(), arm.line()));
+          }
+        }
         default -> siteChanges(builtIn, instruction, found);
       }
     }
@@ -493,7 +504,7 @@ final class Mutations {
           method.methodName().stringValue(),
           method.methodType().stringValue(),
           found.site(),
-          line,
+          found.line() >= 0 ? found.line() : line,
           operator,
           describe(instruction),
           found.label(),
@@ -742,7 +753,8 @@ final class Mutations {
         || operator == BuiltIn.REMOVE_FIELD_WRITE
         || operator == BuiltIn.NULL_PARAMETER
         || operator == BuiltIn.FLIP_INCREMENT
-        || operator == BuiltIn.CONSTANT_VALUE;
+        || operator == BuiltIn.CONSTANT_VALUE
+        || operator == BuiltIn.REMOVE_SWITCH_ARM;
   }
 
   private static boolean isFieldWrite(FieldInstruction field) {
@@ -827,8 +839,16 @@ final class Mutations {
       case InvokeInstruction call -> changeCall(builder, call, mutant);
       case StoreInstruction store -> pop(builder, store.typeKind());
       case FieldInstruction field -> removeWrite(builder, field);
-      default -> throw new IllegalStateException("not a mutation site: " + instruction);
+      default -> emitWhole(builder, instruction, mutant);
     }
+  }
+
+  /// A change to an instruction with no kind of its own in [#emit].
+  private static void emitWhole(CodeBuilder builder, Instruction instruction, Mutant mutant) {
+    if (mutant.operator() != BuiltIn.REMOVE_SWITCH_ARM) {
+      throw new IllegalStateException("not a mutation site: " + instruction);
+    }
+    SwitchArms.write(builder, instruction, mutant.replacement());
   }
 
   /// A built-in call operator's change.

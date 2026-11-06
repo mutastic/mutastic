@@ -876,6 +876,29 @@ void theLimitIsTheConfiguredOneOrAHundred() {
 
 Run it with `--operators=defaults,extended`.
 
+## Remove switch arm
+
+**The bug it stands for:** a case that's missing or never worked, so its values get the default's
+behaviour: the wrong rate, the wrong message, or nothing happening at all.
+
+**Where it costs:** tables of business rules written as a `switch`. Tests tend to try one or two
+arms, and the others can be wrong for a long time, as the default gives an answer that looks fine.
+
+```java
+case GOLD -> 20;   // becomes: GOLD goes to the default
+```
+
+**The test that catches it:** one with a value that reaches the arm, asserting what it does.
+
+```java
+@Test
+void goldCustomersGetTwentyPercent() {
+  assertEquals(20, discounts.percentFor(Tier.GOLD));   // the default is 0
+}
+```
+
+Run it with `--operators=defaults,extended`.
+
 ## When a miss is fine
 
 Not every missed mutant is a gap worth closing. mutastic already skips the changes that would

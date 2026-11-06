@@ -299,7 +299,8 @@ public final class ReportFiles {
           SWAP_ARGUMENTS,
           NULL_PARAMETER,
           DROP_VARARG,
-          KEEP_OPERAND ->
+          KEEP_OPERAND,
+          REMOVE_SWITCH_ARM ->
           mutant.operator().id();
       case MATH, ARITHMETIC_REPLACEMENT, OTHER_ARITHMETIC -> "MathMutator";
       case CONSTANT_VALUE -> "InlineConstantMutator";

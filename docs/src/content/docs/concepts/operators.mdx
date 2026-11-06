@@ -49,6 +49,7 @@ For why each one is worth catching, the bugs it stands for and the test that cat
 | [`optional/remove-filter`](#optional-filter-removal) | `Optional.filter`, removed | extended |
 | [`optional/always-default`](#optional-default) | `opt.orElse(x)` to `x` | extended |
 | [`optional/no-default`](#optional-default) | `opt.orElse(x)` to `opt.get()` | extended |
+| [`mutastic/remove-switch-arm`](#remove-switch-arm) | an arm of a `switch`, its values sent to the default | extended |
 
 A run uses the `defaults` set unless you [choose otherwise](#choosing-operators). Plugins can add
 operators of their own: see [Plugins](/guides/plugins/).
@@ -543,6 +544,29 @@ int limit = configured.orElse(100);   // becomes: int limit = 100;   and: config
 Removing `opt.ifPresent(…)` is [`mutastic/remove-void-call`](#remove-void-call)'s change, as it
 returns nothing. `orElseThrow`'s supplier is left alone: which exception is thrown is rarely worth a
 test.
+
+## Remove switch arm
+
+`mutastic/remove-switch-arm`, in the `extended` set. One `case` of a `switch` is removed, and its
+values go to the default. Each label is its own mutant, so `case 1: case 2:` has two. It goes
+unnoticed when no test has a value that reaches the arm.
+
+```java
+case GOLD -> 20;   // becomes: GOLD goes to the default
+```
+
+It covers old-style `case`, arrows, `yield`, and a `switch` on a `String`, an `enum` or a pattern. The
+mutant is on the arm's own line, so only the tests that reach the arm run for it. An `enum`'s arm has
+no name in the bytecode, so its card says "this arm" and points at the line.
+
+A switch with no `default` of its own, on every constant of an `enum` or every type of a `sealed`
+interface, has one javac writes that throws. With an arm removed, a value that reached it throws, and
+the card says so. A test that reaches the arm catches that whatever it asserts, so a catch there says
+the arm is reached, not that its result is checked; a miss still means no test reaches it.
+
+javac's own parts have no mutants: the first of the two switches a `String` switch compiles to, which
+only hashes, and the gaps in a table. An arm with no code of its own, `case 1: break;`, is skipped as
+equivalent where the default goes to the same place.
 
 ## Choosing operators
 

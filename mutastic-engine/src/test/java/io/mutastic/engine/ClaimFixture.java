@@ -4,6 +4,7 @@ import io.mutastic.api.Mutant;
 import io.mutastic.api.Policy;
 import java.io.IOException;
 import java.lang.classfile.ClassFile;
+import java.lang.classfile.ClassHierarchyResolver;
 import java.lang.classfile.ClassModel;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
@@ -59,6 +60,9 @@ final class ClaimFixture {
   private final ClassModel model;
   private final Class<?> original;
 
+  /// What javac gave for the fixture, nested classes included: an `enum` a method switches on, say.
+  private final Map<String, byte[]> classes;
+
   /// `calls/Omitted.java`, for example, compiled, for the mutants of `operator`.
   ClaimFixture(String file, String operator) throws IOException {
     this(file, operator, Inputs.TEXTS);
@@ -67,12 +71,27 @@ final class ClaimFixture {
   ClaimFixture(String file, String operator, Inputs inputs) throws IOException {
     this.inputs = inputs;
     this.className = file.replace(".java", "").replace('/', '.');
-    this.mutations =
-        new Mutations(ClassFile.of(), Policy.NONE.withOperators(List.of(operator), List.of()));
     var source = Javac.Source.read(ROOT.resolve(file), className);
-    var bytes = Javac.compile(List.of(source), List.of(), "-g").get(className);
-    this.model = ClassFile.of().parse(Objects.requireNonNull(bytes));
+    this.classes = Javac.compile(List.of(source), List.of(), "-g");
+    this.mutations =
+        new Mutations(resolvingNested(), Policy.NONE.withOperators(List.of(operator), List.of()));
+    var bytes = Objects.requireNonNull(classes.get(className));
+    this.model = ClassFile.of().parse(bytes);
     this.original = load(bytes);
+  }
+
+  /// Stack maps and verifying need supertypes, and a fixture's nested classes aren't on any
+  /// classpath, as a project's classes are found in a real run.
+  private ClassFile resolvingNested() {
+    var resolver =
+        ClassHierarchyResolver.defaultResolver()
+            .orElse(
+                ClassHierarchyResolver.ofResourceParsing(
+                    type -> {
+                      var bytes = classes.get(type.packageName() + "." + type.displayName());
+                      return bytes == null ? null : new java.io.ByteArrayInputStream(bytes);
+                    }));
+    return ClassFile.of(ClassFile.ClassHierarchyResolverOption.of(resolver));
   }
 
   /// Every mutant of the fixture's own methods, not of the claims.
@@ -264,7 +283,9 @@ final class ClaimFixture {
 
   private Class<?> load(byte[] bytes) {
     try {
-      return Javac.loader(Map.of(className, bytes)).loadClass(className);
+      var loaded = new java.util.HashMap<>(classes);
+      loaded.put(className, bytes);
+      return Javac.loader(loaded).loadClass(className);
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException(e);
     }
