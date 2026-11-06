@@ -145,7 +145,19 @@ public final class Worker {
       worker.handle(line.split("\t", -1));
     }
     writeCoverage();
-    Runtime.getRuntime().halt(0); // even if a test left non-daemon threads behind
+    haltWithWhatTestsStarted(); // even if a test left non-daemon threads behind
+  }
+
+  /// Ends what the tests started and left running, then the worker. Once the worker has gone, a
+  /// process it started can't be traced to it, so nothing else could. A process that has detached
+  /// itself, as a Gradle daemon or a container under Docker's own daemon has, isn't among them and
+  /// is left alone.
+  private static void haltWithWhatTestsStarted() {
+    try {
+      ProcessHandle.current().descendants().forEach(ProcessHandle::destroyForcibly);
+    } finally {
+      Runtime.getRuntime().halt(0);
+    }
   }
 
   /// When a coverage agent is attached, as when mutastic's own build measures the worker, writes
@@ -615,7 +627,7 @@ public final class Worker {
               }
               // No engine, no reason to live: halt now, even mid-test. Otherwise a worker
               // outlives a killed engine and keeps its ports for the next run to trip on.
-              Runtime.getRuntime().halt(0);
+              haltWithWhatTestsStarted();
             },
             "mutastic-protocol");
     reader.setDaemon(true);

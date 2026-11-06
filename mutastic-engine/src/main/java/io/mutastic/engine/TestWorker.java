@@ -24,6 +24,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -32,7 +33,8 @@ import org.jspecify.annotations.Nullable;
 /// A worker process on the project's own JDK, which runs the project's tests (the protocol is
 /// documented on `io.mutastic.worker.Worker`). One worker serves every mutant. A worker that
 /// doesn't answer in time is killed, which is the only way to stop a mutant that loops forever, and
-/// the next mutant starts a new one.
+/// the next mutant starts a new one. Each worker has a temporary directory of its own
+/// ([WorkerTemp]), deleted once it has gone, and what its tests started goes with it.
 final class TestWorker implements AutoCloseable {
   private static final Duration STARTUP = Duration.ofSeconds(30);
   private static final Duration COVERAGE_LIMIT = Duration.ofMinutes(10);
@@ -240,6 +242,7 @@ final class TestWorker implements AutoCloseable {
   /// reaped, so `isAlive()` can't tell yet.
   private record Running(
       Process process,
+      WorkerTemp temp,
       PrintStream commands,
       BlockingQueue<String> answers,
       Thread shutdownHook,
@@ -258,7 +261,7 @@ final class TestWorker implements AutoCloseable {
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
       }
-      current.process().destroy();
+      end(current.process(), current.temp(), Process::destroy);
       forget(current);
     }
   }
@@ -292,7 +295,7 @@ final class TestWorker implements AutoCloseable {
   private void kill() {
     var current = running;
     if (current != null) {
-      current.process().destroyForcibly();
+      end(current.process(), current.temp(), Process::destroyForcibly);
       forget(current);
     }
   }
@@ -306,6 +309,28 @@ final class TestWorker implements AutoCloseable {
     running = null;
   }
 
+  /// Stops the worker and whatever its tests started and left running, then, once it has gone,
+  /// forcibly if it hasn't gone of itself within a few seconds, deletes its temporary directory: a
+  /// test it killed mid-way left its own temporary files there.
+  ///
+  /// What it started is found first: a process whose parent has gone can't be traced to it. A
+  /// worker that exits when told does this itself (`Worker`), and so has none left by now. A
+  /// process that has detached itself from the worker, as a Gradle daemon or a container under
+  /// Docker's own daemon has, isn't among them and is left alone.
+  private static void end(Process process, WorkerTemp temp, Consumer<Process> stop) {
+    var started = process.descendants().toList();
+    stop.accept(process);
+    started.forEach(ProcessHandle::destroyForcibly);
+    try {
+      if (!process.waitFor(5, TimeUnit.SECONDS)) {
+        process.destroyForcibly().waitFor(5, TimeUnit.SECONDS);
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+    temp.delete();
+  }
+
   /// The running worker, started if none is.
   private Running running() {
     var current = running;
@@ -313,16 +338,15 @@ final class TestWorker implements AutoCloseable {
   }
 
   private Running start() {
-    var process = launch(command());
-    // However the engine exits, its workers go too.
-    var shutdownHook = new Thread(process::destroyForcibly);
-    Runtime.getRuntime().addShutdownHook(shutdownHook);
-    var queue = new LinkedBlockingQueue<String>();
+    var temp = WorkerTemp.create();
+    var process = launch(temp);
+    var shutdownHook = endsWithTheEngine(process, temp);
     var started =
         new Running(
             process,
+            temp,
             new PrintStream(process.getOutputStream(), false, UTF_8),
-            queue,
+            new LinkedBlockingQueue<>(),
             shutdownHook,
             new AtomicBoolean());
     running = started;
@@ -388,39 +412,54 @@ final class TestWorker implements AutoCloseable {
     return TestFrameworks.loadsTheApp(project.dependencies()) ? List.of("--framework") : List.of();
   }
 
-  /// The worker's command line: the project's own JDK and JVM arguments, with the worker as agent.
-  private List<String> command() {
+  /// However the engine exits, its worker goes too, and what the worker leaves.
+  private static Thread endsWithTheEngine(Process process, WorkerTemp temp) {
+    var hook =
+        new Thread(
+            () -> {
+              end(process, temp, Process::destroyForcibly);
+            });
+    Runtime.getRuntime().addShutdownHook(hook);
+    return hook;
+  }
+
+  /// The worker's command line: the project's own JDK and JVM arguments, with the worker as agent,
+  /// and `temp` as its temporary directory unless the project's arguments name one.
+  private List<String> command(WorkerTemp temp) {
     var command = new ArrayList<String>();
     command.add(project.java().toString());
+    command.add(temp.jvmArg());
     command.addAll(project.jvmArgs());
     command.addAll(measured());
     command.addAll(systemLoader());
     command.add("-javaagent:" + workerJar);
-    command.addAll(
-        List.of(
-            "-cp",
-            classpath(),
-            "io.mutastic.worker.Worker",
-            "--production="
-                + join(
-                    Stream.of(project.classes(), project.alongside(), project.resources())
-                        .flatMap(List::stream)),
-            "--tests="
-                + join(
-                    Stream.concat(
-                        project.testClasses().stream(), project.testResources().stream())),
-            "--include-tags=" + String.join(",", project.tests().includeTags()),
-            "--exclude-tags=" + String.join(",", project.tests().excludeTags())));
+    command.addAll(List.of("-cp", classpath(), "io.mutastic.worker.Worker"));
+    command.addAll(workerArgs());
     command.addAll(mode());
     return command;
   }
 
-  private Process launch(List<String> command) {
+  /// What the worker is told of the project: its code, its tests, and the tags it runs.
+  private List<String> workerArgs() {
+    return List.of(
+        "--production="
+            + join(
+                Stream.of(project.classes(), project.alongside(), project.resources())
+                    .flatMap(List::stream)),
+        "--tests="
+            + join(Stream.concat(project.testClasses().stream(), project.testResources().stream())),
+        "--include-tags=" + String.join(",", project.tests().includeTags()),
+        "--exclude-tags=" + String.join(",", project.tests().excludeTags()));
+  }
+
+  private Process launch(WorkerTemp temp) {
     try {
-      var builder = new ProcessBuilder(command).directory(project.workingDirectory().toFile());
+      var builder =
+          new ProcessBuilder(command(temp)).directory(project.workingDirectory().toFile());
       builder.environment().putAll(project.environment());
       return builder.redirectError(ProcessBuilder.Redirect.appendTo(log.toFile())).start();
     } catch (IOException e) {
+      temp.delete();
       throw new UncheckedIOException("couldn't start " + project.java(), e);
     }
   }

@@ -29,6 +29,14 @@ mutastic runs your tests once before it changes anything. They have to pass firs
 only caught when a test that passed fails. Run the build's own tests and fix what fails. A test
 that passes when run again is reported as flaky, and doesn't stop a run.
 
+Tests run with a temporary directory of their own, deleted when their worker ends. A test that
+counts on finding something already in `java.io.tmpdir`, such as a file it shares with another
+process or a download cached between runs, won't find it there: name a directory in the test
+task's JVM arguments (`-Djava.io.tmpdir=...`), and mutastic uses that instead.
+
+A process a test starts and leaves running ends with its worker too. One that has detached itself,
+as a Gradle daemon or a container under Docker's own daemon has, is left alone.
+
 ## 4: mutastic itself went wrong
 
 That's a bug in mutastic. Please [open an issue](https://github.com/mutastic/mutastic/issues) with
