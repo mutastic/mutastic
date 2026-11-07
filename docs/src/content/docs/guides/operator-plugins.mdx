@@ -171,8 +171,24 @@ fun lettersRunFromFirstToLast() {
 }
 ```
 
+### Kotlin projects
+
+Kotlin support is experimental: it works on real kotlinc output, and hasn't yet been proved on real
+projects. Expect a card that's wrong now and then, and expect what it skips to change.
+
 In any Kotlin project, listed or not, mutastic skips what kotlinc wrote that isn't in the source, as
-`generated:`: its `Intrinsics` null checks, and a data class's `copy`, `componentN` and `equals`.
+`generated:`: its null checks on parameters, a data class's `copy`, `componentN` and `equals`, a
+`lateinit`'s check and getter, a coroutine's state machine, and code copied in from an inline function
+in a library, such as the loop in `filter`.
+
+`x!!` and `x as String` are yours, so their checks stay: without one, a `null` carries on where you said
+it shouldn't. `x!!.size` is the exception, skipped as `equivalent:`, as reading the value throws the same
+`NullPointerException`.
+
+Code copied in from your own inline function is on that function's line, and a test of the call catches
+it. The function's own body is skipped, as nothing runs it, unless Java calls it. One that only tests
+call is skipped too, and it's a blind spot: what's copied into a test isn't changed, so nothing shows
+whether the tests would notice.
 
 ## Proposed rewrites
 

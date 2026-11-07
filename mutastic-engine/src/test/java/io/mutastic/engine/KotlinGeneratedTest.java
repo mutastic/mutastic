@@ -30,6 +30,7 @@ class KotlinGeneratedTest {
           package kotlin.jvm.internal;
           public final class Intrinsics {
             public static void checkNotNullParameter(Object value, String name) {}
+            public static void checkNotNull(Object value) {}
             public static void throwUninitializedPropertyAccessException(String name) {}
             public static boolean areEqual(Object a, Object b) { return a == b; }
           }
@@ -119,6 +120,7 @@ class KotlinGeneratedTest {
               public boolean run(String a) {
                 Intrinsics.checkNotNullParameter(a, "a");
                 Intrinsics.throwUninitializedPropertyAccessException("a");
+                Intrinsics.checkNotNull(a);
                 a.length();
                 return Intrinsics.areEqual(a, a);
               }
@@ -129,7 +131,7 @@ class KotlinGeneratedTest {
         method(model, "run").code().orElseThrow().elementList().stream()
             .filter(InvokeInstruction.class::isInstance)
             .map(element -> (InvokeInstruction) (Instruction) element)
-            .filter(KotlinGenerated::isInserted)
+            .filter(KotlinChecks::isInserted)
             .map(call -> call.name().stringValue())
             .toList();
 

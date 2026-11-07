@@ -157,7 +157,8 @@ final class Mutations {
             .ifPresent(
                 code -> {
                   var found = scanned(model, method, code, here);
-                  mutants.addAll(viable(model, located(model, mergeFinallyCopies(found, code))));
+                  mutants.addAll(
+                      viable(model, located(model, method, mergeFinallyCopies(found, code))));
                 });
       }
     }
@@ -184,8 +185,8 @@ final class Mutations {
   /// The mutants at where their code really is, and those in code copied in from outside the module
   /// skipped. After `finally`'s copies are merged, which goes by the class file's own line numbers:
   /// two lines of a loop kotlinc copied in may be the same line of the source, and aren't copies.
-  private List<Mutant> located(ClassModel model, List<Mutant> found) {
-    return InlinedCode.located(model, module.keySet(), found);
+  private List<Mutant> located(ClassModel model, MethodModel method, List<Mutant> found) {
+    return InlinedCode.located(model, method, module.keySet(), found);
   }
 
   /// The operators that change this method: all of them in code the user wrote, and in a
@@ -331,6 +332,7 @@ final class Mutations {
     private final MethodModel method;
     private final List<CodeElement> code;
     private final Set<Instruction> tryWithResources;
+    private final Set<Integer> coroutineMachinery;
     private final Operands operands;
     private final Stores stores;
     private final Optional<String> filtered;
@@ -361,6 +363,7 @@ final class Mutations {
       this.filtered = filtered;
       this.operators = operators;
       this.tryWithResources = tryWithResources(code);
+      this.coroutineMachinery = Coroutines.machinery(model, method, code);
       this.operands = method.code().map(Operands::new).orElseThrow();
       this.stores = new Stores(code);
     }
@@ -644,9 +647,9 @@ final class Mutations {
       var skipped =
           tryWithResources.contains(instruction)
               ? Optional.of("generated: closes a try-with-resources resource")
-              : found
-                  .skippedByOperator()
-                  .or(() -> skipReason(instruction))
+              : machinery(operator, at)
+                  .or(found::skippedByOperator)
+                  .or(() -> skipReason(instruction, at))
                   .or(() -> atTheSite(found, at))
                   .or(() -> filtered);
       return new Mutant(
@@ -674,7 +677,7 @@ final class Mutations {
     }
 
     /// Why a mutant shouldn't run, if it shouldn't: the reason's first word is its kind.
-    private Optional<String> skipReason(Instruction instruction) {
+    private Optional<String> skipReason(Instruction instruction, int at) {
       if (instruction instanceof BranchInstruction
           && stringSwitchLines.contains(line)
           && isCall(previous, "java/lang/String", "equals")) {
@@ -684,10 +687,13 @@ final class Mutations {
           && OUTPUT_OWNERS.contains(call.owner().asInternalName())) {
         return Optional.of("arid: only writes output");
       }
-      if (instruction instanceof InvokeInstruction call && KotlinGenerated.isInserted(call)) {
-        return Optional.of("generated: kotlinc's own check on a value its types already promise");
-      }
-      return Optional.empty();
+      return KotlinChecks.reason(code, at);
+    }
+
+    private Optional<String> machinery(Operator operator, int at) {
+      return Coroutines.changes(operator, coroutineMachinery, at)
+          ? Optional.of(Coroutines.REASON)
+          : Optional.empty();
     }
   }
 
