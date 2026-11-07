@@ -43,6 +43,46 @@ class IgnoreTest {
     assertThat(Files.readString(project.resolve(".mutastic/ignores.yaml"))).doesNotContain(ID);
   }
 
+  /// A reviewed decision on a mutant of another set is left alone by a run or a prune under this
+  /// one, and goes as any other does once its line changes.
+  @Test
+  void pruningUnderAnotherSetKeepsAnIgnoreUntilItsLineChanges() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+    var ignores = project.resolve(".mutastic/ignores.yaml");
+
+    var run =
+        Samples.mutastic(
+            "run",
+            project.toString(),
+            "--operators=mutastic/other-comparison",
+            "--format=jsonl",
+            "--report=none");
+    var stronger = firstMatch("\"id\":\"(?<found>m[0-9a-f]+)\"", run.out());
+    Samples.mutastic("ignore", stronger, project.toString(), "--reason=reviewed");
+    var underDefaults =
+        Samples.mutastic("run", project.toString(), "--format=jsonl", "--report=none");
+    var kept = Samples.mutastic("ignore", "--prune", project.toString());
+    var keptFile = Files.readString(ignores);
+    var line = firstMatch("code: '(?<found>.*)'", keptFile);
+    var pricing = project.resolve("src/main/java/com/example/pricing/Pricing.java");
+    Files.writeString(pricing, Files.readString(pricing).replace(line, line + " // changed"));
+    var gone = Samples.mutastic("ignore", "--prune", project.toString());
+
+    assertThat(underDefaults.out()).contains("\"staleIgnores\":[]");
+    assertThat(kept.out()).contains("every ignore still holds");
+    assertThat(keptFile).contains("- id: " + stronger);
+    assertThat(gone.out()).contains("removed 1 ignore that no longer hold: " + stronger);
+  }
+
+  private static String firstMatch(String regex, String text) {
+    return java.util.regex.Pattern.compile(regex)
+        .matcher(text)
+        .results()
+        .map(found -> found.group("found"))
+        .findFirst()
+        .orElseThrow();
+  }
+
   /// A proposal waits for a person: its mutant still counts as missed until it's accepted, and then
   /// it's an ignore like any other, with its reason and sort as proposed.
   @Test

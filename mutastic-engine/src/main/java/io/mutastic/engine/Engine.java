@@ -214,7 +214,21 @@ public final class Engine {
     var ignored = new Ignored(options.policy().ignores(), models, project);
     boolean complete =
         options.only().isEmpty() && options.among().isEmpty() && options.changed().isEmpty();
-    return new Found(ignored.apply(mutants, complete), mutations, ignored.stale());
+    var applied =
+        complete
+            ? ignored.applyToAll(
+                mutants, () -> underEveryOperator(project, options, context, models))
+            : ignored.apply(mutants);
+    return new Found(applied, mutations, ignored.stale());
+  }
+
+  /// Every mutant the project has, whichever operators this run chose.
+  private static List<Mutant> underEveryOperator(
+      Project project, Options options, ClassFile context, Map<String, ClassModel> models) {
+    var policy = options.policy();
+    var mutations = new Mutations(context, policy.withOperators(List.of("all"), policy.mutators()));
+    mutations.prepare(models.values());
+    return mutantsIn(models, mutations, List.of(), project.name());
   }
 
   private static Plan plan(Project project, Options options) {

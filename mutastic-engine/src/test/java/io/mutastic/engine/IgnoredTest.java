@@ -24,7 +24,7 @@ class IgnoredTest {
     var mutant = boundary();
     var ignored = ignored(new Ignore(mutant.id(), LINE, "pricing is checked by hand"));
 
-    var applied = ignored.apply(List.of(mutant), false);
+    var applied = ignored.apply(List.of(mutant));
 
     assertThat(applied.getFirst().skipped()).contains("user: pricing is checked by hand (ignored)");
     assertThat(ignored.stale()).isEmpty();
@@ -36,24 +36,58 @@ class IgnoredTest {
     var ignore = new Ignore(mutant.id(), "if (total > 100) {", "old");
     var ignored = ignored(ignore);
 
-    var applied = ignored.apply(List.of(mutant), false);
+    var applied = ignored.apply(List.of(mutant));
 
     assertThat(applied.getFirst().skipped()).isEmpty();
     assertThat(ignored.stale()).containsExactly(ignore);
   }
 
   @Test
-  void anIgnoreMatchingNoMutantIsStaleOnlyWhenEveryMutantIsThere() throws Exception {
+  void anIgnoreMatchingNoMutantIsStaleOnlyWhenItsCodeIsGone() throws Exception {
     var gone = new Ignore("m00000000", "gone();", "removed");
 
     var partly = ignored(gone);
-    partly.apply(List.of(boundary()), false);
+    partly.apply(List.of(boundary()));
     var wholly = ignored(gone);
-    var applied = wholly.apply(List.of(boundary()), true);
+    var boundary = boundary();
+    var applied = wholly.applyToAll(List.of(boundary), () -> List.of(boundary));
 
     assertThat(partly.stale()).isEmpty();
     assertThat(wholly.stale()).containsExactly(gone);
-    assertThat(applied).containsExactly(boundary());
+    assertThat(applied).containsExactly(boundary);
+  }
+
+  /// A reviewed decision on a stronger mutant isn't stale because this run's set leaves it out.
+  @Test
+  void anIgnoreOnAMutantOutsideTheRunsSetHoldsWhileItsLineDoes() throws Exception {
+    var outside = boundary();
+    var holding = new Ignore(outside.id(), LINE, "reviewed");
+    var changed = new Ignore(outside.id(), "if (total > 100) {", "reviewed");
+
+    var stillThere = ignored(holding);
+    assertThat(stillThere.applyToAll(List.of(), () -> List.of(outside))).isEmpty();
+    var lineMoved = ignored(changed);
+    lineMoved.applyToAll(List.of(), () -> List.of(outside));
+
+    assertThat(stillThere.stale()).isEmpty();
+    assertThat(lineMoved.stale()).containsExactly(changed);
+  }
+
+  /// Finding every operator's mutants is a whole scan, which a run with no such ignore doesn't
+  /// need.
+  @Test
+  void everyOperatorIsOnlyAskedAboutAnIgnoreThisRunDidntMatch() throws Exception {
+    var mutant = boundary();
+
+    var applied =
+        ignored(new Ignore(mutant.id(), LINE, "mine"))
+            .applyToAll(
+                List.of(mutant),
+                () -> {
+                  throw new AssertionError("nothing to ask about");
+                });
+
+    assertThat(applied.getFirst().skipped()).contains("user: mine (ignored)");
   }
 
   @Test
@@ -63,11 +97,11 @@ class IgnoredTest {
     var generated = boundary().skippedFor("generated: part of a switch on a String");
 
     for (Mutant mutant : List.of(arid, ruled)) {
-      assertThat(ignored(new Ignore(mutant.id(), LINE, "mine")).apply(List.of(mutant), false))
+      assertThat(ignored(new Ignore(mutant.id(), LINE, "mine")).apply(List.of(mutant)))
           .singleElement()
           .satisfies(found -> assertThat(found.skipped()).contains("user: mine (ignored)"));
     }
-    assertThat(ignored(new Ignore(generated.id(), LINE, "mine")).apply(List.of(generated), false))
+    assertThat(ignored(new Ignore(generated.id(), LINE, "mine")).apply(List.of(generated)))
         .containsExactly(generated);
   }
 
@@ -98,7 +132,7 @@ class IgnoredTest {
 
     for (Mutant mutant : List.of(elsewhere, pastTheEnd)) {
       var ignored = ignored(new Ignore(mutant.id(), LINE, "mine"));
-      assertThat(ignored.apply(List.of(mutant), false)).containsExactly(mutant);
+      assertThat(ignored.apply(List.of(mutant))).containsExactly(mutant);
       assertThat(ignored.stale()).hasSize(1);
     }
   }

@@ -14,6 +14,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 
 /// The project's ignores applied to its mutants: each still on the line it was ignored on is
 /// skipped with the project's reason; one whose line has changed no longer holds, and its mutant
@@ -32,24 +35,35 @@ final class Ignored {
     this.sources = project.sources();
   }
 
-  /// The mutants, the ignored ones skipped. With `complete`, every mutant of the project is here,
-  /// so an ignore matching none (its code is gone) no longer holds either.
-  List<Mutant> apply(List<Mutant> mutants, boolean complete) {
-    var matched = new java.util.HashSet<String>();
+  /// The mutants of a run that sees only part of the project, the ignored ones skipped.
+  List<Mutant> apply(List<Mutant> mutants) {
     var applied = new ArrayList<Mutant>();
     for (Mutant mutant : mutants) {
       var ignore = byId.get(mutant.id());
-      if (ignore == null) {
-        applied.add(mutant);
-        continue;
-      }
-      matched.add(ignore.id());
-      applied.add(applied(mutant, ignore));
-    }
-    if (complete) {
-      byId.values().stream().filter(ignore -> !matched.contains(ignore.id())).forEach(stale::add);
+      applied.add(ignore == null ? mutant : applied(mutant, ignore));
     }
     return applied;
+  }
+
+  /// The mutants of a run of the whole project, the ignored ones skipped. An ignore matching none
+  /// may only be on an operator this run doesn't use, a reviewed decision that still holds, so
+  /// `underEveryOperator` is asked (only then, as it costs) whether its code is gone or its line
+  /// has changed.
+  List<Mutant> applyToAll(List<Mutant> mutants, Supplier<List<Mutant>> underEveryOperator) {
+    var here = mutants.stream().map(Mutant::id).collect(Collectors.toSet());
+    var elsewhere = byId.values().stream().filter(ignore -> !here.contains(ignore.id())).toList();
+    if (!elsewhere.isEmpty()) {
+      var found = new HashMap<String, Mutant>();
+      underEveryOperator.get().forEach(mutant -> found.put(mutant.id(), mutant));
+      elsewhere.stream()
+          .filter(ignore -> !holds(ignore, found.get(ignore.id())))
+          .forEach(stale::add);
+    }
+    return apply(mutants);
+  }
+
+  private boolean holds(Ignore ignore, @Nullable Mutant mutant) {
+    return mutant != null && line(mutant).filter(ignore::holdsFor).isPresent();
   }
 
   /// The ignores that no longer hold: their line changed, or their code is gone.
@@ -58,8 +72,7 @@ final class Ignored {
   }
 
   private Mutant applied(Mutant mutant, Ignore ignore) {
-    var line = line(mutant);
-    if (line.isEmpty() || !ignore.holdsFor(line.get())) {
+    if (!holds(ignore, mutant)) {
       stale.add(ignore);
       return mutant;
     }
