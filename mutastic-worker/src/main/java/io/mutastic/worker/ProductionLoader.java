@@ -11,7 +11,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
@@ -29,7 +28,10 @@ final class ProductionLoader extends RootsLoader implements MutantInPlace.Classe
   /// Bytes to use instead of the build's: instrumented classes, or a mutant not yet loaded.
   private final Map<String, byte[]> replacements;
 
-  private final Map<String, Class<?>> loaded = new ConcurrentHashMap<>();
+  /// By name, in the order they loaded.
+  private final Map<String, Class<?>> loaded =
+      java.util.Collections.synchronizedMap(new java.util.LinkedHashMap<>());
+
   private final List<Path> testRoots;
   private final TestSplit splitTests;
 
@@ -85,6 +87,14 @@ final class ProductionLoader extends RootsLoader implements MutantInPlace.Classe
   void defined(String name, Class<?> loadedClass) {
     if (Renamer.runOf(name) < 0) {
       loaded.put(name, loadedClass);
+    }
+  }
+
+  /// The production classes loaded so far, in order: not test classes, whose statics belong to a
+  /// test's run.
+  List<String> loadedFromTheBuild() {
+    synchronized (loaded) {
+      return loaded.keySet().stream().filter(name -> classFile(name) != null).toList();
     }
   }
 

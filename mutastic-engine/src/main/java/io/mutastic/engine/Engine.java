@@ -318,8 +318,10 @@ public final class Engine {
 
   private List<TestWorker> workersFor(Project project, int wanted, int mutantCount) {
     var workers = new ArrayList<TestWorker>();
+    var toWarm = new ClassesToWarm();
     for (int number = 1; number <= Math.min(wanted, Math.max(1, mutantCount)); number++) {
-      workers.add(new TestWorker(project, workerJar, number == 1 ? log : numbered(log, number)));
+      workers.add(
+          new TestWorker(project, workerJar, number == 1 ? log : numbered(log, number), toWarm));
     }
     return workers;
   }

@@ -15,6 +15,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -52,8 +53,9 @@ import org.junit.platform.launcher.core.LauncherFactory;
 /// |---|---|
 /// | `CLASS <name> <base64>`: use these bytes for the next command | nothing |
 /// | `COVER <test>...`: run every test, recording lines and arguments | `TEST <id> <nanos>`, `LINE <id> <ids>` and `VALUE <id> <parameter> <values>` lines, then `DONE PASSED` or `DONE FAILED <id>...` |
-/// | `COVER` answers also hold `LOADING <ids>`: the lines some test ran, but only while a class was loading | |
-/// | `RUN <test>...`: run in order until one fails | `RESULT PASSED <ran>`, `RESULT FAILED <ran> <test> <exception> <origin> <port-clash or ->` or `RESULT ERROR <why>` |
+/// | `COVER` answers also hold `LOADING <ids>`: the lines some test ran, but only while a class was loading, and `LOADED <class>...`: the production classes it loaded, in order | |
+/// | `WARM <class>...`: load and initialise them, with no mutant in, as a worker that didn't run `COVER` must before its first mutant | `WARMED`, or `NOT-WARMED <class>` for the first that couldn't be |
+/// | `RUN <test>...`: run in order until one fails | `RESULT PASSED <ran>`, `RESULT FAILED <ran> <test> <exception> <origin> <port-clash or ->` or `RESULT ERROR <why>`, after `AGED` if this worker is now worth replacing ([Aging]) |
 /// | `FRESH <test>...`: the same, with every class loaded anew, so static initialisers run with the staged classes | as for `RUN` |
 /// | `SUGGEST <class> <method> <descriptor> <base64> <inputs> <receiver>`: find inputs where a mutant changes the result; inputs are `1;2\|3;4`, `-` for none; the receiver is `-` for a static method, else a constructor descriptor whose arguments start each input, or for an inner class its outer class's receiver, `>`, then its own | `SUGGESTED <inputs> <today> <with mutant> <stuck or ->`, or `SUGGESTED -` |
 /// | `EXIT` | nothing; the worker exits |
@@ -61,6 +63,11 @@ import org.junit.platform.launcher.core.LauncherFactory;
 /// A test is `com.example.PricingTest#method` or a class name. The engine kills the worker if it
 /// doesn't answer in time: a mutant that loops forever can't be stopped any other way.
 public final class Worker {
+  /// What a new worker costs, measured on mutastic's own engine: see [Aging]. A property so that a
+  /// test can have a worker replaced after every mutant.
+  private static final long WORTH_A_NEW_WORKER =
+      Duration.ofMillis(Long.getLong("mutastic.worthANewWorkerMillis", 15_000)).toNanos();
+
   private final List<Path> productionRoots;
   private final List<Path> testRoots;
   private final Tags tags;
@@ -69,6 +76,7 @@ public final class Worker {
   private final PrintStream protocol;
   private final Map<String, byte[]> staged = new HashMap<>();
   private final MutantInPlace inPlace = new MutantInPlace();
+  private final Aging aging = new Aging(WORTH_A_NEW_WORKER);
 
   /// Made by the coverage pass, or by the first command a new worker gets after one was killed.
   private @Nullable ProductionLoader production;
@@ -180,6 +188,7 @@ public final class Worker {
     switch (command[0]) {
       case "CLASS" -> staged.put(command[1], Base64.getDecoder().decode(command[2]));
       case "COVER" -> coverInstrumented(tests);
+      case "WARM" -> warm(tests);
       case "RUN" -> runWithStaged(tests);
       case "FRESH" -> runFresh(tests);
       case "SUGGEST" -> suggest(command);
@@ -210,6 +219,29 @@ public final class Worker {
     staged.clear();
   }
 
+  /// Initialises the classes in order, as the coverage pass's tests did, with the build's bytes: a
+  /// mutant that reaches a static initialiser after this can't break its class.
+  private void warm(List<String> classes) {
+    var loader = production();
+    var thread = Thread.currentThread();
+    var previous = thread.getContextClassLoader();
+    thread.setContextClassLoader(loader);
+    try {
+      for (String name : classes) {
+        try {
+          Class.forName(name, true, loader);
+        } catch (ClassNotFoundException | LinkageError e) {
+          e.printStackTrace(System.err);
+          protocol.println("NOT-WARMED\t" + name);
+          return;
+        }
+      }
+      protocol.println("WARMED");
+    } finally {
+      thread.setContextClassLoader(previous);
+    }
+  }
+
   /// Runs with the staged classes (a mutant) swapped in, in place of the last mutant.
   private void runWithStaged(List<String> tests) throws Exception {
     if (framework != null) {
@@ -217,7 +249,12 @@ public final class Worker {
       return;
     }
     var loader = production();
+    long swapStarted = System.nanoTime();
     inPlace.put(loader, staged);
+    if (aging.swapTook(System.nanoTime() - swapStarted)) {
+      System.err.println("AGED");
+      protocol.println("AGED");
+    }
     staged.clear();
     run(tests, loader);
   }
@@ -313,6 +350,7 @@ public final class Worker {
     reportLines();
     reportOnlyAtLoad();
     reportValues();
+    reportLoaded();
     failures.forEach((test, chain) -> protocol.println("FAILURE\t" + test + "\t" + chain));
     protocol.println(
         "DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
@@ -345,6 +383,12 @@ public final class Worker {
     if (!lines.isEmpty()) {
       protocol.println(
           "LOADING\t" + lines.stream().map(String::valueOf).collect(Collectors.joining(",")));
+    }
+  }
+
+  private void reportLoaded() {
+    if (framework == null) {
+      protocol.println("LOADED\t" + String.join("\t", production().loadedFromTheBuild()));
     }
   }
 

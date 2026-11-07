@@ -33,8 +33,9 @@ import org.jspecify.annotations.Nullable;
 /// A worker process on the project's own JDK, which runs the project's tests (the protocol is
 /// documented on `io.mutastic.worker.Worker`). One worker serves every mutant. A worker that
 /// doesn't answer in time is killed, which is the only way to stop a mutant that loops forever, and
-/// the next mutant starts a new one. Each worker has a temporary directory of its own
-/// ([WorkerTemp]), deleted once it has gone, and what its tests started goes with it.
+/// the next mutant starts a new one; so does a worker that says it has aged, once it has answered.
+/// Each worker has a temporary directory of its own ([WorkerTemp]), deleted once it has gone, and
+/// what its tests started goes with it.
 final class TestWorker implements AutoCloseable {
   private static final Duration STARTUP = Duration.ofSeconds(30);
   private static final Duration COVERAGE_LIMIT = Duration.ofMinutes(10);
@@ -43,9 +44,13 @@ final class TestWorker implements AutoCloseable {
   /// one. Not a line a worker can write.
   private static final String STOPPED = "\0stopped";
 
+  /// Said by a worker that's now worth replacing, ahead of its answer to a command.
+  private static final String AGED = "AGED";
+
   private final Project project;
   private final Path workerJar;
   private final Path log;
+  private final ClassesToWarm toWarm;
 
   /// The worker process while one is running: none before the first command, or after a kill.
   private @Nullable Running running;
@@ -53,12 +58,16 @@ final class TestWorker implements AutoCloseable {
   private int jdk;
   private int workersStarted;
 
+  /// Whether the running worker has said it has aged.
+  private boolean aged;
+
   /// `log` collects the tests' own output, for when a baseline fails for reasons only the tests'
   /// output explains.
-  TestWorker(Project project, Path workerJar, Path log) {
+  TestWorker(Project project, Path workerJar, Path log, ClassesToWarm toWarm) {
     this.project = project;
     this.workerJar = workerJar;
     this.log = log;
+    this.toWarm = toWarm;
   }
 
   /// The tests' result with every class in `instrumented` swapped for its instrumented copy.
@@ -81,15 +90,21 @@ final class TestWorker implements AutoCloseable {
             coverage.recordValues(
                 parts[1], Integer.parseInt(parts[2]), commaSeparated(parts[3], Long::valueOf));
         case "FAILURE" -> failures.put(parts[1], parts[2]);
+        case "LOADED" -> toWarm.coverageLoaded(Arrays.asList(parts).subList(1, parts.length));
         case "DONE" -> {
-          return new Baseline(
-              parts[1].equals("PASSED"),
-              Arrays.asList(parts).subList(Math.min(2, parts.length), parts.length),
-              failures);
+          return baseline(parts, failures);
         }
         default -> throw new IllegalStateException("the worker said: " + answer);
       }
     }
+  }
+
+  /// `DONE PASSED`, or `DONE FAILED` and the tests that failed.
+  private static Baseline baseline(String[] done, Map<String, String> failures) {
+    return new Baseline(
+        done[1].equals("PASSED"),
+        Arrays.asList(done).subList(Math.min(2, done.length), done.length),
+        failures);
   }
 
   /// The worker's next answer in the coverage pass. A pass that outlasts its limit kills the
@@ -150,6 +165,7 @@ final class TestWorker implements AutoCloseable {
       kill();
       return new Run(Status.TIMED_OUT, tests.size());
     }
+    replaceIfAged();
     var parts = answer.get().split("\t", -1);
     return switch (parts[1]) {
       case "PASSED" -> new Run(Status.MISSED, Integer.parseInt(parts[2]));
@@ -221,7 +237,18 @@ final class TestWorker implements AutoCloseable {
       kill();
       return false;
     }
+    replaceIfAged();
     return answer.get().startsWith("RESULT\tPASSED");
+  }
+
+  /// Ends a worker that has aged, between commands, so the next command starts a new one. That's
+  /// the worker going on, not a kill, so it isn't counted as another.
+  private void replaceIfAged() {
+    if (aged && toWarm.canReplaceAWorker()) {
+      close();
+      workersStarted--;
+    }
+    aged = false;
   }
 
   /// How many worker JVMs have started: one, plus one after each kill.
@@ -284,8 +311,12 @@ final class TestWorker implements AutoCloseable {
       return Optional.empty();
     }
     try {
-      return Optional.ofNullable(current.answers().poll(timeout.toNanos(), TimeUnit.NANOSECONDS))
-          .filter(answer -> !answer.equals(STOPPED));
+      var answer = current.answers().poll(timeout.toNanos(), TimeUnit.NANOSECONDS);
+      if (AGED.equals(answer)) {
+        aged = true;
+        return await(timeout);
+      }
+      return Optional.ofNullable(answer).filter(line -> !line.equals(STOPPED));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       return Optional.empty();
@@ -293,6 +324,7 @@ final class TestWorker implements AutoCloseable {
   }
 
   private void kill() {
+    aged = false; // what comes next is new
     var current = running;
     if (current != null) {
       end(current.process(), current.temp(), Process::destroyForcibly);
@@ -360,7 +392,24 @@ final class TestWorker implements AutoCloseable {
                         "the test worker didn't start; its output is in " + log));
     jdk = Integer.parseInt(ready.substring("READY\t".length()));
     workersStarted++;
-    return started;
+    return warmed(started);
+  }
+
+  /// The worker, with the classes the coverage pass loaded initialised; if it can't do that, a new
+  /// one that doesn't try, as a class that can't be initialised stays that way ([ClassesToWarm]).
+  private Running warmed(Running started) {
+    var classes = toWarm.classes();
+    if (classes.isEmpty()) {
+      return started;
+    }
+    send("WARM\t" + String.join("\t", classes));
+    if (await(STARTUP).filter(answer -> answer.equals("WARMED")).isPresent()) {
+      return started;
+    }
+    toWarm.refuse();
+    kill();
+    workersStarted--;
+    return running();
   }
 
   /// The worker first, then the project's test classpath, then what mutastic brings for its tests
