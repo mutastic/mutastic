@@ -81,8 +81,11 @@ or only a flaky one does", and they lower the score until the test is fixed.
 ## Between runs
 
 Each full run keeps its results in `last-run.tsv`, in the module's work directory beside the
-reports (`build/mutastic/`, or `target/mutastic/` for Maven), and the next run compares with it.
-The score line says what changed in between: `same code`, `code changed` or `mutastic changed`.
+reports (`build/mutastic/`, or `target/mutastic/` for Maven), and the next run under the same
+operators compares with it. A score is a share of what its operators make, so runs under other
+operators aren't compared; the last run under each set you use stays in `last-runs/` until you
+come back to it, and the sets you've used least recently go first. The score line says what changed
+in between: `same code`, `code changed` or `mutastic changed`.
 
 With the same code, tests and mutastic, every mutant should be caught or missed exactly as before.
 One that changed result points at the test that caught it, in whichever run it was caught: that

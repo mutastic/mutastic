@@ -35,6 +35,7 @@ jobs:
         with:
           path: |
             build/mutastic/*/last-run.tsv
+            build/mutastic/*/last-runs/*.tsv
             score-history.tsv
           key: mutastic-nightly-${{ github.run_id }}
           restore-keys: mutastic-nightly-

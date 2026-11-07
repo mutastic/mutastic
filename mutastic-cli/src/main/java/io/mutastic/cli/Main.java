@@ -12,6 +12,7 @@ import io.mutastic.api.Status;
 import io.mutastic.engine.Engine;
 import io.mutastic.engine.OperatorSet;
 import io.mutastic.engine.RunRecord;
+import io.mutastic.engine.RunRecords;
 import io.mutastic.report.AgentText;
 import io.mutastic.report.Explanation;
 import io.mutastic.report.HumanText;
@@ -492,12 +493,14 @@ public final class Main {
     return PASSED;
   }
 
-  /// How the last full run of this project went for the mutant `id`, if there was one.
+  /// How the last full run of this project with the mutant `id` went for it, if there was one.
   private static Optional<Explanation.LastRun> lastRun(Prepared prepared, String id) {
-    return RunRecord.read(prepared.work().resolve("last-run.tsv"))
-        .filter(record -> record.isOf(prepared.project()))
-        .flatMap(record -> Optional.ofNullable(record.results().get(id)))
-        .map(entry -> new Explanation.LastRun(entry.status(), entry.caughtBy()));
+    return new RunRecords(prepared.work())
+        .newestFirst().stream()
+            .filter(record -> record.isOf(prepared.project()))
+            .flatMap(record -> Optional.ofNullable(record.results().get(id)).stream())
+            .findFirst()
+            .map(entry -> new Explanation.LastRun(entry.status(), entry.caughtBy()));
   }
 
   /// `ignore`'s own: `--prune` what no longer holds, `--remove` one by id, or else ignore one, for
@@ -913,14 +916,15 @@ public final class Main {
     static final Kept NOTHING = new Kept(Optional.empty(), List.of());
   }
 
-  /// Compares with `last-run.tsv` before replacing it, then writes the report files.
+  /// Compares with the last run under the same operators before keeping this one, then writes the
+  /// report files.
   private static Kept keep(
       Command command, Prepared prepared, Report report, List<Path> otherTests) {
     if (report.scope().isPresent()) {
       // A change's score says nothing about the whole module's: no comparison, no record.
       return new Kept(Optional.empty(), writeReports(command, prepared, report));
     }
-    var lastRun = prepared.work().resolve("last-run.tsv");
+    var records = new RunRecords(prepared.work());
     var record =
         RunRecord.of(
                 prepared.project(),
@@ -930,8 +934,8 @@ public final class Main {
             .under(OperatorSet.active(policy(command, prepared.directory())));
     // Only an earlier run of the same project, in the same place, under the same operators, says
     // anything about this one.
-    var comparison = RunRecord.read(lastRun).filter(record::comparesWith).map(record::against);
-    record.write(lastRun);
+    var comparison = records.comparableTo(record).map(record::against);
+    records.keep(record);
     return new Kept(comparison, writeReports(command, prepared, report));
   }
 

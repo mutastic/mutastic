@@ -35,12 +35,17 @@ class OperatorsTest {
       "run", project.toString(), "--format=jsonl", "--report=none", "--operators=stronger"
     };
 
-    Samples.mutastic("run", project.toString(), "--format=jsonl", "--report=none");
+    String[] defaults = {"run", project.toString(), "--format=jsonl", "--report=none"};
+
+    Samples.mutastic(defaults);
     var anotherSet = Samples.mutastic(stronger);
     var sameSet = Samples.mutastic(stronger);
+    var backToTheFirst = Samples.mutastic(defaults);
 
     assertThat(anotherSet.out()).doesNotContain("previousScore", "changedSinceLastRun");
     assertThat(sameSet.out()).contains("previousScore", "changedSinceLastRun");
+    // The run under the other set in between doesn't cost this one its comparison.
+    assertThat(backToTheFirst.out()).contains("previousScore", "changedSinceLastRun");
   }
 
   @Test

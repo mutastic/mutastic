@@ -97,6 +97,7 @@ public record RunRecord(
     }
   }
 
+  /// The record in `file`, whatever it's of: empty if there's none, or it can't be read.
   public static Optional<RunRecord> read(Path file) {
     if (!Files.isRegularFile(file)) {
       return Optional.empty();
