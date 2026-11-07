@@ -40,6 +40,12 @@ class EndlessStreamTruthTest {
             "throughATypeChange",
             "throughAVariable",
             "aLimitWorkedOut",
+            "aLimitAddedTo",
+            "aLimitFromAnArray",
+            "aLimitFromALength",
+            "aLimitNegated",
+            "aLimitIncremented",
+            "aStageWorkedOutOnBothSides",
             "stagesAfterIt",
             "randomInts",
             "randomIntsInARange",
@@ -99,9 +105,10 @@ class EndlessStreamTruthTest {
                         "endedAfter",
                         "foundAfter",
                         "twoValues",
+                        "aLimitWithABranch",
                         "aParameter")
                     .contains(mutant.methodName()))
-        .hasSize(7)
+        .hasSize(8)
         .allSatisfy(mutant -> assertThat(mutant.skipped()).as(mutant.methodName()).isEmpty());
   }
 

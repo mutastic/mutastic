@@ -81,6 +81,37 @@ class Endless {
     return Stream.iterate(0, n -> fused(n + 1)).limit(a.length()).toList().toString();
   }
 
+  static String aLimitAddedTo(String a, String b) {
+    return Stream.iterate(0, n -> fused(n + 1)).limit(a.length() + 1).toList().toString();
+  }
+
+  static String aLimitFromAnArray(String a, String b) {
+    return Stream.iterate(0, n -> fused(n + 1)).limit(a.getBytes()[0] % 3 + 1L).toList().toString();
+  }
+
+  static String aLimitFromALength(String a, String b) {
+    return Stream.iterate(0, n -> fused(n + 1)).limit(a.split("b").length * 2).toList().toString();
+  }
+
+  static String aLimitNegated(String a, String b) {
+    long down = -3;
+    return Stream.iterate(0, n -> fused(n + 1)).limit(-down).toList().toString();
+  }
+
+  static String aLimitIncremented(String a, String b) {
+    int count = 2;
+    return Stream.iterate(0, n -> fused(n + 1)).limit(count++).toList().toString();
+  }
+
+  static String aStageWorkedOutOnBothSides(String a, String b) {
+    return Stream.iterate(0, n -> fused(n + 1))
+        .skip(a.length() - 1)
+        .limit(a.length() + 1)
+        .skip(a.length() - 2)
+        .toList()
+        .toString();
+  }
+
   static String stagesAfterIt(String a, String b) {
     return Stream.iterate(0, n -> fused(n + 1)).limit(3).map(n -> n * 2).toList().toString();
   }
@@ -233,6 +264,11 @@ class Endless {
     var numbers = Stream.iterate(0, n -> fused(n + 1));
     numbers = numbers.map(n -> n + 1);
     return numbers.limit(2).toList().toString();
+  }
+
+  /// Its two arms can't be counted by walking back along the code.
+  static String aLimitWithABranch(String a, String b) {
+    return Stream.iterate(0, n -> fused(n + 1)).limit(a.isEmpty() ? 1 : 2).toList().toString();
   }
 
   static String aParameter(Stream<Integer> numbers) {

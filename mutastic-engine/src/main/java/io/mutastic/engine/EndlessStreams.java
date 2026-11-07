@@ -3,13 +3,16 @@ package io.mutastic.engine;
 import java.lang.classfile.CodeElement;
 import java.lang.classfile.Instruction;
 import java.lang.classfile.Opcode;
+import java.lang.classfile.instruction.ArrayLoadInstruction;
 import java.lang.classfile.instruction.ConstantInstruction;
 import java.lang.classfile.instruction.ConvertInstruction;
 import java.lang.classfile.instruction.FieldInstruction;
+import java.lang.classfile.instruction.IncrementInstruction;
 import java.lang.classfile.instruction.InvokeDynamicInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.LabelTarget;
 import java.lang.classfile.instruction.LoadInstruction;
+import java.lang.classfile.instruction.OperatorInstruction;
 import java.lang.classfile.instruction.StoreInstruction;
 import java.lang.classfile.instruction.TypeCheckInstruction;
 import java.lang.constant.ConstantDescs;
@@ -25,7 +28,8 @@ import java.util.stream.IntStream;
 ///
 /// Only what's visible counts: anything this doesn't follow, or anything else that ends the stream
 /// (the three-argument `iterate`, `ints(5)`, another `limit`, `takeWhile`, a `findFirst`), and the
-/// mutant stays.
+/// mutant stays. An argument is followed as far as it runs straight: sums, array elements and
+/// calls, but not a `?:`, whose two arms can't be counted by walking back along the code.
 final class EndlessStreams {
   private static final Set<String> STREAMS =
       Set.of(
@@ -80,6 +84,9 @@ final class EndlessStreams {
         case FieldInstruction field when field.opcode() == Opcode.GETFIELD ->
             Optional.of(new Effect(1, 1));
         case ConvertInstruction _, TypeCheckInstruction _ -> Optional.of(new Effect(1, 1));
+        case IncrementInstruction _ -> Optional.of(new Effect(0, 0));
+        case ArrayLoadInstruction _ -> Optional.of(new Effect(2, 1));
+        case OperatorInstruction operator -> Optional.of(new Effect(operandsOf(operator), 1));
         case InvokeDynamicInstruction call ->
             Optional.of(new Effect(call.typeSymbol().parameterCount(), 1));
         case InvokeInstruction call ->
@@ -87,6 +94,13 @@ final class EndlessStreams {
         default -> Optional.empty();
       };
     }
+  }
+
+  private static int operandsOf(OperatorInstruction operator) {
+    return switch (operator.opcode()) {
+      case INEG, LNEG, FNEG, DNEG, ARRAYLENGTH -> 1;
+      default -> 2;
+    };
   }
 
   /// Why `limit` at `code[at]` can't be removed, if it's all that ends its stream.
