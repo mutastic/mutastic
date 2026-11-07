@@ -52,9 +52,12 @@ final class FlakyEvidence {
     return flaky.stream().map(test -> of(test, Optional.ofNullable(failures.get(test)))).toList();
   }
 
-  /// For each of `tests`, found to fail on their own with no mutant in, what they reach.
-  List<FlakyTest> aboutFailingAlone(List<String> tests) {
-    return tests.stream().map(test -> of(test, Optional.empty()).failingAlone()).toList();
+  /// For each test found to fail on its own with no mutant in, by what it failed with, what it
+  /// reaches.
+  List<FlakyTest> aboutFailingAlone(java.util.Map<String, String> failures) {
+    return failures.entrySet().stream()
+        .map(failed -> of(failed.getKey(), Optional.of(failed.getValue())).failingAlone())
+        .toList();
   }
 
   private FlakyTest of(String test, Optional<String> failure) {

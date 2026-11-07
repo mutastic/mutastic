@@ -51,7 +51,8 @@ class LifecycleTest {
                 "constructor"),
             List.of("staticExtensionValue", "staticExtensionThrows"));
     var needs = "com.example.lifecycle.NeedsAnotherTestSiteTest#needsWhatTheLastLeft";
-    // It fails on its own, with no mutant in: so it caught nothing, and covers nothing.
+    // It fails on its own, with no mutant in: so once the mutants have run, what it caught runs
+    // again without it, and it covers nothing.
     assertThat(found)
         .filteredOn(mutant -> mutant.method().startsWith("needsAnotherTest"))
         .hasSize(2)
@@ -117,7 +118,8 @@ class LifecycleTest {
         Samples.mutastic(
             "run", project.toString(), "--format=jsonl", "--workers=2", "--threshold=0");
     var found =
-        run.out()
+        run
+            .out()
             .lines()
             .map(MUTANT::matcher)
             .filter(java.util.regex.Matcher::find)
@@ -128,6 +130,16 @@ class LifecycleTest {
                         match.group("status"),
                         match.group("covered"),
                         match.group("by") == null ? "" : match.group("by")))
+            // A mutant run again once a test that caught it was found to fail on its own is
+            // reported again: its last result is its result.
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    Found::method,
+                    mutant -> mutant,
+                    (first, last) -> last,
+                    java.util.LinkedHashMap::new))
+            .values()
+            .stream()
             .toList();
     var ofSites =
         sites.stream().sorted(Comparator.comparingInt(String::length).reversed()).toList();

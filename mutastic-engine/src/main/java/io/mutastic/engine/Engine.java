@@ -182,22 +182,35 @@ public final class Engine {
   /// The coverage pass, then every mutant, and the flaky tests both found.
   private record Ran(CoveragePass pass, List<MutantResult> results, List<FlakyTest> flaky) {}
 
+  /// Each mutant, then each catch checked on the unmutated code ([FalseCatchGuard]), once the
+  /// workers that ran them have gone with what their tests started (a server on a fixed port).
   private Ran ran(Project project, Plan plan, List<TestWorker> workers, Listener listener) {
     var pass = coveragePass(project, plan, workers.getFirst());
     listener.coverageFinished(pass);
     var results = new SideBySide(plan.mutants(), plan.mutantRun(), workers, listener).runAll();
-    return new Ran(pass, results, flakyBoth(pass, plan.mutantRun(), project));
+    workers.forEach(TestWorker::close);
+    var guarded = guard(plan, workers.getFirst()).check(results, listener);
+    return new Ran(pass, guarded.results(), flakyBoth(pass, plan.mutantRun(), project, guarded));
   }
 
-  /// The flaky tests: those that failed in the coverage pass and passed again, then those found
-  /// failing on their own once they had caught something ([TestsAlone]).
+  /// The flaky tests: those that failed in the coverage pass and passed again, then those that
+  /// caught a mutant and failed on their own with no mutant in, after the mutants.
   private static List<FlakyTest> flakyBoth(
-      CoveragePass pass, MutantRun mutantRun, Project project) {
-    var failingAlone = mutantRun.alone().failing();
+      CoveragePass pass, MutantRun mutantRun, Project project, FalseCatchGuard.Guarded guarded) {
     var aboutThem =
         new FlakyEvidence(mutantRun.coverage(), mutantRun.models(), project)
-            .aboutFailingAlone(failingAlone);
+            .aboutFailingAlone(guarded.failingAlone());
     return Stream.concat(pass.flakyEvidence().stream(), aboutThem.stream()).toList();
+  }
+
+  /// What checks each catch on the unmutated code, once the mutants have run, in a worker like
+  /// `first` but new; a mutant whose catch was false runs again there.
+  private FalseCatchGuard guard(Plan plan, TestWorker first) {
+    var mutantRun = plan.mutantRun();
+    return new FalseCatchGuard(
+        mutantRun.coverage(),
+        () -> first.another(named(log, "unmutated")),
+        (mutant, worker) -> mutantRun.run(mutant, worker).result());
   }
 
   /// A run's mutants and what running them needs, before any test has run.
@@ -276,8 +289,7 @@ public final class Engine {
             options.suggestions(),
             options.auditArid(),
             java.util.Collections.synchronizedList(new ArrayList<>()),
-            project.sources(),
-            new TestsAlone());
+            project.sources());
     return new Plan(mutants, mutantRun, instrumented, found.stale());
   }
 
@@ -517,12 +529,17 @@ public final class Engine {
 
   /// `worker-2.log` beside `worker.log`.
   private static Path numbered(Path log, int number) {
+    return named(log, String.valueOf(number));
+  }
+
+  /// `worker-unmutated.log` beside `worker.log`.
+  private static Path named(Path log, String suffix) {
     var name = log.getFileName().toString();
     int dot = name.lastIndexOf('.');
     return log.resolveSibling(
         dot < 0
-            ? name + "-" + number
-            : name.substring(0, dot) + "-" + number + name.substring(dot));
+            ? name + "-" + suffix
+            : name.substring(0, dot) + "-" + suffix + name.substring(dot));
   }
 
   /// How many times a test that failed the coverage pass is run again on its own before it counts
@@ -563,7 +580,8 @@ public final class Engine {
     return false;
   }
 
-  private static Duration timeoutFor(Duration normal) {
+  /// How long tests that took `normal` in the coverage pass may take in a later run.
+  static Duration timeoutFor(Duration normal) {
     return Duration.ofNanos((long) (normal.toNanos() * TIMEOUT_FACTOR)).plus(TIMEOUT_ALLOWANCE);
   }
 
@@ -611,7 +629,6 @@ public final class Engine {
   /// side. Coverage is only read once the coverage pass is over.
   ///
   /// @param audited each arid mutant's result when run anyway, in an audit
-  /// @param alone the tests that have caught something, and whether they pass with no mutant in
   private record MutantRun(
       Map<String, ClassModel> models,
       Mutations mutations,
@@ -620,8 +637,7 @@ public final class Engine {
       boolean suggestions,
       boolean auditArid,
       List<MutantResult> audited,
-      List<Path> sources,
-      TestsAlone alone) {
+      List<Path> sources) {
     /// At most this many sets of arguments to try per mutant.
     static final int CANDIDATES = 400;
 
@@ -639,22 +655,17 @@ public final class Engine {
         }
         return new Outcome(MutantResult.skipped(mutant), false);
       }
-      var reaching = alone.withoutThoseFailing(coverage.coveringTests(mutant));
-      if (reaching.isEmpty()) {
-        return new Outcome(uncovered(mutant, worker), false);
-      }
-      return tested(mutant, worker, reaching);
-    }
-
-    /// The mutant run against the tests that reach it.
-    private Outcome tested(Mutant mutant, TestWorker worker, List<String> reaching) {
-      var trial = new Trial(worker, mutant, verifiedMutation(mutant), coverage);
-      var tested = testConfirmed(trial, reaching);
-      // Testing it may have found one of them fails with no mutant in: the card shouldn't name it.
-      var covering = alone.withoutThoseFailing(reaching);
+      var covering = coverage.coveringTests(mutant);
       if (covering.isEmpty()) {
         return new Outcome(uncovered(mutant, worker), false);
       }
+      return tested(mutant, worker, covering);
+    }
+
+    /// The mutant run against the tests that reach it.
+    private Outcome tested(Mutant mutant, TestWorker worker, List<String> covering) {
+      var trial = new Trial(worker, mutant, verifiedMutation(mutant), coverage);
+      var tested = testConfirmed(trial, covering);
       var inputs = coverage.inputs(mutant, covering);
       var result = resultOf(trial, covering, tested, inputs);
       if (suggestions && isOnAnInstruction(mutant) && tested.run().status() == Status.MISSED) {
@@ -698,10 +709,6 @@ public final class Engine {
       var catcher = run.failedTest().orElseThrow();
       if (confirmCatches && trial.run(List.of(catcher)).status() == Status.MISSED) {
         return testedAfter(trial, covering, run, Optional.of(catcher));
-      }
-      // Only a catch that stands is checked: one more run for each test, at most.
-      if (alone.fails(catcher, trial.worker(), timeoutFor(coverage.timeOf(catcher)))) {
-        return testedAfter(trial, covering, run, Optional.empty());
       }
       return new Tested(run, Optional.empty());
     }

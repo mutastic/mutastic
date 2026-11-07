@@ -391,6 +391,61 @@ class AgentTextTest {
         .contains("all still pass with the change (PricingTest#b failed once, then passed: flaky)");
   }
 
+  /// What the run and each card say of a test that caught mutants and fails on its own, with what
+  /// it failed with or without: `FalseCatchesTest` checks it's true, on a run that has one.
+  @Test
+  void aTestThatFailsAloneFailsTheRunAndIsNamed() {
+    var missed = result(boundary(0), Status.MISSED).withFalseCatchBy("com.example.PricingTest#b");
+    var notCovered = result(boundary(1), Status.NOT_COVERED);
+    var flaky =
+        List.of(
+            new FlakyTest(
+                    "com.example.PricingTest#b",
+                    List.of("org.opentest4j.AssertionFailedError"),
+                    List.of(),
+                    List.of())
+                .failingAlone(),
+            new FlakyTest("com.example.OtherTest#c", List.of(), List.of(), List.of())
+                .failingAlone());
+    var output =
+        text.render(
+            new Report(
+                "pricing",
+                17,
+                List.of(missed, notCovered),
+                2,
+                flaky.stream().map(FlakyTest::test).toList(),
+                Duration.ofMillis(100),
+                1,
+                1,
+                Duration.ofMillis(300),
+                List.of(),
+                Optional.empty(),
+                List.of(),
+                flaky));
+
+    assertThat(output.lines().findFirst())
+        .hasValueSatisfying(
+            verdict ->
+                assertThat(verdict)
+                    .startsWith(
+                        "mutastic: FAIL (a test that caught mutants fails on its own, with no"
+                            + " mutant in) · "));
+    assertThat(output)
+        .contains(
+            "flaky: PricingTest#b passes among the others but fails on its own, with no mutant in"
+                + " (run again after the mutants, it failed with AssertionFailedError): it counts"
+                + " on something another test or the run sets up or leaves behind.",
+            "flaky: OtherTest#c passes among the others but fails on its own, with no mutant in"
+                + " (run again after the mutants, it failed):",
+            "`--exclude-tests=PricingTest`",
+            "the run can't pass until it passes on its own",
+            "all still pass with the change (PricingTest#b failed against it, but fails on its own"
+                + " with no mutant in too: that catch doesn't count)",
+            "no test reaches these lines, or only a flaky one does");
+    assertThat(AgentText.failingAlone(report(List.of(), List.of(), List.of()))).isEmpty();
+  }
+
   private String render(MutantResult result) {
     return text.render(report(List.of(result), List.of(), List.of()), Optional.empty(), true);
   }

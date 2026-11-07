@@ -59,7 +59,7 @@ public final class AgentText {
   /// @param oneMutant the run was one mutant asked for by id: its fate is the verdict, not a score
   public String render(Report report, Optional<Comparison> comparison, boolean oneMutant) {
     if (oneMutant && !report.results().isEmpty()) {
-      return oneMutant(report.results().getFirst());
+      return oneMutant(report.results().getFirst()) + failingAlone(report);
     }
     var missed =
         report.results().stream().filter(result -> result.status() == Status.MISSED).toList();
@@ -140,7 +140,7 @@ public final class AgentText {
     out.append(
         "mutastic: %s · score %s (threshold %d%s) · %d %s, %d %s, %d %s of %d mutants%s%n"
             .formatted(
-                report.passes(threshold) ? "PASS" : "FAIL",
+                verdict(report),
                 report.score().isPresent() ? percent(report.score()) : "none (no mutants to score)",
                 threshold,
                 notCovered == 0 || report.coveredScore().isEmpty()
@@ -154,6 +154,39 @@ public final class AgentText {
                 words.detected,
                 report.scored(),
                 skipped == 0 ? "" : " (%d more skipped)".formatted(skipped)));
+  }
+
+  /// `PASS`, `FAIL`, or why it failed when the score isn't why.
+  private String verdict(Report report) {
+    if (report.passes(threshold)) {
+      return "PASS";
+    }
+    return report.failingAlone().isEmpty()
+        ? "FAIL"
+        : "FAIL (a test that caught mutants fails on its own, with no mutant in)";
+  }
+
+  /// A line for each test that caught mutants and fails on its own, saying what to do: for `verify`
+  /// and the gate, as for a run.
+  public static String failingAlone(Report report) {
+    return report.failingAlone().stream()
+        .map(AgentText::failingAloneLine)
+        .collect(Collectors.joining());
+  }
+
+  /// A test that caught mutants, then failed on its own with no mutant in, run again after them: it
+  /// passed among the others, so it counts on what something else sets up or leaves behind.
+  private static String failingAloneLine(FlakyTest why) {
+    return ("flaky: %s passes among the others but fails on its own, with no mutant in (run again"
+            + " after the mutants, it failed%s): it counts on something another test or the run"
+            + " sets up or leaves behind. It's left out, so its catches don't count: the mutants it"
+            + " reached ran again without it, and the run can't pass until it passes on its own."
+            + " Make it set up what it needs and clean up what it leaves, or run without it with"
+            + " `--exclude-tests=%s`. Never remove, disable or loosen it to get a run through%n")
+        .formatted(
+            shortName(why.test()),
+            why.failedWith().map(" with %s"::formatted).orElse(""),
+            testClass(why.test()));
   }
 
   /// Decisions the code has outgrown: say so, since the mutants they covered ran.
@@ -178,8 +211,7 @@ public final class AgentText {
       var why = report.whyFlaky(test);
       out.append(
           why.filter(FlakyTest::failsAlone).isPresent()
-              ? "flaky: %s passes among the others but fails on its own, with no mutant in: it counts on what another test leaves behind. Left out once that was found, so its catches don't count; make it set up what it needs. Never remove, disable or loosen it to get a run through%n"
-                  .formatted(shortName(test))
+              ? failingAloneLine(why.get())
               : "flaky: %s failed, then passed when run again; left out of this run, so its catches don't count. %s Never remove, disable or loosen it to get a run through%n"
                   .formatted(shortName(test), flakyAdvice(test, why)));
     }
@@ -348,13 +380,20 @@ public final class AgentText {
   }
 
   private static String coveredBy(MutantResult result) {
-    return "   %s; all still pass with the change%s"
+    return "   %s; all still pass with the change%s%s"
         .formatted(
             testsRun(result, ": "),
             result
                 .unconfirmed()
                 .map(test -> " (%s failed once, then passed: flaky)".formatted(shortName(test)))
-                .orElse(""));
+                .orElse(""),
+            result.falseCatchBy().map(test -> " (%s)".formatted(falseCatch(test))).orElse(""));
+  }
+
+  /// What a mutant's card says of the test whose catch of it was false.
+  static String falseCatch(String test) {
+    return "%s failed against it, but fails on its own with no mutant in too: that catch doesn't count"
+        .formatted(shortName(test));
   }
 
   /// Which tests a mutant ran against: `covered by: A, B`, or every test, for a change coverage

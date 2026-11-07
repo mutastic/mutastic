@@ -1,5 +1,5 @@
  [33m! flaky:[0m StockTest#aSaleReducesStock failed, then passed when run again; left out of this run
- [33m! likely flaky:[0m StockTest#restockingWorks; with the code unchanged, whether it catches m4b6a65ac, mb3b4bcf9 changed since the last run
+ [33m! likely flaky:[0m StockTest#restockingWorks; with the code unchanged, whether it catches m4b6a65ac changed since the last run
  [33m! likely flaky:[0m StockTest#restockingWorks; its catches of m4b6a65ac, mb3b4bcf9 didn't repeat when run again
 
  [2m  Classes[0m  [32m[1m0 clean[0m[0m[2m | [0m[1;31m[1m1 with misses[0m[0m[2m (1)[0m
@@ -7,11 +7,11 @@
  [2m Worst at[0m  Stock.restock() 2 ✗
  [2m    Flaky[0m  1 test left out
  [2mTest runs[0m  7[2m (14 without coverage selection)[0m
- [2m Start at[0m  07:23:51
- [2m Duration[0m  850ms [2m(setup 430ms, coverage 241ms, mutants 178ms)[0m
+ [2m Start at[0m  15:11:54
+ [2m Duration[0m  2.3s [2m(setup 635ms, coverage 344ms, mutants 1.3s)[0m
  [2m    Tests[0m  2 on JDK 17 · 1 worker
  [2m  Reports[0m  build/mutastic/mutation.json[2m · [0mbuild/mutastic/mutation.html
- [2m    Score[0m  [1;31m[1m55.6%[0m[0m  [1;31m▼ 22.2 vs last run[0m[2m (same code)[0m[2m  threshold 80[0m[2m  · 71.4% where tests reach[0m
+ [2m    Score[0m  [1;31m[1m55.6%[0m[0m  [1;31m▼ 11.1 vs last run[0m[2m (same code)[0m[2m  threshold 80[0m[2m  · 71.4% where tests reach[0m
 
  [41;30;1m FAIL [0m [1;31mScore below 80: 2 missed, 2 not covered.[0m
 [2m Next: mutastic verify <id> samples/flaky · mutastic run --only=<id> samples/flaky · mutastic explain <id> samples/flaky[0m

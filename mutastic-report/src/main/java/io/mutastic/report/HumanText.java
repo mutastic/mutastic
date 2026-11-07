@@ -451,6 +451,7 @@ public final class HumanText {
     if (!result.coveredBy().isEmpty()) {
       notes.add(AgentText.testsRun(result, " "));
     }
+    result.falseCatchBy().ifPresent(test -> notes.add(AgentText.falseCatch(test)));
     return notes;
   }
 
@@ -570,6 +571,7 @@ public final class HumanText {
                     test ->
                         "; %s failed once, then passed: flaky".formatted(AgentText.shortName(test)))
                 .orElse(""));
+    result.falseCatchBy().ifPresent(test -> notes.add(AgentText.falseCatch(test)));
     return notes;
   }
 
@@ -762,8 +764,13 @@ public final class HumanText {
 
   private String flakyWarning(String test, Optional<io.mutastic.api.FlakyTest> why) {
     if (why.filter(io.mutastic.api.FlakyTest::failsAlone).isPresent()) {
-      return " %s %s passes among the others but fails on its own, with no mutant in; its catches don't count"
-          .formatted(style.amber("! flaky:"), AgentText.shortName(test));
+      return (" %s %s passes among the others but fails on its own, with no mutant in (run again"
+              + " after the mutants, it failed%s); its catches don't count, the mutants it reached"
+              + " ran again without it, and the run can't pass until it passes on its own")
+          .formatted(
+              style.red("! flaky:"),
+              AgentText.shortName(test),
+              why.get().failedWith().map(" with %s"::formatted).orElse(""));
     }
     return " %s %s failed, then passed when run again; left out of this run%s"
         .formatted(style.amber("! flaky:"), AgentText.shortName(test), flakyReason(why));
@@ -1002,6 +1009,9 @@ public final class HumanText {
               style.label("PASS", Style.GREEN),
               style.dim("Nothing to measure: no mutants to score."));
     }
+    if (!report.failingAlone().isEmpty()) {
+      return failedAlone();
+    }
     if (report.passes(threshold)) {
       return " %s %s%n"
           .formatted(
@@ -1012,6 +1022,16 @@ public final class HumanText {
                       : "%d %s, above the threshold.".formatted(missed, words.undetected)));
     }
     return failed(missed, report.count(Status.NOT_COVERED));
+  }
+
+  /// FAIL, whatever the score: a test that caught mutants fails on its own.
+  private String failedAlone() {
+    return " %s %s%n"
+        .formatted(
+            style.label("FAIL", Style.RED),
+            style.red(
+                "A test that caught mutants fails on its own, with no mutant in, so its catches"
+                    + " don't count: see the flaky tests above."));
   }
 
   private String failed(long missed, long notCovered) {

@@ -70,6 +70,12 @@ final class TestWorker implements AutoCloseable {
     this.toWarm = toWarm;
   }
 
+  /// A worker for the same project, not yet started, that writes its tests' output to `log` and
+  /// warms the same classes when it starts.
+  TestWorker another(Path log) {
+    return new TestWorker(project, workerJar, log, toWarm);
+  }
+
   /// The tests' result with every class in `instrumented` swapped for its instrumented copy.
   ///
   /// @param failures each failing test's exception and its causes, `a.B>c.D`
@@ -166,7 +172,12 @@ final class TestWorker implements AutoCloseable {
       return new Run(Status.TIMED_OUT, tests.size());
     }
     replaceIfAged();
-    var parts = answer.get().split("\t", -1);
+    return parsed(answer.get());
+  }
+
+  /// `RESULT PASSED <ran>` or `RESULT FAILED <ran> <test> <exception> <origin> <port-clash or ->`.
+  private static Run parsed(String answer) {
+    var parts = answer.split("\t", -1);
     return switch (parts[1]) {
       case "PASSED" -> new Run(Status.MISSED, Integer.parseInt(parts[2]));
       case "FAILED" ->
@@ -177,8 +188,24 @@ final class TestWorker implements AutoCloseable {
               Optional.of(parts[5]),
               Integer.parseInt(parts[2]),
               parts[6].equals("port-clash"));
-      default -> throw new IllegalStateException("the worker said: " + answer.get());
+      default -> throw new IllegalStateException("the worker said: " + answer);
     };
+  }
+
+  /// How `test` fares on its own with no mutant in, within `timeout`: missed if it passes, caught
+  /// with what it failed with if it fails, timed out if it doesn't finish. Empty if no test ran for
+  /// it, as for a selector that matches nothing.
+  Optional<Run> unmutated(String test, Duration timeout) {
+    send("RUN\t" + test);
+    var answer = await(timeout);
+    if (answer.isEmpty()) {
+      kill();
+      return Optional.of(new Run(Status.TIMED_OUT, 1));
+    }
+    replaceIfAged();
+    return answer.get().startsWith("RESULT\tERROR")
+        ? Optional.empty()
+        : Optional.of(parsed(answer.get()));
   }
 
   /// The first of `candidates` (one value per constructor parameter of `receiver`, then per method
@@ -249,19 +276,6 @@ final class TestWorker implements AutoCloseable {
       workersStarted--;
     }
     aged = false;
-  }
-
-  /// Whether `test` fails on its own with no mutant in. Not when it runs out of time, which load
-  /// can do, or a port in use, which another worker can.
-  boolean failsAlone(String test, Duration timeout) {
-    send("RUN\t" + test);
-    var answer = await(timeout);
-    if (answer.isEmpty()) {
-      kill();
-      return false;
-    }
-    replaceIfAged();
-    return answer.get().startsWith("RESULT\tFAILED") && !answer.get().endsWith("\tport-clash");
   }
 
   /// How many worker JVMs have started: one, plus one after each kill.

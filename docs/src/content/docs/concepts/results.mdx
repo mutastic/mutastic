@@ -42,9 +42,8 @@ mutant that makes setup throw or teardown fail an assertion is caught by that te
 that changes what setup gives the test.
 
 A test that passes among the others but fails on its own, because it counts on what another test
-left behind, would fail against every mutant it met. So the first time a test catches a mutant,
-mutastic runs it on its own with no mutant in. If it fails, it has caught nothing, then or after,
-and the run names it as [flaky](/concepts/flaky-tests/).
+left behind, would fail against every mutant it met: see
+[When a catch isn't the mutant's](#when-a-catch-isnt-the-mutants).
 
 ## The score
 
@@ -63,6 +62,34 @@ reach (`74.1% where tests reach`, and `coveredScore` in `--format=jsonl`): how w
 what they run, apart from what they don't. The threshold is always on the whole score. The code no
 test reaches is listed once per method, with the lines its mutants are on, since one test that calls
 the method reaches them all; `--each-mutant` lists each line.
+
+## When a catch isn't the mutant's
+
+A catch only counts if the mutant made the test fail. So once every mutant has its result, each
+test that caught one runs again, once, on your code as it is, with no mutant in: on its own, in a
+new worker, after the mutants. A test that fails there didn't need a mutant to fail. It passed when the whole suite
+ran first, so it likely depends on something another test or the run sets up or leaves behind: a
+static another test sets, a file in the build directory, a database row. A test that runs out of
+time there, or fails on a port in use, isn't counted: load or another process can do that.
+
+Its catches don't count. It's left out, as a [flaky test](/concepts/flaky-tests/) is, and each
+mutant it reached runs again without it: the other tests that reach the mutant decide whether it's
+caught or missed, and if none does, it's not covered. The mutant keeps its id, and its card says
+which test's catch didn't count (`… fails on its own with no mutant in too: that catch doesn't
+count`).
+
+The run doesn't pass while such a test is there, whatever the score, and exits with status 3, as
+for tests that fail before any mutant: see [Troubleshooting](/guides/troubleshooting/). `verify`
+and `gate check` check their catches the same way, so neither passes on a false catch.
+
+The output names each test as [flaky](/concepts/flaky-tests/#a-test-that-fails-on-its-own), as
+one that `passes among the others but fails on its own`, with what it failed with, and says the run
+can't pass until it does. In `--format=jsonl`, the `run-finished` event lists it in `flaky`, and its
+entry in `flakyEvidence` has `"failsAlone": true`; each mutant run again is sent again as a `mutant-revised`
+event with its final result, which replaces its `mutant-finished` one, and one whose catch didn't
+count names the test as `falseCatchBy`.
+
+When every catch holds, nothing changes but the time: one run of each test that caught something.
 
 ## Skipped mutants
 

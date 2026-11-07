@@ -14,4 +14,8 @@ public interface Listener {
   /// Every mutant in one source file's classes has its result: a top-level class and the classes
   /// nested in it, in the order found. Comes after their `mutantFinished` calls.
   default void fileFinished(String topLevelClass, List<MutantResult> results) {}
+
+  /// A mutant's result once its catch was found false (`falseCatchBy`): what the other covering
+  /// tests made of it, after every mutant had its first result.
+  default void mutantRevised(MutantResult result) {}
 }

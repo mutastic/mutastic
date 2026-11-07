@@ -15,8 +15,9 @@ import java.util.List;
 /// @param reachesInTest the same, in the test's own class: its set-up, a stand-in it starts. A test
 ///   whose own code varies makes its own flakiness, even when it fails on the network: a stand-in
 ///   feed with a random delay times out by the test's doing, not the network's.
-/// @param failsAlone it passed among the others, and failed on its own with no mutant in: it counts
-///   on something another test leaves behind, so its failing says nothing about a mutant
+/// @param failsAlone it passed among the others, caught mutants, and failed on its own with no
+///   mutant in when run again after them: it counts on something another test or the run sets up or
+///   leaves behind, so its catches say nothing about a mutant, and the run doesn't pass
 public record FlakyTest(
     String test,
     List<String> failure,

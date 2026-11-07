@@ -40,6 +40,16 @@ public final class JsonEvents {
   }
 
   public void mutantFinished(MutantResult result) {
+    emit("mutant-finished", mutantFields(result));
+  }
+
+  /// A mutant's result again, once its catch was found false: what the other covering tests made of
+  /// it, with `falseCatchBy` naming the test. It replaces the mutant's `mutant-finished`.
+  public void mutantRevised(MutantResult result) {
+    emit("mutant-revised", mutantFields(result));
+  }
+
+  private Map<String, Object> mutantFields(MutantResult result) {
     var mutant = result.mutant();
     var fields = new LinkedHashMap<String, Object>();
     fields.put("id", mutant.id());
@@ -61,7 +71,7 @@ public final class JsonEvents {
     if (result.status() == Status.MISSED) {
       putMissedHelp(fields, result);
     }
-    emit("mutant-finished", fields);
+    return fields;
   }
 
   private Map<String, Object> location(io.mutastic.api.Mutant mutant) {
@@ -95,6 +105,7 @@ public final class JsonEvents {
     result.failure().ifPresent(failure -> fields.put("killedWith", failure));
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
     result.unconfirmed().ifPresent(test -> fields.put("unconfirmedCatchBy", test));
+    result.falseCatchBy().ifPresent(test -> fields.put("falseCatchBy", test));
   }
 
   private static Map<String, Object> suggestedTest(SuggestedTest test, MutantResult result) {

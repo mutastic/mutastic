@@ -20,6 +20,9 @@ is a choice. Whatever it finds, it names the test, so you know what to fix.
 | [Between runs](#between-runs) | Each full run after the first, with the same code | Nothing |
 | [Confirming catches](#confirming-catches) | With `--confirm-catches` | One more test run per catch |
 
+A test that passes among the others but fails on its own is found after the mutants: see
+[A test that fails on its own](#a-test-that-fails-on-its-own).
+
 ## What you'll see
 
 The `flaky` sample in mutastic's repository has two flaky tests on purpose. On its second run,
@@ -31,7 +34,7 @@ with `--confirm-catches`, the end of the output has every warning:
   and the `Flaky` row counts it.
 - `! likely flaky:` names a test whose catches can't be trusted: once because a mutant's result
   changed since the last run with the code unchanged, once because its catches didn't repeat.
-- The score fell by 22.2 points with the code unchanged (`same code`). That drop is the flaky
+- The score fell by 11.1 points with the code unchanged (`same code`). That drop is the flaky
   test's luck running out, not a change in the tests.
 
 ## Before any mutant
@@ -100,9 +103,14 @@ nothing about the others, and a run of a change (`--since`) has a different scor
 A test that passes among the others but fails when run on its own, with no mutant in, counts on
 something another test leaves behind, such as a field one test sets and the next reads. mutastic
 runs each test on its own against a mutant, so that test would fail against every mutant it met.
-The first time a test catches a mutant, mutastic runs it once on its own with no mutant in, at no
-cost to tests that never catch one. One that fails is named (`! flaky: … passes among the others
-but fails on its own`), and none of its catches count. Make it set up what it needs itself.
+So once the mutants have run, each test that caught one runs again, once, on its own with no
+mutant in, in a new worker, at no cost to tests that never catch one. Running after the mutants
+also finds a test that trips on what the run itself left behind, a file in the build directory or
+a database row. One that fails is named (`! flaky: … passes among the others but fails on its
+own`), none of its catches count, and the mutants it reached run again without it. Unlike the
+other flaky tests, it fails the run, with exit status 3, until it passes on its own: see
+[When a catch isn't the mutant's](/concepts/results/#when-a-catch-isnt-the-mutants). Make it set up
+what it needs itself.
 
 ## Confirming catches
 

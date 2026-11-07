@@ -52,7 +52,10 @@ final class Help {
               "The score is below the threshold; for verify, the mutant is still missed; for gate"
                   + " check, the task isn't done"),
           new Entry("2", "A usage error, or a build mutastic couldn't read"),
-          new Entry("3", "The tests fail without any mutant"),
+          new Entry(
+              "3",
+              "The tests fail without any mutant: before the mutants run, or, for a test that"
+                  + " caught one, when run again on its own after them"),
           new Entry("4", "mutastic itself went wrong"));
 
   static final List<Entry> ENVIRONMENT =

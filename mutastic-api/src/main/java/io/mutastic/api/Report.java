@@ -9,8 +9,9 @@ import org.jspecify.annotations.Nullable;
 /// A finished run: every mutant's result, in the order they were found.
 ///
 /// @param jdk the feature version the tests ran on
-/// @param flaky tests that failed in the coverage pass and passed when run again: left out of every
-///   mutant's run, so their catches don't count
+/// @param flaky tests that failed in the coverage pass and passed when run again, and tests that
+///   caught mutants and then failed on their own with no mutant in: left out, so their catches
+///   don't count
 /// @param coverage how long the coverage pass took, of `took`
 /// @param workers how many workers ran side by side
 /// @param started how many worker JVMs started: one per worker, plus one after each kill
@@ -179,8 +180,17 @@ public record Report(
     return reached == 0 ? OptionalDouble.empty() : OptionalDouble.of(100.0 * detected / reached);
   }
 
-  /// At or above `threshold`, or nothing to score: with no mutants there is nothing to fail.
+  /// At or above `threshold`, or nothing to score: with no mutants there is nothing to fail. Never
+  /// with a test that caught mutants and fails on its own with no mutant in: the tests aren't
+  /// sound, and a score made with them isn't trusted to pass.
   public boolean passes(int threshold) {
-    return score().orElse(100) >= threshold;
+    return failingAlone().isEmpty() && score().orElse(100) >= threshold;
+  }
+
+  /// The flaky tests that caught mutants, then failed on their own with no mutant in, run again
+  /// after the mutants: their catches weren't the mutants', and while there are any the run doesn't
+  /// pass.
+  public List<FlakyTest> failingAlone() {
+    return flakyEvidence.stream().filter(FlakyTest::failsAlone).toList();
   }
 }

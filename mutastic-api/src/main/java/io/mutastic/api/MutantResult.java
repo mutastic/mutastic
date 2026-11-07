@@ -16,6 +16,9 @@ import java.util.Optional;
 /// @param inputs the whole numbers the covering tests passed to the mutant's method, by parameter
 ///   name: what the tests tried, so what they didn't is plain
 /// @param suggestion a call whose result the mutant changes, for a missed mutant, if one was found
+/// @param falseCatchBy a test that failed against the mutant, then failed on the unmutated code too
+///   when run again after the mutants, so its catch wasn't the mutant's: the mutant ran again
+///   without it, and this result is what the other covering tests made of it
 public record MutantResult(
     Mutant mutant,
     Status status,
@@ -27,11 +30,40 @@ public record MutantResult(
     Optional<String> unconfirmed,
     java.util.Map<String, List<Long>> inputs,
     Optional<Suggestion> suggestion,
-    Duration took) {
+    Duration took,
+    Optional<String> falseCatchBy) {
 
   public MutantResult {
     coveredBy = List.copyOf(coveredBy);
     inputs = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(inputs));
+  }
+
+  /// A result whose catch, if it has one, stands.
+  public MutantResult(
+      Mutant mutant,
+      Status status,
+      List<String> coveredBy,
+      Optional<String> caughtBy,
+      Optional<String> failure,
+      Optional<String> failureOrigin,
+      int testsRun,
+      Optional<String> unconfirmed,
+      java.util.Map<String, List<Long>> inputs,
+      Optional<Suggestion> suggestion,
+      Duration took) {
+    this(
+        mutant,
+        status,
+        coveredBy,
+        caughtBy,
+        failure,
+        failureOrigin,
+        testsRun,
+        unconfirmed,
+        inputs,
+        suggestion,
+        took,
+        Optional.empty());
   }
 
   public static MutantResult notCovered(Mutant mutant) {
@@ -79,7 +111,8 @@ public record MutantResult(
         unconfirmed,
         inputs,
         suggestion,
-        took);
+        took,
+        falseCatchBy);
   }
 
   /// The same result with a suggested test.
@@ -95,6 +128,24 @@ public record MutantResult(
         unconfirmed,
         inputs,
         found,
-        took);
+        took,
+        falseCatchBy);
+  }
+
+  /// The same result, its catch by `test` found false: the mutant's result without that test.
+  public MutantResult withFalseCatchBy(String test) {
+    return new MutantResult(
+        mutant,
+        status,
+        coveredBy,
+        caughtBy,
+        failure,
+        failureOrigin,
+        testsRun,
+        unconfirmed,
+        inputs,
+        suggestion,
+        took,
+        Optional.of(test));
   }
 }

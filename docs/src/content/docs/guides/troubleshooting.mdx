@@ -37,6 +37,29 @@ task's JVM arguments (`-Djava.io.tmpdir=...`), and mutastic uses that instead.
 A process a test starts and leaves running ends with its worker too. One that has detached itself,
 as a Gradle daemon or a container under Docker's own daemon has, is left alone.
 
+### A test that caught mutants fails on the unmutated code
+
+Once the mutants have run, each test that caught one runs again on the code as it is, on its own,
+in a new worker. One that fails there is named as flaky, as a test that `passes among the others
+but fails on its own`: its catches don't count, the mutants it reached ran again without it, and
+the run exits with 3, whatever the score. See [When a catch isn't the mutant's](/concepts/results/#when-a-catch-isnt-the-mutants).
+
+The test passed when the whole suite ran, so it most likely depends on something it doesn't set up
+itself:
+
+- **Another test's set-up.** It reads a static, a system property or a singleton another test
+  fills in, and only passes when that test runs first. Run it on its own in your IDE: it fails
+  there too. Make it set up what it needs.
+- **Something left behind.** It expects a file, a directory or a database to be empty, and an
+  earlier test, or an earlier run of itself, left something there. Clean up after the test that
+  writes it, or give each test a place of its own (JUnit's `@TempDir`).
+
+Fix the test rather than what it checks: loosening the assertion makes its catches count again
+without making them true. If a test class can't be made to run on its own yet, leave it out with
+[`--exclude-tests`](/reference/run/#exclude-tests): the run then passes or fails on the other
+tests, and the lines only it reached count as not covered. There's no switch to count its catches
+anyway: they're known to be false.
+
 ## 4: mutastic itself went wrong
 
 That's a bug in mutastic. Please [open an issue](https://github.com/mutastic/mutastic/issues) with

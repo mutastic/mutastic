@@ -52,7 +52,8 @@ public final class Main {
   /// A usage error, or a build mutastic couldn't read.
   static final int USAGE = 2;
 
-  /// The tests fail without any mutant.
+  /// The tests fail without any mutant: before the mutants, or a test that caught one, run again
+  /// after them.
   static final int TESTS_FAIL = 3;
 
   /// mutastic itself went wrong.
@@ -156,7 +157,12 @@ public final class Main {
     }
     var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
-    return verified(report.results(), out);
+    int exit = verified(report.results(), out);
+    if (report.failingAlone().isEmpty()) {
+      return exit;
+    }
+    out.print(AgentText.failingAlone(report));
+    return TESTS_FAIL;
   }
 
   /// `ignore`: records, proposes, accepts or removes a decision; runs no tests.
@@ -376,6 +382,13 @@ public final class Main {
     } catch (Engine.BaselineFailed e) {
       return Gate.Verdict.block(red(gated, state, e));
     }
+    return report.failingAlone().isEmpty()
+        ? missedVerdict(gated, report)
+        : Gate.Verdict.block(falseCaught(report));
+  }
+
+  /// Done when each mutant on the changed lines is caught, or proposed for a person to ignore.
+  private static Gate.Verdict missedVerdict(Gated gated, Report report) {
     var proposed = proposedIds(gated.prepared().directory());
     var missed = missedIds(report);
     var open = missed.stream().filter(id -> !proposed.contains(id)).toList();
@@ -391,6 +404,14 @@ public final class Main {
                 open.size() == 1 ? "" : "s",
                 open.size() == 1 ? "is" : "are",
                 cards(gated, report)));
+  }
+
+  /// Tests that caught mutants and then failed on their own with no mutant in: their catches don't
+  /// count, and the task isn't done while they do.
+  private static String falseCaught(Report report) {
+    return "mutastic gate: a test that caught mutants on the lines the task changed fails on its"
+        + " own, with no mutant in, so its catches don't count and the task isn't done.%n%n%s"
+            .formatted(AgentText.failingAlone(report).strip());
   }
 
   /// Tests that fail before any mutant. One that was there when the task started is most likely
@@ -926,6 +947,11 @@ public final class Main {
       public void fileFinished(String topLevelClass, List<MutantResult> results) {
         progress.fileFinished(topLevelClass, results);
       }
+
+      @Override
+      public void mutantRevised(MutantResult result) {
+        events.mutantRevised(result);
+      }
     };
   }
 
@@ -976,6 +1002,9 @@ public final class Main {
   }
 
   private static int exitCode(Command command, Report report) {
+    if (!report.failingAlone().isEmpty()) {
+      return TESTS_FAIL; // a test fails on the unmutated code, as before any mutant
+    }
     // One mutant asked for by id passes when it's caught or skipped, as `verify` does; a whole
     // run, on its score.
     if (!command.only().isEmpty()) {

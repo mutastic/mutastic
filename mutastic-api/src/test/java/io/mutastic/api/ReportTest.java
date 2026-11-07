@@ -54,6 +54,42 @@ class ReportTest {
     assertThat(report.passes(100)).isTrue();
   }
 
+  /// A test that caught mutants and fails on its own fails the run, whatever the score, where a
+  /// test that was only flaky before any mutant doesn't; and merging another module's run keeps it.
+  @Test
+  void aTestThatFailsAloneFailsTheRunAndSurvivesAMerge() {
+    var healthy = report(Status.CAUGHT, Status.CAUGHT);
+    var alone =
+        new FlakyTest("com.example.PricingTest#a", List.of(), List.of(), List.of()).failingAlone();
+    var flaky = new FlakyTest("com.example.PricingTest#b", List.of(), List.of(), List.of());
+    var failing = withFlaky(healthy, alone, flaky);
+
+    assertThat(withFlaky(healthy, flaky).passes(100)).isTrue();
+    assertThat(failing.score()).hasValue(100.0);
+    assertThat(failing.passes(0)).isFalse();
+    assertThat(failing.failingAlone()).containsExactly(alone);
+    assertThat(healthy.merge(failing).failingAlone()).containsExactly(alone);
+    assertThat(failing.merge(healthy).passes(0)).isFalse();
+  }
+
+  private static Report withFlaky(Report report, FlakyTest... flaky) {
+    var evidence = List.of(flaky);
+    return new Report(
+        report.project(),
+        report.jdk(),
+        report.results(),
+        report.tests(),
+        evidence.stream().map(FlakyTest::test).toList(),
+        report.coverage(),
+        report.workers(),
+        report.started(),
+        report.took(),
+        report.audited(),
+        report.scope(),
+        report.staleIgnores(),
+        evidence);
+  }
+
   @Test
   void replacedWorkersAreTheExtraStarts() {
     var report =

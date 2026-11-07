@@ -445,7 +445,7 @@
     { "name": "0", "meaning": "The score reaches the threshold; for verify, the mutant is caught or skipped; for gate check, the task is done", "detail": "" },
     { "name": "1", "meaning": "The score is below the threshold; for verify, the mutant is still missed; for gate check, the task isn't done", "detail": "" },
     { "name": "2", "meaning": "A usage error, or a build mutastic couldn't read", "detail": "" },
-    { "name": "3", "meaning": "The tests fail without any mutant", "detail": "" },
+    { "name": "3", "meaning": "The tests fail without any mutant: before the mutants run, or, for a test that caught one, when run again on its own after them", "detail": "" },
     { "name": "4", "meaning": "mutastic itself went wrong", "detail": "" }
   ]
 }
