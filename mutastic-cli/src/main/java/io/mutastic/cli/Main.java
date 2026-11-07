@@ -223,10 +223,17 @@ public final class Main {
         .out()
         .printf(
             "mutastic gate: this task is gated from %s: before you finish, check the lines it"
-                + " changes with `mutastic run --since=%s --format=agent`; `mutastic gate check`"
-                + " says when it's done%n",
-            base.substring(0, Math.min(7, base.length())), base);
+                + " changes with `mutastic run --since=%s --format=agent`; %s%n",
+            base.substring(0, Math.min(7, base.length())), base, whenItsDone(gated));
     return PASSED;
+  }
+
+  /// A hook checks the task when the agent finishes, so the agent isn't asked to check it too: a
+  /// check of its own would run the same mutants twice.
+  private static String whenItsDone(Gated gated) {
+    return gated.hooked()
+        ? "the gate checks them when you finish, so you needn't run `mutastic gate check` yourself"
+        : "`mutastic gate check` says when it's done";
   }
 
   /// Whether a task is open already for this session.

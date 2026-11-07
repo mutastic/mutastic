@@ -55,7 +55,10 @@ class GateTest {
     aDiscountForOrdersOverFifty();
     var gap = mutastic("gate", "check", project.toString());
 
-    assertThat(opened.out()).contains("this task is gated from").contains("--format=agent");
+    assertThat(opened.out())
+        .contains("this task is gated from")
+        .contains("--format=agent")
+        .contains("`mutastic gate check` says when it's done");
     assertThat(unchanged.exit()).isEqualTo(Main.PASSED);
     assertThat(unchanged.out()).contains("passed: the task changed no lines mutastic mutates");
     assertThat(gap.exit()).isEqualTo(Main.FAILED);
@@ -112,7 +115,10 @@ class GateTest {
     mutastic("gate", "close", project.toString());
     var closed = hooked("{\"session_id\":\"s1\"}", "gate", "check", "--hook=claude");
 
-    assertThat(first.out()).contains("this task is gated from");
+    assertThat(first.out())
+        .contains("this task is gated from")
+        .contains("the gate checks them when you finish") // so the agent doesn't check twice
+        .doesNotContain("says when it's done");
     assertThat(again.out()).isEmpty();
     assertThat(blocked.exit()).isEqualTo(Main.PASSED);
     assertThat(blocked.out()).startsWith("{\"decision\": \"block\", \"reason\": \"mutastic gate: ");

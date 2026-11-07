@@ -31,12 +31,20 @@ turn it on and off. Then start a new session.
 
 ## Trusting its hooks
 
-Codex runs a plugin's hooks only once you've reviewed and trusted them. In Codex, run `/hooks`, and
-trust mutastic's two: `gate open` on a prompt and `gate check` on stop. Until you do, the skill works
-but nothing is gated, and Codex doesn't say so.
+Codex runs a plugin's hooks only once you've reviewed and trusted them. In Codex, run `/hooks`. Under
+`UserPromptSubmit` and `Stop` you'll find mutastic's two, from `Plugin - mutastic@tasticlabs`:
 
-Codex trusts a hook as it is, and an update changes it, so trust them again after each update. `codex
-exec` can't trust a hook: trust them once in Codex first, and `codex exec` runs them from then on.
+- **mutastic gate: noting where the task starts,** which runs the plugin's `scripts/gate open`;
+- **mutastic gate: checking the tests catch the mutants on the changed lines,** which runs
+  `scripts/gate check`.
+
+Each shows the command it runs, from the plugin's directory in `~/.codex/plugins/cache`, and that
+script runs `mutastic gate`. Trust both. Until you do, the skill works but nothing is gated, and Codex
+doesn't say so.
+
+Codex trusts a hook as it is, with the plugin's files, and an update changes them, so trust them
+again after each update. `codex exec` can't trust a hook: trust them once in Codex first, and `codex
+exec` runs them from then on.
 
 ## Letting Codex run mutastic
 
@@ -53,6 +61,17 @@ prefix_rule(pattern = ["mutastic"], decision = "allow")
 ```
 
 Without it, Codex asks you before it runs mutastic outside the sandbox.
+
+Codex also runs the build to run the tests, and the build fails in the sandbox for the same reason,
+so it asks you each time. To let it run the build outside the sandbox without asking, add the build
+tool too. This is a choice: it lets the agent run any build task outside the sandbox, not only the
+tests.
+
+```python
+prefix_rule(pattern = ["./gradlew"], decision = "allow")   # Gradle, with its wrapper
+prefix_rule(pattern = ["./mvnw"], decision = "allow")      # Maven, with its wrapper
+prefix_rule(pattern = ["mvn"], decision = "allow")         # Maven, without one
+```
 
 ## What it adds
 
