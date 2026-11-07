@@ -1,0 +1,27 @@
+# Mutiny (Uni and Multi) operators, as a plugin: only data. List this file under `plugins:` in
+# mutastic.yaml.
+#
+# Mutiny groups its operators (`multi.select().where(p)`), so removing `where` would leave a
+# MultiSelect where a Multi belongs. Instead the call becomes one on the same group that lets
+# everything through, or passes the failure on unchanged.
+- id: mutiny/remove-selection
+  explanation: A selection on a Multi lets every item through, as if `where`, `distinct` or `first` weren't there. It goes unnoticed when no test has an item the selection must leave out.
+  owners: io.smallrye.mutiny.groups.MultiSelect
+  methods: where, distinct, first
+  rewrite: call first(J) with Long.MAX_VALUE
+  source: first(Long.MAX_VALUE)
+  changed: selection removed
+  headline: no test needs `.select().{name}(…)` in {method}
+  headline.distinct: no test has duplicate items for `.select().distinct()` in {method} to remove
+  headline.first: no test has more items than `.select().first(…)` in {method} lets through
+  help: add a test with an item the selection must leave out, and assert it's gone
+
+- id: mutiny/remove-recovery
+  explanation: A recovery from failure is removed, so the failure goes on downstream. It goes unnoticed when no test makes the upstream fail.
+  owners: io.smallrye.mutiny.groups.UniOnFailure, io.smallrye.mutiny.groups.MultiOnFailure
+  methods: recoverWithItem, recoverWithNull, recoverWithUni, recoverWithMulti, recoverWithCompletion
+  rewrite: call transform(Ljava/util/function/Function;) with java.util.function.Function.identity()
+  source: transform(Function.identity())
+  changed: recovery removed, so the failure propagates
+  headline: no test makes {method} fail, so `.onFailure().{name}(…)` is never needed
+  help: add a test where the upstream fails, and assert what {method} gives instead

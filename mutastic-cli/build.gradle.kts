@@ -59,6 +59,9 @@ val docsOutput = rootDir.resolve("docs/src/data/output")
 // Every card mutastic gives on the samples (src/test/cards), so a change to their words is a diff.
 val cards = layout.projectDirectory.dir("src/test/cards").asFile
 
+// Mutants' ids in a fixed set of class files (src/test/ids), which every later version must keep.
+val ids = layout.projectDirectory.dir("src/test/ids").asFile
+
 tasks.test {
     useJUnitPlatform()
     // The end-to-end tests run mutastic against the sample projects, each its own Gradle build.
@@ -73,6 +76,9 @@ tasks.test {
     // CardsTest checks every card on the samples is the one kept.
     systemProperty("mutastic.cards", cards.absolutePath)
     inputs.dir(cards).withPathSensitivity(PathSensitivity.RELATIVE)
+    // StableIdsTest holds the mutants of a fixed set of class files to the ids kept beside them.
+    systemProperty("mutastic.ids", ids.absolutePath)
+    inputs.dir(ids).withPathSensitivity(PathSensitivity.RELATIVE)
     // The plugins' end-to-end tests list the jar as a project would.
     val pluginsJar = project(":mutastic-plugins").tasks.named<Jar>("jar").flatMap { it.archiveFile }
     inputs.file(pluginsJar).withPathSensitivity(PathSensitivity.NONE)
@@ -177,5 +183,28 @@ tasks.register<Test>("exportCards") {
     systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
     systemProperty("mutastic.cards", cards.absolutePath)
     systemProperty("mutastic.cards.write", "true")
+    outputs.upToDateWhen { false }
+}
+
+// Writes the kept ids again, after a new operator or a change meant to move ids: read the diff
+// before committing, since a moved id breaks the ignores and baselines that name it.
+tasks.register<Test>("exportIds") {
+    description = "Writes the kept ids (src/test/ids/ids.tsv) and how released rules files read."
+    testClassesDirs =
+        sourceSets.test
+            .get()
+            .output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching("io.mutastic.cli.StableIdsTest")
+        includeTestsMatching("io.mutastic.cli.RulesFileFormatTest")
+    }
+    val pluginsJar = project(":mutastic-plugins").tasks.named<Jar>("jar").flatMap { it.archiveFile }
+    inputs.file(pluginsJar).withPathSensitivity(PathSensitivity.NONE)
+    systemProperty("mutastic.pluginsJar", pluginsJar.get().asFile.absolutePath)
+    systemProperty("mutastic.docs", rootDir.resolve("docs/src/content/docs").absolutePath)
+    systemProperty("mutastic.ids", ids.absolutePath)
+    systemProperty("mutastic.ids.write", "true")
     outputs.upToDateWhen { false }
 }
