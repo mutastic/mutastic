@@ -648,8 +648,10 @@ if (type.equals("csv")) {   // becomes: if (type.equals("")) {
 
 Text that only tells a person something is skipped as arid: what goes into a log call or
 `System.out`, an exception's message, including through `String.format` or `formatted`, or a failed
-check's message. An exception is known by being thrown straight away, or by its name ending in
-`Exception` or `Error`. A string in an annotation isn't in the code, and the text in `"total: " + x`
+check's message. An exception is known by being thrown straight away, or by its supertypes
+reaching `Throwable`: a class named `ConfigError` that isn't one keeps its mutant, and so does one
+whose supertypes can't be found. A failed check is `Objects.requireNonNull` or Guava's
+`Preconditions`. A string in an annotation isn't in the code, and the text in `"total: " + x`
 is in javac's recipe for the call, so neither has a mutant. Text a person reads in other ways, such as
 a command's output, is changed like any other, so expect misses there.
 

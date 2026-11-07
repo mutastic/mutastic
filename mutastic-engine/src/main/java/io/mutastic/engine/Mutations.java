@@ -97,6 +97,7 @@ final class Mutations {
 
   private final ClassFile context;
   private final Policy policy;
+  private final Supertypes supertypes;
 
   private static final String NULL_PARAMETER = "null parameter";
 
@@ -119,9 +120,15 @@ final class Mutations {
     this(context, Policy.NONE);
   }
 
+  /// What can't be found among the JDK's classes isn't known to be anything.
   Mutations(ClassFile context, Policy policy) {
+    this(context, policy, Supertypes.in(ClassLoader.getPlatformClassLoader()));
+  }
+
+  Mutations(ClassFile context, Policy policy, Supertypes supertypes) {
     this.context = context;
     this.policy = policy;
+    this.supertypes = supertypes;
     var chosen = OperatorSet.active(policy);
     this.operators =
         chosen.stream().filter(operator -> !(operator instanceof ClassMutator)).toList();
@@ -145,21 +152,29 @@ final class Mutations {
             .code()
             .ifPresent(
                 code -> {
-                  var found =
-                      new MethodScan(
-                              model,
-                              method,
-                              code.elementList(),
-                              filtered(model, method),
-                              here,
-                              new Wrappers(module))
-                          .mutants();
+                  var found = scanned(model, method, code, here);
                   mutants.addAll(viable(model, mergeFinallyCopies(found, code)));
                 });
       }
     }
     mutants.addAll(viable(model, wholeClasses.find(model)));
     return mutants;
+  }
+
+  private List<Mutant> scanned(
+      ClassModel model,
+      MethodModel method,
+      java.lang.classfile.CodeModel code,
+      List<Operator> here) {
+    return new MethodScan(
+            model,
+            method,
+            code.elementList(),
+            filtered(model, method),
+            here,
+            new Wrappers(module),
+            supertypes)
+        .mutants();
   }
 
   /// The operators that change this method: all of them in code the user wrote, and in a
@@ -309,6 +324,7 @@ final class Mutations {
     private final Optional<String> filtered;
     private final List<Operator> operators;
     private final Wrappers wrappers;
+    private final Supertypes supertypes;
     private final Set<Integer> stringSwitchLines = new HashSet<>();
     private final List<Mutant> mutants = new ArrayList<>();
     private int line = -1;
@@ -323,9 +339,11 @@ final class Mutations {
         List<CodeElement> code,
         Optional<String> filtered,
         List<Operator> operators,
-        Wrappers wrappers) {
+        Wrappers wrappers,
+        Supertypes supertypes) {
       this.model = model;
       this.wrappers = wrappers;
+      this.supertypes = supertypes;
       this.method = method;
       this.code = code;
       this.filtered = filtered;
@@ -516,7 +534,8 @@ final class Mutations {
         BuiltIn builtIn, Instruction instruction, int at, List<Found> found) {
       switch (builtIn) {
         case REPLACE_BODY -> bodyChanges(found);
-        case STRING_CONSTANT -> addChanges(builtIn, TextConstants.strings(code, at, stores), found);
+        case STRING_CONSTANT ->
+            addChanges(builtIn, TextConstants.strings(code, at, stores, supertypes), found);
         case REGEX_CONSTANT -> addChanges(builtIn, TextConstants.regexes(code, at), found);
         case DROP_CATCH_TYPE -> {
           for (String label : Exceptions.droppedCatches(code, at)) {

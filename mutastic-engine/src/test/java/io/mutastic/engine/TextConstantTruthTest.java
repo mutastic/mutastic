@@ -3,8 +3,11 @@ package io.mutastic.engine;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.api.Mutant;
+import io.mutastic.api.Policy;
 import io.mutastic.report.SourceView;
+import java.lang.classfile.ClassFile;
 import java.util.List;
+import java.util.Objects;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +38,10 @@ class TextConstantTruthTest {
             "aStaticFinal",
             "multiLine",
             "aLongOne",
-            "builtAndReturned");
+            "builtAndReturned",
+            "namedAsAnError",
+            "messageForAHelper",
+            "notTheChecksOfALibrary");
     assertThat(strings.claimsThatLie()).isEmpty();
   }
 
@@ -56,6 +62,65 @@ class TextConstantTruthTest {
         .containsExactly(arid("to start ", "only an exception's message"));
     assertThat(strings.changesIn("checked"))
         .containsExactly(arid("a is needed", "only a failed check's message"));
+    assertThat(strings.changesIn("builtForItsCaller"))
+        .containsExactly(arid("no match", "only an exception's message"));
+    assertThat(strings.changesIn("aSubclassOfOurOwn"))
+        .containsExactly(arid("no such", "only an exception's message"));
+  }
+
+  /// With the class out of sight, as a dependency missing from the classpath is, nothing shows it's
+  /// an exception, and the mutant stays.
+  @Test
+  void anExceptionWhoseSupertypesCantBeFoundIsNoEvidence() {
+    var withoutTheFixtures =
+        new Mutations(
+            ClassFile.of(),
+            Policy.NONE.withOperators(List.of("mutastic/string-constant"), List.of()));
+
+    assertThat(withoutTheFixtures.find(strings.model()))
+        .filteredOn(mutant -> mutant.methodName().equals("builtForItsCaller"))
+        .singleElement()
+        .satisfies(mutant -> assertThat(mutant.skipped()).isEmpty());
+  }
+
+  /// Guava's checks are known by their full name: only compiled against one here, not its jar.
+  @Test
+  void aFailedCheckOfTheKnownLibraryIsArid() throws Exception {
+    var classes =
+        Javac.compile(
+            List.of(
+                new Javac.Source(
+                    "com.google.common.base.Preconditions",
+                    """
+                    package com.google.common.base;
+
+                    public final class Preconditions {
+                      public static void checkArgument(boolean ok, Object message) {}
+                    }
+                    """),
+                new Javac.Source(
+                    "guava.Checked",
+                    """
+                    package guava;
+
+                    class Checked {
+                      static void checked(boolean ok) {
+                        com.google.common.base.Preconditions.checkArgument(ok, "needed");
+                      }
+                    }
+                    """)),
+            List.of(),
+            "-g");
+    var model = ClassFile.of().parse(Objects.requireNonNull(classes.get("guava.Checked")));
+
+    assertThat(
+            new Mutations(
+                    ClassFile.of(),
+                    Policy.NONE.withOperators(List.of("mutastic/string-constant"), List.of()))
+                .find(model))
+        .singleElement()
+        .satisfies(
+            mutant -> assertThat(mutant.skipped()).contains("arid: only a failed check's message"));
   }
 
   private static String arid(String text, String why) {

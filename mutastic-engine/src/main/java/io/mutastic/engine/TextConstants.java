@@ -27,9 +27,10 @@ import java.util.regex.PatternSyntaxException;
 /// What `mutastic/string-constant` and `mutastic/regex-constant` make of an `ldc` of text.
 ///
 /// A string becomes `""`, or an empty one a word that isn't empty. Text that only tells a person
-/// something is arid: what goes into a log call, an exception or a failed check. An annotation's
-/// strings aren't in the code, and `"a" + x` keeps its text in javac's recipe, so neither has a
-/// mutant.
+/// something is arid: what goes into a log call, an exception or a failed check. An exception is
+/// one thrown straight away, or whose real supertypes reach `Throwable`; its name says nothing. An
+/// annotation's strings aren't in the code, and `"a" + x` keeps its text in javac's recipe, so
+/// neither has a mutant.
 ///
 /// A regular expression is only changed where the text goes straight into `Pattern.compile`,
 /// `matches`, `split`, `replaceAll` or `replaceFirst`, and only to one that compiles: an anchor
@@ -40,13 +41,18 @@ final class TextConstants {
 
   private static final int SHOWN = 40;
 
+  /// By its full name, as a logger is: the one library whose checks are known to take a message.
+  /// Anyone else's `Preconditions` may do anything with a string.
+  private static final String PRECONDITIONS = "com/google/common/base/Preconditions";
+
   private TextConstants() {}
 
   /// A call a value goes straight into, where it is among the call's values (`0` is an instance
   /// call's receiver, or a static call's first argument), and where the call is.
   private record Consumer(InvokeInstruction call, int position, int index) {}
 
-  static List<Change> strings(List<CodeElement> code, int at, Stores stores) {
+  static List<Change> strings(
+      List<CodeElement> code, int at, Stores stores, Supertypes supertypes) {
     if (!(code.get(at) instanceof ConstantInstruction constant)
         || !(constant.constantValue() instanceof String text)
         || isStringSwitchTest(code, at, stores)) {
@@ -55,7 +61,8 @@ final class TextConstants {
     var to = text.isEmpty() ? SENTINEL : "";
     return List.of(
         new Change(
-            "string %s to %s".formatted(shown(text), quoted(to)), onlyTellsAPerson(code, at)));
+            "string %s to %s".formatted(shown(text), quoted(to)),
+            onlyTellsAPerson(code, at, supertypes)));
   }
 
   /// javac's test in a `String` switch: `aload temporary; ldc "a"; equals`.
@@ -72,11 +79,12 @@ final class TextConstants {
   }
 
   /// Following the value through what only formats it, why nothing but a person reads it, if so.
-  private static Optional<String> onlyTellsAPerson(List<CodeElement> code, int at) {
+  private static Optional<String> onlyTellsAPerson(
+      List<CodeElement> code, int at, Supertypes supertypes) {
     var next = consumer(code, at);
     while (next.isPresent()) {
       var call = next.get().call();
-      var why = aridCall(call, code, next.get().index());
+      var why = aridCall(call, code, next.get().index(), supertypes);
       if (why.isPresent() || !isFormatting(call)) {
         return why;
       }
@@ -97,28 +105,29 @@ final class TextConstants {
     };
   }
 
-  private static Optional<String> aridCall(InvokeInstruction call, List<CodeElement> code, int at) {
+  private static Optional<String> aridCall(
+      InvokeInstruction call, List<CodeElement> code, int at, Supertypes supertypes) {
     var owner = call.owner().asInternalName();
     if (Mutations.OUTPUT_OWNERS.contains(owner)) {
       return Optional.of("arid: only writes output");
     }
-    if (call.name().equalsString("<init>") && isThrowable(owner, code, at)) {
+    if (call.name().equalsString("<init>") && isThrowable(owner, code, at, supertypes)) {
       return Optional.of("arid: only an exception's message");
     }
     if ((owner.equals("java/util/Objects")
             && call.name().stringValue().startsWith("requireNonNull"))
-        || owner.endsWith("/Preconditions")) {
+        || owner.equals(PRECONDITIONS)) {
       return Optional.of("arid: only a failed check's message");
     }
     return Optional.empty();
   }
 
-  /// It's thrown straight away, or it's named as exceptions and errors are.
-  private static boolean isThrowable(String owner, List<CodeElement> code, int at) {
+  /// It's thrown straight away, which only a `Throwable` can be, or its supertypes say it is one.
+  private static boolean isThrowable(
+      String owner, List<CodeElement> code, int at, Supertypes supertypes) {
     var next = SiteSkips.instructionsAfter(code, at, 1);
-    return owner.endsWith("Exception")
-        || owner.endsWith("Error")
-        || (!next.isEmpty() && next.getFirst().opcode() == Opcode.ATHROW);
+    return (!next.isEmpty() && next.getFirst().opcode() == Opcode.ATHROW)
+        || supertypes.isThrowable(owner);
   }
 
   static List<Change> regexes(List<CodeElement> code, int at) {

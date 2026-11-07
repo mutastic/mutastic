@@ -81,7 +81,71 @@ class Strings {
     return new StringBuilder().append("").append(a).toString();
   }
 
+  /// Named as errors are, and not one: its text is a value something reads.
+  static final class ConfigError {
+    final String key;
+
+    ConfigError(String key) {
+      this.key = key;
+    }
+  }
+
+  static String namedAsAnError(String a, String b) {
+    return new ConfigError("key").key;
+  }
+
+  static String namedAsAnErrorClaim(String a, String b) {
+    return new ConfigError("").key;
+  }
+
+  /// A helper's text, on its way to an exception the walk can't see from here.
+  static ParseFailure failure(String message) {
+    return new ParseFailure(message);
+  }
+
+  static String messageForAHelper(String a, String b) {
+    return failure("no such option").getMessage();
+  }
+
+  static String messageForAHelperClaim(String a, String b) {
+    return failure("").getMessage();
+  }
+
+  static String notTheChecksOfALibrary(String a, String b) {
+    return Preconditions.named("key");
+  }
+
+  static String notTheChecksOfALibraryClaim(String a, String b) {
+    return Preconditions.named("");
+  }
+
   // What's skipped, or has no change.
+
+  /// A project's own exceptions, whose names don't say so.
+  static class ParseFailure extends IllegalArgumentException {
+    private static final long serialVersionUID = 1L;
+
+    ParseFailure(String message) {
+      super(message);
+    }
+  }
+
+  static final class NoSuchOption extends ParseFailure {
+    private static final long serialVersionUID = 1L;
+
+    NoSuchOption(String message) {
+      super(message);
+    }
+  }
+
+  /// Built by a helper and thrown by its caller, so it isn't thrown straight away here.
+  static ParseFailure builtForItsCaller(String a, String b) {
+    return new ParseFailure("no match");
+  }
+
+  static NoSuchOption aSubclassOfOurOwn(String a, String b) {
+    return new NoSuchOption("no such");
+  }
 
   static void logged(String a, String b) {
     System.out.println("seen");
@@ -142,5 +206,14 @@ class Strings {
       default:
         return 0;
     }
+  }
+}
+
+/// A project's own class of this name, not a library's: a string it's given may be anything.
+final class Preconditions {
+  private Preconditions() {}
+
+  static String named(String key) {
+    return key;
   }
 }

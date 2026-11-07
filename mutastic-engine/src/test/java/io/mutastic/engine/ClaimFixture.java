@@ -74,7 +74,10 @@ final class ClaimFixture {
     var source = Javac.Source.read(ROOT.resolve(file), className);
     this.classes = Javac.compile(List.of(source), List.of(), "-g");
     this.mutations =
-        new Mutations(resolvingNested(), Policy.NONE.withOperators(List.of(operator), List.of()));
+        new Mutations(
+            resolvingNested(),
+            Policy.NONE.withOperators(List.of(operator), List.of()),
+            new Supertypes(this::fixtureOrJdkClass));
     var bytes = Objects.requireNonNull(classes.get(className));
     this.model = ClassFile.of().parse(bytes);
     this.original = load(bytes);
@@ -92,6 +95,18 @@ final class ClaimFixture {
                       return bytes == null ? null : new java.io.ByteArrayInputStream(bytes);
                     }));
     return ClassFile.of(ClassFile.ClassHierarchyResolverOption.of(resolver));
+  }
+
+  private java.io.InputStream fixtureOrJdkClass(String name) {
+    var bytes = classes.get(name.replace('/', '.'));
+    return bytes != null
+        ? new java.io.ByteArrayInputStream(bytes)
+        : ClassLoader.getPlatformClassLoader().getResourceAsStream(name + ".class");
+  }
+
+  /// The fixture's class, as javac gave it.
+  ClassModel model() {
+    return model;
   }
 
   /// Lets the filters see the fixture as a module, as a real run does: what's arid for what calls

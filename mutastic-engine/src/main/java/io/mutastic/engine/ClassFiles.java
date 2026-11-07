@@ -26,6 +26,14 @@ final class ClassFiles {
     return ClassFile.of(ClassFile.ClassHierarchyResolverOption.of(resolver));
   }
 
+  /// The same classes, for what a filter asks of them: the JDK's platform classes, then these. Not
+  /// the engine's own classpath, which says nothing about the project.
+  static Supertypes supertypesFrom(List<Path> classpath) {
+    var urls = classpath.stream().map(ClassFiles::url).toArray(URL[]::new);
+    return Supertypes.in(
+        new URLClassLoader("mutastic-supertypes", urls, ClassLoader.getPlatformClassLoader()));
+  }
+
   private static URL url(Path entry) {
     try {
       return entry.toUri().toURL();

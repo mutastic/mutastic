@@ -205,7 +205,8 @@ public final class Engine {
 
   private static Found found(
       Project project, Options options, ClassFile context, Map<String, ClassModel> models) {
-    var mutations = new Mutations(context, options.policy());
+    var mutations =
+        new Mutations(context, options.policy(), ClassFiles.supertypesFrom(classpath(project)));
     mutations.prepare(models.values());
     mutations.prepareFor(project);
     var mutants =
@@ -228,7 +229,11 @@ public final class Engine {
   private static List<Mutant> underEveryOperator(
       Project project, Options options, ClassFile context, Map<String, ClassModel> models) {
     var policy = options.policy();
-    var mutations = new Mutations(context, policy.withOperators(List.of("all"), policy.mutators()));
+    var mutations =
+        new Mutations(
+            context,
+            policy.withOperators(List.of("all"), policy.mutators()),
+            ClassFiles.supertypesFrom(classpath(project)));
     mutations.prepare(models.values());
     return mutantsIn(models, mutations, List.of(), project.name());
   }
@@ -255,10 +260,13 @@ public final class Engine {
 
   /// Classes resolve from the project's own, its tests' and its dependencies'.
   private static ClassFile contextFor(Project project) {
-    return ClassFiles.resolvingFrom(
-        Stream.of(project.classes(), project.testClasses(), project.dependencies())
-            .flatMap(List::stream)
-            .toList());
+    return ClassFiles.resolvingFrom(classpath(project));
+  }
+
+  private static List<Path> classpath(Project project) {
+    return Stream.of(project.classes(), project.testClasses(), project.dependencies())
+        .flatMap(List::stream)
+        .toList();
   }
 
   /// Every mutant in the classes, or only those with the ids `only`, which must all be there.
