@@ -1,5 +1,10 @@
 package rules;
 
+import java.security.SecureRandom;
+import java.util.Random;
+import java.util.SplittableRandom;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.random.RandomGenerator;
 import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
@@ -84,7 +89,95 @@ class Endless {
     return Stream.iterate(0, n -> fused(n + 1)).limit(3);
   }
 
+  // Random numbers given no size: the fuse is a stage after the limit, as nothing burns one in these.
+
+  static int randomInts(String a, String b) {
+    var pulled = new int[1];
+    return new Random(1).ints().limit(3).peek(n -> fused(pulled[0]++)).sum();
+  }
+
+  static int randomIntsInARange(String a, String b) {
+    var pulled = new int[1];
+    return new Random(1).ints(0, 9).limit(3).peek(n -> fused(pulled[0]++)).sum();
+  }
+
+  static long randomLongs(String a, String b) {
+    var pulled = new int[1];
+    return new Random(1).longs().limit(3).peek(n -> fused(pulled[0]++)).sum();
+  }
+
+  static long randomLongsInARange(String a, String b) {
+    var pulled = new int[1];
+    return new Random(1).longs(0, 9).limit(3).peek(n -> fused(pulled[0]++)).sum();
+  }
+
+  static double randomDoubles(String a, String b) {
+    var pulled = new int[1];
+    return new Random(1).doubles().limit(3).peek(n -> fused(pulled[0]++)).sum();
+  }
+
+  static double randomDoublesInARange(String a, String b) {
+    var pulled = new int[1];
+    return new Random(1).doubles(0, 9).limit(3).peek(n -> fused(pulled[0]++)).sum();
+  }
+
+  static int secureRandomInts(String a, String b) {
+    var pulled = new int[1];
+    return new SecureRandom().ints().limit(3).peek(n -> fused(pulled[0]++)).sum();
+  }
+
+  static int threadLocalRandomInts(String a, String b) {
+    var pulled = new int[1];
+    return ThreadLocalRandom.current().ints().limit(3).peek(n -> fused(pulled[0]++)).sum();
+  }
+
+  static int splittableRandomInts(String a, String b) {
+    var pulled = new int[1];
+    return new SplittableRandom(1).ints().limit(3).peek(n -> fused(pulled[0]++)).sum();
+  }
+
+  static int randomGeneratorInts(String a, String b) {
+    var pulled = new int[1];
+    RandomGenerator random = new Random(1);
+    return random.ints().limit(3).peek(n -> fused(pulled[0]++)).sum();
+  }
+
+  static int randomThroughAStage(String a, String b) {
+    var pulled = new int[1];
+    return new Random(1).ints().map(n -> fused(pulled[0]++)).boxed().limit(3).reduce(0, Integer::sum);
+  }
+
+  /// Without the limit, `toList` asks for an array as long as the stream says it is, which fails at
+  /// once rather than hanging: it's still a stream with no end, and shows no more.
+  static int randomCollected(String a, String b) {
+    return new Random(1).ints().boxed().limit(3).toList().size();
+  }
+
   // Each of these ends without the limit, so its mutant shows something.
+
+  static int randomIntsSized(String a, String b) {
+    return new Random(1).ints(5).limit(2).sum();
+  }
+
+  static int randomIntsSizedClaim(String a, String b) {
+    return new Random(1).ints(5).sum();
+  }
+
+  static long randomLongsSizedInARange(String a, String b) {
+    return new Random(1).longs(5, 0, 1_000).limit(2).sum();
+  }
+
+  static long randomLongsSizedInARangeClaim(String a, String b) {
+    return new Random(1).longs(5, 0, 1_000).sum();
+  }
+
+  static double randomDoublesSized(String a, String b) {
+    return new Random(1).doubles(5).limit(2).sum();
+  }
+
+  static double randomDoublesSizedClaim(String a, String b) {
+    return new Random(1).doubles(5).sum();
+  }
 
   static String bounded(String a, String b) {
     return Stream.iterate(0, n -> n < 5, n -> n + 1).limit(2).toList().toString();

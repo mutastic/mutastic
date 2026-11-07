@@ -40,7 +40,18 @@ class EndlessStreamTruthTest {
             "throughATypeChange",
             "throughAVariable",
             "aLimitWorkedOut",
-            "stagesAfterIt")) {
+            "stagesAfterIt",
+            "randomInts",
+            "randomIntsInARange",
+            "randomLongs",
+            "randomLongsInARange",
+            "randomDoubles",
+            "randomDoublesInARange",
+            "secureRandomInts",
+            "threadLocalRandomInts",
+            "splittableRandomInts",
+            "randomGeneratorInts",
+            "randomThroughAStage")) {
       var mutant = onlyLimitIn(method);
       assertThat(mutant.skipped()).as(method).contains(NEVER_ENDS);
       assertThat(fixture.outcomeOf(mutant, "abc", "b"))
@@ -50,14 +61,24 @@ class EndlessStreamTruthTest {
           .as(method)
           .doesNotStartWith("threw");
     }
-    // Not run: nothing here pulls on the first, and the second pulls past the fuse in batches.
+    // Not run: nothing here pulls on the first, the second pulls past the fuse in batches, and the
+    // third asks for an array of the size a random stream gives itself.
     assertThat(onlyLimitIn("handedToTheCaller").skipped()).contains(NEVER_ENDS);
     assertThat(onlyLimitIn("throughAParallelStage").skipped()).contains(NEVER_ENDS);
+    assertThat(onlyLimitIn("randomCollected").skipped()).contains(NEVER_ENDS);
   }
 
   @Test
   void whatEndsWithoutTheLimitKeepsAMutantThatRuns() throws Exception {
-    for (var method : List.of("bounded", "intsBounded", "notFromHere", "matchedWithoutIt")) {
+    for (var method :
+        List.of(
+            "bounded",
+            "intsBounded",
+            "notFromHere",
+            "matchedWithoutIt",
+            "randomIntsSized",
+            "randomLongsSizedInARange",
+            "randomDoublesSized")) {
       var mutant = onlyLimitIn(method);
       assertThat(mutant.skipped()).as(method).isEmpty();
       assertThat(fixture.outcomeOf(mutant, "abc", "b"))

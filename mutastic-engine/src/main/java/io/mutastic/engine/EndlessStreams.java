@@ -19,12 +19,13 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.IntStream;
 
-/// `limit` on a stream the method can be seen to start from `iterate` or `generate`, where it's all
-/// that ends the stream. Without it the tests hang, and a hang counted as a catch shows nothing.
+/// `limit` on a stream the method can be seen to start from `iterate`, `generate` or a random
+/// source given no size, where it's all that ends the stream. Without it the tests hang, and a hang
+/// counted as a catch shows nothing.
 ///
 /// Only what's visible counts: anything this doesn't follow, or anything else that ends the stream
-/// (the three-argument `iterate`, another `limit`, `takeWhile`, a `findFirst`), and the mutant
-/// stays.
+/// (the three-argument `iterate`, `ints(5)`, another `limit`, `takeWhile`, a `findFirst`), and the
+/// mutant stays.
 final class EndlessStreams {
   private static final Set<String> STREAMS =
       Set.of(
@@ -32,6 +33,27 @@ final class EndlessStreams {
           "java/util/stream/IntStream",
           "java/util/stream/LongStream",
           "java/util/stream/DoubleStream");
+
+  /// The sources of random numbers whose streams have the same shape, by the type the call names. A
+  /// project's own subclass isn't among them: it can do as it likes.
+  private static final Set<String> RANDOMS =
+      Set.of(
+          "java/util/Random",
+          "java/security/SecureRandom",
+          "java/util/concurrent/ThreadLocalRandom",
+          "java/util/SplittableRandom",
+          "java/util/random/RandomGenerator");
+
+  /// Their streams with no size: `ints()` and `ints(origin, bound)`. `ints(size)` and `ints(size,
+  /// origin, bound)` end by themselves.
+  private static final Set<String> ENDLESS_RANDOM_STREAMS =
+      Set.of(
+          "ints()Ljava/util/stream/IntStream;",
+          "ints(II)Ljava/util/stream/IntStream;",
+          "longs()Ljava/util/stream/LongStream;",
+          "longs(JJ)Ljava/util/stream/LongStream;",
+          "doubles()Ljava/util/stream/DoubleStream;",
+          "doubles(DD)Ljava/util/stream/DoubleStream;");
 
   private static final Set<String> ENDS_A_STREAM =
       Set.of(
@@ -81,9 +103,13 @@ final class EndlessStreams {
   private static boolean startsEndless(List<CodeElement> code, int limit) {
     var source = receiver(code, limit);
     while (source.isPresent()) {
-      if (!(code.get(source.getAsInt()) instanceof InvokeInstruction call)
-          || !isStream(call)
-          || ENDS_A_STREAM.contains(call.name().stringValue())) {
+      if (!(code.get(source.getAsInt()) instanceof InvokeInstruction call)) {
+        return false;
+      }
+      if (isEndlessRandomStream(call)) {
+        return true;
+      }
+      if (!isStream(call) || ENDS_A_STREAM.contains(call.name().stringValue())) {
         return false;
       }
       if (call.opcode() == Opcode.INVOKESTATIC) {
@@ -98,6 +124,12 @@ final class EndlessStreams {
   private static boolean isEndlessSource(InvokeInstruction call) {
     return call.name().equalsString("generate")
         || (call.name().equalsString("iterate") && call.typeSymbol().parameterCount() == 2);
+  }
+
+  private static boolean isEndlessRandomStream(InvokeInstruction call) {
+    return RANDOMS.contains(call.owner().asInternalName())
+        && ENDLESS_RANDOM_STREAMS.contains(
+            call.name().stringValue() + call.typeSymbol().descriptorString());
   }
 
   /// What leaves the value the call at `at` is on, through the variable it was kept in if it has
