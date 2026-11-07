@@ -271,6 +271,15 @@ class Endless {
     return Stream.iterate(0, n -> fused(n + 1)).limit(a.isEmpty() ? 1 : 2).toList().toString();
   }
 
+  static String joined(String a, String b) {
+    return Stream.concat(Stream.of(1), Stream.of(2)).limit(1).toList().toString();
+  }
+
+  /// Its `filter` can go: the stream is as endless with it, and it's the caller's to end.
+  static Stream<Integer> anotherStage(String a, String b) {
+    return Stream.iterate(0, n -> fused(n + 1)).filter(n -> n > 2);
+  }
+
   static String aParameter(Stream<Integer> numbers) {
     return numbers.limit(2).toList().toString();
   }

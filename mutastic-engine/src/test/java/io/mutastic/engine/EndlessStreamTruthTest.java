@@ -105,11 +105,17 @@ class EndlessStreamTruthTest {
                         "endedAfter",
                         "foundAfter",
                         "twoValues",
+                        "joined",
                         "aLimitWithABranch",
                         "aParameter")
                     .contains(mutant.methodName()))
-        .hasSize(8)
+        .hasSize(9)
         .allSatisfy(mutant -> assertThat(mutant.skipped()).as(mutant.methodName()).isEmpty());
+  }
+
+  @Test
+  void onlyTheLimitIsSkipped() {
+    assertThat(fixture.changesIn("anotherStage")).containsExactly("remove");
   }
 
   private static Mutant onlyLimitIn(String method) {
