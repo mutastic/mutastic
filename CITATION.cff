@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use mutastic in your work, please cite it like this."
+type: software
+title: mutastic
+abstract: "Mutation testing that finds out whether your tests, or your agent's, actually check anything."
+authors:
+  - family-names: Corbin
+    given-names: Brian
+repository-code: "https://github.com/mutastic/mutastic"
+url: "https://mutastic.io"
+license: Apache-2.0
+keywords:
+  - mutation testing
+  - software testing
+  - java
