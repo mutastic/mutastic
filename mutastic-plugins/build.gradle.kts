@@ -1,10 +1,10 @@
 // The operators mutastic makes as plugins, not in its own set: annotation removal, Kotlin's empty
 // returns and proposed rewrites. One jar a project lists under `plugins:` in mutastic.yaml, like
 // any other plugin: it uses only the API a plugin has. It ships in the distribution's `plugins`
-// directory. Not `java-library`, so it isn't published to Maven Central with each release, which
-// counts every file against a monthly limit.
+// directory, and to Maven Central with the other modules, as `io.mutastic:mutastic-plugins`, for a
+// build to fetch.
 plugins {
-    java
+    `java-library`
 }
 
 description = "The operators mutastic makes as plugins."
@@ -32,7 +32,3 @@ tasks.test {
 tasks.jar {
     archiveFileName = "mutastic-plugins.jar"
 }
-
-// The CLI's end-to-end tests publish every module for Maven to resolve first: nothing to publish
-// here.
-tasks.register("publishAllPublicationsToSamplesRepository")

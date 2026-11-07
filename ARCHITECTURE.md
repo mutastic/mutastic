@@ -28,7 +28,7 @@ The same run serves three entry points. The `mutastic` command reads the build f
 | `mutastic-cli` | 25 | The `mutastic` command: finds the build tool, runs the engine, picks the format |
 | `mutastic-gradle-plugin` | 17 | The Gradle plugin: writes a module's setup from inside the build, then runs the `mutastic` command on it |
 | `mutastic-maven-plugin` | 17 | The Maven plugin: writes a module's setup from inside the build, then runs the `mutastic` command on it |
-| `mutastic-plugins` | 25 | The operators mutastic makes as plugins, built only on `mutastic-api`, as anyone's would be. A jar in the distribution's `plugins` directory, not on its classpath, and not published to Maven Central |
+| `mutastic-plugins` | 25 | The operators mutastic makes as plugins, built only on `mutastic-api`, as anyone's would be. A jar in the distribution's `plugins` directory, not on its classpath, and on Maven Central for a build to fetch |
 
 ## Boundaries
 

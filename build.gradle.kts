@@ -150,6 +150,16 @@ subprojects {
         }
         configure<com.vanniktech.maven.publish.MavenPublishBaseExtension> {
             publishToMavenCentral(automaticRelease = false)
+            // Central counts every file of a release against a monthly limit, checksums and
+            // signatures too, and requires only an MD5 and a SHA-1 beside each file and none beside
+            // a signature (central.sonatype.org/publish/requirements). Gradle writes SHA-256 and
+            // SHA-512 too, and checksums of the signatures: left out of the upload, which halves
+            // it. The plugin's defaults today, written out so an upgrade can't change them unseen.
+            checksums(
+                com.vanniktech.maven.publish.Checksum.MD5,
+                com.vanniktech.maven.publish.Checksum.SHA1,
+            )
+            excludeSignatureChecksums()
             if (providers.gradleProperty("signingInMemoryKey").isPresent) {
                 signAllPublications()
             }
@@ -179,6 +189,48 @@ subprojects {
             }
         }
     }
+}
+
+// What a release uploads to Central, counted as Central counts it: each file a publication has (its
+// jars, POM and Gradle module metadata), with its signature, MD5 and SHA-1. Central's free limit is
+// a thousand files a month across the namespace, and a release that fits four times leaves room for
+// a fix after a release. A new module adds to it, so it's held here rather than found at upload.
+val centralFilesPerRelease = 250
+val checkCentralFiles by tasks.registering {
+    description = "Fails when a release would upload more than $centralFilesPerRelease files to Maven Central."
+    notCompatibleWithConfigurationCache("reads every module's publications")
+    doLast {
+        val files =
+            subprojects.sumOf { module ->
+                module.extensions
+                    .findByType<PublishingExtension>()
+                    ?.publications
+                    ?.withType<MavenPublication>()
+                    ?.sumOf { publication -> filesOf(module, publication) } ?: 0
+            }
+        logger.lifecycle("A release uploads $files files to Maven Central.")
+        if (files > centralFilesPerRelease) {
+            throw GradleException(
+                "A release would upload $files files to Maven Central, over $centralFilesPerRelease: " +
+                    "Central's monthly limit then fits fewer than four releases (RELEASING.md)",
+            )
+        }
+    }
+}
+
+// A publication's files, each with its signature, MD5 and SHA-1: its artifacts, its POM, and its
+// Gradle module metadata when it has one (a plugin marker has none).
+fun filesOf(
+    module: Project,
+    publication: MavenPublication,
+): Int {
+    val metadata = "generateMetadataFileFor${publication.name.replaceFirstChar { it.uppercase() }}Publication"
+    // A marker's task exists but writes nothing: it has no component, and so no artifacts.
+    val hasMetadata = module.tasks.findByName(metadata)?.enabled == true && publication.artifacts.isNotEmpty()
+    return 4 * (publication.artifacts.size + 1 + if (hasMetadata) 1 else 0)
+}
+tasks.check {
+    dependsOn(checkCentralFiles)
 }
 
 // The samples are their own builds, but their code is quoted in the README and the tests: it's
