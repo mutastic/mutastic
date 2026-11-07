@@ -176,22 +176,64 @@ In any Kotlin project, listed or not, mutastic skips what kotlinc wrote that isn
 
 ## Proposed rewrites
 
-`proposed/rewrite` runs rewrites of a method that something else has written: a person, or a model
-told to write the bug a test would miss. Research on models used this way has found they catch faults
-the rule-based operators don't, and that many of what they write don't compile, or change nothing. So
-mutastic never asks a model for anything: it needs no network and no key. What it does is hold each
-rewrite to account.
+`proposed/rewrite` lets you write a bug yourself and find out whether your tests would notice. Built-in
+operators make mechanical changes, one place at a time. They can't write the bug a person would really
+make, and a person or a model can.
 
-Each file in `.mutastic/proposed/<the class's binary name>/` is what that class's source file would
-be instead. Its name, without `.java`, is the mutant's label, part of its id, so an id stays as long as
-its file does: commit them. Whatever writes them, a skill, a script or a person, needs only to read
-the source file and write another.
+Here's a real one, from Apache Commons Lang ([Lang-21](https://github.com/rjust/defects4j/blob/master/framework/projects/Lang/patches/21.src.patch)
+in the Defects4J bug database), cut down. This method is right:
 
-```text
-.mutastic/proposed/com.example.pricing.Pricing/at-the-boundary.java
+```java
+public static boolean sameTime(Calendar a, Calendar b) {
+  return a.get(Calendar.HOUR_OF_DAY) == b.get(Calendar.HOUR_OF_DAY)
+      && a.get(Calendar.MINUTE) == b.get(Calendar.MINUTE);
+}
 ```
 
-A proposal is only run if it gets through each of these, and otherwise it's skipped, saying why:
+The bug was `Calendar.HOUR` in both calls, the 12-hour clock, so 8am and 8pm were the same time. Changing
+one call makes a different bug, so no built-in operator makes this one.
+
+**1. Copy the whole source file, and put the bug in the copy.** The folder is the class's binary name,
+and the file's name is a label for the bug:
+
+```text
+.mutastic/proposed/com.example.time.Times/twelve-hour-clock.java
+```
+
+```java
+// the whole of Times.java, with this method changed
+public static boolean sameTime(Calendar a, Calendar b) {
+  return a.get(Calendar.HOUR) == b.get(Calendar.HOUR)
+      && a.get(Calendar.MINUTE) == b.get(Calendar.MINUTE);
+}
+```
+
+**2. Run it.** With `mutastic-plugins.jar` under `plugins:`, choose the operator:
+
+```sh
+mutastic run --operators=defaults,proposed
+```
+
+Tests comparing 9:30 with 9:30, and with 10:30, pass either way, so the rewrite is missed:
+
+```text
+✗ src/main/java/com/example/time/Times.java:9 no test tells sameTime() from the rewrite in .mutastic/proposed/com.example.time.Times/twelve-hour-clock.java
+```
+
+**3. Add the test, or delete the file.** Read the rewrite. If it behaves differently, as this one does,
+write a test that tells them apart, and `mutastic verify` with the mutant's id confirms it's caught. If
+it really does the same thing, delete the file.
+
+Commit the files in `.mutastic/proposed/`: the label is part of the mutant's id, so an id lasts as long as
+its file does.
+
+### Where proposals come from
+
+Mutastic never asks a model for anything: it needs no network and no key. Whatever writes a proposal, a
+person, a script or a model told to write the bug a test would miss, only has to read the source file and
+write another. Research on models used this way has found they catch faults rule-based operators don't,
+and that many of what they write don't compile, or change nothing. So a proposal only runs if it passes
+each of these, and otherwise it's skipped, saying why:
 
 | Check | Skipped as |
 |---|---|
@@ -209,17 +251,16 @@ method. No check can show that what's left isn't the same program in other words
 one: the card says to read it.
 
 ```java
-if (total >= 100) {
-// becomes, in at-the-boundary.java
-if (total > 100) {
+return a.get(Calendar.HOUR_OF_DAY) == b.get(Calendar.HOUR_OF_DAY)
+// becomes, in twelve-hour-clock.java
+return a.get(Calendar.HOUR) == b.get(Calendar.HOUR)
 ```
 
-**The test that catches it.** One that a real difference shows up in. If you read the rewrite and
-there's none, delete the file:
+**The test that catches it.** One that a real difference shows up in:
 
 ```java
 @Test
-void aHundredGetsItsDiscount() {
-  assertEquals(10, new Pricing().discount(100));
+void morningAndEveningAreDifferentTimes() {
+  assertFalse(Times.sameTime(at(8, 0), at(20, 0)));
 }
 ```
