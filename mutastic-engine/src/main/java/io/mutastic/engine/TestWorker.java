@@ -251,6 +251,19 @@ final class TestWorker implements AutoCloseable {
     aged = false;
   }
 
+  /// Whether `test` fails on its own with no mutant in. Not when it runs out of time, which load
+  /// can do, or a port in use, which another worker can.
+  boolean failsAlone(String test, Duration timeout) {
+    send("RUN\t" + test);
+    var answer = await(timeout);
+    if (answer.isEmpty()) {
+      kill();
+      return false;
+    }
+    replaceIfAged();
+    return answer.get().startsWith("RESULT\tFAILED") && !answer.get().endsWith("\tport-clash");
+  }
+
   /// How many worker JVMs have started: one, plus one after each kill.
   int started() {
     return workersStarted;

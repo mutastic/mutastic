@@ -23,6 +23,29 @@ Colour is never the only signal: every result also has its symbol or word. With
 instead of caught and missed. The JSON report and the event stream always use the standard names:
 `Killed`, `Survived`, `Timeout`, `NoCoverage` and `Ignored`.
 
+## Which tests reach a line
+
+Before any mutant, mutastic runs every test once and records which lines each one runs. A line run
+inside a test, or in that test's own setup and teardown, reaches that test. A line run around the
+tests, where no one test is running, reaches every test it could have shaped:
+
+| Where the code runs | The tests it reaches |
+|---|---|
+| In a test, or for each test: `@BeforeEach` and `@AfterEach`, JUnit 4's `@Before`, `@After` and `@Rule`, TestNG's `@AfterMethod`, extension callbacks for each test | That test |
+| Once for a class: `@BeforeAll` and `@AfterAll`, JUnit 4's `@BeforeClass`, `@AfterClass` and `@ClassRule`, TestNG's `@BeforeClass`, `@BeforeMethod` and `@BeforeGroups`, a `@TestInstance(PER_CLASS)` instance, extension callbacks for the class, a superclass's, the test class's constructor, field initialisers and static initialiser | Every test in the class, nested classes included |
+| A `@MethodSource` | The parameterised test it feeds |
+| Where no class can be told apart: TestNG's suite and `<test>` methods, its `@AfterClass`, its `@DataProvider` and test classes (made as the tests are found), a static `@RegisterExtension` | Every test |
+
+The wider a line's reach, the more tests run against its mutants, though the first to fail stops
+them. A test runs on its own against a mutant, with its class's setup and teardown around it, so a
+mutant that makes setup throw or teardown fail an assertion is caught by that test, and so is one
+that changes what setup gives the test.
+
+A test that passes among the others but fails on its own, because it counts on what another test
+left behind, would fail against every mutant it met. So the first time a test catches a mutant,
+mutastic runs it on its own with no mutant in. If it fails, it has caught nothing, then or after,
+and the run names it as [flaky](/concepts/flaky-tests/).
+
 ## The score
 
 The score is the share of the mutants that ran which the tests noticed:

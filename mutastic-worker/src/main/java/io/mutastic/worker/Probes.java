@@ -20,7 +20,7 @@ import java.util.function.Supplier;
 /// next one starts. Values are capped per parameter per test, so a loop calling a method a million
 /// times records [#VALUES_PER_PARAMETER] of them.
 public final class Probes {
-  private static final String OUTSIDE = "(outside any test)";
+  static final String OUTSIDE = "(outside any test)";
   static final int VALUES_PER_PARAMETER = 16;
 
   // A framework (Quarkus) may load its own copy of this class for the code it loads, with its own
@@ -147,6 +147,27 @@ public final class Probes {
       HITS.set(new boolean[HITS.get().length]);
       OUTSIDE_LOADING.set(new boolean[OUTSIDE_LOADING.get().length]);
       LOADING.set(0);
+    }
+  }
+
+  /// Moves what `scope` recorded to every one of `tests`.
+  static void credit(String scope, Set<String> tests) {
+    synchronized (HITS) {
+      var lines = LINES_BY_TEST.remove(scope);
+      var values = VALUES_BY_TEST.remove(scope);
+      for (String test : tests) {
+        if (lines != null) {
+          LINES_BY_TEST.computeIfAbsent(test, name -> ConcurrentHashMap.newKeySet()).addAll(lines);
+        }
+        if (values != null) {
+          var forTest = VALUES_BY_TEST.computeIfAbsent(test, name -> new ConcurrentHashMap<>());
+          values.forEach(
+              (id, seen) ->
+                  forTest
+                      .computeIfAbsent(id, ignored -> ConcurrentHashMap.newKeySet())
+                      .addAll(seen));
+        }
+      }
     }
   }
 

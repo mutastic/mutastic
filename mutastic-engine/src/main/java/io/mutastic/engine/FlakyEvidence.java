@@ -52,6 +52,11 @@ final class FlakyEvidence {
     return flaky.stream().map(test -> of(test, Optional.ofNullable(failures.get(test)))).toList();
   }
 
+  /// For each of `tests`, found to fail on their own with no mutant in, what they reach.
+  List<FlakyTest> aboutFailingAlone(List<String> tests) {
+    return tests.stream().map(test -> of(test, Optional.empty()).failingAlone()).toList();
+  }
+
   private FlakyTest of(String test, Optional<String> failure) {
     var inTest = new TreeSet<String>();
     testClass(test).ifPresent(model -> model.methods().forEach(method -> scan(method, inTest)));

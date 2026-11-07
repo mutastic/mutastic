@@ -160,12 +160,17 @@ public final class Engine {
     try {
       var pass = coveragePass(project, plan, workers.getFirst());
       listener.coverageFinished(pass);
+      var results = new SideBySide(plan.mutants(), plan.mutantRun(), workers, listener).runAll();
+      var failingAlone = plan.mutantRun().alone().failing();
+      var aboutThem =
+          new FlakyEvidence(plan.mutantRun().coverage(), plan.mutantRun().models(), project)
+              .aboutFailingAlone(failingAlone);
       return new Report(
           project.name(),
           workers.getFirst().jdk(),
-          new SideBySide(plan.mutants(), plan.mutantRun(), workers, listener).runAll(),
+          results,
           plan.mutantRun().coverage().testCount(),
-          pass.flaky(),
+          Stream.concat(pass.flaky().stream(), failingAlone.stream()).toList(),
           pass.took(),
           ran(workers),
           workers.stream().mapToInt(TestWorker::started).sum(),
@@ -173,7 +178,7 @@ public final class Engine {
           inOrderFound(plan.mutantRun().audited(), plan.mutants()),
           options.changed().map(changed -> changed.within(project.sources())),
           plan.stale(),
-          pass.flakyEvidence());
+          Stream.concat(pass.flakyEvidence().stream(), aboutThem.stream()).toList());
     } finally {
       workers.forEach(TestWorker::close);
     }
@@ -255,7 +260,8 @@ public final class Engine {
             options.suggestions(),
             options.auditArid(),
             java.util.Collections.synchronizedList(new ArrayList<>()),
-            project.sources());
+            project.sources(),
+            new TestsAlone());
     return new Plan(mutants, mutantRun, instrumented, found.stale());
   }
 
@@ -589,6 +595,7 @@ public final class Engine {
   /// side. Coverage is only read once the coverage pass is over.
   ///
   /// @param audited each arid mutant's result when run anyway, in an audit
+  /// @param alone the tests that have caught something, and whether they pass with no mutant in
   private record MutantRun(
       Map<String, ClassModel> models,
       Mutations mutations,
@@ -597,7 +604,8 @@ public final class Engine {
       boolean suggestions,
       boolean auditArid,
       List<MutantResult> audited,
-      List<Path> sources) {
+      List<Path> sources,
+      TestsAlone alone) {
     /// At most this many sets of arguments to try per mutant.
     static final int CANDIDATES = 400;
 
@@ -615,12 +623,17 @@ public final class Engine {
         }
         return new Outcome(MutantResult.skipped(mutant), false);
       }
-      var covering = coverage.coveringTests(mutant);
-      if (covering.isEmpty()) {
+      var reaching = alone.withoutThoseFailing(coverage.coveringTests(mutant));
+      if (reaching.isEmpty()) {
         return new Outcome(uncovered(mutant, worker), false);
       }
       var trial = new Trial(worker, mutant, verifiedMutation(mutant), coverage);
-      var tested = testConfirmed(trial, covering);
+      var tested = testConfirmed(trial, reaching);
+      // Testing it may have found one of them fails with no mutant in: the card shouldn't name it.
+      var covering = alone.withoutThoseFailing(reaching);
+      if (covering.isEmpty()) {
+        return new Outcome(uncovered(mutant, worker), false);
+      }
       var inputs = coverage.inputs(mutant, covering);
       var result = resultOf(trial, covering, tested, inputs);
       if (suggestions && isOnAnInstruction(mutant) && tested.run().status() == Status.MISSED) {
@@ -658,26 +671,39 @@ public final class Engine {
 
     private Tested testConfirmed(Trial trial, List<String> covering) {
       var run = trial.run(covering);
-      if (!confirmCatches || run.status() != Status.CAUGHT) {
+      if (run.status() != Status.CAUGHT) {
         return new Tested(run, Optional.empty());
       }
       var catcher = run.failedTest().orElseThrow();
-      if (trial.run(List.of(catcher)).status() != Status.MISSED) {
-        return new Tested(run, Optional.empty());
+      if (confirmCatches && trial.run(List.of(catcher)).status() == Status.MISSED) {
+        return testedAfter(trial, covering, run, Optional.of(catcher));
       }
-      // Not a catch: the tests after it decide, as if it had passed the first time.
-      var rest = covering.subList(covering.indexOf(catcher) + 1, covering.size());
-      int ran = run.testsRun();
-      var after = rest.isEmpty() ? new TestWorker.Run(Status.MISSED, 0) : trial.run(rest);
+      // Only a catch that stands is checked: one more run for each test, at most.
+      if (alone.fails(catcher, trial.worker(), timeoutFor(coverage.timeOf(catcher)))) {
+        return testedAfter(trial, covering, run, Optional.empty());
+      }
+      return new Tested(run, Optional.empty());
+    }
+
+    /// Not a catch: the tests after the one that failed decide, as if it had passed.
+    private Tested testedAfter(
+        Trial trial, List<String> covering, TestWorker.Run run, Optional<String> unconfirmed) {
+      int at = covering.indexOf(run.failedTest().orElseThrow());
+      var rest = covering.subList(at + 1, covering.size());
+      var after =
+          rest.isEmpty()
+              ? new Tested(new TestWorker.Run(Status.MISSED, 0), Optional.empty())
+              : testConfirmed(trial, rest);
+      var last = after.run();
       return new Tested(
           new TestWorker.Run(
-              after.status(),
-              after.failedTest(),
-              after.failure(),
-              after.origin(),
-              ran + after.testsRun(),
-              after.portClash()),
-          Optional.of(catcher));
+              last.status(),
+              last.failedTest(),
+              last.failure(),
+              last.origin(),
+              run.testsRun() + last.testsRun(),
+              last.portClash()),
+          after.unconfirmed().or(() -> unconfirmed));
     }
 
     private static MutantResult resultOf(

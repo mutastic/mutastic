@@ -345,8 +345,10 @@ public final class Worker {
   private void cover(List<String> tests) {
     Probes.reset();
     failures.clear();
-    var failing = execute(tests, timingTests(), production());
+    var scopes = new TestScopes(Worker::id, framework == null);
+    var failing = execute(tests, production(), timingTests(), scopes);
     Probes.flush();
+    scopes.credit();
     reportLines();
     reportOnlyAtLoad();
     reportValues();
@@ -356,12 +358,10 @@ public final class Worker {
         "DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
   }
 
-  /// Starts each test's probes and answers `TEST` with how long it takes alone (see [TestTimes]).
+  /// Answers `TEST` with how long each test takes alone (see [TestTimes]).
   private TestExecutionListener timingTests() {
     return new TestTimes(
-        Worker::id,
-        Probes::startTest,
-        (test, nanos) -> protocol.println("TEST\t" + test + "\t" + nanos));
+        Worker::id, (test, nanos) -> protocol.println("TEST\t" + test + "\t" + nanos));
   }
 
   private void reportLines() {
@@ -416,7 +416,16 @@ public final class Worker {
     for (String test : tests) {
       ran++;
       var started = new StartedTests();
-      var failing = execute(List.of(test), started, loader);
+      List<String> failing;
+      try {
+        failing = execute(List.of(test), loader, started);
+      } catch (RuntimeException e) {
+        // Finding the tests failed: TestNG makes the test classes as it finds them, so a mutant
+        // that breaks a test class's constructor breaks it here, before any test can fail.
+        remember(e);
+        protocol.println(failedResult(ran, test));
+        return;
+      }
       // A selector that matches nothing runs nothing and fails nothing: that's not a pass.
       if (started.count == 0 && failing.isEmpty()) {
         protocol.println("RESULT\tERROR\tno test ran for " + test);
@@ -456,11 +465,13 @@ public final class Worker {
   }
 
   private List<String> execute(
-      List<String> tests, TestExecutionListener observer, ProductionLoader production) {
+      List<String> tests, ProductionLoader production, TestExecutionListener... observers) {
+    var listeners = new ArrayList<TestExecutionListener>(List.of(observers));
     if (framework != null) {
       // By name: the framework's loader must load the test classes itself.
       var failing = new ArrayList<String>();
-      framework.launcher().execute(byName(tests), recordingFailures(failing), observer);
+      listeners.add(recordingFailures(failing));
+      framework.launcher().execute(byName(tests), listeners.toArray(TestExecutionListener[]::new));
       return failing;
     }
     var loader = new TestLoader(testRoots, production, ++runs);
@@ -470,7 +481,8 @@ public final class Worker {
     try {
       var request = request(loader, tests);
       var failing = new ArrayList<String>();
-      LauncherFactory.create().execute(request, recordingFailures(failing), observer);
+      listeners.add(recordingFailures(failing));
+      LauncherFactory.create().execute(request, listeners.toArray(TestExecutionListener[]::new));
       return failing;
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException(e);
@@ -521,16 +533,23 @@ public final class Worker {
         // `@BeforeAll`) fails the class, and its tests never start.
         if (result.getStatus() != TestExecutionResult.Status.SUCCESSFUL) {
           failing.add(id(test));
-          lastFailure =
-              result.getThrowable().map(thrown -> thrown.getClass().getName()).orElse("unknown");
-          lastOrigin = result.getThrowable().map(Worker.this::origin).orElse("unknown");
-          lastPortClash = result.getThrowable().map(Worker::portClash).orElse(false);
+          lastFailure = "unknown";
+          lastOrigin = "unknown";
+          lastPortClash = false;
+          result.getThrowable().ifPresent(Worker.this::remember);
           result.getThrowable().ifPresent(thrown -> failures.put(id(test), causes(thrown)));
           System.err.println("FAILED\t" + id(test));
           result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
         }
       }
     };
+  }
+
+  /// What the `RESULT` line says of a failure: its exception, origin and port clash.
+  private void remember(Throwable thrown) {
+    lastFailure = thrown.getClass().getName();
+    lastOrigin = origin(thrown);
+    lastPortClash = portClash(thrown);
   }
 
   /// The exception and its causes, outermost first, by class: each once, so a chain that loops back

@@ -175,9 +175,13 @@ public final class AgentText {
   /// do the second as readily as the first.
   private static void appendFlaky(StringBuilder out, Report report) {
     for (var test : report.flaky()) {
+      var why = report.whyFlaky(test);
       out.append(
-          "flaky: %s failed, then passed when run again; left out of this run, so its catches don't count. %s Never remove, disable or loosen it to get a run through%n"
-              .formatted(shortName(test), flakyAdvice(test, report.whyFlaky(test))));
+          why.filter(FlakyTest::failsAlone).isPresent()
+              ? "flaky: %s passes among the others but fails on its own, with no mutant in: it counts on what another test leaves behind. Left out once that was found, so its catches don't count; make it set up what it needs. Never remove, disable or loosen it to get a run through%n"
+                  .formatted(shortName(test))
+              : "flaky: %s failed, then passed when run again; left out of this run, so its catches don't count. %s Never remove, disable or loosen it to get a run through%n"
+                  .formatted(shortName(test), flakyAdvice(test, why)));
     }
   }
 

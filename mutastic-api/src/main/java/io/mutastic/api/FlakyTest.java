@@ -15,8 +15,14 @@ import java.util.List;
 /// @param reachesInTest the same, in the test's own class: its set-up, a stand-in it starts. A test
 ///   whose own code varies makes its own flakiness, even when it fails on the network: a stand-in
 ///   feed with a random delay times out by the test's doing, not the network's.
+/// @param failsAlone it passed among the others, and failed on its own with no mutant in: it counts
+///   on something another test leaves behind, so its failing says nothing about a mutant
 public record FlakyTest(
-    String test, List<String> failure, List<String> reaches, List<String> reachesInTest) {
+    String test,
+    List<String> failure,
+    List<String> reaches,
+    List<String> reachesInTest,
+    boolean failsAlone) {
   /// The exceptions that come from outside the code, by package: the network, a database, a channel
   /// or a file.
   private static final List<String> OUTSIDE =
@@ -32,6 +38,16 @@ public record FlakyTest(
     failure = List.copyOf(failure);
     reaches = List.copyOf(reaches);
     reachesInTest = List.copyOf(reachesInTest);
+  }
+
+  public FlakyTest(
+      String test, List<String> failure, List<String> reaches, List<String> reachesInTest) {
+    this(test, failure, reaches, reachesInTest, false);
+  }
+
+  /// The same test, known to fail on its own.
+  public FlakyTest failingAlone() {
+    return new FlakyTest(test, failure, reaches, reachesInTest, true);
   }
 
   /// Whether it failed with something from outside the code: an exception, or a cause of one, from

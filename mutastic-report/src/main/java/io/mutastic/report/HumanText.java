@@ -761,6 +761,10 @@ public final class HumanText {
   static final List<String> PRUNE = List.of("ignore", "--prune");
 
   private String flakyWarning(String test, Optional<io.mutastic.api.FlakyTest> why) {
+    if (why.filter(io.mutastic.api.FlakyTest::failsAlone).isPresent()) {
+      return " %s %s passes among the others but fails on its own, with no mutant in; its catches don't count"
+          .formatted(style.amber("! flaky:"), AgentText.shortName(test));
+    }
     return " %s %s failed, then passed when run again; left out of this run%s"
         .formatted(style.amber("! flaky:"), AgentText.shortName(test), flakyReason(why));
   }

@@ -5,7 +5,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.junit.platform.engine.TestExecutionResult;
@@ -23,7 +22,6 @@ import org.junit.platform.launcher.TestPlan;
 /// enclosing class's.
 final class TestTimes implements TestExecutionListener {
   private final Function<TestIdentifier, String> id;
-  private final Consumer<String> started;
   private final BiConsumer<String, Long> finished;
 
   private final Map<String, Long> startedAt = new HashMap<>();
@@ -34,14 +32,9 @@ final class TestTimes implements TestExecutionListener {
   private @Nullable TestPlan plan;
 
   /// @param id a test's id, the same for each of its cases
-  /// @param started hears each case start, by its test's id
   /// @param finished hears each test once, with its nanoseconds
-  TestTimes(
-      Function<TestIdentifier, String> id,
-      Consumer<String> started,
-      BiConsumer<String, Long> finished) {
+  TestTimes(Function<TestIdentifier, String> id, BiConsumer<String, Long> finished) {
     this.id = id;
-    this.started = started;
     this.finished = finished;
   }
 
@@ -53,9 +46,6 @@ final class TestTimes implements TestExecutionListener {
   @Override
   public void executionStarted(TestIdentifier identifier) {
     startedAt.put(identifier.getUniqueId(), System.nanoTime());
-    if (identifier.isTest()) {
-      started.accept(id.apply(identifier));
-    }
   }
 
   @Override

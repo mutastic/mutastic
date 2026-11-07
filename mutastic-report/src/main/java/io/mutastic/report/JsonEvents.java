@@ -167,6 +167,9 @@ public final class JsonEvents {
       fields.put("failure", evidence.failure());
       fields.put("reaches", evidence.reaches());
       fields.put("reachesInTest", evidence.reachesInTest());
+      if (evidence.failsAlone()) {
+        fields.put("failsAlone", true);
+      }
       fields.put("outside", evidence.failedOutside());
       all.add(fields);
     }
