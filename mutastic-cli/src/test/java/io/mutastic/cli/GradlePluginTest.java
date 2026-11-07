@@ -63,6 +63,51 @@ class GradlePluginTest {
   /// command line's `-Pmutastic.suite` is over it; its setup is the init script's for that suite.
   @Test
   void theBuildFilesSuiteRunsThatTestTask() throws Exception {
+    var project = suitesWithPlugin();
+
+    var integration = gradlew(project, "mutasticRun", "-Pmutastic.format=agent");
+    var unit = gradlew(project, "mutasticRun", "-Pmutastic.format=agent", "-Pmutastic.suite=test");
+
+    assertThat(integration.out()).as(integration.out()).contains("0 missed");
+    assertThat(unit.out()).as(unit.out()).contains("1 missed");
+    gradlew(project, "mutasticWriteSetup");
+    Samples.mutastic("run", project.toString(), "--suite=integrationTest", "--report=none");
+    assertThat(setup(project.resolve("build/mutastic/setup.properties")))
+        .isEqualTo(
+            setup(project.resolve("build/mutastic/suites/integrationTest/setup.properties")));
+  }
+
+  /// The tasks work with the configuration cache and Isolated Projects: the first run stores the
+  /// build's configuration and the second reuses it, with no problem reported by either (a problem
+  /// fails the build), and what the second writes is the setup the init script writes.
+  @Test
+  void theConfigurationCacheKeepsTheTasks() throws Exception {
+    var project = suitesWithPlugin();
+    var cached =
+        new String[] {
+          "mutasticRun",
+          "-Pmutastic.format=agent",
+          "--configuration-cache",
+          "-Dorg.gradle.unsafe.isolated-projects=true"
+        };
+
+    var stored = gradlewLoud(project, cached);
+    var reused = gradlewLoud(project, cached);
+
+    assertThat(stored.out()).as(stored.out()).contains("Configuration cache entry stored");
+    assertThat(stored.exit()).as(stored.out()).isZero();
+    assertThat(reused.out()).as(reused.out()).contains("Configuration cache entry reused");
+    assertThat(reused.out()).contains("0 missed");
+    assertThat(reused.exit()).as(reused.out()).isZero();
+    Samples.mutastic("run", project.toString(), "--suite=integrationTest", "--report=none");
+    assertThat(setup(project.resolve("build/mutastic/setup.properties")))
+        .isEqualTo(
+            setup(project.resolve("build/mutastic/suites/integrationTest/setup.properties")));
+  }
+
+  /// The suites sample with the plugin applied from the build's repository, and its build file
+  /// choosing the `integrationTest` suite.
+  private Path suitesWithPlugin() throws IOException {
     var project = Samples.copy(SUITES, work.resolve("suites"));
     var repository = REPOSITORY.toUri().toString();
     var settings = project.resolve("settings.gradle.kts");
@@ -83,17 +128,7 @@ class GradlePluginTest {
                     "    mavenCentral()\n",
                     "    mavenCentral()\n    maven(\"%s\")\n".formatted(repository))
             + "\nmutastic {\n    suite = \"integrationTest\"\n}\n");
-
-    var integration = gradlew(project, "mutasticRun", "-Pmutastic.format=agent");
-    var unit = gradlew(project, "mutasticRun", "-Pmutastic.format=agent", "-Pmutastic.suite=test");
-
-    assertThat(integration.out()).as(integration.out()).contains("0 missed");
-    assertThat(unit.out()).as(unit.out()).contains("1 missed");
-    gradlew(project, "mutasticWriteSetup");
-    Samples.mutastic("run", project.toString(), "--suite=integrationTest", "--report=none");
-    assertThat(setup(project.resolve("build/mutastic/setup.properties")))
-        .isEqualTo(
-            setup(project.resolve("build/mutastic/suites/integrationTest/setup.properties")));
+    return project;
   }
 
   /// The plugin's setup and the init script's, for the same module, say the same.
@@ -158,7 +193,19 @@ class GradlePluginTest {
 
   private Samples.Result gradlew(Path project, String... arguments)
       throws IOException, InterruptedException {
-    var command = new ArrayList<>(List.of("./gradlew", "-q"));
+    return gradlew(project, List.of("-q"), arguments);
+  }
+
+  /// With Gradle's own lines, which say what became of the configuration cache.
+  private Samples.Result gradlewLoud(Path project, String... arguments)
+      throws IOException, InterruptedException {
+    return gradlew(project, List.of("--console=plain"), arguments);
+  }
+
+  private Samples.Result gradlew(Path project, List<String> logging, String... arguments)
+      throws IOException, InterruptedException {
+    var command = new ArrayList<>(List.of("./gradlew"));
+    command.addAll(logging);
     // The plugin runs in the sample's Gradle daemon: measured there, when the build measures it,
     // in a daemon for this build alone, whose coverage is written as it exits.
     var agent = System.getProperty("mutastic.coverageAgent", "");

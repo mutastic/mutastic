@@ -51,12 +51,13 @@ gradlePlugin {
             displayName = "mutastic"
             description = project.description
             tags = listOf("mutation-testing", "testing", "test-quality", "java")
-            // Neither is: the setup task reads the test task as it runs, and isolated projects
-            // haven't been tried. Declared false until each is, as the portal asks.
+            // Both: the tasks capture what they read of the build as it's configured, and reach
+            // into no other project. GradlePluginTest runs them with both on, twice, so the
+            // second run reuses the stored configuration.
             compatibility {
                 features {
-                    configurationCache = false
-                    isolatedProjects = false
+                    configurationCache = true
+                    isolatedProjects = true
                 }
             }
         }
