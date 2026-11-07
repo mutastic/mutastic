@@ -408,12 +408,15 @@ public final class SourceView {
     return replacedOnce(text, always.group("condition"), always.group("value"));
   }
 
+  /// Where the mutant's line is: for code copied in from another file, that file and no other, as
+  /// the line is one of its.
   private Optional<Path> sourceFile(Mutant mutant) {
-    return sources.stream()
-        .map(source -> source.resolve(expectedPath(mutant)))
-        .filter(Files::isRegularFile)
-        .findFirst()
-        .or(() -> kotlinFile(mutant));
+    var found =
+        sources.stream()
+            .map(source -> source.resolve(expectedPath(mutant)))
+            .filter(Files::isRegularFile)
+            .findFirst();
+    return mutant.inlinedFrom().isPresent() ? found : found.or(() -> kotlinFile(mutant));
   }
 
   /// Where kotlinc's class came from: Kotlin doesn't name a file for a class. `ShelfKt`, a file's
@@ -457,8 +460,12 @@ public final class SourceView {
     }
   }
 
-  /// `com/example/Pricing.java`, for `com/example/Pricing$Tier` too.
+  /// `com/example/Pricing.java`, for `com/example/Pricing$Tier` too; or the file the mutant's code
+  /// was copied in from.
   private static String expectedPath(Mutant mutant) {
+    if (mutant.inlinedFrom().isPresent()) {
+      return mutant.inlinedFrom().get();
+    }
     var name = mutant.className();
     int dollar = name.indexOf('$', name.lastIndexOf('/') + 1);
     return (dollar < 0 ? name : name.substring(0, dollar)) + ".java";

@@ -1184,7 +1184,7 @@
           "name": "Mutant",
           "slug": "mutant",
           "kind": "record",
-          "signature": "record Mutant(\n    String className,\n    String methodName,\n    String descriptor,\n    int ordinal,\n    int line,\n    Operator operator,\n    String original,\n    String replacement,\n    Optional<String> skipped,\n    List<Integer> copies,\n    List<String> operands)",
+          "signature": "record Mutant(\n    String className,\n    String methodName,\n    String descriptor,\n    int ordinal,\n    int line,\n    Operator operator,\n    String original,\n    String replacement,\n    Optional<String> skipped,\n    List<Integer> copies,\n    List<String> operands,\n    Optional<String> inlinedFrom)",
           "summary": "One mutation of one instruction: which method, which mutation site in it (counted in bytecode order), and what the instruction becomes.",
           "doc": "One mutation of one instruction: which method, which mutation site in it (counted in bytecode\norder), and what the instruction becomes. A skipped mutant never runs: the change can't be told\napart from the original, or it's code no test is meant to pin.",
           "params": [
@@ -1215,6 +1215,10 @@
             {
               "name": "operands",
               "doc": "what the instruction works on, as the source names it (`total`, `100`), when the bytecode before it says; not part of the fingerprint"
+            },
+            {
+              "name": "inlinedFrom",
+              "doc": "the source file `line` is in, under a source root (`probe/Helpers.kt`), when the instruction is a copy of code from another file than the class's: what kotlinc's inline functions leave; not part of the fingerprint"
             }
           ],
           "members": [
@@ -1222,6 +1226,16 @@
               "kind": "constructor",
               "name": "Mutant",
               "anchor": "mutant",
+              "signature": "Mutant(String className, String methodName, String descriptor, int ordinal, int line, Operator operator, String original, String replacement, Optional<String> skipped, List<Integer> copies, List<String> operands)",
+              "doc": "A mutant in its class's own file.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "Mutant",
+              "anchor": "mutant-2",
               "signature": "Mutant(String className, String methodName, String descriptor, int ordinal, int line, Operator operator, String original, String replacement, Optional<String> skipped, List<Integer> copies)",
               "doc": "A mutant whose operands aren't known.",
               "params": [],
@@ -1231,7 +1245,7 @@
             {
               "kind": "constructor",
               "name": "Mutant",
-              "anchor": "mutant-2",
+              "anchor": "mutant-3",
               "signature": "Mutant(String className, String methodName, String descriptor, int ordinal, int line, Operator operator, String original, String replacement, Optional<String> skipped)",
               "doc": "A mutant of one site.",
               "params": [],
@@ -1254,6 +1268,16 @@
               "anchor": "unskipped",
               "signature": "Mutant unskipped()",
               "doc": "The same mutant, to run: for an audit of what a filter skips.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "at",
+              "anchor": "at",
+              "signature": "Mutant at(int realLine, Optional<String> file)",
+              "doc": "The same mutant, at where its code really is: `file` when that's another file than its\nclass's.",
               "params": [],
               "returns": "",
               "throws": []

@@ -39,7 +39,8 @@ final class KotlinGenerated implements Filter {
         && (name.startsWith("check") || name.startsWith("throw"));
   }
 
-  private static boolean isKotlin(ClassModel owner) {
+  /// Whether kotlinc compiled the class, as its `@kotlin.Metadata` says.
+  static boolean isKotlin(ClassModel owner) {
     return owner
         .findAttribute(Attributes.runtimeVisibleAnnotations())
         .map(

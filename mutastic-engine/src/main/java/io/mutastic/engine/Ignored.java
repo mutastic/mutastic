@@ -84,8 +84,7 @@ final class Ignored {
 
   /// The mutant's source line as it is now.
   private Optional<String> line(Mutant mutant) {
-    return Optional.ofNullable(models.get(mutant.binaryName()))
-        .flatMap(model -> SourcePaths.of(model, sources))
+    return SourcePaths.of(mutant, Optional.ofNullable(models.get(mutant.binaryName())), sources)
         .map(this::lines)
         .filter(lines -> mutant.line() >= 1 && mutant.line() <= lines.size())
         .map(lines -> lines.get(mutant.line() - 1));

@@ -63,13 +63,13 @@ final class Coverage {
   /// The class with a probe at every line of every method that can have mutants, and its static
   /// initialiser saying when it starts and returns.
   byte[] instrument(ClassModel model) {
-    var className = model.thisClass().asInternalName();
     return context.transformClass(
         model,
         (classBuilder, element) -> {
           if (element instanceof MethodModel method && method.code().isPresent()) {
             classBuilder.transformMethod(
-                method, MethodTransform.transformingCode(probes(className, method)));
+                method,
+                MethodTransform.transformingCode(probes(model, method, SourceMap.of(model))));
           } else {
             classBuilder.with(element);
           }
@@ -246,9 +246,9 @@ final class Coverage {
         .reduce(Duration.ZERO, Duration::plus);
   }
 
-  private CodeTransform probes(String className, MethodModel method) {
+  private CodeTransform probes(ClassModel model, MethodModel method, SourceMap lines) {
     var methodKey = method.methodName().stringValue() + method.methodType().stringValue();
-    var recorded = wholeNumberParameters(className, method, methodKey);
+    var recorded = wholeNumberParameters(model.thisClass().asInternalName(), method, methodKey);
     boolean initialiser = method.methodName().equalsString("<clinit>");
     return new CodeTransform() {
       @Override
@@ -266,11 +266,16 @@ final class Coverage {
         }
         builder.with(element);
         if (element instanceof LineNumber lineNumber) {
-          builder.loadConstant(lineId(key(className, methodKey, lineNumber.line())));
+          builder.loadConstant(lineIdOf(model, methodKey, lines, lineNumber.line()));
           builder.invokestatic(probes, "line", LINE);
         }
       }
     };
+  }
+
+  /// The id of a line of the class file, by where the line really is.
+  private int lineIdOf(ClassModel model, String methodKey, SourceMap lines, int line) {
+    return lineId(key(model.thisClass().asInternalName(), methodKey, place(model, lines, line)));
   }
 
   /// Passes each recorded parameter's value to the probes, widened to a `long`.
@@ -333,10 +338,22 @@ final class Coverage {
   /// Keyed by method as well as line: a record's header line holds its constructor, accessors and
   /// generated methods, so a test that only constructs one would otherwise "cover" them all.
   private static String key(Mutant mutant) {
-    return key(mutant.className(), mutant.methodName() + mutant.descriptor(), mutant.line());
+    var file = mutant.inlinedFrom().map(path -> path + "@").orElse("");
+    return key(mutant.className(), mutant.methodName() + mutant.descriptor(), file + mutant.line());
   }
 
-  private static String key(String className, String method, int line) {
-    return className + "#" + method + ":" + line;
+  private static String key(String className, String method, String place) {
+    return className + "#" + method + ":" + place;
+  }
+
+  /// A line of the class file as a mutant on it says it: where kotlinc's map says it really is.
+  private static String place(ClassModel model, SourceMap lines, int line) {
+    return lines
+        .copied(line)
+        .map(
+            place ->
+                InlinedCode.otherFile(place, model).map(file -> file + "@").orElse("")
+                    + place.line())
+        .orElse(String.valueOf(line));
   }
 }

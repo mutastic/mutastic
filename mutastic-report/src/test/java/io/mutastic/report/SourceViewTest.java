@@ -59,6 +59,32 @@ class SourceViewTest {
     sources = new SourceView(project, List.of(project.resolve("src/main/java")));
   }
 
+  /// A line of code kotlinc copied in is a line of the file it was copied from, not its class's.
+  @Test
+  void aMutantInCodeCopiedInIsOnTheFileItCameFrom() throws Exception {
+    var helpers = project.resolve("src/main/java/probe/Helpers.kt");
+    Files.createDirectories(helpers.getParent());
+    Files.writeString(helpers, "package probe\n\ninline fun bump(x: Int) = x + 10\n");
+    var copied =
+        new Mutant(
+                "probe/ProbeKt",
+                "uses",
+                "(I)I",
+                0,
+                3,
+                BuiltIn.MATH,
+                "IADD",
+                "ISUB",
+                Optional.empty())
+            .at(3, Optional.of("probe/Helpers.kt"));
+    var fromTheLibrary = copied.at(865, Optional.of("kotlin/collections/_Collections.kt"));
+
+    assertThat(sources.file(copied)).isEqualTo("src/main/java/probe/Helpers.kt");
+    assertThat(sources.line(copied)).contains("inline fun bump(x: Int) = x + 10");
+    assertThat(sources.file(fromTheLibrary)).isEqualTo("kotlin/collections/_Collections.kt");
+    assertThat(sources.line(fromTheLibrary)).isEmpty();
+  }
+
   @Test
   void findsTheOperatorOnALaterLineOfTheStatement() {
     // javac gives the whole `return` line 5; the `<` is on line 7.

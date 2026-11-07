@@ -552,10 +552,12 @@ public final class Engine {
     return mutant -> {
       var file =
           files.computeIfAbsent(
-              mutant.binaryName(),
+              mutant.inlinedFrom().orElse(mutant.binaryName()),
               name ->
-                  Optional.ofNullable(models.get(name))
-                      .flatMap(model -> SourcePaths.of(model, project.sources())));
+                  SourcePaths.of(
+                      mutant,
+                      Optional.ofNullable(models.get(mutant.binaryName())),
+                      project.sources()));
       return file.filter(path -> changed.get().covers(path, mutant.line())).isPresent();
     };
   }

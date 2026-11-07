@@ -23,6 +23,9 @@ import java.util.Optional;
 ///   copies javac makes of a `finally` block, one per way out of the `try`
 /// @param operands what the instruction works on, as the source names it (`total`, `100`), when the
 ///   bytecode before it says; not part of the fingerprint
+/// @param inlinedFrom the source file `line` is in, under a source root (`probe/Helpers.kt`), when
+///   the instruction is a copy of code from another file than the class's: what kotlinc's inline
+///   functions leave; not part of the fingerprint
 public record Mutant(
     String className,
     String methodName,
@@ -34,11 +37,40 @@ public record Mutant(
     String replacement,
     Optional<String> skipped,
     List<Integer> copies,
-    List<String> operands) {
+    List<String> operands,
+    Optional<String> inlinedFrom) {
 
   public Mutant {
     copies = List.copyOf(copies);
     operands = List.copyOf(operands);
+  }
+
+  /// A mutant in its class's own file.
+  public Mutant(
+      String className,
+      String methodName,
+      String descriptor,
+      int ordinal,
+      int line,
+      Operator operator,
+      String original,
+      String replacement,
+      Optional<String> skipped,
+      List<Integer> copies,
+      List<String> operands) {
+    this(
+        className,
+        methodName,
+        descriptor,
+        ordinal,
+        line,
+        operator,
+        original,
+        replacement,
+        skipped,
+        copies,
+        operands,
+        Optional.empty());
   }
 
   /// A mutant whose operands aren't known.
@@ -104,7 +136,8 @@ public record Mutant(
         replacement,
         Optional.of(reason),
         copies,
-        operands);
+        operands,
+        inlinedFrom);
   }
 
   /// The same mutant, to run: for an audit of what a filter skips.
@@ -120,7 +153,26 @@ public record Mutant(
         replacement,
         Optional.empty(),
         copies,
-        operands);
+        operands,
+        inlinedFrom);
+  }
+
+  /// The same mutant, at where its code really is: `file` when that's another file than its
+  /// class's.
+  public Mutant at(int realLine, Optional<String> file) {
+    return new Mutant(
+        className,
+        methodName,
+        descriptor,
+        ordinal,
+        realLine,
+        operator,
+        original,
+        replacement,
+        skipped,
+        copies,
+        operands,
+        file);
   }
 
   /// Whether the change is made at `site` (counted in this mutant's kind of site).

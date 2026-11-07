@@ -116,6 +116,9 @@ final class Mutations {
   /// Finds the mutants of the operators that change a class as a whole.
   private final WholeClasses wholeClasses;
 
+  /// Judges an inline function's own body, by what the tests' classes hold as well as the module's.
+  private final InlineBodies inlineBodies = new InlineBodies();
+
   Mutations(ClassFile context) {
     this(context, Policy.NONE);
   }
@@ -136,6 +139,7 @@ final class Mutations {
         new ArrayList<Filter>(
             List.of(
                 new KotlinGenerated(),
+                inlineBodies,
                 new TrivialAccessors(),
                 new DebugRepresentations(this::kept)));
     all.addAll(policy.filters());
@@ -153,7 +157,7 @@ final class Mutations {
             .ifPresent(
                 code -> {
                   var found = scanned(model, method, code, here);
-                  mutants.addAll(viable(model, mergeFinallyCopies(found, code)));
+                  mutants.addAll(viable(model, located(model, mergeFinallyCopies(found, code))));
                 });
       }
     }
@@ -175,6 +179,13 @@ final class Mutations {
             new Wrappers(module),
             supertypes)
         .mutants();
+  }
+
+  /// The mutants at where their code really is, and those in code copied in from outside the module
+  /// skipped. After `finally`'s copies are merged, which goes by the class file's own line numbers:
+  /// two lines of a loop kotlinc copied in may be the same line of the source, and aren't copies.
+  private List<Mutant> located(ClassModel model, List<Mutant> found) {
+    return InlinedCode.located(model, module.keySet(), found);
   }
 
   /// The operators that change this method: all of them in code the user wrote, and in a
@@ -239,6 +250,7 @@ final class Mutations {
 
   /// Tells the operators that change a class as a whole of the project, before any of its classes.
   void prepareFor(Project project) {
+    inlineBodies.prepareFor(project);
     wholeClasses.prepareFor(project);
   }
 
