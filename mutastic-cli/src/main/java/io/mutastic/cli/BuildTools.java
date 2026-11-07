@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
@@ -19,15 +20,19 @@ final class BuildTools {
     if (!Files.isDirectory(directory)) {
       throw new SetupFailed("there's no directory %s".formatted(directory));
     }
-    var tools =
-        ServiceLoader.load(BuildTool.class).stream()
-            .map(ServiceLoader.Provider::get)
-            .sorted(Comparator.comparing(BuildTool::name))
-            .toList();
-    return tools.stream()
-        .filter(tool -> tool.recognises(directory))
-        .findFirst()
-        .orElseThrow(() -> new SetupFailed(notABuild(directory, tools)));
+    return find(directory).orElseThrow(() -> new SetupFailed(notABuild(directory, tools())));
+  }
+
+  /// The tool whose build `directory` is, if any recognises it.
+  static Optional<BuildTool> find(Path directory) {
+    return tools().stream().filter(tool -> tool.recognises(directory)).findFirst();
+  }
+
+  private static List<BuildTool> tools() {
+    return ServiceLoader.load(BuildTool.class).stream()
+        .map(ServiceLoader.Provider::get)
+        .sorted(Comparator.comparing(BuildTool::name))
+        .toList();
   }
 
   private static String notABuild(Path directory, List<BuildTool> tools) {

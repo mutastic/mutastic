@@ -243,6 +243,27 @@ class GateTest {
             .replace("if (total >= 100) {", "if (total >= 100 || total > 50) {"));
   }
 
+  /// A hook runs wherever the agent is, so where mutastic reads no build it says nothing and lets
+  /// the agent go on; run by a person, the same command says what's wrong.
+  @Test
+  void asAHookItPassesQuietlyWhereThereIsNoBuild() throws Exception {
+    var notes = Files.createDirectories(work.resolve("notes")).toString();
+    var session = "{\"session_id\":\"s1\"}".getBytes(StandardCharsets.UTF_8);
+    System.setIn(new ByteArrayInputStream(session));
+    var opened = mutastic("gate", "open", notes, "--hook=claude");
+    System.setIn(new ByteArrayInputStream(session));
+    var checked = mutastic("gate", "check", notes, "--hook=claude");
+    var person = mutastic("gate", "check", notes);
+
+    for (var hook : java.util.List.of(opened, checked)) {
+      assertThat(hook.exit()).isEqualTo(Main.PASSED);
+      assertThat(hook.out()).isEmpty();
+      assertThat(hook.err()).isEmpty();
+    }
+    assertThat(person.exit()).isEqualTo(Main.USAGE);
+    assertThat(person.err()).contains("isn't a Gradle or Maven build");
+  }
+
   private Samples.Result hooked(String input, String... args) {
     System.setIn(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)));
     var all = new java.util.ArrayList<>(java.util.List.of(args));

@@ -92,7 +92,8 @@ public final class Main {
       return answered.getAsInt();
     }
     try {
-      return run(Command.parse(args), out, err, terminal);
+      var command = Command.parse(args);
+      return nothingToGate(command) ? PASSED : run(command, out, err, terminal);
     } catch (UsageException e) {
       err.println("mutastic: " + e.getMessage());
       err.print(Help.usage());
@@ -108,6 +109,15 @@ public final class Main {
       err.println("mutastic: internal error: " + e);
       return INTERNAL;
     }
+  }
+
+  /// A hook runs in whatever project the agent is in. Where mutastic reads no build, there's
+  /// nothing to gate: the hook says nothing and the agent goes on, so a plugin needn't know which
+  /// builds mutastic reads. Run by a person, the same command says what's wrong.
+  private static boolean nothingToGate(Command command) {
+    return command.subcommand().gate()
+        && !command.gating().hook().isEmpty()
+        && BuildTools.find(command.directory().toAbsolutePath().normalize()).isEmpty();
   }
 
   private static int run(Command command, PrintStream out, PrintStream err, Terminal terminal) {
