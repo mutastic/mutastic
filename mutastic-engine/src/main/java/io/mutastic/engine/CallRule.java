@@ -112,7 +112,10 @@ public record CallRule(
       if (!call.typeSymbol().returnType().equals(call.owner().asSymbol())) {
         return List.of(); // nothing to leave in its place
       }
-      return List.of(new Change("remove", equivalent(call, site.code(), site.index())));
+      var skipped =
+          equivalent(call, site.code(), site.index())
+              .or(() -> EndlessStreams.whyNotRemoved(call, site.code(), site.index()));
+      return List.of(new Change("remove", skipped));
     }
     if (rewrite.startsWith("rename ")) {
       return renames().stream()

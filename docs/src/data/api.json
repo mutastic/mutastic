@@ -2031,8 +2031,8 @@
           "slug": "skip-kind",
           "kind": "enum",
           "signature": "enum Kind",
-          "summary": "What the skip claims: `GENERATED`, `EQUIVALENT` and `UNVIABLE` are facts about the bytecode (an unviable change wouldn't load); `ARID` is a judgement that the mutant isn't worth a test; `USER` is the project's own decision.",
-          "doc": "What the skip claims: `GENERATED`, `EQUIVALENT` and `UNVIABLE` are facts about the bytecode\n(an unviable change wouldn't load); `ARID` is a judgement that the mutant isn't worth a test;\n`USER` is the project's own decision.",
+          "summary": "What the skip claims: `GENERATED`, `EQUIVALENT` and `UNVIABLE` are facts about the bytecode (an unviable change wouldn't load, or would never finish); `ARID` is a judgement that the mutant isn't worth a test; `USER` is the project's own decision.",
+          "doc": "What the skip claims: `GENERATED`, `EQUIVALENT` and `UNVIABLE` are facts about the bytecode\n(an unviable change wouldn't load, or would never finish); `ARID` is a judgement that the\nmutant isn't worth a test; `USER` is the project's own decision.",
           "params": [],
           "members": [
             {

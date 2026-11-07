@@ -8,8 +8,8 @@ import java.util.Locale;
 /// @param reason in words, after the kind: `trivial getter of name`
 public record Skip(Kind kind, String reason) {
   /// What the skip claims: `GENERATED`, `EQUIVALENT` and `UNVIABLE` are facts about the bytecode
-  /// (an unviable change wouldn't load); `ARID` is a judgement that the mutant isn't worth a test;
-  /// `USER` is the project's own decision.
+  /// (an unviable change wouldn't load, or would never finish); `ARID` is a judgement that the
+  /// mutant isn't worth a test; `USER` is the project's own decision.
   public enum Kind {
     GENERATED,
     EQUIVALENT,
