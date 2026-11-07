@@ -785,6 +785,9 @@ public record Advice(
   }
 
   private static Advice removeVoidCall(Mutant mutant, Map<String, List<Long>> seen) {
+    if (mutant.original().contains("kotlin/jvm/internal/Intrinsics.checkNotNull(")) {
+      return kotlinNullCheck(mutant, seen);
+    }
     var called = "`%s()`".formatted(SourceView.calledName(mutant.original()));
     return new Advice(
         Optional.empty(),
@@ -794,6 +797,32 @@ public record Advice(
         "no test checks the effect of calling %s in %s".formatted(called, method(mutant)),
         inputsSeen(seen),
         "assert what %s does: the state it changes or the call it makes".formatted(called));
+  }
+
+  /// A Kotlin `x!!`, or with a message `x as String`: the check that's the source's, not kotlinc's.
+  private static Advice kotlinNullCheck(Mutant mutant, Map<String, List<Long>> seen) {
+    var written = mutant.original().contains("(Ljava/lang/Object;)V") ? "`!!`" : "`as`";
+    return new Advice(
+        Optional.empty(),
+        Optional.empty(),
+        "the %s lets a `null` through".formatted(written),
+        "lets a `null` through",
+        "no test has a `null` reach the %s in %s".formatted(written, method(mutant)),
+        inputsSeen(seen),
+        "add a test where the value is `null`, and assert it throws a `NullPointerException`");
+  }
+
+  /// The same advice, its words changed: for what the source says where the bytecode says another
+  /// thing.
+  Advice reworded(UnaryOperator<String> words) {
+    return new Advice(
+        before,
+        after,
+        words.apply(change),
+        words.apply(changedTo),
+        words.apply(headline),
+        notes.stream().map(words).toList(),
+        words.apply(fix));
   }
 
   /// A comparison of a name with a value, the name first however the source has it: `total >= 100`

@@ -2202,7 +2202,7 @@
           "params": [
             {
               "name": "call",
-              "doc": "the call as Java source, `new Pricing().discount(100)`"
+              "doc": "the call in the language of the mutated class: `new Pricing().discount(100)`, or in Kotlin `Pricing().discount(100)`"
             },
             {
               "name": "parameters",

@@ -26,6 +26,9 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
     var suggestion = result.suggestion().get();
     var fastest = result.coveredBy().getFirst();
     var testClass = fastest.contains("#") ? fastest.substring(0, fastest.indexOf('#')) : fastest;
+    if (sources.isKotlin(result.mutant())) {
+      return inKotlin(result, testClass, sources);
+    }
     var source = sources.testSource(testClass);
     var style = Style.of(source.orElse(""));
     var name = freeName(name(result.mutant().methodName(), suggestion), source.orElse(""));
@@ -40,6 +43,30 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
             name,
             lines,
             outcomes(suggestion)));
+  }
+
+  /// The test in Kotlin, for what kotlinc compiled. A call written in Kotlin can't be pasted into a
+  /// test class in Java, so there's none for one.
+  private static Optional<SuggestedTest> inKotlin(
+      MutantResult result, String testClass, SourceView sources) {
+    if (sources.testFile(testClass).filter(file -> file.endsWith(".java")).isPresent()) {
+      return Optional.empty();
+    }
+    var suggestion = result.suggestion().orElseThrow();
+    var source = sources.testSource(testClass).orElse("");
+    var name = freeName(name(result.mutant().methodName(), suggestion), source);
+    return KotlinAssertion.of(suggestion, Style.ofKotlin(source))
+        .map(
+            assertion ->
+                new SuggestedTest(
+                    testClass.substring(testClass.lastIndexOf('.') + 1),
+                    name,
+                    List.of(
+                        "@Test",
+                        "fun %s() {".formatted(name),
+                        "    " + assertion + " // " + outcomes(suggestion),
+                        "}"),
+                    outcomes(suggestion)));
   }
 
   /// The tests suggested for the mutants of `finding`, each call once: two mutants on one side of a
@@ -73,17 +100,18 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
         .flatMap(
             result ->
                 result.suggestion().stream()
-                    .map(
-                        suggestion ->
-                            assertion(
-                                suggestion,
-                                Style.of(
-                                    sources
-                                        .testSource(result.mutant().binaryName() + "Test")
-                                        .orElse("")))))
+                    .flatMap(suggestion -> startingPoint(result, suggestion, sources).stream()))
         .distinct()
         .limit(limit)
         .toList();
+  }
+
+  private static Optional<String> startingPoint(
+      MutantResult result, Suggestion suggestion, SourceView sources) {
+    var source = sources.testSource(result.mutant().binaryName() + "Test").orElse("");
+    return sources.isKotlin(result.mutant())
+        ? KotlinAssertion.of(suggestion, Style.ofKotlin(source))
+        : Optional.of(assertion(suggestion, Style.of(source)));
   }
 
   /// How the test class writes its tests: JUnit's assertions, AssertJ's, or TestNG's, whose test
@@ -101,6 +129,14 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
       return source.contains("import static org.testng.") || source.contains("import org.testng.")
           ? TESTNG
           : JUNIT;
+    }
+
+    /// The style of a test class in Kotlin, whose imports have no `static`.
+    static Style ofKotlin(String source) {
+      if (source.contains("import org.assertj.")) {
+        return ASSERTJ;
+      }
+      return source.contains("import org.testng.") ? TESTNG : JUNIT;
     }
   }
 

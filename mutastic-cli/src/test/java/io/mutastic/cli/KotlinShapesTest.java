@@ -63,6 +63,7 @@ class KotlinShapesTest {
 
   private static Path project;
   private static List<Seen> mutants;
+  private static List<String> events;
 
   @BeforeAll
   static void runTheSample() throws IOException {
@@ -70,12 +71,12 @@ class KotlinShapesTest {
     var run =
         Samples.mutastic(
             "run", project.toString(), "--operators=all", "--format=jsonl", "--report=none");
-    mutants =
+    events =
         run.out()
             .lines()
             .filter(event -> event.contains("\"reason\":\"mutant-finished\""))
-            .map(Seen::of)
             .toList();
+    mutants = events.stream().map(Seen::of).toList();
   }
 
   /// The mutants of `method` the operator made, on this file.
@@ -297,6 +298,128 @@ class KotlinShapesTest {
         """);
     assertVerified(kept.id());
     assertVerified(cast.id());
+  }
+
+  private static final Pattern SUGGESTED =
+      Pattern.compile(
+          "\"id\":\"(?<id>m[0-9a-f]{8})\".*\"suggestedTest\":\\{.*?\"code\":\"(?<code>.*?)\",\"call\"");
+
+  /// JSON's escapes, as the suggested test's code has them.
+  private static String unescaped(String json) {
+    return json.replace("\\n", "\n").replace("\\\"", "\"").replace("\\\\", "\\");
+  }
+
+  /// Every test the sample's cards suggest, pasted into its test class as they are: it's Kotlin, it
+  /// compiles, it passes today, and each fails with the mutant it was found for.
+  @Test
+  void everySuggestedTestCompilesAndCatchesItsMutant() throws Exception {
+    var byName = new java.util.LinkedHashMap<String, String>();
+    var ids = new java.util.LinkedHashSet<String>();
+    for (var event : events) {
+      var found = SUGGESTED.matcher(event);
+      if (found.find()) {
+        var code = unescaped(found.group("code"));
+        byName.putIfAbsent(code.lines().skip(1).findFirst().orElseThrow(), code);
+        ids.add(found.group("id"));
+      }
+    }
+    assertThat(byName.values())
+        .isNotEmpty()
+        .allSatisfy(
+            code ->
+                assertThat(code)
+                    .contains("fun ")
+                    .doesNotContain("void ", "Kt.", "new ", ";\n", "local", "$this$"));
+    var calls = String.join("\n", byName.values());
+    assertThat(calls)
+        .contains("assertEquals(2, plusOne(1))")
+        .contains(".doubled()")
+        .contains(".tripled)")
+        .contains(".plusBy(")
+        .contains("Counter(")
+        .contains(".twice)")
+        .contains(".getThrice())")
+        .contains(".Step(")
+        .contains("::class.java) { refuses(")
+        .contains("\"\\$up\"")
+        .doesNotContain(
+            "Box", "Single", "renamed", "named(", "generic", " Hidden(", "fromCompanion");
+
+    var path = project.resolve("src/test/kotlin/com/example/shapes/SuggestedTest.kt");
+    var source = Files.readString(path);
+    Files.writeString(path, source.substring(0, source.lastIndexOf('}')) + calls.indent(4) + "}\n");
+    var defaults =
+        mutants.stream()
+            .filter(mutant -> ids.contains(mutant.id()))
+            .filter(mutant -> DEFAULTS.contains(mutant.operator()))
+            .map(Seen::id)
+            .toList();
+    assertThat(defaults).isNotEmpty();
+    assertVerified(String.join(",", defaults));
+  }
+
+  private static final List<String> DEFAULTS =
+      List.of(
+          "mutastic/math",
+          "mutastic/return-value",
+          "mutastic/remove-conditional",
+          "mutastic/boundary");
+
+  /// The card of the first mutant of `method` the operator made that a test didn't catch.
+  private static String cardOf(Path project, String method, String operator) {
+    var id =
+        mutants.stream()
+            .filter(mutant -> mutant.method().equals(method))
+            .filter(mutant -> mutant.operator().equals(operator))
+            .filter(mutant -> mutant.status().equals("Survived"))
+            .map(Seen::id)
+            .findFirst()
+            .orElseThrow(
+                () ->
+                    new AssertionError("no missed " + operator + " in " + method + "\n" + mutants));
+    return Samples.mutastic(
+            "run",
+            project.toString(),
+            "--operators=all",
+            "--only=" + id,
+            "--format=agent",
+            "--report=none")
+        .out();
+  }
+
+  /// What the line says, not what the bytecode says: and the card's claim, that `isEmpty()` is
+  /// always false in the mutant, by the test that shows it.
+  @Test
+  void theWordsAreTheSources() throws Exception {
+    var fresh = Samples.copy(SAMPLES.resolve("kotlin-shapes"), work.resolve("words"));
+    assertThat(cardOf(fresh, "isBlankName", "mutastic/remove-conditional"))
+        .contains("`name.isEmpty()`")
+        .doesNotContain("length()");
+    assertThat(cardOf(fresh, "viaLambda$lambda$0", "mutastic/math"))
+        .contains("a lambda in `viaLambda()`");
+    assertThat(cardOf(fresh, "invokeSuspend", "mutastic/math"))
+        .contains("a lambda in `doubles()`")
+        .doesNotContain("invokeSuspend");
+    assertThat(cardOf(fresh, "keep", "mutastic/remove-void-call"))
+        .contains("no test has a `null` reach the `!!` in `keep()`");
+    assertThat(cardOf(fresh, "usesBump", "mutastic/math"))
+        .contains("Helpers.kt")
+        .doesNotContain("$iv");
+    assertThat(cardOf(fresh, "usesTwice", "mutastic/math")).doesNotContain("local3", "local4");
+    var alwaysFalse =
+        mutants.stream()
+            .filter(mutant -> mutant.method().equals("isBlankName"))
+            .filter(mutant -> mutant.bytecode().equals("IFNE -> always jump"))
+            .toList();
+    assertThat(alwaysFalse).hasSize(1);
+    addTest(
+        """
+        @Test
+        fun anEmptyNameIsBlank() {
+            assertEquals(true, isBlankName(""))
+        }
+        """);
+    assertVerified(alwaysFalse.getFirst().id());
   }
 
   private static void addTest(String test) throws IOException {

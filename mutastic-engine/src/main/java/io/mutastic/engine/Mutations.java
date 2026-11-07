@@ -384,7 +384,7 @@ final class Mutations {
     }
 
     private void scan(Instruction instruction, int at) {
-      var workedOn = operands.of(instruction);
+      var workedOn = operandsOf(instruction);
       if (isSwitch(instruction) && isCall(previous, "java/lang/String", "hashCode")) {
         stringSwitchLines.add(line); // javac's switch on a String: hashCode, then equals
       }
@@ -405,6 +405,12 @@ final class Mutations {
       }
       index++;
       previous = instruction;
+    }
+
+    /// What the instruction works on, as the source names it.
+    private List<String> operandsOf(Instruction instruction) {
+      var found = operands.of(instruction);
+      return KotlinGenerated.isKotlin(model) ? KotlinNames.operands(found) : found;
     }
 
     /// One change an operator makes at the instruction: its site, counted as the operator counts

@@ -303,7 +303,10 @@ final class Coverage {
       var descriptor = types.get(index).descriptorString();
       if ("IJSBC".contains(descriptor) && descriptor.length() == 1) {
         var parameter =
-            new Parameter(className, methodKey, names.getOrDefault(slot, "arg" + index));
+            new Parameter(
+                className,
+                methodKey,
+                KotlinNames.parameter(names.getOrDefault(slot, "arg" + index)));
         int id = parameters.indexOf(parameter);
         if (id < 0) {
           parameters.add(parameter);

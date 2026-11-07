@@ -254,7 +254,8 @@ public final class Engine {
             options.confirmCatches(),
             options.suggestions(),
             options.auditArid(),
-            java.util.Collections.synchronizedList(new ArrayList<>()));
+            java.util.Collections.synchronizedList(new ArrayList<>()),
+            project.sources());
     return new Plan(mutants, mutantRun, instrumented, found.stale());
   }
 
@@ -595,7 +596,8 @@ public final class Engine {
       boolean confirmCatches,
       boolean suggestions,
       boolean auditArid,
-      List<MutantResult> audited) {
+      List<MutantResult> audited,
+      List<Path> sources) {
     /// At most this many sets of arguments to try per mutant.
     static final int CANDIDATES = 400;
 
@@ -735,13 +737,30 @@ public final class Engine {
       if (!shape.takesWholeNumbers()) {
         return Optional.empty();
       }
+      var kotlin = isKotlin(mutant) ? kotlinCall(mutant) : Optional.<KotlinCall>empty();
+      if (isKotlin(mutant) && kotlin.isEmpty()) {
+        return Optional.empty();
+      }
       var values = candidateValues(mutant, inputs);
       var candidates = new ArrayList<List<Long>>();
       combine(List.copyOf(values), shape.arity(), new ArrayList<>(), candidates);
       return trial
           .worker()
           .suggest(mutant, receiver, trial.bytes(), candidates)
-          .map(found -> suggestion(shape, found));
+          .map(found -> suggestion(shape, found, kotlin));
+    }
+
+    /// Whether kotlinc compiled the mutant's class, so a test of it is written in Kotlin.
+    private boolean isKotlin(Mutant mutant) {
+      synchronized (mutations) {
+        return KotlinGenerated.isKotlin(model(mutant));
+      }
+    }
+
+    private Optional<KotlinCall> kotlinCall(Mutant mutant) {
+      synchronized (mutations) {
+        return KotlinCall.of(model(mutant), mutant, sources);
+      }
     }
 
     /// The constants near the mutant's site and either side of each, the values the tests passed,
@@ -761,7 +780,7 @@ public final class Engine {
 
     /// The suggestion from the worker's `found`: the arguments, then what the method returns today
     /// and with the mutant.
-    private Suggestion suggestion(CallShape shape, String[] found) {
+    private Suggestion suggestion(CallShape shape, String[] found, Optional<KotlinCall> kotlin) {
       var all = found[0].equals("-") ? List.<Long>of() : wholeNumbers(found[0]);
       int receiverCount = shape.receiverArity();
       var receiverArguments = all.subList(0, receiverCount);
@@ -772,7 +791,9 @@ public final class Engine {
         names = placeholderNames(arguments.size());
       }
       return new Suggestion(
-          shape.call(receiverArguments, arguments),
+          kotlin
+              .map(call -> shape.kotlin(call, receiverArguments, arguments))
+              .orElseGet(() -> shape.call(receiverArguments, arguments)),
           names,
           arguments,
           shape.instances(receiverArguments),
@@ -806,6 +827,13 @@ public final class Engine {
         String simpleName() {
           return className.substring(
               Math.max(className.lastIndexOf('/'), className.lastIndexOf('$')) + 1);
+        }
+
+        /// `Shipping(10)`, or `.Parcel(30)` for an inner class.
+        String kotlin(List<Long> arguments) {
+          var nested = className.substring(className.lastIndexOf('/') + 1).replace('$', '.');
+          return (inner ? ".%s(%s)" : "%s(%s)")
+              .formatted(inner ? simpleName() : nested, literals(parameters(), arguments));
         }
 
         String written(List<Long> arguments) {
@@ -873,6 +901,21 @@ public final class Engine {
         return receiverArity() + type.parameterCount();
       }
 
+      /// The call as Kotlin writes it: `discount(100)`, `Pricing(5).discount(100)`, `Shipping(10)
+      /// .Parcel(30).heavy()`, or `1.doubled()`.
+      String kotlin(KotlinCall call, List<Long> receiverArguments, List<Long> arguments) {
+        var on = new StringBuilder();
+        if (call.kind() == KotlinCall.Kind.ON_THE_CLASS) {
+          var className = mutant.className();
+          on.append(className.substring(className.lastIndexOf('/') + 1).replace('$', '.'));
+        }
+        var each = eachArguments(receiverArguments);
+        for (int index = 0; index < receiver.size(); index++) {
+          on.append(receiver.get(index).kotlin(each.get(index)));
+        }
+        return call.written(on.toString(), literalList(type.parameterList(), arguments));
+      }
+
       /// `Pricing.discount(100)` for a static method, `new Pricing().discount(100)`, `new
       /// GoldenScorer.Score(1, 1).hitAt(1)` when the receiver needs arguments, or `new
       /// Shipping(10).new Parcel(30).heavy()` for an inner class.
@@ -893,6 +936,10 @@ public final class Engine {
 
     /// `1, 2L`: each value as Java source for its parameter (`long` and `Long` take an `L`).
     private static String literals(List<ClassDesc> types, List<Long> values) {
+      return String.join(", ", literalList(types, values));
+    }
+
+    private static List<String> literalList(List<ClassDesc> types, List<Long> values) {
       var written = new ArrayList<String>();
       for (int index = 0; index < values.size(); index++) {
         var descriptor = types.get(index).descriptorString();
@@ -900,7 +947,7 @@ public final class Engine {
             values.get(index)
                 + (descriptor.equals("J") || descriptor.equals("Ljava/lang/Long;") ? "L" : ""));
       }
-      return String.join(", ", written);
+      return written;
     }
 
     /// Every way to pick one of `values` per parameter, the earlier values first, up to

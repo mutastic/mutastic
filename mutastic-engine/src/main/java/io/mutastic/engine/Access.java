@@ -28,7 +28,11 @@ final class Access {
   static Optional<String> receiver(
       Map<String, ClassModel> models, Mutant mutant, String testClass) {
     var model = requireNonNull(models.get(mutant.binaryName()), mutant.binaryName());
-    boolean samePackage = packageOf(mutant.binaryName()).equals(packageOf(testClass));
+    // Kotlin's `private` on a class and `protected` are package-private and protected to the JVM,
+    // but no other file can use them: only what's public is sure to compile.
+    boolean samePackage =
+        !KotlinGenerated.isKotlin(model)
+            && packageOf(mutant.binaryName()).equals(packageOf(testClass));
     var method = method(model, mutant.methodName(), mutant.descriptor());
     if (method.isEmpty()
         || !reachable(method.get().flags().flags(), samePackage)

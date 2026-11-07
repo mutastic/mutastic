@@ -7,9 +7,19 @@ import java.util.regex.Pattern;
 
 /// How the source names the code a mutant is in, from the names javac gives it: `Shipping$Zone` is
 /// `Shipping.Zone`; `Shipping$1` is an anonymous class in `Shipping`; `Shipping$1Sum` is the local
-/// class `Sum`; `lambda$heavyOnes$0` is a lambda in `heavyOnes()`.
+/// class `Sum`; `lambda$heavyOnes$0` is a lambda in `heavyOnes()`, as kotlinc's
+/// `heavyOnes$lambda$0` is.
 final class SourceNames {
   private static final Pattern LAMBDA = Pattern.compile("lambda\\$(?<enclosing>.+)\\$\\d+");
+
+  /// kotlinc's name for one, `labels$lambda$0`, or `v_delegate$lambda$0` for a property's.
+  private static final Pattern KOTLIN_LAMBDA =
+      Pattern.compile("(?<enclosing>.+?)(_delegate)?\\$lambda\\$\\d+(\\$\\w+)*");
+
+  /// A suspending lambda is a class of its own, `FileKt$doubles$1`, its code in `invokeSuspend`.
+  private static final Pattern SUSPEND_LAMBDA =
+      Pattern.compile("(?<outer>.+)\\$(?<enclosing>[^$]+)\\$\\d+");
+
   private static final Pattern NUMBERED = Pattern.compile("(?<number>\\d+)(?<name>.*)");
 
   private SourceNames() {}
@@ -43,7 +53,25 @@ final class SourceNames {
     if (lambda.matches()) {
       return new Where(String.join(".", named), lambda.group("enclosing"), Optional.of("a lambda"));
     }
-    return new Where(String.join(".", named), mutant.methodName(), kind);
+    return kotlinLambda(mutant, String.join(".", named))
+        .orElse(new Where(String.join(".", named), mutant.methodName(), kind));
+  }
+
+  /// Where a lambda of kotlinc's is, by its method's name or a suspending lambda's class.
+  private static Optional<Where> kotlinLambda(Mutant mutant, String className) {
+    var internal = mutant.className();
+    var suspending = SUSPEND_LAMBDA.matcher(internal.substring(internal.lastIndexOf('/') + 1));
+    if (mutant.methodName().equals("invokeSuspend") && suspending.matches()) {
+      return Optional.of(
+          new Where(
+              suspending.group("outer").replace('$', '.'),
+              suspending.group("enclosing"),
+              Optional.of("a lambda")));
+    }
+    var named = KOTLIN_LAMBDA.matcher(mutant.methodName());
+    return named.matches()
+        ? Optional.of(new Where(className, named.group("enclosing"), Optional.of("a lambda")))
+        : Optional.empty();
   }
 
   /// `ShippingTest$Zones` as the source writes it: `ShippingTest.Zones`.

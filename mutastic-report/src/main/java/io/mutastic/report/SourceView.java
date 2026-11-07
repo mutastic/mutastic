@@ -47,21 +47,28 @@ public final class SourceView {
 
   /// A test class's source file, relative to the project, if it's in the test sources.
   public Optional<String> testFile(String testClass) {
-    var relative = testClass.replace('.', '/') + ".java";
-    return testSources.stream()
-        .map(source -> source.resolve(relative))
+    return testPath(testClass).map(this::relative);
+  }
+
+  /// A test class's file, as Java or Kotlin. Java first, as it's what a test class's name has
+  /// always found.
+  private Optional<Path> testPath(String testClass) {
+    var relative = testClass.replace('.', '/');
+    return java.util.stream.Stream.of(".java", ".kt")
+        .flatMap(
+            extension -> testSources.stream().map(source -> source.resolve(relative + extension)))
         .filter(Files::isRegularFile)
-        .findFirst()
-        .map(this::relative);
+        .findFirst();
+  }
+
+  /// Whether the mutant's source is Kotlin.
+  boolean isKotlin(Mutant mutant) {
+    return file(mutant).endsWith(".kt");
   }
 
   /// A test class's source, `com.example.PricingTest`, if it's in the test sources.
   public Optional<String> testSource(String testClass) {
-    var relative = testClass.replace('.', '/') + ".java";
-    return testSources.stream()
-        .map(source -> source.resolve(relative))
-        .filter(Files::isRegularFile)
-        .findFirst()
+    return testPath(testClass)
         .map(
             file -> {
               try {
@@ -131,6 +138,31 @@ public final class SourceView {
   }
 
   private Advice advice(Mutant mutant, java.util.Map<String, List<Long>> seen) {
+    var advice = bytecodeAdvice(mutant, seen);
+    return isKotlin(mutant) ? advice.reworded(asKotlinWrites(mutant)) : advice;
+  }
+
+  /// `name.isEmpty()` is `length() == 0` to the bytecode, as kotlinc copies it in: the card says
+  /// what the line does. And Kotlin's `length` has no brackets.
+  private java.util.function.UnaryOperator<String> asKotlinWrites(Mutant mutant) {
+    var text = rawLine(mutant);
+    var empty = KOTLIN_EMPTY.matcher(text);
+    if (empty.find()) {
+      var written = empty.group();
+      var compared = written.endsWith("isEmpty()") ? "length() == 0" : "length() > 0";
+      return words -> words.replace("`" + compared + "`", "`" + written + "`");
+    }
+    return text.contains(".length") ? words -> words.replace("length()", "length") : words -> words;
+  }
+
+  private static final Pattern KOTLIN_EMPTY = Pattern.compile("[\\w.]*\\.is(Not)?Empty\\(\\)");
+
+  private String rawLine(Mutant mutant) {
+    var all = lines(mutant).orElse(List.of());
+    return mutant.line() >= 1 && mutant.line() <= all.size() ? all.get(mutant.line() - 1) : "";
+  }
+
+  private Advice bytecodeAdvice(Mutant mutant, java.util.Map<String, List<Long>> seen) {
     return switch (mutant.operator()) {
       case BuiltIn.LOGICAL_CONNECTOR -> Advice.connector(mutant, seen, connective(mutant));
       case BuiltIn.CONSTANT_VALUE -> Advice.constant(mutant, seen, charactersOn(mutant));

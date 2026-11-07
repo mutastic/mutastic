@@ -6,7 +6,8 @@ import java.util.List;
 /// is an assertion of today's value. Today's value is what the code does, not necessarily what it
 /// should, so the person checks it before keeping the test.
 ///
-/// @param call the call as Java source, `new Pricing().discount(100)`
+/// @param call the call in the language of the mutated class: `new Pricing().discount(100)`, or in
+///   Kotlin `Pricing().discount(100)`
 /// @param parameters the method's parameter names, in order
 /// @param inputs the arguments, one per parameter
 /// @param receiver the instances made to call the method on, outermost first: the receiver, after
