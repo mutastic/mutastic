@@ -5,6 +5,7 @@ import static java.util.Objects.requireNonNull;
 import io.mutastic.api.ChangedLines;
 import io.mutastic.api.ClassMutator;
 import io.mutastic.api.CoveragePass;
+import io.mutastic.api.FlakyTest;
 import io.mutastic.api.Ignore;
 import io.mutastic.api.Listener;
 import io.mutastic.api.Mutant;
@@ -158,30 +159,45 @@ public final class Engine {
     var plan = plan(project, options);
     var workers = workersFor(project, options.workers(), plan.mutants().size());
     try {
-      var pass = coveragePass(project, plan, workers.getFirst());
-      listener.coverageFinished(pass);
-      var results = new SideBySide(plan.mutants(), plan.mutantRun(), workers, listener).runAll();
-      var failingAlone = plan.mutantRun().alone().failing();
-      var aboutThem =
-          new FlakyEvidence(plan.mutantRun().coverage(), plan.mutantRun().models(), project)
-              .aboutFailingAlone(failingAlone);
+      var ran = ran(project, plan, workers, listener);
       return new Report(
           project.name(),
           workers.getFirst().jdk(),
-          results,
+          ran.results(),
           plan.mutantRun().coverage().testCount(),
-          Stream.concat(pass.flaky().stream(), failingAlone.stream()).toList(),
-          pass.took(),
+          ran.flaky().stream().map(FlakyTest::test).toList(),
+          ran.pass().took(),
           ran(workers),
           workers.stream().mapToInt(TestWorker::started).sum(),
           Duration.ofNanos(System.nanoTime() - start),
           inOrderFound(plan.mutantRun().audited(), plan.mutants()),
           options.changed().map(changed -> changed.within(project.sources())),
           plan.stale(),
-          Stream.concat(pass.flakyEvidence().stream(), aboutThem.stream()).toList());
+          ran.flaky());
     } finally {
       workers.forEach(TestWorker::close);
     }
+  }
+
+  /// The coverage pass, then every mutant, and the flaky tests both found.
+  private record Ran(CoveragePass pass, List<MutantResult> results, List<FlakyTest> flaky) {}
+
+  private Ran ran(Project project, Plan plan, List<TestWorker> workers, Listener listener) {
+    var pass = coveragePass(project, plan, workers.getFirst());
+    listener.coverageFinished(pass);
+    var results = new SideBySide(plan.mutants(), plan.mutantRun(), workers, listener).runAll();
+    return new Ran(pass, results, flakyBoth(pass, plan.mutantRun(), project));
+  }
+
+  /// The flaky tests: those that failed in the coverage pass and passed again, then those found
+  /// failing on their own once they had caught something ([TestsAlone]).
+  private static List<FlakyTest> flakyBoth(
+      CoveragePass pass, MutantRun mutantRun, Project project) {
+    var failingAlone = mutantRun.alone().failing();
+    var aboutThem =
+        new FlakyEvidence(mutantRun.coverage(), mutantRun.models(), project)
+            .aboutFailingAlone(failingAlone);
+    return Stream.concat(pass.flakyEvidence().stream(), aboutThem.stream()).toList();
   }
 
   /// A run's mutants and what running them needs, before any test has run.
@@ -627,6 +643,11 @@ public final class Engine {
       if (reaching.isEmpty()) {
         return new Outcome(uncovered(mutant, worker), false);
       }
+      return tested(mutant, worker, reaching);
+    }
+
+    /// The mutant run against the tests that reach it.
+    private Outcome tested(Mutant mutant, TestWorker worker, List<String> reaching) {
       var trial = new Trial(worker, mutant, verifiedMutation(mutant), coverage);
       var tested = testConfirmed(trial, reaching);
       // Testing it may have found one of them fails with no mutant in: the card shouldn't name it.
