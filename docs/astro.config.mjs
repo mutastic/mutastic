@@ -125,7 +125,7 @@ export default defineConfig({
         },
         {
           label: 'Coding agents',
-          items: ['agents', 'agents/claude-code', 'agents/gate', 'agents/other-agents'],
+          items: ['agents', 'agents/claude-code', 'agents/codex', 'agents/gate', 'agents/other-agents'],
         },
         {
           label: 'Help',

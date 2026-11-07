@@ -4,7 +4,7 @@ description: "How mutastic gate decides whether a coding agent's task is done: w
 ---
 
 `mutastic gate` holds an agent's "done" to what mutastic says of the lines it changed. A plugin runs
-it from the agent's hooks ([Claude Code](/agents/claude-code/)); anything else can run the same
+it from the agent's hooks ([Claude Code](/agents/claude-code/), [Codex](/agents/codex/)); anything else can run the same
 three commands.
 
 ```sh
@@ -64,7 +64,8 @@ so a project whose build output git doesn't ignore always looks changed, and get
 
 With `--hook=claude`, `open` and `check` read the hook's input on stdin and answer as Claude Code's
 hooks do: `open` once per session, and `check` with a block, whose reason is the cards, or a
-message for you. Other agents' hooks can call the commands without `--hook` and act on the exit
+message for you. Codex's hooks take the same input and answers, so its plugin runs the same
+commands. Other agents' hooks can call the commands without `--hook` and act on the exit
 code and the text: see [other agents](/agents/other-agents/).
 
 The flags each command takes are in the reference: [`gate open`](/reference/gate-open/),

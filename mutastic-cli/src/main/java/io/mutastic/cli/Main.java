@@ -99,6 +99,7 @@ public final class Main {
       return USAGE;
     } catch (BuildTool.SetupFailed | Engine.UnknownMutant e) {
       err.println("mutastic: " + e.getMessage());
+      CodexSandbox.hint(e, terminal.env()).ifPresent(err::println);
       return USAGE;
     } catch (Engine.BaselineFailed e) {
       err.println("mutastic: " + e.getMessage());

@@ -4,7 +4,8 @@ description: "The mutastic gate in opencode, and in any other coding agent that 
 ---
 
 The gate is three commands, so any agent that can run a command at the right moments can be gated.
-[Claude Code](/agents/claude-code/) has a plugin, and so does opencode.
+[Claude Code](/agents/claude-code/) and [Codex](/agents/codex/) share a plugin, and opencode has
+one of its own.
 
 ## opencode
 
@@ -48,4 +49,8 @@ sending the agent back after a few tries, and tell the person what's left. [The 
 mutastic skill, in
 [tasticlabs/plugins](https://github.com/tasticlabs/plugins/blob/main/plugins/mutastic/skills/mutastic/SKILL.md),
 is a starting point for the agent's instructions: most agents read a `SKILL.md`, or the same text
-in their own instructions file.
+in their own instructions file, such as `AGENTS.md`.
+
+An agent whose hooks take Claude Code's input and answers, as Codex's do, can run
+`mutastic gate open --hook=claude` and `mutastic gate check --hook=claude` as they are, and gets the
+hand-over too: see [as a hook](/agents/gate/#as-a-hook).

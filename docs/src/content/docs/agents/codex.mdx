@@ -1,0 +1,83 @@
+---
+title: Codex
+description: "Installing the mutastic plugin for OpenAI's Codex CLI, trusting its hooks, letting Codex run mutastic, and how to update or turn it off."
+---
+
+The mutastic plugin brings the [gate](/agents/gate/) and the mutastic skill into
+[Codex](https://developers.openai.com/codex). It's the same plugin as
+[Claude Code's](/agents/claude-code/), in the `tasticlabs` marketplace on GitHub at
+[tasticlabs/plugins](https://github.com/tasticlabs/plugins), and it works the same way: Codex runs
+its hooks and reads its skill as they are.
+
+## What you need
+
+- **mutastic 0.5.0 or later**, which has the gate: `curl -fsSL https://mutastic.io/install.sh | sh`.
+  The plugin tells you, and Codex, if it's missing or too old.
+- **A Codex with plugin hooks.** Check that `codex features list` shows `hooks` and `plugins` on.
+- **A Java project in git,** built with Gradle or Maven. Anywhere else, the plugin stays out of
+  the way: it's on in every project, and does nothing where there's nothing to gate.
+
+## Installing it
+
+From a terminal:
+
+```sh
+codex plugin marketplace add tasticlabs/plugins
+codex plugin add mutastic@tasticlabs
+```
+
+Once the marketplace is added, `/plugins` inside Codex lists mutastic too, and can install it or
+turn it on and off. Then start a new session.
+
+## Trusting its hooks
+
+Codex runs a plugin's hooks only once you've reviewed and trusted them. In Codex, run `/hooks`, and
+trust mutastic's two: `gate open` on a prompt and `gate check` on stop. Until you do, the skill works
+but nothing is gated, and Codex doesn't say so.
+
+Codex trusts a hook as it is, and an update changes it, so trust them again after each update. `codex
+exec` can't trust a hook: trust them once in Codex first, and `codex exec` runs them from then on.
+
+## Letting Codex run mutastic
+
+Codex runs the agent's commands in a sandbox, and in its usual `workspace-write` mode a build can't
+use its caches in your home directory, or the network, so `mutastic run` fails there, as Gradle or
+Maven would. When that's why a run failed, mutastic says so, so Codex knows to ask to run it
+outside. The gate isn't affected: Codex runs hooks outside the sandbox.
+
+A plugin can't grant permissions. To let Codex run mutastic without asking, and outside the sandbox,
+add a rule to `~/.codex/rules/default.rules`, or to a trusted project's `.codex/rules/`:
+
+```python
+prefix_rule(pattern = ["mutastic"], decision = "allow")
+```
+
+Without it, Codex asks you before it runs mutastic outside the sandbox.
+
+## What it adds
+
+- **The gate, as two hooks.** When you send a prompt, `mutastic gate open` notes where the task
+  starts, once per session, and tells Codex. When Codex says it's finished, `mutastic gate check`
+  runs mutastic on the lines changed since. If a mutant there is missed, Codex is sent back with its
+  cards as the next prompt, and carries on. When it passes, or the gate hands over to you, you see
+  the gate's message in the conversation.
+- **The mutastic skill**, as `mutastic:mutastic`. It teaches Codex the loop: run mutastic on what it
+  changed, write the test each card asks for, prove it with the card's `mutastic verify`, and propose
+  an ignore, rather than contrive a test, when a case can't happen. Running the loop as it goes is
+  quicker than waiting for the gate to send it back.
+
+Where mutastic can't run (it fails, or the build doesn't), the gate says so and lets Codex stop: a
+gate that can't check holds nothing.
+
+## Updating, and turning it off
+
+```sh
+codex plugin marketplace upgrade tasticlabs
+```
+
+then start a new session, and trust the hooks again in `/hooks`.
+
+To stop gating one task, `mutastic gate close`; the next prompt opens a new one. To turn the plugin
+off, use `/plugins` and turn mutastic off, or set `enabled = false` under
+`[plugins."mutastic@tasticlabs"]` in `~/.codex/config.toml` (or a project's `.codex/config.toml`).
+`codex plugin remove mutastic@tasticlabs` uninstalls it.
