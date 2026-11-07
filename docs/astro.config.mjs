@@ -110,6 +110,7 @@ export default defineConfig({
             { label: 'mutastic gate close', link: `${base}reference/gate-close/` },
             { label: 'Environment and exit codes', link: `${base}reference/environment/` },
             'reference/reports',
+            'reference/compatibility',
             { label: 'Plugin API', link: `${base}reference/api/` },
           ],
         },

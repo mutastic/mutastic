@@ -71,28 +71,42 @@ version can never be changed or removed.
 
 ## Each release
 
-1. With `main` green, create the release; its tag gives the version:
+1. **Check the promises** ([Compatibility](docs/src/content/docs/reference/compatibility.mdx)).
+   The build already fails on a moved mutant id and on a break in the plugin API; these are left
+   to you:
+   - **Scores.** Read the release notes' *Scoring changes*. A patch release (`X.Y.Z+1`) has none:
+     anything that moves a score (an operator into or out of the default set, a filter that skips
+     more or less) waits for a minor release. A minor release's notes say which scores move, and
+     how.
+   - **Ids.** Run `./gradlew :mutastic-cli:exportIds`. If `src/test/ids/ids.tsv` changes, it's an
+     operator new since the last release: commit it, so its ids are held from this release on.
+   - **Files on Central.** Central counts every file against a monthly limit
+     ([Usage](https://central.sonatype.com/publishing/usage)). `checkCentralFiles` keeps a release
+     small enough for four a month; look at the usage before a second release in a month.
+2. With `main` green, create the release; its tag gives the version:
    ```sh
    gh release create vX.Y.Z --target main --generate-notes
    ```
-2. Approve the `release` job when GitHub asks. It builds, uploads, and attaches the CLI.
-3. In the Central Portal, under *Deployments*, wait for the deployment to show *Validated*, look
+3. Approve the `release` job when GitHub asks. It builds, uploads, and attaches the CLI.
+4. In the Central Portal, under *Deployments*, wait for the deployment to show *Validated*, look
    at what's in it, then press *Publish*, or *Drop* to throw it away. It reaches Maven Central
    within about half an hour.
-4. Once it's on Central, send the Gradle plugin to the portal, and approve the job:
+5. Once it's on Central, send the Gradle plugin to the portal, and approve the job:
    ```sh
    gh workflow run portal.yml --ref vX.Y.Z
    ```
    It runs on the tag, as the `release` environment only lets tags deploy, and checks the release
    is on Central first: the plugin's jars come from there. A plugin's first
    version waits for the portal's review before it's listed.
-5. Check [docs.mutastic.io](https://docs.mutastic.io): the tag's push deploys it, with no approval
+6. Check [docs.mutastic.io](https://docs.mutastic.io): the tag's push deploys it, with no approval
    needed. The root and `/vX.Y/` should both be the new release, with no banner saying the docs
    describe `main`. `mutastic --help` links to `/vX.Y/`, so it has to exist. To deploy it again,
    every release line rebuilt from its own tag:
    ```sh
    gh workflow run docs.yml --ref main -f release=true
    ```
+7. Hold the next release to this one's plugin API: once it's on Central, set `lastRelease` in
+   `mutastic-api/build.gradle.kts` to the new version, so `checkApiCompatibility` compares with it.
 
 If validation fails, drop the deployment, fix the cause, delete the GitHub release and its tag, and
 release again. Nothing reached Central, so the version is still free.
