@@ -3,6 +3,7 @@ package io.mutastic.report;
 import static java.util.Objects.requireNonNull;
 
 import io.mutastic.api.BuiltIn;
+import io.mutastic.api.ClassMutator;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Mutator;
@@ -75,7 +76,8 @@ public record Advice(
   static Advice of(Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
     boolean written = jumpsWhenTrue(mutant).orElse(asWritten);
     return switch (mutant.operator()) {
-      case Mutator mutator -> added(mutator, mutant, seen);
+      case Mutator mutator -> added(mutator.words(mutant), seen);
+      case ClassMutator mutator -> added(mutator.words(mutant), seen);
       case BuiltIn builtIn -> ofBuiltIn(builtIn, mutant, seen, written);
     };
   }
@@ -190,8 +192,7 @@ public record Advice(
   }
 
   /// A plugin's or rules file's operator: its own words for the card.
-  private static Advice added(Mutator mutator, Mutant mutant, Map<String, List<Long>> seen) {
-    var words = mutator.words(mutant);
+  private static Advice added(Mutator.Words words, Map<String, List<Long>> seen) {
     return new Advice(
         Optional.empty(),
         Optional.empty(),

@@ -129,8 +129,8 @@ public abstract class WriteSetup extends DefaultTask {
     setup.setProperty("resources", paths(resources(main)));
     setup.setProperty("testClasses", paths(test.getOutput().getClassesDirs().getFiles()));
     setup.setProperty("testResources", paths(resources(test)));
-    setup.setProperty("sources", paths(main.getJava().getSrcDirs()));
-    setup.setProperty("testSources", paths(test.getJava().getSrcDirs()));
+    setup.setProperty("sources", paths(sourceDirs(main)));
+    setup.setProperty("testSources", paths(sourceDirs(test)));
   }
 
   /// The test classpath without the module's own directories: the worker loads those itself, so
@@ -204,5 +204,15 @@ public abstract class WriteSetup extends DefaultTask {
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
+  }
+
+  /// A set's source directories: Java's, and Kotlin's when its plugin is there.
+  private static java.util.Set<java.io.File> sourceDirs(org.gradle.api.tasks.SourceSet set) {
+    var directories = new java.util.LinkedHashSet<>(set.getJava().getSrcDirs());
+    if (set.getExtensions().findByName("kotlin")
+        instanceof org.gradle.api.file.SourceDirectorySet kotlin) {
+      directories.addAll(kotlin.getSrcDirs());
+    }
+    return directories;
   }
 }

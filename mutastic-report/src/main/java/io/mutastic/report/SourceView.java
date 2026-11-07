@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /// A mutant as the user wrote it: its source file and line, and the line as the mutant has it.
@@ -411,7 +412,49 @@ public final class SourceView {
     return sources.stream()
         .map(source -> source.resolve(expectedPath(mutant)))
         .filter(Files::isRegularFile)
+        .findFirst()
+        .or(() -> kotlinFile(mutant));
+  }
+
+  /// Where kotlinc's class came from: Kotlin doesn't name a file for a class. `ShelfKt`, a file's
+  /// top-level functions, is `Shelf.kt`; `Shelf` is in `Shelf.kt` if there is one, or else in the
+  /// first file of its package that mentions it.
+  private Optional<Path> kotlinFile(Mutant mutant) {
+    var java = expectedPath(mutant);
+    int slash = java.lastIndexOf('/');
+    var directory = slash < 0 ? "" : java.substring(0, slash);
+    var name = java.substring(slash + 1, java.length() - ".java".length());
+    var simple = name.endsWith("Kt") ? name.substring(0, name.length() - 2) : name;
+    var mention = Pattern.compile("\\b" + Pattern.quote(simple) + "\\b");
+    return sources.stream()
+        .map(source -> source.resolve(directory))
+        .filter(Files::isDirectory)
+        .flatMap(inPackage -> kotlinFileIn(inPackage, simple, mention).stream())
         .findFirst();
+  }
+
+  private static Optional<Path> kotlinFileIn(Path directory, String simple, Pattern mention) {
+    var named = directory.resolve(simple + ".kt");
+    if (Files.isRegularFile(named)) {
+      return Optional.of(named);
+    }
+    try (var files = Files.list(directory)) {
+      return files
+          .filter(file -> file.toString().endsWith(".kt"))
+          .sorted()
+          .filter(file -> mentions(file, mention))
+          .findFirst();
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  private static boolean mentions(Path file, Pattern mention) {
+    try {
+      return mention.matcher(Files.readString(file)).find();
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   /// `com/example/Pricing.java`, for `com/example/Pricing$Tier` too.

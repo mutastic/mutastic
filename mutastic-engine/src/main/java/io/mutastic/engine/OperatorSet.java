@@ -1,7 +1,6 @@
 package io.mutastic.engine;
 
 import io.mutastic.api.BuiltIn;
-import io.mutastic.api.Mutator;
 import io.mutastic.api.Operator;
 import io.mutastic.api.Operator.Tier;
 import io.mutastic.api.Policy;
@@ -33,7 +32,7 @@ public final class OperatorSet {
 
   /// Every operator there is for this project, in a fixed order: mutastic's own, then its rules,
   /// then the project's.
-  public static List<Operator> available(List<Mutator> added) {
+  public static List<Operator> available(List<? extends Operator> added) {
     var all = new ArrayList<Operator>(Arrays.asList(BuiltIn.values()));
     all.addAll(CallRules.BUILT_IN);
     all.addAll(added);
@@ -44,7 +43,7 @@ public final class OperatorSet {
   ///
   /// @throws IllegalArgumentException for a word that names nothing, saying what there is
   public static List<Operator> active(Policy policy) {
-    var all = available(policy.mutators());
+    var all = available(added(policy));
     var words = policy.operators().isEmpty() ? List.of("defaults") : policy.operators();
     var chosen = new LinkedHashSet<Operator>();
     if (words.stream().allMatch(word -> word.startsWith("-"))) {
@@ -66,6 +65,12 @@ public final class OperatorSet {
       }
     }
     return all.stream().filter(chosen::contains).toList();
+  }
+
+  private static List<Operator> added(Policy policy) {
+    var added = new ArrayList<Operator>(policy.mutators());
+    added.addAll(policy.classMutators());
+    return added;
   }
 
   private static List<Operator> named(String name, List<Operator> all) {

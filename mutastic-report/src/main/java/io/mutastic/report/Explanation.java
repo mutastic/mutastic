@@ -118,6 +118,9 @@ public final class Explanation {
   }
 
   private static String site(Mutant mutant) {
+    if (mutant.operator() instanceof io.mutastic.api.ClassMutator) {
+      return "a change to the class as a whole, on %s".formatted(mutant.methodName());
+    }
     if (mutant.operator() instanceof io.mutastic.api.Mutator && !mutant.operator().onCalls()) {
       return "instruction %d of %s%s, counting every instruction in bytecode order from 1"
           .formatted(mutant.ordinal() + 1, mutant.methodName(), mutant.descriptor());

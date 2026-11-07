@@ -3,6 +3,7 @@ package io.mutastic.engine;
 import static java.util.Objects.requireNonNull;
 
 import io.mutastic.api.ChangedLines;
+import io.mutastic.api.ClassMutator;
 import io.mutastic.api.CoveragePass;
 import io.mutastic.api.Ignore;
 import io.mutastic.api.Listener;
@@ -206,6 +207,7 @@ public final class Engine {
       Project project, Options options, ClassFile context, Map<String, ClassModel> models) {
     var mutations = new Mutations(context, options.policy());
     mutations.prepare(models.values());
+    mutations.prepareFor(project);
     var mutants =
         mutantsIn(models, mutations, options.only(), project.name()).stream()
             .filter(mutant -> options.among().isEmpty() || options.among().contains(mutant.id()))
@@ -607,13 +609,19 @@ public final class Engine {
       var tested = testConfirmed(trial, covering);
       var inputs = coverage.inputs(mutant, covering);
       var result = resultOf(trial, covering, tested, inputs);
-      if (suggestions && tested.run().status() == Status.MISSED) {
+      if (suggestions && isOnAnInstruction(mutant) && tested.run().status() == Status.MISSED) {
         var receiver = receiverFor(mutant, covering.getFirst());
         if (receiver.isPresent()) {
           result = result.withSuggestion(suggest(receiver.get(), trial, inputs));
         }
       }
       return new Outcome(result, tested.run().portClash());
+    }
+
+    /// Whether a call to the mutant's method can show it: a change to a class as a whole has no one
+    /// instruction, and may not be on a method at all.
+    private static boolean isOnAnInstruction(Mutant mutant) {
+      return !(mutant.operator() instanceof ClassMutator);
     }
 
     /// The mutant's class, mutated and checked to load.
@@ -678,7 +686,9 @@ public final class Engine {
     /// A mutant no test reaches, with the first test to write for it when suggestions are on.
     private MutantResult uncovered(Mutant mutant, TestWorker worker) {
       var result = MutantResult.notCovered(mutant);
-      return suggestions ? result.withSuggestion(startingPoint(mutant, worker)) : result;
+      return suggestions && isOnAnInstruction(mutant)
+          ? result.withSuggestion(startingPoint(mutant, worker))
+          : result;
     }
 
     /// For a mutant no test reaches, the first test to write: a call a test in the class's own
@@ -918,6 +928,10 @@ public final class Engine {
     /// `tests` against the mutant, in order until one fails, each allowed a little over its time in
     /// the coverage pass.
     TestWorker.Run run(List<String> tests) {
+      if (mutant.operator() instanceof ClassMutator) {
+        var timeout = timeoutFor(coverage.timeOfEveryTest());
+        return worker.runFresh(mutant.binaryName(), bytes, tests, timeout);
+      }
       var timeout = timeoutFor(coverage.timeOf(tests));
       return coverage.onlyAtLoad(mutant)
           ? worker.runFresh(mutant.binaryName(), bytes, tests, timeout)

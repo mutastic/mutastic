@@ -14,6 +14,21 @@ class DocsPluginsTest {
       Path.of(System.getProperty("mutastic.docs")).resolve("../../data/plugins").normalize();
 
   @Test
+  void theRulesFilesMutasticShipsAreOnesItReads() {
+    assertThat(CallRules.read(PLUGINS.resolve("bigdecimal.yaml")))
+        .extracting(CallRule::id)
+        .containsExactly(
+            "bigdecimal/swap-arithmetic", "bigdecimal/swap-scaling", "bigdecimal/remove-step");
+    assertThat(CallRules.read(PLUGINS.resolve("reactive.yaml")))
+        .extracting(CallRule::id)
+        .containsExactly(
+            "reactive/remove-stage",
+            "reactive/remove-recovery",
+            "reactive/swap-match",
+            "reactive/swap-order");
+  }
+
+  @Test
   void theMutinyExampleIsARulesFileMutasticReads() {
     var rules = CallRules.read(PLUGINS.resolve("mutiny.yaml"));
 

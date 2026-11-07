@@ -1,0 +1,225 @@
+---
+title: Plugins mutastic ships
+description: "Operators mutastic makes as plugins, off unless a project lists them: annotations, BigDecimal, reactive streams, Kotlin's empty returns, and rewrites a model proposes."
+---
+
+Some operators aren't for every project. They're about a library or a language it may not use, or
+they cost more than a run should pay unasked. mutastic ships these as plugins, in the `plugins`
+directory of its distribution:
+
+| File | Adds |
+|---|---|
+| `mutastic-plugins.jar` | [Annotation removal](#annotation-removal), [Kotlin's empty returns](#kotlins-empty-returns), [proposed rewrites](#proposed-rewrites) |
+| `bigdecimal.yaml` | [BigDecimal and BigInteger swaps](#bigdecimal-and-biginteger) |
+| `reactive.yaml` | [Reactor and RxJava stages](#reactor-and-rxjava) |
+
+List what you want under `plugins:` in `mutastic.yaml`, wherever you keep it, by its path from the
+project's directory:
+
+```yaml
+plugins:
+  - tools/mutastic-plugins.jar
+  - tools/bigdecimal.yaml
+```
+
+Every operator here is in the `extended` set, so listing a plugin runs nothing until you choose it, by
+its namespace or by the set:
+
+```sh
+mutastic run --operators=defaults,annotations
+```
+
+```sh
+mutastic run --operators=defaults,extended
+```
+
+## Annotation removal
+
+`annotations/remove-validation` and `annotations/remove-security` take one annotation away from
+what it's on: a class, a field, a method, a parameter or a record's component. The first removes Bean
+Validation's constraints (`jakarta.validation.constraints`, the older `javax` ones, Hibernate
+Validator's), `@Valid` and Spring's `@Validated`. The second removes `@PreAuthorize`, `@PostAuthorize`,
+`@PreFilter`, `@PostFilter`, `@Secured`, `@RolesAllowed` and `@DenyAll`.
+
+**The bug it stands for.** A constraint or a guard that's missing, or on the wrong thing. Nothing
+fails until a value it should refuse gets through, or a caller it should refuse does.
+
+**Where it costs.** More than an operator on code. An annotation has no line a test runs, and a test
+that a `@PreAuthorize` refuses never reaches the method at all, so coverage can't say which tests
+matter: each mutant runs against every test, those that reach the class first, until one fails. What
+reads an annotation keeps what it read (a `Validator` in a field, a Spring context), so each also
+runs with every class loaded anew, and that context starts again. So a mutant no test catches costs
+a run of every test, and a context's start for each context they use.
+
+Where a framework loads the app itself (`@QuarkusTest`), the framework has read its annotations
+before a test starts, and a mutant can't reach it: these mutants are skipped as `unviable:`. An
+annotation nested in a type, `List<@NotBlank String>`, isn't one of these changes.
+
+```java
+@Size(max = 3) private final String code;
+// becomes
+private final String code;
+```
+
+**The test that catches it.** One with a value the annotation refuses, or a caller it refuses, and an
+assertion that it's refused:
+
+```java
+@Test
+void aCodeHasThreeLettersAtMost() {
+  assertThat(validator.validate(new Order("a", "abcd", 1))).hasSize(1);
+}
+
+@Test
+@WithMockUser(roles = "USER")
+void onlyAnAdminAudits() {
+  assertThatThrownBy(payroll::audit).isInstanceOf(AccessDeniedException.class);
+}
+```
+
+## BigDecimal and BigInteger
+
+Money and other exact arithmetic go through methods rather than `+` and `*`, so mutastic's own
+arithmetic operators never see them. `bigdecimal.yaml` has three operators, for `BigDecimal` and
+`BigInteger`: `bigdecimal/swap-arithmetic` swaps `add` and `subtract`, and `min` and `max`;
+`bigdecimal/swap-scaling` swaps `multiply` and `divide`; `bigdecimal/remove-step` removes `abs`,
+`negate`, `setScale`, `round` and `stripTrailingZeros`, and the value goes on as it was.
+
+**The bug it stands for.** A refund that adds, a rate applied the wrong way round, a total that's
+never rounded.
+
+**Where it costs.** Next to nothing: a call becomes another. `divide` can throw on a value with no
+exact result, and a test that fails that way has caught it, whatever the card would have asked for.
+Swapping one `RoundingMode` for another isn't among these: it's an argument, and a rule changes calls.
+
+```java
+return paid.subtract(kept);
+// becomes
+return paid.add(kept);
+```
+
+**The test that catches it.** One with values where the two differ, and an assertion on the result:
+
+```java
+@Test
+void aRefundTakesOffWhatsKept() {
+  assertEquals(new BigDecimal("8"), Invoice.refund(new BigDecimal("10"), new BigDecimal("2")));
+}
+```
+
+## Reactor and RxJava
+
+`reactive.yaml` has four operators, for Reactor's `Flux` and `Mono` and RxJava 3's types.
+`reactive/remove-stage` removes `filter`, `distinct`, `distinctUntilChanged`, `take` and `skip`.
+`reactive/remove-recovery` removes `onErrorReturn`, `onErrorResume` and the like, so the failure goes
+on. `reactive/swap-match` swaps `any` and `all`. `reactive/swap-order` swaps `flatMap` and `concatMap`.
+
+**The bug it stands for.** The same as mutastic's own stream stages: an item a stage should have held
+back, a failure nothing has tried. Swapping `flatMap` and `concatMap` stands for assuming an order
+that only holds by luck.
+
+**Where it costs.** Next to nothing, though a rule matches the type a call is on as the code declares
+it, so a call on a subclass of `Flux` isn't one. Where the inner streams can't overlap, `flatMap` and
+`concatMap` do the same: nothing tells them apart, and it's fine to ignore that mutant, saying so.
+
+```java
+return amounts.take(2).collectList().block();
+// becomes
+return amounts.collectList().block();
+```
+
+**The test that catches it.** One with an item the stage must hold back, and for a recovery one where
+the upstream fails:
+
+```java
+@Test
+void onlyTheFirstTwo() {
+  assertEquals(List.of(1, 2), Payments.firstTwo(Flux.just(1, 2, 3)));
+}
+
+@Test
+void aFailureBecomesZero() {
+  assertEquals(0, Payments.orZero(Mono.error(new IllegalStateException())));
+}
+```
+
+## Kotlin's empty returns
+
+`kotlin/empty-return` makes a Kotlin method that returns an `IntRange`, a `LongRange`, a `CharRange` or
+a `Sequence` return an empty one. mutastic's own return operator makes those `null`, which Kotlin's
+types say can't happen, and which the first use of the value throws on, so a test that only calls the
+method and looks at nothing can catch it.
+
+**The bug it stands for.** A range worked out wrongly, or a sequence that's never filled: code that
+runs, and hands back nothing.
+
+**Where it costs.** Only what kotlinc compiled, as `@kotlin.Metadata` shows. A method that returns the
+empty value already is skipped as `equivalent:`.
+
+```kotlin
+fun letters(name: String): CharRange = name.first()..name.last()
+// becomes
+fun letters(name: String): CharRange = CharRange.EMPTY
+```
+
+**The test that catches it.** One that looks at what's in the result:
+
+```kotlin
+@Test
+fun lettersRunFromFirstToLast() {
+    assertEquals(listOf('a', 'b'), shelf.letters("ab").toList())
+}
+```
+
+In any Kotlin project, listed or not, mutastic skips what kotlinc wrote that isn't in the source, as
+`generated:`: its `Intrinsics` null checks, and a data class's `copy`, `componentN` and `equals`.
+
+## Proposed rewrites
+
+`proposed/rewrite` runs rewrites of a method that something else has written: a person, or a model
+told to write the bug a test would miss. Research on models used this way has found they catch faults
+the rule-based operators don't, and that many of what they write don't compile, or change nothing. So
+mutastic never asks a model for anything: it needs no network and no key. What it does is hold each
+rewrite to account.
+
+Each file in `.mutastic/proposed/<the class's binary name>/` is what that class's source file would
+be instead. Its name, without `.java`, is the mutant's label, part of its id, so an id stays as long as
+its file does: commit them. Whatever writes them, a skill, a script or a person, needs only to read
+the source file and write another.
+
+```text
+.mutastic/proposed/com.example.pricing.Pricing/at-the-boundary.java
+```
+
+A proposal is only run if it gets through each of these, and otherwise it's skipped, saying why:
+
+| Check | Skipped as |
+|---|---|
+| It compiles, against the project's classes and libraries, for the class's Java release | `unviable:`, with javac's message |
+| It has the class's fields and methods, and makes no more classes | `unviable:` |
+| It changes one method. A lambda's change counts as the method it's written in | `unviable:` |
+| It compiles to different code from the class, comments and layout aside | `equivalent:` |
+| It compiles to different code from the proposals before it, in file name order | `equivalent:` |
+
+**The bug it stands for.** Whatever the rewrite does: that's the point of having one.
+
+**Where it costs.** A javac run for each proposal when mutants are found, on every command that finds
+them, and a load of every class for each one that runs. It runs against the tests that reach the
+method. No check can show that what's left isn't the same program in other words, so a miss may be
+one: the card says to read it.
+
+```java
+if (total >= 100) {
+// becomes, in at-the-boundary.java
+if (total > 100) {
+```
+
+**The test that catches it.** One that a real difference shows up in. If you read the rewrite and
+there's none, delete the file:
+
+```java
+@Test
+void aHundredGetsItsDiscount() {
+  assertEquals(10, new Pricing().discount(100));
+}
+```

@@ -344,13 +344,26 @@ public final class AgentText {
   }
 
   private static String coveredBy(MutantResult result) {
-    return "   covered by: %s; all still pass with the change%s"
+    return "   %s; all still pass with the change%s"
         .formatted(
-            covering(result.coveredBy()),
+            testsRun(result, ": "),
             result
                 .unconfirmed()
                 .map(test -> " (%s failed once, then passed: flaky)".formatted(shortName(test)))
                 .orElse(""));
+  }
+
+  /// Which tests a mutant ran against: `covered by: A, B`, or every test, for a change coverage
+  /// can't place, where most of them reach nothing of it.
+  static String testsRun(MutantResult result, String colon) {
+    return ranEveryTest(result)
+        ? "run against every test"
+        : "covered by" + colon + covering(result.coveredBy());
+  }
+
+  static boolean ranEveryTest(MutantResult result) {
+    return result.mutant().operator() instanceof io.mutastic.api.ClassMutator mutator
+        && mutator.reach() == io.mutastic.api.ClassMutator.Reach.EVERY_TEST;
   }
 
   private static void addSuggestedTest(List<String> lines, SuggestedTest test) {

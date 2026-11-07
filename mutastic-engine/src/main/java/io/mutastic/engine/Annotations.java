@@ -31,6 +31,14 @@ final class Annotations {
         .findFirst();
   }
 
+  /// The first annotation on the class with one of the names.
+  static Optional<Found> find(ClassModel owner, Set<String> simpleNames) {
+    return on(owner)
+        .map(Annotations::found)
+        .filter(found -> simpleNames.contains(found.simpleName()))
+        .findFirst();
+  }
+
   private static Stream<Annotation> on(AttributedElement element) {
     return Stream.concat(
         element.findAttribute(Attributes.runtimeVisibleAnnotations()).stream()

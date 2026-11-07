@@ -7,6 +7,9 @@ plugins {
 
 description = "The mutastic command, which the build plugins run too."
 
+// Its jar goes in the distribution and its end-to-end tests.
+evaluationDependsOn(":mutastic-plugins")
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
@@ -36,6 +39,20 @@ application {
     mainClass = "io.mutastic.cli.Main"
 }
 
+// The operators mutastic makes as plugins, for a project to list under `plugins:`: off the
+// classpath, so that listing them is what turns them on.
+distributions {
+    main {
+        contents {
+            into("plugins") {
+                from(project(":mutastic-plugins").tasks.named("jar"))
+                from(rootDir.resolve("docs/src/data/plugins/bigdecimal.yaml"))
+                from(rootDir.resolve("docs/src/data/plugins/reactive.yaml"))
+            }
+        }
+    }
+}
+
 // The output the docs show (docs/src/data/output): mutastic's own, on the pricing sample.
 val docsOutput = rootDir.resolve("docs/src/data/output")
 
@@ -56,6 +73,10 @@ tasks.test {
     // CardsTest checks every card on the samples is the one kept.
     systemProperty("mutastic.cards", cards.absolutePath)
     inputs.dir(cards).withPathSensitivity(PathSensitivity.RELATIVE)
+    // The plugins' end-to-end tests list the jar as a project would.
+    val pluginsJar = project(":mutastic-plugins").tasks.named<Jar>("jar").flatMap { it.archiveFile }
+    inputs.file(pluginsJar).withPathSensitivity(PathSensitivity.NONE)
+    systemProperty("mutastic.pluginsJar", pluginsJar.get().asFile.absolutePath)
     // DocsPluginsTest reads the example plugins the docs show.
     inputs.dir(rootDir.resolve("docs/src/data/plugins")).withPathSensitivity(PathSensitivity.RELATIVE)
     // The Maven plugin's test resolves it, and everything it needs, from a repository in the build.

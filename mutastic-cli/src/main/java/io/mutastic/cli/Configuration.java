@@ -1,5 +1,6 @@
 package io.mutastic.cli;
 
+import io.mutastic.api.ClassMutator;
 import io.mutastic.api.Filter;
 import io.mutastic.api.Mutator;
 import io.mutastic.api.Policy;
@@ -80,7 +81,11 @@ record Configuration(
         }
       }
     }
-    return new Policy(rules, filters(jars), List.of()).withOperators(operators, mutators);
+    var classMutators = new ArrayList<ClassMutator>();
+    ServiceLoader.load(ClassMutator.class, jars).forEach(classMutators::add);
+    return new Policy(rules, filters(jars), List.of())
+        .withOperators(operators, mutators)
+        .withClassMutators(classMutators);
   }
 
   /// The filters `filters:` names, from the plugin jars.

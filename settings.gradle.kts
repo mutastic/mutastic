@@ -17,4 +17,5 @@ include(
     "mutastic-maven",
     "mutastic-maven-plugin",
     "mutastic-cli",
+    "mutastic-plugins",
 )

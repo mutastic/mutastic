@@ -22,7 +22,19 @@ final class AnnotatedSkips implements Filter {
   @Override
   public Optional<Skip> skip(ClassModel owner, MethodModel method) {
     var where = "`%s()`".formatted(method.methodName().stringValue());
-    return Annotations.find(owner, method, USER)
+    return skip(
+        Annotations.find(owner, method, USER), Annotations.find(owner, method, GENERATED), where);
+  }
+
+  /// The same for what's on a class but not in a method: an annotation on the class decides.
+  Optional<Skip> skipClass(ClassModel owner, String member) {
+    return skip(
+        Annotations.find(owner, USER), Annotations.find(owner, GENERATED), "`" + member + "`");
+  }
+
+  private static Optional<Skip> skip(
+      Optional<Annotations.Found> byUser, Optional<Annotations.Found> generated, String where) {
+    return byUser
         .map(
             found ->
                 new Skip(
@@ -32,9 +44,6 @@ final class AnnotatedSkips implements Filter {
                             found.simpleName(),
                             where,
                             found.reason().map(": "::concat).orElse(""))))
-        .or(
-            () ->
-                Annotations.find(owner, method, GENERATED)
-                    .map(found -> new Skip(Skip.Kind.GENERATED, "@Generated on " + where)));
+        .or(() -> generated.map(found -> new Skip(Skip.Kind.GENERATED, "@Generated on " + where)));
   }
 }

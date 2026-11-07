@@ -11,12 +11,14 @@ import java.util.List;
 ///   `stronger`, `extended`, `all`), operator ids (`mutastic/arithmetic-replacement`) and their
 ///   namespaces (`stream`), any with a `-` in front to leave it out; none means `defaults`
 /// @param mutators the operators the project's plugins and rules files add
+/// @param classMutators the operators the project's plugins add that change a class as a whole
 public record Policy(
     List<Rule> rules,
     List<Filter> filters,
     List<Ignore> ignores,
     List<String> operators,
-    List<Mutator> mutators) {
+    List<Mutator> mutators,
+    List<ClassMutator> classMutators) {
   /// No rules, no filters and no ignores of the project's own, and the default operators.
   public static final Policy NONE = new Policy(List.of(), List.of(), List.of());
 
@@ -26,11 +28,22 @@ public record Policy(
     ignores = List.copyOf(ignores);
     operators = List.copyOf(operators);
     mutators = List.copyOf(mutators);
+    classMutators = List.copyOf(classMutators);
+  }
+
+  /// With no operators that change a class as a whole.
+  public Policy(
+      List<Rule> rules,
+      List<Filter> filters,
+      List<Ignore> ignores,
+      List<String> operators,
+      List<Mutator> mutators) {
+    this(rules, filters, ignores, operators, mutators, List.of());
   }
 
   /// Rules, filters and ignores, with the default operators.
   public Policy(List<Rule> rules, List<Filter> filters, List<Ignore> ignores) {
-    this(rules, filters, ignores, List.of(), List.of());
+    this(rules, filters, ignores, List.of(), List.of(), List.of());
   }
 
   /// Rules and filters, ignoring nothing.
@@ -40,11 +53,16 @@ public record Policy(
 
   /// The same, with these ignores.
   public Policy withIgnores(List<Ignore> found) {
-    return new Policy(rules, filters, found, operators, mutators);
+    return new Policy(rules, filters, found, operators, mutators, classMutators);
   }
 
   /// The same, with these operators chosen and these added.
   public Policy withOperators(List<String> chosen, List<Mutator> added) {
-    return new Policy(rules, filters, ignores, chosen, added);
+    return new Policy(rules, filters, ignores, chosen, added, classMutators);
+  }
+
+  /// The same, with these added, which change a class as a whole.
+  public Policy withClassMutators(List<ClassMutator> added) {
+    return new Policy(rules, filters, ignores, operators, mutators, added);
   }
 }

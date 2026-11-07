@@ -628,6 +628,250 @@
           ]
         },
         {
+          "name": "ClassMutator",
+          "slug": "classmutator",
+          "kind": "interface",
+          "signature": "non-sealed interface ClassMutator extends Operator",
+          "summary": "An operator a plugin adds that changes a class as a whole, where a [`Mutator`](../mutator/) changes one instruction: what no instruction holds, as an annotation on a class or a field, or a method written anew.",
+          "doc": "An operator a plugin adds that changes a class as a whole, where a [`Mutator`](../mutator/) changes one\ninstruction: what no instruction holds, as an annotation on a class or a field, or a method\nwritten anew. Plugins provide theirs as a `java.util.ServiceLoader` service, in a jar\n`mutastic.yaml` lists under `plugins:`.\n\nA mutant of one runs with every class loaded anew, as what reads an annotation may have kept\nwhat it read, and a class written anew may have methods the build's doesn't: swapping it into\nthe class already loaded wouldn't reach either. That costs a load of the classes, and whatever a\ntest sets up on them, for each mutant.\n\nEach mutant's id is made from its member, its change's label and the operator's id, so a label\nmust never change once released.",
+          "params": [],
+          "members": [
+            {
+              "kind": "method",
+              "name": "changes",
+              "anchor": "changes",
+              "signature": "List<ClassMutator.Change> changes(ClassModel owner)",
+              "doc": "The changes this operator makes in `owner`, each by its member and label; none when it doesn't\napply.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "write",
+              "anchor": "write",
+              "signature": "byte[] write(ClassModel owner, ClassMutator.Member member, String label)",
+              "doc": "`owner`'s bytes with the change made. A change that doesn't verify, or that throws an\n`IllegalArgumentException` or `IllegalStateException` here, is skipped as unviable, never run.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "words",
+              "anchor": "words",
+              "signature": "Mutator.Words words(Mutant mutant)",
+              "doc": "What a missed mutant's card says.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "prepare",
+              "anchor": "prepare",
+              "signature": "default void prepare(Project project)",
+              "doc": "Told of the project before any of its classes, for an operator that needs more than the class\nfile: to compile against its classpath, or read its sources.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "reach",
+              "anchor": "reach",
+              "signature": "default ClassMutator.Reach reach()",
+              "doc": "Which tests a mutant runs against.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "onCalls",
+              "anchor": "oncalls",
+              "signature": "default boolean onCalls()",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "tier",
+              "anchor": "tier",
+              "signature": "default Operator.Tier tier()",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "ClassMutator.Change",
+          "slug": "classmutator-change",
+          "kind": "record",
+          "signature": "record Change(\n    ClassMutator.Member member,\n    String label,\n    String original,\n    String sourceText,\n    Optional<String> skipped)",
+          "summary": "One change to a class.",
+          "doc": "One change to a class.",
+          "params": [
+            {
+              "name": "member",
+              "doc": "what it's on"
+            },
+            {
+              "name": "label",
+              "doc": "what it becomes, short: `remove @NotNull`"
+            },
+            {
+              "name": "original",
+              "doc": "what's there now: `@NotNull`"
+            },
+            {
+              "name": "sourceText",
+              "doc": "the text that marks its line in the source, `@NotNull`, for the line a card shows: class files have no line for an annotation. Empty when nothing does"
+            },
+            {
+              "name": "skipped",
+              "doc": "why it shouldn't run, if it shouldn't, kind first: `equivalent: …`"
+            }
+          ],
+          "members": [
+            {
+              "kind": "method",
+              "name": "of",
+              "anchor": "of",
+              "signature": "static ClassMutator.Change of(ClassMutator.Member member, String label, String original, String sourceText)",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "ClassMutator.Member",
+          "slug": "classmutator-member",
+          "kind": "record",
+          "signature": "record Member(String name, String descriptor)",
+          "summary": "What a change is on: a method, a field or the class itself.",
+          "doc": "What a change is on: a method, a field or the class itself. Its name and descriptor stand in\nfor a mutant's method, in its id and in what reports show.",
+          "params": [
+            {
+              "name": "name",
+              "doc": "the method's name, `<field total>`, or `<class>`"
+            },
+            {
+              "name": "descriptor",
+              "doc": "the method's or the field's descriptor; empty for the class"
+            }
+          ],
+          "members": [
+            {
+              "kind": "method",
+              "name": "ofClass",
+              "anchor": "ofclass",
+              "signature": "static ClassMutator.Member ofClass()",
+              "doc": "The class itself.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "ofField",
+              "anchor": "offield",
+              "signature": "static ClassMutator.Member ofField(String name, String descriptor)",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "ofMethod",
+              "anchor": "ofmethod",
+              "signature": "static ClassMutator.Member ofMethod(MethodModel method)",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "isClass",
+              "anchor": "isclass",
+              "signature": "boolean isClass()",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "isField",
+              "anchor": "isfield",
+              "signature": "boolean isField()",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "isMethod",
+              "anchor": "ismethod",
+              "signature": "boolean isMethod()",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "simpleName",
+              "anchor": "simplename",
+              "signature": "String simpleName()",
+              "doc": "The field's name, for a field; the method's, for a method; empty for the class.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "ClassMutator.Reach",
+          "slug": "classmutator-reach",
+          "kind": "enum",
+          "signature": "enum Reach",
+          "summary": "Which tests can notice a change.",
+          "doc": "Which tests can notice a change. Coverage says which tests reach a line, and a change with no\nline needs another way to say it.",
+          "params": [],
+          "members": [
+            {
+              "kind": "enum constant",
+              "name": "EVERY_TEST",
+              "anchor": "every_test",
+              "signature": "EVERY_TEST",
+              "doc": "Every test: those that reach the class first, each set fastest first, stopping at the first\nfailure. For what's read by reflection: a test that a method's `@PreAuthorize` denies never\nruns a line of it, and the class was made while a framework started up, in no test. A mutant\nno test notices costs a run of every test.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "METHOD",
+              "anchor": "method",
+              "signature": "METHOD",
+              "doc": "The tests that reach a line of the mutant's method, fastest first; none, and it's not\ncovered. For a method that changes what it does when it runs.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
           "name": "Comparison",
           "slug": "comparison",
           "kind": "record",
@@ -1264,8 +1508,8 @@
           "slug": "operator",
           "kind": "interface",
           "signature": "sealed interface Operator",
-          "summary": "A kind of change mutastic makes: one of its own ([`BuiltIn`](../builtin/)), or one a plugin or rules file adds ([`Mutator`](../mutator/)).",
-          "doc": "A kind of change mutastic makes: one of its own ([`BuiltIn`](../builtin/)), or one a plugin or rules file adds\n([`Mutator`](../mutator/)). How each finds its sites and rewrites them is the engine's, or the mutator's own.\n\nOperators work on two kinds of site, counted apart: instructions (arithmetic, branches, returns)\nand calls. A new operator never shifts the ids of existing mutants.",
+          "summary": "A kind of change mutastic makes: one of its own ([`BuiltIn`](../builtin/)), or one a plugin or rules file adds ([`Mutator`](../mutator/), or for a change to a class as a whole [`ClassMutator`](../classmutator/)).",
+          "doc": "A kind of change mutastic makes: one of its own ([`BuiltIn`](../builtin/)), or one a plugin or rules file adds\n([`Mutator`](../mutator/), or for a change to a class as a whole [`ClassMutator`](../classmutator/)). How each finds its sites and\nrewrites them is the engine's, or the mutator's own.\n\nOperators work on two kinds of site, counted apart: instructions (arithmetic, branches, returns)\nand calls. A new operator never shifts the ids of existing mutants.",
           "params": [],
           "members": [
             {
@@ -1365,7 +1609,7 @@
           "name": "Policy",
           "slug": "policy",
           "kind": "record",
-          "signature": "record Policy(\n    List<Rule> rules,\n    List<Filter> filters,\n    List<Ignore> ignores,\n    List<String> operators,\n    List<Mutator> mutators)",
+          "signature": "record Policy(\n    List<Rule> rules,\n    List<Filter> filters,\n    List<Ignore> ignores,\n    List<String> operators,\n    List<Mutator> mutators,\n    List<ClassMutator> classMutators)",
           "summary": "A project's own say over which mutants run: the mutants it ignores by id (from `.mutastic/ignores.yaml`), and from `mutastic.yaml` its rules, then filters of its own (found in its plugins, run only when named), after the built-in ones; which operators run, and the operators its plugins and rules files add.",
           "doc": "A project's own say over which mutants run: the mutants it ignores by id (from\n`.mutastic/ignores.yaml`), and from `mutastic.yaml` its rules, then filters of its own (found in\nits plugins, run only when named), after the built-in ones; which operators run, and the\noperators its plugins and rules files add.",
           "params": [
@@ -1376,6 +1620,10 @@
             {
               "name": "mutators",
               "doc": "the operators the project's plugins and rules files add"
+            },
+            {
+              "name": "classMutators",
+              "doc": "the operators the project's plugins add that change a class as a whole"
             }
           ],
           "members": [
@@ -1383,6 +1631,16 @@
               "kind": "constructor",
               "name": "Policy",
               "anchor": "policy",
+              "signature": "Policy(List<Rule> rules, List<Filter> filters, List<Ignore> ignores, List<String> operators, List<Mutator> mutators)",
+              "doc": "With no operators that change a class as a whole.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "Policy",
+              "anchor": "policy-2",
               "signature": "Policy(List<Rule> rules, List<Filter> filters, List<Ignore> ignores)",
               "doc": "Rules, filters and ignores, with the default operators.",
               "params": [],
@@ -1392,7 +1650,7 @@
             {
               "kind": "constructor",
               "name": "Policy",
-              "anchor": "policy-2",
+              "anchor": "policy-3",
               "signature": "Policy(List<Rule> rules, List<Filter> filters)",
               "doc": "Rules and filters, ignoring nothing.",
               "params": [],
@@ -1425,6 +1683,16 @@
               "anchor": "withoperators",
               "signature": "Policy withOperators(List<String> chosen, List<Mutator> added)",
               "doc": "The same, with these operators chosen and these added.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withClassMutators",
+              "anchor": "withclassmutators",
+              "signature": "Policy withClassMutators(List<ClassMutator> added)",
+              "doc": "The same, with these added, which change a class as a whole.",
               "params": [],
               "returns": "",
               "throws": []

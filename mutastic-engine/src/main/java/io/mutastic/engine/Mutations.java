@@ -3,11 +3,13 @@ package io.mutastic.engine;
 import static java.util.Objects.requireNonNull;
 
 import io.mutastic.api.BuiltIn;
+import io.mutastic.api.ClassMutator;
 import io.mutastic.api.Filter;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Mutator;
 import io.mutastic.api.Operator;
 import io.mutastic.api.Policy;
+import io.mutastic.api.Project;
 import io.mutastic.api.Rule;
 import io.mutastic.api.Skip;
 import java.lang.classfile.ClassFile;
@@ -98,7 +100,7 @@ final class Mutations {
 
   private static final String NULL_PARAMETER = "null parameter";
 
-  /// The operators this run uses, as the policy chooses.
+  /// The operators this run uses on what's in a method, as the policy chooses.
   private final List<Operator> operators;
 
   private final AnnotatedSkips annotated = new AnnotatedSkips();
@@ -110,6 +112,9 @@ final class Mutations {
   /// The module's classes by internal name, once [#prepare] has seen them.
   private Map<String, ClassModel> module = Map.of();
 
+  /// Finds the mutants of the operators that change a class as a whole.
+  private final WholeClasses wholeClasses;
+
   Mutations(ClassFile context) {
     this(context, Policy.NONE);
   }
@@ -117,12 +122,18 @@ final class Mutations {
   Mutations(ClassFile context, Policy policy) {
     this.context = context;
     this.policy = policy;
-    this.operators = OperatorSet.active(policy);
+    var chosen = OperatorSet.active(policy);
+    this.operators =
+        chosen.stream().filter(operator -> !(operator instanceof ClassMutator)).toList();
     var all =
         new ArrayList<Filter>(
-            List.of(new TrivialAccessors(), new DebugRepresentations(this::kept)));
+            List.of(
+                new KotlinGenerated(),
+                new TrivialAccessors(),
+                new DebugRepresentations(this::kept)));
     all.addAll(policy.filters());
     this.judges = List.copyOf(all);
+    this.wholeClasses = new WholeClasses(chosen, this::decidedByTheProject);
   }
 
   List<Mutant> find(ClassModel model) {
@@ -147,6 +158,7 @@ final class Mutations {
                 });
       }
     }
+    mutants.addAll(viable(model, wholeClasses.find(model)));
     return mutants;
   }
 
@@ -171,13 +183,17 @@ final class Mutations {
     var checked = new ArrayList<Mutant>(found.size());
     for (Mutant mutant : found) {
       var unviable =
-          (mutant.operator() instanceof Mutator || VERIFIED.contains(mutant.operator()))
+          (isAdded(mutant.operator()) || VERIFIED.contains(mutant.operator()))
                   && mutant.skipped().isEmpty()
               ? whyUnviable(model, mutant)
               : Optional.<String>empty();
       checked.add(unviable.map(why -> mutant.skippedFor("unviable: " + why)).orElse(mutant));
     }
     return checked;
+  }
+
+  private static boolean isAdded(Operator operator) {
+    return operator instanceof Mutator || operator instanceof ClassMutator;
   }
 
   /// Why the mutated class wouldn't load, if it wouldn't: its stack maps can't be built, or it
@@ -206,6 +222,35 @@ final class Mutations {
     judges.forEach(filter -> filter.prepare(classes));
   }
 
+  /// Tells the operators that change a class as a whole of the project, before any of its classes.
+  void prepareFor(Project project) {
+    wholeClasses.prepareFor(project);
+  }
+
+  /// What the project itself says of a member of `model`: an annotation on the code, or a rule in
+  /// `mutastic.yaml`. The filters aren't asked: they judge code, and a trivial getter is arid for
+  /// what it runs, not for the annotation on it.
+  private Optional<String> decidedByTheProject(ClassModel model, ClassMutator.Member member) {
+    var method =
+        model.methods().stream()
+            .filter(
+                candidate ->
+                    candidate.methodName().equalsString(member.name())
+                        && candidate.methodType().equalsString(member.descriptor()))
+            .findFirst();
+    var annotation =
+        method.isPresent()
+            ? annotated.skip(model, method.get())
+            : annotated.skipClass(model, member.name());
+    return annotation
+        .or(
+            () ->
+                method.isPresent()
+                    ? skippedByRule(model, method.get())
+                    : skippedByRule(model, member.name()))
+        .map(Skip::toString);
+  }
+
   /// Why the method's mutants shouldn't run, if they shouldn't. Most specific first: an annotation
   /// on the code, then a rule in `mutastic.yaml`, then the filters. `@DoMutate` or a `mutate:` rule
   /// keeps code a filter would call arid, never code that is generated or equivalent.
@@ -228,7 +273,11 @@ final class Mutations {
     if (Annotations.has(model, method, "DoMutate")) {
       return Optional.empty();
     }
-    return rule(model, method, false)
+    return skippedByRule(model, method.methodName().stringValue());
+  }
+
+  private Optional<Skip> skippedByRule(ClassModel model, String member) {
+    return rule(model, member, false)
         .map(
             rule ->
                 new Skip(
@@ -237,14 +286,14 @@ final class Mutations {
 
   /// Whether the project keeps the method's mutants even if a filter calls the code arid.
   private boolean kept(ClassModel model, MethodModel method) {
-    return Annotations.has(model, method, "DoMutate") || rule(model, method, true).isPresent();
+    return Annotations.has(model, method, "DoMutate")
+        || rule(model, method.methodName().stringValue(), true).isPresent();
   }
 
-  private Optional<Rule> rule(ClassModel model, MethodModel method, boolean mutate) {
+  private Optional<Rule> rule(ClassModel model, String member, boolean mutate) {
     var className = model.thisClass().asInternalName().replace('/', '.');
-    var name = method.methodName().stringValue();
     return policy.rules().stream()
-        .filter(rule -> rule.mutate() == mutate && rule.covers(className, name))
+        .filter(rule -> rule.mutate() == mutate && rule.covers(className, member))
         .findFirst();
   }
 
@@ -311,6 +360,8 @@ final class Mutations {
         switch (operator) {
           case io.mutastic.api.BuiltIn builtIn -> builtInChanges(builtIn, instruction, at, found);
           case Mutator mutator -> addedChanges(mutator, instruction, at, found);
+          case ClassMutator _ ->
+              throw new IllegalStateException("changes a class as a whole: see WholeClasses");
         }
       }
       found.forEach(each -> mutants.add(mutant(each, instruction, at, workedOn)));
@@ -602,6 +653,9 @@ final class Mutations {
           && OUTPUT_OWNERS.contains(call.owner().asInternalName())) {
         return Optional.of("arid: only writes output");
       }
+      if (instruction instanceof InvokeInstruction call && KotlinGenerated.isInserted(call)) {
+        return Optional.of("generated: kotlinc's own check on a value its types already promise");
+      }
       return Optional.empty();
     }
   }
@@ -680,6 +734,9 @@ final class Mutations {
 
   /// The class with exactly one instruction changed. `CodeBuilder` regenerates the stack maps.
   byte[] apply(ClassModel model, Mutant mutant) {
+    if (mutant.operator() instanceof ClassMutator mutator) {
+      return WholeClasses.apply(model, mutant, mutator);
+    }
     var targets =
         mutant.operator() == BuiltIn.LOGICAL_CONNECTOR
             ? connectorTargets(model, mutant)

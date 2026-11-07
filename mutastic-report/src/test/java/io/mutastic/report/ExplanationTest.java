@@ -3,6 +3,7 @@ package io.mutastic.report;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.api.BuiltIn;
+import io.mutastic.api.ClassMutator;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Status;
 import java.nio.file.Files;
@@ -74,6 +75,17 @@ class ExplanationTest {
     assertThat(text)
         .contains("a jump past its body when the condition is false")
         .contains("missed: every covering test still passed");
+  }
+
+  @Test
+  void aChangeToAClassAsAWholeIsntCountedAmongInstructions() {
+    var mutant =
+        new WholeClassStub(ClassMutator.Reach.EVERY_TEST)
+            .mutant(ClassMutator.Member.ofField("code", "I"), 3);
+
+    assertThat(explanation.render(mutant, Optional.empty()))
+        .contains("a change to the class as a whole, on <field code>")
+        .doesNotContain("instruction site");
   }
 
   @Test

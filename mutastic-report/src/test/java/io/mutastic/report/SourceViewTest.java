@@ -202,4 +202,50 @@ class SourceViewTest {
     assertThat(sources.advice(constantOn("return c == '~';", "constant 126 to 127")).change())
         .isEqualTo("the constant `'~'` becomes `127`");
   }
+
+  private String kotlinFileOf(String className) throws Exception {
+    var directory = project.resolve("src/main/kotlin/com/example");
+    Files.createDirectories(directory);
+    Files.writeString(
+        directory.resolve("Shelf.kt"), "class Shelf\ndata class Item(val name: String)\n");
+    Files.writeString(directory.resolve("Other.kt"), "class Unrelated\nval itemName = 1\n");
+    Files.writeString(directory.resolve("notes.txt"), "Lost\n");
+    var view =
+        new SourceView(
+            project,
+            List.of(project.resolve("src/main/missing"), project.resolve("src/main/kotlin")));
+    return view.file(
+        new Mutant(
+            "com/example/" + className,
+            "m",
+            "()V",
+            0,
+            1,
+            BuiltIn.MATH,
+            "a",
+            "b",
+            Optional.empty()));
+  }
+
+  @Test
+  void aKotlinClassIsInTheFileOfItsName() throws Exception {
+    assertThat(kotlinFileOf("Shelf")).isEqualTo("src/main/kotlin/com/example/Shelf.kt");
+    assertThat(kotlinFileOf("Shelf$Inner")).isEqualTo("src/main/kotlin/com/example/Shelf.kt");
+  }
+
+  @Test
+  void aFilesTopLevelFunctionsAreInThatFile() throws Exception {
+    assertThat(kotlinFileOf("ShelfKt")).isEqualTo("src/main/kotlin/com/example/Shelf.kt");
+  }
+
+  @Test
+  void anotherKotlinClassIsInTheFileThatMentionsIt() throws Exception {
+    assertThat(kotlinFileOf("Item")).isEqualTo("src/main/kotlin/com/example/Shelf.kt");
+    assertThat(kotlinFileOf("Unrelated")).isEqualTo("src/main/kotlin/com/example/Other.kt");
+  }
+
+  @Test
+  void aClassNoFileMentionsKeepsThePathItWouldHave() throws Exception {
+    assertThat(kotlinFileOf("Lost")).isEqualTo("com/example/Lost.java");
+  }
 }

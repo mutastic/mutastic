@@ -1,11 +1,12 @@
 package io.mutastic.api;
 
 /// A kind of change mutastic makes: one of its own ([BuiltIn]), or one a plugin or rules file adds
-/// ([Mutator]). How each finds its sites and rewrites them is the engine's, or the mutator's own.
+/// ([Mutator], or for a change to a class as a whole [ClassMutator]). How each finds its sites and
+/// rewrites them is the engine's, or the mutator's own.
 ///
 /// Operators work on two kinds of site, counted apart: instructions (arithmetic, branches, returns)
 /// and calls. A new operator never shifts the ids of existing mutants.
-public sealed interface Operator permits BuiltIn, Mutator {
+public sealed interface Operator permits BuiltIn, Mutator, ClassMutator {
   /// `mutastic/boundary`, `stream/remove-stage`: how reports, rules and `--operators` name it.
   String id();
 

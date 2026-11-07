@@ -4,6 +4,7 @@ import static java.lang.constant.ConstantDescs.CD_int;
 import static java.lang.constant.ConstantDescs.CD_long;
 import static java.lang.constant.ConstantDescs.CD_void;
 
+import io.mutastic.api.ClassMutator;
 import io.mutastic.api.Mutant;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
@@ -174,25 +175,53 @@ final class Coverage {
   /// uses the class depends on what loading it did: those are the tests that reach any of its
   /// lines.
   List<String> coveringTests(Mutant mutant) {
+    if (mutant.operator() instanceof ClassMutator mutator) {
+      return mutator.reach() == ClassMutator.Reach.METHOD
+          ? testsReaching(linesOf(mutant.className(), mutant.methodName() + mutant.descriptor()))
+          : everyTestReachersFirst(mutant.className());
+    }
     var lineId = lineIds.get(key(mutant));
     if (lineId == null) {
       return List.of();
     }
-    var reaching = onlyAtLoad.contains(lineId) ? linesOf(mutant.className()) : Set.of(lineId);
+    return testsReaching(
+        onlyAtLoad.contains(lineId) ? linesOf(mutant.className()) : Set.of(lineId));
+  }
+
+  /// Every test, those that reach a line of the class first, each set fastest first.
+  private List<String> everyTestReachersFirst(String className) {
+    var reachers = testsReaching(linesOf(className));
+    var rest =
+        durations.keySet().stream()
+            .filter(test -> !reachers.contains(test))
+            .sorted(fastestFirst())
+            .toList();
+    return java.util.stream.Stream.concat(reachers.stream(), rest.stream()).toList();
+  }
+
+  private List<String> testsReaching(Set<Integer> reaching) {
     return linesByTest.entrySet().stream()
         .filter(
             entry ->
                 durations.containsKey(entry.getKey())
                     && entry.getValue().stream().anyMatch(reaching::contains))
         .map(Map.Entry::getKey)
-        .sorted(
-            Comparator.comparing((String test) -> durations.get(test))
-                .thenComparing(Comparator.naturalOrder()))
+        .sorted(fastestFirst())
         .toList();
   }
 
+  private Comparator<String> fastestFirst() {
+    return Comparator.comparing((String test) -> durations.get(test))
+        .thenComparing(Comparator.naturalOrder());
+  }
+
   private Set<Integer> linesOf(String className) {
-    var prefix = className + "#";
+    return linesOf(className, "");
+  }
+
+  /// The lines of the class, or of the method when `method` (with its descriptor) isn't empty.
+  private Set<Integer> linesOf(String className, String method) {
+    var prefix = className + "#" + method;
     var lines = new HashSet<Integer>();
     lineIds.forEach(
         (key, id) -> {
@@ -201,6 +230,13 @@ final class Coverage {
           }
         });
     return lines;
+  }
+
+  /// What every test took between them in the coverage pass: as long as a run with every class
+  /// loaded anew should need, whichever tests it runs, as a test that shared a Spring context in
+  /// the pass starts its own in that run.
+  Duration timeOfEveryTest() {
+    return timeOf(List.copyOf(durations.keySet()));
   }
 
   /// What these tests took between them in the coverage pass.

@@ -2,6 +2,10 @@
 // by -PmutasticSuite) would do: its JDK, JVM arguments, working directory and classpath, and the
 // module's own directories. Written as a properties file to -PmutasticOut. Nothing in the user's
 // build changes.
+// The source directories of a set: Java's, and Kotlin's when its plugin is there.
+fun sourceDirs(set: SourceSet): Set<File> =
+    set.java.srcDirs + ((set.extensions.findByName("kotlin") as? SourceDirectorySet)?.srcDirs ?: emptySet())
+
 // When the module asked for has no Java code: which modules do, to suggest one.
 rootProject {
     tasks.register("mutasticModules") {
@@ -84,8 +88,8 @@ allprojects {
                 setup["resources"] = listOfNotNull(main.output.resourcesDir).joinToString(separator)
                 setup["testClasses"] = test.output.classesDirs.files.joinToString(separator)
                 setup["testResources"] = listOfNotNull(test.output.resourcesDir).joinToString(separator)
-                setup["sources"] = main.java.srcDirs.joinToString(separator)
-                setup["testSources"] = test.java.srcDirs.joinToString(separator)
+                setup["sources"] = sourceDirs(main).joinToString(separator)
+                setup["testSources"] = sourceDirs(test).joinToString(separator)
                 // The module's own directories are left out: the worker loads those itself, so
                 // mutants can replace them.
                 setup["dependencies"] = task.classpath.files.map { it.absolutePath }.filterNot { it in own }.joinToString(separator)

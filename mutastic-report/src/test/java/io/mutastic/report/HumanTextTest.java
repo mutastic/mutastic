@@ -3,6 +3,7 @@ package io.mutastic.report;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.api.BuiltIn;
+import io.mutastic.api.ClassMutator;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
@@ -94,6 +95,51 @@ class HumanTextTest {
             "inputs seen: 50 (none is 100)",
             "= id: " + boundary().id());
     assertThat(card).doesNotContain("help:", "done when", " 4 │");
+  }
+
+  /// Coverage can't place it, so most of these tests reach nothing of it: "covered by" isn't true.
+  @Test
+  void aMutantRunAgainstEveryTestSaysSo() {
+    var stub = new WholeClassStub(ClassMutator.Reach.EVERY_TEST);
+    var one = missed(stub.mutant(ClassMutator.Member.ofClass(), 3), Map.of());
+
+    var alone = text(HumanText.Detail.FULL, Vocabulary.PLAIN).card(one);
+    var two =
+        text(HumanText.Detail.FULL, Vocabulary.PLAIN)
+            .card(one.alsoCoveredBy(List.of("b.OtherTest#c")));
+
+    assertThat(alone)
+        .contains("no test needs `@Size`".replace("`", ""))
+        .contains("run against every test (it still passes)")
+        .doesNotContain("covered by");
+    assertThat(two).contains("run against every test (all 2 still pass)");
+  }
+
+  @Test
+  void aMutantRunAgainstItsMethodsTestsIsCoveredByThem() {
+    var stub = new WholeClassStub(ClassMutator.Reach.METHOD);
+    var result = missed(stub.mutant(new ClassMutator.Member("discount", "(I)I"), 4), Map.of());
+
+    assertThat(text(HumanText.Detail.FULL, Vocabulary.PLAIN).card(result))
+        .contains("covered by PricingTest#bigOrders (its 1 covering test still passes)");
+  }
+
+  @Test
+  void theWorstPlacesNameAClassOrFieldAsTheSourceDoes() {
+    var stub = new WholeClassStub(ClassMutator.Reach.EVERY_TEST);
+    var onField = missed(stub.mutant(ClassMutator.Member.ofField("code", "I"), 3), Map.of());
+    var onClass = missed(stub.mutant(ClassMutator.Member.ofClass(), 3), Map.of());
+    var onMethod = missed(stub.mutant(new ClassMutator.Member("discount", "(I)I"), 4), Map.of());
+
+    var output =
+        text(HumanText.Detail.FULL, Vocabulary.PLAIN)
+            .render(report(onField, onClass, onMethod), Optional.empty(), RUN);
+
+    assertThat(output)
+        .contains("Pricing.code 1 ✗")
+        .contains("Pricing 1 ✗")
+        .contains("Pricing.discount() 1 ✗")
+        .doesNotContain("<field", "<class>");
   }
 
   @Test

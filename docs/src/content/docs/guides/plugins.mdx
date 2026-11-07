@@ -7,12 +7,13 @@ import { Code } from '@astrojs/starlight/components';
 import mutiny from '../../../data/plugins/mutiny.yaml?raw';
 
 mutastic's [operators](/concepts/operators/) cover the language and the JDK's streams. A plugin adds
-more, for the libraries and patterns your code uses. There are two kinds:
+more, for the libraries and patterns your code uses. mutastic [ships some](/guides/operator-plugins/),
+and you can write your own. There are two kinds:
 
 | Kind | File | Adds | Needs |
 |---|---|---|---|
 | [A rules file](#rules-files) | `.yaml` | Operators on calls: remove one, rename it, or call another method instead | Nothing but the file |
-| [A jar](#java-plugins) | `.jar` | Operators on any instruction, and [filters](#filters) | Java, built against `io.mutastic:mutastic-api` |
+| [A jar](#java-plugins) | `.jar` | Operators on any instruction or [a class as a whole](#changing-a-class-as-a-whole), and [filters](#filters) | Java, built against `io.mutastic:mutastic-api` |
 
 List each under `plugins:` in `mutastic.yaml`, relative to the project's directory:
 
@@ -148,6 +149,76 @@ acme.ConstantPlusOne
 ```
 
 Labels are part of mutant ids, as a rules file's are: keep them once the operator is in use.
+
+## Changing a class as a whole
+
+A `Mutator` changes one instruction. For a change no instruction holds, as an annotation is, or a
+method written anew, implement [`io.mutastic.api.ClassMutator`](/reference/api/classmutator/), named in
+`META-INF/services/io.mutastic.api.ClassMutator`. This one takes `@Deprecated` off a class:
+
+```java
+package acme;
+
+import io.mutastic.api.ClassMutator;
+import io.mutastic.api.Mutant;
+import io.mutastic.api.Mutator;
+import java.lang.classfile.Attributes;
+import java.lang.classfile.ClassFile;
+import java.lang.classfile.ClassModel;
+import java.lang.classfile.ClassTransform;
+import java.lang.classfile.attribute.RuntimeVisibleAnnotationsAttribute;
+import java.util.List;
+
+public class Undeprecate implements ClassMutator {
+  public String id() {
+    return "acme/undeprecate";
+  }
+
+  public String explanation() {
+    return "A class is no longer marked deprecated.";
+  }
+
+  public List<Change> changes(ClassModel owner) {
+    var deprecated =
+        owner.findAttribute(Attributes.runtimeVisibleAnnotations()).stream()
+            .flatMap(attribute -> attribute.annotations().stream())
+            .anyMatch(annotation -> annotation.className().equalsString("Ljava/lang/Deprecated;"));
+    return deprecated
+        ? List.of(Change.of(Member.ofClass(), "not deprecated", "@Deprecated", "@Deprecated"))
+        : List.of();
+  }
+
+  public byte[] write(ClassModel owner, Member member, String label) {
+    return ClassFile.of()
+        .transformClass(
+            owner,
+            ClassTransform.dropping(RuntimeVisibleAnnotationsAttribute.class::isInstance));
+  }
+
+  public Mutator.Words words(Mutant mutant) {
+    return new Mutator.Words(
+        "@Deprecated removed",
+        "no test needs " + mutant.className() + " to be deprecated",
+        "assert what's deprecated, and that callers are told");
+  }
+}
+```
+
+- **`changes`** is asked about each class, and gives each change's **member** (the class, a field or a
+  method: what its id stands on), its label, what's there now, and the text that marks its line in the
+  source, which is how a card finds a line class files don't have.
+- **`write`** gives the whole class back, changed. As with a `Mutator`, one that doesn't verify is
+  skipped as `unviable:`.
+- **`reach`** says which tests a mutant runs against. By default, `EVERY_TEST`: those that reach the
+  class first, until one fails, for what's read by reflection, where the test that matters may run none
+  of its lines. `METHOD` runs the tests that reach a line of the mutant's method.
+- **`prepare`** hears of the project before its classes, for what a class file doesn't hold: its
+  classpath, or its sources.
+- **`tier`** defaults to `extended`, not `defaults`, as these cost more.
+
+Each mutant runs with every class loaded anew, since what reads an annotation may have kept what it
+read, and a class written anew may have methods the build's doesn't. Where a framework loads the app
+itself (`@QuarkusTest`) that can't be done, and they're skipped as `unviable:`.
 
 ## Filters
 

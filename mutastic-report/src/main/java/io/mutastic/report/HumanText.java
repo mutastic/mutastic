@@ -1,5 +1,6 @@
 package io.mutastic.report;
 
+import io.mutastic.api.ClassMutator;
 import io.mutastic.api.Comparison;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
@@ -448,7 +449,7 @@ public final class HumanText {
   private static List<String> explainedNotes(MutantResult result, Advice advice) {
     var notes = new ArrayList<>(advice.notes());
     if (!result.coveredBy().isEmpty()) {
-      notes.add("covered by " + AgentText.covering(result.coveredBy()));
+      notes.add(AgentText.testsRun(result, " "));
     }
     return notes;
   }
@@ -562,7 +563,7 @@ public final class HumanText {
   private static List<String> cardNotes(MutantResult result, Advice advice) {
     var notes = new ArrayList<>(advice.notes());
     notes.add(
-        "covered by %s (%s)".formatted(AgentText.covering(result.coveredBy()), stillPass(result))
+        "%s (%s)".formatted(AgentText.testsRun(result, " "), stillPass(result))
             + result
                 .unconfirmed()
                 .map(
@@ -618,9 +619,7 @@ public final class HumanText {
         .filter(all -> place.line() >= 1 && place.line() <= all.size())
         .ifPresent(source -> lines.addAll(changedLine(source, place, advice, gutter)));
     var evidence =
-        advice.notes().isEmpty()
-            ? List.of("covered by " + AgentText.covering(result.coveredBy()))
-            : advice.notes();
+        advice.notes().isEmpty() ? List.of(AgentText.testsRun(result, " ")) : advice.notes();
     finding.others().forEach(other -> lines.add(annotation(gutter, alsoMissed(other))));
     addNotes(lines, gutter, evidence);
     lines.add(annotation(gutter, idAndFullCard(finding)));
@@ -665,6 +664,9 @@ public final class HumanText {
 
   private static String stillPass(MutantResult result) {
     int count = result.coveredBy().size();
+    if (AgentText.ranEveryTest(result)) {
+      return count == 1 ? "it still passes" : "all %d still pass".formatted(count);
+    }
     return count == 1
         ? "its 1 covering test still passes"
         : "all %d covering tests still pass".formatted(count);
@@ -1145,6 +1147,10 @@ public final class HumanText {
   /// the source names it.
   private static String methodLabel(Mutant mutant) {
     var where = SourceNames.of(mutant);
+    var member = new ClassMutator.Member(mutant.methodName(), mutant.descriptor());
+    if (mutant.operator() instanceof ClassMutator && !member.isMethod()) {
+      return member.isClass() ? where.className() : where.className() + "." + member.simpleName();
+    }
     return where.className()
         + "."
         + where.method()
