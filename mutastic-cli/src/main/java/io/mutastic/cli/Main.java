@@ -376,12 +376,16 @@ public final class Main {
 
   /// Tests that fail before any mutant. One that was there when the task started is most likely
   /// broken by the change, and rewriting what it expects would pass a wrong change: the agent is
-  /// told to find out which is wrong, and to ask.
+  /// told to find out which is wrong, and to ask. One the task added usually needs its code
+  /// written, but it may be what shows the spec is wrong, and making it pass would bury that.
   private static String red(Gated gated, Gate.State state, Engine.BaselineFailed failed) {
     var before =
         failed.failing().stream().filter(test -> wasThere(gated, state.base(), test)).toList();
     if (before.isEmpty()) {
-      return "mutastic gate: " + failed.getMessage() + ". Make them pass first";
+      return "mutastic gate: "
+          + failed.getMessage()
+          + ". Make them pass first, unless the spec or plan is what's wrong, in which case say so"
+          + " and stop";
     }
     return ("mutastic gate: %s.%n%n%s %s there when the task started: if %s passed then, the task's"
             + " change broke %s. Find out whether the change or the test is wrong. Don't change"

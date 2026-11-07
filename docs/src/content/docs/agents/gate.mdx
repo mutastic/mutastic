@@ -36,7 +36,8 @@ is done when:
   isn't sure, rather than rewrite what the test expects. Every mutant is caught by a test made to
   fit a wrong change, so the score can't tell you. For the same reason, when the gate passes or
   hands over, it names the test files there when the task started that the task took an assertion
-  out of, for you to check.
+  out of, for you to check. When a test the task added fails, the gate tells the agent to make it
+  pass, unless the spec or plan is what's wrong, in which case it's to say so and stop.
 
 A task that changes no lines mutastic mutates (docs, build files, tests only) passes at once.
 Mutants on lines the task didn't touch aren't its business: they were missed before it started.

@@ -169,14 +169,17 @@ class GateTest {
     assertThat(added.exit()).isEqualTo(Main.FAILED);
     assertThat(added.out())
         .contains("PricingTest#hugeOrders")
-        .contains("Make them pass first")
+        .contains(
+            "Make them pass first, unless the spec or plan is what's wrong, in which case say so"
+                + " and stop")
         .doesNotContain("there when the task started");
     assertThat(broken.exit()).isEqualTo(Main.FAILED);
     assertThat(broken.out())
         .contains("PricingTest#bigOrdersGetTenPercentOff was there when the task started")
         .contains("Find out whether the change or the test is wrong")
         .contains("if you're not sure, ask")
-        .doesNotContain("Make them pass first");
+        .doesNotContain("Make them pass first")
+        .doesNotContain("spec or plan");
   }
 
   /// A pass tells the person when the task changed what an existing test expects: a test made to
