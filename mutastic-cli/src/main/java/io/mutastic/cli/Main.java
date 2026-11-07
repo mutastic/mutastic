@@ -923,12 +923,14 @@ public final class Main {
     var lastRun = prepared.work().resolve("last-run.tsv");
     var record =
         RunRecord.of(
-            prepared.project(),
-            otherTests,
-            RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())),
-            report);
-    // Only an earlier run of the same project, in the same place, says anything about this one.
-    var comparison = RunRecord.read(lastRun).filter(record::sameProjectAs).map(record::against);
+                prepared.project(),
+                otherTests,
+                RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())),
+                report)
+            .under(OperatorSet.active(policy(command, prepared.directory())));
+    // Only an earlier run of the same project, in the same place, under the same operators, says
+    // anything about this one.
+    var comparison = RunRecord.read(lastRun).filter(record::comparesWith).map(record::against);
     record.write(lastRun);
     return new Kept(comparison, writeReports(command, prepared, report));
   }

@@ -690,3 +690,6 @@ mutant any run found can always be checked again.
 
 A mutant's id doesn't depend on which operators run: choosing more adds mutants, and never changes
 the ids of the others.
+
+A score does: it's a share of the mutants a set makes, so scores compare only within a set. A run
+is compared with the last one only if that one used the same operators.

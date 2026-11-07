@@ -27,6 +27,22 @@ class OperatorsTest {
         .doesNotContain("`+` becomes `*`");
   }
 
+  /// A score is a share of what a set makes, so one under another set is no earlier score.
+  @Test
+  void onlyARunUnderTheSameOperatorsIsCompared() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("operators"));
+    String[] stronger = {
+      "run", project.toString(), "--format=jsonl", "--report=none", "--operators=stronger"
+    };
+
+    Samples.mutastic("run", project.toString(), "--format=jsonl", "--report=none");
+    var anotherSet = Samples.mutastic(stronger);
+    var sameSet = Samples.mutastic(stronger);
+
+    assertThat(anotherSet.out()).doesNotContain("previousScore", "changedSinceLastRun");
+    assertThat(sameSet.out()).contains("previousScore", "changedSinceLastRun");
+  }
+
   @Test
   void strongerAddsArithmeticReplacementAndAPluginAddsItsRules() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("operators"));

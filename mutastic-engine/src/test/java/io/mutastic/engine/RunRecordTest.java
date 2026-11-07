@@ -2,6 +2,7 @@ package io.mutastic.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Comparison;
 import io.mutastic.api.Status;
 import java.nio.file.Path;
@@ -96,18 +97,50 @@ class RunRecordTest {
     var mine = record("abc", Map.of());
     var theirs =
         new RunRecord(
-            "/other/classes", "abc", "tool-1", java.util.OptionalDouble.of(50.0), Map.of());
-    var unknown = new RunRecord("", "abc", "tool-1", java.util.OptionalDouble.of(50.0), Map.of());
+            "/other/classes", "", "abc", "tool-1", java.util.OptionalDouble.of(50.0), Map.of());
+    var unknown =
+        new RunRecord("", "", "abc", "tool-1", java.util.OptionalDouble.of(50.0), Map.of());
 
     assertThat(mine.sameProjectAs(record("def", Map.of()))).isTrue();
     assertThat(mine.sameProjectAs(theirs)).isFalse();
     assertThat(mine.sameProjectAs(unknown)).isFalse();
   }
 
+  /// A score is a share of what a set of operators makes: under another set it says nothing, and
+  /// the same set chosen in other words is the same set.
+  @Test
+  void onlyARunUnderTheSameOperatorsCompares() {
+    var defaults = record("abc", Map.of()).under(List.of(BuiltIn.BOUNDARY, BuiltIn.RETURN_VALUE));
+
+    assertThat(defaults.comparesWith(record("def", Map.of()))).isFalse();
+    assertThat(
+            defaults.comparesWith(
+                record("def", Map.of()).under(List.of(BuiltIn.RETURN_VALUE, BuiltIn.BOUNDARY))))
+        .isTrue();
+    assertThat(defaults.comparesWith(record("def", Map.of()).under(List.of(BuiltIn.BOUNDARY))))
+        .isFalse();
+    assertThat(record("abc", Map.of()).comparesWith(record("def", Map.of()))).isFalse();
+  }
+
+  /// That run's set can't be known, so nothing is claimed about it, but its results still load.
+  @Test
+  void aRecordFromBeforeItsSetWasKeptLoadsAndIsComparedWithNothing() throws Exception {
+    var file = work.resolve("last-run.tsv");
+    java.nio.file.Files.writeString(
+        file, "project\t/app/classes\ncode\tabc\ntool\tt\nscore\t50.0\nm1\tMISSED\t-\n");
+
+    var old = RunRecord.read(file).orElseThrow();
+
+    assertThat(old.results()).containsOnlyKeys("m1");
+    assertThat(old.operators()).isEmpty();
+    assertThat(record("abc", Map.of()).under(List.of(BuiltIn.BOUNDARY)).comparesWith(old))
+        .isFalse();
+  }
+
   @Test
   void aRunWithNothingToScoreIsRecordedWithoutAScore() throws Exception {
     var file = work.resolve("last-run.tsv");
-    new RunRecord("/app/classes", "abc", "tool-1", java.util.OptionalDouble.empty(), Map.of())
+    new RunRecord("/app/classes", "", "abc", "tool-1", java.util.OptionalDouble.empty(), Map.of())
         .write(file);
 
     assertThat(RunRecord.read(file).orElseThrow().score()).isEmpty();
@@ -138,7 +171,8 @@ class RunRecordTest {
   @Test
   void survivesAWriteAndARead() {
     var file = work.resolve("build/mutastic/last-run.tsv");
-    var written = record("abc", Map.of("m1", caught(FLAKY), "m2", missed()));
+    var written =
+        record("abc", Map.of("m1", caught(FLAKY), "m2", missed())).under(List.of(BuiltIn.BOUNDARY));
 
     written.write(file);
 
@@ -206,7 +240,8 @@ class RunRecordTest {
     assertThat(recorded.score()).isEmpty();
     assertThat(withOtherTests.code()).isEqualTo(recorded.code());
     assertThat(
-            new RunRecord("", "abc", "t", java.util.OptionalDouble.empty(), Map.of()).isOf(project))
+            new RunRecord("", "", "abc", "t", java.util.OptionalDouble.empty(), Map.of())
+                .isOf(project))
         .isFalse();
   }
 
@@ -251,7 +286,8 @@ class RunRecordTest {
   }
 
   private static RunRecord record(String code, String tool, Map<String, RunRecord.Entry> results) {
-    return new RunRecord("/app/classes", code, tool, java.util.OptionalDouble.of(50.0), results);
+    return new RunRecord(
+        "/app/classes", "", code, tool, java.util.OptionalDouble.of(50.0), results);
   }
 
   private static RunRecord.Entry caught(Optional<String> by) {
