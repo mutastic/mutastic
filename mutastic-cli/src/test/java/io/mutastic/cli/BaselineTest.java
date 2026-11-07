@@ -27,7 +27,7 @@ class BaselineTest {
     // it.
     assertThat(run.out())
         .contains(
-            "not covered (no test reaches these lines, or only a flaky one does;",
+            "not covered (no test reaches these lines, or only a flaky one does",
             "- src/main/java/com/example/stock/Stock.java:10 afterSale() (2 mutants)");
   }
 
