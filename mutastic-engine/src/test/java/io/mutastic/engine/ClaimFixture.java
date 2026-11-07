@@ -3,20 +3,31 @@ package io.mutastic.engine;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Policy;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassHierarchyResolver;
 import java.lang.classfile.ClassModel;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /// A fixture class that writes each mutant's claim out as source beside its method: `xClaim` is `x`
 /// as its card says the mutant makes it, and `xClaim_name` if the method has one change for each of
-/// several names. Every method takes two of the fixture's [Inputs]. It's compiled with [Javac],
-/// once however many mutants it has, as truth tests run for every mutant that reaches them.
+/// several names. Every method takes two of the fixture's [Inputs]. Truth tests run for every
+/// mutant that reaches them, so it's cheap to have one: it's compiled with [Javac] once however
+/// many mutants it has, and not until a test uses it; a test's calls for its mutants find them
+/// once; and what a class's methods give for the inputs comes from [Kept], whose key is the class's
+/// bytes.
+///
+/// Hold one in an instance field, so each test has its own. One test's mutants mustn't be another
+/// test's: the coverage pass runs a class's tests together, and a test that took them from an
+/// earlier one would be recorded as reaching none of the code that finds them, so it would never
+/// run against a mutant of that code.
 final class ClaimFixture {
   static final Path ROOT = Path.of("src/test/resources/truth");
 
@@ -55,37 +66,62 @@ final class ClaimFixture {
   }
 
   private final Inputs inputs;
+  private final String file;
+  private final String operator;
   private final String className;
-  private final Mutations mutations;
-  private final ClassModel model;
-  private final Class<?> original;
+  private boolean prepared;
+  private @Nullable Compiled compiled;
+  private @Nullable List<Mutant> found;
 
-  /// What javac gave for the fixture, nested classes included: an `enum` a method switches on, say.
-  private final Map<String, byte[]> classes;
+  /// The fixture, compiled, with the mutations of its operator.
+  ///
+  /// @param classes what javac gave for it, nested classes included: an `enum` a method switches
+  ///   on, say
+  /// @param identity what its nested classes are, in a key for what its code does
+  private record Compiled(
+      Map<String, byte[]> classes, Mutations mutations, ClassModel model, String identity) {}
 
   /// `calls/Omitted.java`, for example, compiled, for the mutants of `operator`.
-  ClaimFixture(String file, String operator) throws IOException {
+  ClaimFixture(String file, String operator) {
     this(file, operator, Inputs.TEXTS);
   }
 
-  ClaimFixture(String file, String operator, Inputs inputs) throws IOException {
+  ClaimFixture(String file, String operator, Inputs inputs) {
     this.inputs = inputs;
+    this.file = file;
+    this.operator = operator;
     this.className = file.replace(".java", "").replace('/', '.');
-    var source = Javac.Source.read(ROOT.resolve(file), className);
-    this.classes = Javac.compile(List.of(source), List.of(), "-g");
-    this.mutations =
-        new Mutations(
-            resolvingNested(),
-            Policy.NONE.withOperators(List.of(operator), List.of()),
-            new Supertypes(this::fixtureOrJdkClass));
-    var bytes = Objects.requireNonNull(classes.get(className));
-    this.model = ClassFile.of().parse(bytes);
-    this.original = load(bytes);
+  }
+
+  private Compiled compiled() {
+    if (compiled == null) {
+      try {
+        var source = Javac.Source.read(ROOT.resolve(file), className);
+        var classes = Javac.compile(List.of(source), List.of(), "-g");
+        var mutations =
+            new Mutations(
+                resolvingNested(classes),
+                Policy.NONE.withOperators(List.of(operator), List.of()),
+                new Supertypes(name -> fixtureOrJdkClass(classes, name)));
+        var model = ClassFile.of().parse(Objects.requireNonNull(classes.get(className)));
+        if (prepared) {
+          mutations.prepare(List.of(model));
+        }
+        compiled = new Compiled(classes, mutations, model, source.text());
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
+    }
+    return compiled;
+  }
+
+  private byte[] originalBytes() {
+    return Objects.requireNonNull(compiled().classes().get(className));
   }
 
   /// Stack maps and verifying need supertypes, and a fixture's nested classes aren't on any
   /// classpath, as a project's classes are found in a real run.
-  private ClassFile resolvingNested() {
+  private static ClassFile resolvingNested(Map<String, byte[]> classes) {
     var resolver =
         ClassHierarchyResolver.defaultResolver()
             .orElse(
@@ -97,7 +133,7 @@ final class ClaimFixture {
     return ClassFile.of(ClassFile.ClassHierarchyResolverOption.of(resolver));
   }
 
-  private java.io.InputStream fixtureOrJdkClass(String name) {
+  private static java.io.InputStream fixtureOrJdkClass(Map<String, byte[]> classes, String name) {
     var bytes = classes.get(name.replace('/', '.'));
     return bytes != null
         ? new java.io.ByteArrayInputStream(bytes)
@@ -106,21 +142,25 @@ final class ClaimFixture {
 
   /// The fixture's class, as javac gave it.
   ClassModel model() {
-    return model;
+    return compiled().model();
   }
 
   /// Lets the filters see the fixture as a module, as a real run does: what's arid for what calls
   /// it, say.
   ClaimFixture prepared() {
-    mutations.prepare(List.of(model));
+    prepared = true;
     return this;
   }
 
   /// Every mutant of the fixture's own methods, not of the claims.
   List<Mutant> mutants() {
-    return mutations.find(model).stream()
-        .filter(mutant -> !sourceMethod(mutant).contains("Claim"))
-        .toList();
+    if (found == null) {
+      found =
+          compiled().mutations().find(compiled().model()).stream()
+              .filter(mutant -> !sourceMethod(mutant).contains("Claim"))
+              .toList();
+    }
+    return found;
   }
 
   List<Mutant> running() {
@@ -145,11 +185,11 @@ final class ClaimFixture {
         continue; // a helper, which a test of its own calls through its caller
       }
       var method = sourceMethod(mutant);
-      var mutated = outcomes(mutated(mutant), method);
-      if (!mutated.equals(outcomes(original, claimOf(mutant)))) {
+      var mutated = outcomes(mutatedBytes(mutant), method);
+      if (!mutated.equals(outcomes(originalBytes(), claimOf(mutant)))) {
         failures.add(describe(mutant) + ": isn't what the claim says");
       }
-      if (mutated.equals(outcomes(original, method))) {
+      if (mutated.equals(outcomes(originalBytes(), method))) {
         failures.add(describe(mutant) + ": changes nothing");
       }
     }
@@ -165,11 +205,11 @@ final class ClaimFixture {
         continue;
       }
       var method = sourceMethod(mutant);
-      var mutated = outcomes(mutated(mutant), method);
+      var mutated = outcomes(mutatedBytes(mutant), method);
       if (!mutated.equals(valueClaim(method, mutant))) {
         failures.add(describe(mutant) + ": isn't what the claim says");
       }
-      if (mutated.equals(outcomes(original, method))) {
+      if (mutated.equals(outcomes(originalBytes(), method))) {
         failures.add(describe(mutant) + ": changes nothing");
       }
     }
@@ -178,22 +218,36 @@ final class ClaimFixture {
 
   private List<String> valueClaim(String method, Mutant mutant)
       throws ReflectiveOperationException {
-    var named = method + "Claim";
-    var claim =
-        java.util.Arrays.stream(original.getDeclaredMethods())
-            .filter(each -> each.getName().equals(named) && each.getParameterCount() == 3)
-            .findFirst()
-            .orElseThrow(() -> new NoSuchMethodException(named));
-    claim.setAccessible(true);
     var label = mutant.replacement();
-    var value = parsed(label.substring(label.lastIndexOf(' ') + 1), claim.getParameterTypes()[2]);
-    var outcomes = new ArrayList<String>();
-    for (Object a : inputs.values()) {
-      for (Object b : inputs.values()) {
-        outcomes.add(a + "," + b + ": " + outcome(claim, a, b, value));
-      }
-    }
-    return outcomes;
+    var written = label.substring(label.lastIndexOf(' ') + 1);
+    return Kept.outcomes(
+        keyFor(originalBytes(), method + "Claim", written),
+        () -> {
+          var named = method + "Claim";
+          var claim =
+              java.util.Arrays.stream(load(originalBytes()).getDeclaredMethods())
+                  .filter(each -> each.getName().equals(named) && each.getParameterCount() == 3)
+                  .findFirst()
+                  .orElseThrow(() -> new NoSuchMethodException(named));
+          claim.setAccessible(true);
+          var value = parsed(written, claim.getParameterTypes()[2]);
+          var outcomes = new ArrayList<String>();
+          for (Object a : inputs.values()) {
+            for (Object b : inputs.values()) {
+              outcomes.add(a + "," + b + ": " + outcome(claim, a, b, value));
+            }
+          }
+          return outcomes;
+        });
+  }
+
+  /// What a class's method gives depends only on the class's bytes, the fixture's other classes and
+  /// the inputs: fixtures call nothing of mutastic's.
+  private List<String> keyFor(byte[] bytes, String... rest) {
+    var key = new ArrayList<>(List.of(HexFormat.of().formatHex(bytes), compiled().identity()));
+    key.add(inputs.values().toString());
+    key.addAll(List.of(rest));
+    return key;
   }
 
   private static Object parsed(String value, Class<?> type) {
@@ -226,7 +280,7 @@ final class ClaimFixture {
     for (var mutant : mutants()) {
       if (mutant.skipped().filter(why -> why.startsWith("equivalent")).isPresent()) {
         var method = sourceMethod(mutant);
-        if (!outcomes(mutated(mutant), method).equals(outcomes(original, method))) {
+        if (!outcomes(mutatedBytes(mutant), method).equals(outcomes(originalBytes(), method))) {
           failures.add(describe(mutant));
         }
       }
@@ -239,8 +293,8 @@ final class ClaimFixture {
     var label = mutant.replacement();
     var lastWord = label.substring(label.lastIndexOf(' ') + 1);
     var named = method + "Claim_" + lastWord.substring(lastWord.lastIndexOf('/') + 1);
-    return java.util.Arrays.stream(original.getDeclaredMethods())
-            .anyMatch(each -> each.getName().equals(named))
+    return compiled().model().methods().stream()
+            .anyMatch(each -> each.methodName().equalsString(named))
         ? named
         : method + "Claim";
   }
@@ -252,25 +306,34 @@ final class ClaimFixture {
   }
 
   Class<?> mutated(Mutant mutant) {
-    return load(mutations.apply(model, mutant));
+    return load(mutatedBytes(mutant));
   }
 
-  private List<String> outcomes(Class<?> owner, String method) throws ReflectiveOperationException {
-    var outcomes = new ArrayList<String>();
-    var found = owner.getDeclaredMethod(method, inputs.type(), inputs.type());
-    found.setAccessible(true);
-    for (Object a : inputs.values()) {
-      for (Object b : inputs.values()) {
-        outcomes.add(a + "," + b + ": " + outcome(found, a, b));
-      }
-    }
-    return outcomes;
+  /// The mutant's class, which comes from the code under test every time.
+  private byte[] mutatedBytes(Mutant mutant) {
+    return compiled().mutations().apply(compiled().model(), mutant);
+  }
+
+  private List<String> outcomes(byte[] bytes, String method) throws ReflectiveOperationException {
+    return Kept.outcomes(
+        keyFor(bytes, method),
+        () -> {
+          var outcomes = new ArrayList<String>();
+          var called = load(bytes).getDeclaredMethod(method, inputs.type(), inputs.type());
+          called.setAccessible(true);
+          for (Object a : inputs.values()) {
+            for (Object b : inputs.values()) {
+              outcomes.add(a + "," + b + ": " + outcome(called, a, b));
+            }
+          }
+          return outcomes;
+        });
   }
 
   String outcomeOfOriginal(String method, Object a, Object b) throws ReflectiveOperationException {
-    var found = original.getDeclaredMethod(method, inputs.type(), inputs.type());
-    found.setAccessible(true);
-    return outcome(found, a, b);
+    var called = load(originalBytes()).getDeclaredMethod(method, inputs.type(), inputs.type());
+    called.setAccessible(true);
+    return outcome(called, a, b);
   }
 
   /// What the method gives for the inputs, or what it threw.
@@ -309,7 +372,7 @@ final class ClaimFixture {
 
   private Class<?> load(byte[] bytes) {
     try {
-      var loaded = new java.util.HashMap<>(classes);
+      var loaded = new java.util.HashMap<>(compiled().classes());
       loaded.put(className, bytes);
       return Javac.loader(loaded).loadClass(className);
     } catch (ClassNotFoundException e) {

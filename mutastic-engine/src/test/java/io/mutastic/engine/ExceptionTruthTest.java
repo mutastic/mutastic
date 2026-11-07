@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.report.SourceView;
 import java.util.List;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /// Each card a removed `throw` or a dropped `catch` type gets says what its mutant does: see
@@ -12,14 +11,8 @@ import org.junit.jupiter.api.Test;
 class ExceptionTruthTest {
   private static final String FILE = "exceptions/Throws.java";
 
-  private static ClaimFixture thrown;
-  private static ClaimFixture caught;
-
-  @BeforeAll
-  static void compile() throws Exception {
-    thrown = new ClaimFixture(FILE, "mutastic/remove-throw");
-    caught = new ClaimFixture(FILE, "mutastic/drop-catch-type");
-  }
+  private final ClaimFixture thrown = new ClaimFixture(FILE, "mutastic/remove-throw");
+  private final ClaimFixture caught = new ClaimFixture(FILE, "mutastic/drop-catch-type");
 
   @Test
   void aRemovedThrowCarriesOnWithWhatComesNext() throws Exception {

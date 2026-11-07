@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -42,6 +43,9 @@ class CardTruthTest {
   /// The start of each of the fixture's methods, which are written with two spaces before `static`
   /// and end at the first line that is two spaces and a `}`.
   private static final Pattern METHOD = Pattern.compile("  static .*?(?<name>\\w+)\\(.*\\{");
+
+  /// What [#METHOD] finds on each line it's been given: the same few lines, once per claim.
+  private static final Map<String, String> METHOD_ON = new HashMap<>();
 
   /// The predicates the conditions call: not conditions of their own.
   private static final Set<String> HELPERS = Set.of("even", "small", "atLeastOne", "isAbove");
@@ -125,26 +129,15 @@ class CardTruthTest {
 
     // The other class whose static a condition reads is there when they're compiled and run.
     var other = Javac.Source.read(OTHER, "shapes.Other");
-    var classes =
-        new HashMap<>(
-            Javac.compile(
-                claims.stream()
-                    .map(claim -> new Javac.Source("shapes." + claim.variant(), claim.source()))
-                    .distinct()
-                    .toList(),
-                List.of(other)));
-    classes.put("shapes.Other", original.get("shapes.Other"));
-    var loader = Javac.loader(classes);
     // The claims about one mutant are all checked against what it does, found once.
+    var whatClaimsSay = whatClaimsSay(claims, other, original);
     var whatMutantsDo = new HashMap<Mutant, List<String>>();
     for (var claim : claims) {
       var method = claim.mutant().methodName();
-      var said = outcomes(method, loader.loadClass("shapes." + claim.variant()));
+      var said = whatClaimsSay.get(claim.variant());
       var did = whatMutantsDo.get(claim.mutant());
       if (did == null) {
-        var mutated =
-            new OneClass(CLASS, mutations.apply(model, claim.mutant()), original).loadClass(CLASS);
-        did = outcomes(method, mutated);
+        did = outcomes(method, mutations.apply(model, claim.mutant()), original);
         whatMutantsDo.put(claim.mutant(), did);
       }
       firstDifference(said, did)
@@ -185,11 +178,12 @@ class CardTruthTest {
             .filter(mutant -> mutant.skipped().orElse("").startsWith("equivalent:"))
             .filter(mutant -> !HELPERS.contains(mutant.methodName()))
             .toList();
-    var code = new OneClass(CLASS, original.get(CLASS), original).loadClass(CLASS);
     var failures = new ArrayList<String>();
     for (var mutant : equivalent) {
-      var mutated = new OneClass(CLASS, mutations.apply(model, mutant), original).loadClass(CLASS);
-      differs(mutant.methodName(), code, mutated)
+      var method = mutant.methodName();
+      firstDifference(
+              outcomes(method, original.get(CLASS), original),
+              outcomes(method, mutations.apply(model, mutant), original))
           .ifPresent(
               input -> failures.add(mutant + " (" + mutant.skipped().get() + ") at " + input));
     }
@@ -337,6 +331,62 @@ class CardTruthTest {
         .toList();
   }
 
+  /// What each claim's source gives, by its variant: all a claim's text can do, so a text seen
+  /// before isn't compiled or loaded again. The rest are compiled in one call. A claim that won't
+  /// compile is never kept, and fails each time.
+  private static Map<String, List<String>> whatClaimsSay(
+      List<Claim> claims, Javac.Source other, Map<String, byte[]> original) throws Exception {
+    var said = new HashMap<String, List<String>>();
+    var unseen = new java.util.LinkedHashMap<String, Claim>();
+    for (var claim : claims) {
+      Kept.find(saidKey(claim, other))
+          .ifPresentOrElse(
+              outcomes -> said.put(claim.variant(), outcomes),
+              () -> unseen.put(claim.variant(), claim));
+    }
+    if (!unseen.isEmpty()) {
+      var classes =
+          new HashMap<>(
+              Javac.compile(
+                  unseen.values().stream()
+                      .map(claim -> new Javac.Source("shapes." + claim.variant(), claim.source()))
+                      .toList(),
+                  List.of(other)));
+      classes.put("shapes.Other", original.get("shapes.Other"));
+      var loader = Javac.loader(classes);
+      for (var claim : unseen.values()) {
+        var outcomes =
+            outcomes(claim.mutant().methodName(), loader.loadClass("shapes." + claim.variant()));
+        Kept.keep(saidKey(claim, other), outcomes);
+        said.put(claim.variant(), outcomes);
+      }
+    }
+    return said;
+  }
+
+  private static List<String> saidKey(Claim claim, Javac.Source other) {
+    return List.of("said", claim.source(), claim.mutant().methodName(), other.text());
+  }
+
+  /// What a class of these bytes does, beside the fixture's other class: fixtures call nothing of
+  /// mutastic's, so the bytes, which come from the code under test every time, are all it depends
+  /// on.
+  private static List<String> outcomes(String method, byte[] bytes, Map<String, byte[]> original)
+      throws Exception {
+    return Kept.outcomes(
+        List.of("did", HexFormat.of().formatHex(bytes), digestOf(original), method),
+        () -> outcomes(method, new OneClass(CLASS, bytes, original).loadClass(CLASS)));
+  }
+
+  /// The classes a mutant runs beside, in a key: a digest of them.
+  private static String digestOf(Map<String, byte[]> original) {
+    return Javac.digest(
+        original.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .map(entry -> entry.getKey() + HexFormat.of().formatHex(entry.getValue()))
+            .toList());
+  }
+
   /// What a card says, as source: the fixture with the claim written in, and of its other methods
   /// only the predicates the conditions call. A claim is about one method, so the rest would only
   /// be more for javac to compile, a thousand times over. A method it needs and doesn't have stops
@@ -353,9 +403,8 @@ class CardTruthTest {
     boolean blanking = false;
     for (var line : text.split("\n", -1)) {
       if (line.startsWith("  static ")) {
-        var header = METHOD.matcher(line);
-        if (header.matches()) {
-          var name = header.group("name");
+        var name = METHOD_ON.computeIfAbsent(line, CardTruthTest::methodOn);
+        if (!name.isEmpty()) {
           blanking = !name.equals(method) && !HELPERS.contains(name);
         }
       }
@@ -365,6 +414,12 @@ class CardTruthTest {
       }
     }
     return String.join("\n", kept);
+  }
+
+  /// The method a line declares, or nothing.
+  private static String methodOn(String line) {
+    var header = METHOD.matcher(line);
+    return header.matches() ? header.group("name") : "";
   }
 
   /// The fixture and its other class, compiled.
@@ -543,12 +598,6 @@ class CardTruthTest {
   private static String renamed(String text, String variant) {
     return text.replace("class Shapes ", "class " + variant + " ")
         .replace("private Shapes()", "private " + variant + "()");
-  }
-
-  /// The first input on which the two classes' `method` differ, if any: a value, or what it threw.
-  private static Optional<String> differs(String method, Class<?> said, Class<?> mutated)
-      throws ReflectiveOperationException {
-    return firstDifference(outcomes(method, said), outcomes(method, mutated));
   }
 
   /// The first input where what the card's source gave and what the mutant did aren't the same.

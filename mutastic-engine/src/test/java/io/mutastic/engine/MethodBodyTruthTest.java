@@ -4,17 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.report.SourceView;
 import java.util.List;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /// Each card a replaced method body gets says what its mutant does: see [ClaimFixture].
 class MethodBodyTruthTest {
-  private static ClaimFixture bodies;
-
-  @BeforeAll
-  static void compile() throws Exception {
-    bodies = new ClaimFixture("bodies/Bodies.java", "mutastic/replace-body");
-  }
+  private final ClaimFixture bodies =
+      new ClaimFixture("bodies/Bodies.java", "mutastic/replace-body");
 
   @Test
   void aReplacedBodyIsTheMethodWithNothingButThatReturn() throws Exception {
@@ -85,7 +80,7 @@ class MethodBodyTruthTest {
         .isEqualTo("add a test that calls `returnsNothing()` and asserts what it does");
   }
 
-  private static io.mutastic.api.Mutant only(String method) {
+  private io.mutastic.api.Mutant only(String method) {
     return bodies.running().stream()
         .filter(mutant -> mutant.methodName().equals(method))
         .findFirst()

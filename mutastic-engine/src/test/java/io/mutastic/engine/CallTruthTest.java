@@ -4,25 +4,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.report.SourceView;
 import java.util.List;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /// Each card a change to a call gets says what its mutant does: see [ClaimFixture].
 class CallTruthTest {
-  private static ClaimFixture omitted;
-  private static ClaimFixture swapped;
-  private static ClaimFixture nulled;
-  private static ClaimFixture dropped;
-  private static ClaimFixture shorter;
-
-  @BeforeAll
-  static void compile() throws Exception {
-    omitted = new ClaimFixture("calls/Omitted.java", "mutastic/omit-call");
-    swapped = new ClaimFixture("calls/Swapped.java", "mutastic/swap-arguments");
-    nulled = new ClaimFixture("calls/NullParameters.java", "mutastic/null-parameter");
-    dropped = new ClaimFixture("calls/Dropped.java", "mutastic/drop-vararg");
-    shorter = new ClaimFixture("calls/LessArguments.java", "library/omit-argument");
-  }
+  private final ClaimFixture omitted = new ClaimFixture("calls/Omitted.java", "mutastic/omit-call");
+  private final ClaimFixture swapped =
+      new ClaimFixture("calls/Swapped.java", "mutastic/swap-arguments");
+  private final ClaimFixture nulled =
+      new ClaimFixture("calls/NullParameters.java", "mutastic/null-parameter");
+  private final ClaimFixture dropped =
+      new ClaimFixture("calls/Dropped.java", "mutastic/drop-vararg");
+  private final ClaimFixture shorter =
+      new ClaimFixture("calls/LessArguments.java", "library/omit-argument");
 
   @Test
   void aNullParameterIsTheMethodWithItSetToNullAsItStarts() throws Exception {

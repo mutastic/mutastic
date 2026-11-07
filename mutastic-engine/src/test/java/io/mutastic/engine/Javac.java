@@ -46,11 +46,10 @@ import javax.tools.ToolProvider;
 /// what javac would give again is not.
 ///
 /// Mutastic loads a test's classes afresh for each test, so a static field would keep nothing from
-/// one test to the next: what's compiled is kept in a directory under `java.io.tmpdir`, which is
-/// the worker's own and goes when it does.
+/// one test to the next: what's compiled is kept in a directory under the module's build, which
+/// outlasts a worker, as a worker's own temporary directory doesn't, and every worker shares.
 final class Javac {
-  private static final Path KEPT =
-      Path.of(System.getProperty("java.io.tmpdir"), "mutastic-test-javac");
+  private static final Path KEPT = Path.of("build/tmp/mutastic-test-javac");
 
   private Javac() {}
 
@@ -120,7 +119,7 @@ final class Javac {
     return KEPT.resolve(digest(parts));
   }
 
-  private static String digest(List<String> parts) {
+  static String digest(List<String> parts) {
     try {
       var digest = MessageDigest.getInstance("SHA-256");
       for (var part : parts) {

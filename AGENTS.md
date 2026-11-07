@@ -75,11 +75,13 @@ applied by google-java-format through Spotless: that is the spec, not taste.
   engine reads, goes in its fixture. `CardsTest` keeps every card on the samples, so a change to
   their words is a reviewed diff.
 - **A truth test runs once for every mutant it reaches.** The Nightly reruns it for most of the
-  engine's scanning code, so what it costs is multiplied by a thousand. Compile with `Javac`, in one
-  call with every variant, never per variant or through a `@TempDir`; give each variant a name from
-  `Javac.nameFor`, so one that hasn't changed isn't compiled again; keep only what javac gives
-  from its text, never the cards or a mutant's bytes, which must come from the code under test; a
-  claim about one method needs only that method in its variant; and run each mutant's class once,
-  however many claims are made about it.
+  engine's scanning code, so what it costs is multiplied by a thousand, and every class it loads
+  makes each later class swap dearer. Compile with `Javac`, in one call with every variant, never
+  per variant or through a `@TempDir`; give each variant a name from `Javac.nameFor`, so one that
+  hasn't changed isn't compiled again; run a class through `Kept`, so one whose bytes or text
+  have been seen isn't loaded or run again; keep only what depends on nothing but that text or
+  those bytes, never the cards or a mutant's bytes themselves, which must come from the code under
+  test; a claim about one method needs only that method in its variant; run each mutant's class
+  once, however many claims are made about it; and find a fixture's mutants once in a test.
 - **Check claims against real projects,** not only the samples: the bugs that mattered were found
   there.

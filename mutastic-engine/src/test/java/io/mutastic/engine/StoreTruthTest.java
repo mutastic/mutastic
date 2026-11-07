@@ -157,10 +157,10 @@ class StoreTruthTest {
             .toList();
 
     assertThat(skipped).as("the assignments skipped").hasSize(3);
-    var expected = outcomes(load(ASSIGNMENTS, unchanged(model)));
+    var expected = outcomes(ASSIGNMENTS, unchanged(model));
     for (var mutant : skipped) {
       var mutated = ASSIGNMENTS.mutations().apply(model, mutant);
-      assertThat(outcomes(load(ASSIGNMENTS, mutated))).as(describe(mutant)).isEqualTo(expected);
+      assertThat(outcomes(ASSIGNMENTS, mutated)).as(describe(mutant)).isEqualTo(expected);
     }
   }
 
@@ -186,13 +186,12 @@ class StoreTruthTest {
     var lines = Files.readAllLines(fixture.source());
     var failures = new ArrayList<String>(wordsThatLie(fixture, mutants, lines));
     var variants = variants(fixture, mutants, lines);
-    var loader = Javac.loader(Javac.compile(variants, List.of()));
 
-    var original = outcomes(load(fixture, unchanged(model)));
+    var original = outcomes(fixture, unchanged(model));
     for (int at = 0; at < mutants.size(); at++) {
       var mutant = mutants.get(at);
-      var mutated = outcomes(load(fixture, mutations.apply(model, mutant)));
-      if (!outcomes(loader.loadClass(variants.get(at).className())).equals(mutated)) {
+      var mutated = outcomes(fixture, mutations.apply(model, mutant));
+      if (!said(variants.get(at)).equals(mutated)) {
         failures.add(describe(mutant) + ": the mutant isn't the assignment taken out");
       }
       if (mutated.equals(original)) {
@@ -201,6 +200,31 @@ class StoreTruthTest {
     }
     assertThat(mutants).as("the cards checked").hasSizeGreaterThan(10);
     return failures;
+  }
+
+  /// What the source of a variant gives: all its text can do, so a text seen before isn't compiled
+  /// or loaded again. One that won't compile is never kept, and fails each time.
+  private static List<String> said(Javac.Source variant) throws ReflectiveOperationException {
+    return Kept.outcomes(
+        List.of("said", variant.className(), variant.text()),
+        () -> {
+          try {
+            return outcomes(
+                Javac.loader(Javac.compile(List.of(variant), List.of()))
+                    .loadClass(variant.className()));
+          } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+          }
+        });
+  }
+
+  /// What a class of these bytes gives: they come from the code under test every time, and a
+  /// fixture calls nothing of mutastic's, so they're all it depends on.
+  private static List<String> outcomes(Fixture fixture, byte[] bytes)
+      throws ReflectiveOperationException {
+    return Kept.outcomes(
+        List.of("did", fixture.className(), java.util.HexFormat.of().formatHex(bytes)),
+        () -> outcomes(load(fixture, bytes)));
   }
 
   /// The cards that don't name what the mutant's line assigns, in the words the operator's use.

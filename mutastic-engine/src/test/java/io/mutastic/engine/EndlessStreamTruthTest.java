@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.api.Mutant;
 import java.util.List;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /// Taking `limit` off a stream that only it ends: the skip says it never ends, and running the
@@ -14,14 +13,11 @@ class EndlessStreamTruthTest {
   private static final String NEVER_ENDS = "unviable: without `.limit(…)` the stream never ends";
   private static final String LIMIT = ".limit(J)";
 
-  private static ClaimFixture fixture;
-  private static List<Mutant> limits;
+  private final ClaimFixture fixture =
+      new ClaimFixture("rules/Endless.java", "stream/remove-stage");
 
-  @BeforeAll
-  static void compile() throws Exception {
-    fixture = new ClaimFixture("rules/Endless.java", "stream/remove-stage");
-    limits =
-        fixture.mutants().stream().filter(mutant -> mutant.original().contains(LIMIT)).toList();
+  private List<Mutant> limits() {
+    return fixture.mutants().stream().filter(mutant -> mutant.original().contains(LIMIT)).toList();
   }
 
   @Test
@@ -96,7 +92,7 @@ class EndlessStreamTruthTest {
 
   @Test
   void whatElseEndsTheStreamOrCantBeSeenKeepsItsMutant() {
-    assertThat(limits)
+    assertThat(limits())
         .filteredOn(
             mutant ->
                 List.of(
@@ -118,8 +114,8 @@ class EndlessStreamTruthTest {
     assertThat(fixture.changesIn("anotherStage")).containsExactly("remove");
   }
 
-  private static Mutant onlyLimitIn(String method) {
-    return limits.stream()
+  private Mutant onlyLimitIn(String method) {
+    return limits().stream()
         .filter(mutant -> mutant.methodName().equals(method))
         .findFirst()
         .orElseThrow();

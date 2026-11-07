@@ -14,14 +14,14 @@ import org.junit.jupiter.api.Test;
 /// Each card a changed string or regular expression gets says what its mutant does: see
 /// [ClaimFixture].
 class TextConstantTruthTest {
-  private static ClaimFixture strings;
-  private static ClaimFixture regexes;
+  private final ClaimFixture strings =
+      new ClaimFixture("text/Strings.java", "mutastic/string-constant");
+  private final ClaimFixture regexes =
+      new ClaimFixture("text/Regexes.java", "mutastic/regex-constant");
   private static SourceView sources;
 
   @BeforeAll
   static void compile() throws Exception {
-    strings = new ClaimFixture("text/Strings.java", "mutastic/string-constant");
-    regexes = new ClaimFixture("text/Regexes.java", "mutastic/regex-constant");
     sources = new SourceView(ClaimFixture.ROOT, List.of(ClaimFixture.ROOT));
   }
 
@@ -229,14 +229,14 @@ class TextConstantTruthTest {
         .isEqualTo("add a test with text only one of `[ab]` and `[^ab]` matches, and assert it");
   }
 
-  private static Mutant onlyString(String method) {
+  private Mutant onlyString(String method) {
     return strings.running().stream()
         .filter(mutant -> mutant.methodName().equals(method))
         .findFirst()
         .orElseThrow();
   }
 
-  private static Mutant inMethod(String method) {
+  private Mutant inMethod(String method) {
     return regexes.running().stream()
         .filter(mutant -> mutant.methodName().equals(method))
         .findFirst()

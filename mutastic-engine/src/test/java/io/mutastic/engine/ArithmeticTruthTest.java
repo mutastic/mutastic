@@ -5,47 +5,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.mutastic.engine.ClaimFixture.Inputs;
 import io.mutastic.report.SourceView;
 import java.util.List;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /// Each card a change to a calculation gets says what its mutant does: see [ClaimFixture].
 class ArithmeticTruthTest {
-  private static ClaimFixture increments;
-  private static ClaimFixture negations;
-  private static ClaimFixture others;
-  private static ClaimFixture kept;
-  private static ClaimFixture constants;
-  private static ClaimFixture checked;
-
-  @BeforeAll
-  static void compile() throws Exception {
-    increments =
-        new ClaimFixture("arithmetic/Increments.java", "mutastic/flip-increment", Inputs.NUMBERS);
-    negations =
-        new ClaimFixture("arithmetic/Negations.java", "mutastic/remove-negation", Inputs.NUMBERS);
-  }
-
-  @BeforeAll
-  static void compileTheOperators() throws Exception {
-    others =
-        new ClaimFixture(
-            "arithmetic/OtherArithmetic.java", "mutastic/other-arithmetic", Inputs.NUMBERS);
-    kept =
-        new ClaimFixture("arithmetic/KeptOperands.java", "mutastic/keep-operand", Inputs.NUMBERS);
-  }
-
-  @BeforeAll
-  static void compileTheConstants() throws Exception {
-    constants =
-        new ClaimFixture(
-            "arithmetic/ConstantValues.java", "mutastic/constant-value", Inputs.NUMBERS);
-  }
-
-  @BeforeAll
-  static void compileTheChecks() throws Exception {
-    checked =
-        new ClaimFixture("arithmetic/Checked.java", "library/unchecked-arithmetic", Inputs.NUMBERS);
-  }
+  private final ClaimFixture increments =
+      new ClaimFixture("arithmetic/Increments.java", "mutastic/flip-increment", Inputs.NUMBERS);
+  private final ClaimFixture negations =
+      new ClaimFixture("arithmetic/Negations.java", "mutastic/remove-negation", Inputs.NUMBERS);
+  private final ClaimFixture others =
+      new ClaimFixture(
+          "arithmetic/OtherArithmetic.java", "mutastic/other-arithmetic", Inputs.NUMBERS);
+  private final ClaimFixture kept =
+      new ClaimFixture("arithmetic/KeptOperands.java", "mutastic/keep-operand", Inputs.NUMBERS);
+  private final ClaimFixture constants =
+      new ClaimFixture("arithmetic/ConstantValues.java", "mutastic/constant-value", Inputs.NUMBERS);
+  private final ClaimFixture checked =
+      new ClaimFixture("arithmetic/Checked.java", "library/unchecked-arithmetic", Inputs.NUMBERS);
 
   private static SourceView sources() {
     return new SourceView(ClaimFixture.ROOT, List.of(ClaimFixture.ROOT));

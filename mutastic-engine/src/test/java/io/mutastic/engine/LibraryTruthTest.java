@@ -13,7 +13,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /// Each card a swap between similar JDK methods gets says what its mutant does: the fixture writes
@@ -41,14 +43,28 @@ class LibraryTruthTest {
           "stripTrailing", List.of(" a", "x"));
 
   private static ClassModel model;
-  private static Class<?> original;
+  private static byte[] original;
+  private static Mutations mutations;
+  private static @Nullable List<Mutant> found;
 
   @BeforeAll
   static void compile() throws Exception {
     var source = Javac.Source.read(FIXTURE.resolve("library/Swaps.java"), CLASS);
     var bytes = Javac.compile(List.of(source), List.of(), "-g").get(CLASS);
     model = ClassFile.of().parse(Objects.requireNonNull(bytes));
-    original = load(bytes);
+    original = bytes;
+  }
+
+  /// Each test finds the mutants for itself: see [ClaimFixture].
+  @BeforeEach
+  void findTheirOwn() {
+    found = null;
+    mutations =
+        new Mutations(
+            ClassFile.of(),
+            Policy.NONE.withOperators(
+                List.of("library/swap-string", "library/swap-index-of", "library/swap-math"),
+                List.of()));
   }
 
   @Test
@@ -58,7 +74,7 @@ class LibraryTruthTest {
 
     for (var mutant : mutants) {
       var method = sourceMethod(mutant);
-      var mutated = outcomes(mutantClass(mutant), method);
+      var mutated = outcomes(mutantBytes(mutant), method);
       assertThat(mutated)
           .as(describe(mutant))
           .isEqualTo(outcomes(original, method + "Claim"))
@@ -91,9 +107,9 @@ class LibraryTruthTest {
       if (asked != null) {
         var method = sourceMethod(mutant);
         var inputs = new Object[] {asked.get(0), asked.get(1)};
-        assertThat(outcome(mutantClass(mutant), method, inputs))
+        assertThat(outcome(load(mutantBytes(mutant)), method, inputs))
             .as(describe(mutant))
-            .isNotEqualTo(outcome(original, method, inputs));
+            .isNotEqualTo(outcome(load(original), method, inputs));
       }
     }
   }
@@ -166,7 +182,7 @@ class LibraryTruthTest {
 
     for (var mutant : skipped) {
       var method = sourceMethod(mutant);
-      assertThat(outcomes(mutantClass(mutant), method))
+      assertThat(outcomes(mutantBytes(mutant), method))
           .as(describe(mutant))
           .isEqualTo(outcomes(original, method));
     }
@@ -183,18 +199,15 @@ class LibraryTruthTest {
     return mutants().stream().filter(mutant -> mutant.skipped().isEmpty()).toList();
   }
 
+  /// The fixture's mutants, found once however many times a test asks.
   private static List<Mutant> mutants() {
-    return mutations().find(model).stream()
-        .filter(mutant -> !sourceMethod(mutant).endsWith("Claim"))
-        .toList();
-  }
-
-  private static Mutations mutations() {
-    return new Mutations(
-        ClassFile.of(),
-        Policy.NONE.withOperators(
-            List.of("library/swap-string", "library/swap-index-of", "library/swap-math"),
-            List.of()));
+    if (found == null) {
+      found =
+          mutations.find(model).stream()
+              .filter(mutant -> !sourceMethod(mutant).endsWith("Claim"))
+              .toList();
+    }
+    return found;
   }
 
   /// `inALambda`, for a mutant in `lambda$inALambda$0`.
@@ -203,19 +216,27 @@ class LibraryTruthTest {
     return name.startsWith("lambda$") ? name.substring(7, name.lastIndexOf('$')) : name;
   }
 
-  private static Class<?> mutantClass(Mutant mutant) throws ClassNotFoundException {
-    return load(mutations().apply(model, mutant));
+  /// The mutant's class, which comes from the code under test every time.
+  private static byte[] mutantBytes(Mutant mutant) {
+    return mutations.apply(model, mutant);
   }
 
-  private static List<String> outcomes(Class<?> owner, String method)
+  /// What a class of these bytes gives: the fixture calls nothing of mutastic's, so they're all it
+  /// depends on.
+  private static List<String> outcomes(byte[] bytes, String method)
       throws ReflectiveOperationException {
-    var outcomes = new ArrayList<String>();
-    for (String a : TEXTS) {
-      for (String b : TEXTS) {
-        outcomes.add(a + "," + b + ": " + outcome(owner, method, new Object[] {a, b}));
-      }
-    }
-    return outcomes;
+    return Kept.outcomes(
+        List.of("did", CLASS, java.util.HexFormat.of().formatHex(bytes), method, TEXTS.toString()),
+        () -> {
+          var owner = load(bytes);
+          var outcomes = new ArrayList<String>();
+          for (String a : TEXTS) {
+            for (String b : TEXTS) {
+              outcomes.add(a + "," + b + ": " + outcome(owner, method, new Object[] {a, b}));
+            }
+          }
+          return outcomes;
+        });
   }
 
   private static String outcome(Class<?> owner, String name, Object[] inputs)

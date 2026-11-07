@@ -5,18 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.mutastic.engine.ClaimFixture.Inputs;
 import io.mutastic.report.SourceView;
 import java.util.List;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /// Each card a removed switch arm gets says what its mutant does, on every shape javac compiles a
 /// switch to: see [ClaimFixture].
 class SwitchArmTruthTest {
-  private static ClaimFixture arms;
-
-  @BeforeAll
-  static void compile() throws Exception {
-    arms = new ClaimFixture("switches/Arms.java", "mutastic/remove-switch-arm", Inputs.NUMBERS);
-  }
+  private final ClaimFixture arms =
+      new ClaimFixture("switches/Arms.java", "mutastic/remove-switch-arm", Inputs.NUMBERS);
 
   @Test
   void aRemovedArmIsTheSwitchWithoutIt() throws Exception {
@@ -94,7 +89,7 @@ class SwitchArmTruthTest {
         .isEqualTo("add a test with a value that reaches `case Circle`, and assert what it does");
   }
 
-  private static io.mutastic.api.Mutant only(String label) {
+  private io.mutastic.api.Mutant only(String label) {
     return arms.running().stream()
         .filter(mutant -> mutant.replacement().equals(label))
         .findFirst()
