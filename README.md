@@ -11,7 +11,8 @@ mutastic is a mutation-testing tool for Java. It makes small changes to your com
 a place your tests run but don't check. For each one, mutastic shows the inputs your tests used,
 suggests the test that would catch it, and gives the command that proves the fix.
 
-**[Documentation](https://docs.mutastic.io/)** ·
+**[Website](https://mutastic.io/)** ·
+[Documentation](https://docs.mutastic.io/) ·
 [Install](https://docs.mutastic.io/getting-started/install/) ·
 [Quickstart](https://docs.mutastic.io/getting-started/quickstart/) ·
 [Reference](https://docs.mutastic.io/reference/run/)
