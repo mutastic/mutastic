@@ -256,6 +256,21 @@ class HumanTextTest {
     assertThat(off).contains("\u001b[1;31m✗ MISSED\u001b[0m").doesNotContain("\u001b[41;");
   }
 
+  /// The headline is plain words with only its code bold, as in the Rust edition: a bold around it
+  /// all was ended by the first code term's reset, so its words were bold up to there and plain
+  /// after.
+  @Test
+  void aHeadlineIsPlainWordsWithItsCodeBold() {
+    var card =
+        new HumanText(sources, 80, Style.COLOUR, HumanText.Detail.FULL, Vocabulary.PLAIN)
+            .card(missed(boundary(), Map.of()));
+
+    assertThat(card)
+        .contains(
+            "\u001b[41;30;1m ✗ MISSED \u001b[0m no test checks \u001b[1mdiscount()\u001b[0m at"
+                + " \u001b[1mtotal == 100\u001b[0m\n");
+  }
+
   @Test
   void locationsLinkToTheFileWhenAsked() throws Exception {
     var card =

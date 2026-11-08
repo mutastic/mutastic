@@ -1,5 +1,5 @@
 
- [41;30;1m ✗ MISSED [0m [1mno test checks [1mdiscount()[0m at [1mtotal == 100[0m[0m
+ [41;30;1m ✗ MISSED [0m no test checks [1mdiscount()[0m at [1mtotal == 100[0m
     [2m┌─[0m src/main/java/com/example/pricing/Pricing.java:17
     [2m│[0m
  [2m16[0m [2m│[0m   public int discount(int total) {

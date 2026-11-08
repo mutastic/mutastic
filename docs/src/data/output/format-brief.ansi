@@ -3,7 +3,7 @@
 
  [1;34m❯[0m [1msrc/main/java/com/example/pricing/Pricing.java[0m  [2m1 missed in 1 method[0m
 
- [41;30;1m ✗ MISSED [0m [1mno test checks [1mdiscount()[0m at [1mtotal == 100[0m[0m
+ [41;30;1m ✗ MISSED [0m no test checks [1mdiscount()[0m at [1mtotal == 100[0m
     [2m┌─[0m src/main/java/com/example/pricing/Pricing.java:17
     [2m│[0m
  [2m17[0m [2m│[0m     if (total >= 100) {
@@ -17,8 +17,8 @@
  [2m  Mutants[0m  [32m✓ [1m10 caught[0m[0m[2m · [0m[1;31m✗ [1m1 missed[0m[0m[2m (11)[0m
  [2m Worst at[0m  Pricing.discount() 1 ✗
  [2mTest runs[0m  13[2m (33 without coverage selection)[0m
- [2m Start at[0m  01:41:45
- [2m Duration[0m  5.4s [2m(setup 4.7s, coverage 451ms, mutants 194ms)[0m
+ [2m Start at[0m  17:30:59
+ [2m Duration[0m  7.7s [2m(setup 6.2s, coverage 289ms, mutants 1.2s)[0m
  [2m    Tests[0m  3 on JDK 17 · 1 worker
  [2m  Reports[0m  build/mutastic/mutation.json[2m · [0mbuild/mutastic/mutation.html
  [2m    Score[0m  [32m[1m90.9%[0m[0m[2m  threshold 80[0m

@@ -1,4 +1,4 @@
- [41;30;1m ✗ MISSED [0m [1mno test checks [1minCredit()[0m at [1mbalance == 0[0m[0m[2m · md4db94d8[0m
+ [41;30;1m ✗ MISSED [0m no test checks [1minCredit()[0m at [1mbalance == 0[0m[2m · md4db94d8[0m
     [2m┌─[0m src/main/java/com/example/rates/Rates.java:18
     [2m│[0m
  [2m17[0m [2m│[0m   public static boolean inCredit(int balance) {

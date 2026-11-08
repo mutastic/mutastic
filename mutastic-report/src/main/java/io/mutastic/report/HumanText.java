@@ -508,14 +508,16 @@ public final class HumanText {
   }
 
   /// `✗ MISSED headline`, then `┌─ src/…/Pricing.java:17`, for the finding's lead; with its id
-  /// after the headline when the card has others, as each of theirs follows its own.
+  /// after the headline when the card has others, as each of theirs follows its own. The label,
+  /// then the headline: plain words with its code bold. A bold around it all would be ended by the
+  /// first code term's reset, leaving its start bold and the rest plain.
   private void addHead(List<String> lines, Advice advice, String gutter, Finding finding) {
     var mutant = finding.lead().mutant();
     lines.add(
         " %s %s%s"
             .formatted(
                 style.label("✗ " + words.undetected.toUpperCase(Locale.ROOT), Style.RED),
-                style.bold(code(advice.headline())),
+                code(advice.headline()),
                 finding.mutants().size() > 1 ? style.dim(" · " + mutant.id()) : ""));
     lines.add(" %s %s %s".formatted(gutter, style.dim("┌─"), location(mutant)));
   }
