@@ -462,6 +462,49 @@
             }
           }
         },
+        "ghosts": {
+          "type": "array",
+          "description": "Experimental, with `--experimental=ghosts`: each ghost, the call most writes like this one make inserted where this one doesn't, and what its tests did. Never in the score or the counts. Only in such a run, and only when a ghost was found.",
+          "items": {
+            "type": "object",
+            "required": ["id", "experimental", "status", "file", "line", "class", "method", "field", "inserted", "rule", "writes", "peers", "coveredBy", "rendered"],
+            "properties": {
+              "id": { "type": "string" },
+              "experimental": { "const": true },
+              "status": {
+                "enum": ["appeared", "passedUnseen", "notCovered"],
+                "description": "`appeared`: a test failed with the call in, and expects the silence; `passedUnseen`: every test that reaches the write passed; `notCovered`: no test reaches it."
+              },
+              "file": { "type": "string" },
+              "line": { "type": "integer" },
+              "class": { "type": "string" },
+              "method": { "type": "string" },
+              "field": { "type": "string", "description": "The field the write is to." },
+              "inserted": { "type": "string", "description": "The call inserted: `firePropertyChange(\"balance\")`." },
+              "rule": {
+                "enum": ["sameField", "siblingFields"],
+                "description": "`sameField`: other writes to the field fire; `siblingFields`: the class's other fields fire on every write."
+              },
+              "writes": { "$ref": "#/$defs/count", "description": "How many writes the rule counted, this one among them." },
+              "peers": {
+                "type": "array",
+                "description": "The writes that fire: where, and the property name they give (empty when a method of the class fires for them).",
+                "items": {
+                  "type": "object",
+                  "required": ["method", "line", "property"],
+                  "properties": {
+                    "method": { "type": "string" },
+                    "line": { "type": "integer" },
+                    "property": { "type": "string" }
+                  }
+                }
+              },
+              "coveredBy": { "type": "array", "items": { "type": "string" } },
+              "caughtBy": { "type": "string", "description": "The test that failed with the call in, for `appeared`." },
+              "rendered": { "type": "string", "description": "The ghost as the agent format shows it." }
+            }
+          }
+        },
         "scope": {
           "type": "object",
           "description": "The change the run was scoped to (`--since`). Only for such a run.",

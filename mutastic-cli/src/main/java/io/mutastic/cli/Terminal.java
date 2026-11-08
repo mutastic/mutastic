@@ -57,6 +57,15 @@ record Terminal(boolean interactive, Map<String, String> env) {
     return "audit".equals(env.get("MUTASTIC_ARID"));
   }
 
+  /// `MUTASTIC_EXPERIMENTAL=ghosts`: what's experimental that every run turns on, by comma.
+  java.util.Set<String> experimental() {
+    var chosen = env.getOrDefault("MUTASTIC_EXPERIMENTAL", "");
+    return java.util.Arrays.stream(chosen.split(",", -1))
+        .map(String::strip)
+        .filter(word -> !word.isEmpty())
+        .collect(java.util.stream.Collectors.toSet());
+  }
+
   /// `MUTASTIC_PILLS`, how labels are drawn: `square` unless set, `rounded` for terminals with a
   /// Nerd Font, or `off` for no blocks at all.
   String defaultLabels() {

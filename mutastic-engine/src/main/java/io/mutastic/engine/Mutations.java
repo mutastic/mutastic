@@ -219,6 +219,11 @@ final class Mutations {
     return checked;
   }
 
+  /// Why the mutant's class wouldn't load, if it wouldn't: for a ghost, which proves nothing then.
+  Optional<String> unviable(ClassModel model, Mutant mutant) {
+    return whyUnviable(model, mutant);
+  }
+
   private static boolean isAdded(Operator operator) {
     return operator instanceof Mutator || operator instanceof ClassMutator;
   }
@@ -335,6 +340,8 @@ final class Mutations {
     private final Set<Integer> cleanups;
     private final Set<Integer> nonNullChecks;
     private final Set<Integer> coroutineMachinery;
+    private final Set<Integer> composeMachinery;
+    private final Set<Integer> defaultStandIns;
     private final Operands operands;
     private final Stores stores;
     private final Optional<String> filtered;
@@ -368,6 +375,9 @@ final class Mutations {
       this.cleanups = LombokCode.cleanups(code);
       this.nonNullChecks = LombokCode.nonNullChecks(model, method, code);
       this.coroutineMachinery = Coroutines.machinery(model, method, code);
+      boolean kotlin = KotlinGenerated.isKotlin(model);
+      this.composeMachinery = kotlin ? Compose.machinery(method, code) : Set.of();
+      this.defaultStandIns = kotlin ? KotlinDefaults.places(code) : Set.of();
       this.operands = method.code().map(Operands::new).orElseThrow();
       this.stores = new Stores(code);
     }
@@ -718,8 +728,14 @@ final class Mutations {
     }
 
     private Optional<String> machinery(Operator operator, int at) {
-      return Coroutines.changes(operator, coroutineMachinery, at)
-          ? Optional.of(Coroutines.REASON)
+      if (Coroutines.changes(operator, coroutineMachinery, at)) {
+        return Optional.of(Coroutines.REASON);
+      }
+      if (Coroutines.changes(operator, composeMachinery, at)) {
+        return Optional.of(Compose.REASON);
+      }
+      return Coroutines.changes(operator, defaultStandIns, at)
+          ? Optional.of(KotlinDefaults.REASON)
           : Optional.empty();
     }
   }

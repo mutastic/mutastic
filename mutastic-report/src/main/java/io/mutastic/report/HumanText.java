@@ -115,6 +115,9 @@ public final class HumanText {
       }
     }
     notCovered(report, out);
+    if (GhostCards.any(report)) {
+      out.append('\n').append(new GhostCards(sources).render(report));
+    }
     warnings(report, comparison, out);
     summary(report, comparison, run, out);
     return out.toString();
@@ -866,16 +869,24 @@ public final class HumanText {
                             count(scope.lineCount(), "line"),
                             count(scope.files(), "file"),
                             scope.since())));
-    var audit = AridAudit.of(report);
-    if (audit.happened()) {
-      rows.put("Arid audit", audit.summary());
-    }
+    putRunsAnyway(rows, report);
     var worst = worstMethods(report);
     if (!worst.isEmpty()) {
       rows.put("Worst at", worst);
     }
     if (!report.flaky().isEmpty()) {
       rows.put("Flaky", flakyRow(report));
+    }
+  }
+
+  /// What a run ran beyond its mutants: an audit of the arid filters, and ghosts.
+  private static void putRunsAnyway(Map<String, String> rows, Report report) {
+    var audit = AridAudit.of(report);
+    if (audit.happened()) {
+      rows.put("Arid audit", audit.summary());
+    }
+    if (GhostCards.any(report)) {
+      rows.put("Ghosts", GhostCards.summary(report));
     }
   }
 
@@ -1174,6 +1185,9 @@ public final class HumanText {
     var member = new ClassMutator.Member(mutant.methodName(), mutant.descriptor());
     if (mutant.operator() instanceof ClassMutator && !member.isMethod()) {
       return member.isClass() ? where.className() : where.className() + "." + member.simpleName();
+    }
+    if (where.method().isEmpty()) {
+      return where.className() + where.kind().map(kind -> " (" + plain(kind) + ")").orElse("");
     }
     return where.className()
         + "."

@@ -866,6 +866,9 @@ public record Advice(
   /// `` `discount()` ``, or "a lambda in `run()`" for javac's `lambda$run$0`.
   static String method(Mutant mutant) {
     var where = SourceNames.of(mutant);
+    if (where.method().isEmpty()) {
+      return where.kind().orElse("`%s`".formatted(where.className()));
+    }
     return where
         .kind()
         .map(
@@ -877,11 +880,14 @@ public record Advice(
   }
 
   private static List<String> inputsSeen(Map<String, List<Long>> seen) {
-    return seen.isEmpty()
+    // A parameter the source doesn't have, as the Compose compiler's `$changed` mask, isn't an
+    // input.
+    var named = seen.entrySet().stream().filter(entry -> !entry.getKey().startsWith("$")).toList();
+    return named.isEmpty()
         ? List.of()
         : List.of(
             "inputs seen: "
-                + seen.entrySet().stream()
+                + named.stream()
                     .map(entry -> entry.getKey() + " = " + join(entry.getValue()))
                     .collect(Collectors.joining("; ")));
   }

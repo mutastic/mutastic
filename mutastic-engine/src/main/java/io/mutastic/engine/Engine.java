@@ -6,6 +6,7 @@ import io.mutastic.api.ChangedLines;
 import io.mutastic.api.ClassMutator;
 import io.mutastic.api.CoveragePass;
 import io.mutastic.api.FlakyTest;
+import io.mutastic.api.Ghost;
 import io.mutastic.api.Ignore;
 import io.mutastic.api.Listener;
 import io.mutastic.api.Mutant;
@@ -129,6 +130,7 @@ public final class Engine {
   /// @param among only these mutants, by id, when not empty: those an earlier run left uncaught
   /// @param policy the project's own rules and filters
   /// @param changed the lines of a change, when the run is scoped to it: no other mutant runs
+  /// @param ghosts find and run ghosts (experimental), reported apart and never in the score
   public record Options(
       List<String> only,
       boolean confirmCatches,
@@ -137,11 +139,25 @@ public final class Engine {
       boolean auditArid,
       java.util.Set<String> among,
       Policy policy,
-      Optional<ChangedLines> changed) {
+      Optional<ChangedLines> changed,
+      boolean ghosts) {
+    /// Options without ghosts.
+    public Options(
+        List<String> only,
+        boolean confirmCatches,
+        int workers,
+        boolean suggestions,
+        boolean auditArid,
+        java.util.Set<String> among,
+        Policy policy,
+        Optional<ChangedLines> changed) {
+      this(only, confirmCatches, workers, suggestions, auditArid, among, policy, changed, false);
+    }
+
     /// The same options, for only the mutants with these ids.
     public Options among(java.util.Set<String> ids) {
       return new Options(
-          only, confirmCatches, workers, suggestions, auditArid, ids, policy, changed);
+          only, confirmCatches, workers, suggestions, auditArid, ids, policy, changed, ghosts);
     }
 
     public Options {
@@ -173,14 +189,16 @@ public final class Engine {
           inOrderFound(plan.mutantRun().audited(), plan.mutants()),
           options.changed().map(changed -> changed.within(project.sources())),
           plan.stale(),
-          ran.flaky());
+          ran.flaky(),
+          ran.ghosts());
     } finally {
       workers.forEach(TestWorker::close);
     }
   }
 
   /// The coverage pass, then every mutant, and the flaky tests both found.
-  private record Ran(CoveragePass pass, List<MutantResult> results, List<FlakyTest> flaky) {}
+  private record Ran(
+      CoveragePass pass, List<MutantResult> results, List<FlakyTest> flaky, List<Ghost> ghosts) {}
 
   /// Each mutant, then each catch checked on the unmutated code ([FalseCatchGuard]), once the
   /// workers that ran them have gone with what their tests started (a server on a fixed port).
@@ -188,9 +206,16 @@ public final class Engine {
     var pass = coveragePass(project, plan, workers.getFirst());
     listener.coverageFinished(pass);
     var results = new SideBySide(plan.mutants(), plan.mutantRun(), workers, listener).runAll();
+    var ghosts =
+        plan.ghosts().stream()
+            .map(
+                found ->
+                    found.with(plan.mutantRun().run(found.mutant(), workers.getFirst()).result()))
+            .toList();
     workers.forEach(TestWorker::close);
     var guarded = guard(plan, workers.getFirst()).check(results, listener);
-    return new Ran(pass, guarded.results(), flakyBoth(pass, plan.mutantRun(), project, guarded));
+    return new Ran(
+        pass, guarded.results(), flakyBoth(pass, plan.mutantRun(), project, guarded), ghosts);
   }
 
   /// The flaky tests: those that failed in the coverage pass and passed again, then those that
@@ -217,11 +242,13 @@ public final class Engine {
   ///
   /// @param instrumented each class with a mutant to run, instrumented for the coverage pass
   /// @param stale the project's ignores that no longer hold
+  /// @param ghosts the ghosts to run after the mutants, with `--experimental=ghosts`
   private record Plan(
       List<Mutant> mutants,
       MutantRun mutantRun,
       Map<String, byte[]> instrumented,
-      List<Ignore> stale) {}
+      List<Ignore> stale,
+      List<Ghosts.Found> ghosts) {}
 
   /// A project's mutants as a run would have them, and the ignores that no longer hold.
   public record Mutants(List<Mutant> all, List<Ignore> stale) {}
@@ -279,7 +306,10 @@ public final class Engine {
     var mutants = found.mutants();
     var mutations = found.mutations();
     var coverage = new Coverage(context);
-    var instrumented = instrumentMutated(models, mutants, coverage, options.auditArid());
+    var ghosts = options.ghosts() ? ghostsIn(models, mutations) : List.<Ghosts.Found>of();
+    var toRun = new ArrayList<>(mutants);
+    ghosts.forEach(ghost -> toRun.add(ghost.mutant()));
+    var instrumented = instrumentMutated(models, toRun, coverage, options.auditArid());
     var mutantRun =
         new MutantRun(
             models,
@@ -290,7 +320,24 @@ public final class Engine {
             options.auditArid(),
             java.util.Collections.synchronizedList(new ArrayList<>()),
             project.sources());
-    return new Plan(mutants, mutantRun, instrumented, found.stale());
+    return new Plan(mutants, mutantRun, instrumented, found.stale(), ghosts);
+  }
+
+  /// The ghosts in the module's classes that would load: one that doesn't verify proves nothing.
+  private static List<Ghosts.Found> ghostsIn(Map<String, ClassModel> models, Mutations mutations) {
+    var byInternalName =
+        models.values().stream()
+            .collect(Collectors.toMap(model -> model.thisClass().asInternalName(), model -> model));
+    var finder = new Ghosts(new MissingNotification(), byInternalName);
+    return models.values().stream()
+        .flatMap(model -> finder.find(model).stream())
+        .filter(
+            found -> mutations.unviable(model(models, found.mutant()), found.mutant()).isEmpty())
+        .toList();
+  }
+
+  private static ClassModel model(Map<String, ClassModel> models, Mutant mutant) {
+    return requireNonNull(models.get(mutant.binaryName()), mutant.binaryName());
   }
 
   /// Classes resolve from the project's own, its tests' and its dependencies'.
@@ -678,9 +725,11 @@ public final class Engine {
     }
 
     /// Whether a call to the mutant's method can show it: a change to a class as a whole has no one
-    /// instruction, and may not be on a method at all.
+    /// instruction, and may not be on a method at all. A ghost gets no test either: it's a question
+    /// about what the code should do, and a test that catches it would only pin today's answer.
     private static boolean isOnAnInstruction(Mutant mutant) {
-      return !(mutant.operator() instanceof ClassMutator);
+      return !(mutant.operator() instanceof ClassMutator)
+          && !(mutant.operator() instanceof MissingNotification);
     }
 
     /// The mutant's class, mutated and checked to load.

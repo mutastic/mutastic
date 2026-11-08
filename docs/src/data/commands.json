@@ -11,7 +11,7 @@
       "exits": "0 when the score reaches the threshold, 1 when it doesn't.",
       "takesMutantId": false,
       "examples": [{ "gradle": "./gradlew mutasticRun", "maven": "mvn mutastic:run", "commandLine": "mutastic run" }, { "gradle": "./gradlew mutasticRun -Pmutastic.threshold=70 -p samples/pricing", "maven": "mvn mutastic:run -Dmutastic.threshold=70 -f samples/pricing", "commandLine": "mutastic run samples/pricing --threshold=70" }, { "gradle": "./gradlew mutasticRun -Pmutastic.since=main", "maven": "mvn mutastic:run -Dmutastic.since=main", "commandLine": "mutastic run --since=main" }, { "gradle": "./gradlew :core:mutasticRun -Pmutastic.testsFrom=dependents", "maven": "mvn mutastic:run -Dmutastic.testsFrom=dependents -pl core", "commandLine": "mutastic run . :core --tests-from=dependents" }],
-      "options": ["--threshold", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--no-suggestions", "--exclude-tests", "--suite", "--operators", "--report", "--format", "--each-mutant", "--vocabulary", "--color", "--hyperlinks", "--progress"]
+      "options": ["--threshold", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--no-suggestions", "--exclude-tests", "--suite", "--operators", "--experimental", "--report", "--format", "--each-mutant", "--vocabulary", "--color", "--hyperlinks", "--progress"]
     },
     {
       "name": "verify",
@@ -220,6 +220,20 @@
       "maven": { "property": "-Dmutastic.operators", "setting": null },
       "gradle": { "property": "-Pmutastic.operators", "setting": null },
       "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.operators=stronger", "maven": "mvn mutastic:run -Dmutastic.operators=stronger", "commandLine": "mutastic run --operators=stronger", "gradleBuild": "", "mavenBuild": "" } }
+    },
+    {
+      "name": "--experimental",
+      "synopsis": "--experimental=FEATURE",
+      "kind": "repeated",
+      "group": "Running",
+      "value": "FEATURE",
+      "choices": ["ghosts"],
+      "help": "Turns on something experimental: ghosts, which insert the call most sites like a write make and it doesn't, and say whether any test notices; never in the score",
+      "commands": ["run"],
+      "environment": "MUTASTIC_EXPERIMENTAL",
+      "maven": { "property": "-Dmutastic.experimental", "setting": null },
+      "gradle": { "property": "-Pmutastic.experimental", "setting": null },
+      "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.experimental=ghosts", "maven": "mvn mutastic:run -Dmutastic.experimental=ghosts", "commandLine": "mutastic run --experimental=ghosts", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--report",

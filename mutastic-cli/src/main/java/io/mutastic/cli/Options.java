@@ -159,6 +159,19 @@ final class Options {
               "",
               "mutastic run --operators=stronger"),
           new Option(
+              "--experimental",
+              Kind.REPEATED,
+              Group.RUNNING,
+              "FEATURE",
+              List.of(Main.GHOSTS),
+              "Turns on something experimental: ghosts, which insert the call most sites like a"
+                  + " write make and it doesn't, and say whether any test notices; never in the score",
+              RUNS,
+              "experimental",
+              false,
+              "MUTASTIC_EXPERIMENTAL",
+              "mutastic run --experimental=ghosts"),
+          new Option(
               "--report",
               Kind.REPEATED,
               Group.RUNNING,

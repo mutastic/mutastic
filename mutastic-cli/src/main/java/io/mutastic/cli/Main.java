@@ -798,6 +798,9 @@ public final class Main {
         .eachMutant(command.eachMutant());
   }
 
+  /// What `--experimental` and `MUTASTIC_EXPERIMENTAL` take to turn on ghosts.
+  static final String GHOSTS = "ghosts";
+
   /// What the engine runs with: the command's choices, and the project's `mutastic.yaml`.
   private static Engine.Options options(Command command, Terminal terminal, Path directory) {
     return new Engine.Options(
@@ -808,7 +811,8 @@ public final class Main {
         terminal.auditArid(),
         java.util.Set.of(),
         policy(command, directory),
-        command.since().map(since -> new Git(directory).changedSince(since)));
+        command.since().map(since -> new Git(directory).changedSince(since)),
+        command.experimental().contains(GHOSTS) || terminal.experimental().contains(GHOSTS));
   }
 
   /// The project's say, from `mutastic.yaml` and its ignores, with the operators to run: the
@@ -1264,6 +1268,7 @@ public final class Main {
   ///
   /// @param workers empty for the default, which depends on the machine
   /// @param reports the report files to write after a full run
+  /// @param experimental what's experimental that the run turns on: `ghosts`
   record Command(
       Subcommand subcommand,
       Path directory,
@@ -1283,7 +1288,8 @@ public final class Main {
       Optional<Ignoring> ignore,
       Optional<Path> setup,
       String commands,
-      Gating gating) {
+      Gating gating,
+      java.util.Set<String> experimental) {
     Optional<String> format() {
       return shown.format();
     }
@@ -1337,7 +1343,8 @@ public final class Main {
           Optional.of(how),
           setup,
           commands,
-          gating);
+          gating,
+          experimental);
     }
 
     /// The run `gate check` makes: this command's project and operators, on the lines changed since
@@ -1362,7 +1369,8 @@ public final class Main {
           Optional.empty(),
           setup,
           commands,
-          gating);
+          gating,
+          experimental);
     }
 
     static Command parse(String[] args) {
@@ -1404,6 +1412,7 @@ public final class Main {
       private Optional<String> vocabulary = Optional.empty();
       private final List<String> testsFrom = new ArrayList<>();
       private final List<String> operators = new ArrayList<>();
+      private final java.util.Set<String> experimental = new java.util.LinkedHashSet<>();
       private final List<String> excludeTests = new ArrayList<>();
       private String suite = BuildTool.DEFAULT_SUITE;
       private Optional<String> since = Optional.empty();
@@ -1470,6 +1479,7 @@ public final class Main {
           case "--only" -> only = List.of(given.split(",", -1));
           case "--tests-from" -> testsFrom.add(module(given));
           case "--operators" -> operators(given);
+          case "--experimental" -> experimental.add(choice(option, given));
           case "--exclude-tests" -> excludeTests(given);
           case "--suite" -> suite = suite(given);
           case "--workers" -> workers = Optional.of(number(option, given, 1, Integer.MAX_VALUE));
@@ -1648,7 +1658,8 @@ public final class Main {
             Optional.empty(),
             setup,
             commands,
-            new Gating(hook, tries));
+            new Gating(hook, tries),
+            java.util.Set.copyOf(experimental));
       }
 
       /// `:app`: another module, named as the module run is; or `dependents`, every module that

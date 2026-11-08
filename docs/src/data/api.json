@@ -1104,6 +1104,108 @@
           ]
         },
         {
+          "name": "Ghost",
+          "slug": "ghost",
+          "kind": "record",
+          "signature": "@Internal record Ghost(\n    MutantResult result,\n    String field,\n    String property,\n    Ghost.Rule rule,\n    List<Ghost.Peer> peers,\n    int writes)",
+          "summary": "A ghost: an insertion mutant, for code that most sites like this one have and this one lacks.",
+          "doc": "A ghost: an insertion mutant, for code that most sites like this one have and this one lacks. It\nadds the call the majority makes, here a property change that a write doesn't announce where its\npeers do, and the tests that reach the write run against it. It's experimental, and never in the\nscore: a ghost no test notices is a question about what the code should do, not a gap the score\nshould count.\n\nA ghost *appears* when a test notices the inserted call, which says that test expects the\nsilence, and *passes unseen* when none does.",
+          "params": [
+            {
+              "name": "result",
+              "doc": "the inserted call's run: caught is appeared, missed is passed unseen"
+            },
+            {
+              "name": "field",
+              "doc": "the field the write is to"
+            },
+            {
+              "name": "property",
+              "doc": "the property name the inserted call fires"
+            },
+            {
+              "name": "rule",
+              "doc": "why mutastic thinks the call belongs there"
+            },
+            {
+              "name": "peers",
+              "doc": "the writes that do announce themselves, that the call was copied from"
+            },
+            {
+              "name": "writes",
+              "doc": "how many writes the rule counted, this one among them: of the field, for [`Rule#SAME_FIELD`](../rule/#same_field); of the class's properties, one per field, for [`Rule#SIBLING_FIELDS`](../rule/#sibling_fields)"
+            }
+          ],
+          "members": [
+            {
+              "kind": "method",
+              "name": "appeared",
+              "anchor": "appeared",
+              "signature": "boolean appeared()",
+              "doc": "Whether a test noticed the inserted call.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "passedUnseen",
+              "anchor": "passedunseen",
+              "signature": "boolean passedUnseen()",
+              "doc": "Whether every test that reaches the write passed with the call in.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Ghost.Peer",
+          "slug": "ghost-peer",
+          "kind": "record",
+          "signature": "record Peer(String method, int line, String property)",
+          "summary": "A write that does fire: where it is, and the property it names.",
+          "doc": "A write that does fire: where it is, and the property it names.",
+          "params": [
+            {
+              "name": "method",
+              "doc": "the method's name, `deposit`"
+            }
+          ],
+          "members": []
+        },
+        {
+          "name": "Ghost.Rule",
+          "slug": "ghost-rule",
+          "kind": "enum",
+          "signature": "enum Rule",
+          "summary": "Why a missing call looks missing.",
+          "doc": "Why a missing call looks missing.",
+          "params": [],
+          "members": [
+            {
+              "kind": "enum constant",
+              "name": "SAME_FIELD",
+              "anchor": "same_field",
+              "signature": "SAME_FIELD",
+              "doc": "Other writes to the same field fire a property change, and this one doesn't.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "SIBLING_FIELDS",
+              "anchor": "sibling_fields",
+              "signature": "SIBLING_FIELDS",
+              "doc": "The class's other properties fire a property change on every write, and this setter's\ndoesn't.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
           "name": "Ignore",
           "slug": "ignore",
           "kind": "record",
@@ -1908,7 +2010,7 @@
           "name": "Report",
           "slug": "report",
           "kind": "record",
-          "signature": "@Internal record Report(\n    String project,\n    int jdk,\n    List<MutantResult> results,\n    int tests,\n    List<String> flaky,\n    Duration coverage,\n    int workers,\n    int started,\n    Duration took,\n    List<MutantResult> audited,\n    Optional<ChangedLines> scope,\n    List<Ignore> staleIgnores,\n    List<FlakyTest> flakyEvidence)",
+          "signature": "@Internal record Report(\n    String project,\n    int jdk,\n    List<MutantResult> results,\n    int tests,\n    List<String> flaky,\n    Duration coverage,\n    int workers,\n    int started,\n    Duration took,\n    List<MutantResult> audited,\n    Optional<ChangedLines> scope,\n    List<Ignore> staleIgnores,\n    List<FlakyTest> flakyEvidence,\n    List<Ghost> ghosts)",
           "summary": "A finished run: every mutant's result, in the order they were found.",
           "doc": "A finished run: every mutant's result, in the order they were found.",
           "params": [
@@ -1947,6 +2049,10 @@
             {
               "name": "flakyEvidence",
               "doc": "for each of the `flaky` tests the run found out about, what it failed with and what it reaches that changes from run to run"
+            },
+            {
+              "name": "ghosts",
+              "doc": "with `--experimental=ghosts`, each ghost and what its run found; never in the score, the counts or `results`"
             }
           ],
           "members": [
@@ -1954,6 +2060,16 @@
               "kind": "constructor",
               "name": "Report",
               "anchor": "report",
+              "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores, List<FlakyTest> flakyEvidence)",
+              "doc": "A run without ghosts.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "Report",
+              "anchor": "report-2",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores)",
               "doc": "A run with nothing known of why its flaky tests are flaky.",
               "params": [],
@@ -1963,7 +2079,7 @@
             {
               "kind": "constructor",
               "name": "Report",
-              "anchor": "report-2",
+              "anchor": "report-3",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took)",
               "doc": "A run without an audit.",
               "params": [],

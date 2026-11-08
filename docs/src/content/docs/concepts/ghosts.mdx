@@ -1,0 +1,54 @@
+---
+title: Ghosts
+description: "Experimental: an inserted call where most code like it has one and this code doesn't, run against your tests, and never in the score."
+---
+
+Ghosts are experimental, and off unless you ask for them:
+
+```sh
+mutastic run --experimental=ghosts
+```
+
+A mutant changes code that's there. It can't show code that isn't: a setter that forgot to tell its
+listeners has no call to remove. A ghost is the other way round. Where most writes like this one fire a
+property change and this one doesn't, mutastic inserts the call the others make, and runs the tests that
+reach the write against it.
+
+- A ghost **passes unseen** when every one of those tests still passes. Nothing says whether listeners
+  should hear of that write, so mutastic asks.
+- A ghost **appears** when a test fails with the call in: that test expects the write to stay quiet, and
+  mutastic says which one.
+
+A ghost is a question about what the code should do, not a gap in the tests, so it's never in the score,
+the counts or the gate. Each says why mutastic thinks the call belongs there, what running the tests
+with it found, and both answers: fire the change there, or write a test that listens and expects no
+event.
+
+## Where mutastic looks
+
+Today, ghosts are about JavaBeans' bound properties: classes that call `PropertyChangeSupport`'s
+`firePropertyChange`, directly or through a method of their own or a superclass's. Two kinds of evidence
+make a ghost:
+
+- **The same field:** at least two writes to a field fire a property change, and this one doesn't.
+- **Its siblings:** at least three of the class's other fields fire on every write, and this setter
+  doesn't.
+
+Writes in a constructor, `readObject` or `clone` aren't counted, as no listener can be there yet, and
+neither is a method that fires a change with no name (everything changed at once), or one marked
+`@DoNotMutate`. The call inserted is the one most of the peers make, with the name they give it, the old
+value read before the write and the value written.
+
+## What a ghost says
+
+```text
+Ghosts (experimental, not in the score)
+
+  Account.java:67  Account.applyInterest() writes `balance` without telling listeners
+    3 of 5 writes to `balance` fire a property change: setBalance (:42) fires "balance", deposit (:51) fires "balance", withdraw (:60) fires "balance"
+    With firePropertyChange("balance", old, new) added after it, the 1 test that runs it still passes.
+    If listeners should hear of it, fire the change there. If it's quiet on purpose, a test that listens and expects no event says so.
+```
+
+In `--format=jsonl`, the `run-finished` event lists them under `ghosts`, each with `"experimental": true`
+and a `status` of `passedUnseen`, `appeared` or `notCovered`.

@@ -77,7 +77,24 @@ public final class AgentText {
     if (!missed.isEmpty() || !notCovered.isEmpty()) {
       appendGaps(out, report, missed, notCovered);
     }
+    appendGhosts(out, report);
     return out.toString();
+  }
+
+  /// Ghosts, with `--experimental=ghosts`: questions about what the code should do, never part of
+  /// the score or the gate, so an agent isn't asked to make them go away.
+  private void appendGhosts(StringBuilder out, Report report) {
+    if (!GhostCards.any(report)) {
+      return;
+    }
+    out.append(
+        ("%nghosts: %s. Each is a question for the person, not a gap to close: don't add the call"
+                + " unless the task or spec says listeners should hear of that write.%n")
+            .formatted(GhostCards.summary(report)));
+    var cards = new GhostCards(sources);
+    report.ghosts().stream()
+        .filter(ghost -> !ghost.appeared())
+        .forEach(ghost -> cards.card(ghost).forEach(line -> out.append(line).append('\n')));
   }
 
   /// `85.7%`, or `none` when there was nothing to score.

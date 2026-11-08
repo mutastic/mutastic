@@ -169,6 +169,9 @@ public final class JsonEvents {
     fields.put("unrelatedCatches", unrelatedCatches(report));
     fields.put("reports", reports);
     putAudit(fields, AridAudit.of(report));
+    if (GhostCards.any(report)) {
+      fields.put("ghosts", ghosts(report));
+    }
     report.scope().ifPresent(scope -> fields.put("scope", scopeOf(scope)));
     fields.put(
         "staleIgnores", report.staleIgnores().stream().map(io.mutastic.api.Ignore::id).toList());
@@ -202,6 +205,51 @@ public final class JsonEvents {
     found.put("files", scope.files());
     found.put("lines", scope.lineCount());
     return found;
+  }
+
+  /// Each ghost, with `--experimental=ghosts`: experimental, and never in the score or the counts.
+  /// `appeared` when a test noticed the inserted call, `passedUnseen` when none did, `notCovered`
+  /// when no test runs the write.
+  private List<Map<String, Object>> ghosts(Report report) {
+    var cards = new GhostCards(sources);
+    return report.ghosts().stream().map(ghost -> ghost(ghost, cards)).toList();
+  }
+
+  private Map<String, Object> ghost(io.mutastic.api.Ghost ghost, GhostCards cards) {
+    var result = ghost.result();
+    var mutant = result.mutant();
+    var fields = new LinkedHashMap<String, Object>();
+    fields.put("id", mutant.id());
+    fields.put("experimental", true);
+    fields.put("status", GhostCards.status(ghost));
+    fields.put("file", sources.file(mutant));
+    fields.put("line", mutant.line());
+    fields.put("class", mutant.className().replace('/', '.'));
+    fields.put("method", mutant.methodName());
+    fields.put("field", ghost.field());
+    fields.put("inserted", mutant.replacement());
+    fields.put(
+        "rule",
+        ghost.rule() == io.mutastic.api.Ghost.Rule.SAME_FIELD ? "sameField" : "siblingFields");
+    fields.put("writes", ghost.writes());
+    fields.put("peers", peers(ghost));
+    fields.put("coveredBy", result.coveredBy());
+    result.caughtBy().ifPresent(test -> fields.put("caughtBy", test));
+    fields.put("rendered", String.join("\n", cards.card(ghost)));
+    return fields;
+  }
+
+  private static List<Map<String, Object>> peers(io.mutastic.api.Ghost ghost) {
+    return ghost.peers().stream()
+        .<Map<String, Object>>map(
+            peer -> {
+              var fields = new LinkedHashMap<String, Object>();
+              fields.put("method", peer.method());
+              fields.put("line", peer.line());
+              fields.put("property", peer.property());
+              return fields;
+            })
+        .toList();
   }
 
   /// An audit of the arid filters, when the run was one.

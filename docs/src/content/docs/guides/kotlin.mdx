@@ -1,0 +1,70 @@
+---
+title: Kotlin
+description: "What's different when mutastic runs on Kotlin: what kotlinc and the Compose compiler write that it leaves alone, where inlined code lands, and suggested tests in Kotlin."
+---
+
+Kotlin support is experimental: it's proved on mutastic's own Kotlin samples, and not yet on enough
+real projects to promise it.
+
+mutastic reads class files, so a Kotlin project runs as a Java one does: the same command, the same
+operators and the same cards. This page is only what's different.
+
+## What kotlinc writes is left alone
+
+kotlinc writes code that isn't in your source. A mutant of it would ask for a test of code you didn't
+write, so mutastic skips it as `generated:`, on what the class file shows (`@kotlin.Metadata`, and
+kotlinc's own calls and shapes), never on a name alone:
+
+- its null checks on parameters, and the name each reports;
+- a data class's `copy`, `componentN` and `equals`;
+- a `lateinit`'s getter and the check that it's been set;
+- a coroutine's state machine: where to resume, saving locals across a suspension, and the comparison
+  with `COROUTINE_SUSPENDED`;
+- code copied in from an inline function in a library, such as the loop in `filter`.
+
+`x!!` and `x as String` are yours, so their checks stay: without one, a `null` carries on where you said
+it shouldn't. `x!!.size` is the exception, skipped as `equivalent:`, as reading the value throws the same
+`NullPointerException`.
+
+## Inline functions
+
+kotlinc copies an inline function's body into each call, and numbers the copy's lines past the end of
+the file. mutastic reads the map kotlinc keeps of where each copy came from, so a mutant in your own
+inline function is on that function's line, in its file, and a test of the call catches it.
+
+The function's own body is skipped, as nothing runs it, unless Java calls it. One that only tests call
+is skipped too, and that's a blind spot: what's copied into a test isn't changed, so nothing shows
+whether the tests would notice.
+
+## Jetpack Compose
+
+The Compose compiler rewrites every `@Composable` function: it passes in a `Composer`, starts and ends
+groups, works out `$changed` and `$default` masks to skip a call whose arguments haven't changed, and
+writes trace and source information around your code. `remember` reads and writes the `Composer`'s
+cache. mutastic skips all of that as `generated:`, told by what the class file shows: a function that
+takes a `Composer` and then its masks, the runtime's own calls, and what works on the masks or on what
+the runtime answered. The keys of groups, and the stand-ins a call passes for an argument left to its
+default, are skipped too.
+
+What you wrote in a composable keeps its mutants, as in any function: a `when` choosing what to show, an
+`if` in a lambda, a call to `Text` (removing it removes something from the screen). Tests that drive the
+UI, with `runComposeUiTest` or a desktop test rule, reach that code like any other test, and so do plain
+unit tests of a state holder.
+
+A lambda that returns nothing gives back `Unit` in the class file, which no caller reads, so a change of
+that `Unit` is skipped too.
+
+## Suggested tests
+
+For a Kotlin class, a suggested test is written in Kotlin, for the class's Kotlin test class: `fun`
+with no `void`, a top-level function called by its name (`plusOne(1)`), a constructor with no `new`, an
+extension called on its receiver (`1.doubled()`) and a property read as one (`Counter(2).twice`). A
+call that can't be sure to compile gets no suggestion: a generic function or class, one renamed with
+`@JvmName`, an `object`'s or companion's member, or a test class written in Java.
+
+See [Suggested tests](/concepts/suggested-tests/) for how the call and its inputs are found.
+
+## Operators for Kotlin
+
+`kotlin/empty-return`, in the plugins mutastic ships, makes a method returning a range or a sequence
+return an empty one: see [Kotlin's empty returns](/guides/operator-plugins/#kotlins-empty-returns).

@@ -22,6 +22,8 @@ import org.jspecify.annotations.Nullable;
 ///   mutants ran
 /// @param flakyEvidence for each of the `flaky` tests the run found out about, what it failed with
 ///   and what it reaches that changes from run to run
+/// @param ghosts with `--experimental=ghosts`, each ghost and what its run found; never in the
+///   score, the counts or `results`
 @Internal
 public record Report(
     String project,
@@ -36,14 +38,48 @@ public record Report(
     List<MutantResult> audited,
     Optional<ChangedLines> scope,
     List<Ignore> staleIgnores,
-    List<FlakyTest> flakyEvidence) {
+    List<FlakyTest> flakyEvidence,
+    List<Ghost> ghosts) {
 
   public Report {
+    ghosts = List.copyOf(ghosts);
     staleIgnores = List.copyOf(staleIgnores);
     flakyEvidence = List.copyOf(flakyEvidence);
     results = List.copyOf(results);
     flaky = List.copyOf(flaky);
     audited = List.copyOf(audited);
+  }
+
+  /// A run without ghosts.
+  public Report(
+      String project,
+      int jdk,
+      List<MutantResult> results,
+      int tests,
+      List<String> flaky,
+      Duration coverage,
+      int workers,
+      int started,
+      Duration took,
+      List<MutantResult> audited,
+      Optional<ChangedLines> scope,
+      List<Ignore> staleIgnores,
+      List<FlakyTest> flakyEvidence) {
+    this(
+        project,
+        jdk,
+        results,
+        tests,
+        flaky,
+        coverage,
+        workers,
+        started,
+        took,
+        audited,
+        scope,
+        staleIgnores,
+        flakyEvidence,
+        List.of());
   }
 
   /// A run with nothing known of why its flaky tests are flaky.
@@ -132,7 +168,8 @@ public record Report(
         audited,
         scope,
         staleIgnores,
-        allEvidence);
+        allEvidence,
+        ghosts);
   }
 
   private static MutantResult combined(MutantResult mine, @Nullable MutantResult theirs) {

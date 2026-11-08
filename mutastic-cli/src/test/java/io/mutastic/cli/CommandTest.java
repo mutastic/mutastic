@@ -34,7 +34,8 @@ class CommandTest {
                 Optional.empty(),
                 Optional.empty(),
                 "mutastic",
-                new Main.Gating("", 3)));
+                new Main.Gating("", 3),
+                java.util.Set.of()));
   }
 
   @Test
@@ -65,7 +66,8 @@ class CommandTest {
                 Optional.empty(),
                 Optional.empty(),
                 "mutastic",
-                new Main.Gating("", 3)));
+                new Main.Gating("", 3),
+                java.util.Set.of()));
   }
 
   /// What the build plugins pass: the setup they wrote, and their goals as the commands offered.

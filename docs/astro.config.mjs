@@ -96,6 +96,7 @@ export default defineConfig({
             'concepts/output',
             'concepts/suggested-tests',
             'concepts/flaky-tests',
+            'concepts/ghosts',
           ],
         },
         {
@@ -123,6 +124,7 @@ export default defineConfig({
             'guides/configuration',
             'guides/plugins',
             'guides/operator-plugins',
+            'guides/kotlin',
           ],
         },
         {

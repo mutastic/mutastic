@@ -345,10 +345,14 @@ public final class SourceView {
     return end.endsWith(";") || end.endsWith("{") || end.endsWith("}");
   }
 
-  /// `record` for `INVOKEVIRTUAL com/example/Audit.record(Ljava/lang/String;)V`.
+  /// `record` for `INVOKEVIRTUAL com/example/Audit.record(Ljava/lang/String;)V`. kotlinc adds a
+  /// hash to the name of a function taking an inline class (`Text--4IGK_g` for Compose's `Text`),
+  /// after a `-` no Java name can have: the source calls it by what comes before.
   static String calledName(String call) {
     var target = call.substring(call.indexOf(' ') + 1, call.indexOf('('));
-    return target.substring(target.lastIndexOf('.') + 1);
+    var name = target.substring(target.lastIndexOf('.') + 1);
+    int mangled = name.indexOf('-');
+    return mangled > 0 ? name.substring(0, mangled) : name;
   }
 
   /// The line with the change made, when it can be shown exactly: the changed operator appears on
@@ -498,9 +502,20 @@ public final class SourceView {
     if (mutant.inlinedFrom().isPresent()) {
       return mutant.inlinedFrom().get();
     }
-    var name = mutant.className();
+    var name = withoutComposableSingletons(mutant.className());
     int dollar = name.indexOf('$', name.lastIndexOf('/') + 1);
     return (dollar < 0 ? name : name.substring(0, dollar)) + ".java";
+  }
+
+  private static final String SINGLETONS = "ComposableSingletons$";
+
+  /// `com/example/FocusAppKt` for `com/example/ComposableSingletons$FocusAppKt`: the Compose
+  /// compiler keeps a file's composable lambdas in a class named for the file's.
+  static String withoutComposableSingletons(String className) {
+    int simple = className.lastIndexOf('/') + 1;
+    return className.startsWith(SINGLETONS, simple)
+        ? className.substring(0, simple) + className.substring(simple + SINGLETONS.length())
+        : className;
   }
 
   private String relative(Path file) {

@@ -9,6 +9,7 @@ import java.lang.classfile.instruction.BranchInstruction;
 import java.lang.classfile.instruction.ConstantInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.LabelTarget;
+import java.lang.classfile.instruction.ReturnInstruction;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,6 +41,11 @@ final class KotlinChecks {
         && nextInstruction(code, at).filter(KotlinChecks::isInserted).isPresent()) {
       return Optional.of("generated: the name kotlinc's own check reports");
     }
+    if (element instanceof ReturnInstruction returning
+        && returning.opcode() == Opcode.ARETURN
+        && previousInstruction(code, at).filter(KotlinChecks::isUnit).isPresent()) {
+      return Optional.of(UNIT);
+    }
     return element instanceof BranchInstruction branch && guardsLateinit(code, at, branch)
         ? Optional.of(LATEINIT)
         : Optional.empty();
@@ -47,6 +53,35 @@ final class KotlinChecks {
 
   private static final String LATEINIT =
       "generated: kotlinc's check that a `lateinit` property has been set";
+
+  /// A lambda or function that returns nothing gives back `Unit` in the class file, and no caller
+  /// reads it: a `null` there changes nothing a test can see.
+  private static final String UNIT =
+      "generated: the `Unit` kotlinc returns where the source returns nothing";
+
+  /// `getstatic kotlin/Unit.INSTANCE`.
+  private static boolean isUnit(Instruction instruction) {
+    return instruction instanceof java.lang.classfile.instruction.FieldInstruction field
+        && field.opcode() == Opcode.GETSTATIC
+        && field.owner().asInternalName().equals("kotlin/Unit")
+        && field.name().equalsString("INSTANCE");
+  }
+
+  /// The instruction just before `code[at]`, when no jump lands between them.
+  private static Optional<Instruction> previousInstruction(List<CodeElement> code, int at) {
+    for (int before = at - 1; before >= 0; before--) {
+      switch (code.get(before)) {
+        case Instruction instruction -> {
+          return Optional.of(instruction);
+        }
+        case LabelTarget _ -> {
+          return Optional.empty();
+        }
+        default -> {}
+      }
+    }
+    return Optional.empty();
+  }
 
   private static Optional<String> reasonForCall(
       InvokeInstruction call, List<CodeElement> code, int at) {
