@@ -146,11 +146,17 @@ class GateTest {
     assertThat(again.out()).startsWith("{\"decision\": \"block\""); // a new stop, a new try
   }
 
-  /// A test the task added that fails is the task's to make pass. One that was there when the task
-  /// started is most likely broken by the change: the agent isn't to rewrite what it expects.
+  /// A test the task added that fails is the task's to make pass, and to leave in place: taken away
+  /// later, it holds the gate, or deleting it would pass a task the test said was wrong. One that
+  /// was there when the task started is most likely broken by the change: the agent isn't to
+  /// rewrite what it expects.
   @Test
-  void aTestThatWasThereWhenTheTaskStartedIsntTheAgentsToRewrite() throws Exception {
+  void aFailingTestIsLeftInPlaceAndOneThatWasThereIsntTheAgentsToRewrite() throws Exception {
     mutastic("gate", "open", project.toString());
+    var pricing = project.resolve(PRICING);
+    Files.writeString(pricing, Files.readString(pricing).replace("total / 10", "total / 5"));
+    var broken = mutastic("gate", "check", project.toString());
+    git("checkout", "--", PRICING.toString());
     var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
     var original = Files.readString(test);
     Files.writeString(
@@ -168,24 +174,30 @@ class GateTest {
     aDiscountForOrdersOverFifty();
     var added = mutastic("gate", "check", project.toString());
     Files.writeString(test, original);
-    var pricing = project.resolve(PRICING);
-    Files.writeString(pricing, Files.readString(pricing).replace("total / 10", "total / 5"));
-    var broken = mutastic("gate", "check", project.toString());
+    var deleted = mutastic("gate", "check", project.toString());
 
+    assertThat(broken.exit()).isEqualTo(Main.FAILED);
+    assertThat(broken.out())
+        .contains("PricingTest#bigOrdersGetTenPercentOff was there when the task started")
+        .contains("Find out whether the change or the test is wrong")
+        .contains("Don't change what a test expects, or take it away, to make it pass")
+        .contains("if you're not sure, ask")
+        .doesNotContain("Make them pass first")
+        .doesNotContain("spec or plan");
     assertThat(added.exit()).isEqualTo(Main.FAILED);
     assertThat(added.out())
         .contains("PricingTest#hugeOrders")
         .contains(
             "Make them pass first, unless the spec or plan is what's wrong, in which case say so"
-                + " and stop")
+                + " and stop. Either way, leave a failing test in place")
         .doesNotContain("there when the task started");
-    assertThat(broken.exit()).isEqualTo(Main.FAILED);
-    assertThat(broken.out())
-        .contains("PricingTest#bigOrdersGetTenPercentOff was there when the task started")
-        .contains("Find out whether the change or the test is wrong")
-        .contains("if you're not sure, ask")
-        .doesNotContain("Make them pass first")
-        .doesNotContain("spec or plan");
+    assertThat(deleted.exit()).isEqualTo(Main.FAILED);
+    assertThat(deleted.out())
+        .contains(
+            "com.example.pricing.PricingTest#hugeOrders failed at an earlier check, and it's gone"
+                + " now. Put it back")
+        .contains("unless the spec or plan is what's wrong, in which case say so and stop")
+        .doesNotContain("bigOrdersGetTenPercentOff"); // still there, and passing
   }
 
   /// A pass tells the person when the task changed what an existing test expects: a test made to

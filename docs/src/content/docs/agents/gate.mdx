@@ -37,7 +37,13 @@ is done when:
   fit a wrong change, so the score can't tell you. For the same reason, when the gate passes or
   hands over, it names the test files there when the task started that the task took an assertion
   out of, for you to check. When a test the task added fails, the gate tells the agent to make it
-  pass, unless the spec or plan is what's wrong, in which case it's to say so and stop.
+  pass, unless the spec or plan is what's wrong, in which case it's to say so and stop, and either
+  way to leave the failing test in place;
+- **no test that failed at an earlier check is gone.** The gate remembers each test that failed
+  at a check, for the rest of the task. Deleting the test would otherwise pass a task the test
+  said was wrong. A test that moved to another class keeps its name, and one that was renamed
+  keeps its body, so either still counts; a test changed in both at once can't be told from one
+  taken away, so the gate names it and holds the task.
 
 A task that changes no lines mutastic mutates (docs, build files, tests only) passes at once.
 Mutants on lines the task didn't touch aren't its business: they were missed before it started.

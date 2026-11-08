@@ -32,6 +32,7 @@ import java.time.Duration;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -233,7 +234,7 @@ public final class Main {
     var directory = gated.prepared().directory();
     var base = new Git(directory).head();
     var shape = Gate.Shape.of(gated.prepared().project().testSources());
-    new Gate.State(session, base, ignored(directory), shape, 0, "").write(gated.work());
+    new Gate.State(session, base, ignored(directory), shape, 0, "", Map.of()).write(gated.work());
     gated
         .output()
         .out()
@@ -273,11 +274,12 @@ public final class Main {
       return gated.hooked() ? PASSED : USAGE; // nothing gated: a hooked agent may stop
     }
     var verdict = gateVerdict(gated, open.get());
+    var state = open.get().remembering(verdict.red());
     if (verdict.passes()) {
-      open.get().passed().write(gated.work());
-      return answer(gated, forThePerson(gated, open.get(), verdict));
+      state.passed().write(gated.work());
+      return answer(gated, forThePerson(gated, state, verdict));
     }
-    return notDone(gated, open.get(), verdict);
+    return notDone(gated, state, verdict);
   }
 
   /// The agent is sent back, unless, as a hook, it changed nothing since it last was, or it has had
@@ -337,6 +339,10 @@ public final class Main {
   /// What the gate says of the task: done, or what's left.
   private static Gate.Verdict gateVerdict(Gated gated, Gate.State state) {
     var directory = gated.prepared().directory();
+    var gone = goneRed(gated, state);
+    if (gone.isPresent()) {
+      return gone.get(); // first: taking the test away may leave no line changed
+    }
     if (new Git(directory).changedSince(state.base()).lines().isEmpty()) {
       return Gate.Verdict.pass("mutastic gate: passed: the task changed no lines mutastic mutates");
     }
@@ -360,6 +366,28 @@ public final class Main {
                     .formatted(String.join(", ", added))));
   }
 
+  /// A test that failed at an earlier check and is gone now, by name and by body: a task isn't done
+  /// by taking away the test that says it's wrong.
+  private static Optional<Gate.Verdict> goneRed(Gated gated, Gate.State state) {
+    if (state.red().isEmpty()) {
+      return Optional.empty();
+    }
+    var found = RedTests.Found.in(gated.prepared().project().testSources());
+    var gone = RedTests.gone(state.red(), found);
+    return gone.isEmpty()
+        ? Optional.empty()
+        : Optional.of(
+            Gate.Verdict.block(
+                ("mutastic gate: %s failed at an earlier check, and %s gone now. Put %s back: the"
+                        + " gate doesn't pass a task by taking a failing test away. Leave a failing"
+                        + " test in place and make the code pass it, unless the spec or plan is"
+                        + " what's wrong, in which case say so and stop")
+                    .formatted(
+                        String.join(", ", gone),
+                        gone.size() == 1 ? "it's" : "they're",
+                        gone.size() == 1 ? "it" : "them")));
+  }
+
   /// Fewer tests running than when the task started: taken away, or disabled.
   private static Optional<Gate.Verdict> fewerTests(Gated gated, Gate.State state) {
     var before = state.shape();
@@ -380,7 +408,8 @@ public final class Main {
     try {
       report = gateRun(gated, state.base());
     } catch (Engine.BaselineFailed e) {
-      return Gate.Verdict.block(red(gated, state, e));
+      var testSources = gated.prepared().project().testSources();
+      return Gate.Verdict.red(red(gated, state, e), RedTests.remember(e.failing(), testSources));
     }
     return report.failingAlone().isEmpty()
         ? missedVerdict(gated, report)
@@ -425,12 +454,13 @@ public final class Main {
       return "mutastic gate: "
           + failed.getMessage()
           + ". Make them pass first, unless the spec or plan is what's wrong, in which case say so"
-          + " and stop";
+          + " and stop. Either way, leave a failing test in place: the gate doesn't pass a task"
+          + " by taking it away";
     }
     return ("mutastic gate: %s.%n%n%s %s there when the task started: if %s passed then, the task's"
             + " change broke %s. Find out whether the change or the test is wrong. Don't change"
-            + " what a test expects to make it pass unless the task asked for that behaviour, and"
-            + " if you're not sure, ask")
+            + " what a test expects, or take it away, to make it pass unless the task asked for"
+            + " that behaviour, and if you're not sure, ask")
         .formatted(
             failed.getMessage(),
             String.join(", ", before),

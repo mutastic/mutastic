@@ -5,9 +5,11 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -16,18 +18,22 @@ import java.util.stream.Stream;
 ///
 /// `gate open` keeps where the task starts: the commit, the ignores, and how many tests run and how
 /// many are disabled. `gate check` asks whether it's done: the mutants on the lines changed since
-/// are each caught or proposed for a person to ignore, no ignore was added, and no test was taken
-/// away or disabled. If not, it says what's left, as the agent format does, so an agent can carry
-/// on; after `--tries` of those, it lets the agent stop and says what's still missed, rather than
-/// loop. `gate close` forgets the task.
+/// are each caught or proposed for a person to ignore, no ignore was added, no test was taken away
+/// or disabled, and no test that failed at an earlier check is gone ([RedTests]). If not, it says
+/// what's left, as the agent format does, so an agent can carry on; after `--tries` of those, it
+/// lets the agent stop and says what's still missed, rather than loop. `gate close` forgets the
+/// task.
 ///
 /// With `--hook=claude`, each reads a Claude Code hook's input on stdin and answers as a hook does:
 /// `open` once per session, `check` with a block and its reason, or a message for the person.
 final class Gate {
   private static final String FILE = "gate.properties";
 
+  /// Before each test that failed at a check, in [#FILE]: its body's fingerprint is the value.
+  private static final String RED = "red:";
+
   /// A test, and a test turned off, as JUnit and TestNG write them.
-  private static final Pattern TEST =
+  static final Pattern TEST =
       Pattern.compile(
           "@(?:[\\w.]+\\.)?(Test|ParameterizedTest|RepeatedTest|TestFactory|TestTemplate)\\b");
 
@@ -50,18 +56,34 @@ final class Gate {
   /// @param session the agent's session that opened it, when a hook did: empty otherwise
   /// @param tree the working tree when the gate last sent the agent back, as [Git#tree] gives it:
   ///   empty when it hasn't since it last passed
+  /// @param red the tests that failed at a check since the gate opened, each with its body's
+  ///   fingerprint then, as [RedTests] keeps them
   record State(
-      String session, String base, Set<String> ignored, Shape shape, int blocks, String tree) {
+      String session,
+      String base,
+      Set<String> ignored,
+      Shape shape,
+      int blocks,
+      String tree,
+      Map<String, String> red) {
     State {
       ignored = Set.copyOf(ignored);
+      red = Map.copyOf(red);
     }
 
     State blockedOnce(String now) {
-      return new State(session, base, ignored, shape, blocks + 1, now);
+      return new State(session, base, ignored, shape, blocks + 1, now, red);
     }
 
     State passed() {
-      return new State(session, base, ignored, shape, 0, "");
+      return new State(session, base, ignored, shape, 0, "", red);
+    }
+
+    /// These, and the tests that failed at this check too.
+    State remembering(Map<String, String> failed) {
+      var all = new TreeMap<>(red);
+      all.putAll(failed);
+      return new State(session, base, ignored, shape, blocks, tree, all);
     }
 
     /// Whether the agent was sent back, and has changed nothing since.
@@ -90,7 +112,18 @@ final class Gate {
                   Integer.parseInt(properties.getProperty("tests", "0")),
                   Integer.parseInt(properties.getProperty("disabled", "0"))),
               Integer.parseInt(properties.getProperty("blocks", "0")),
-              properties.getProperty("tree", "")));
+              properties.getProperty("tree", ""),
+              redIn(properties)));
+    }
+
+    private static Map<String, String> redIn(Properties properties) {
+      var red = new TreeMap<String, String>();
+      for (var key : properties.stringPropertyNames()) {
+        if (key.startsWith(RED)) {
+          red.put(key.substring(RED.length()), properties.getProperty(key));
+        }
+      }
+      return red;
     }
 
     void write(Path work) {
@@ -102,6 +135,7 @@ final class Gate {
       properties.setProperty("disabled", String.valueOf(shape.disabled()));
       properties.setProperty("blocks", String.valueOf(blocks));
       properties.setProperty("tree", tree);
+      red.forEach((test, body) -> properties.setProperty(RED + test, body));
       try {
         Files.createDirectories(work);
         try (var out = Files.newBufferedWriter(work.resolve(FILE))) {
@@ -171,13 +205,28 @@ final class Gate {
 
   /// Whether the task is done, what to say, and whether that's to the agent (`blocks`) or past it,
   /// to the person.
-  record Verdict(boolean passes, boolean gaveUp, String text) {
+  ///
+  /// @param red the tests that failed at this check, to remember: see [State#red]
+  record Verdict(boolean passes, boolean gaveUp, String text, Map<String, String> red) {
+    Verdict {
+      red = Map.copyOf(red);
+    }
+
+    Verdict(boolean passes, boolean gaveUp, String text) {
+      this(passes, gaveUp, text, Map.of());
+    }
+
     static Verdict pass(String text) {
       return new Verdict(true, false, text);
     }
 
     static Verdict block(String text) {
       return new Verdict(false, false, text);
+    }
+
+    /// Held by tests that fail with no mutant in, which the gate remembers.
+    static Verdict red(String text, Map<String, String> failing) {
+      return new Verdict(false, false, text, failing);
     }
   }
 
