@@ -20,6 +20,9 @@ import org.jspecify.annotations.Nullable;
 public final class JsonEvents {
   public static final String SCHEMA = "mutastic.events/v1";
 
+  /// Which mutastic writes the events: this one, for the JVM. Rust's writes `rust`.
+  static final String EDITION = "java";
+
   private final PrintStream out;
   private final SourceView sources;
   private final AgentText text;
@@ -39,6 +42,7 @@ public final class JsonEvents {
     fields.put("rules", MutantCommand.RULE);
     fields.put("rule", MutantCommand.RULE);
     fields.put("decline", MutantCommand.DECLINE);
+    fields.put("edition", EDITION);
     emit("run-started", fields);
   }
 
@@ -117,7 +121,9 @@ public final class JsonEvents {
     // `killedBy` is deprecated for `caughtBy`, the word `changedSinceLastRun` uses; removed in 1.0.
     result.caughtBy().ifPresent(test -> fields.put("killedBy", test));
     result.caughtBy().ifPresent(test -> fields.put("caughtBy", test));
+    // `killedWith` is deprecated for `caughtWith`, beside `caughtBy`; removed in 1.0.
     result.failure().ifPresent(failure -> fields.put("killedWith", failure));
+    result.failure().ifPresent(failure -> fields.put("caughtWith", failure));
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
     result.unconfirmed().ifPresent(test -> fields.put("unconfirmedCatchBy", test));
     result.falseCatchBy().ifPresent(test -> fields.put("falseCatchBy", test));
@@ -161,7 +167,9 @@ public final class JsonEvents {
   public void runFinished(
       Report report, Optional<Comparison> comparison, List<String> reports, boolean oneMutant) {
     var fields = new LinkedHashMap<String, Object>();
+    fields.put("edition", EDITION);
     fields.put("jdk", report.jdk());
+    fields.put("toolchain", toolchain(report));
     fields.put("mutants", report.results().size());
     putCounts(fields, report);
     putVerdict(fields, report, oneMutant);
@@ -204,13 +212,23 @@ public final class JsonEvents {
     return all;
   }
 
-  /// `files` is a count, deprecated for `fileCount`, which says so; removed in 1.0.
+  /// What compiled and ran the code, in the words every edition shares: `jdk` and its release.
+  private static Map<String, Object> toolchain(Report report) {
+    var toolchain = new LinkedHashMap<String, Object>();
+    toolchain.put("name", "jdk");
+    toolchain.put("version", String.valueOf(report.jdk()));
+    return toolchain;
+  }
+
+  /// `files` and `lines` are counts, deprecated for `fileCount` and `lineCount`, which say so;
+  /// removed in 1.0.
   private static Map<String, Object> scopeOf(ChangedLines scope) {
     var found = new LinkedHashMap<String, Object>();
     found.put("since", scope.since());
     found.put("files", scope.files());
     found.put("lines", scope.lineCount());
     found.put("fileCount", scope.files());
+    found.put("lineCount", scope.lineCount());
     return found;
   }
 

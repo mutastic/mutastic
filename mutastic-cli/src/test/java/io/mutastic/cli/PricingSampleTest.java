@@ -22,7 +22,7 @@ class PricingSampleTest {
     var run = Samples.mutastic("run", project.toString(), "--format=jsonl");
 
     assertThat(run.exit()).as(run.err()).isEqualTo(Main.PASSED);
-    assertThat(run.out()).contains("\"reason\":\"run-finished\",\"jdk\":17");
+    assertThat(run.out()).contains("\"reason\":\"run-finished\",\"edition\":\"java\",\"jdk\":17,");
     assertThat(run.out())
         .contains("\"Killed\":10,\"Survived\":1,\"Timeout\":0,\"NoCoverage\":0,\"Ignored\":0");
     // `return 0` can't become 0: it becomes 1, and the tests notice.

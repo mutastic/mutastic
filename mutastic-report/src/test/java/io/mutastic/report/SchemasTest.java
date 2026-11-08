@@ -42,4 +42,23 @@ class SchemasTest {
     assertThat(Schemas.problems(events, missed)).anyMatch(problem -> problem.contains("doneWhen"));
     assertThat(Schemas.problems(events, missed.replace("Survived", "NoCoverage"))).isEmpty();
   }
+
+  /// What only the Java edition writes (`jdk`, a mutation's `bytecode`, a missed mutant's `ignore`
+  /// and `propose`) is required of an event with no `edition`, and not of the Rust edition's.
+  @Test
+  void whatOnlyJavaWritesIsRequiredOnlyOfJava() {
+    var missed =
+        "{\"schema\":\"mutastic.events/v1\",\"reason\":\"mutant-finished\",%s"
+            + "\"id\":\"m855c8e3c\",\"fingerprint\":\"855c8e3ca8a39847\",\"status\":\"Survived\","
+            + "\"operator\":\"mutastic/boundary\",\"location\":{\"file\":\"src/lib.rs\","
+            + "\"line\":17,\"column\":9,\"class\":\"pricing\",\"method\":\"discount\"},"
+            + "\"mutation\":{\"description\":\"x\"},\"coveredBy\":[],\"testsRun\":0,"
+            + "\"durationMs\":1,\"doneWhen\":\"d\",\"reproduce\":\"r\",\"rendered\":\"e\"}";
+
+    Schemas.checkEvents(missed.formatted("\"edition\":\"rust\","));
+    assertThatThrownBy(() -> Schemas.checkEvents(missed.formatted("")))
+        .hasMessageContaining("bytecode");
+    assertThatThrownBy(() -> Schemas.checkEvents(missed.formatted("\"edition\":\"java\",")))
+        .hasMessageContaining("ignore");
+  }
 }

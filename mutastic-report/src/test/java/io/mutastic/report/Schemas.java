@@ -90,20 +90,41 @@ public final class Schemas {
   }
 
   /// No properties but those named, in `node` and every object schema under it. A condition (`if`)
-  /// is left as it is: closed, it would stop matching, and what it guards would go unchecked.
+  /// is left as it is: closed, it would stop matching, and what it guards would go unchecked. What
+  /// a condition asks (`then`) is only more of the object it's in, so it isn't closed itself, or it
+  /// would refuse every field it doesn't name again; what's under it is.
   private static void close(JsonNode node) {
     if (node instanceof ObjectNode object) {
       if (object.has("properties") && !object.has("additionalProperties")) {
         object.put("additionalProperties", false);
       }
-      object.forEachEntry(
-          (key, child) -> {
-            if (!key.equals("if")) {
-              close(child);
-            }
-          });
+      closeWithin(object);
     } else if (node.isArray()) {
       node.values().forEach(Schemas::close);
     }
+  }
+
+  private static void closeWithin(ObjectNode object) {
+    object.forEachEntry(
+        (key, child) -> {
+          if (key.equals("then")) {
+            overlay(child);
+          } else if (!key.equals("if")) {
+            close(child);
+          }
+        });
+  }
+
+  /// What a `then` asks of the object it's in, and of that object's fields: more of each, so none
+  /// of them closed.
+  private static void overlay(JsonNode then) {
+    then.forEachEntry(
+        (key, child) -> {
+          if (key.equals("properties")) {
+            child.values().forEach(Schemas::overlay);
+          } else {
+            close(child);
+          }
+        });
   }
 }

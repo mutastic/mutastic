@@ -33,6 +33,33 @@ version, `mutastic.events/v1`, and its `reason` says which event it is:
 
 The schema gives every field, its type, whether every event has it, and the values it can take.
 
+## Editions
+
+The same events come from each edition of mutastic, Java's and Rust's. An event's `edition` says
+which wrote it, `java` or `rust`; an event without one is the Java edition's, as every event was
+before there were editions. A few fields are required only of the Java edition, because only it has
+them: `run-finished`'s `jdk`, a mutation's `bytecode`, and a missed mutant's `ignore` and `propose`.
+The Java edition writes them all, as it always has. What every edition shares says the same in its
+own words: `toolchain` is `{"name": "jdk", "version": "17"}` from Java and
+`{"name": "rustc", "version": "1.91.0"}` from Rust.
+
+The Rust edition writes some fields of its own, each marked as such in the schema:
+
+| Field | In | What it is |
+|---|---|---|
+| `profile` | `run-started` | The build settings that decide what a mutant means: the profile's name, `optLevel`, `overflowChecks` and `debugAssertions` |
+| `unsafe` | `run-started` | Which code near `unsafe` was mutated: `skip`, `enclosing` or `all` |
+| `location.column` | `mutant-finished` | The column, from 1 |
+| `nearUnsafe` | `mutant-finished` | Why the mutant is near unsafe code, when it is: it runs on its own, and a crash isn't a catch |
+| `RuntimeError` | a mutant's `status` | The tests crashed the process where the crash may be undefined behaviour: nothing caught it, and it's out of the score |
+| `runtimeError` | `run-finished` | How many mutants were `RuntimeError` |
+| `notMutated.unsafe` | `run-finished` | How many mutants weren't made because the `unsafe` setting leaves their code out |
+| `build` | `run-finished` | How many times the crate was compiled with mutants in, and how many mutants didn't compile |
+
+In the Rust edition, `location.class` is the path of what holds the function and `location.method`
+is the function's name, where the Java edition has a class's binary name and a method's name and
+JVM descriptor.
+
 ## What v1 promises
 
 This is the events format's part of what stays the same between releases; [Compatibility](../compatibility/)
@@ -69,8 +96,11 @@ A few fields have a better name beside them, with the same value. The old names 
 |---|---|---|
 | `rules` | `rule`: it's one rule | `run-started` |
 | `killedBy` | `caughtBy`, as `changedSinceLastRun` says | `mutant-finished`, `mutant-revised` |
+| `killedWith` | `caughtWith`, beside `caughtBy` | `mutant-finished`, `mutant-revised` |
 | `Killed`, `Survived`, `Timeout`, `NoCoverage`, `Ignored` | `killed`, `survived`, `timeout`, `noCoverage`, `ignored`, named like every other field | `run-finished` |
 | `scope.files` | `scope.fileCount`: it's a count | `run-finished` |
+| `scope.lines` | `scope.lineCount`: it's a count too | `run-finished` |
+| `RuntimeError` (the count) | `runtimeError`, as the other counts are named (Rust edition) | `run-finished` |
 
 A status's value stays as the mutation-testing report schema names it: `"status": "Killed"` isn't
 deprecated, only the counts keyed by those names.
@@ -83,7 +113,9 @@ release notes, as 1.0.0 will for these names.
 The build compares the events schema with the last release's, and fails when a change:
 
 - removes a field, or renames one, which is the same thing to a reader;
-- makes an optional field required, or a required one optional;
+- makes an optional field required, or a required one optional (a field required of every event
+  that moves to being required only of the Java edition's, which every event without an `edition`
+  is, is still required of every event it was);
 - changes a field's type, whether narrowing it (a number that's no longer ever null) or widening it
   (a whole number that can now have a fraction);
 - removes a value from those a field can take;

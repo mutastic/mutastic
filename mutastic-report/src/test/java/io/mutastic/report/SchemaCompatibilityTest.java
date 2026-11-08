@@ -58,6 +58,30 @@ class SchemaCompatibilityTest {
         .allMatch(problem -> problem.contains("`required` changed"));
   }
 
+  /// A field only the Java edition writes is still required of every event without an `edition`,
+  /// which is every event a schema from before editions described.
+  @Test
+  void aRequirementMovedUnderTheJavaEditionKeepsThem() {
+    assertThat(breaks(schema -> onlyInJava(schema, "durationMs"))).isEmpty();
+    assertThat(breaks(schema -> javaAlsoRequires(schema, "aridAudit")))
+        .isNotEmpty()
+        .allMatch(problem -> problem.contains("`required` changed"));
+  }
+
+  /// Under any other condition, it's no longer required of every event it was required of.
+  @Test
+  void aRequirementMovedUnderAnotherEditionBreaksThem() {
+    assertThat(
+            breaks(
+                schema -> {
+                  onlyInJava(schema, "durationMs");
+                  var branch = (ObjectNode) finished(schema).get("allOf").get(1);
+                  branch.set(
+                      "if", Schemas.read("{\"properties\":{\"edition\":{\"const\":\"rust\"}}}"));
+                }))
+        .isNotEmpty();
+  }
+
   @Test
   void narrowingATypeOrAnEnumBreaksThem() {
     assertThat(breaks(schema -> def(schema, "score").put("type", "number")))
@@ -87,6 +111,27 @@ class SchemaCompatibilityTest {
 
   private static ObjectNode mutant(ObjectNode schema) {
     return def(schema, "mutantFinished");
+  }
+
+  private static ObjectNode finished(ObjectNode schema) {
+    return def(schema, "runFinished");
+  }
+
+  /// `run-finished`'s `field` required only of the Java edition, in a branch of its own.
+  private static void onlyInJava(ObjectNode schema, String field) {
+    var required = (ArrayNode) finished(schema).get("required");
+    for (int at = required.size() - 1; at >= 0; at--) {
+      if (required.get(at).asString().equals(field)) {
+        required.remove(at);
+      }
+    }
+    javaAlsoRequires(schema, field);
+  }
+
+  private static void javaAlsoRequires(ObjectNode schema, String field) {
+    var branch = finished(schema).withArray("allOf").addObject();
+    branch.set("if", SchemaCompatibility.JAVA.deepCopy());
+    branch.putObject("then").putArray("required").add(field);
   }
 
   private static ObjectNode fields(ObjectNode schema) {
