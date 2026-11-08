@@ -13,14 +13,15 @@ import tools.jackson.databind.node.ObjectNode;
 /// could count on, and can't now.
 ///
 /// The changes that keep them are a new optional field, a new enum value, a new event (a branch of
-/// the root's `allOf` on a `reason` of its own) and new words (`description`, `title`, `examples`).
-/// Anything else that differs breaks one: a field removed or renamed, a field made required or
-/// optional, a type or a `const` changed, an enum value removed, or a constraint added, changed or
-/// taken away. References (`$ref`) are compared by what they point to, so moving a definition into
-/// `$defs` changes nothing.
+/// the root's `allOf` on a `reason` of its own), new words (`description`, `title`, `examples`) and
+/// a field marked `deprecated`, which a reader is told of and still gets. Anything else that
+/// differs breaks one: a field removed or renamed, a field made required or optional, a type or a
+/// `const` changed, an enum value removed, or a constraint added, changed or taken away. References
+/// (`$ref`) are compared by what they point to, so moving a definition into `$defs` changes
+/// nothing.
 final class SchemaCompatibility {
   private static final Set<String> WORDS =
-      Set.of("description", "title", "examples", "$comment", "default");
+      Set.of("description", "title", "examples", "$comment", "default", "deprecated");
 
   private final JsonNode released;
   private final JsonNode current;

@@ -49,7 +49,10 @@ The same run of the pricing sample, in each:
   Schema](https://docs.mutastic.io/schemas/events/v1.json). Within v1 they only gain fields, events
   and values, never lose or rename one: see [Schemas and stability](/reference/schemas/). Statuses
   follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`, `NoCoverage`,
-  `Ignored`.
+  `Ignored`. A few fields have better names beside the old ones, which go in 1.0.0: `rule` for
+  `rules`, `caughtBy` for `killedBy`, `killed` and the other counts for `Killed` and the rest,
+  and `scope.fileCount` for `scope.files`. See [Deprecated
+  names](/reference/schemas/#deprecated-names).
 - **A mutant's id** comes from its class, method, position and change, not its line number, so it stays the same while code around it moves.
 
 ## Shared cards

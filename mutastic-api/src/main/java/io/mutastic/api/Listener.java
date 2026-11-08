@@ -16,7 +16,8 @@ public interface Listener {
   /// nested in it, in the order found. Comes after their `mutantFinished` calls.
   default void fileFinished(String topLevelClass, List<MutantResult> results) {}
 
-  /// A mutant's result once its catch was found false (`falseCatchBy`): what the other covering
-  /// tests made of it, after every mutant had its first result.
+  /// A mutant's result again, after every mutant had its first result, without a test that turned
+  /// out to fail on its own: for every mutant that test reached, caught or missed, as either result
+  /// may rest on it. It carries `falseCatchBy` when that test was the one that caught it.
   default void mutantRevised(MutantResult result) {}
 }

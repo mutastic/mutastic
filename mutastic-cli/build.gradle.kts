@@ -178,6 +178,8 @@ tasks.register<Test>("exportDocsOutput") {
     systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
     systemProperty("mutastic.docsOutput", docsOutput.absolutePath)
     systemProperty("mutastic.docsOutput.write", "true")
+    // Its JSON Lines run is checked against the events schema, as in the tests.
+    systemProperty("mutastic.schemas", rootDir.resolve("docs/public/schemas").absolutePath)
     outputs.upToDateWhen { false }
 }
 
@@ -194,6 +196,7 @@ tasks.register<Test>("exportCards") {
     systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
     systemProperty("mutastic.cards", cards.absolutePath)
     systemProperty("mutastic.cards.write", "true")
+    systemProperty("mutastic.schemas", rootDir.resolve("docs/public/schemas").absolutePath)
     outputs.upToDateWhen { false }
 }
 

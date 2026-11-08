@@ -1319,7 +1319,7 @@
               "name": "mutantRevised",
               "anchor": "mutantrevised",
               "signature": "default void mutantRevised(MutantResult result)",
-              "doc": "A mutant's result once its catch was found false (`falseCatchBy`): what the other covering\ntests made of it, after every mutant had its first result.",
+              "doc": "A mutant's result again, after every mutant had its first result, without a test that turned\nout to fail on its own: for every mutant that test reached, caught or missed, as either result\nmay rest on it. It carries `falseCatchBy` when that test was the one that caught it.",
               "params": [],
               "returns": "",
               "throws": []
@@ -1492,7 +1492,7 @@
             },
             {
               "name": "failureOrigin",
-              "doc": "where that came from: `assertion` (a check failed), `test` (the test's own code threw) or `code` (the code under test threw)"
+              "doc": "where that came from: `assertion` (a check failed), `test` (the test's own code threw), `code` (the code under test threw) or `unknown` (no frame of the stack trace is in the tests or the code: a framework or the JDK threw)"
             },
             {
               "name": "testsRun",

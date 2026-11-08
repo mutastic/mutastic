@@ -35,7 +35,9 @@ public final class JsonEvents {
   public void runStarted(String project) {
     var fields = new LinkedHashMap<String, Object>();
     fields.put("project", project);
+    // Deprecated for `rule`, removed in 1.0: it was only ever one rule.
     fields.put("rules", MutantCommand.RULE);
+    fields.put("rule", MutantCommand.RULE);
     fields.put("decline", MutantCommand.DECLINE);
     emit("run-started", fields);
   }
@@ -44,8 +46,10 @@ public final class JsonEvents {
     emit("mutant-finished", mutantFields(result));
   }
 
-  /// A mutant's result again, once its catch was found false: what the other covering tests made of
-  /// it, with `falseCatchBy` naming the test. It replaces the mutant's `mutant-finished`.
+  /// A mutant's result again, without a test that turned out to fail on its own: for every mutant
+  /// that test reached, caught or missed, since either result may rest on it. `falseCatchBy` names
+  /// the test only when it was the one that caught the mutant. It replaces the mutant's
+  /// `mutant-finished`.
   public void mutantRevised(MutantResult result) {
     emit("mutant-revised", mutantFields(result));
   }
@@ -110,7 +114,9 @@ public final class JsonEvents {
 
   /// Which test caught it, with what, from where; or whose catch didn't repeat.
   private static void putCatch(Map<String, Object> fields, MutantResult result) {
+    // `killedBy` is deprecated for `caughtBy`, the word `changedSinceLastRun` uses; removed in 1.0.
     result.caughtBy().ifPresent(test -> fields.put("killedBy", test));
+    result.caughtBy().ifPresent(test -> fields.put("caughtBy", test));
     result.failure().ifPresent(failure -> fields.put("killedWith", failure));
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
     result.unconfirmed().ifPresent(test -> fields.put("unconfirmedCatchBy", test));
@@ -157,9 +163,7 @@ public final class JsonEvents {
     var fields = new LinkedHashMap<String, Object>();
     fields.put("jdk", report.jdk());
     fields.put("mutants", report.results().size());
-    for (Status status : Status.values()) {
-      fields.put(status.schemaName(), report.count(status));
-    }
+    putCounts(fields, report);
     putVerdict(fields, report, oneMutant);
     fields.put("tests", report.tests());
     fields.put("flaky", report.flaky());
@@ -190,6 +194,7 @@ public final class JsonEvents {
       fields.put("failure", evidence.failure());
       fields.put("reaches", evidence.reaches());
       fields.put("reachesInTest", evidence.reachesInTest());
+      // A flag: there only when true, as the schema says, so a reader checks for it.
       if (evidence.failsAlone()) {
         fields.put("failsAlone", true);
       }
@@ -199,11 +204,13 @@ public final class JsonEvents {
     return all;
   }
 
+  /// `files` is a count, deprecated for `fileCount`, which says so; removed in 1.0.
   private static Map<String, Object> scopeOf(ChangedLines scope) {
     var found = new LinkedHashMap<String, Object>();
     found.put("since", scope.since());
     found.put("files", scope.files());
     found.put("lines", scope.lineCount());
+    found.put("fileCount", scope.files());
     return found;
   }
 
@@ -250,6 +257,23 @@ public final class JsonEvents {
               return fields;
             })
         .toList();
+  }
+
+  /// How many mutants have each status. The schema's names (`Killed`) are deprecated for keys like
+  /// every other (`killed`), and removed in 1.0.
+  private static void putCounts(Map<String, Object> fields, Report report) {
+    for (Status status : Status.values()) {
+      fields.put(status.schemaName(), report.count(status));
+    }
+    for (Status status : Status.values()) {
+      fields.put(countKey(status), report.count(status));
+    }
+  }
+
+  /// `noCoverage`: a status's count, keyed as every other field is.
+  private static String countKey(Status status) {
+    var name = status.schemaName();
+    return Character.toLowerCase(name.charAt(0)) + name.substring(1);
   }
 
   /// An audit of the arid filters, when the run was one.

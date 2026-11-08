@@ -36,6 +36,9 @@ class SchemaCompatibilityTest {
     assertThat(breaks(schema -> def(schema, "status").put("description", "Other words.")))
         .as("new words")
         .isEmpty();
+    assertThat(breaks(schema -> ((ObjectNode) fields(schema).get("id")).put("deprecated", true)))
+        .as("a field deprecated, and still written")
+        .isEmpty();
   }
 
   @Test

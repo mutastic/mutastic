@@ -56,9 +56,27 @@ So read what you know and let the rest pass: ignore a field you don't know, igno
 failing. Validate against the schema as it's published, which allows fields it doesn't name; don't
 close its objects.
 
-Some fields hold words for people and agents to read: `rendered`, `rules`, `decline`, a mutation's
+Some fields hold words for people and agents to read: `rendered`, `rule`, `decline`, a mutation's
 `description` and the commands offered with a missed mutant. The field stays, but its words can
 change from one release to the next. The order of the fields in an event isn't part of the promise.
+
+## Deprecated names
+
+A few fields have a better name beside them, with the same value. The old names are marked
+`deprecated` in the schema, and go in 1.0.0: read the new ones.
+
+| Deprecated | Read instead | In |
+|---|---|---|
+| `rules` | `rule`: it's one rule | `run-started` |
+| `killedBy` | `caughtBy`, as `changedSinceLastRun` says | `mutant-finished`, `mutant-revised` |
+| `Killed`, `Survived`, `Timeout`, `NoCoverage`, `Ignored` | `killed`, `survived`, `timeout`, `noCoverage`, `ignored`, named like every other field | `run-finished` |
+| `scope.files` | `scope.fileCount`: it's a count | `run-finished` |
+
+A status's value stays as the mutation-testing report schema names it: `"status": "Killed"` isn't
+deprecated, only the counts keyed by those names.
+
+The promises above hold from 1.0.0. Before it, a release that has to break one says so in its
+release notes, as 1.0.0 will for these names.
 
 ## What counts as breaking
 

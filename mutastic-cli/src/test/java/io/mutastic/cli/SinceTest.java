@@ -45,7 +45,8 @@ class SinceTest {
 
     var lines = LINE.matcher(run.out()).results().map(found -> found.group(1)).distinct().toList();
     assertThat(lines).containsExactlyInAnyOrder("18", "5");
-    assertThat(run.out()).contains("\"scope\":{\"since\":\"HEAD\",\"files\":2,\"lines\":8}");
+    assertThat(run.out())
+        .contains("\"scope\":{\"since\":\"HEAD\",\"files\":2,\"lines\":8,\"fileCount\":2}");
   }
 
   @Test

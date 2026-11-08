@@ -137,7 +137,7 @@ final class TestWorker implements AutoCloseable {
 
   /// The outcome of `tests`, run in order until one fails, with `bytes` in place of `className`.
   ///
-  /// @param origin where the failure came from: `assertion`, `test` or `code`
+  /// @param origin where the failure came from: `assertion`, `test`, `code` or `unknown`
   /// @param portClash whether a port in use caused the failure, which with workers side by side can
   ///   be another worker's doing
   record Run(

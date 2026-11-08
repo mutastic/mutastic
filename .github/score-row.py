@@ -23,8 +23,8 @@ def finished(events):
 
 
 def row(event, commit, module):
-    return [datetime.date.today().isoformat(), commit[:7], module, event["mutants"], event["Killed"],
-            event["Survived"], event["Timeout"], event["NoCoverage"], event["Ignored"],
+    return [datetime.date.today().isoformat(), commit[:7], module, event["mutants"], event["killed"],
+            event["survived"], event["timeout"], event["noCoverage"], event["ignored"],
             event["score"], round(event["durationMs"] / 1000)]
 
 

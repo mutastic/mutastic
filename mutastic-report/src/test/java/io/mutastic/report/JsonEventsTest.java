@@ -75,6 +75,7 @@ class JsonEventsTest {
         .containsExactly(
             "{\"schema\":\"mutastic.events/v1\",\"reason\":\"run-started\",\"project\":\"pricing\","
                 + "\"rules\":\"add or change tests only, never production code\","
+                + "\"rule\":\"add or change tests only, never production code\","
                 + "\"decline\":\"%s\"}".formatted(MutantCommand.DECLINE));
   }
 
@@ -107,7 +108,7 @@ class JsonEventsTest {
 
     assertThat(lines().get(0))
         .contains("\"status\":\"Killed\"")
-        .contains("\"killedBy\":\"a.PricingTest#a\"")
+        .contains("\"killedBy\":\"a.PricingTest#a\",\"caughtBy\":\"a.PricingTest#a\"")
         .contains("\"killedWith\":\"org.opentest4j.AssertionFailedError\"")
         .contains("\"failureOrigin\":\"assertion\"")
         .doesNotContain("rendered");
@@ -163,6 +164,7 @@ class JsonEventsTest {
     assertThat(lines().getFirst())
         .contains("\"reason\":\"run-finished\",\"jdk\":17,\"mutants\":2")
         .contains("\"Killed\":1,\"Survived\":1,\"Timeout\":0,\"NoCoverage\":0,\"Ignored\":0")
+        .contains("\"killed\":1,\"survived\":1,\"timeout\":0,\"noCoverage\":0,\"ignored\":0")
         .contains("\"score\":50.0,\"threshold\":80,\"passed\":false,\"coveredScore\":50.0")
         .contains("\"tests\":2,\"flaky\":[\"com.example.PricingTest#f\"]")
         .contains("\"reports\":[\"build/mutastic/mutation.json\"]")
@@ -306,7 +308,7 @@ class JsonEventsTest {
     events.runFinished(scoped);
 
     assertThat(lines().getFirst())
-        .contains("\"scope\":{\"since\":\"main\",\"files\":1,\"lines\":2}");
+        .contains("\"scope\":{\"since\":\"main\",\"files\":1,\"lines\":2,\"fileCount\":1}");
   }
 
   private List<String> lines() {
