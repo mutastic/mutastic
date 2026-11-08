@@ -64,7 +64,10 @@ allprojects {
             val test = sourceSets.find { set ->
                 set.name != "main" && set.output.classesDirs.files.any { it in suiteTask.get().testClassesDirs.files }
             } ?: sourceSets["test"]
-            dependsOn(main.classesTaskName, test.classesTaskName)
+            // Everything on the suite's classpath is built, as the Test task would build it: another
+            // module's jar, on a fresh checkout, as well as this module's classes. The classpath
+            // itself, not a provider mapped from the task, which would run the tests first.
+            dependsOn(main.classesTaskName, test.classesTaskName, suiteTask.get().classpath)
             // Quarkus's plugin hands its Test task a pre-built application model as the task runs,
             // so it isn't among the task's JVM arguments. Without it, every @QuarkusTest asks
             // Gradle for the model again.

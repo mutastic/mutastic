@@ -94,19 +94,27 @@ public abstract class WriteSetup extends DefaultTask {
   @Internal
   public abstract ConfigurableFileCollection getQuarkusModel();
 
-  /// Set up once [#getSuite] is set: it names the test task, whose classes it builds first.
+  /// Set up once [#getSuite] is set: it names the test task, whose classpath it builds first.
   static void configure(WriteSetup task) {
     var project = task.getProject();
     var sourceSets = project.getExtensions().getByType(SourceSetContainer.class);
     var main = sourceSets.getByName(SourceSet.MAIN_SOURCE_SET_NAME);
     var testTask = project.getTasks().withType(Test.class).named(task.getSuite().get(), Test.class);
-    directories(task, project, main, testTask.map(test -> testsOf(sourceSets, test)));
-    task.getClasspath().from(testTask.map(Test::getClasspath));
-    task.getValues().putAll(testTask.map(WriteSetup::values));
-    task.getJvmArgs().set(testTask.map(Test::getAllJvmArgs));
+    // The test task, read without depending on it: a value mapped from its TaskProvider makes
+    // this task depend on the test task, so the tests would run before the setup is written.
+    Provider<Test> suite = project.provider(testTask::get);
+    directories(task, project, main, suite.map(test -> testsOf(sourceSets, test)));
+    task.getClasspath().from(suite.map(Test::getClasspath));
+    task.getValues().putAll(suite.map(WriteSetup::values));
+    task.getJvmArgs().set(suite.map(Test::getAllJvmArgs));
     task.getProjectPath().set(project.getPath());
     quarkus(task, project);
-    task.dependsOn(main.getClassesTaskName(), testTask.map(Test::getTestClassesDirs));
+    // Everything on the test task's classpath is built, as the test task would build it: another
+    // module's jar, on a fresh checkout, as well as this module's classes.
+    task.dependsOn(
+        main.getClassesTaskName(),
+        suite.map(Test::getTestClassesDirs),
+        suite.map(Test::getClasspath));
     task.getSetup().set(project.getLayout().getBuildDirectory().file("mutastic/setup.properties"));
     task.setDescription("Writes what the test task would run the tests with, for mutastic");
     task.doNotTrackState("the test task's settings may change without its inputs changing");

@@ -105,6 +105,43 @@ class GradlePluginTest {
             setup(project.resolve("build/mutastic/suites/integrationTest/setup.properties")));
   }
 
+  /// On a fresh checkout, the setup builds what the suite's classpath names, not only the module's
+  /// classes: with `java-library`, `:app`'s tests run against `:core`'s jar, which compiling `:app`
+  /// never builds. Without it, every test fails before any mutant. Building it doesn't run the Test
+  /// task.
+  @Test
+  void aFreshCheckoutBuildsWhatTheTestsRunWith() throws Exception {
+    var fromCommand = asLibraries(Samples.copy(SAMPLE, work.resolve("command")));
+    var fromPlugin = asLibraries(withPlugin(Samples.copy(SAMPLE, work.resolve("plugin"))));
+
+    var run = Samples.mutastic("run", fromCommand.toString(), ":app", "--report=none");
+    var written = gradlew(fromPlugin, ":app:mutasticWriteSetup");
+
+    assertThat(run.exit()).as(run.err()).isEqualTo(Main.PASSED);
+    assertThat(written.exit()).as(written.out()).isZero();
+    var dependencies =
+        setup(fromPlugin.resolve("app/build/mutastic/setup.properties"))
+            .getProperty("dependencies");
+    assertThat(dependencies).contains("core.jar");
+    for (String dependency : dependencies.split(java.io.File.pathSeparator, -1)) {
+      assertThat(Path.of(dependency)).exists();
+    }
+    // What the tests need is built, but the Test task itself never runs.
+    assertThat(fromCommand.resolve("app/build/test-results")).doesNotExist();
+    assertThat(fromPlugin.resolve("app/build/test-results")).doesNotExist();
+  }
+
+  /// The sample's modules as libraries, as most multi-module builds have them. (Run after
+  /// [#withPlugin], which finds the modules by their `java` plugin.)
+  private static Path asLibraries(Path project) throws IOException {
+    var build = project.resolve("build.gradle.kts");
+    Files.writeString(
+        build,
+        Files.readString(build)
+            .replace("apply(plugin = \"java\")", "apply(plugin = \"java-library\")"));
+    return project;
+  }
+
   /// The suites sample with the plugin applied from the build's repository, and its build file
   /// choosing the `integrationTest` suite.
   private Path suitesWithPlugin() throws IOException {
