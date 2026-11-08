@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.junit.platform.engine.TestExecutionResult;
+import org.junit.platform.engine.support.descriptor.ClassSource;
 import org.junit.platform.engine.support.descriptor.MethodSource;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
 import org.junit.platform.launcher.TagFilter;
@@ -605,20 +606,27 @@ public final class Worker {
 
   /// `com.example.PricingTest#discount(java.nio.file.Path)`, under the name the build gave the
   /// class. Parameter types too: `selectMethod(class, "name")` finds only a no-argument method, so
-  /// a test taking a `@TempDir Path` would select nothing.
+  /// a test taking a `@TempDir Path` would select nothing. A test class, which fails as a whole
+  /// when its setup or teardown does, is `com.example.PricingTest`, which selects it again;
+  /// anything else is the platform's unique id.
   static String id(TestIdentifier test) {
+    var testClass =
+        test.getSource().filter(ClassSource.class::isInstance).map(ClassSource.class::cast);
+    if (test.isContainer() && testClass.isPresent()) {
+      return Renamer.original(testClass.get().getClassName());
+    }
     return Renamer.original(
         test.getSource()
             .filter(MethodSource.class::isInstance)
             .map(MethodSource.class::cast)
             .map(
-                source ->
-                    source.getClassName()
+                method ->
+                    method.getClassName()
                         + "#"
-                        + source.getMethodName()
-                        + (source.getMethodParameterTypes().isEmpty()
+                        + method.getMethodName()
+                        + (method.getMethodParameterTypes().isEmpty()
                             ? ""
-                            : "(" + source.getMethodParameterTypes() + ")"))
+                            : "(" + method.getMethodParameterTypes() + ")"))
             .orElse(test.getUniqueId()));
   }
 

@@ -47,8 +47,12 @@ They have to pass then: a mutant is only caught when a test that passed fails.
 - **A test that fails every time stops the run** with exit status 3: the tests fail without any
   mutant, and nothing can be judged against them. See
   [Troubleshooting](/guides/troubleshooting/).
-- **A test class that fails as a whole,** in a `@BeforeAll` say, can't be run again on its own,
-  so it stops the run too.
+- **A test class that fails as a whole,** in its setup or teardown (a `@BeforeAll`, JUnit 4's or
+  TestNG's `@BeforeClass`, a class rule, a static initialiser), is run again as a class, all its
+  tests with it. If it passes, its setup is flaky: the run goes on without the class and every
+  test in it, and names it (`! flaky: SetupTest as a whole …`), since against any mutant its setup
+  could fail again and look like a catch. If it fails every time, the run stops with exit status
+  3, and the message names the class and says it failed outside its tests.
 
 ### Why it's flaky, and what to do
 

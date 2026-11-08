@@ -229,8 +229,8 @@ public final class AgentText {
       out.append(
           why.filter(FlakyTest::failsAlone).isPresent()
               ? failingAloneLine(why.get())
-              : "flaky: %s failed, then passed when run again; left out of this run, so its catches don't count. %s Never remove, disable or loosen it to get a run through%n"
-                  .formatted(shortName(test), flakyAdvice(test, why)));
+              : "flaky: %s failed, then passed when run again; %s. %s Never remove, disable or loosen it to get a run through%n"
+                  .formatted(whatFailed(test), leftOut(test), flakyAdvice(test, why)));
     }
   }
 
@@ -433,7 +433,22 @@ public final class AgentText {
         "     // check today's value is the one you intend: the test pins what the code does now");
   }
 
-  /// `PricingTest#bigOrders` for `com.example.PricingTest#bigOrders`.
+  /// `PricingTest#bigOrders` for `com.example.PricingTest#bigOrders`. The test that failed, or a
+  /// class that failed as a whole: `FlakySetupTest as a whole (its setup or teardown, outside any
+  /// test)`.
+  static String whatFailed(String test) {
+    return test.contains("#")
+        ? shortName(test)
+        : shortName(test) + " as a whole (its setup or teardown, outside any test)";
+  }
+
+  /// What leaving it out means: for a class, every test in it.
+  static String leftOut(String test) {
+    return test.contains("#")
+        ? "left out of this run, so its catches don't count"
+        : "left out of this run with every test in it, so their catches don't count";
+  }
+
   static String shortName(String test) {
     int hash = test.indexOf('#');
     var className = hash < 0 ? test : test.substring(0, hash);

@@ -154,12 +154,13 @@ final class Coverage {
 
   /// Leaves `tests` out: no mutant runs them.
   void exclude(List<String> tests) {
-    tests.forEach(
-        test -> {
-          durations.remove(test);
-          linesByTest.remove(test);
-          valuesByTest.remove(test);
-        });
+    var classes = tests.stream().filter(TestIds::isClass).toList();
+    java.util.function.Predicate<String> excluded =
+        test ->
+            tests.contains(test) || classes.stream().anyMatch(cls -> TestIds.inClass(test, cls));
+    durations.keySet().removeIf(excluded);
+    linesByTest.keySet().removeIf(excluded);
+    valuesByTest.keySet().removeIf(excluded);
   }
 
   Duration timeOf(String test) {

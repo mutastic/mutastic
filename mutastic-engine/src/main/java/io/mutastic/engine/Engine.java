@@ -78,16 +78,37 @@ public final class Engine {
     /// Not serialised: nothing sends this exception anywhere, it's reported where it's caught.
     private final transient List<String> failing;
 
+    /// @param failures each failing test's exception and its causes, `a.B>c.D`
     /// @param services the JDK services the project provides that the worker can't install: each a
     ///   likely reason tests that pass in the build fail here
-    BaselineFailed(List<String> failing, Path log, List<String> services) {
+    BaselineFailed(
+        List<String> failing, Map<String, String> failures, Path log, List<String> services) {
       super(
           "the tests fail without any mutant: "
-              + String.join(", ", failing)
+              + failing.stream()
+                  .map(test -> test + asAWhole(test, failures))
+                  .collect(Collectors.joining(", "))
               + "; their output is in "
               + log
               + loadedElsewhere(failing, services));
       this.failing = List.copyOf(failing);
+    }
+
+    /// For a class that failed as a whole, where: outside its tests, in what it runs around them.
+    /// It ran again as a class and failed each time, or it would have been left out as flaky.
+    private static String asAWhole(String test, Map<String, String> failures) {
+      if (!TestIds.isClass(test)) {
+        return "";
+      }
+      var with =
+          java.util.Optional.ofNullable(failures.get(test))
+              .map(causes -> causes.split(">", -1)[0])
+              .map(name -> ", with " + name.substring(name.lastIndexOf('.') + 1))
+              .orElse("");
+      return (" (the class as a whole%s, each time it ran: its setup or teardown fails outside any"
+              + " test, such as a `@BeforeAll`, `@AfterAll`, `@BeforeClass`, `@AfterClass`, a class"
+              + " rule or a static initialiser)")
+          .formatted(with);
     }
 
     /// Why tests that pass in the build can fail here, when the project provides a JDK service.
@@ -420,10 +441,8 @@ public final class Engine {
     var coverage = plan.mutantRun().coverage();
     long coverageStart = System.nanoTime();
     var baseline = first.cover(plan.instrumented(), testClasses, coverage);
-    var flaky =
-        baseline.passed()
-            ? List.<String>of()
-            : flakyOrFail(baseline.failing(), coverage, first, project);
+    var reruns = new Reruns(coverage, first, Duration.ofNanos(System.nanoTime() - coverageStart));
+    var flaky = baseline.passed() ? List.<String>of() : flakyOrFail(baseline, reruns, project);
     // Before they're left out: what each flaky test reached is in what the pass recorded.
     var evidence =
         new FlakyEvidence(coverage, plan.mutantRun().models(), project)
@@ -589,42 +608,21 @@ public final class Engine {
             : name.substring(0, dot) + "-" + suffix + name.substring(dot));
   }
 
-  /// How many times a test that failed the coverage pass is run again on its own before it counts
-  /// as failing. One rerun wasn't enough: on spec-tictactoe a test that fails about half the time
-  /// under mutastic failed its single rerun too in 1 run of 10, stopping the run.
-  static final int RERUNS = 3;
-
   /// The tests that failed in the coverage pass, if every one passes when run again on its own
-  /// (within [#RERUNS] tries): they're flaky, and the run goes on without them. A test that fails
-  /// every try means the tests are red, and nothing a mutant does can be judged against them.
+  /// ([Reruns]): they're flaky, and the run goes on without them. A test that fails every try means
+  /// the tests are red, and nothing a mutant does can be judged against them. A class whose setup
+  /// or teardown failed runs again as a class, and if it passes it's flaky with every test in it.
   ///
   /// A flaky test left in would fail at random against mutants too, and its failures would count as
   /// catches it never made.
-  private List<String> flakyOrFail(
-      List<String> failing, Coverage coverage, TestWorker worker, Project project) {
-    // A test class that failed as a whole (a `@BeforeAll`) is reported by its unique id, which
-    // can't be run again on its own.
-    boolean rerunnable = failing.stream().allMatch(test -> test.contains("#"));
-    var stillFailing =
-        rerunnable
-            ? failing.stream()
-                .filter(test -> !passesWithin(RERUNS, test, coverage, worker))
-                .toList()
-            : failing;
+  private List<String> flakyOrFail(TestWorker.Baseline baseline, Reruns reruns, Project project) {
+    var failing = Reruns.withoutTheirClasses(baseline.failing());
+    var stillFailing = failing.stream().filter(test -> !reruns.passesAgain(test)).toList();
     if (!stillFailing.isEmpty()) {
-      throw new BaselineFailed(stillFailing, log, SystemServices.providedBy(project));
+      throw new BaselineFailed(
+          stillFailing, baseline.failures(), log, SystemServices.providedBy(project));
     }
     return failing;
-  }
-
-  private static boolean passesWithin(
-      int tries, String test, Coverage coverage, TestWorker worker) {
-    for (int attempt = 0; attempt < tries; attempt++) {
-      if (worker.passes(test, timeoutFor(coverage.timeOf(test)))) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /// How long tests that took `normal` in the coverage pass may take in a later run.

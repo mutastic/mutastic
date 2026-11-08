@@ -29,6 +29,7 @@ class SystemServicesTest {
     var failed =
         new Engine.BaselineFailed(
             List.of("com.example.LoggingTest#warns", "com.example.LoggingTest#quiet"),
+            java.util.Map.of(),
             Path.of("worker.log"),
             provided);
     assertThat(failed.getMessage())
@@ -41,7 +42,8 @@ class SystemServicesTest {
   void withoutSuchAServiceTheFailureIsTheTests() {
     assertThat(SystemServices.providedBy(withTestResources(project))).isEmpty();
     assertThat(
-            new Engine.BaselineFailed(List.of("a.BTest#c"), Path.of("worker.log"), List.of())
+            new Engine.BaselineFailed(
+                    List.of("a.BTest#c"), java.util.Map.of(), Path.of("worker.log"), List.of())
                 .getMessage())
         .isEqualTo("the tests fail without any mutant: a.BTest#c; their output is in worker.log");
   }

@@ -775,8 +775,12 @@ public final class HumanText {
               AgentText.shortName(test),
               why.get().failedWith().map(" with %s"::formatted).orElse(""));
     }
-    return " %s %s failed, then passed when run again; left out of this run%s"
-        .formatted(style.amber("! flaky:"), AgentText.shortName(test), flakyReason(why));
+    return " %s %s failed, then passed when run again; left out of this run%s%s"
+        .formatted(
+            style.amber("! flaky:"),
+            AgentText.whatFailed(test),
+            test.contains("#") ? "" : " with every test in it",
+            flakyReason(why));
   }
 
   /// `; it failed with HttpTimeoutException, from outside the code`, or what it reaches that

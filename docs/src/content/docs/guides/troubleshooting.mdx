@@ -29,6 +29,11 @@ mutastic runs your tests once before it changes anything. They have to pass firs
 only caught when a test that passed fails. Run the build's own tests and fix what fails. A test
 that passes when run again is reported as flaky, and doesn't stop a run.
 
+When the message names a class "as a whole", its tests never got to fail: what the class runs
+around them did, in a `@BeforeAll`, `@AfterAll`, `@BeforeClass`, a class rule or a static
+initialiser. The exception it failed with, and its output, are in the log the message names. A
+class whose setup passes when run again is left out as flaky instead, with all its tests.
+
 Tests run with a temporary directory of their own, deleted when their worker ends. A test that
 counts on finding something already in `java.io.tmpdir`, such as a file it shares with another
 process or a download cached between runs, won't find it there: name a directory in the test
