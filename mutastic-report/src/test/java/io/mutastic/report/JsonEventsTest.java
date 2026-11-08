@@ -116,6 +116,18 @@ class JsonEventsTest {
         .contains("\"statusReason\":\"arid: only logs\",\"skipKind\":\"arid\"");
   }
 
+  /// A plugin's reason needn't start with a kind: the schema's kinds are all `skipKind` may be.
+  @Test
+  void aSkipReasonWithoutAKnownKindHasNoSkipKind() {
+    events.mutantFinished(result(boundary(0).skippedFor("not worth it"), Status.SKIPPED));
+    events.mutantFinished(result(boundary(1).skippedFor("plugin: its own words"), Status.SKIPPED));
+
+    assertThat(lines().get(0))
+        .contains("\"statusReason\":\"not worth it\"")
+        .doesNotContain("skipKind");
+    assertThat(lines().get(1)).doesNotContain("skipKind");
+  }
+
   @Test
   void inputsAndAnUnconfirmedCatchAreKept() {
     events.mutantFinished(

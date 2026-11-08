@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /// `--format jsonl`: one self-describing JSON object per line, written as each mutant finishes so
@@ -93,10 +94,18 @@ public final class JsonEvents {
     return mutation;
   }
 
-  /// Why it was skipped, and the kind of reason: its first word.
+  /// The kinds `skipKind` may be, as the events schema lists them.
+  private static final Set<String> SKIP_KINDS =
+      Set.of("generated", "equivalent", "unviable", "arid", "user");
+
+  /// Why it was skipped, and the kind of reason, its first word, when that's one of the kinds: a
+  /// plugin's reason may have none, and then `statusReason` says it all.
   private static void putSkipReason(Map<String, Object> fields, String reason) {
     fields.put("statusReason", reason);
-    fields.put("skipKind", reason.substring(0, reason.indexOf(':')));
+    var colon = reason.indexOf(':');
+    if (colon > 0 && SKIP_KINDS.contains(reason.substring(0, colon))) {
+      fields.put("skipKind", reason.substring(0, colon));
+    }
   }
 
   /// Which test caught it, with what, from where; or whose catch didn't repeat.
