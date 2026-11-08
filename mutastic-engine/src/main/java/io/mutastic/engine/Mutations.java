@@ -332,6 +332,8 @@ final class Mutations {
     private final MethodModel method;
     private final List<CodeElement> code;
     private final Set<Instruction> tryWithResources;
+    private final Set<Integer> cleanups;
+    private final Set<Integer> nonNullChecks;
     private final Set<Integer> coroutineMachinery;
     private final Operands operands;
     private final Stores stores;
@@ -363,6 +365,8 @@ final class Mutations {
       this.filtered = filtered;
       this.operators = operators;
       this.tryWithResources = tryWithResources(code);
+      this.cleanups = LombokCode.cleanups(code);
+      this.nonNullChecks = LombokCode.nonNullChecks(model, method, code);
       this.coroutineMachinery = Coroutines.machinery(model, method, code);
       this.operands = method.code().map(Operands::new).orElseThrow();
       this.stores = new Stores(code);
@@ -650,14 +654,7 @@ final class Mutations {
 
     private Mutant mutant(Found found, Instruction instruction, int at, List<String> workedOn) {
       var operator = found.operator();
-      var skipped =
-          tryWithResources.contains(instruction)
-              ? Optional.of("generated: closes a try-with-resources resource")
-              : machinery(operator, at)
-                  .or(found::skippedByOperator)
-                  .or(() -> skipReason(instruction, at))
-                  .or(() -> atTheSite(found, at))
-                  .or(() -> filtered);
+      var skipped = skipped(found, instruction, at);
       return new Mutant(
           model.thisClass().asInternalName(),
           method.methodName().stringValue(),
@@ -671,6 +668,30 @@ final class Mutations {
           skipped,
           List.of(),
           workedOn);
+    }
+
+    /// Why a mutant shouldn't run, if it shouldn't: code the compiler or Lombok wrote, then what
+    /// the code shows, then the filters'.
+    private Optional<String> skipped(Found found, Instruction instruction, int at) {
+      if (tryWithResources.contains(instruction)) {
+        return Optional.of("generated: closes a try-with-resources resource");
+      }
+      if (cleanups.contains(at)) {
+        return Optional.of(LombokCode.CLEANUP);
+      }
+      return machinery(found.operator(), at)
+          .or(found::skippedByOperator)
+          .or(() -> skipReason(instruction, at))
+          .or(() -> atTheSite(found, at))
+          .or(() -> filteredHere(at));
+    }
+
+    /// The filters' reason, but for a `@NonNull` check in a member Lombok wrote: the person asked
+    /// for that check, so being generated doesn't skip it. Their own skip still does.
+    private Optional<String> filteredHere(int at) {
+      return nonNullChecks.contains(at)
+          ? filtered.filter(reason -> !reason.startsWith("generated:"))
+          : filtered;
     }
 
     /// Why a mutant shouldn't run, judged by the code around it: its own and an `||`'s.

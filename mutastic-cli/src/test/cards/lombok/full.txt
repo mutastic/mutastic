@@ -1,0 +1,193 @@
+
+ Missed ────────────────────────────────────────────────────────────
+
+ ❯ src/main/java/com/example/orders/Customer.java  2 missed in 1 method
+
+ [✗ MISSED] no test checks tier() at loyaltyPoints == 1000
+    ┌─ src/main/java/com/example/orders/Customer.java:15
+    │
+ 14 │   public String tier() {
+ 15 │     if (loyaltyPoints >= 1000) {
+    │                       ^^ changed to >
+ 16 │       return "gold";
+    │
+    = mutant  - if (loyaltyPoints >= 1000) {
+              + if (loyaltyPoints > 1000) {
+    = note: covered by CustomerTest#manyPointsMakeGold (its 1 covering test still passes)
+    = help: test tier() with loyaltyPoints = 1000 and assert the result
+
+    done when  mutastic verify m48de65a9 samples/lombok passes
+    reproduce  mutastic run --only=m48de65a9 samples/lombok
+    or ignore  mutastic ignore m48de65a9 --reason="<why>" samples/lombok
+
+ [✗ MISSED] no test needs loyaltyPoints >= 1000 to be false in tier()
+    ┌─ src/main/java/com/example/orders/Customer.java:15
+    │
+ 14 │   public String tier() {
+ 15 │     if (loyaltyPoints >= 1000) {
+    │                       ^^ now always true
+ 16 │       return "gold";
+    │
+    = mutant  - if (loyaltyPoints >= 1000) {
+              + if (true) {
+    = note: covered by CustomerTest#manyPointsMakeGold (its 1 covering test still passes)
+    = help: add a test where loyaltyPoints >= 1000 is false, and assert what tier() does then
+
+    done when  mutastic verify m67e349a9 samples/lombok passes
+    reproduce  mutastic run --only=m67e349a9 samples/lombok
+    or ignore  mutastic ignore m67e349a9 --reason="<why>" samples/lombok
+
+ ❯ src/main/java/com/example/orders/Money.java  1 missed in 1 method
+
+ [✗ MISSED] no test needs currency.equals(other.currency) to be false in plus()
+    ┌─ src/main/java/com/example/orders/Money.java:15
+    │
+ 14 │   public Money plus(Money other) {
+ 15 │     if (!currency.equals(other.currency)) {
+    │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now always true
+ 16 │       throw new IllegalArgumentException(currency + " and " + other.currency);
+    │
+    = mutant  - if (!currency.equals(other.currency)) {
+              + if (!true) {
+    = note: covered by MoneyTest#amountsInOneCurrencyAdd (its 1 covering test still passes)
+    = help: add a test where currency.equals(other.currency) is false, and assert what plus() does then
+
+    done when  mutastic verify mdfdd66e6 samples/lombok passes
+    reproduce  mutastic run --only=mdfdd66e6 samples/lombok
+    or ignore  mutastic ignore mdfdd66e6 --reason="<why>" samples/lombok
+
+ ❯ src/main/java/com/example/orders/Order.java  5 missed in 1 method
+
+ [✗ MISSED] no test checks discounted() at customer.getLoyaltyPoints() == 1000
+    ┌─ src/main/java/com/example/orders/Order.java:33
+    │
+ 32 │     var total = total();
+ 33 │     if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
+    │                                     ^^ changed to >
+ 34 │       return total.withCents(total.getCents() * 9 / 10);
+    │
+    = mutant  - if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
+              + if (customer.getLoyaltyPoints() > 1000 && total.getCents() > 10_000) {
+    = note: covered by OrderTest#goldCustomersGetTenPercentOffBigOrders (its 1 covering test still passes)
+    = help: test discounted() with customer.getLoyaltyPoints() = 1000 and assert the result
+
+    done when  mutastic verify m182ea7a2 samples/lombok passes
+    reproduce  mutastic run --only=m182ea7a2 samples/lombok
+    or ignore  mutastic ignore m182ea7a2 --reason="<why>" samples/lombok
+
+ [✗ MISSED] no test needs customer.getLoyaltyPoints() >= 1000 to be false in discounted()
+    ┌─ src/main/java/com/example/orders/Order.java:33
+    │
+ 32 │     var total = total();
+ 33 │     if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
+    │                                     ^^ now always true
+ 34 │       return total.withCents(total.getCents() * 9 / 10);
+    │
+    = mutant  - if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
+              + if (true && total.getCents() > 10_000) {
+    = note: covered by OrderTest#goldCustomersGetTenPercentOffBigOrders (its 1 covering test still passes)
+    = help: add a test where customer.getLoyaltyPoints() >= 1000 is false, and assert what discounted() does then
+
+    done when  mutastic verify mbdb8919f samples/lombok passes
+    reproduce  mutastic run --only=mbdb8919f samples/lombok
+    or ignore  mutastic ignore mbdb8919f --reason="<why>" samples/lombok
+
+ [✗ MISSED] no test checks discounted() with one of customer.getLoyaltyPoints() >= 1000 and total.getCents() > 10_000 true and the other false
+    ┌─ src/main/java/com/example/orders/Order.java:33
+    │
+ 32 │     var total = total();
+ 33 │     if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
+    │                                             ^^ changed to ||
+ 34 │       return total.withCents(total.getCents() * 9 / 10);
+    │
+    = mutant  - if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
+              + if (customer.getLoyaltyPoints() >= 1000 || total.getCents() > 10_000) {
+    = note: covered by OrderTest#goldCustomersGetTenPercentOffBigOrders (its 1 covering test still passes)
+    = help: add a test where one of customer.getLoyaltyPoints() >= 1000 and total.getCents() > 10_000 is true and the other false, and assert what discounted() does then
+
+    done when  mutastic verify me642a9fd samples/lombok passes
+    reproduce  mutastic run --only=me642a9fd samples/lombok
+    or ignore  mutastic ignore me642a9fd --reason="<why>" samples/lombok
+
+ [✗ MISSED] no test checks discounted() at total.getCents() == 10000
+    ┌─ src/main/java/com/example/orders/Order.java:33
+    │
+ 32 │     var total = total();
+ 33 │     if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
+    │                                                                 ^ changed to >=
+ 34 │       return total.withCents(total.getCents() * 9 / 10);
+    │
+    = mutant  - if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
+              + if (customer.getLoyaltyPoints() >= 1000 && total.getCents() >= 10_000) {
+    = note: covered by OrderTest#goldCustomersGetTenPercentOffBigOrders (its 1 covering test still passes)
+    = help: test discounted() with total.getCents() = 10000 and assert the result
+
+    done when  mutastic verify mbf582574 samples/lombok passes
+    reproduce  mutastic run --only=mbf582574 samples/lombok
+    or ignore  mutastic ignore mbf582574 --reason="<why>" samples/lombok
+
+ [✗ MISSED] no test needs total.getCents() > 10000 to be false in discounted()
+    ┌─ src/main/java/com/example/orders/Order.java:33
+    │
+ 32 │     var total = total();
+ 33 │     if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
+    │                                                                 ^ now always true
+ 34 │       return total.withCents(total.getCents() * 9 / 10);
+    │
+    = note: covered by OrderTest#goldCustomersGetTenPercentOffBigOrders (its 1 covering test still passes)
+    = help: add a test where total.getCents() > 10000 is false, and assert what discounted() does then
+
+    done when  mutastic verify m2051408a samples/lombok passes
+    reproduce  mutastic run --only=m2051408a samples/lombok
+    or ignore  mutastic ignore m2051408a --reason="<why>" samples/lombok
+
+ ❯ src/main/java/com/example/orders/OrderLine.java  1 missed in 1 method
+
+ [✗ MISSED] no test needs giftMessage == null to be true in setGiftMessage()
+    ┌─ src/main/java/com/example/orders/OrderLine.java:15
+    │
+ 14 │   @Getter @Setter private int quantity = 1;
+ 15 │   @Getter @Setter @NonNull private String giftMessage = "";
+    │   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now always false
+ 16 │ 
+    │
+    = note: covered by OrderTest#theTotalAddsEveryLine (its 1 covering test still passes)
+    = help: add a test where giftMessage == null is true, and assert what setGiftMessage() does then
+
+    done when  mutastic verify m845ab3c5 samples/lombok passes
+    reproduce  mutastic run --only=m845ab3c5 samples/lombok
+    or ignore  mutastic ignore m845ab3c5 --reason="<why>" samples/lombok
+
+ ❯ src/main/java/com/example/orders/Receipts.java  1 missed in 1 method
+
+ [✗ MISSED] no test needs order == null to be true in write()
+    ┌─ src/main/java/com/example/orders/Receipts.java:17
+    │
+ 16 │   @SneakyThrows
+ 17 │   public static void write(@NonNull Order order, Path file) {
+    │   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now always false
+ 18 │     @Cleanup Writer out = Files.newBufferedWriter(file);
+    │
+    = note: covered by ReceiptsTest#aReceiptKeepsTheTotal(java.nio.file.Path) (its 1 covering test still passes)
+    = help: add a test where order == null is true, and assert what write() does then
+
+    done when  mutastic verify m147ffecc samples/lombok passes
+    reproduce  mutastic run --only=m147ffecc samples/lombok
+    or ignore  mutastic ignore m147ffecc --reason="<why>" samples/lombok
+
+ Not covered (no test reaches these lines)
+   ○ src/main/java/com/example/orders/Customer.java:18 tier() (4 mutants)
+   ○ src/main/java/com/example/orders/Money.java:26 isZero() (4 mutants)
+   ○ src/main/java/com/example/orders/Order.java:36 discounted() (1 mutant)
+
+   Classes  0 clean | 5 with misses (5)
+   Mutants  ✓ 24 caught · ✗ 10 missed · ○ 9 not covered · 155 skipped (1 arid, 154 generated) (198)
+  Worst at  Order.discounted() 5 ✗ · Customer.tier() 2 ✗ · Money.plus() 1 ✗
+ Test runs  34 (204 without coverage selection)
+  Start at  …
+  Duration  … (setup …, coverage …, mutants …)
+     Tests  6 on JDK 17 · … workers
+     Score  55.8%  = vs last run (same code)  threshold 80  · 70.6% where tests reach
+
+ [FAIL] Score below 80: 10 missed, 9 not covered.
+ Next: mutastic verify <id> samples/lombok · mutastic run --only=<id> samples/lombok · mutastic explain <id> samples/lombok

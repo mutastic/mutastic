@@ -49,7 +49,8 @@ class CardsTest {
         "nested",
         "observable",
         "selection",
-        "testng"
+        "testng",
+        "lombok"
       })
   void everyCardOnTheSample(String sample) throws Exception {
     var project = Samples.copy(SAMPLES.resolve(sample), work.resolve(sample));
