@@ -9,7 +9,6 @@ import java.lang.classfile.ClassFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /// What the Compose compiler writes into a `@Composable`, told from what the person wrote there, on
@@ -20,10 +19,11 @@ import org.junit.jupiter.api.Test;
 class ComposeTest {
   private static final Path KEPT = Path.of("src/test/resources/kotlin/compose");
 
-  private static List<Mutant> mutants;
-
-  @BeforeAll
-  static void findTheMutants() throws IOException {
+  /// The mutants of `operators` in the kept classes. Each test finds its own, with only the
+  /// operators its claim is about: a mutant is run against every test that reaches its line, and a
+  /// `@BeforeAll` that found every operator's would put all five in front of every mutant the
+  /// scanning reaches.
+  private static List<Mutant> mutants(String... operators) throws IOException {
     var context = ClassFile.of();
     var models =
         List.of(
@@ -32,24 +32,20 @@ class ComposeTest {
                 Files.readAllBytes(KEPT.resolve("ComposableSingletons$FocusAppKt.class"))));
     var mutations =
         new Mutations(
-            context, new Policy(List.of(), List.of(), List.of(), List.of("all"), List.of()));
+            context, new Policy(List.of(), List.of(), List.of(), List.of(operators), List.of()));
     mutations.prepare(models);
-    mutants = models.stream().flatMap(model -> mutations.find(model).stream()).toList();
+    return models.stream().flatMap(model -> mutations.find(model).stream()).toList();
   }
 
-  private static List<Mutant> running() {
-    return mutants.stream().filter(mutant -> mutant.skipped().isEmpty()).toList();
-  }
-
-  private static List<Mutant> in(String method) {
-    return mutants.stream().filter(mutant -> mutant.methodName().equals(method)).toList();
+  private static List<Mutant> running(String... operators) throws IOException {
+    return mutants(operators).stream().filter(mutant -> mutant.skipped().isEmpty()).toList();
   }
 
   /// Every call to the runtime's bookkeeping: groups, `remember`'s cache, `changed`, skipping,
   /// trace and source information, the restart scope.
   @Test
-  void noCallToTheComposeRuntimeRuns() {
-    assertThat(running())
+  void noCallToTheComposeRuntimeRuns() throws IOException {
+    assertThat(running("all"))
         .noneMatch(mutant -> mutant.original().contains(" androidx/compose/runtime/Composer."))
         .noneMatch(mutant -> mutant.original().contains(" androidx/compose/runtime/ComposerKt."))
         .noneMatch(mutant -> mutant.original().contains("ScopeUpdateScope."))
@@ -59,10 +55,10 @@ class ComposeTest {
   /// `Summary`'s `when` is the person's; its `$changed` mask and its skipping aren't. In the source
   /// the function starts at line 107 and its `when` is on lines 110 to 113.
   @Test
-  void aComposablesOwnBranchesRunAndItsMasksDont() {
+  void aComposablesOwnBranchesRunAndItsMasksDont() throws IOException {
     var branches =
-        in("Summary").stream()
-            .filter(mutant -> mutant.operator().id().equals("mutastic/remove-conditional"))
+        mutants("mutastic/remove-conditional").stream()
+            .filter(mutant -> mutant.methodName().equals("Summary"))
             .toList();
 
     assertThat(branches)
@@ -78,10 +74,9 @@ class ComposeTest {
   /// A group's key, and the masks and stand-ins a composable call passes, are the compiler's: no
   /// number change runs on a line that's only a call to `Text` or `MaterialTheme`.
   @Test
-  void theKeysMasksAndStandInsAPassedComposableCallTakesDontRun() {
+  void theKeysMasksAndStandInsAPassedComposableCallTakesDontRun() throws IOException {
     var numbers =
-        running().stream()
-            .filter(mutant -> mutant.operator().id().equals("mutastic/constant-value"))
+        running("mutastic/constant-value").stream()
             .filter(
                 mutant ->
                     List.of("FocusApp", "TimerPanel", "TaskRow").contains(mutant.methodName()))
@@ -92,22 +87,18 @@ class ComposeTest {
 
   /// `if (timer.running) "Pause" else "Start"`, in a composable lambda, is the person's.
   @Test
-  void aComposableLambdasOwnCodeRuns() {
-    assertThat(running())
-        .anyMatch(
-            mutant ->
-                mutant.methodName().startsWith("TimerPanel$lambda")
-                    && mutant.operator().id().equals("mutastic/remove-conditional"));
+  void aComposableLambdasOwnCodeRuns() throws IOException {
+    assertThat(running("mutastic/remove-conditional"))
+        .anyMatch(mutant -> mutant.methodName().startsWith("TimerPanel$lambda"));
   }
 
   /// A lambda that returns nothing gives back `Unit`, which nothing reads.
   @Test
-  void theUnitALambdaReturnsIsKotlincs() {
-    assertThat(running())
+  void theUnitALambdaReturnsIsKotlincs() throws IOException {
+    assertThat(running("mutastic/return-value"))
         .noneMatch(
             mutant ->
                 mutant.methodName().contains("$lambda")
-                    && mutant.operator().id().equals("mutastic/return-value")
                     && mutant.replacement().equals("return null"));
   }
 }

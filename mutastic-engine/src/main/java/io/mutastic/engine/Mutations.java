@@ -119,6 +119,10 @@ final class Mutations {
   /// Judges an inline function's own body, by what the tests' classes hold as well as the module's.
   private final InlineBodies inlineBodies = new InlineBodies();
 
+  /// Whether each class read verifies as it is, by identity: asked once per class, not per mutant.
+  private final Map<ClassModel, Boolean> verifiesAsItIs =
+      java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+
   Mutations(ClassFile context) {
     this(context, Policy.NONE);
   }
@@ -232,7 +236,7 @@ final class Mutations {
   /// doesn't verify.
   private Optional<String> whyUnviable(ClassModel model, Mutant mutant) {
     try {
-      var errors = verify(apply(model, mutant));
+      var errors = verify(mutatedForVerifying(model, mutant));
       return errors.isEmpty()
           ? Optional.empty()
           : Optional.of(firstLine(errors.getFirst().getMessage()));
@@ -817,6 +821,29 @@ final class Mutations {
     if (mutant.operator() instanceof ClassMutator mutator) {
       return WholeClasses.apply(model, mutant, mutator);
     }
+    return context.transformClass(model, changing(model, mutant));
+  }
+
+  /// The mutated class, for verifying: with only the mutated method in it, when the class as it is
+  /// verifies. A method's verifying depends on its own code and the class hierarchy, never on the
+  /// other methods, so what it says of the mutant is the same, and verifying a class costs a pass
+  /// over every method in it: for each mutant that's checked, in a class of fifty methods, fifty
+  /// times the work.
+  private byte[] mutatedForVerifying(ClassModel model, Mutant mutant) {
+    if (mutant.operator() instanceof ClassMutator || !verifiesAsItIs(model)) {
+      return apply(model, mutant);
+    }
+    var alone =
+        ClassTransform.dropping(
+            element -> element instanceof MethodModel method && !isMethodOf(mutant, method));
+    return context.transformClass(model, alone.andThen(changing(model, mutant)));
+  }
+
+  private boolean verifiesAsItIs(ClassModel model) {
+    return verifiesAsItIs.computeIfAbsent(model, unchanged -> context.verify(unchanged).isEmpty());
+  }
+
+  private ClassTransform changing(ClassModel model, Mutant mutant) {
     var targets =
         mutant.operator() == BuiltIn.LOGICAL_CONNECTOR
             ? connectorTargets(model, mutant)
@@ -826,9 +853,7 @@ final class Mutations {
             ? handlersChanged(model, mutant)
             : Set.<java.lang.classfile.Label>of();
     var transform = CodeTransform.ofStateful(() -> new MutantTransform(mutant, targets, handlers));
-    return context.transformClass(
-        model,
-        ClassTransform.transformingMethodBodies(method -> isMethodOf(mutant, method), transform));
+    return ClassTransform.transformingMethodBodies(method -> isMethodOf(mutant, method), transform);
   }
 
   /// The handlers that start a dropped `catch` type's sites.
