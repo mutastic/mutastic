@@ -92,6 +92,11 @@ class ReportFilesTest {
   }
 
   @Test
+  void jsonIsAReportTheSchemaAccepts() {
+    assertThat(Schemas.reportProblems(Json.write(files.json(report())))).isEmpty();
+  }
+
+  @Test
   void xmlParsesAndEscapes() throws Exception {
     var xml = files.xml(report());
 

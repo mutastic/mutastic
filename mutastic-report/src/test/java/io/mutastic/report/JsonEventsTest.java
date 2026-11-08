@@ -5,9 +5,12 @@ import static io.mutastic.report.AgentTextTest.report;
 import static io.mutastic.report.AgentTextTest.result;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.api.BuiltIn;
 import io.mutastic.api.ChangedLines;
 import io.mutastic.api.Comparison;
+import io.mutastic.api.FlakyTest;
 import io.mutastic.api.Ignore;
+import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
@@ -22,6 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -55,6 +59,12 @@ class JsonEventsTest {
             new PrintStream(bytes, true, StandardCharsets.UTF_8),
             new SourceView(project, List.of(project.resolve("src/main/java"))),
             80);
+  }
+
+  /// Every event a test here writes is one the published schema describes, field for field.
+  @AfterEach
+  void everyEventIsInTheSchema() {
+    Schemas.checkEvents(bytes.toString(StandardCharsets.UTF_8));
   }
 
   @Test
@@ -158,16 +168,87 @@ class JsonEventsTest {
                 false,
                 true,
                 List.of(
-                    new Comparison.Flip("m1", Status.MISSED, Status.CAUGHT, Optional.of("T#t")),
                     new Comparison.Flip(
-                        "m2", Status.CAUGHT, Status.TIMED_OUT, Optional.empty())))));
+                        "m11111111", Status.MISSED, Status.CAUGHT, Optional.of("T#t")),
+                    new Comparison.Flip(
+                        "m22222222", Status.CAUGHT, Status.TIMED_OUT, Optional.empty())))));
 
     assertThat(lines().getFirst())
         .contains(
             "\"previousScore\":33.3,\"sameCodeAsLastRun\":false,\"sameMutasticAsLastRun\":true")
         .contains(
-            "\"changedSinceLastRun\":[{\"id\":\"m1\",\"before\":\"Survived\",\"after\":\"Killed\","
-                + "\"caughtBy\":\"T#t\"},{\"id\":\"m2\",\"before\":\"Killed\",\"after\":\"Timeout\"}]");
+            "\"changedSinceLastRun\":[{\"id\":\"m11111111\",\"before\":\"Survived\","
+                + "\"after\":\"Killed\",\"caughtBy\":\"T#t\"},"
+                + "{\"id\":\"m22222222\",\"before\":\"Killed\",\"after\":\"Timeout\"}]");
+  }
+
+  /// Everything the last event can say of a run at once: an audit of the arid filters, a flaky
+  /// test's evidence, a catch that didn't repeat, and a test that fails the same way everywhere.
+  @Test
+  void theLastEventSaysEverythingTheRunFoundOut() {
+    var flaky =
+        new FlakyTest(
+                "com.example.PricingTest#f",
+                List.of("java.net.SocketTimeoutException"),
+                List.of("new Random()"),
+                List.of())
+            .failingAlone();
+    var report =
+        new Report(
+            "pricing",
+            17,
+            List.of(
+                thrownByTheTest("now", true),
+                thrownByTheTest("code", false),
+                thrownByTheTest("rate", false)),
+            2,
+            List.of(flaky.test()),
+            Duration.ofMillis(100),
+            1,
+            1,
+            Duration.ofMillis(300),
+            List.of(result(boundary(2), Status.CAUGHT)),
+            Optional.empty(),
+            List.of(),
+            List.of(flaky));
+
+    events.runFinished(report);
+
+    assertThat(lines().getFirst())
+        .contains("\"failsAlone\":true,\"outside\":true")
+        .contains("\"reasons\":[\"catch-not-repeated\"]")
+        .contains("\"unrelatedCatches\":[{\"test\":\"com.example.PricingTest#a\"")
+        .contains("\"aridAudit\":{\"ran\":1,\"caught\":1,\"caughtByAssertion\":1");
+  }
+
+  /// A catch of a mutant in `method` by an exception the test's own code threw.
+  private static MutantResult thrownByTheTest(String method, boolean unconfirmed) {
+    var mutant =
+        new Mutant(
+            "com/example/Pricing",
+            method,
+            "()I",
+            0,
+            5,
+            BuiltIn.BOUNDARY,
+            "IF_ICMPLT",
+            "IF_ICMPLE",
+            Optional.empty(),
+            List.of(),
+            List.of());
+    var test = Optional.of("com.example.PricingTest#a");
+    return new MutantResult(
+        mutant,
+        Status.CAUGHT,
+        List.of(test.get()),
+        test,
+        Optional.of("java.lang.NullPointerException"),
+        Optional.of("test"),
+        1,
+        unconfirmed ? Optional.of("com.example.PricingTest#b") : Optional.empty(),
+        Map.of(),
+        Optional.empty(),
+        Duration.ofMillis(3));
   }
 
   @Test

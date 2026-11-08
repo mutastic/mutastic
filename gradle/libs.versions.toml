@@ -11,6 +11,10 @@ maven = "3.9.9"
 maven-plugin-annotations = "3.15.2"
 # Runs TestNG tests on the JUnit Platform, for a project whose tests are TestNG's.
 testng-engine = "1.1.0"
+# Checks mutastic's output, and the files it reads, against their published JSON Schemas: in tests
+# only. The most used Java validator, with draft 7 (the mutation-testing report schema's), 2020-12
+# (mutastic's own) and YAML input (mutastic.yaml and rules files).
+json-schema-validator = "3.0.9"
 
 [libraries]
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
@@ -22,4 +26,5 @@ archunit = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "arc
 testng-engine = { module = "org.junit.support:testng-engine", version.ref = "testng-engine" }
 maven-core = { module = "org.apache.maven:maven-core", version.ref = "maven" }
 maven-plugin-api = { module = "org.apache.maven:maven-plugin-api", version.ref = "maven" }
+json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
 maven-plugin-annotations = { module = "org.apache.maven.plugin-tools:maven-plugin-annotations", version.ref = "maven-plugin-annotations" }

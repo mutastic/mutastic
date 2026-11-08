@@ -1,6 +1,6 @@
 ---
 title: Compatibility
-description: "What stays the same from one release to the next: mutant ids, scores and the plugin API, and the one way an id can change."
+description: "What stays the same from one release to the next: mutant ids, scores, the plugin API and the events format, and the one way an id can change."
 ---
 
 mutastic's version says what a release may change. From 1.0.0, a release that breaks one of the
@@ -68,6 +68,17 @@ mutastic's own modules, and may change in any release.
 
 mutastic's build holds this too: it compares the API with the last release's, and fails on a
 change that would break a plugin.
+
+## The events format
+
+`--format=jsonl` writes `mutastic.events/v1` events, which CI scripts, editors and agents read.
+Within v1 an event only gains: a new optional field, a new event, a new value a field can take.
+No field is taken away, renamed, given another type, or made required or optional. A change that
+would break a reader comes with a major release, as `mutastic.events/v2`.
+
+mutastic's build holds this as well: it compares the events schema with the last release's, and
+fails on a change that would break a reader. [Schemas and stability](../schemas/) has the schemas,
+for the events, `mutastic.yaml` and rules files, and exactly what counts as breaking.
 
 ## What's experimental
 

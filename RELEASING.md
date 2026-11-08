@@ -72,8 +72,8 @@ version can never be changed or removed.
 ## Each release
 
 1. **Check the promises** ([Compatibility](docs/src/content/docs/reference/compatibility.mdx)).
-   The build already fails on a moved mutant id and on a break in the plugin API; these are left
-   to you:
+   The build already fails on a moved mutant id, a break in the plugin API and a break in the
+   events format; these are left to you:
    - **Scores.** Read the release notes' *Scoring changes*. A patch release (`X.Y.Z+1`) has none:
      anything that moves a score (an operator into or out of the default set, a filter that skips
      more or less) waits for a minor release. A minor release's notes say which scores move, and
@@ -105,8 +105,17 @@ version can never be changed or removed.
    ```sh
    gh workflow run docs.yml --ref main -f release=true
    ```
+   Check the schemas are served at their `$id`s too:
+   [/schemas/events/v1.json](https://docs.mutastic.io/schemas/events/v1.json).
 7. Hold the next release to this one's plugin API: once it's on Central, set `lastRelease` in
    `mutastic-api/build.gradle.kts` to the new version, so `checkApiCompatibility` compares with it.
+8. Hold it to this one's events format too: record the events schema as released, so
+   `SchemaCompatibilityTest` compares with it ([Schemas and
+   stability](docs/src/content/docs/reference/schemas.mdx) says what counts as breaking):
+   ```sh
+   cp docs/public/schemas/events/v1.json mutastic-report/src/test/resources/io/mutastic/report/released/events-v1.json
+   ```
+   Until a release does, a field added since the last one can still change or go.
 
 If validation fails, drop the deployment, fix the cause, delete the GitHub release and its tag, and
 release again. Nothing reached Central, so the version is still free.

@@ -45,7 +45,11 @@ The same run of the pricing sample, in each:
 - **`MUTASTIC_FORMAT`** sets the format when `--format` isn't given. While it runs, each source file gets a line as it finishes, on stderr, with its misses under it.
 - **`--vocabulary=classic`** (or `MUTASTIC_VOCABULARY=classic`) says killed and survived instead of caught and missed. JSON and the report files always use the standard statuses.
 - **Colour** follows the usual rules: only on a terminal, never with `NO_COLOR` or `TERM=dumb`, always with `FORCE_COLOR`. Every colour has a symbol beside it (✓ caught, ✗ missed, ○ not covered, ⏱ timed out), so nothing is lost without it. Labels such as `MISSED` and `PASS` are coloured blocks, `[MISSED]` without colour, and have rounded ends with `MUTASTIC_PILLS=rounded` for terminals with a Nerd Font. `MUTASTIC_PILLS=off` draws no blocks: the label's words in its colour.
-- **`jsonl`** writes `mutastic.events/v1` events. Statuses follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`, `NoCoverage`.
+- **`jsonl`** writes `mutastic.events/v1` events, described field by field by [their JSON
+  Schema](https://docs.mutastic.io/schemas/events/v1.json). Within v1 they only gain fields, events
+  and values, never lose or rename one: see [Schemas and stability](/reference/schemas/). Statuses
+  follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`, `NoCoverage`,
+  `Ignored`.
 - **A mutant's id** comes from its class, method, position and change, not its line number, so it stays the same while code around it moves.
 
 ## Shared cards

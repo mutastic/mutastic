@@ -64,6 +64,17 @@ added to another set:
 `defaults,extended`) and `all` (every operator); see [Choosing
 operators](/concepts/operators/#choosing-operators).
 
+mutastic reads the file strictly, and a line it doesn't understand is an error that names it. [Its
+JSON Schema](https://docs.mutastic.io/schemas/mutastic-yaml/v1.json) says the same, so an editor
+that knows JSON Schema flags a mistake as you type. With the YAML language server, name it on the
+file's first line:
+
+```yaml
+# yaml-language-server: $schema=https://docs.mutastic.io/schemas/mutastic-yaml/v1.json
+```
+
+See [Schemas and stability](/reference/schemas/).
+
 An annotation on the code comes first, then a rule, then mutastic's own filters. A `mutate:` rule, like `@DoMutate`, brings back only what mutastic would call arid, never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
 
 ## Ignoring one mutant

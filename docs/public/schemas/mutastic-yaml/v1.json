@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docs.mutastic.io/schemas/mutastic-yaml/v1.json",
+  "title": "mutastic.yaml, v1",
+  "description": "A project's own say over which mutants run, in `mutastic.yaml` in its directory. mutastic reads it strictly: a key it doesn't know is an error, so this schema refuses one too. See https://docs.mutastic.io/guides/configuration/.",
+  "type": ["object", "null"],
+  "additionalProperties": false,
+  "properties": {
+    "rules": {
+      "type": ["array", "null"],
+      "description": "Code to skip, or to mutate though mutastic would skip it as arid, each with its reason.",
+      "items": { "$ref": "#/$defs/rule" }
+    },
+    "plugins": {
+      "type": ["array", "null"],
+      "description": "Plugins, by their path from the project's directory: a jar of filters and operators, or a rules file (`.yaml` or `.yml`) of call operators.",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "examples": ["build/libs/acme-filters.jar", "tools/bigdecimal.yaml"]
+      }
+    },
+    "filters": {
+      "type": ["array", "null"],
+      "description": "The plugin filters to run, by id: a plugin's filter runs only when it's named here.",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "examples": ["acme:no-metrics"]
+      }
+    },
+    "operators": {
+      "type": ["array", "null"],
+      "description": "Which operators run, as `--operators` chooses, which replaces this for one run: a set (`defaults`, `stronger`, `extended`, `all`), an operator's namespace or id, or one of those after `-` to leave it out.",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "examples": ["defaults", "stronger", "extended", "all", "annotations", "-stream/swap-match"]
+      }
+    }
+  },
+  "$defs": {
+    "pattern": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A class or method: `**` matches any depth, `*` one name, and `Class#method` one method.",
+      "examples": ["com.acme.generated.**", "com.acme.Money#toString"]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Why: shown with each mutant the rule skips."
+    },
+    "rule": {
+      "type": "object",
+      "description": "`skip:` or `mutate:`, then `reason:` under it.",
+      "oneOf": [
+        {
+          "required": ["skip", "reason"],
+          "additionalProperties": false,
+          "properties": {
+            "skip": {
+              "$ref": "#/$defs/pattern",
+              "description": "Skip the mutants in this code. A skipped mutant stays out of the score."
+            },
+            "reason": { "$ref": "#/$defs/reason" }
+          }
+        },
+        {
+          "required": ["mutate", "reason"],
+          "additionalProperties": false,
+          "properties": {
+            "mutate": {
+              "$ref": "#/$defs/pattern",
+              "description": "Mutate what mutastic would skip in this code as arid, such as a `toString()` that's a contract. Never brings back generated or equivalent code."
+            },
+            "reason": { "$ref": "#/$defs/reason" }
+          }
+        }
+      ]
+    }
+  }
+}

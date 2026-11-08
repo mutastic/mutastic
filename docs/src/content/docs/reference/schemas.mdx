@@ -1,0 +1,101 @@
+---
+title: Schemas and stability
+description: "The JSON Schemas for mutastic's events, mutastic.yaml and rules files, and what each version promises."
+---
+
+mutastic publishes a JSON Schema (2020-12) for each format another tool reads or writes:
+
+| Schema | Describes |
+|---|---|
+| [`/schemas/events/v1.json`](https://docs.mutastic.io/schemas/events/v1.json) | The events `--format=jsonl` writes, one per line |
+| [`/schemas/mutastic-yaml/v1.json`](https://docs.mutastic.io/schemas/mutastic-yaml/v1.json) | A project's [`mutastic.yaml`](/guides/configuration/#mutasticyaml) |
+| [`/schemas/rules/v1.json`](https://docs.mutastic.io/schemas/rules/v1.json) | A [rules file](/guides/plugins/#rules-files) of call operators |
+
+Each schema's `$id` is the address it's served at. mutastic's own tests check every event their runs
+write against the events schema, field for field, and every `mutastic.yaml` and rules file they read
+against theirs, so a schema can't drift from what mutastic does.
+
+The report files follow formats of their own: `mutation.json` is the [mutation-testing report
+schema](https://github.com/stryker-mutator/mutation-testing-elements/tree/master/packages/report-schema)'s,
+version 2, and mutastic's tests check it against that schema too. See [Report files](/reference/reports/).
+
+## Events
+
+Each line of `--format=jsonl` is one JSON object. Its `schema` names the format and its major
+version, `mutastic.events/v1`, and its `reason` says which event it is:
+
+| `reason` | When |
+|---|---|
+| `run-started` | First, once the build has been read |
+| `mutant-finished` | For each mutant, as it finishes |
+| `mutant-revised` | Once every mutant has its result, for each mutant a test reached that then failed on its own with no mutant in: its result again, without that test, which replaces the first |
+| `run-finished` | Last: the totals, the score and the verdict |
+
+The schema gives every field, its type, whether every event has it, and the values it can take.
+
+## What v1 promises
+
+This is the events format's part of what stays the same between releases; [Compatibility](../compatibility/)
+has the rest: mutant ids, scores and the plugin API.
+
+While events say `mutastic.events/v1`:
+
+- **A field keeps its name and its type.** A field every event has stays in every event, and a field
+  only some events have stays optional, so a reader that handles it missing keeps working.
+- **A value a field can take stays one it can take:** each status, skip kind and failure origin.
+- **Each event keeps its `reason`.**
+
+Any release may add:
+
+- **A field,** always optional.
+- **An event,** with a `reason` of its own.
+- **A value** a field can take, such as a status or a skip kind.
+
+So read what you know and let the rest pass: ignore a field you don't know, ignore an event whose
+`reason` you don't know, and treat a value you don't know as neither caught nor missed rather than
+failing. Validate against the schema as it's published, which allows fields it doesn't name; don't
+close its objects.
+
+Some fields hold words for people and agents to read: `rendered`, `rules`, `decline`, a mutation's
+`description` and the commands offered with a missed mutant. The field stays, but its words can
+change from one release to the next. The order of the fields in an event isn't part of the promise.
+
+## What counts as breaking
+
+The build compares the events schema with the last release's, and fails when a change:
+
+- removes a field, or renames one, which is the same thing to a reader;
+- makes an optional field required, or a required one optional;
+- changes a field's type, whether narrowing it (a number that's no longer ever null) or widening it
+  (a whole number that can now have a fraction);
+- removes a value from those a field can take;
+- adds, changes or removes a constraint, such as the pattern an id follows;
+- removes an event.
+
+A new optional field, a new value, a new event and new descriptions pass.
+
+## How a version moves to v2
+
+A change that would break a v1 reader comes only with a major release of mutastic, as
+`mutastic.events/v2`, with a schema of its own at `/schemas/events/v2.json`. Every event says which
+version it is in its `schema` field, so a reader can tell before it reads anything else. v1's schema
+stays published at its address.
+
+## mutastic.yaml and rules files
+
+mutastic reads both strictly: a key it doesn't know is an error, so the schemas refuse one too. An
+editor that knows JSON Schema can then flag a mistake before a run does. With the YAML language
+server (VS Code's YAML extension, for one), name the schema in the file's first line:
+
+```yaml
+# yaml-language-server: $schema=https://docs.mutastic.io/schemas/mutastic-yaml/v1.json
+rules:
+  - skip: com.acme.generated.**
+    reason: protobuf output
+```
+
+mutastic reads each value in a rules file as text to the end of its line, where YAML would stop at a
+`: ` or a leading backtick. Quote such a value, as the files mutastic ships do, and both read it the
+same.
+
+Within v1, these formats keep every key mutastic reads, and may gain new ones.

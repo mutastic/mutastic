@@ -111,6 +111,7 @@ export default defineConfig({
             { label: 'Environment and exit codes', link: `${base}reference/environment/` },
             'reference/reports',
             'reference/compatibility',
+            'reference/schemas',
             { label: 'Plugin API', link: `${base}reference/api/` },
           ],
         },

@@ -2,6 +2,7 @@ package io.mutastic.cli;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.report.Schemas;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -180,6 +181,11 @@ class PricingSampleTest {
     assertThat(project.resolve("build/mutastic/mutation.json"))
         .content()
         .startsWith("{\"$schema\":");
+    assertThat(
+            Schemas.reportProblems(
+                Files.readString(project.resolve("build/mutastic/mutation.json"))))
+        .as("mutation.json against the mutation-testing report schema")
+        .isEmpty();
     assertThat(project.resolve("build/mutastic/mutation.html"))
         .content()
         .contains("<mutation-test-report-app");

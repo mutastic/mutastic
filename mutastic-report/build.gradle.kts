@@ -18,9 +18,14 @@ dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj)
+    testImplementation(libs.json.schema.validator)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 tasks.test {
     useJUnitPlatform()
+    // The schemas docs.mutastic.io serves, which every event the tests write is checked against.
+    val schemas = rootDir.resolve("docs/public/schemas")
+    systemProperty("mutastic.schemas", schemas.absolutePath)
+    inputs.dir(schemas).withPathSensitivity(PathSensitivity.RELATIVE)
 }

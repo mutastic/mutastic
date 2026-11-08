@@ -1,6 +1,8 @@
 # This is a Gradle generated file for dependency locking.
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
+com.ethlo.time:itu:1.17.0=testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-annotations:2.21=testCompileClasspath,testRuntimeClasspath
 com.github.ben-manes.caffeine:caffeine:3.0.5=annotationProcessor,testAnnotationProcessor
 com.github.kevinstern:software-and-algorithms:1.0=annotationProcessor,testAnnotationProcessor
 com.google.auto.service:auto-service-annotations:1.0.1=annotationProcessor,testAnnotationProcessor
@@ -19,6 +21,7 @@ com.google.guava:guava:33.7.1-jre=checkstyle
 com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava=annotationProcessor,checkstyle,testAnnotationProcessor
 com.google.j2objc:j2objc-annotations:3.1=annotationProcessor,checkstyle,testAnnotationProcessor
 com.google.protobuf:protobuf-java:4.33.2=annotationProcessor,testAnnotationProcessor
+com.networknt:json-schema-validator:3.0.9=testCompileClasspath,testRuntimeClasspath
 com.puppycrawl.tools:checkstyle:14.3.0=checkstyle
 com.tngtech.archunit:archunit-junit5-api:1.4.1=testCompileClasspath,testRuntimeClasspath
 com.tngtech.archunit:archunit-junit5-engine-api:1.4.1=testRuntimeClasspath
@@ -59,7 +62,12 @@ org.ow2.asm:asm-tree:9.9=jacocoAnt
 org.ow2.asm:asm:9.9=jacocoAnt
 org.pcollections:pcollections:4.0.1=annotationProcessor,testAnnotationProcessor
 org.reflections:reflections:0.10.2=checkstyle
-org.slf4j:slf4j-api:2.0.17=testCompileClasspath,testRuntimeClasspath
+org.slf4j:slf4j-api:2.0.20=testCompileClasspath,testRuntimeClasspath
 org.slf4j:slf4j-simple:2.0.20=checkstyle
+org.snakeyaml:snakeyaml-engine:3.0.1=testCompileClasspath,testRuntimeClasspath
 org.xmlresolver:xmlresolver:5.3.3=checkstyle
+tools.jackson.core:jackson-core:3.1.8=testCompileClasspath,testRuntimeClasspath
+tools.jackson.core:jackson-databind:3.1.8=testCompileClasspath,testRuntimeClasspath
+tools.jackson.dataformat:jackson-dataformat-yaml:3.1.8=testCompileClasspath,testRuntimeClasspath
+tools.jackson:jackson-bom:3.1.8=testCompileClasspath,testRuntimeClasspath
 empty=

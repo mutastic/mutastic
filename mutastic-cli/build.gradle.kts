@@ -9,6 +9,8 @@ description = "The mutastic command, which the build plugins run too."
 
 // Its jar goes in the distribution and its end-to-end tests.
 evaluationDependsOn(":mutastic-plugins")
+// Its tests check output with the report module's schema checks.
+evaluationDependsOn(":mutastic-report")
 
 java {
     toolchain {
@@ -29,6 +31,9 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj)
     testImplementation(libs.archunit)
+    testImplementation(libs.json.schema.validator)
+    // The schema checks the report module's tests use, so both hold output to them the same way.
+    testImplementation(rootProject.project(":mutastic-report").the<SourceSetContainer>()["test"].output)
     // Only so ArchUnit sees the annotations module; the CLI never uses it.
     testRuntimeOnly(project(":mutastic-annotations"))
     testRuntimeOnly(libs.junit.platform.launcher)
@@ -83,6 +88,12 @@ tasks.test {
     val pluginsJar = project(":mutastic-plugins").tasks.named<Jar>("jar").flatMap { it.archiveFile }
     inputs.file(pluginsJar).withPathSensitivity(PathSensitivity.NONE)
     systemProperty("mutastic.pluginsJar", pluginsJar.get().asFile.absolutePath)
+    // Every event a run writes, and every mutastic.yaml and rules file the tests read, is checked
+    // against the schemas docs.mutastic.io serves; mutation.json against the report schema's. The
+    // checks are the report module's (its test classes, Schemas).
+    val schemas = rootDir.resolve("docs/public/schemas")
+    systemProperty("mutastic.schemas", schemas.absolutePath)
+    inputs.dir(schemas).withPathSensitivity(PathSensitivity.RELATIVE)
     // DocsPluginsTest reads the example plugins the docs show.
     inputs.dir(rootDir.resolve("docs/src/data/plugins")).withPathSensitivity(PathSensitivity.RELATIVE)
     // The Maven plugin's test resolves it, and everything it needs, from a repository in the build.
