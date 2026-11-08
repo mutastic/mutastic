@@ -33,7 +33,7 @@ import java.util.stream.Stream;
 /// What's left may still do the same as the class in a way only running it could show: no filter
 /// can rule that out, so the card says so.
 public final class ProposedRewrites implements ClassMutator {
-  private static final String DIRECTORY = ".mutastic/proposed";
+  static final String DIRECTORY = ".mutastic/proposed";
   private static final String EXTENSION = ".java";
 
   private Path proposals = Path.of(DIRECTORY);
@@ -81,13 +81,22 @@ public final class ProposedRewrites implements ClassMutator {
     var changes = new ArrayList<Change>();
     for (Path file : files(directory)) {
       var label = label(file);
-      var judged = compiler.judge(read(file));
+      var judged = judged(compiler, file);
       judged.bytes().ifPresent(compiled -> written.put(label, compiled));
       changes.add(change(judged, label, judged.fingerprint().map(firstWith::get)));
       judged.fingerprint().ifPresent(fingerprint -> firstWith.putIfAbsent(fingerprint, label));
     }
     bytes.put(binaryName, written);
     return changes;
+  }
+
+  /// What a proposal is, or unviable when judging it fails: one proposal never stops a run.
+  private static ProposalCompiler.Judged judged(ProposalCompiler compiler, Path file) {
+    try {
+      return compiler.judge(read(file));
+    } catch (RuntimeException e) {
+      return ProposalCompiler.Judged.unviable("it couldn't be judged: " + e);
+    }
   }
 
   /// The change a proposal is, unless a proposal before it compiled to the same.

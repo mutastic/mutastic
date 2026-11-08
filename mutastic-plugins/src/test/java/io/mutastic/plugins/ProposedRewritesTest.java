@@ -175,7 +175,8 @@ class ProposedRewritesTest {
     propose("nested", SOURCE.replace("return 1;", "return 2;"));
 
     assertThat(only().skipped().orElseThrow())
-        .contains("it changes another class in the file too: fixture/Rates$Nested");
+        .contains("it changes another class in the file too: fixture/Rates$Nested")
+        .contains(".mutastic/proposed/fixture.Rates$Nested/");
   }
 
   @Test
@@ -187,6 +188,41 @@ class ProposedRewritesTest {
     var changes = rewrites.changes(original.model("fixture.Rates$Nested"));
 
     assertThat(changes).singleElement().satisfies(change -> assertThat(change.skipped()).isEmpty());
+  }
+
+  /// Where `?:` joins two of the project's own types, javac's stack map names a type only the
+  /// project's class path knows: comparing methods mustn't need it.
+  @Test
+  void aMethodJoiningTheProjectsOwnTypesCanBeCompared() throws Exception {
+    var joining =
+        SOURCE.replace(
+            "public static class Nested {",
+            """
+            interface Fee {}
+            static final class Flat implements Fee {}
+            static Fee fee(Fee given) {
+              return given != null ? given : new Flat();
+            }
+            public static class Nested {""");
+    Files.writeString(work.resolve("src/fixture/Rates.java"), joining);
+    var compiled = Compiled.of(Map.of("fixture/Rates.java", joining));
+    propose("plus", joining.replace("value * base", "value + base"));
+
+    var changes = rewrites.changes(compiled.model("fixture.Rates"));
+
+    assertThat(changes).singleElement().satisfies(change -> assertThat(change.skipped()).isEmpty());
+  }
+
+  @Test
+  void aProposalThatCantBeJudgedIsUnviableAndTheRestAreStillJudged() throws Exception {
+    propose("plus", SOURCE.replace("value * base", "value + base"));
+    Files.createDirectories(work.resolve(".mutastic/proposed/fixture.Rates/a-folder.java"));
+
+    var changes = rewrites.changes(original.model("fixture.Rates"));
+
+    assertThat(changes.get(0).skipped().orElseThrow())
+        .startsWith("unviable: it couldn't be judged: ");
+    assertThat(changes.get(1).skipped()).isEmpty();
   }
 
   @Test

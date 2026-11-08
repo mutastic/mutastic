@@ -50,10 +50,14 @@ final class ProposalCompiler {
   private static final int OLDEST_RELEASE = 8;
 
   /// What compares two compilations: no line numbers or variable names, and a constant pool of its
-  /// own for each method, in the order the method uses it.
+  /// own for each method, in the order the method uses it. No stack maps either: they follow from
+  /// the code, and making them again needs every type the code joins, which only the project's
+  /// class path knows.
   private static final ClassFile COMPARING =
       ClassFile.of(
-          ClassFile.DebugElementsOption.DROP_DEBUG, ClassFile.LineNumbersOption.DROP_LINE_NUMBERS);
+          ClassFile.DebugElementsOption.DROP_DEBUG,
+          ClassFile.LineNumbersOption.DROP_LINE_NUMBERS,
+          ClassFile.StackMapsOption.DROP_STACK_MAPS);
 
   private static final Pattern LAMBDA = Pattern.compile("lambda\\$(?<enclosing>.+)\\$\\d+");
 
@@ -132,7 +136,9 @@ final class ProposalCompiler {
       if (!each.getKey().equals(name)
           && !normalised(each.getValue())
               .equals(normalised(requireNonNull(proposed.get(each.getKey()))))) {
-        return Judged.unviable("it changes another class in the file too: " + each.getKey());
+        return Judged.unviable(
+            "it changes another class in the file too: %s (a change to it goes in %s/)"
+                .formatted(each.getKey(), proposalsOf(each.getKey())));
       }
     }
     if (!own.containsKey(name)) {
@@ -145,6 +151,11 @@ final class ProposalCompiler {
       return Judged.unviable("its fields or methods aren't the class's");
     }
     return ofChange(before, after, bytes);
+  }
+
+  /// Where a class's proposals go: `.mutastic/proposed/fixture.Rates$Nested`.
+  private static String proposalsOf(String internalName) {
+    return ProposedRewrites.DIRECTORY + "/" + internalName.replace('/', '.');
   }
 
   private static Judged ofChange(ClassModel before, ClassModel after, byte[] bytes) {
