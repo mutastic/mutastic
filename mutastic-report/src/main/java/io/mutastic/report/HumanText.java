@@ -65,8 +65,10 @@ public final class HumanText {
   /// Missed mutants shown as cards; the rest are counted.
   static final int CARDS = 50;
 
-  /// Cards shown for one file, unless `--each-mutant`: Google shows at most seven per file in a
-  /// change, as more than a few at a time are left unread.
+  /// Cards shown for one file, unless `--each-mutant`, as more than a few at a time are left
+  /// unread. Seven is Google's number, used differently: its code review surfaces a budget of seven
+  /// mutants for each file a change touches, across the change and drawn at random (Petrović et
+  /// al., TSE 2021), where this caps each file and ranks what it shows.
   static final int PER_FILE = 7;
 
   private final SourceView sources;
