@@ -17,6 +17,7 @@ import java.util.OptionalDouble;
 /// @param sameCode whether the code and tests are byte for byte what the last run had
 /// @param sameTool whether the same mutastic ran
 /// @param flips mutants caught in one run and not the other
+@Internal
 public record Comparison(
     OptionalDouble previousScore, boolean sameCode, boolean sameTool, List<Flip> flips) {
 

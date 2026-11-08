@@ -22,6 +22,7 @@ import org.jspecify.annotations.Nullable;
 ///   mutants ran
 /// @param flakyEvidence for each of the `flaky` tests the run found out about, what it failed with
 ///   and what it reaches that changes from run to run
+@Internal
 public record Report(
     String project,
     int jdk,

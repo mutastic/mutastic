@@ -15,6 +15,7 @@ import java.util.List;
 /// @param today what the call returns today, as Java source: `10`, `true`, `"text"`, `throws
 ///   java.lang.IllegalStateException`
 /// @param mutated what it returns with the mutant in, the same way, or `doesn't return`
+@Internal
 public record Suggestion(
     String call,
     List<String> parameters,

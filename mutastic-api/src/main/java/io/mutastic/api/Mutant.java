@@ -124,6 +124,7 @@ public record Mutant(
   }
 
   /// The same mutant, skipped for `reason` (`user: …`).
+  @Internal
   public Mutant skippedFor(String reason) {
     return new Mutant(
         className,
@@ -141,6 +142,7 @@ public record Mutant(
   }
 
   /// The same mutant, to run: for an audit of what a filter skips.
+  @Internal
   public Mutant unskipped() {
     return new Mutant(
         className,
@@ -159,6 +161,7 @@ public record Mutant(
 
   /// The same mutant, at where its code really is: `file` when that's another file than its
   /// class's.
+  @Internal
   public Mutant at(int realLine, Optional<String> file) {
     return new Mutant(
         className,
@@ -176,6 +179,7 @@ public record Mutant(
   }
 
   /// Whether the change is made at `site` (counted in this mutant's kind of site).
+  @Internal
   public boolean changes(int site) {
     return site == ordinal || copies.contains(site);
   }

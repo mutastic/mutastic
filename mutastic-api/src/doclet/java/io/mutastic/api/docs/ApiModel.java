@@ -367,6 +367,8 @@ public final class ApiModel implements Doclet {
 
   /// Signatures as the source would write them, package names left out.
   static final class Signatures {
+    private static final String INTERNAL = "io.mutastic.api.Internal";
+
     private Signatures() {}
 
     static String simple(String type) {
@@ -453,9 +455,20 @@ public final class ApiModel implements Doclet {
           || element.getKind().isInterface();
     }
 
+    /// What a reader needs first: `@Internal`, as what it marks isn't for plugins.
+    private static List<String> modifiers(Element element) {
+      var words = new ArrayList<String>();
+      if (element.getAnnotationMirrors().stream()
+          .anyMatch(mirror -> mirror.getAnnotationType().toString().equals(INTERNAL))) {
+        words.add("@Internal");
+      }
+      words.addAll(keywords(element));
+      return words;
+    }
+
     /// The modifiers a reader needs: `static`, `default`, `abstract` on a class, `sealed`; not
     /// `public`, which every documented element is.
-    private static List<String> modifiers(Element element) {
+    private static List<String> keywords(Element element) {
       boolean inInterface =
           element.getEnclosingElement() != null
               && element.getEnclosingElement().getKind().isInterface();

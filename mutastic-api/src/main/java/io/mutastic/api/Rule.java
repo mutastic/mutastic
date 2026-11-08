@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 /// @param mutate `mutate:`, else `skip:`
 /// @param target a class or method pattern: `com.acme.generated.**` (any depth), `*` (one name),
 ///   `com.acme.Money#toString` (one method)
+@Internal
 public record Rule(boolean mutate, String target, String reason) {
   /// Whether the rule covers method `method` of class `className` (`com.acme.Money`).
   public boolean covers(String className, String method) {

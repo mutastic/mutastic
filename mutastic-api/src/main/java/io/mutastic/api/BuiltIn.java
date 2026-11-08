@@ -2,7 +2,10 @@ package io.mutastic.api;
 
 import java.util.Locale;
 
-/// mutastic's own operators. How each finds its sites and rewrites them is the engine's.
+/// mutastic's own operators. How each finds its sites and rewrites them is the engine's. Internal,
+/// as operators join and leave mutastic's own set in minor releases, with their scoring changes: a
+/// plugin names an operator by its [#id], as rules and `--operators` do.
+@Internal
 public enum BuiltIn implements Operator {
   BOUNDARY(
       "`<` becomes `<=` and the other way round: the off-by-one at the edge of a range, which tests"

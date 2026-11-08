@@ -19,6 +19,7 @@ import java.util.Optional;
 /// @param falseCatchBy a test that failed against the mutant, then failed on the unmutated code too
 ///   when run again after the mutants, so its catch wasn't the mutant's: the mutant ran again
 ///   without it, and this result is what the other covering tests made of it
+@Internal
 public record MutantResult(
     Mutant mutant,
     Status status,

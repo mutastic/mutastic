@@ -12,6 +12,7 @@ import java.util.List;
 /// @param flaky tests left out because they failed and then passed
 /// @param flakyEvidence for each flaky test, what it failed with and what it reaches that changes
 ///   from run to run
+@Internal
 public record CoveragePass(
     int jdk,
     int tests,

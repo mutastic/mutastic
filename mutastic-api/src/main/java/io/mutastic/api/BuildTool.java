@@ -5,6 +5,7 @@ import java.util.List;
 
 /// A build tool mutastic reads a project's setup from, found with [java.util.ServiceLoader]: each
 /// is asked in turn whether a directory is one of its builds.
+@Internal
 public interface BuildTool {
   /// `Gradle`: how messages name it.
   String name();

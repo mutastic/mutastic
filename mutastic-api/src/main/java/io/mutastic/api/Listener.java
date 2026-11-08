@@ -4,6 +4,7 @@ import java.util.List;
 
 /// Hears about a run as it happens, for progress and streamed output.
 @FunctionalInterface
+@Internal
 public interface Listener {
   /// The coverage pass is done, and the mutants are about to run.
   default void coverageFinished(CoveragePass pass) {}

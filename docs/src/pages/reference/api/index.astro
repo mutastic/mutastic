@@ -32,7 +32,7 @@ for (const pkg of packages) {
   frontmatter={{
     title: 'Plugin API',
     description:
-      "The types a plugin is written against: operators, filters, build tools and the results they see, with the annotations a project puts in its code.",
+      "The types a plugin is written against: operators and filters, and what they see, with the annotations a project puts in its code.",
   }}
   headings={headings}
 >
@@ -40,6 +40,13 @@ for (const pkg of packages) {
     A <a href="../../guides/plugins/">plugin</a> is a jar built against these types. Depend on
     them for compiling only: mutastic provides them when it loads the plugin. This reference is
     written from the API's own doc comments.
+  </p>
+  <p>
+    A plugin implements <a href="mutator/"><code>Mutator</code></a>,{' '}
+    <a href="classmutator/"><code>ClassMutator</code></a> or <a href="filter/"><code>Filter</code></a>.
+    What's marked <a href="internal/"><code>@Internal</code></a> is public only for mutastic's own
+    modules, and may change in any release. <a href="../compatibility/">Compatibility</a> says what
+    stays the same from one release to the next.
   </p>
   {
     packages.map((pkg) => (

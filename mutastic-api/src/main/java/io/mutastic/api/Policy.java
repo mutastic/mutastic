@@ -12,6 +12,7 @@ import java.util.List;
 ///   namespaces (`stream`), any with a `-` in front to leave it out; none means `defaults`
 /// @param mutators the operators the project's plugins and rules files add
 /// @param classMutators the operators the project's plugins add that change a class as a whole
+@Internal
 public record Policy(
     List<Rule> rules,
     List<Filter> filters,

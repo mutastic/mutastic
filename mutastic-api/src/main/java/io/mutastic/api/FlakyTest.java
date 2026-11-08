@@ -18,6 +18,7 @@ import java.util.List;
 /// @param failsAlone it passed among the others, caught mutants, and failed on its own with no
 ///   mutant in when run again after them: it counts on something another test or the run sets up or
 ///   leaves behind, so its catches say nothing about a mutant, and the run doesn't pass
+@Internal
 public record FlakyTest(
     String test,
     List<String> failure,

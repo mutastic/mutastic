@@ -42,6 +42,7 @@ public record Project(
     Map<String, String> environment) {
 
   /// The same project, its tests chosen by `chosen`.
+  @Internal
   public Project withTests(TestSelection chosen) {
     return new Project(
         name,
@@ -67,6 +68,7 @@ public record Project(
   ///
   /// So is any other module of the `build` on its classpath, as one may use this module's classes:
   /// loaded as a library, it would find none of them. A third-party library is outside the build.
+  @Internal
   public Project runningTestsOf(Project runner, Path build) {
     var mine = new java.util.HashSet<>(outputs);
     var root = build.toAbsolutePath().normalize();

@@ -72,3 +72,39 @@ val checkApiModel by tasks.registering {
 tasks.check {
     dependsOn(checkApiModel)
 }
+
+// The plugin API is a promise: a plugin built against the last release still builds and runs
+// against this one. A checker, in a source set of its own that ships nowhere, compares the class
+// files with the last release's jar, from Maven Central, for the types a plugin implements and
+// every type their signatures reach. Bump `lastRelease` once a release is on Central (RELEASING.md).
+val lastRelease = "0.5.0"
+val compat by sourceSets.creating
+val apiBaseline by configurations.creating {
+    description = "The last release's mutastic-api jar, which this one must stay compatible with."
+    isCanBeConsumed = false
+    isTransitive = false
+}
+dependencies {
+    apiBaseline("io.mutastic:mutastic-api:$lastRelease")
+}
+val checkApiCompatibility by tasks.registering(JavaExec::class) {
+    description = "Fails when the plugin API breaks what a plugin built against $lastRelease relies on."
+    classpath = compat.runtimeClasspath
+    mainClass = "io.mutastic.api.compat.ApiCompatibility"
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
+    val classes =
+        sourceSets.main
+            .get()
+            .output.classesDirs
+    inputs.files(apiBaseline, classes)
+    val marker = layout.buildDirectory.file("compat/checked")
+    outputs.file(marker)
+    argumentProviders.add {
+        listOf(apiBaseline.singleFile.absolutePath, classes.singleFile.absolutePath) +
+            listOf("Mutator", "ClassMutator").map { "io/mutastic/api/$it" }
+    }
+    doLast { marker.get().asFile.writeText("compatible with $lastRelease\n") }
+}
+tasks.check {
+    dependsOn(checkApiCompatibility)
+}

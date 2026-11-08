@@ -9,6 +9,7 @@ import java.util.Set;
 ///
 /// @param since what the change is measured from, as given: `main`, `HEAD`
 /// @param lines each changed source file, absolute, and its changed lines, from 1
+@Internal
 public record ChangedLines(String since, Map<Path, Set<Integer>> lines) {
   public ChangedLines {
     lines = Map.copyOf(lines);

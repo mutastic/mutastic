@@ -22,6 +22,7 @@ import java.util.Properties;
 /// `testExcludes` (one class-file pattern per line, see [TestSelection]), `includeTags` and
 /// `excludeTags` (one per line). `environment`: one `NAME=value` per line. Keys a build doesn't set
 /// are empty.
+@Internal
 public final class ProjectSetup {
   private ProjectSetup() {}
 

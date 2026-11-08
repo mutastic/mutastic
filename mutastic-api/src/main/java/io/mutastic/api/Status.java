@@ -2,6 +2,7 @@ package io.mutastic.api;
 
 /// What happened to a mutant. Reports say "caught" and "missed"; the JSONL stream uses the
 /// mutation-testing report schema's names, so it folds into tools that read that schema.
+@Internal
 public enum Status {
   /// A test failed with the mutant in.
   CAUGHT("Killed"),
