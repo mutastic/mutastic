@@ -417,6 +417,16 @@
             },
             {
               "kind": "enum constant",
+              "name": "BITWISE",
+              "anchor": "bitwise",
+              "signature": "BITWISE",
+              "doc": "In `stronger`, as the Rust edition has it: `&`, `|` and `^` each to the other two, and the\nshifts. `~x` (javac's `x ^ -1`) isn't changed, and `&=` and `|=` never become `^=`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
               "name": "KEEP_OPERAND",
               "anchor": "keep_operand",
               "signature": "KEEP_OPERAND",

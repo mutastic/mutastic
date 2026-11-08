@@ -16,6 +16,8 @@ class ArithmeticTruthTest {
   private final ClaimFixture others =
       new ClaimFixture(
           "arithmetic/OtherArithmetic.java", "mutastic/other-arithmetic", Inputs.NUMBERS);
+  private final ClaimFixture bitwise =
+      new ClaimFixture("arithmetic/Bitwise.java", "mutastic/bitwise", Inputs.NUMBERS);
   private final ClaimFixture kept =
       new ClaimFixture("arithmetic/KeptOperands.java", "mutastic/keep-operand", Inputs.NUMBERS);
   private final ClaimFixture constants =
@@ -151,6 +153,41 @@ class ArithmeticTruthTest {
           .isEqualTo("`%s` becomes `%s`".formatted(before, after));
       assertThat(advice.headline()).contains("`%s` becomes `%s`".formatted(before, after));
     }
+  }
+
+  @Test
+  void aBitwiseOperatorBecomesTheOneItsCardNames() throws Exception {
+    assertThat(bitwise.running()).as("the cards checked").hasSizeGreaterThan(16);
+    assertThat(bitwise.claimsThatLie()).isEmpty();
+    var sources = sources();
+    var symbols =
+        java.util.Map.of(
+            "AND", "&", "OR", "|", "XOR", "^", "SHL", "<<", "SHR", ">>", "USHR", ">>>");
+    for (var mutant : bitwise.running()) {
+      var before = symbols.get(mutant.original().substring(1));
+      var after = symbols.get(mutant.replacement().substring(1));
+      var advice = sources.advice(mutant);
+      assertThat(advice.change())
+          .as(ClaimFixture.describe(mutant))
+          .isEqualTo("`%s` becomes `%s`".formatted(before, after));
+    }
+  }
+
+  /// As in the Rust edition: setting or clearing bits never becomes flipping them, and `~` isn't
+  /// changed, as javac's `x ^ -1` is no `^` the person wrote.
+  @Test
+  void aBitwiseOperatorBecomesWhatRustsDoes() {
+    assertThat(bitwise.changesIn("anAnd")).containsExactly("IOR", "IXOR");
+    assertThat(bitwise.changesIn("aXor")).containsExactly("IAND", "IOR");
+    assertThat(bitwise.changesIn("aRightShift")).containsExactly("ISHL", "IUSHR");
+    assertThat(bitwise.changesIn("anUnsignedShift")).containsExactly("ISHR");
+    assertThat(bitwise.changesIn("aLongAnd")).containsExactly("LOR", "LXOR");
+    assertThat(bitwise.changesIn("setsBits")).containsExactly("IAND");
+    assertThat(bitwise.changesIn("clearsBits")).containsExactly("IOR");
+    assertThat(bitwise.changesIn("aFieldsBits")).containsExactly("IAND");
+    assertThat(bitwise.mutants())
+        .extracting(ClaimFixture::sourceMethod)
+        .doesNotContain("aNot", "aLongNot");
   }
 
   @Test

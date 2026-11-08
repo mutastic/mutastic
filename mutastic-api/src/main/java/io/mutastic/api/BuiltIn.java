@@ -122,6 +122,14 @@ public enum BuiltIn implements Operator {
           + " two give the same answer, or don't check the result.",
       Tier.STRONGER),
 
+  /// In `stronger`, as the Rust edition has it: `&`, `|` and `^` each to the other two, and the
+  /// shifts. `~x` (javac's `x ^ -1`) isn't changed, and `&=` and `|=` never become `^=`.
+  BITWISE(
+      "A bitwise operator becomes another: `&`, `|` and `^` each become the other two, `<<` and"
+          + " `>>` swap, and so do `>>` and `>>>`, on `int`, `long` and `boolean`. It goes"
+          + " unnoticed when tests only use values whose bits give the same answer either way.",
+      Tier.STRONGER),
+
   /// A calculation down to one of its operands. Both are still worked out, so a call in the other
   /// still runs. A constant beside a variable isn't what's kept: nothing plausibly forgets it.
   KEEP_OPERAND(

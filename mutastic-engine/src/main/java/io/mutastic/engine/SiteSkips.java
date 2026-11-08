@@ -50,6 +50,7 @@ final class SiteSkips {
           BuiltIn.MATH,
           BuiltIn.ARITHMETIC_REPLACEMENT,
           BuiltIn.OTHER_ARITHMETIC,
+          BuiltIn.BITWISE,
           BuiltIn.KEEP_OPERAND,
           BuiltIn.REMOVE_NEGATION,
           BuiltIn.CONSTANT_VALUE);

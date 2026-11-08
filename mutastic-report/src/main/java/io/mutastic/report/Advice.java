@@ -56,7 +56,18 @@ public record Advice(
           "NONNULL", "!=");
 
   private static final Map<String, String> ARITHMETIC =
-      Map.of("ADD", "+", "SUB", "-", "MUL", "*", "DIV", "/", "REM", "%");
+      Map.ofEntries(
+          Map.entry("ADD", "+"),
+          Map.entry("SUB", "-"),
+          Map.entry("MUL", "*"),
+          Map.entry("DIV", "/"),
+          Map.entry("REM", "%"),
+          Map.entry("AND", "&"),
+          Map.entry("OR", "|"),
+          Map.entry("XOR", "^"),
+          Map.entry("SHL", "<<"),
+          Map.entry("SHR", ">>"),
+          Map.entry("USHR", ">>>"));
 
   private static final Pattern NUMBER = Pattern.compile("-?\\d+");
 
@@ -86,7 +97,7 @@ public record Advice(
       BuiltIn builtIn, Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
     return switch (builtIn) {
       case BOUNDARY, COMPARISON, OTHER_COMPARISON -> comparison(mutant, seen, asWritten);
-      case MATH, ARITHMETIC_REPLACEMENT, OTHER_ARITHMETIC -> math(mutant, seen);
+      case MATH, ARITHMETIC_REPLACEMENT, OTHER_ARITHMETIC, BITWISE -> math(mutant, seen);
       case KEEP_OPERAND -> keptOperand(mutant, seen);
       case RETURN_VALUE -> returnValue(mutant, seen);
       case REMOVE_VOID_CALL, REMOVE_DISCARDED_CALL -> removeVoidCall(mutant, seen);

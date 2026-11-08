@@ -564,6 +564,11 @@ final class Mutations {
             found.add(new Found(builtIn, ordinal, label, Optional.empty()));
           }
         }
+        case BITWISE -> {
+          for (String label : Bitwise.changes(code, at)) {
+            found.add(new Found(builtIn, ordinal, label, Optional.empty()));
+          }
+        }
         default -> wholeCodeChanges(builtIn, instruction, at, found);
       }
     }

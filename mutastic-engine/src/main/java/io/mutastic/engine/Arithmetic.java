@@ -99,7 +99,7 @@ final class Arithmetic {
     var operator = (BuiltIn) mutant.operator();
     switch (operator) {
       case REMOVE_NEGATION -> {} // the value just stays as it is
-      case OTHER_ARITHMETIC ->
+      case OTHER_ARITHMETIC, BITWISE ->
           builder.with(OperatorInstruction.of(Opcode.valueOf(mutant.replacement())));
       case KEEP_OPERAND -> keep(builder, arithmetic, mutant.replacement());
       default ->
