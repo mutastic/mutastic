@@ -52,8 +52,10 @@ jobs:
             25
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - run: ./gradlew :mutastic-cli:installDist
-      # Last night's run record of this share, so tonight's says what changed since.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # Last night's run record of this share, so tonight's says what changed since. Restored and
+      # saved apart, so a night whose share fails still keeps its record (the combined cache action
+      # saves only when the job succeeds).
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             build/mutastic/${{ matrix.module }}/last-run.tsv
@@ -65,6 +67,14 @@ jobs:
         run: |
           mutastic-cli/build/install/mutastic/bin/mutastic run ":${{ matrix.module }}" \
             --threshold=0 --shard=${{ matrix.share }}/${{ matrix.of }} ${{ matrix.args }}
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: always()
+        with:
+          path: |
+            build/mutastic/${{ matrix.module }}/last-run.tsv
+            build/mutastic/${{ matrix.module }}/last-runs/*.tsv
+            build/mutastic/${{ matrix.module }}/shares/
+          key: mutastic-share-${{ matrix.module }}-${{ matrix.share }}-of-${{ matrix.of }}-${{ github.run_id }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -101,7 +111,8 @@ jobs:
           pattern: share-mutastic-api-*
           path: shares/mutastic-api
       # The last whole runs' records, which tonight's compare with, and the score history so far.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # Restored and saved apart, so a night that fails a floor still keeps its record and its row.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             build/mutastic/*/last-run.tsv
@@ -130,6 +141,14 @@ jobs:
             .github/score-row.py "$name.jsonl" score-history.tsv "$GITHUB_SHA" "$name" > summary.md
           done
           cat summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: always()
+        with:
+          path: |
+            build/mutastic/*/last-run.tsv
+            build/mutastic/*/last-runs/*.tsv
+            score-history.tsv
+          key: mutastic-nightly-${{ github.run_id }}
       # A share that failed or didn't finish fails the Nightly, whatever the floors say.
       - name: Every share finished
         if: always()
