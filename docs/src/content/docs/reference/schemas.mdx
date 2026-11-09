@@ -3,26 +3,26 @@ title: Schemas and stability
 description: "The JSON Schemas for mutastic's events, mutastic.yaml and rules files, and what each version promises."
 ---
 
-mutastic publishes a JSON Schema (2020-12) for each format another tool reads or writes:
+import { Code } from '@astrojs/starlight/components';
+import jsonl from '../../../data/output/format-jsonl.ansi?raw';
+import missed from '../../../data/output/event-missed.json?raw';
 
-| Schema | Describes |
-|---|---|
-| [`/schemas/events/v1.json`](https://docs.mutastic.io/schemas/events/v1.json) | The events `--format=jsonl` writes, one per line |
-| [`/schemas/mutastic-yaml/v1.json`](https://docs.mutastic.io/schemas/mutastic-yaml/v1.json) | A project's [`mutastic.yaml`](/guides/configuration/#mutasticyaml) |
-| [`/schemas/rules/v1.json`](https://docs.mutastic.io/schemas/rules/v1.json) | A [rules file](/guides/plugins/#rules-files) of call operators |
-
-Each schema's `$id` is the address it's served at. mutastic's own tests check every event their runs
-write against the events schema, field for field, and every `mutastic.yaml` and rules file they read
-against theirs, so a schema can't drift from what mutastic does.
-
-The report files follow formats of their own: `mutation.json` is the [mutation-testing report
-schema](https://github.com/stryker-mutator/mutation-testing-elements/tree/master/packages/report-schema)'s,
-version 2, and mutastic's tests check it against that schema too. See [Report files](/reference/reports/).
+A CI step that fails the build, a dashboard, a coding agent's plugin: each reads what mutastic
+found, and each breaks if what it reads moves under it. So what mutastic writes for another tool
+comes with a JSON Schema and a promise. Within a version, a field keeps its name and its type, and
+anything new is optional, so a reader that takes what it knows and lets the rest pass keeps
+working, release after release.
 
 ## Events
 
-Each line of `--format=jsonl` is one JSON object. Its `schema` names the format and its major
-version, `mutastic.events/v1`, and its `reason` says which event it is:
+`--format=jsonl` writes one JSON object per line, as the run goes, so a reader can act on each
+mutant as it finishes. This is the [Quickstart](/getting-started/quickstart/)'s run of the pricing
+sample, as `mutastic run samples/pricing --format=jsonl` writes it:
+
+<Code code={jsonl} lang="ansi" />
+
+Each line says which format it is, and its major version, in `schema`: `mutastic.events/v1`. Its
+`reason` says which event it is:
 
 | `reason` | When |
 |---|---|
@@ -31,7 +31,28 @@ version, `mutastic.events/v1`, and its `reason` says which event it is:
 | `mutant-revised` | Once every mutant has its result, for each mutant a test reached that then failed on its own with no mutant in: its result again, without that test, which replaces the first |
 | `run-finished` | Last: the totals, the score and the verdict |
 
-The schema gives every field, its type, whether every event has it, and the values it can take.
+### A missed mutant
+
+The one mutant the tests missed, laid out:
+
+<Code code={missed} lang="json" />
+
+- **`status`** is what became of it, named as the mutation-testing report schema names it:
+  `Survived` is missed, `Killed` caught.
+- **`id`** names it to `verify`, `explain` and `ignore`, and stays the same while code around it
+  moves. **`location`** is where it is: the file and line, the class, and the method with its JVM
+  descriptor.
+- **`mutation`** is the change: in words in `description`, and in `applied` as the engine made it,
+  here to the compiled instruction.
+- **`coveredBy`** and **`inputs`** are the evidence: the tests that reach the line, which all still
+  pass with the change in, and the values they passed.
+- **`suggestedTest`** is the test that would catch it, with what the call gives today and with the
+  mutant in.
+- **`doneWhen`** is the command that proves a fix, and **`rendered`** the whole miss in the agent
+  format's words, for a coding agent to read as it is.
+
+[The schema](https://docs.mutastic.io/schemas/events/v1.json) gives every field, its type, whether
+every event has it, and the values it can take.
 
 ## Editions
 
@@ -61,6 +82,24 @@ The Rust edition writes some fields of its own, each marked as such in the schem
 In the Rust edition, `location.class` is the path of what holds the function and `location.method`
 is the function's name, where the Java edition has a class's binary name and a method's name and
 JVM descriptor.
+
+## The schemas
+
+mutastic publishes a JSON Schema (2020-12) for each format another tool reads or writes:
+
+| Schema | Describes |
+|---|---|
+| [`/schemas/events/v1.json`](https://docs.mutastic.io/schemas/events/v1.json) | The events `--format=jsonl` writes, one per line |
+| [`/schemas/mutastic-yaml/v1.json`](https://docs.mutastic.io/schemas/mutastic-yaml/v1.json) | A project's [`mutastic.yaml`](/guides/configuration/#mutasticyaml) |
+| [`/schemas/rules/v1.json`](https://docs.mutastic.io/schemas/rules/v1.json) | A [rules file](/guides/plugins/#rules-files) of call operators |
+
+Each schema's `$id` is the address it's served at. mutastic's own tests check every event their runs
+write against the events schema, field for field, and every `mutastic.yaml` and rules file they read
+against theirs, so a schema can't drift from what mutastic does.
+
+The report files follow formats of their own: `mutation.json` is the [mutation-testing report
+schema](https://github.com/stryker-mutator/mutation-testing-elements/tree/master/packages/report-schema)'s,
+version 2, and mutastic's tests check it against that schema too. See [Report files](/reference/reports/).
 
 ## What v1 promises
 
