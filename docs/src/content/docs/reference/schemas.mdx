@@ -56,7 +56,7 @@ The Rust edition writes some fields of its own, each marked as such in the schem
 | `RuntimeError` | a mutant's `status` | The tests crashed the process where the crash may be undefined behaviour: nothing caught it, and it's out of the score |
 | `runtimeError` | `run-finished` | How many mutants were `RuntimeError` |
 | `notMutated.unsafe` | `run-finished` | How many mutants weren't made because the `unsafe` setting leaves their code out |
-| `build` | `run-finished` | How many times the crate was compiled with mutants in, and how many mutants didn't compile |
+| `build` | `run-finished` | How many times the crate was compiled with mutants in, how many mutants didn't compile, and how long reading and building the package took (`setupMs`) |
 
 In the Rust edition, `location.class` is the path of what holds the function and `location.method`
 is the function's name, where the Java edition has a class's binary name and a method's name and
