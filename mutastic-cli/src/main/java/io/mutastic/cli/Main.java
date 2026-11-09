@@ -238,7 +238,8 @@ public final class Main {
   /// The run `next` ranks: while the code under test, the operators, the scope and mutastic are as
   /// they were, only the mutants the last `next` left uncaught, since a test written since can only
   /// catch some of them; every mutant otherwise. Empty when the last left none, as nothing can have
-  /// made a new one.
+  /// made a new one. A pass over every mutant is kept as the last run, as `run`'s is: `explain`
+  /// reads it.
   private static Optional<Report> queued(Command command, Prepared prepared, Passes passes) {
     var key = nextKey(command, prepared);
     var last = NextRun.read(prepared.work(), key);
@@ -254,7 +255,11 @@ public final class Main {
                         passes.progress(),
                         passes.tool()))
             .orElse(passes);
-    var report = run.run(command, prepared, passes.progress()).report();
+    var tested = run.run(command, prepared, passes.progress());
+    var report = tested.report();
+    if (last.isEmpty()) {
+      recorded(command, prepared, report, tested.otherTests());
+    }
     new NextRun(key, Passes.uncaught(report)).write(prepared.work());
     return Optional.of(report);
   }
@@ -1160,9 +1165,17 @@ public final class Main {
   /// report files.
   private static Kept keep(
       Command command, Prepared prepared, Report report, List<Path> otherTests) {
+    return new Kept(
+        recorded(command, prepared, report, otherTests), writeReports(command, prepared, report));
+  }
+
+  /// Keeps a run of every mutant as the last run (what `explain` and the next run's comparison
+  /// read), with its comparison with the one before.
+  private static Optional<Comparison> recorded(
+      Command command, Prepared prepared, Report report, List<Path> otherTests) {
     if (report.scope().isPresent()) {
       // A change's score says nothing about the whole module's: no comparison, no record.
-      return new Kept(Optional.empty(), writeReports(command, prepared, report));
+      return Optional.empty();
     }
     var records = new RunRecords(prepared.work());
     var record =
@@ -1176,7 +1189,7 @@ public final class Main {
     // anything about this one.
     var comparison = records.comparableTo(record).map(record::against);
     records.keep(record);
-    return new Kept(comparison, writeReports(command, prepared, report));
+    return comparison;
   }
 
   /// The report files asked for, as they're written: relative to the project where they're in it.

@@ -39,7 +39,8 @@ public final class Explanation {
     addRow(
         rows,
         "last run",
-        List.of(lastRun.map(Explanation::described).orElse("none yet: a full run records one")));
+        List.of(
+            lastRun.map(Explanation::described).orElse("none yet: `run` or `next` records one")));
     return String.join("\n", rows) + "\n";
   }
 

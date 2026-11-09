@@ -108,7 +108,7 @@ class ExplanationTest {
         .contains("call Pricing.audit()")
         .contains("call site 1 of discount(I)I")
         .contains("calls are counted in bytecode order")
-        .contains("none yet: a full run records one")
+        .contains("none yet: `run` or `next` records one")
         .doesNotContain("javac compiles");
   }
 

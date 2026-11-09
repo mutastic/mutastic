@@ -36,4 +36,15 @@ class ExplainTest {
         .contains("= last run  none yet");
     assertThat(after.out()).contains("= last run  missed: every covering test still passed");
   }
+
+  /// `next` runs every mutant the first time, so that's the last run too.
+  @Test
+  void nextCountsAsARun() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+
+    Samples.mutastic("next", project.toString());
+    var explained = Samples.mutastic("explain", ID, project.toString());
+
+    assertThat(explained.out()).contains("= last run  missed: every covering test still passed");
+  }
 }
