@@ -63,16 +63,17 @@ drop, a duplicate for `distinct()`, more elements than the `limit`, input out of
   }
 ```
 
-**Edition notes:** removing `sorted()` before a result that ignores order (`count()`, `anyMatch`, `min`,
-`sum` and the like) can't change anything, so it's skipped as equivalent; so is removing `distinct()`
-before a result that ignores duplicates. Removing `limit` from a stream the same method starts with
-`Stream.iterate(seed, next)` or `generate`, or their `IntStream`, `LongStream` and `DoubleStream`
-forms, or from `ints()`, `longs()` or `doubles()` given no size on `Random`, `SecureRandom`,
-`ThreadLocalRandom`, `SplittableRandom` or `RandomGenerator`, is skipped as unviable when nothing else
-ends the stream: the tests would hang, and a hang counted as a catch shows nothing. The `iterate` that
-takes a condition can end, and so can `ints(5)` and a stream with `takeWhile`, another `limit` or a
-`findFirst` or the like, so those keep their mutant. The Rust edition has the same id for an
-iterator's `filter`, `skip`, `take`, `skip_while`, `take_while`, `step_by` and `rev`.
+**Edition notes:** removing `sorted()` before a result that ignores order (`count()`, `anyMatch`,
+`min`, `sum` and the like) can't change anything, so it's skipped as equivalent; so is removing
+`distinct()` before a result that ignores duplicates. Removing `limit` from a stream the same method
+starts with `Stream.iterate(seed, next)` or `generate`, or their `IntStream`, `LongStream` and
+`DoubleStream` forms, or from `ints()`, `longs()` or `doubles()` given no size on `Random`,
+`SecureRandom`, `ThreadLocalRandom`, `SplittableRandom` or `RandomGenerator`, is skipped as unviable
+when nothing else ends the stream: the tests would hang, and a hang counted as a catch shows
+nothing. The `iterate` that takes a condition can end, and so can `ints(5)` and a stream with
+`takeWhile`, another `limit` or a `findFirst` or the like, so those keep their mutant. The Rust
+edition has this operator too, `stream/remove-stage`, for an iterator's `filter`, `skip`, `take`,
+`skip_while`, `take_while`, `step_by` and `rev`.
 
 ## Stream match swap
 
@@ -117,7 +118,8 @@ the only input where `anyMatch` and `allMatch` disagree.
   }
 ```
 
-**Edition notes:** the Rust edition has the same id, for an iterator's `any` and `all`.
+**Edition notes:** the Rust edition has this operator too, `stream/swap-match`, for an iterator's
+`any` and `all`.
 
 ## Other stage removal
 
@@ -161,6 +163,7 @@ The test checks the total, and never the log:
   }
 ```
 
-**Edition notes:** run it with `--operators=defaults,extended`. `map` on a `Stream` is left alone: it
-can change what the stream holds, and what comes next would throw on the wrong type, which would look
-like a catch. The Rust edition has the same id, for an iterator's `inspect` and `map`.
+**Edition notes:** run it with `--operators=defaults,extended`. `map` on a `Stream` is left alone:
+it can change what the stream holds, and what comes next would throw on the wrong type, which would
+look like a catch. The Rust edition has this operator too, `stream/remove-other-stage`, for an
+iterator's `inspect` and `map`.

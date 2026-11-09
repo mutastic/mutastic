@@ -63,8 +63,9 @@ than only that the method returned.
   }
 ```
 
-**Edition notes:** the Rust edition has the same id, for a call the crate declares with no return,
-or one of std's (`push`, `sort`, `clear`, `extend`, `drop` and the like).
+**Edition notes:** the Rust edition has this operator too, `mutastic/remove-void-call`, for a call
+the crate declares with no return, or one of std's (`push`, `sort`, `clear`, `extend`, `drop` and
+the like).
 
 ## Remove discarded call
 
@@ -114,7 +115,8 @@ The test has one item, and strips the receipt before it looks:
 
 **Edition notes:** `Objects.requireNonNull(x);`, which only checks a value isn't `null`, is skipped
 as arid. Constructors are left alone: removing one would leave an object half made, not a gap in the
-tests. The Rust edition has the same id, for `map.insert(k, v);`, `w.flush()?;` and `let _ = f();`.
+tests. The Rust edition has this operator too, `mutastic/remove-discarded-call`, for
+`map.insert(k, v);`, `w.flush()?;` and `let _ = f();`.
 
 ## Remove assignment
 
@@ -159,12 +161,12 @@ value happens to be right.
   }
 ```
 
-**Edition notes:** a variable's first value is left alone, as the code wouldn't run without it. So is
-code compiled without its table of local variables (`-g:none`, or no `vars` in `-g`), which doesn't
-say what's a variable. An assignment whose value nothing reads, because the variable is assigned
-again first or never used, is skipped as equivalent. `i++` isn't an assignment here: it's
-[flip increment](/concepts/operators/arithmetic/#flip-increment)'s. The Rust edition has the same id,
-and keeps the right-hand side as `let _ = …;`.
+**Edition notes:** a variable's first value is left alone, as the code wouldn't run without it. So
+is code compiled without its table of local variables (`-g:none`, or no `vars` in `-g`), which
+doesn't say what's a variable. An assignment whose value nothing reads, because the variable is
+assigned again first or never used, is skipped as equivalent. `i++` isn't an assignment here: it's
+[flip increment](/concepts/operators/arithmetic/#flip-increment)'s. The Rust edition has this
+operator too, `mutastic/remove-assignment`, and keeps the right-hand side as `let _ = …;`.
 
 ## Remove field write
 
@@ -213,5 +215,6 @@ object does differently now.
 **Edition notes:** run it with `--operators=stronger`. Constructors and static initialisers are left
 alone, as they are for every operator, and a setter with nothing else in it is skipped as arid. A
 write of a default value, `count = 0;` in a `reset()`, is kept: that's what `reset()` is for. The
-Rust edition has the same id, for `self.status = s;`, `*p = v;` and `v[i] = x;`, and adds
-`mutastic/remove-struct-field`, which leaves a field out of a struct update (`S { a, ..base }`).
+Rust edition has this operator too, `mutastic/remove-field-write`, for `self.status = s;`, `*p = v;`
+and `v[i] = x;`, and adds `mutastic/remove-struct-field`, which leaves a field out of a struct
+update (`S { a, ..base }`).

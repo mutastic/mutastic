@@ -74,17 +74,17 @@ default is too:
 ```
 
 **Edition notes:** it covers old-style `case`, arrows, `yield`, and a `switch` on a `String`, an
-`enum` or a pattern. The mutant is on the arm's own line, so only the tests that reach the arm run for
-it. An `enum`'s arm has no name in the bytecode, so its card says "this arm" and points at the line. A
-switch with no `default` of its own, on every constant of an `enum` or every type of a `sealed`
-interface, has one javac writes that throws: with an arm removed, a value that reached it throws, and
-the card says so. A test that reaches the arm catches that whatever it asserts, so a catch there says
-the arm is reached, not that its result is checked. javac's own parts have no mutants: the first of
-the two switches a `String` switch compiles to, which only hashes, and the gaps in a table. An arm
-with no code of its own, `case 1: break;`, is skipped as equivalent where the default goes to the
-same place. The Rust edition has the same id in `stronger`, where an arm stops matching and its values
-go to the next arm that does, and adds `mutastic/swap-break`, which turns `break` into `continue` and
-back.
+`enum` or a pattern. The mutant is on the arm's own line, so only the tests that reach the arm run
+for it. An `enum`'s arm has no name in the bytecode, so its card says "this arm" and points at the
+line. A switch with no `default` of its own, on every constant of an `enum` or every type of a
+`sealed` interface, has one javac writes that throws: with an arm removed, a value that reached it
+throws, and the card says so. A test that reaches the arm catches that whatever it asserts, so a
+catch there says the arm is reached, not that its result is checked. javac's own parts have no
+mutants: the first of the two switches a `String` switch compiles to, which only hashes, and the
+gaps in a table. An arm with no code of its own, `case 1: break;`, is skipped as equivalent where
+the default goes to the same place. The Rust edition has this operator too,
+`mutastic/remove-switch-arm`, in `stronger`, where an arm stops matching and its values go to the
+next arm that does, and adds `mutastic/swap-break`, which turns `break` into `continue` and back.
 
 ## Drop catch type
 
@@ -137,7 +137,7 @@ The test fails a read with an `IOException`, and never with a timeout:
   }
 ```
 
-**Edition notes:** separate `catch` blocks aren't changed, and a `finally` can't be: javac copies it
-onto every way out of the `try`, so there's nothing to remove. The Rust edition has no such operator,
-as Rust has no multi-catch; an error path is [remove throw](/concepts/operators/returns/#remove-throw)'s
-and `mutastic/unwrap-try`'s there.
+**Edition notes:** Java only: Rust has no multi-catch, and an error path is
+[remove throw](/concepts/operators/returns/#remove-throw)'s and `mutastic/unwrap-try`'s there.
+Separate `catch` blocks aren't changed, and a `finally` can't be: javac copies it onto every way out
+of the `try`, so there's nothing to remove.

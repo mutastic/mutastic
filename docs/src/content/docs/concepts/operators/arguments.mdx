@@ -69,8 +69,8 @@ own, `Math.abs`, and your code's own methods that return the type they're called
 argument, and have no type parameters. A library's calls are left alone, as `Stream.map` returns a
 `Stream` of something else. So is a call whose result is thrown away, which
 [remove discarded call](/concepts/operators/calls/#remove-discarded-call) removes. The Rust edition
-has the same id, for `trim`, `abs`, `to_lowercase` and the like, a builder's `(self) -> Self` step,
-and a crate function returning its one argument's type.
+has this operator too, `mutastic/omit-call`, for `trim`, `abs`, `to_lowercase` and the like, a
+builder's `(self) -> Self` step, and a crate function returning its one argument's type.
 
 ## Swap arguments
 
@@ -121,7 +121,8 @@ level in between, which should stay as it is.
 is made. Arguments typed `Object` are left alone, as that's what a type variable compiles to, and
 `map.put(key, value)` swapped wouldn't compile. A call that gives the same result either way round,
 `Math.max(a, b)`, or that passes one value twice, `f(x, x)`, is skipped as equivalent. The Rust
-edition has the same id, for a crate function or method whose last two parameters have one type.
+edition has this operator too, `mutastic/swap-arguments`, for a crate function or method whose last
+two parameters have one type.
 
 ## Null parameter
 
@@ -163,12 +164,13 @@ The test checks whose booking it is, and never which room:
   }
 ```
 
-**Edition notes:** a parameter whose value nothing reads, as it's unused or assigned first, is skipped
-as equivalent. Code compiled without its table of local variables has none, as nothing says what
-they're called. A method that rejects `null` straight away catches every one of these, which says
-little about its tests: this operator costs a run, and finds most where a parameter is used only on
-some paths. The Rust edition has the same id for an `Option` parameter, which becomes `None`, and adds
-`mutastic/default-parameter`, which gives a parameter its type's default.
+**Edition notes:** a parameter whose value nothing reads, as it's unused or assigned first, is
+skipped as equivalent. Code compiled without its table of local variables has none, as nothing says
+what they're called. A method that rejects `null` straight away catches every one of these, which
+says little about its tests: this operator costs a run, and finds most where a parameter is used
+only on some paths. The Rust edition has this operator too, `mutastic/null-parameter`, for an
+`Option` parameter, which becomes `None`, and adds `mutastic/default-parameter`, which gives a
+parameter its type's default.
 
 ## Drop vararg
 
@@ -210,9 +212,9 @@ The test's best score comes first, so the last never matters:
 
 **Edition notes:** the value is still worked out, so a call in it still runs. An array that wasn't
 built on the spot, or was built with nothing in it, is left alone. `List.of(a, b)` has nothing to
-drop: it has its own overload for a few values, with no array. The Rust edition has the same id in
-`extended`, for `&[a, b, c]` and `vec![a, b, c]`, as an array's length is part of its type there and
-more of its mutants don't compile.
+drop: it has its own overload for a few values, with no array. The Rust edition has this operator
+too, `mutastic/drop-vararg`, in `extended`, for `&[a, b, c]` and `vec![a, b, c]`, as an array's
+length is part of its type there and more of its mutants don't compile.
 
 ## Omit argument
 
@@ -255,7 +257,7 @@ match.
   }
 ```
 
-**Edition notes:** it covers `indexOf`, `lastIndexOf` and `substring` on a `String` or `StringBuilder`,
-`parseInt`, `parseLong` and `toString` with a radix, `Pattern.compile` with flags, and
-`Objects.toString` with a default. It leaves out a charset, a locale and a `split` limit, whose
-absence rarely shows. The Rust edition has no such operator, as Rust has no overloading.
+**Edition notes:** Java only: Rust has no overloading. It covers `indexOf`, `lastIndexOf` and
+`substring` on a `String` or `StringBuilder`, `parseInt`, `parseLong` and `toString` with a radix,
+`Pattern.compile` with flags, and `Objects.toString` with a default. It leaves out a charset, a
+locale and a `split` limit, whose absence rarely shows.

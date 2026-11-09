@@ -73,8 +73,8 @@ don't: a quantity of `1` gives the same answer for `*` and `/`, and adding `0` t
   }
 ```
 
-**Edition notes:** the Rust edition has the same id, and swaps `+=` and `-=`, `*=` and `/=`, and the
-`checked_`, `wrapping_`, `saturating_` and `overflowing_` methods' pairs too.
+**Edition notes:** the Rust edition has this operator too, `mutastic/math`, and swaps `+=` and `-=`,
+`*=` and `/=`, and the `checked_`, `wrapping_`, `saturating_` and `overflowing_` methods' pairs too.
 
 ## Arithmetic replacement
 
@@ -113,8 +113,8 @@ that checks almost nothing.
   }
 ```
 
-**Edition notes:** run it with `--operators=stronger`. The Rust edition has the same id, and turns
-`+=` into `*=` too, but not `+= 1`.
+**Edition notes:** run it with `--operators=stronger`. The Rust edition has this operator too,
+`mutastic/arithmetic-replacement`, and turns `+=` into `*=` too, but not `+= 1`.
 
 ## Other arithmetic
 
@@ -158,8 +158,8 @@ nor two values the same.
   }
 ```
 
-**Edition notes:** run it with `--operators=stronger`. The Rust edition has the same id, with the
-compound forms too.
+**Edition notes:** run it with `--operators=stronger`. The Rust edition has this operator too,
+`mutastic/other-arithmetic`, with the compound forms too.
 
 ## Bitwise
 
@@ -202,7 +202,7 @@ public final class Permissions {
 
 **Edition notes:** run it with `--operators=stronger`. `~x` isn't changed: the compiler writes it as
 `x ^ -1`, which no one wrote as a `^`. Setting or clearing bits, `flags |= bit` or `flags &= ~bit`,
-never becomes flipping them with `^=`. The Rust edition has the same id.
+never becomes flipping them with `^=`. The Rust edition has this operator too, `mutastic/bitwise`.
 
 ## Keep operand
 
@@ -243,9 +243,9 @@ steps to go round.
   }
 ```
 
-**Edition notes:** run it with `--operators=stronger`. Both values are still worked out, so a call in
-the other still runs. A constant beside a variable isn't what's kept: `count + 1` becomes `count`, not
-`1`. The Rust edition has the same id.
+**Edition notes:** run it with `--operators=stronger`. Both values are still worked out, so a call
+in the other still runs. A constant beside a variable isn't what's kept: `count + 1` becomes
+`count`, not `1`. The Rust edition has this operator too, `mutastic/keep-operand`.
 
 ## Constant value
 
@@ -300,8 +300,8 @@ what uses them shows they're numbers, as in the bytecode they could be `false` a
 number that isn't shown to be plain stays in the range of a `byte`, `short` or `char`. The size and
 indexes of an array's `{…}`, the `-1` in `~x`, and what javac stores in temporaries of its own have
 no mutants. Some are skipped as arid: an array's size, a capacity, a wait, a `split`'s limit, and a
-variable's first value of `0` or `1`, where a counter or a total starts. The Rust edition has the
-same id, and gives `-1` only where a number is visibly signed.
+variable's first value of `0` or `1`, where a counter or a total starts. The Rust edition has this
+operator too, `mutastic/constant-value`, and gives `-1` only where a number is visibly signed.
 
 ## Flip increment
 
@@ -354,12 +354,11 @@ the limit.
   }
 ```
 
-**Edition notes:** run it with `--operators=stronger`. A step nothing reads afterwards is skipped as
-equivalent. The index javac writes for an enhanced `for` isn't one of these, as no source names it,
-and code without its table of local variables has none. A loop counter that goes the wrong way
-either fails at once, on an index out of range, or never ends, which takes a whole time limit to
-catch. The Rust edition has no such operator: Rust has no `++`, and `+=` and `-=` are
-[math](#math)'s.
+**Edition notes:** Java only: Rust has no `++`, and `+=` and `-=` are [math](#math)'s there. Run it
+with `--operators=stronger`. A step nothing reads afterwards is skipped as equivalent. The index
+javac writes for an enhanced `for` isn't one of these, as no source names it, and code without its
+table of local variables has none. A loop counter that goes the wrong way either fails at once, on
+an index out of range, or never ends, which takes a whole time limit to catch.
 
 ## Remove negation
 
@@ -403,8 +402,8 @@ The test only tries an account with no overdraft, and `-0` is `0`:
 ```
 
 **Edition notes:** run it with `--operators=stronger`. A negative literal or a negated constant is
-worked out by javac, so there's no negation left in the code to remove. The Rust edition has the same
-id.
+worked out by javac, so there's no negation left in the code to remove. The Rust edition has this
+operator too, `mutastic/remove-negation`.
 
 ## Unchecked arithmetic
 
@@ -446,5 +445,5 @@ that the check is still there.
 
 **Edition notes:** run it with `--operators=stronger`. It covers `addExact`, `subtractExact`,
 `multiplyExact`, `incrementExact`, `decrementExact`, `negateExact` and `toIntExact`, on `Math` and
-`StrictMath`. The Rust edition has the same id: `a.checked_add(b)` becomes `Some(a.wrapping_add(b))`,
-and `saturating_sub` becomes `wrapping_sub`.
+`StrictMath`. The Rust edition has this operator too, `library/unchecked-arithmetic`:
+`a.checked_add(b)` becomes `Some(a.wrapping_add(b))`, and `saturating_sub` becomes `wrapping_sub`.

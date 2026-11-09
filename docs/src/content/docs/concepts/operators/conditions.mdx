@@ -74,8 +74,8 @@ The test records the answer.
   }
 ```
 
-**Edition notes:** the Rust edition has the same id, and also moves the end of a range, `lo..hi`
-and `lo..=hi`, in a `for`, a slice or a `contains`.
+**Edition notes:** the Rust edition has this operator too, `mutastic/boundary`, and also moves the
+end of a range, `lo..hi` and `lo..=hi`, in a `for`, a slice or a `contains`.
 
 ## Comparison
 
@@ -199,8 +199,8 @@ ships is the paid one.
 
 **Edition notes:** a test that catches the mutants of boundary, comparison and remove conditional
 catches these too, so in the defaults their catches would only add to the score. It replaced
-`mutastic/negate-conditional`, whose change is the condition's opposite. The Rust edition has the
-same id, and turns `matches!(..)` into `!matches!(..)` too.
+`mutastic/negate-conditional`, whose change is the condition's opposite. The Rust edition has this
+operator too, `mutastic/other-comparison`, and turns `matches!(..)` into `!matches!(..)` too.
 
 ## Remove conditional
 
@@ -248,8 +248,8 @@ test has tried: here, someone who isn't a member.
 
 **Edition notes:** other comparison asks the same question from another angle; remove conditional is
 clearer about which answer no test has tried, and catches a condition checked twice where one check
-never decides. The Rust edition has the same id, and reaches `while`, a match arm's guard, and `let
-Some(x) = e` in an `if let`, `while let` or `let`-`else`.
+never decides. The Rust edition has this operator too, `mutastic/remove-conditional`, and reaches
+`while`, a match arm's guard, and `let Some(x) = e` in an `if let`, `while let` or `let`-`else`.
 
 ## Logical connector
 
@@ -295,13 +295,14 @@ stock, and in stock but unpaid.
   }
 ```
 
-**Edition notes:** the bytecode has no `&&` or `||`, only two tests that jump, so mutastic recognises
-the way javac lays out a condition of two tests (in an `if`, a loop, a `return`, through a `!`) and
-turns the first test's jump round. It leaves alone a condition of three or more tests, an `if` nested
-in another on a line of its own (it compiles the same as `&&`), and a test that reads what the one
-before it binds, `value instanceof Integer number && number > 0`, which `||` couldn't run. When the
-statement has more than one `&&` or `||` the card can't say which, and says so. The Rust edition has
-the same id, and reads the source, so it has none of these limits.
+**Edition notes:** the bytecode has no `&&` or `||`, only two tests that jump, so mutastic
+recognises the way javac lays out a condition of two tests (in an `if`, a loop, a `return`, through
+a `!`) and turns the first test's jump round. It leaves alone a condition of three or more tests, an
+`if` nested in another on a line of its own (it compiles the same as `&&`), and a test that reads
+what the one before it binds, `value instanceof Integer number && number > 0`, which `||` couldn't
+run. When the statement has more than one `&&` or `||` the card can't say which, and says so. The
+Rust edition has this operator too, `mutastic/logical-connector`, and reads the source, so it has
+none of these limits.
 
 ## Predicate connector swap
 
@@ -346,9 +347,8 @@ The test has a message that's both, and one that's neither:
   }
 ```
 
-**Edition notes:** run it with `--operators=defaults,extended`. The Rust edition has no such operator,
-as std has no `Predicate` combinators: `&&` inside a closure is
-[logical connector](#logical-connector)'s.
+**Edition notes:** Java only: Rust's std has no `Predicate` combinators, and `&&` inside a closure
+is [logical connector](#logical-connector)'s there. Run it with `--operators=defaults,extended`.
 
 ## Predicate negation removal
 
@@ -420,6 +420,5 @@ check on which come out.
   }
 ```
 
-**Edition notes:** run them with `--operators=defaults,extended`. The Rust edition has neither: std
-has no `Predicate` combinators, and `!` inside a closure is
-[other comparison](#other-comparison)'s.
+**Edition notes:** Java only: Rust's std has no `Predicate` combinators, and `!` inside a closure is
+[other comparison](#other-comparison)'s there. Run them with `--operators=defaults,extended`.

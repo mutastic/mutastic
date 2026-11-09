@@ -79,11 +79,11 @@ needs an answer that isn't `0`; a list needs an answer with something in it.
 ```
 
 **Edition notes:** a return that already gives that value, `return List.of();` say, can't be changed
-by it, and is [skipped as equivalent](/concepts/equivalence/). A test that calls a method and asserts
-nothing about what comes back is the commonest gap this operator finds, and often the easiest to fix.
-The Rust edition has the same id, with Rust's own empty values (`String::new()`, `None`,
-`Vec::new()`, `Ok(..)` of the inner value), and with `--operators=extended` adds `Default::default()`
-and an `Err(..)` the function returns elsewhere.
+by it, and is [skipped as equivalent](/concepts/equivalence/). A test that calls a method and
+asserts nothing about what comes back is the commonest gap this operator finds, and often the
+easiest to fix. The Rust edition has this operator too, `mutastic/return-value`, with Rust's own
+empty values (`String::new()`, `None`, `Vec::new()`, `Ok(..)` of the inner value), and with
+`--operators=extended` adds `Default::default()` and an `Err(..)` the function returns elsewhere.
 
 ## Replace body
 
@@ -122,11 +122,11 @@ The test that catches return value's mutant above catches this one too.
 has few mutants, and each miss is a whole method to look at. It isn't a measure of how well the rest
 is tested, as any test that looks at the result catches these. A method gets one mutant, except one
 returning `boolean`, which gets both values: always `true` and always `false` are different gaps,
-and neither shows the other. A value the method's one return already gives isn't used.
-Constructors and static initialisers are left alone, and trivial getters and setters, `toString()`
-and `hashCode()` are skipped as arid. A body that's only the return of that value is skipped as
-equivalent, as with `return null;`. The Rust edition has the same id, and leaves alone `new`, `fmt`,
-`hash` and a getter of one field.
+and neither shows the other. A value the method's one return already gives isn't used. Constructors
+and static initialisers are left alone, and trivial getters and setters, `toString()` and
+`hashCode()` are skipped as arid. A body that's only the return of that value is skipped as
+equivalent, as with `return null;`. The Rust edition has this operator too, `mutastic/replace-body`,
+and leaves alone `new`, `fmt`, `hash` and a getter of one field.
 
 ## Remove throw
 
@@ -172,9 +172,10 @@ happens to be there anyway.
   }
 ```
 
-**Edition notes:** run it with `--operators=defaults,extended`. The code after it has to be able to run: with nothing after
-it, as at the end of a method, the mutant is skipped as `unviable:`. javac's own throws aren't
-changed: the rethrow it writes for a `finally`, a `synchronized` or a try-with-resources, and the
-default it writes for a switch with none. The `throw` of a failed `assert` is skipped as arid. The
-Rust edition has the same id, for `return Err(e);`, `panic!(..)` and `bail!(..)`, and adds
-`mutastic/unwrap-try`, which turns `f()?` into `f().unwrap()`.
+**Edition notes:** run it with `--operators=defaults,extended`. The code after it has to be able to
+run: with nothing after it, as at the end of a method, the mutant is skipped as `unviable:`. javac's
+own throws aren't changed: the rethrow it writes for a `finally`, a `synchronized` or a
+try-with-resources, and the default it writes for a switch with none. The `throw` of a failed
+`assert` is skipped as arid. The Rust edition has this operator too, `mutastic/remove-throw`, for
+`return Err(e);`, `panic!(..)` and `bail!(..)`, and adds `mutastic/unwrap-try`, which turns `f()?`
+into `f().unwrap()`.

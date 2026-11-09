@@ -71,8 +71,9 @@ it's a nickname:
 
 **Edition notes:** `isEmpty` came in Java 11: in a class file for an older release the mutant is
 skipped as `unviable:`, as the method may not be there, and a missing method would look like a
-catch. The Rust edition has the same id in `stronger`, for `is_some` and `is_none`, and `is_ok` and
-`is_err`, since `Option` and `Result` are everyday Rust rather than a modern API.
+catch. The Rust edition has this operator too, `optional/swap-present`, in `stronger`, for `is_some`
+and `is_none`, and `is_ok` and `is_err`, since `Option` and `Result` are everyday Rust rather than a
+modern API.
 
 ## Optional made empty
 
@@ -115,8 +116,8 @@ kept. A choice of `null` gives the same answer as well, so the card holds both:
   }
 ```
 
-**Edition notes:** the Rust edition has the same id in `stronger`: `Some(x)` becomes `None`, where it
-isn't returned.
+**Edition notes:** the Rust edition has this operator too, `optional/empty`, in `stronger`:
+`Some(x)` becomes `None`, where it isn't returned.
 
 ## Optional filter removal
 
@@ -159,8 +160,8 @@ The test only asks for a nickname the rules allow:
   }
 ```
 
-**Edition notes:** the Rust edition has the same id in `extended`, for `opt.filter(p)` where `opt`
-isn't visibly an iterator.
+**Edition notes:** the Rust edition has this operator too, `optional/remove-filter`, in `extended`,
+for `opt.filter(p)` where `opt` isn't visibly an iterator.
 
 ## Optional default
 
@@ -233,5 +234,5 @@ empty `Optional`.
 **Edition notes:** removing `opt.ifPresent(…)` is
 [remove void call](/concepts/operators/calls/#remove-void-call)'s change, as it returns nothing.
 `orElseThrow`'s supplier is left alone: which exception is thrown is rarely worth a test. The Rust
-edition has both ids in `stronger`, for `unwrap_or`, `unwrap_or_else`, `unwrap_or_default` and
-`map_or`.
+edition has both operators too, `optional/always-default` and `optional/no-default`, in `stronger`,
+for `unwrap_or`, `unwrap_or_else`, `unwrap_or_default` and `map_or`.
