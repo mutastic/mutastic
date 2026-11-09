@@ -14,19 +14,28 @@ import tools.jackson.dataformat.yaml.YAMLMapper;
 
 /// Every command the docs show is one the CLI takes: each `mutastic …`, `mvn …mutastic:…` and
 /// `./gradlew …mutastic…` line in the docs' code blocks parses, the build plugins' forms read as
-/// the plugins pass them, and so does each `mutastic …` a CI workflow's step runs. The website's
-/// copy once showed options that didn't exist; this keeps the docs from doing the same.
+/// the plugins pass them, and so does each `mutastic …` a CI job runs, from a GitHub Actions step
+/// or a GitLab job's script. The website's copy once showed options that didn't exist; this keeps
+/// the docs from doing the same.
 class DocsCommandsTest {
   private static final Path DOCS = Path.of(System.getProperty("mutastic.docs"));
 
   /// The code blocks commands are typed in; a Kotlin `mutastic { }` block isn't one.
   private static final List<String> SHELLS = List.of("sh", "bash", "shell", "console", "");
 
-  /// The code blocks a workflow is in: a GitHub Actions job's steps run commands too.
+  /// The code blocks a workflow is in: a GitHub Actions job's steps and a GitLab job's scripts run
+  /// commands too.
   private static final List<String> YAML = List.of("yaml", "yml");
 
-  /// A GitHub Actions expression, `${{ matrix.share }}`: it stands for a value when the step runs.
-  private static final Pattern EXPRESSION = Pattern.compile("\\$\\{\\{[^}]*}}");
+  /// The keys a CI job's command follows on the same line: a GitHub Actions step's `run:`, a GitLab
+  /// job's `script:`. A command on a line of its own, a list item or in a `run: |` block, has none.
+  private static final List<String> COMMAND_KEYS =
+      List.of("run:", "script:", "before_script:", "after_script:");
+
+  /// A GitHub Actions expression, `${{ matrix.share }}`, or a shell variable, `$CI_NODE_INDEX`: it
+  /// stands for a value when the job runs.
+  private static final Pattern EXPRESSION =
+      Pattern.compile("\\$\\{\\{[^}]*}}|\\$\\{?(?<variable>[A-Za-z_][A-Za-z0-9_]*)}?");
 
   /// What help and the version answer before a command is parsed.
   private static final List<String> ANSWERED = List.of("--help", "-h", "--version", "help");
@@ -200,11 +209,17 @@ class DocsCommandsTest {
   }
 
   /// The command a workflow's line runs, `- run: mutastic run --shard=${{ matrix.share }}/4` →
-  /// `mutastic run --shard=1/4`, or the line itself in a `run: |` block. An expression is a value
-  /// once the step runs, so a value stands in for it.
+  /// `mutastic run --shard=1/4`, `- mutastic run --shard=$CI_NODE_INDEX/$CI_NODE_TOTAL` in a GitLab
+  /// job's `script:` → `mutastic run --shard=1/1`, or the line itself in a `run: |` block. An
+  /// expression or a variable is a value once the job runs, so a value stands in for it.
   private static String stepCommand(String line) {
     var step = line.startsWith("- ") ? line.substring(2).strip() : line;
-    var command = step.startsWith("run:") ? step.substring(4).strip() : step;
+    var command =
+        COMMAND_KEYS.stream()
+            .filter(step::startsWith)
+            .findFirst()
+            .map(key -> step.substring(key.length()).strip())
+            .orElse(step);
     return EXPRESSION.matcher(command).replaceAll("1");
   }
 

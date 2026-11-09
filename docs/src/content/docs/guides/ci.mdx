@@ -9,11 +9,13 @@ In CI, mutastic is a check like the tests: a score below the bar fails the job. 
 needs only the lines it changed, which is quick; the whole module runs on `main`, or at night,
 and can be split across jobs when it takes too long for one.
 
-The examples are GitHub Actions, for a Gradle project run with the `mutastic` command, installed as
-[Install](/getting-started/install/) shows. A Maven project's files are under `target/mutastic/`
-where a Gradle one's are under `build/mutastic/`, and from a [build plugin](/guides/build-plugins/)
-each option is a `mutastic.` property of the same name. Actions are pinned to a commit, with the
-version beside it, as a tag can be moved.
+Each example is shown for GitHub Actions and for GitLab CI, for a Gradle project run with the
+`mutastic` command, installed as [Install](/getting-started/install/) shows. A Maven project's
+files are under `target/mutastic/` where a Gradle one's are under `build/mutastic/`, and from a
+[build plugin](/guides/build-plugins/) each option is a `mutastic.` property of the same name.
+Actions are pinned to a commit, with the version beside it, as a tag can be moved. GitLab's jobs
+run in a JDK 25 image pinned by its version tag, which has no `curl` until the job installs it; a
+GitLab example is jobs to add to `.gitlab-ci.yml`.
 
 ## Fail the build on a low score
 
@@ -70,10 +72,15 @@ runs each catching test again, and a catch that doesn't repeat doesn't count.
 ## Only what a pull request changed
 
 `--since=REF` mutates only the lines changed since the branch left `REF`, so a pull request's run
-tries its own mutants, not the whole module's. In Actions, a pull request is checked out as one
-commit, its change merged into the base, with no other history: `--since` needs the base branch and
-the history back to where the branch left it, which `fetch-depth: 0` fetches. Name the base branch
-as the remote has it, since the checkout has no local branch of that name:
+tries its own mutants, not the whole module's. It needs the base branch, and the history back to
+where the branch left it, which a CI checkout doesn't have unless asked. Name the base branch as the
+remote has it, since the checkout has no local branch of that name.
+
+<Tabs syncKey="ci">
+<TabItem label="GitHub Actions">
+
+A pull request is checked out as one commit, its change merged into the base, with no other
+history; `fetch-depth: 0` fetches every branch's:
 
 ```yaml
 name: Mutants
@@ -95,6 +102,32 @@ jobs:
       - run: curl -fsSL https://mutastic.io/install.sh | sh
       - run: mutastic run --since=origin/${{ github.base_ref }} --threshold=80
 ```
+
+</TabItem>
+<TabItem label="GitLab CI">
+
+A merge request pipeline checks out the merge request's commit, shallow, and not the target branch:
+`GIT_DEPTH: 0` fetches the commit's whole history, and the job fetches the target branch under the
+name the run gives it:
+
+```yaml
+mutants-changed-lines:
+  image: eclipse-temurin:25.0.5_8-jdk-noble
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq curl
+    - curl -fsSL https://mutastic.io/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  variables:
+    GIT_DEPTH: 0
+  script:
+    - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME:refs/remotes/origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+    - mutastic run --since=origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME --threshold=80
+```
+
+</TabItem>
+</Tabs>
 
 From a build plugin, the same run is `-Pmutastic.since=origin/main` or `-Dmutastic.since=origin/main`:
 
@@ -129,8 +162,12 @@ last run under each other set of [operators](/concepts/operators/) you use; a su
 `shares/N-of-M/`.
 
 Restore the record before the run and save it after, even when the run fails, since a failing run
-is the one the next wants to compare with. A cache entry can't be replaced, so each run saves its
-own and the next restores the newest:
+is the one the next wants to compare with.
+
+<Tabs syncKey="ci">
+<TabItem label="GitHub Actions">
+
+A cache entry can't be replaced, so each run saves its own and the next restores the newest:
 
 ```yaml
 name: Mutants
@@ -166,6 +203,38 @@ jobs:
           key: mutastic-${{ github.run_id }}
 ```
 
+</TabItem>
+<TabItem label="GitLab CI">
+
+A job's cache is restored before its script and saved after it, under the same key, so each run
+replaces the last; `when: always` saves it when the run fails too. By default a protected branch,
+as the default branch is, has caches of its own, which a merge request's jobs don't read or replace:
+
+```yaml
+mutants-whole-module:
+  image: eclipse-temurin:25.0.5_8-jdk-noble
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq curl
+    - curl -fsSL https://mutastic.io/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - mutastic run --threshold=70
+  cache:
+    key: mutastic
+    paths:
+      - build/mutastic/last-run.tsv
+      - build/mutastic/last-runs/
+    when: always
+```
+
+A runner keeps its cache where it runs unless it's set up with a shared one, as GitLab.com's are: a
+job that lands on another of your own runners starts without the record.
+
+</TabItem>
+</Tabs>
+
 Don't clean the build between the restore and the run: `clean` deletes the record with the rest of
 the build directory. A record counts only for the project it was made in, in the same directory,
 which a hosted runner's checkout always is.
@@ -195,7 +264,12 @@ A share's score is only that share's, so give each share `--threshold=0` and the
 
 It refuses, with exit status 2 and what's wrong, shares that aren't every share of one run: a share missing or there twice, one that didn't finish, shares split into a different number, a mutant in two shares, or shares run by another mutastic or on other code than each other or than the build it reads. Put them together on the same commit, built the same way, with the same options and `mutastic.yaml`. A share also fails on its own, even with `--threshold=0`, when a test that caught mutants fails with no mutant in, as the whole run would.
 
-In GitHub Actions, a matrix of shares, then one job that puts them together:
+Jobs side by side, one for each share, then one job that puts them together.
+
+<Tabs syncKey="ci">
+<TabItem label="GitHub Actions">
+
+A matrix of shares, each uploading its folder, and a last job that downloads them all:
 
 ```yaml
 jobs:
@@ -236,18 +310,60 @@ jobs:
       - run: mutastic run --from-shards=shares --threshold=70
 ```
 
-The last job fails when the whole score is below the threshold, and when a share is missing because its job failed. For a module of a multi-module build, name it in both commands (`mutastic run :core --shard=…`) and upload the share from its work directory: `build/mutastic/core/shares/…` with Gradle, `core/target/mutastic/shares/…` with Maven.
+</TabItem>
+<TabItem label="GitLab CI">
+
+`parallel` runs a job as that many jobs, each told which it is in `CI_NODE_INDEX`, counting from 1,
+and how many there are in `CI_NODE_TOTAL`. A job that `needs` it waits for all of them, and gets
+each one's artifacts at the paths they were uploaded from, so every share's folder lands under
+`build/mutastic/shares/`:
+
+```yaml
+mutants:
+  image: eclipse-temurin:25.0.5_8-jdk-noble
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq curl
+    - curl -fsSL https://mutastic.io/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+  parallel: 4
+  script:
+    - mutastic run --shard=$CI_NODE_INDEX/$CI_NODE_TOTAL --threshold=0
+  artifacts:
+    when: always
+    paths:
+      - build/mutastic/shares/
+
+mutation-score:
+  image: eclipse-temurin:25.0.5_8-jdk-noble
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq curl
+    - curl -fsSL https://mutastic.io/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+  needs:
+    - job: mutants
+      artifacts: true
+  script:
+    - mutastic run --from-shards=build/mutastic/shares --threshold=70
+```
+
+</TabItem>
+</Tabs>
+
+When a share's job fails, the pipeline fails, and the last job doesn't run; when they all pass, the last job fails if the whole score is below the threshold. For a module of a multi-module build, name it in both commands (`mutastic run :core --shard=…`) and upload the share from its work directory: `build/mutastic/core/shares/…` with Gradle, `core/target/mutastic/shares/…` with Maven.
 
 To [keep the records](#keep-the-run-record-between-runs) too, each share's job caches its own
-folder, `build/mutastic/shares/N-of-4/`, under a key with its share in it, and the last job caches
-the whole run's record, as above.
+folder, `build/mutastic/shares/N-of-4/`, under a key with its share in it (`${{ matrix.share }}`
+in Actions, `$CI_NODE_INDEX` in GitLab), and the last job caches the whole run's record, as above.
 
 ## Reports as artifacts
 
 Each run writes its [report files](/reference/reports/) to the work directory, `mutation.json` and
 `mutation.html` unless `--report` chooses others: the HTML is the whole report in one file, which
 opens from disk, and the JSON is what report viewers, dashboards and badges read. Upload them even
-when the run fails, since that's when they're read:
+when the run fails, since that's when they're read.
+
+<Tabs syncKey="ci">
+<TabItem label="GitHub Actions">
 
 ```yaml
       - run: mutastic run --threshold=70
@@ -257,6 +373,22 @@ when the run fails, since that's when they're read:
           name: mutation-report
           path: build/mutastic/mutation.*
 ```
+
+</TabItem>
+<TabItem label="GitLab CI">
+
+```yaml
+mutants:
+  script:
+    - mutastic run --threshold=70
+  artifacts:
+    when: always
+    paths:
+      - build/mutastic/mutation.*
+```
+
+</TabItem>
+</Tabs>
 
 For a module, the files are in its own work directory (`build/mutastic/core/mutation.*`), and
 `build/mutastic/*/mutation.*` takes every module's. For build-server and code-quality plugins,
