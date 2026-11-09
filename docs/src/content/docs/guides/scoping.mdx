@@ -1,6 +1,6 @@
 ---
 title: Changed lines, other tests and suites
-description: "Mutate only what a change touched, run another module's tests or another test suite, or run one mutant."
+description: "Mutate only what a change touched, run another module's tests or another test suite, split one run across CI jobs, or run one mutant."
 ---
 
 ## Only what changed
@@ -28,6 +28,26 @@ mutastic run --suite=integrationTest
 From a build plugin, `-Pmutastic.suite=integrationTest` or `-Dmutastic.suite=integration-test` for one run, or for every run `suite = "integrationTest"` in `mutastic { }`, or `<suite>integration-test</suite>` in the Maven plugin's configuration. A suite the build doesn't have is an error that lists those it does.
 
 A suite but `test` keeps its own run record and reports, under `suites/<name>/` in the module's work directory (`build/mutastic/suites/integrationTest/`), so its runs compare only with its own. The commands a run offers keep the suite: `mutastic verify m2f3930a4 --suite=integrationTest` checks a mutant against the tests that found it.
+
+## One run across CI jobs
+
+A whole module's run can take longer than one CI job should. `--shard=N/M` runs only the Nth of M shares of its mutants, so M jobs side by side each run one share:
+
+```sh
+mutastic run --shard=2/4 --threshold=0 --format=jsonl > share-2.jsonl
+```
+
+Each mutant is dealt to a share by its id alone, so every mutant is in exactly one share, whichever job runs it, and the shares come out about the same size, each with mutants from across the module. Coverage is still measured over all the module's tests in each job, so a mutant's result is the one a whole run would give it.
+
+A share's score is only that share's, and so is its threshold: give each share `--threshold=0` and check the floor once the shares are back together. Each share's `run-finished` event (with `--format=jsonl`) has its counts. Add them up across the shares, and the whole run's score is caught plus timed out, over every mutant but the skipped ones:
+
+```
+score = 100 × (Killed + Timeout) / (mutants − Ignored)
+```
+
+A run fails at a score below its threshold, unrounded, so compare before rounding. A share also fails on its own, even with `--threshold=0`, when a test that caught mutants fails with no mutant in. That would fail the whole run too, so a share that fails should fail the build.
+
+Each share keeps its own run record, under `shares/N-of-M/` in the module's work directory (`build/mutastic/shares/2-of-4/`). So a share only compares with the same share's last run, and a whole run never compares with part of one. Its reports go where a whole run's go: give each job its own work space, or `--report` paths of its own.
 
 ## One mutant
 

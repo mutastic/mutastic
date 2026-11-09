@@ -22,7 +22,7 @@ class CommandTest {
                 new Main.Shown(Optional.empty(), "auto", "auto", "auto", Optional.empty(), false),
                 80,
                 List.of(),
-                false,
+                new Main.Catches(false, false),
                 Optional.empty(),
                 true,
                 Main.DEFAULT_REPORTS,
@@ -37,7 +37,6 @@ class CommandTest {
                 new Main.Gating("", 3),
                 java.util.Set.of(),
                 1,
-                false,
                 io.mutastic.engine.Shard.WHOLE));
   }
 
@@ -57,7 +56,7 @@ class CommandTest {
                     Optional.of("jsonl"), "auto", "auto", "auto", Optional.empty(), false),
                 60,
                 List.of(),
-                false,
+                new Main.Catches(false, false),
                 Optional.empty(),
                 true,
                 Main.DEFAULT_REPORTS,
@@ -72,7 +71,6 @@ class CommandTest {
                 new Main.Gating("", 3),
                 java.util.Set.of(),
                 1,
-                false,
                 io.mutastic.engine.Shard.WHOLE));
   }
 

@@ -7,9 +7,10 @@ share's mutants, then a run-finished whose counts and score are the shares' adde
 worked out as the run's own is (caught and timed out over all but the skipped, Report#score), and
 the threshold checked on it unrounded, as a run checks it.
 
-It fails, with nothing passed, when a share is missing or didn't finish, when two shares ran the
-same mutant (so they weren't shares of one run), or when a share didn't pass on its own: with a
-threshold of 0 that's only a test that failed with no mutant in, which fails a whole run too.
+It fails, writing nothing, when a share is missing or didn't finish, or when two shares ran the
+same mutant (so they weren't shares of one run). It writes the whole run's events but fails when a
+share didn't pass on its own: with a threshold of 0 that's only a test that failed with no mutant
+in, which fails a whole run too; a share of the whole module also fails under its own threshold.
 
 Usage: shares.py MODULE THRESHOLD HISTORY_TSV SHARE_JSONL... > MODULE.jsonl
 """
@@ -66,12 +67,12 @@ def previous_score(history, module):
 
 
 def merged(module, threshold, history, paths):
-    started, mutants, ends, ids = None, [], [], set()
+    started, mutants, ends, ids, failed = None, [], [], set(), []
     for path in paths:
         shown = events(path)
         end = finished(path, shown)
         if not end["passed"]:
-            sys.exit(f"{path}: the share didn't pass on its own: a test fails with no mutant in")
+            failed.append(path)
         for event in shown:
             if event.get("reason") == "run-started":
                 started = started or event
@@ -94,7 +95,7 @@ def merged(module, threshold, history, paths):
         "mutants": len(mutants),
         "score": rounded(score),
         "threshold": threshold,
-        "passed": (100.0 if score is None else score) >= threshold,
+        "passed": not failed and (100.0 if score is None else score) >= threshold,
         "coveredScore": rounded(100.0 * detected / reached) if reached else None,
         "tests": max(end["tests"] for end in ends),
         "previousScore": previous_score(history, module),
@@ -106,15 +107,18 @@ def merged(module, threshold, history, paths):
     })
     for key in LISTS:
         whole[key] = unique(item for end in ends for item in end.get(key, []))
-    return [started] + mutants + [whole], whole
+    return [started] + mutants + [whole], whole, failed
 
 
 def main(module, threshold, history, *paths):
     if not paths:
         sys.exit("no shares given")
-    shown, whole = merged(module, int(threshold), history, paths)
+    shown, whole, failed = merged(module, int(threshold), history, paths)
     for event in shown:
         print(json.dumps(event, separators=(",", ":")))
+    for path in failed:
+        print(f"{path}: the share didn't pass on its own: under its own threshold, or a test "
+              "that fails with no mutant in", file=sys.stderr)
     print(f"{module}: {whole['mutants']} mutants in {whole['shares']} shares, score "
           f"{whole['score']} against a threshold of {threshold}: "
           f"{'passed' if whole['passed'] else 'FAILED'}", file=sys.stderr)

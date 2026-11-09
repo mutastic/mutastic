@@ -749,6 +749,11 @@ public final class Main {
   /// times `check` sends a hooked agent back before it lets it stop.
   record Gating(String hook, int tries) {}
 
+  /// How a caught mutant's tests run: each catch run once more to confirm it
+  /// (`--confirm-catches`), and every covering test run, not only up to the first catch
+  /// (`--kill-matrix`).
+  record Catches(boolean confirm, boolean every) {}
+
   record Ignoring(
       boolean prune, boolean remove, String reason, String kind, boolean propose, boolean accept) {}
 
@@ -1517,7 +1522,7 @@ public final class Main {
       Shown shown,
       int threshold,
       List<String> only,
-      boolean confirmCatches,
+      Catches catches,
       Optional<Integer> workers,
       boolean suggestions,
       List<RequestedReport> reports,
@@ -1532,10 +1537,17 @@ public final class Main {
       Gating gating,
       java.util.Set<String> experimental,
       int top,
-      boolean killMatrix,
       Shard shard) {
     Optional<String> format() {
       return shown.format();
+    }
+
+    boolean confirmCatches() {
+      return catches.confirm();
+    }
+
+    boolean killMatrix() {
+      return catches.every();
     }
 
     Optional<String> vocabulary() {
@@ -1575,7 +1587,7 @@ public final class Main {
           shown,
           threshold,
           only,
-          confirmCatches,
+          catches,
           workers,
           suggestions,
           reports,
@@ -1590,7 +1602,6 @@ public final class Main {
           gating,
           experimental,
           top,
-          killMatrix,
           shard);
     }
 
@@ -1604,7 +1615,7 @@ public final class Main {
           shown,
           0,
           List.of(),
-          confirmCatches,
+          catches,
           workers,
           suggestions,
           List.of(),
@@ -1619,7 +1630,6 @@ public final class Main {
           gating,
           experimental,
           top,
-          killMatrix,
           Shard.WHOLE);
     }
 
@@ -1965,7 +1975,7 @@ public final class Main {
             new Shown(format, colour, links, progress, vocabulary, eachMutant),
             threshold,
             only,
-            confirmCatches,
+            new Catches(confirmCatches, killMatrix),
             workers,
             suggestions,
             reports == null ? DEFAULT_REPORTS : List.copyOf(reports),
@@ -1980,7 +1990,6 @@ public final class Main {
             new Gating(hook, tries),
             java.util.Set.copyOf(experimental),
             top,
-            killMatrix,
             shard);
       }
 
