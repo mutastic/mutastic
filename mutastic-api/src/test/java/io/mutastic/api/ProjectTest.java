@@ -27,7 +27,28 @@ class ProjectTest {
     assertThat(running.classes()).containsExactly(BUILD.resolve("core/classes"));
   }
 
+  /// As the setup writes them: the build's modules on `app`'s classpath are already `alongside`,
+  /// and stay there but for `core`'s jar, which the mutated classes replace.
+  @Test
+  void theModulesTheSetupPutsAlongsideStayThere() {
+    var coreJar = BUILD.resolve("core/build/libs/core.jar");
+    var core = module("core", List.of(), List.of(coreJar));
+    var web = BUILD.resolve("web/build/libs/web.jar");
+    var library = Path.of("/home/me/.gradle/caches/junit.jar");
+    var app = module("app", List.of(library), List.of(coreJar, web), List.of());
+
+    var running = core.runningTestsOf(app, BUILD);
+
+    assertThat(running.dependencies()).containsExactly(library);
+    assertThat(running.alongside()).containsExactly(BUILD.resolve("app/classes"), web);
+  }
+
   private static Project module(String name, List<Path> dependencies, List<Path> outputs) {
+    return module(name, dependencies, List.of(), outputs);
+  }
+
+  private static Project module(
+      String name, List<Path> dependencies, List<Path> alongside, List<Path> outputs) {
     var dir = BUILD.resolve(name);
     return new Project(
         name,
@@ -41,7 +62,7 @@ class ProjectTest {
         List.of(),
         List.of(),
         dependencies,
-        List.of(),
+        alongside,
         outputs,
         TestSelection.ALL,
         Map.of());

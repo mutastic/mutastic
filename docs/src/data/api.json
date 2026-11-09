@@ -1981,7 +1981,7 @@
             },
             {
               "name": "alongside",
-              "doc": "production classes loaded with the mutated ones but not mutated: another module's own code, when its tests run over this module's mutants"
+              "doc": "production classes loaded with the mutated ones but not mutated: the build's other modules on the test classpath, since one may load this module's classes by name (`Class.forName`), and loaded as a library it would find none of them; and another module's own code, when its tests run over this module's mutants"
             },
             {
               "name": "outputs",
@@ -2025,7 +2025,7 @@
           "kind": "class",
           "signature": "@Internal class ProjectSetup",
           "summary": "The setup file a build tool's own code writes from inside the build (Gradle's init script, Maven's extension): a properties file with what the module's tests run with.",
-          "doc": "The setup file a build tool's own code writes from inside the build (Gradle's init script,\nMaven's extension): a properties file with what the module's tests run with. One format, so\nevery build tool reads it the same way.\n\nKeys: `java`, `jvmArgs` (one per line), `workingDirectory`, and path lists joined with the\nplatform's separator: `classes`, `resources`, `testClasses`, `testResources`, `sources`,\n`testSources`, `dependencies` (the test runtime classpath without the module's own directories).\n`outputs`: what another module's classpath has of this one. Which tests run: `testIncludes` and\n`testExcludes` (one class-file pattern per line, see [`TestSelection`](../testselection/)), `includeTags` and\n`excludeTags` (one per line). `environment`: one `NAME=value` per line. Keys a build doesn't set\nare empty.",
+          "doc": "The setup file a build tool's own code writes from inside the build (Gradle's init script,\nMaven's extension): a properties file with what the module's tests run with. One format, so\nevery build tool reads it the same way.\n\nKeys: `java`, `jvmArgs` (one per line), `workingDirectory`, and path lists joined with the\nplatform's separator: `classes`, `resources`, `testClasses`, `testResources`, `sources`,\n`testSources`, `dependencies` (the test runtime classpath without the module's own directories\nor the build's other modules), `alongside` (the build's other modules on that classpath: their\nclass directories, resources or jars). `outputs`: what another module's classpath has of this\none. Which tests run: `testIncludes` and `testExcludes` (one class-file pattern per line, see\n[`TestSelection`](../testselection/)), `includeTags` and `excludeTags` (one per line). `environment`: one\n`NAME=value` per line. Keys a build doesn't set are empty.",
           "params": [],
           "members": [
             {

@@ -447,6 +447,7 @@ final class TestWorker implements AutoCloseable {
         TestFrameworks.loadsTheApp(project.dependencies())
             ? Stream.of(
                     project.classes(),
+                    project.alongside(),
                     project.resources(),
                     project.testClasses(),
                     project.testResources())

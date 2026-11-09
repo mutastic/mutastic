@@ -119,12 +119,16 @@ class GradlePluginTest {
 
     assertThat(run.exit()).as(run.err()).isEqualTo(Main.PASSED);
     assertThat(written.exit()).as(written.out()).isZero();
-    var dependencies =
-        setup(fromPlugin.resolve("app/build/mutastic/setup.properties"))
-            .getProperty("dependencies");
-    assertThat(dependencies).contains("core.jar");
-    for (String dependency : dependencies.split(java.io.File.pathSeparator, -1)) {
-      assertThat(Path.of(dependency)).exists();
+    // `:core`'s jar is another module of the build: loaded with `:app`'s own classes.
+    var setup = setup(fromPlugin.resolve("app/build/mutastic/setup.properties"));
+    assertThat(setup.getProperty("alongside")).contains("core.jar");
+    assertThat(setup.getProperty("dependencies")).doesNotContain("core.jar");
+    var classpath =
+        setup.getProperty("dependencies")
+            + java.io.File.pathSeparator
+            + setup.getProperty("alongside");
+    for (String entry : classpath.split(java.io.File.pathSeparator, -1)) {
+      assertThat(Path.of(entry)).exists();
     }
     // What the tests need is built, but the Test task itself never runs.
     assertThat(fromCommand.resolve("app/build/test-results")).doesNotExist();

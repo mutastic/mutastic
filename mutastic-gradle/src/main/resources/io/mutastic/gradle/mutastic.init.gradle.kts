@@ -94,8 +94,15 @@ allprojects {
                 setup["sources"] = sourceDirs(main).joinToString(separator)
                 setup["testSources"] = sourceDirs(test).joinToString(separator)
                 // The module's own directories are left out: the worker loads those itself, so
-                // mutants can replace them.
-                setup["dependencies"] = task.classpath.files.map { it.absolutePath }.filterNot { it in own }.joinToString(separator)
+                // mutants can replace them. So are the build's other modules, which it loads with
+                // them: one may look this module's classes up by name (Class.forName), as it can
+                // on the test task's one classpath.
+                val modules = configurations.getByName(test.runtimeClasspathConfigurationName).incoming
+                    .artifactView { componentFilter { it is org.gradle.api.artifacts.component.ProjectComponentIdentifier } }
+                    .files.files.map { it.absolutePath }.toSet()
+                val classpath = task.classpath.files.map { it.absolutePath }.filterNot { it in own }
+                setup["dependencies"] = classpath.filterNot { it in modules }.joinToString(separator)
+                setup["alongside"] = classpath.filter { it in modules }.joinToString(separator)
                 // What another module sees of this one: taken off its classpath when its tests run
                 // over this module's mutants, so the mutated classes are the ones loaded.
                 val jar = (tasks.findByName("jar") as? org.gradle.jvm.tasks.Jar)?.archiveFile?.get()?.asFile

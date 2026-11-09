@@ -17,11 +17,12 @@ import java.util.Properties;
 ///
 /// Keys: `java`, `jvmArgs` (one per line), `workingDirectory`, and path lists joined with the
 /// platform's separator: `classes`, `resources`, `testClasses`, `testResources`, `sources`,
-/// `testSources`, `dependencies` (the test runtime classpath without the module's own directories).
-/// `outputs`: what another module's classpath has of this one. Which tests run: `testIncludes` and
-/// `testExcludes` (one class-file pattern per line, see [TestSelection]), `includeTags` and
-/// `excludeTags` (one per line). `environment`: one `NAME=value` per line. Keys a build doesn't set
-/// are empty.
+/// `testSources`, `dependencies` (the test runtime classpath without the module's own directories
+/// or the build's other modules), `alongside` (the build's other modules on that classpath: their
+/// class directories, resources or jars). `outputs`: what another module's classpath has of this
+/// one. Which tests run: `testIncludes` and `testExcludes` (one class-file pattern per line, see
+/// [TestSelection]), `includeTags` and `excludeTags` (one per line). `environment`: one
+/// `NAME=value` per line. Keys a build doesn't set are empty.
 @Internal
 public final class ProjectSetup {
   private ProjectSetup() {}
@@ -44,7 +45,7 @@ public final class ProjectSetup {
         paths(setup.getProperty("sources")),
         paths(setup.getProperty("testSources")),
         paths(setup.getProperty("dependencies")),
-        List.of(),
+        paths(setup.getProperty("alongside")),
         paths(setup.getProperty("outputs")),
         tests(setup),
         environment(lines(setup, "environment")));

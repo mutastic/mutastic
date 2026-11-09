@@ -18,8 +18,10 @@ import java.util.Map;
 /// @param sources the main source directories, for showing code
 /// @param testSources the test source directories, for writing suggested tests in their style
 /// @param dependencies the rest of the test runtime classpath, which brings JUnit
-/// @param alongside production classes loaded with the mutated ones but not mutated: another
-///   module's own code, when its tests run over this module's mutants
+/// @param alongside production classes loaded with the mutated ones but not mutated: the build's
+///   other modules on the test classpath, since one may load this module's classes by name
+///   (`Class.forName`), and loaded as a library it would find none of them; and another module's
+///   own code, when its tests run over this module's mutants
 /// @param outputs what another module's classpath has of this one (its class directories, its jar),
 ///   taken off that classpath when its tests run over this module's mutants
 /// @param tests which tests the build runs
@@ -73,8 +75,7 @@ public record Project(
     var mine = new java.util.HashSet<>(outputs);
     var root = build.toAbsolutePath().normalize();
     var others = runner.dependencies().stream().filter(path -> !mine.contains(path)).toList();
-    var beside = new java.util.ArrayList<>(runner.classes());
-    beside.addAll(runner.resources());
+    var beside = besideTheMutated(runner, mine);
     others.stream().filter(path -> inside(path, root)).forEach(beside::add);
     var dependencies = others.stream().filter(path -> !inside(path, root)).toList();
     return new Project(
@@ -93,6 +94,14 @@ public record Project(
         outputs,
         runner.tests(),
         runner.environment());
+  }
+
+  /// `runner`'s own code and what its setup already loads with it, but for `mine`.
+  private static List<Path> besideTheMutated(Project runner, java.util.Set<Path> mine) {
+    var beside = new java.util.ArrayList<>(runner.classes());
+    beside.addAll(runner.resources());
+    runner.alongside().stream().filter(path -> !mine.contains(path)).forEach(beside::add);
+    return beside;
   }
 
   private static boolean inside(Path path, Path root) {

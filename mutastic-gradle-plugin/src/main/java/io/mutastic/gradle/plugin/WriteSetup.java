@@ -12,11 +12,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
 import org.gradle.api.file.ConfigurableFileCollection;
+import org.gradle.api.file.FileCollection;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.MapProperty;
@@ -90,6 +93,10 @@ public abstract class WriteSetup extends DefaultTask {
   @Internal
   public abstract ConfigurableFileCollection getModuleOutputs();
 
+  /// What the test classpath has of the build's other modules.
+  @Internal
+  public abstract ConfigurableFileCollection getModules();
+
   /// Quarkus's pre-built application model, when its plugin is there.
   @Internal
   public abstract ConfigurableFileCollection getQuarkusModel();
@@ -129,6 +136,7 @@ public abstract class WriteSetup extends DefaultTask {
     task.getTestClasses().from(tests.map(test -> test.getOutput().getClassesDirs()));
     task.getTestResources().from(tests.map(test -> resources(project, test)));
     task.getTestSources().from(tests.map(WriteSetup::sourceDirs));
+    task.getModules().from(tests.map(test -> modules(project, test)));
     task.getModuleOutputs().from(task.getClasses(), task.getResources());
     if (project.getTasks().getNames().contains("jar")) {
       var jar = project.getTasks().named("jar", Jar.class);
@@ -170,7 +178,10 @@ public abstract class WriteSetup extends DefaultTask {
     setup.setProperty("testResources", paths(getTestResources().getFiles()));
     setup.setProperty("sources", paths(getSources().getFiles()));
     setup.setProperty("testSources", paths(getTestSources().getFiles()));
-    setup.setProperty("dependencies", dependencies());
+    var modules =
+        getModules().getFiles().stream().map(File::getAbsolutePath).collect(Collectors.toSet());
+    setup.setProperty("dependencies", classpath(path -> !modules.contains(path)));
+    setup.setProperty("alongside", classpath(modules::contains));
     setup.setProperty("outputs", paths(getModuleOutputs().getFiles()));
     store(setup, getProjectPath().get());
   }
@@ -204,9 +215,9 @@ public abstract class WriteSetup extends DefaultTask {
     return arguments;
   }
 
-  /// The test classpath without the module's own directories: the worker loads those itself, so
-  /// mutants can replace them.
-  private String dependencies() {
+  /// The test classpath without the module's own directories, as `chosen` picks from it: the worker
+  /// loads those itself, so mutants can replace them.
+  private String classpath(Predicate<String> chosen) {
     var own = new LinkedHashSet<File>(getClasses().getFiles());
     own.addAll(getTestClasses().getFiles());
     own.addAll(getResources().getFiles());
@@ -214,8 +225,20 @@ public abstract class WriteSetup extends DefaultTask {
     var owned = own.stream().map(File::getAbsolutePath).collect(Collectors.toSet());
     return getClasspath().getFiles().stream()
         .map(File::getAbsolutePath)
-        .filter(path -> !owned.contains(path))
+        .filter(path -> !owned.contains(path) && chosen.test(path))
         .collect(Collectors.joining(SEPARATOR));
+  }
+
+  /// What `tests`' runtime classpath has of the build's modules, this one's test fixtures among
+  /// them. The worker loads them with the module's own classes: one may look this module's classes
+  /// up by name (`Class.forName`), as it can on the test task's one classpath.
+  private static FileCollection modules(Project project, SourceSet tests) {
+    return project
+        .getConfigurations()
+        .getByName(tests.getRuntimeClasspathConfigurationName())
+        .getIncoming()
+        .artifactView(view -> view.componentFilter(id -> id instanceof ProjectComponentIdentifier))
+        .getFiles();
   }
 
   /// Which tests the task runs by tag, so mutastic runs the same ones. TestNG's groups are tags on

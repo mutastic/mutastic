@@ -412,13 +412,15 @@ public final class Engine {
     return requireNonNull(models.get(mutant.binaryName()), mutant.binaryName());
   }
 
-  /// Classes resolve from the project's own, its tests' and its dependencies'.
+  /// Classes resolve from the project's own, its tests', the build's other modules' and its
+  /// dependencies'.
   private static ClassFile contextFor(Project project) {
     return ClassFiles.resolvingFrom(classpath(project));
   }
 
   private static List<Path> classpath(Project project) {
-    return Stream.of(project.classes(), project.testClasses(), project.dependencies())
+    return Stream.of(
+            project.classes(), project.testClasses(), project.alongside(), project.dependencies())
         .flatMap(List::stream)
         .toList();
   }

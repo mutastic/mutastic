@@ -5,11 +5,13 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.apache.maven.project.MavenProject;
 import org.jspecify.annotations.Nullable;
 
@@ -37,7 +39,8 @@ final class ModuleSetup {
     this.failsafe = failsafe;
   }
 
-  void write(Path file, String java) throws Exception {
+  /// Writes the setup to `file`, `java` running the tests, with the `reactor`'s modules.
+  void write(Path file, String java, Collection<MavenProject> reactor) throws Exception {
     var build = project.getBuild();
     var setup = new Properties();
     setup.put("java", java);
@@ -52,8 +55,8 @@ final class ModuleSetup {
     setup.put("testResources", "");
     setup.put("sources", joined(project.getCompileSourceRoots()));
     setup.put("testSources", joined(project.getTestCompileSourceRoots()));
-    setup.put("dependencies", joined(dependencies()));
-    setup.put("outputs", joined(outputs()));
+    putClasspath(setup, reactor);
+    setup.put("outputs", joined(outputs(project)));
     putTests(setup);
     Files.createDirectories(file.getParent());
     try (OutputStream out = Files.newOutputStream(file)) {
@@ -113,8 +116,22 @@ final class ModuleSetup {
     return String.join("\n", values);
   }
 
-  /// What another module sees of this one: its classes, or its jar once packaged.
-  private List<String> outputs() {
+  /// The test classpath, split: the reactor's other modules on it go `alongside`, loaded by the
+  /// worker with the module's own classes, since one may look this module's classes up by name
+  /// (`Class.forName`), as it can on Surefire's one classpath; the rest are `dependencies`.
+  private void putClasspath(Properties setup, Collection<MavenProject> reactor) throws Exception {
+    var modules =
+        reactor.stream()
+            .flatMap(module -> outputs(module).stream())
+            .collect(Collectors.toUnmodifiableSet());
+    var classpath = dependencies();
+    var others = classpath.stream().filter(path -> !modules.contains(path)).toList();
+    setup.put("dependencies", joined(others));
+    setup.put("alongside", joined(classpath.stream().filter(modules::contains).toList()));
+  }
+
+  /// What another module sees of `project`: its classes, or its jar once packaged.
+  private static List<String> outputs(MavenProject project) {
     var build = project.getBuild();
     return List.of(
         build.getOutputDirectory(),

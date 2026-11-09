@@ -81,7 +81,7 @@ public class MutasticSetup extends AbstractMavenLifecycleParticipant {
       }
       var settings = new Surefire(session, execution);
       new ModuleSetup(project, settings, new Launcher(session, project, repositories), failsafe)
-          .write(file, Java.of(settings, session, toolchains));
+          .write(file, Java.of(settings, session, toolchains), session.getProjects());
     } catch (MavenExecutionException e) {
       throw e;
     } catch (Exception e) {
