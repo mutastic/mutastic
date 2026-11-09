@@ -103,7 +103,7 @@ public final class Main {
       err.println("mutastic: " + e.getMessage());
       err.print(Help.usage());
       return USAGE;
-    } catch (BuildTool.SetupFailed | Engine.UnknownMutant e) {
+    } catch (BuildTool.SetupFailed | Engine.UnknownMutant | Shares.Refused e) {
       err.println("mutastic: " + e.getMessage());
       CodexSandbox.hint(e, terminal.env()).ifPresent(err::println);
       return USAGE;
@@ -126,24 +126,33 @@ public final class Main {
   }
 
   private static int run(Command command, PrintStream out, PrintStream err, Terminal terminal) {
+    // Shares that can't be put together are refused before the build is read.
+    var shares = command.fromShards().map(directory -> Shares.read(directory, version()));
     var output = output(command, out, err, terminal);
     var progress = output.progress();
     var tool = BuildTools.of(command.directory().toAbsolutePath().normalize());
     progress.started(version(), tool.name());
     var prepared = prepare(command, tool);
-    var human = humanText(command, output, prepared.sources());
-    showFileLines(command, output, human, prepared);
+    showFileLines(command, output, humanText(command, output, prepared.sources()), prepared);
     var engine = new Engine(workerJar(), prepared.work().resolve("worker.log"));
-    var passes =
-        new Passes(engine, options(command, terminal, prepared.directory()), progress, tool);
+    var options = options(command, terminal, prepared.directory());
+    var passes = new Passes(engine, options, progress, tool, shares);
     if (command.subcommand() != Subcommand.RUN) {
       return command.subcommand().gate()
           ? gated(new Gated(command, prepared, passes, output, terminal))
           : single(command, prepared, passes, output);
     }
-    var display = display(command, prepared, output, human);
+    return fullRun(command, prepared, passes, output);
+  }
+
+  /// `run`: every mutant, or with `--shard` a share of them, or with `--from-shards` the shares'
+  /// results put together; then the result, its record and its reports.
+  private static int fullRun(Command command, Prepared prepared, Passes passes, Output output) {
+    var display =
+        display(command, prepared, output, humanText(command, output, prepared.sources()));
+    command.shard().ifPresent(shard -> Shares.forget(shareEvents(prepared, shard)));
     var tested = passes.run(command, prepared, display.listener());
-    progress.finished();
+    passes.progress().finished();
     var kept = kept(command, prepared, tested);
     display.printer().print(tested.report(), kept.comparison(), kept.written());
     baselineNote(command, prepared, tested.report(), output);
@@ -256,7 +265,8 @@ public final class Main {
                         passes.engine(),
                         passes.options().among(found.queued()),
                         passes.progress(),
-                        passes.tool()))
+                        passes.tool(),
+                        Optional.empty()))
             .orElse(passes);
     var tested = run.run(command, prepared, passes.progress());
     var report = tested.report();
@@ -654,7 +664,7 @@ public final class Main {
     var passes = gated.passes();
     var options = options(run, gated.terminal(), gated.prepared().directory());
     var report =
-        new Passes(passes.engine(), options, passes.progress(), passes.tool())
+        new Passes(passes.engine(), options, passes.progress(), passes.tool(), Optional.empty())
             .run(run, gated.prepared(), passes.progress())
             .report();
     passes.progress().finished();
@@ -753,6 +763,12 @@ public final class Main {
   /// and every covering test run, not only up to the first catch (`--kill-matrix`).
   record Catches(boolean confirm, boolean every) {}
 
+  /// A run split across machines: the share this one runs (`--shard`), or the directory of the
+  /// shares it's made of (`--from-shards`).
+  record Sharing(Optional<Shard> shard, Optional<Path> from) {
+    static final Sharing NONE = new Sharing(Optional.empty(), Optional.empty());
+  }
+
   record Ignoring(
       boolean prune, boolean remove, String reason, String kind, boolean propose, boolean accept) {}
 
@@ -781,11 +797,22 @@ public final class Main {
   /// The run: the module's own tests, then each `--tests-from` module's over the mutants still
   /// uncaught, as that module's own build runs them (its classpath, with this module's mutated
   /// classes in place of its jar), merged.
-  private record Passes(Engine engine, Engine.Options options, Progress progress, BuildTool tool) {
+  ///
+  /// @param shares with `--from-shards`, the shares whose results are the run's, run by no test
+  ///   here
+  private record Passes(
+      Engine engine,
+      Engine.Options options,
+      Progress progress,
+      BuildTool tool,
+      Optional<Shares> shares) {
     /// The module's own tests, then each `--tests-from` module's over what they missed: for a full
     /// run, and for one mutant (`verify`, `explain`) alike, so a mutant only another module's tests
-    /// catch is caught either way.
+    /// catch is caught either way. With `--from-shards`, the shares' results.
     Tested run(Command command, Prepared prepared, Listener listener) {
+      if (shares.isPresent()) {
+        return new Tested(fromShards(shares.get(), prepared, listener), List.of());
+      }
       var merged = engine.run(prepared.project(), options, listener);
       var otherTests = new ArrayList<Path>();
       for (String module : modules(command, prepared)) {
@@ -804,6 +831,14 @@ public final class Main {
         merged = merged.merge(pass);
       }
       return new Tested(merged, otherTests);
+    }
+
+    /// The whole run, of the shares' results: the mutants found as a run finds them, none run.
+    private Report fromShards(Shares from, Prepared prepared, Listener listener) {
+      progress.note(from.summary());
+      var project = prepared.project();
+      return from.whole(
+          project, RunRecord.codeOf(project), engine.find(project, options), listener);
     }
 
     /// The `--tests-from` modules, with `dependents` as the modules that depend on this one.
@@ -1017,7 +1052,7 @@ public final class Main {
             command.since().map(since -> new Git(directory).changedSince(since)),
             command.experimental().contains(GHOSTS) || terminal.experimental().contains(GHOSTS))
         .withKillMatrix(command.killMatrix())
-        .withShard(command.shard());
+        .withShard(command.shard().orElse(Shard.WHOLE));
   }
 
   /// The project's say, from `mutastic.yaml` and its ignores, with the operators to run: the
@@ -1122,7 +1157,9 @@ public final class Main {
 
   /// JSON Lines: the run's start now, each mutant as it finishes, and the result at the end.
   private static Display jsonl(Command command, Prepared prepared, Output output) {
-    var events = new JsonEvents(output.out(), prepared.sources(), command.threshold());
+    var events =
+        new JsonEvents(
+            output.out(), prepared.sources(), command.threshold(), shareOf(command, prepared));
     events.runStarted(prepared.project().name());
     if (!command.testsFrom().isEmpty()) {
       // Each mutant's result is known only once every module's tests have run: all at the end.
@@ -1173,8 +1210,50 @@ public final class Main {
   /// report files.
   private static Kept keep(
       Command command, Prepared prepared, Report report, List<Path> otherTests) {
-    return new Kept(
-        recorded(command, prepared, report, otherTests), writeReports(command, prepared, report));
+    var comparison = recorded(command, prepared, report, otherTests);
+    var written = new ArrayList<>(writeReports(command, prepared, report));
+    var share = command.shard().map(shard -> shareEvents(prepared, shard));
+    share.ifPresent(file -> written.add(shownFrom(prepared.directory(), file)));
+    var kept = new Kept(comparison, List.copyOf(written));
+    if (share.isPresent()) {
+      keepShare(command, prepared, report, kept);
+    }
+    return kept;
+  }
+
+  /// A share's events, kept for `--from-shards`: as `--format=jsonl` writes them, whatever the
+  /// format shown.
+  private static void keepShare(Command command, Prepared prepared, Report report, Kept kept) {
+    Shares.keep(
+        shareEvents(prepared, command.shard().orElseThrow()),
+        out -> {
+          var events =
+              new JsonEvents(
+                  out, prepared.sources(), command.threshold(), shareOf(command, prepared));
+          events.runStarted(prepared.project().name());
+          report.results().forEach(events::mutantFinished);
+          events.runFinished(report, kept.comparison(), kept.written(), false);
+        });
+  }
+
+  /// Where a share keeps its events, beside its run record.
+  private static Path shareEvents(Prepared prepared, Shard shard) {
+    return Shares.folder(prepared.work(), shard).resolve(Shares.EVENTS);
+  }
+
+  /// Which share of a split run this is, and what it ran on, when it's one.
+  private static Optional<JsonEvents.Share> shareOf(Command command, Prepared prepared) {
+    return command
+        .shard()
+        .map(
+            shard ->
+                new JsonEvents.Share(
+                    shard.number(), shard.of(), version(), RunRecord.codeOf(prepared.project())));
+  }
+
+  /// A file as a report's is listed: relative to the project where it's in it.
+  private static String shownFrom(Path directory, Path file) {
+    return file.startsWith(directory) ? directory.relativize(file).toString() : file.toString();
   }
 
   /// Keeps a run of every mutant as the last run (what `explain` and the next run's comparison
@@ -1202,10 +1281,8 @@ public final class Main {
 
   /// Where a run's records are kept: a share's apart, compared only with the same share's, so a
   /// whole run is never compared with a part of one.
-  private static Path recordsOf(Prepared prepared, Shard shard) {
-    return shard.whole()
-        ? prepared.work()
-        : prepared.work().resolve("shares").resolve(shard.number() + "-of-" + shard.of());
+  private static Path recordsOf(Prepared prepared, Optional<Shard> shard) {
+    return shard.map(share -> Shares.folder(prepared.work(), share)).orElse(prepared.work());
   }
 
   /// The report files asked for, as they're written: relative to the project where they're in it.
@@ -1220,8 +1297,7 @@ public final class Main {
               .map(directory::resolve)
               .orElse(prepared.work().resolve(defaultName(requested.kind())));
       files.write(requested.kind(), report, file);
-      written.add(
-          file.startsWith(directory) ? directory.relativize(file).toString() : file.toString());
+      written.add(shownFrom(directory, file));
     }
     return written;
   }
@@ -1536,9 +1612,19 @@ public final class Main {
       Gating gating,
       java.util.Set<String> experimental,
       int top,
-      Shard shard) {
+      Sharing sharing) {
     Optional<String> format() {
       return shown.format();
+    }
+
+    /// With `--shard`, the share of the mutants this run runs.
+    Optional<Shard> shard() {
+      return sharing.shard();
+    }
+
+    /// With `--from-shards`, the directory of the shares this run is made of.
+    Optional<Path> fromShards() {
+      return sharing.from();
     }
 
     boolean confirmCatches() {
@@ -1601,7 +1687,7 @@ public final class Main {
           gating,
           experimental,
           top,
-          shard);
+          sharing);
     }
 
     /// The run `gate check` makes: this command's project and operators, on the lines changed since
@@ -1629,7 +1715,7 @@ public final class Main {
           gating,
           experimental,
           top,
-          Shard.WHOLE);
+          Sharing.NONE);
     }
 
     static Command parse(String[] args) {
@@ -1684,7 +1770,8 @@ public final class Main {
       private int tries = 3;
       private int top = 1;
       private boolean killMatrix = false;
-      private Shard shard = Shard.WHOLE;
+      private Optional<Shard> shard = Optional.empty();
+      private Optional<Path> fromShards = Optional.empty();
       private boolean accept = false;
       private Optional<Path> setup = Optional.empty();
       private String commands = "mutastic";
@@ -1780,7 +1867,8 @@ public final class Main {
           case "--tries" -> tries = number(option, given, 1, 100);
           case "--top" -> top = number(option, given, 1, io.mutastic.report.Queue.MOST);
           case "--kill-matrix" -> killMatrix = true;
-          case "--shard" -> shard = shard(option, given);
+          case "--shard" -> shard = Optional.of(shard(option, given));
+          case "--from-shards" -> fromShards = Optional.of(Path.of(given));
           case "--setup" -> setup = Optional.of(Path.of(given));
           case "--commands" -> commands = commands(given);
           default -> throw new IllegalStateException("no reader for " + option.name());
@@ -1989,7 +2077,36 @@ public final class Main {
             new Gating(hook, tries),
             java.util.Set.copyOf(experimental),
             top,
-            shard);
+            sharing(subcommand));
+      }
+
+      /// A run is a share or made of them, not both; made of them, it runs no mutants itself, so
+      /// the options for what runs are the shares'.
+      private Sharing sharing(Subcommand subcommand) {
+        if (fromShards.isPresent() && subcommand != Subcommand.RUN) {
+          throw new UsageException("--from-shards is run's: mutastic run --from-shards=DIR");
+        }
+        var clash = fromShards.isPresent() ? clashWithShares() : Optional.<String>empty();
+        if (clash.isPresent()) {
+          throw new UsageException(
+              ("--from-shards puts the shares' results together as the whole run, and runs no"
+                      + " mutant itself: not with %s, which the shares run with")
+                  .formatted(clash.get()));
+        }
+        return new Sharing(shard, fromShards);
+      }
+
+      /// The first thing given that's for running mutants, which a run made of shares doesn't do.
+      private Optional<String> clashWithShares() {
+        var given = new java.util.LinkedHashMap<String, Boolean>();
+        given.put("--shard", shard.isPresent());
+        given.put("a mutant asked for by id", !only.isEmpty());
+        given.put("--since", since.isPresent());
+        given.put("--tests-from", !testsFrom.isEmpty());
+        return given.entrySet().stream()
+            .filter(java.util.Map.Entry::getValue)
+            .map(java.util.Map.Entry::getKey)
+            .findFirst();
       }
 
       /// `:app`: another module, named as the module run is; or `dependents`, every module that

@@ -27,13 +27,30 @@ public final class JsonEvents {
   private final SourceView sources;
   private final AgentText text;
   private final int threshold;
+  private final Optional<Share> share;
 
   public JsonEvents(PrintStream out, SourceView sources, int threshold) {
+    this(out, sources, threshold, Optional.empty());
+  }
+
+  /// The events of one share of a run split with `--shard`, when `share` is there: `run-started`
+  /// says which, so the shares can be put back together as the whole run.
+  public JsonEvents(PrintStream out, SourceView sources, int threshold, Optional<Share> share) {
     this.out = out;
     this.sources = sources;
     this.text = new AgentText(sources, threshold);
     this.threshold = threshold;
+    this.share = share;
   }
+
+  /// Which share of a split run this is, and what it ran on: the shares of one run are of the same
+  /// count, mutastic and code.
+  ///
+  /// @param number which share, from 1
+  /// @param of how many shares the run's mutants were dealt into
+  /// @param version the mutastic that ran it
+  /// @param code the hash of the module's compiled code and tests
+  public record Share(int number, int of, String version, String code) {}
 
   public void runStarted(String project) {
     var fields = new LinkedHashMap<String, Object>();
@@ -43,7 +60,17 @@ public final class JsonEvents {
     fields.put("rule", MutantCommand.RULE);
     fields.put("decline", MutantCommand.DECLINE);
     fields.put("edition", EDITION);
+    share.ifPresent(found -> fields.put("share", shareFields(found)));
     emit("run-started", fields);
+  }
+
+  private static Map<String, Object> shareFields(Share share) {
+    var fields = new LinkedHashMap<String, Object>();
+    fields.put("number", share.number());
+    fields.put("of", share.of());
+    fields.put("version", share.version());
+    fields.put("code", share.code());
+    return fields;
   }
 
   public void mutantFinished(MutantResult result) {
@@ -73,8 +100,7 @@ public final class JsonEvents {
     if (!result.inputs().isEmpty()) {
       fields.put("inputs", result.inputs());
     }
-    SuggestedTest.of(result, sources)
-        .ifPresent(test -> fields.put("suggestedTest", suggestedTest(test, result)));
+    putSuggestion(fields, result);
     fields.put("testsRun", result.testsRun());
     fields.put("durationMs", result.took().toMillis());
     if (result.status() == Status.MISSED) {
@@ -130,6 +156,32 @@ public final class JsonEvents {
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
     result.unconfirmed().ifPresent(test -> fields.put("unconfirmedCatchBy", test));
     result.falseCatchBy().ifPresent(test -> fields.put("falseCatchBy", test));
+  }
+
+  /// The test to write, when one was found, and the call it was found by, whole: what a share's
+  /// events need for the card to be written again from them.
+  private void putSuggestion(Map<String, Object> fields, MutantResult result) {
+    SuggestedTest.of(result, sources)
+        .ifPresent(test -> fields.put("suggestedTest", suggestedTest(test, result)));
+    result.suggestion().ifPresent(found -> fields.put("suggestion", suggestion(found)));
+  }
+
+  private static Map<String, Object> suggestion(io.mutastic.api.Suggestion found) {
+    var suggestion = new LinkedHashMap<String, Object>();
+    suggestion.put("call", found.call());
+    suggestion.put("parameters", found.parameters());
+    suggestion.put("arguments", found.inputs());
+    suggestion.put("receiver", found.receiver().stream().map(JsonEvents::instance).toList());
+    suggestion.put("today", found.today());
+    suggestion.put("withMutant", found.mutated());
+    return suggestion;
+  }
+
+  private static Map<String, Object> instance(io.mutastic.api.Suggestion.Instance instance) {
+    var fields = new LinkedHashMap<String, Object>();
+    fields.put("type", instance.type());
+    fields.put("arguments", instance.arguments());
+    return fields;
   }
 
   private static Map<String, Object> suggestedTest(SuggestedTest test, MutantResult result) {
@@ -213,7 +265,7 @@ public final class JsonEvents {
     fields.put("mutants", report.results().size());
     putCounts(fields, report);
     putVerdict(fields, report, oneMutant);
-    fields.put("tests", report.tests());
+    putTests(fields, report);
     fields.put("flaky", report.flaky());
     fields.put("flakyEvidence", flakyEvidence(report));
     comparison.ifPresent(found -> putComparison(fields, found));
@@ -229,6 +281,15 @@ public final class JsonEvents {
         "staleIgnores", report.staleIgnores().stream().map(io.mutastic.api.Ignore::id).toList());
     fields.put("durationMs", report.took().toMillis());
     emit("run-finished", fields);
+  }
+
+  /// How many tests, and how the run went about them: how many workers side by side, how many
+  /// started in all (one more after each kill), and how long the coverage pass took.
+  private static void putTests(Map<String, Object> fields, Report report) {
+    fields.put("tests", report.tests());
+    fields.put("workers", report.workers());
+    fields.put("workersStarted", report.started());
+    fields.put("coverageMs", report.coverage().toMillis());
   }
 
   /// The change a run was scoped to: what it's since, and how much it touched. Each flaky test's

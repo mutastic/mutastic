@@ -119,6 +119,17 @@
             "debugAssertions": { "type": "boolean", "description": "Whether `debug_assert!` runs." }
           }
         },
+        "share": {
+          "type": "object",
+          "description": "In a run of one share of the mutants (`--shard=N/M`): which share, and what it ran on, so `run --from-shards` puts together only the shares of one run. Written from 0.6.0.",
+          "required": ["number", "of", "version", "code"],
+          "properties": {
+            "number": { "type": "integer", "minimum": 1, "description": "Which share: N." },
+            "of": { "type": "integer", "minimum": 1, "description": "How many shares the run's mutants were dealt into: M." },
+            "version": { "type": "string", "description": "The mutastic that ran it." },
+            "code": { "type": "string", "description": "A hash of the module's compiled code and tests: the same in every share of one run." }
+          }
+        },
         "unsafe": {
           "enum": ["skip", "enclosing", "all"],
           "description": "The Rust edition only: which code near `unsafe` was mutated. `skip`: neither unsafe code nor a safe function holding an `unsafe` block; `enclosing`: those functions too, but not the code inside the block; `all`: everything. See `nearUnsafe`, and `run-finished`'s `notMutated`."
@@ -297,6 +308,30 @@
               "type": "string",
               "description": "What it gives with the mutant in, the same way, or `doesn't return`."
             }
+          }
+        },
+        "suggestion": {
+          "type": "object",
+          "description": "The call `suggestedTest` was found by, whole, or for a mutant no test reaches the call a first test could start from: what a card is written from. Only when one was found. Written from 0.6.0.",
+          "required": ["call", "parameters", "arguments", "receiver", "today", "withMutant"],
+          "properties": {
+            "call": { "type": "string", "description": "The call, in the mutated class's language: `new Pricing().discount(100)`." },
+            "parameters": { "type": "array", "items": { "type": "string" }, "description": "The method's parameter names, in order." },
+            "arguments": { "type": "array", "items": { "type": "integer" }, "description": "The arguments, one for each parameter." },
+            "receiver": {
+              "type": "array",
+              "description": "The instances made to call the method on, outermost first; empty for a static method.",
+              "items": {
+                "type": "object",
+                "required": ["type", "arguments"],
+                "properties": {
+                  "type": { "type": "string", "description": "The class's simple name: `Pricing`." },
+                  "arguments": { "type": "array", "items": { "type": "integer" }, "description": "Its constructor's arguments." }
+                }
+              }
+            },
+            "today": { "type": "string", "description": "What the call gives today, as `suggestedTest` has it." },
+            "withMutant": { "type": "string", "description": "What it gives with the mutant in, as `suggestedTest` has it." }
           }
         },
         "testsRun": {
@@ -548,6 +583,9 @@
           "description": "The score of the code some test reaches: how well the tests check what they run."
         },
         "tests": { "$ref": "#/$defs/count", "description": "How many tests the project has." },
+        "workers": { "$ref": "#/$defs/count", "description": "The Java edition: how many test workers ran side by side. Written from 0.6.0." },
+        "workersStarted": { "$ref": "#/$defs/count", "description": "The Java edition: how many test workers started in all: one for each worker, and one more after each was stopped for taking too long. Written from 0.6.0." },
+        "coverageMs": { "$ref": "#/$defs/count", "description": "The Java edition: how long the coverage pass took, in milliseconds, of `durationMs`. Written from 0.6.0." },
         "flaky": {
           "type": "array",
           "items": { "$ref": "#/$defs/test" },

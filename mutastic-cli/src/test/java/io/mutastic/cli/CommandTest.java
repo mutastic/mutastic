@@ -37,7 +37,7 @@ class CommandTest {
                 new Main.Gating("", 3),
                 java.util.Set.of(),
                 1,
-                io.mutastic.engine.Shard.WHOLE));
+                Main.Sharing.NONE));
   }
 
   @Test
@@ -71,7 +71,7 @@ class CommandTest {
                 new Main.Gating("", 3),
                 java.util.Set.of(),
                 1,
-                io.mutastic.engine.Shard.WHOLE));
+                Main.Sharing.NONE));
   }
 
   /// What the build plugins pass: the setup they wrote, and their goals as the commands offered.
@@ -151,13 +151,28 @@ class CommandTest {
   /// `--shard=2/4`: the second of four shares, each from 1 to how many there are.
   @Test
   void aShareIsOneOfHowMany() {
-    assertThat(parse("run", "--shard=2/4").shard()).isEqualTo(new io.mutastic.engine.Shard(2, 4));
+    assertThat(parse("run", "--shard=2/4").shard()).contains(new io.mutastic.engine.Shard(2, 4));
     assertThatThrownBy(() -> parse("run", "--shard=5/4"))
         .hasMessage("--shard is from 1 to 4, not 5");
     assertThatThrownBy(() -> parse("run", "--shard=0/4"))
         .hasMessage("--shard is from 1 to 4, not 0");
     assertThatThrownBy(() -> parse("run", "--shard=2"))
         .hasMessage("--shard needs a share and how many, as 2/4, not 2");
+  }
+
+  /// `--from-shards`: a run made of the shares' results runs no mutant, so what's for running them
+  /// is refused, as is a share made of shares.
+  @Test
+  void aRunMadeOfSharesRunsNothing() {
+    assertThat(parse("run", "--from-shards=shares").fromShards()).contains(Path.of("shares"));
+    assertThatThrownBy(() -> parse("run", "--from-shards=shares", "--shard=1/2"))
+        .hasMessageEndingWith("not with --shard, which the shares run with");
+    assertThatThrownBy(() -> parse("run", "--from-shards=shares", "--since=main"))
+        .hasMessageEndingWith("not with --since, which the shares run with");
+    assertThatThrownBy(() -> parse("run", "--from-shards=shares", "--tests-from=:app"))
+        .hasMessageEndingWith("not with --tests-from, which the shares run with");
+    assertThatThrownBy(() -> parse("verify", "m855c8e3c", "--from-shards=shares"))
+        .hasMessage("--from-shards is run's: mutastic run --from-shards=DIR");
   }
 
   @Test

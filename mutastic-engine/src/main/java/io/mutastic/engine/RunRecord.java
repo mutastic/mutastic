@@ -228,8 +228,10 @@ public record RunRecord(
     return codeOf(project.classes());
   }
 
-  /// SHA-256 over every class file's path and bytes, in a stable order.
-  static String codeOf(Project project) {
+  /// The hash of the code under test and its tests: SHA-256 over every class file's path and bytes,
+  /// in a stable order. The shares of a split run each say theirs, so they're put together only
+  /// with shares of the same code.
+  public static String codeOf(Project project) {
     return codeOf(
         Stream.of(project.classes(), project.testClasses()).flatMap(List::stream).toList());
   }

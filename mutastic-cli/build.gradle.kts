@@ -169,7 +169,7 @@ val secondsOnCi =
         "SinceTest" to 7,
         "NothingRunsTest" to 6,
         "KillMatrixTest" to 5,
-        "ShardTest" to 12,
+        "ShardTest" to 30,
     )
 providers.gradleProperty("mutastic.shard").orNull?.let { shard ->
     val (index, count) = shard.split("/").map(String::toInt)

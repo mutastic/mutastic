@@ -67,6 +67,84 @@ class JsonEventsTest {
     Schemas.checkEvents(bytes.toString(StandardCharsets.UTF_8));
   }
 
+  /// A share's events read back are what it ran, result for result: `run --from-shards` makes the
+  /// whole run's cards and report from them.
+  @Test
+  void aSharesEventsReadBackAsItsRun() throws Exception {
+    var share = new JsonEvents.Share(2, 4, "0.6.0", "c0de");
+    var caught =
+        new MutantResult(
+            boundary(0),
+            Status.CAUGHT,
+            List.of("com.example.PricingTest#a", "com.example.PricingTest#b"),
+            Optional.of("com.example.PricingTest#b"),
+            Optional.of("org.opentest4j.AssertionFailedError"),
+            Optional.of("assertion"),
+            2,
+            Optional.of("com.example.PricingTest#a"),
+            Map.of("total", List.of(50L, 250L)),
+            Optional.empty(),
+            Duration.ofMillis(7),
+            Optional.of("com.example.PricingTest#c"),
+            List.of("com.example.PricingTest#b"));
+    var missed =
+        result(boundary(1), Status.MISSED)
+            .withSuggestion(
+                Optional.of(
+                    new io.mutastic.api.Suggestion(
+                        "new Pricing().discount(100)",
+                        List.of("total"),
+                        List.of(100L),
+                        List.of(new io.mutastic.api.Suggestion.Instance("Pricing", List.of(3L))),
+                        "10",
+                        "0")));
+    var flaky =
+        new FlakyTest("com.example.PricingTest#c", List.of("x.Y"), List.of(), List.of(), true);
+    var report =
+        new Report(
+            "pricing",
+            17,
+            List.of(caught, missed),
+            2,
+            List.of("com.example.PricingTest#c"),
+            Duration.ofMillis(100),
+            2,
+            3,
+            Duration.ofMillis(300),
+            List.of(),
+            Optional.empty(),
+            List.of(),
+            List.of(flaky));
+    var shared =
+        new JsonEvents(
+            new PrintStream(bytes, true, StandardCharsets.UTF_8),
+            new SourceView(project, List.of(project.resolve("src/main/java"))),
+            0,
+            Optional.of(share));
+    shared.runStarted("pricing");
+    report.results().forEach(shared::mutantFinished);
+    shared.runFinished(report);
+    var file = project.resolve("events.jsonl");
+    Files.write(file, bytes.toByteArray());
+
+    var read = ShareEvents.read(file);
+
+    assertThat(read.share()).contains(share);
+    assertThat(read.project()).isEqualTo("pricing");
+    assertThat(read.finished()).isTrue();
+    assertThat(read.partial()).isEmpty();
+    assertThat(read.ids()).containsExactly(caught.mutant().id(), missed.mutant().id());
+    assertThat(read.result(caught.mutant())).isEqualTo(caught);
+    assertThat(read.result(missed.mutant())).isEqualTo(missed);
+    assertThat(read.status(missed.mutant().id())).isEqualTo(Status.MISSED);
+    assertThat(List.of(read.jdk(), read.tests(), read.workers(), read.workersStarted()))
+        .containsExactly(17, 2, 2, 3);
+    assertThat(List.of(read.coverage(), read.took()))
+        .containsExactly(Duration.ofMillis(100), Duration.ofMillis(300));
+    assertThat(read.flaky()).containsExactly("com.example.PricingTest#c");
+    assertThat(read.flakyEvidence()).containsExactly(flaky);
+  }
+
   @Test
   void theRunStartsWithItsProjectAndRules() {
     events.runStarted("pricing");
@@ -170,7 +248,8 @@ class JsonEventsTest {
         .contains("\"Killed\":1,\"Survived\":1,\"Timeout\":0,\"NoCoverage\":0,\"Ignored\":0")
         .contains("\"killed\":1,\"survived\":1,\"timeout\":0,\"noCoverage\":0,\"ignored\":0")
         .contains("\"score\":50.0,\"threshold\":80,\"passed\":false,\"coveredScore\":50.0")
-        .contains("\"tests\":2,\"flaky\":[\"com.example.PricingTest#f\"]")
+        .contains("\"tests\":2,\"workers\":1,\"workersStarted\":1,\"coverageMs\":100")
+        .contains("\"flaky\":[\"com.example.PricingTest#f\"]")
         .contains("\"reports\":[\"build/mutastic/mutation.json\"]")
         .contains("\"staleIgnores\":[\"m1\"],\"durationMs\":300")
         .doesNotContain("previousScore", "\"only\"", "aridAudit", "scope");

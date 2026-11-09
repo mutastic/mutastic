@@ -6,9 +6,10 @@
 # CLI's end-to-end tests would too, but run whole Gradle builds per mutant, so not nightly yet.
 #
 # The engine's run is most of the time (21 of 25 minutes on 9 Nov 2026), so it runs in four jobs,
-# a share of its mutants each (`--shard=N/4`, dealt by id), beside the report's and the api's. A
-# share's score is no measure of the module's, so the shares run with no threshold, and the last
-# job puts each module's shares back together and checks its floor on the whole.
+# a share of its mutants each (`--shard=N/4`, dealt by id), beside the report's and the api's, each
+# one share of one. A share's score is no measure of the module's, so the shares run with no
+# threshold, and the last job puts each module's shares back together (`--from-shards`), as the
+# whole run, with the module's floor as its threshold.
 #
 # Each night adds a row to score-history.tsv, kept in the Actions cache and attached to the run.
 name: Nightly
@@ -22,7 +23,8 @@ permissions:
   contents: read
 
 jobs:
-  # One share of one module's mutants each: the module's floor is checked after, on the whole.
+  # One share of one module's mutants each: the module's floor is checked after, on the whole. Each
+  # share keeps what putting it back together needs in its own folder, uploaded as it is.
   run:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -30,15 +32,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { module: mutastic-engine, share: 1, of: 4, threshold: 0 }
-          - { module: mutastic-engine, share: 2, of: 4, threshold: 0 }
-          - { module: mutastic-engine, share: 3, of: 4, threshold: 0 }
-          - { module: mutastic-engine, share: 4, of: 4, threshold: 0 }
-          - { module: mutastic-report, share: 1, of: 1, threshold: 60 }
+          - { module: mutastic-engine, share: 1, of: 4 }
+          - { module: mutastic-engine, share: 2, of: 4 }
+          - { module: mutastic-engine, share: 3, of: 4 }
+          - { module: mutastic-engine, share: 4, of: 4 }
+          - { module: mutastic-report, share: 1, of: 1 }
           - module: mutastic-api
             share: 1
             of: 1
-            threshold: 50
             args: --tests-from=:mutastic-engine --tests-from=:mutastic-report
     name: ${{ matrix.module }} ${{ matrix.share }}/${{ matrix.of }}
     steps:
@@ -63,17 +64,15 @@ jobs:
       - name: mutastic run, on a share of the module
         run: |
           mutastic-cli/build/install/mutastic/bin/mutastic run ":${{ matrix.module }}" \
-            --format=jsonl --threshold=${{ matrix.threshold }} \
-            --shard=${{ matrix.share }}/${{ matrix.of }} ${{ matrix.args }} > share.jsonl
+            --threshold=0 --shard=${{ matrix.share }}/${{ matrix.of }} ${{ matrix.args }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: share-${{ matrix.module }}-${{ matrix.share }}-of-${{ matrix.of }}
-          path: |
-            share.jsonl
-            build/mutastic/
+          path: build/mutastic/${{ matrix.module }}/shares/${{ matrix.share }}-of-${{ matrix.of }}/
 
-  # Each module's shares put back together, its floor checked on the whole, and the score history.
+  # Each module's shares put back together as its whole run, with its floor as the threshold; the
+  # whole run's record kept for the next night's to compare with, and the score history.
   floors:
     needs: run
     if: always()
@@ -81,11 +80,27 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            25
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - run: ./gradlew :mutastic-cli:installDist
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: share-*
-          path: shares
-      # The score history so far (the path list is the one-job Nightly's, which kept it too).
+          pattern: share-mutastic-engine-*
+          path: shares/mutastic-engine
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: share-mutastic-report-*
+          path: shares/mutastic-report
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: share-mutastic-api-*
+          path: shares/mutastic-api
+      # The last whole runs' records, which tonight's compare with, and the score history so far.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -98,15 +113,15 @@ jobs:
         run: |
           failed=0
           floor() {
-            local shares=() share
-            for share in $(seq 1 "$3"); do
-              shares+=("shares/share-$1-$share-of-$3/share.jsonl")
-            done
-            .github/shares.py "$1" "$2" score-history.tsv "${shares[@]}" > "$1.jsonl" || failed=1
+            mutastic-cli/build/install/mutastic/bin/mutastic run ":$1" --from-shards="shares/$1" \
+              --threshold="$2" --format=jsonl > "$1.jsonl" || failed=1
+            grep '"reason":"run-finished"' "$1.jsonl" \
+              | python3 -c 'import json,sys; e=json.load(sys.stdin); print(sys.argv[1], e["mutants"], "mutants, score", e["score"], "against", e["threshold"], "passed" if e["passed"] else "FAILED")' "$1" \
+              || true
           }
-          floor mutastic-engine 53 4
-          floor mutastic-report 60 1
-          floor mutastic-api 50 1
+          floor mutastic-engine 53
+          floor mutastic-report 60
+          floor mutastic-api 50
           exit $failed
       - name: Score history
         if: always()
@@ -126,4 +141,4 @@ jobs:
           path: |
             mutastic-*.jsonl
             score-history.tsv
-            shares/
+            build/mutastic/*/mutation.*

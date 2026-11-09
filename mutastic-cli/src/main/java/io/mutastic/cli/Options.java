@@ -132,13 +132,26 @@ final class Options {
               Group.RUNNING,
               "N/M",
               List.of(),
-              "Run only the Nth of M shares of the mutants, to split one run across machines: the"
-                  + " score and threshold are the share's",
+              "Run only the Nth of M shares of the mutants, to split one run across machines. It"
+                  + " keeps its results in shares/N-of-M in the work directory for --from-shards",
               RUNS,
               "shard",
               false,
               "",
-              "mutastic run --shard=2/4 --threshold=0 --format=jsonl"),
+              "mutastic run --shard=2/4 --threshold=0"),
+          new Option(
+              "--from-shards",
+              Kind.VALUE,
+              Group.RUNNING,
+              "DIR",
+              List.of(),
+              "Run no mutants: put together the results every share of a split run kept, found"
+                  + " anywhere in DIR, as the whole run, with its reports, record and threshold",
+              RUNS,
+              "fromShards",
+              false,
+              "",
+              "mutastic run --from-shards=shares --threshold=60"),
           new Option(
               "--no-suggestions",
               Kind.FLAG,
