@@ -152,6 +152,8 @@ public final class Engine {
   /// @param policy the project's own rules and filters
   /// @param changed the lines of a change, when the run is scoped to it: no other mutant runs
   /// @param ghosts find and run ghosts (experimental), reported apart and never in the score
+  /// @param killMatrix run every covering test of a caught mutant, not only up to the first catch
+  /// @param shard the share of the mutants that runs: every one unless the run is split
   public record Options(
       List<String> only,
       boolean confirmCatches,
@@ -162,7 +164,8 @@ public final class Engine {
       Policy policy,
       Optional<ChangedLines> changed,
       boolean ghosts,
-      boolean killMatrix) {
+      boolean killMatrix,
+      Shard shard) {
     /// Options that stop at a mutant's first catch.
     public Options(
         List<String> only,
@@ -184,7 +187,8 @@ public final class Engine {
           policy,
           changed,
           ghosts,
-          false);
+          false,
+          Shard.WHOLE);
     }
 
     /// The same options, running every covering test of a caught mutant, to find each that catches
@@ -200,7 +204,24 @@ public final class Engine {
           policy,
           changed,
           ghosts,
-          every);
+          every,
+          shard);
+    }
+
+    /// The same options, for one share of the mutants (`--shard`).
+    public Options withShard(Shard share) {
+      return new Options(
+          only,
+          confirmCatches,
+          workers,
+          suggestions,
+          auditArid,
+          among,
+          policy,
+          changed,
+          ghosts,
+          killMatrix,
+          share);
     }
 
     /// Options without ghosts.
@@ -228,7 +249,8 @@ public final class Engine {
           policy,
           changed,
           ghosts,
-          killMatrix);
+          killMatrix,
+          shard);
     }
 
     public Options {
@@ -354,7 +376,9 @@ public final class Engine {
             ? ignored.applyToAll(
                 mutants, () -> underEveryOperator(project, options, context, models))
             : ignored.apply(mutants);
-    return new Found(applied, mutations, ignored.stale());
+    // A share is taken last, so the ignores are judged as in the whole run.
+    var shared = applied.stream().filter(mutant -> options.shard().holds(mutant.id())).toList();
+    return new Found(shared, mutations, ignored.stale());
   }
 
   /// Every mutant the project has, whichever operators this run chose.
@@ -377,7 +401,12 @@ public final class Engine {
     var mutants = found.mutants();
     var mutations = found.mutations();
     var coverage = new Coverage(context);
-    var ghosts = options.ghosts() ? ghostsIn(models, mutations) : List.<Ghosts.Found>of();
+    var ghosts =
+        options.ghosts()
+            ? ghostsIn(models, mutations).stream()
+                .filter(ghost -> options.shard().holds(ghost.mutant().id()))
+                .toList()
+            : List.<Ghosts.Found>of();
     var toRun = new ArrayList<>(mutants);
     ghosts.forEach(ghost -> toRun.add(ghost.mutant()));
     var instrumented = instrumentMutated(models, toRun, coverage, options.auditArid());

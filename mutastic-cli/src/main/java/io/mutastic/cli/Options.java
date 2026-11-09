@@ -127,6 +127,19 @@ final class Options {
               "",
               "mutastic run --kill-matrix --format=jsonl"),
           new Option(
+              "--shard",
+              Kind.VALUE,
+              Group.RUNNING,
+              "N/M",
+              List.of(),
+              "Run only the Nth of M shares of the mutants, to split one run across machines: the"
+                  + " score and threshold are the share's",
+              RUNS,
+              "shard",
+              false,
+              "",
+              "mutastic run --shard=2/4 --threshold=0 --format=jsonl"),
+          new Option(
               "--no-suggestions",
               Kind.FLAG,
               Group.RUNNING,

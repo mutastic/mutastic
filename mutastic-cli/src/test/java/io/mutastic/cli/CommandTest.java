@@ -37,7 +37,8 @@ class CommandTest {
                 new Main.Gating("", 3),
                 java.util.Set.of(),
                 1,
-                false));
+                false,
+                io.mutastic.engine.Shard.WHOLE));
   }
 
   @Test
@@ -71,7 +72,8 @@ class CommandTest {
                 new Main.Gating("", 3),
                 java.util.Set.of(),
                 1,
-                false));
+                false,
+                io.mutastic.engine.Shard.WHOLE));
   }
 
   /// What the build plugins pass: the setup they wrote, and their goals as the commands offered.
@@ -146,6 +148,18 @@ class CommandTest {
     assertThat(command.directory()).isEqualTo(Path.of("."));
     assertThatThrownBy(() -> parse("run", "--since", "main"))
         .hasMessage("there's no directory main: for the changes since main, write --since=main");
+  }
+
+  /// `--shard=2/4`: the second of four shares, each from 1 to how many there are.
+  @Test
+  void aShareIsOneOfHowMany() {
+    assertThat(parse("run", "--shard=2/4").shard()).isEqualTo(new io.mutastic.engine.Shard(2, 4));
+    assertThatThrownBy(() -> parse("run", "--shard=5/4"))
+        .hasMessage("--shard is from 1 to 4, not 5");
+    assertThatThrownBy(() -> parse("run", "--shard=0/4"))
+        .hasMessage("--shard is from 1 to 4, not 0");
+    assertThatThrownBy(() -> parse("run", "--shard=2"))
+        .hasMessage("--shard needs a share and how many, as 2/4, not 2");
   }
 
   @Test

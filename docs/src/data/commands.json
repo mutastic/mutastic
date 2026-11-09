@@ -11,7 +11,7 @@
       "exits": "0 when the score reaches the threshold, 1 when it doesn't.",
       "takesMutantId": false,
       "examples": [{ "gradle": "./gradlew mutasticRun", "maven": "mvn mutastic:run", "commandLine": "mutastic run" }, { "gradle": "./gradlew mutasticRun -Pmutastic.threshold=70 -p samples/pricing", "maven": "mvn mutastic:run -Dmutastic.threshold=70 -f samples/pricing", "commandLine": "mutastic run samples/pricing --threshold=70" }, { "gradle": "./gradlew mutasticRun -Pmutastic.since=main", "maven": "mvn mutastic:run -Dmutastic.since=main", "commandLine": "mutastic run --since=main" }, { "gradle": "./gradlew :core:mutasticRun -Pmutastic.testsFrom=dependents", "maven": "mvn mutastic:run -Dmutastic.testsFrom=dependents -pl core", "commandLine": "mutastic run . :core --tests-from=dependents" }],
-      "options": ["--threshold", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--kill-matrix", "--no-suggestions", "--exclude-tests", "--suite", "--operators", "--experimental", "--report", "--format", "--each-mutant", "--vocabulary", "--color", "--hyperlinks", "--progress"]
+      "options": ["--threshold", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--kill-matrix", "--shard", "--no-suggestions", "--exclude-tests", "--suite", "--operators", "--experimental", "--report", "--format", "--each-mutant", "--vocabulary", "--color", "--hyperlinks", "--progress"]
     },
     {
       "name": "verify",
@@ -200,6 +200,20 @@
       "maven": { "property": "-Dmutastic.killMatrix", "setting": null },
       "gradle": { "property": "-Pmutastic.killMatrix", "setting": null },
       "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.killMatrix -Pmutastic.format=jsonl", "maven": "mvn mutastic:run -Dmutastic.killMatrix -Dmutastic.format=jsonl", "commandLine": "mutastic run --kill-matrix --format=jsonl", "gradleBuild": "", "mavenBuild": "" } }
+    },
+    {
+      "name": "--shard",
+      "synopsis": "--shard=N/M",
+      "kind": "value",
+      "group": "Running",
+      "value": "N/M",
+      "choices": [],
+      "help": "Run only the Nth of M shares of the mutants, to split one run across machines: the score and threshold are the share's",
+      "commands": ["run"],
+      "environment": "",
+      "maven": { "property": "-Dmutastic.shard", "setting": null },
+      "gradle": { "property": "-Pmutastic.shard", "setting": null },
+      "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.shard=2/4 -Pmutastic.threshold=0 -Pmutastic.format=jsonl", "maven": "mvn mutastic:run -Dmutastic.shard=2/4 -Dmutastic.threshold=0 -Dmutastic.format=jsonl", "commandLine": "mutastic run --shard=2/4 --threshold=0 --format=jsonl", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--no-suggestions",
