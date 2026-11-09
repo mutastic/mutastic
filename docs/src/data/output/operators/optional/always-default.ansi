@@ -1,0 +1,14 @@
+ [41;30;1m ✗ MISSED [0m no test needs the value in the [1mOptional[0m before [1m.orElse(…)[0m in port()
+    [2m┌─[0m src/main/java/com/example/optional/Server.java:13
+    [2m│[0m
+ [2m12[0m [2m│[0m   public int port(Optional<Integer> configured) {
+ [2m13[0m [2m│[0m     return configured.orElse(defaultPort);
+    [2m│[0m                       [1;31m^^^^^^ now always the default[0m
+ [2m14[0m [2m│[0m   }
+    [2m│[0m
+    [2m=[0m [1;34m[1mnote[0m[0m: covered by ServerTest#theConfiguredPort, ServerTest#theDefaultPort (all 2 covering tests still pass)
+    [2m=[0m [32m[1mhelp[0m[0m: add a test where the [1mOptional[0m has a value other than the default, and assert it comes back
+
+    [2mdone when [0m mutastic verify md962bd31 samples/operator-docs[2m passes[0m
+    [2mreproduce [0m mutastic run --only=md962bd31 samples/operator-docs
+    [2mor ignore [0m mutastic ignore md962bd31 --reason="<why>" samples/operator-docs

@@ -1,0 +1,263 @@
+---
+title: Library methods
+description: "The operators that swap a JDK method for its counterpart, and change the strings and regular expressions in your code: the bug each stands for, a real card, and the test that catches it."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import swapString from '../../../../data/output/operators/library/swap-string.ansi?raw';
+import swapIndexOf from '../../../../data/output/operators/library/swap-index-of.ansi?raw';
+import swapMath from '../../../../data/output/operators/library/swap-math.ansi?raw';
+import stringConstant from '../../../../data/output/operators/library/string-constant.ansi?raw';
+import regexConstant from '../../../../data/output/operators/library/regex-constant.ansi?raw';
+
+Operators that swap a library method for the one beside it, and change the text in your code: a
+string, or a regular expression. Together they ask whether your tests' text is text where the
+difference would show.
+
+| Operator | Changes | Set |
+|---|---|---|
+| [`library/swap-string`](#string-method-swap) | a `String` method and the similar one: `startsWith` and `endsWith`, `toUpperCase` and `toLowerCase` | defaults |
+| [`library/swap-index-of`](#indexof-swap) | `indexOf` and `lastIndexOf` | stronger |
+| [`library/swap-math`](#math-method-swap) | `Math.min` and `Math.max`, `Math.floor` and `Math.ceil` | defaults |
+| [`mutastic/string-constant`](#string-constant) | a string in the code, to `""` | stronger |
+| [`mutastic/regex-constant`](#regex-constant) | a regular expression, to one that differs and still compiles | extended |
+
+Each example is a class in `samples/operator-docs` with a test that misses its mutant, and each card
+is what `mutastic run samples/operator-docs --operators=all` prints for it.
+
+## String method swap
+
+`library/swap-string`, in the defaults. A `String` method becomes the similar one: `startsWith` and
+`endsWith`, `toUpperCase` and `toLowerCase`, `stripLeading` and `stripTrailing`.
+
+**The bug it stands for:** the method next to the one you meant. They have the same arguments, the
+compiler can't tell them apart, and on the text tests usually pick they give the same answer. It
+costs in parsing and normalising: a prefix check that's really a suffix check, a key that's upper case
+where the lookup expects lower, a value with its trailing space left on.
+
+{/* from: samples/operator-docs/src/main/java/com/example/library/Comments.java */}
+```java
+  public static boolean isComment(String line) {
+    return line.startsWith("#");
+  }
+```
+
+The test's comment is a `#` alone, which starts and ends the line:
+
+{/* from: samples/operator-docs/src/test/java/com/example/library/CommentsTest.java */}
+```java
+  @Test
+  void aCommentAndAPlainLine() {
+    assertTrue(Comments.isComment("#"));
+    assertFalse(Comments.isComment("hello"));
+  }
+```
+
+<Code code={swapString} lang="ansi" />
+
+**The test that catches it:** text with what's looked for at one end only, letters whose case shows, a
+space on one side only.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/library/CommentsTest.java */}
+```java
+  @Test
+  void aCommentStartsWithTheHash() {
+    assertTrue(Comments.isComment("# a note"));
+  }
+```
+
+**Edition notes:** the Rust edition has the same id, for `starts_with` and `ends_with`,
+`to_uppercase` and `to_lowercase`, `trim_start` and `trim_end`, and `strip_prefix` and
+`strip_suffix`.
+
+## indexOf swap
+
+`library/swap-index-of`, in the `stronger` set. `String.indexOf` and `lastIndexOf` swap places.
+
+**The bug it stands for:** the first match where the last was meant. On text with one match they
+agree, and that's the text tests usually have. It costs in taking text apart: a file's extension
+taken from its first dot, a package name cut at the wrong separator. It's in `stronger` because much
+of what it finds can't happen: text that has the character once by its format.
+
+{/* from: samples/operator-docs/src/main/java/com/example/library/Files.java */}
+```java
+  public static String extension(String file) {
+    return file.substring(file.indexOf('.') + 1);
+  }
+```
+
+{/* from: samples/operator-docs/src/test/java/com/example/library/FilesTest.java */}
+```java
+  @Test
+  void aTextFile() {
+    assertEquals("txt", Files.extension("notes.txt"));
+  }
+```
+
+<Code code={swapIndexOf} lang="ansi" />
+
+**The test that catches it:** one where what's searched for appears twice. Here it says which dot the
+extension starts at.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/library/FilesTest.java */}
+```java
+  @Test
+  void anArchivesExtensionIsEverythingAfterTheName() {
+    assertEquals("tar.gz", Files.extension("backup.tar.gz"));
+  }
+```
+
+**Edition notes:** a search whose result is only tested for being there, `name.indexOf('.') >= 0`, is
+skipped as equivalent, as both find it or neither does. A search with a starting point,
+`indexOf(x, from)`, is left alone. The Rust edition has the same id, for `find` and `rfind`,
+`position` and `rposition`, `split_once` and `rsplit_once`, and `match_indices` and
+`rmatch_indices`.
+
+## Math method swap
+
+`library/swap-math`, in the defaults. `Math.min` and `Math.max` swap places, and so do `Math.floor`
+and `Math.ceil`.
+
+**The bug it stands for:** `min` where `max` was meant, a limit that's a floor instead of a ceiling,
+or rounding the wrong way. Each reads right at a glance, and tests whose values are all on one side of
+the limit, or whole numbers, can't tell. It costs in limits, clamps, page counts and money: a batch
+larger than its limit, a page count one short, an amount rounded in the customer's favour.
+
+{/* from: samples/operator-docs/src/main/java/com/example/library/Discounts.java */}
+```java
+  /// Never more off than the cap.
+  public int capped(int percent) {
+    return Math.min(percent, cap);
+  }
+```
+
+The test asks for exactly the cap, where `min` and `max` agree:
+
+{/* from: samples/operator-docs/src/test/java/com/example/library/DiscountsTest.java */}
+```java
+  @Test
+  void halfOffAtMost() {
+    assertEquals(50, new Discounts(50).capped(50));
+  }
+```
+
+<Code code={swapMath} lang="ansi" />
+
+**The test that catches it:** one on the side the code guards against: two different values for `min`
+and `max`, and a value with a fraction for `floor` and `ceil`.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/library/DiscountsTest.java */}
+```java
+  @Test
+  void moreThanTheCapIsCapped() {
+    assertEquals(50, new Discounts(50).capped(80));
+  }
+```
+
+**Edition notes:** rounding a whole number, `Math.floor((double) count)`, is skipped as equivalent, as
+it rounds to itself either way. The Rust edition has the same id, for `min` and `max`, `cmp::min` and
+`cmp::max`, `min_by` and `max_by`, and `floor` and `ceil`, and adds `library/reverse-ordering`, which
+turns `a.cmp(&b)` into `b.cmp(&a)`.
+
+## String constant
+
+`mutastic/string-constant`, in the `stronger` set. A string in the code becomes `""`, and an empty one
+a word.
+
+**The bug it stands for:** the wrong key, name or format: a typo in a `"content-type"`, or a value
+someone changed in one place and not the other. It costs in text the code acts on: map keys, file
+names, protocol words, separators, what a value is compared with. The compiler can't check any of it.
+
+{/* from: samples/operator-docs/src/main/java/com/example/library/Headers.java */}
+```java
+  public static String header(List<String> columns) {
+    return String.join(", ", columns);
+  }
+```
+
+The test's header has one column, so the separator never shows:
+
+{/* from: samples/operator-docs/src/test/java/com/example/library/HeadersTest.java */}
+```java
+  @Test
+  void oneColumn() {
+    assertEquals("name", Headers.header(List.of("name")));
+  }
+```
+
+<Code code={stringConstant} lang="ansi" />
+
+**The test that catches it:** one whose result depends on the text.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/library/HeadersTest.java */}
+```java
+  @Test
+  void columnsAreSeparatedByCommas() {
+    assertEquals("name, email", Headers.header(List.of("name", "email")));
+  }
+```
+
+**Edition notes:** run it with `--operators=stronger`. Text that only tells a person something is
+skipped as arid: what goes into a log call or `System.out`, an exception's message, including through
+`String.format` or `formatted`, or a failed check's message. An exception is known by being thrown
+straight away, or by its supertypes reaching `Throwable`: a class named `ConfigError` that isn't one
+keeps its mutant, and so does one whose supertypes can't be found. A failed check is
+`Objects.requireNonNull` or Guava's `Preconditions`. A string in an annotation isn't in the code, and
+the text in `"total: " + x` is in javac's recipe for the call, so neither has a mutant. Text a person
+reads in other ways, such as a command's output, is changed like any other, so expect misses there:
+ranking puts those after the rest, and most aren't worth a test. The Rust edition has the same id, and
+leaves alone an error's or `expect`'s message.
+
+## Regex constant
+
+`mutastic/regex-constant`, in the `extended` set. A regular expression changes, one mutant for each
+place: an anchor (`^` or `$`) goes, a character class or `\d`, `\w` or `\s` turns the other way round,
+or a quantifier goes.
+
+**The bug it stands for:** an expression that accepts more than it should, or less: a missing anchor,
+a `+` where one was enough, a class the wrong way round. It costs in validation and parsing: tests of
+a regular expression tend to try text that should match, and an unanchored `\d+` finds `abc123`
+too.
+
+{/* from: samples/operator-docs/src/main/java/com/example/library/OrderNumbers.java */}
+```java
+/// An order number is digits, and nothing else.
+public final class OrderNumbers {
+  private static final Pattern DIGITS = Pattern.compile("^\\d+$");
+
+  public static boolean isValid(String text) {
+    return DIGITS.matcher(text).find();
+  }
+}
+```
+
+The test tries digits, and letters alone, but never the two together, so neither anchor is needed:
+
+{/* from: samples/operator-docs/src/test/java/com/example/library/OrderNumbersTest.java */}
+```java
+  @Test
+  void digitsAreAnOrderNumber() {
+    assertTrue(OrderNumbers.isValid("123"));
+    assertFalse(OrderNumbers.isValid("abc"));
+  }
+```
+
+<Code code={regexConstant} lang="ansi" />
+
+**The test that catches it:** text that only one of the two matches, at each end.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/library/OrderNumbersTest.java */}
+```java
+  @Test
+  void lettersAroundTheDigitsAreNotAnOrderNumber() {
+    assertFalse(OrderNumbers.isValid("abc123"));
+    assertFalse(OrderNumbers.isValid("123abc"));
+  }
+```
+
+**Edition notes:** run it with `--operators=defaults,extended`. It only changes text that goes straight
+into `Pattern.compile`, `Pattern.matches`, `matches`, `split`, `replaceAll` or `replaceFirst`, and only
+to an expression that compiles, so what doesn't look like a regular expression has no mutants. It's
+the one operator that also runs in constructors and static initialisers, as a `Pattern` is usually a
+field. An anchor is skipped as equivalent on `matches`, which has to match all of the text anyway.
+The Rust edition has the same id, for `Regex::new`.

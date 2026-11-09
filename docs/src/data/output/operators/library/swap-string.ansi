@@ -1,0 +1,14 @@
+ [41;30;1m ✗ MISSED [0m no test tells [1mstartsWith[0m from [1mendsWith[0m in isComment()
+   [2m┌─[0m src/main/java/com/example/library/Comments.java:5
+   [2m│[0m
+ [2m4[0m [2m│[0m   public static boolean isComment(String line) {
+ [2m5[0m [2m│[0m     return line.startsWith("#");
+   [2m│[0m                 [1;31m^^^^^^^^^^ changed to endsWith[0m
+ [2m6[0m [2m│[0m   }
+   [2m│[0m
+   [2m=[0m [1;34m[1mnote[0m[0m: covered by CommentsTest#aCommentAndAPlainLine (its 1 covering test still passes)
+   [2m=[0m [32m[1mhelp[0m[0m: use text with it at one end and not the other, and assert the result
+
+   [2mdone when [0m mutastic verify m7d64aafa samples/operator-docs[2m passes[0m
+   [2mreproduce [0m mutastic run --only=m7d64aafa samples/operator-docs
+   [2mor ignore [0m mutastic ignore m7d64aafa --reason="<why>" samples/operator-docs

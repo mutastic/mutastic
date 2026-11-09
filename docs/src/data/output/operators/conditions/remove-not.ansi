@@ -1,0 +1,14 @@
+ [41;30;1m ✗ MISSED [0m no test checks which values the negated predicate accepts in filled()
+    [2m┌─[0m src/main/java/com/example/conditions/Fields.java:9
+    [2m│[0m
+ [2m 8[0m [2m│[0m   public static long filled(List<String> values) {
+ [2m 9[0m [2m│[0m     return values.stream().filter(Predicate.not(String::isEmpty)).count();
+    [2m│[0m                                             [1;31m^^^ no longer negated[0m
+ [2m10[0m [2m│[0m   }
+    [2m│[0m
+    [2m=[0m [1;34m[1mnote[0m[0m: covered by FieldsTest#anEmptyFieldIsntFilled (its 1 covering test still passes)
+    [2m=[0m [32m[1mhelp[0m[0m: use a value the predicate accepts and one it rejects, and assert the result for each
+
+    [2mdone when [0m mutastic verify m73ac6755 samples/operator-docs[2m passes[0m
+    [2mreproduce [0m mutastic run --only=m73ac6755 samples/operator-docs
+    [2mor ignore [0m mutastic ignore m73ac6755 --reason="<why>" samples/operator-docs

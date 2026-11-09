@@ -58,7 +58,8 @@ distributions {
     }
 }
 
-// The output the docs show (docs/src/data/output): mutastic's own, on the pricing sample.
+// The output the docs show (docs/src/data/output): mutastic's own, on the pricing sample, and
+// the operator pages' cards, on samples/operator-docs.
 val docsOutput = rootDir.resolve("docs/src/data/output")
 
 // Every card mutastic gives on the samples (src/test/cards), so a change to their words is a diff.
@@ -137,6 +138,7 @@ val secondsOnCi =
         "GateTest" to 59,
         "ParallelTest" to 50,
         "DocsOutputTest" to 45,
+        "DocsOperatorsTest" to 25,
         "PricingSampleTest" to 44,
         "MavenPluginTest" to 41,
         "KotlinShapesTest" to 40,
@@ -245,8 +247,13 @@ tasks.register<Test>("exportDocsOutput") {
             .output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
     useJUnitPlatform()
-    filter { includeTestsMatching("io.mutastic.cli.DocsOutputTest") }
+    filter {
+        includeTestsMatching("io.mutastic.cli.DocsOutputTest")
+        // The cards on the operator pages.
+        includeTestsMatching("io.mutastic.cli.DocsOperatorsTest")
+    }
     systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
+    systemProperty("mutastic.docs", rootDir.resolve("docs/src/content/docs").absolutePath)
     systemProperty("mutastic.docsOutput", docsOutput.absolutePath)
     systemProperty("mutastic.docsOutput.write", "true")
     // Its JSON Lines run is checked against the events schema, as in the tests.

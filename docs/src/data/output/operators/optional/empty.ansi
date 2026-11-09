@@ -1,0 +1,22 @@
+ [41;30;1m ✗ MISSED [0m no test depends on the value of [1mchosen[0m in [1msize()[0m[2m · m528413d3[0m
+    [2m┌─[0m src/main/java/com/example/optional/Pages.java:14
+    [2m│[0m
+ [2m13[0m [2m│[0m   public int size(Integer chosen) {
+ [2m14[0m [2m│[0m     Optional<Integer> custom = Optional.ofNullable(chosen);
+    [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ parameter is null[0m
+ [2m15[0m [2m│[0m     return custom.orElse(standard);
+    [2m│[0m
+    [2m=[0m also    [1;31m✗[0m no test checks the value in the [1mOptional[0m made by [1mofNullable(…)[0m in size() [2m· m02d5e708[0m
+    [2m=[0m [1;34m[1mnote[0m[0m: covered by PagesTest#theStandardSize, PagesTest#aChosenSize (all 2 covering tests still pass)
+    [2m=[0m [32m[1mhelp[0m[0m: add a test whose result depends on [1mchosen[0m, and assert it
+
+            [2m// in PagesTest[0m
+            @Test
+            void sizeWithArg01ForPages0() {
+            [32m  assertEquals(1, new Pages(0).size(1)); // today 1 · with m528413d3 0[0m
+            }
+            [2mcheck today's value is the one you intend: the test pins what the code does now[0m
+
+    [2mdone when [0m mutastic verify m528413d3,m02d5e708 samples/operator-docs[2m passes[0m
+    [2mreproduce [0m mutastic run --only=m528413d3,m02d5e708 samples/operator-docs
+    [2mor ignore [0m mutastic ignore <id> --reason="<why>" samples/operator-docs for each of m528413d3, m02d5e708

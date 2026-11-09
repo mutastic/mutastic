@@ -1,0 +1,14 @@
+ [41;30;1m ✗ MISSED [0m no test has [1mTimeoutException[0m reach this [1mcatch[0m in [1mload()[0m
+    [2m┌─[0m src/main/java/com/example/control/Reader.java:16
+    [2m│[0m
+ [2m15[0m [2m│[0m       return source.read();
+ [2m16[0m [2m│[0m     } catch (IOException | TimeoutException e) {
+    [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no longer catches it[0m
+ [2m17[0m [2m│[0m       return cached;
+    [2m│[0m
+    [2m=[0m [1;34m[1mnote[0m[0m: covered by ReaderTest#aFailedReadFallsBackToTheCache (its 1 covering test still passes)
+    [2m=[0m [32m[1mhelp[0m[0m: add a test where the [1mtry[0m throws [1mTimeoutException[0m, and assert what the [1mcatch[0m does
+
+    [2mdone when [0m mutastic verify m548495eb samples/operator-docs[2m passes[0m
+    [2mreproduce [0m mutastic run --only=m548495eb samples/operator-docs
+    [2mor ignore [0m mutastic ignore m548495eb --reason="<why>" samples/operator-docs

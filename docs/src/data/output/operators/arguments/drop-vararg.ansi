@@ -1,0 +1,22 @@
+ [41;30;1m ✗ MISSED [0m no test needs the last value given to [1masList()[0m in [1mbestOfThree()[0m
+   [2m┌─[0m src/main/java/com/example/arguments/Scores.java:8
+   [2m│[0m
+ [2m7[0m [2m│[0m   public static int bestOfThree(int first, int second, int third) {
+ [2m8[0m [2m│[0m     return Collections.max(Arrays.asList(first, second, third));
+   [2m│[0m                                   [1;31m^^^^^^ last value left out[0m
+ [2m9[0m [2m│[0m   }
+   [2m│[0m
+   [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: first = 9; second = 2; third = 1
+           [2mcovered by ScoresTest#theBestComesFirst (its 1 covering test still passes)[0m
+   [2m=[0m [32m[1mhelp[0m[0m: add a test whose result depends on the last value given to [1masList()[0m, and assert it
+
+           [2m// in ScoresTest[0m
+           @Test
+           void bestOfThreeWithFirst9AndSecond9AndThird10() {
+           [32m  assertEquals(10, Scores.bestOfThree(9, 9, 10)); // today 10 · with this mutant 9[0m
+           }
+           [2mcheck today's value is the one you intend: the test pins what the code does now[0m
+
+   [2mdone when [0m mutastic verify mdc01ea8c samples/operator-docs[2m passes[0m
+   [2mreproduce [0m mutastic run --only=mdc01ea8c samples/operator-docs
+   [2mor ignore [0m mutastic ignore mdc01ea8c --reason="<why>" samples/operator-docs

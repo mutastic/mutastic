@@ -1,0 +1,237 @@
+---
+title: Optional
+description: "The operators that change how an Optional is made, checked and unwrapped: the bug each stands for, a real card, and the test that catches it."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import swapPresent from '../../../../data/output/operators/optional/swap-present.ansi?raw';
+import empty from '../../../../data/output/operators/optional/empty.ansi?raw';
+import removeFilter from '../../../../data/output/operators/optional/remove-filter.ansi?raw';
+import alwaysDefault from '../../../../data/output/operators/optional/always-default.ansi?raw';
+import noDefault from '../../../../data/output/operators/optional/no-default.ansi?raw';
+
+Operators that change how an `Optional` is made, checked and unwrapped. Together they ask whether
+your tests have both a value and no value wherever the code tells them apart.
+
+| Operator | Changes | Set |
+|---|---|---|
+| [`optional/swap-present`](#optional-presence-swap) | `isPresent` and `isEmpty` | extended |
+| [`optional/empty`](#optional-made-empty) | `Optional.of(x)` to `Optional.empty()` | extended |
+| [`optional/remove-filter`](#optional-filter-removal) | `Optional.filter`, removed | extended |
+| [`optional/always-default`](#optional-default) | `opt.orElse(x)` to `x` | extended |
+| [`optional/no-default`](#optional-default) | `opt.orElse(x)` to `opt.get()` | extended |
+
+Each example is a class in `samples/operator-docs` with a test that misses its mutant, and each card
+is what `mutastic run samples/operator-docs --operators=all` prints for it. Run these with
+`--operators=defaults,extended`.
+
+## Optional presence swap
+
+`optional/swap-present`, in the `extended` set. `isPresent` and `isEmpty` swap places, on `Optional`
+and its primitive forms.
+
+**The bug it stands for:** a check the wrong way round, so that the code handles a missing value as if
+it were there. It costs on the path a test rarely tries: the customer who isn't found, the setting
+that isn't set.
+
+{/* from: samples/operator-docs/src/main/java/com/example/optional/Badges.java */}
+```java
+  /// What a profile shows: the nickname if there is one, and whether it's a nickname.
+  public record Badge(String shown, boolean nickname) {}
+
+  public static Badge badge(String name, Optional<String> nickname) {
+    return new Badge(nickname.orElse(name), nickname.isPresent());
+  }
+```
+
+The test checks the name each badge shows, with a nickname and without, but never whether it says
+it's a nickname:
+
+{/* from: samples/operator-docs/src/test/java/com/example/optional/BadgesTest.java */}
+```java
+  @Test
+  void theNicknameIsShown() {
+    assertEquals("Annie", Badges.badge("Ann", Optional.of("Annie")).shown());
+    assertEquals("Ann", Badges.badge("Ann", Optional.empty()).shown());
+  }
+```
+
+<Code code={swapPresent} lang="ansi" />
+
+**The test that catches it:** one with a value and one without, asserting what each does.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/optional/BadgesTest.java */}
+```java
+  @Test
+  void aNicknameIsMarkedAsOne() {
+    assertTrue(Badges.badge("Ann", Optional.of("Annie")).nickname());
+    assertFalse(Badges.badge("Ann", Optional.empty()).nickname());
+  }
+```
+
+**Edition notes:** `isEmpty` came in Java 11: in a class file for an older release the mutant is
+skipped as `unviable:`, as the method may not be there, and a missing method would look like a
+catch. The Rust edition has the same id in `stronger`, for `is_some` and `is_none`, and `is_ok` and
+`is_err`, since `Option` and `Result` are everyday Rust rather than a modern API.
+
+## Optional made empty
+
+`optional/empty`, in the `extended` set. An `Optional` made with a value is empty instead:
+`Optional.of(x)` and `ofNullable(x)` become `Optional.empty()`, and `x` is still worked out.
+
+**The bug it stands for:** code that gives back nothing where it should give a value, which callers
+treat as "not found" without complaint. It costs in lookups and settings: an empty result looks just
+like a real absence, so a test that only checks the call doesn't fail still passes.
+
+{/* from: samples/operator-docs/src/main/java/com/example/optional/Pages.java */}
+```java
+  /// The chosen page size, or the standard one when none is chosen.
+  public int size(Integer chosen) {
+    Optional<Integer> custom = Optional.ofNullable(chosen);
+    return custom.orElse(standard);
+  }
+```
+
+The test's chosen size is the standard one, so it comes out the same whether or not the choice is
+kept. A choice of `null` gives the same answer as well, so the card holds both:
+
+{/* from: samples/operator-docs/src/test/java/com/example/optional/PagesTest.java */}
+```java
+  @Test
+  void aChosenSize() {
+    assertEquals(20, new Pages(20).size(20));
+  }
+```
+
+<Code code={empty} lang="ansi" />
+
+**The test that catches it:** one that gets the value out, with a value unlike the default.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/optional/PagesTest.java */}
+```java
+  @Test
+  void aChosenSizeIsKept() {
+    assertEquals(50, new Pages(20).size(50));
+  }
+```
+
+**Edition notes:** the Rust edition has the same id in `stronger`: `Some(x)` becomes `None`, where it
+isn't returned.
+
+## Optional filter removal
+
+`optional/remove-filter`, in the `extended` set. `Optional.filter` is removed, so the value goes on
+whatever the predicate says.
+
+**The bug it stands for:** a check that's missing, or wrong, in a chain: the value is used when it
+shouldn't be. It costs in rules that hide in one call: only an active customer, only a discount
+that's still valid, only a nickname the rules allow.
+
+{/* from: samples/operator-docs/src/main/java/com/example/optional/Nicknames.java */}
+```java
+  /// The nickname asked for, if the rules allow it.
+  public Optional<String> claim(Optional<String> asked) {
+    return asked.filter(allowed);
+  }
+```
+
+The test only asks for a nickname the rules allow:
+
+{/* from: samples/operator-docs/src/test/java/com/example/optional/NicknamesTest.java */}
+```java
+  @Test
+  void anAllowedNickname() {
+    var nicknames = new Nicknames(nickname -> !nickname.equals("admin"));
+    assertEquals(Optional.of("annie"), nicknames.claim(Optional.of("annie")));
+  }
+```
+
+<Code code={removeFilter} lang="ansi" />
+
+**The test that catches it:** one with a value the filter must turn away.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/optional/NicknamesTest.java */}
+```java
+  @Test
+  void aNicknameTheRulesForbidIsRefused() {
+    var nicknames = new Nicknames(nickname -> !nickname.equals("admin"));
+    assertEquals(Optional.empty(), nicknames.claim(Optional.of("admin")));
+  }
+```
+
+**Edition notes:** the Rust edition has the same id in `extended`, for `opt.filter(p)` where `opt`
+isn't visibly an iterator.
+
+## Optional default
+
+`optional/always-default` and `optional/no-default`, in the `extended` set. Each takes away one side
+of `orElse`. `opt.orElse(x)` becomes `x`, so the value in the `Optional` is never used.
+`opt.orElse(x)` and `opt.orElseGet(s)` become `opt.get()`, so an empty `Optional` throws.
+
+**The bug it stands for:** a default that's always used, so the configured value is ignored; or no
+default at all, so a missing value throws. It costs in configuration: a setting that does nothing
+until someone's production value matters, or a start-up failure when it's left out.
+
+{/* from: samples/operator-docs/src/main/java/com/example/optional/Server.java */}
+```java
+  public int port(Optional<Integer> configured) {
+    return configured.orElse(defaultPort);
+  }
+```
+
+The test configures the default port, so whether the configured value is used never shows:
+
+{/* from: samples/operator-docs/src/test/java/com/example/optional/ServerTest.java */}
+```java
+  @Test
+  void theConfiguredPort() {
+    assertEquals(8080, new Server(8080).port(Optional.of(8080)));
+  }
+```
+
+<Code code={alwaysDefault} lang="ansi" />
+
+The other side: a test that always has a value never needs the default.
+
+{/* from: samples/operator-docs/src/main/java/com/example/optional/Numbers.java */}
+```java
+  /// The largest of `values`, or `ifNone` when there are none.
+  public static int largest(List<Integer> values, int ifNone) {
+    return values.stream().max(Integer::compare).orElse(ifNone);
+  }
+```
+
+{/* from: samples/operator-docs/src/test/java/com/example/optional/NumbersTest.java */}
+```java
+  @Test
+  void theLargest() {
+    assertEquals(9, Numbers.largest(List.of(3, 9), 0));
+  }
+```
+
+<Code code={noDefault} lang="ansi" />
+
+**The test that catches it:** two tests, one for each side: a value that isn't the default, and an
+empty `Optional`.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/optional/ServerTest.java */}
+```java
+  @Test
+  void aConfiguredPortIsUsed() {
+    assertEquals(9090, new Server(8080).port(Optional.of(9090)));
+  }
+```
+
+{/* added to: samples/operator-docs/src/test/java/com/example/optional/NumbersTest.java */}
+```java
+  @Test
+  void noValuesGiveTheFallback() {
+    assertEquals(0, Numbers.largest(List.of(), 0));
+  }
+```
+
+**Edition notes:** removing `opt.ifPresent(…)` is
+[remove void call](/concepts/operators/calls/#remove-void-call)'s change, as it returns nothing.
+`orElseThrow`'s supplier is left alone: which exception is thrown is rarely worth a test. The Rust
+edition has both ids in `stronger`, for `unwrap_or`, `unwrap_or_else`, `unwrap_or_default` and
+`map_or`.

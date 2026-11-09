@@ -1,0 +1,42 @@
+---
+// /concepts/operators-advanced/ was the page of why each operator matters: the bug it stands for,
+// and the test that catches it. That's on each operator's family page now, so a link to the old
+// page, anchor and all, is sent to the same operator there.
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const overview = `${base}/concepts/operators/`;
+
+/** The old page's anchors, by the family whose page has that operator now under the same anchor. */
+const FAMILIES = {
+  conditions: ['boundary', 'comparison', 'other-comparison', 'remove-conditional', 'logical-connector', 'predicate-connector-swap', 'predicate-negation-removal'],
+  arithmetic: ['math', 'arithmetic-replacement', 'other-arithmetic', 'bitwise', 'keep-operand', 'constant-value', 'flip-increment', 'remove-negation', 'unchecked-arithmetic'],
+  returns: ['return-value', 'replace-body', 'remove-throw'],
+  calls: ['remove-void-call', 'remove-discarded-call', 'remove-assignment', 'remove-field-write'],
+  arguments: ['omit-call', 'swap-arguments', 'null-parameter', 'drop-vararg', 'omit-argument'],
+  library: ['string-method-swap', 'indexof-swap', 'math-method-swap', 'string-constant', 'regex-constant'],
+  streams: ['stream-stage-removal', 'stream-match-swap', 'other-stage-removal'],
+  optional: ['optional-presence-swap', 'optional-made-empty', 'optional-filter-removal', 'optional-default'],
+  control: ['remove-switch-arm', 'drop-catch-type'],
+};
+const families = Object.fromEntries(
+  Object.entries(FAMILIES).flatMap(([family, anchors]) => anchors.map((anchor) => [anchor, family])),
+);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex" />
+    <title>Operators | mutastic</title>
+    <link rel="canonical" href={overview} />
+    <script is:inline define:vars={{ overview, families }}>
+      const anchor = decodeURIComponent(location.hash.slice(1));
+      const family = families[anchor];
+      location.replace(family ? `${overview}${family}/#${anchor}` : `${overview}${location.hash}`);
+    </script>
+    <noscript><meta http-equiv="refresh" content={`0; url=${overview}`} /></noscript>
+  </head>
+  <body>
+    <p>Each operator's page is now its family's: see <a href={overview}>All operators</a>.</p>
+  </body>
+</html>

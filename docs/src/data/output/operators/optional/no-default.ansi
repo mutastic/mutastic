@@ -1,0 +1,15 @@
+ [41;30;1m ✗ MISSED [0m no test has an empty [1mOptional[0m reach [1m.orElse(…)[0m in largest()
+   [2m┌─[0m src/main/java/com/example/optional/Numbers.java:8
+   [2m│[0m
+ [2m7[0m [2m│[0m   public static int largest(List<Integer> values, int ifNone) {
+ [2m8[0m [2m│[0m     return values.stream().max(Integer::compare).orElse(ifNone);
+   [2m│[0m                                                  [1;31m^^^^^^ throws when empty[0m
+ [2m9[0m [2m│[0m   }
+   [2m│[0m
+   [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: ifNone = 0
+           [2mcovered by NumbersTest#theLargest (its 1 covering test still passes)[0m
+   [2m=[0m [32m[1mhelp[0m[0m: add a test where the [1mOptional[0m is empty, and assert the default comes back
+
+   [2mdone when [0m mutastic verify m232b5b62 samples/operator-docs[2m passes[0m
+   [2mreproduce [0m mutastic run --only=m232b5b62 samples/operator-docs
+   [2mor ignore [0m mutastic ignore m232b5b62 --reason="<why>" samples/operator-docs

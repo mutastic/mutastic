@@ -1,0 +1,14 @@
+ [41;30;1m ✗ MISSED [0m no test tells [1mand[0m from [1mor[0m between two predicates in held()
+   [2m┌─[0m src/main/java/com/example/conditions/Moderation.java:8
+   [2m│[0m
+ [2m7[0m [2m│[0m   public static Predicate<String> held(Predicate<String> shouted, Predicate<String> isLong) {
+ [2m8[0m [2m│[0m     return shouted.and(isLong);
+   [2m│[0m                    [1;31m^^^ changed to or[0m
+ [2m9[0m [2m│[0m   }
+   [2m│[0m
+   [2m=[0m [1;34m[1mnote[0m[0m: covered by ModerationTest#aLongShoutIsHeld (its 1 covering test still passes)
+   [2m=[0m [32m[1mhelp[0m[0m: use a value one of the two predicates accepts and the other doesn't, and assert the result
+
+   [2mdone when [0m mutastic verify mc194dcd9 samples/operator-docs[2m passes[0m
+   [2mreproduce [0m mutastic run --only=mc194dcd9 samples/operator-docs
+   [2mor ignore [0m mutastic ignore mc194dcd9 --reason="<why>" samples/operator-docs

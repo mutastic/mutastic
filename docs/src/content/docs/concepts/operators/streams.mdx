@@ -1,0 +1,166 @@
+---
+title: Streams
+description: "The operators that change a stream pipeline: a stage left out, or one match for another. The bug each stands for, a real card, and the test that catches it."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import removeStage from '../../../../data/output/operators/streams/remove-stage.ansi?raw';
+import swapMatch from '../../../../data/output/operators/streams/swap-match.ansi?raw';
+import removeOtherStage from '../../../../data/output/operators/streams/remove-other-stage.ansi?raw';
+
+Operators that change a stream pipeline: a stage left out, or one kind of match for another.
+Together they ask whether your tests' input is input each stage has to change.
+
+| Operator | Changes | Set |
+|---|---|---|
+| [`stream/remove-stage`](#stream-stage-removal) | a stream stage, removed | defaults |
+| [`stream/swap-match`](#stream-match-swap) | `anyMatch`, `allMatch` and `noneMatch`, swapped | defaults |
+| [`stream/remove-other-stage`](#other-stage-removal) | `peek`, and `map` on a primitive stream, removed | extended |
+
+Each example is a class in `samples/operator-docs` with a test that misses its mutant, and each card
+is what `mutastic run samples/operator-docs --operators=all` prints for it.
+
+## Stream stage removal
+
+`stream/remove-stage`, in the defaults. A stage of a stream pipeline is removed, and the stream goes
+on without it: `filter`, `distinct`, `sorted`, `limit`, `skip`, `dropWhile` or `takeWhile`, on
+`Stream`, `IntStream`, `LongStream` and `DoubleStream`.
+
+**The bug it stands for:** a stage that's wrong, or in the wrong place, and no test would know: a
+filter with the wrong condition, a `distinct()` someone forgot, a `limit` that's off by one, a sort by
+the wrong key. Streams are where business rules hide in one line: only the paid orders, the first ten
+results, each customer once. If removing the stage changes nothing a test checks, the rule isn't
+tested at all, however many tests run the line.
+
+{/* from: samples/operator-docs/src/main/java/com/example/streams/Orders.java */}
+```java
+  /// The total of the orders that are paid.
+  public static int paidTotal(List<Order> orders) {
+    return orders.stream().filter(Order::paid).mapToInt(Order::total).sum();
+  }
+```
+
+The test has only a paid order, so the filter has nothing to drop:
+
+{/* from: samples/operator-docs/src/test/java/com/example/streams/OrdersTest.java */}
+```java
+  @Test
+  void aPaidOrder() {
+    assertEquals(10, Orders.paidTotal(List.of(new Order(10, true))));
+  }
+```
+
+<Code code={removeStage} lang="ansi" />
+
+**The test that catches it:** one whose input the stage has to change: an unpaid order the filter must
+drop, a duplicate for `distinct()`, more elements than the `limit`, input out of order for `sorted()`.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/streams/OrdersTest.java */}
+```java
+  @Test
+  void unpaidOrdersDontCount() {
+    assertEquals(10, Orders.paidTotal(List.of(new Order(10, true), new Order(5, false))));
+  }
+```
+
+**Edition notes:** removing `sorted()` before a result that ignores order (`count()`, `anyMatch`, `min`,
+`sum` and the like) can't change anything, so it's skipped as equivalent; so is removing `distinct()`
+before a result that ignores duplicates. Removing `limit` from a stream the same method starts with
+`Stream.iterate(seed, next)` or `generate`, or their `IntStream`, `LongStream` and `DoubleStream`
+forms, or from `ints()`, `longs()` or `doubles()` given no size on `Random`, `SecureRandom`,
+`ThreadLocalRandom`, `SplittableRandom` or `RandomGenerator`, is skipped as unviable when nothing else
+ends the stream: the tests would hang, and a hang counted as a catch shows nothing. The `iterate` that
+takes a condition can end, and so can `ints(5)` and a stream with `takeWhile`, another `limit` or a
+`findFirst` or the like, so those keep their mutant. The Rust edition has the same id for an
+iterator's `filter`, `skip`, `take`, `skip_while`, `take_while`, `step_by` and `rev`.
+
+## Stream match swap
+
+`stream/swap-match`, in the defaults. `anyMatch`, `allMatch` and `noneMatch` swap places: `anyMatch`
+becomes `allMatch` and `noneMatch`, and each of the others becomes `anyMatch`.
+
+**The bug it stands for:** "any" where "all" was meant, or the other way round. They read alike, and
+with the inputs tests usually pick, all of them matching or none, they give the same answer. It costs
+in checks over collections: whether any item is out of stock, whether all approvers have signed,
+whether none of the lines is negative. Getting it wrong lets an order through with one bad line, or
+blocks one with a single good one.
+
+{/* from: samples/operator-docs/src/main/java/com/example/streams/Forms.java */}
+```java
+  /// Whether any answer on a form is left blank.
+  public static boolean anyBlank(List<String> answers) {
+    return answers.stream().anyMatch(String::isBlank);
+  }
+```
+
+The test has a form with every answer blank, and one with none:
+
+{/* from: samples/operator-docs/src/test/java/com/example/streams/FormsTest.java */}
+```java
+  @Test
+  void aBlankAnswer() {
+    assertTrue(Forms.anyBlank(List.of(" ")));
+    assertFalse(Forms.anyBlank(List.of("yes")));
+  }
+```
+
+<Code code={swapMatch} lang="ansi" />
+
+**The test that catches it:** one with a mix, some elements that match and some that don't. That's
+the only input where `anyMatch` and `allMatch` disagree.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/streams/FormsTest.java */}
+```java
+  @Test
+  void oneBlankAnswerAmongOthers() {
+    assertTrue(Forms.anyBlank(List.of("yes", " ")));
+  }
+```
+
+**Edition notes:** the Rust edition has the same id, for an iterator's `any` and `all`.
+
+## Other stage removal
+
+`stream/remove-other-stage`, in the `extended` set. `peek` is removed, and so is `map` on an
+`IntStream`, `LongStream` or `DoubleStream`.
+
+**The bug it stands for:** a conversion that's wrong, or forgotten, in a pipeline of numbers, and a
+`peek` that does real work someone relies on. It costs in totals, where a `map` adds the tax in one
+call and a test of an order with no tax due passes without it, and in a `peek` that records what went
+by.
+
+{/* from: samples/operator-docs/src/main/java/com/example/streams/Totals.java */}
+```java
+  /// The total, with each value written to `log` as it's added.
+  public static int logged(List<Integer> values, List<Integer> log) {
+    return values.stream().peek(log::add).mapToInt(Integer::intValue).sum();
+  }
+```
+
+The test checks the total, and never the log:
+
+{/* from: samples/operator-docs/src/test/java/com/example/streams/TotalsTest.java */}
+```java
+  @Test
+  void totalsAddUp() {
+    assertEquals(3, Totals.logged(List.of(1, 2), new ArrayList<>()));
+  }
+```
+
+<Code code={removeOtherStage} lang="ansi" />
+
+**The test that catches it:** one that checks what the stage does, asserting the result.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/streams/TotalsTest.java */}
+```java
+  @Test
+  void eachValueIsLogged() {
+    var log = new ArrayList<Integer>();
+    Totals.logged(List.of(1, 2), log);
+    assertEquals(List.of(1, 2), log);
+  }
+```
+
+**Edition notes:** run it with `--operators=defaults,extended`. `map` on a `Stream` is left alone: it
+can change what the stream holds, and what comes next would throw on the wrong type, which would look
+like a catch. The Rust edition has the same id, for an iterator's `inspect` and `map`.

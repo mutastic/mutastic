@@ -1,0 +1,24 @@
+ [41;30;1m ✗ MISSED [0m no test checks [1mneedsRestock()[0m with [1mstock > low[0m
+    [2m┌─[0m src/main/java/com/example/conditions/Stock.java:12
+    [2m│[0m
+ [2m11[0m [2m│[0m   public boolean needsRestock(int stock) {
+ [2m12[0m [2m│[0m     return stock < low;
+    [2m│[0m                  [1;31m^ changed to !=[0m
+ [2m13[0m [2m│[0m   }
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mreturn stock < low;
+              [32m+ [0mreturn stock != low;
+    [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: stock = 2, 5
+            [2mcovered by StockTest#restockWhenLow (its 1 covering test still passes)[0m
+    [2m=[0m [32m[1mhelp[0m[0m: add a test where [1mstock > low[0m, and assert what [1mneedsRestock()[0m does then
+
+            [2m// in StockTest[0m
+            @Test
+            void needsRestockWithStock5ForStock2() {
+            [32m  assertFalse(new Stock(2).needsRestock(5)); // today false · with this mutant true[0m
+            }
+            [2mcheck today's value is the one you intend: the test pins what the code does now[0m
+
+    [2mdone when [0m mutastic verify md89cd49a samples/operator-docs[2m passes[0m
+    [2mreproduce [0m mutastic run --only=md89cd49a samples/operator-docs
+    [2mor ignore [0m mutastic ignore md89cd49a --reason="<why>" samples/operator-docs

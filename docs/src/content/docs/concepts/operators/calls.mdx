@@ -1,0 +1,217 @@
+---
+title: Calls and writes
+description: "The operators that leave out a call, an assignment or a write to a field: the bug each stands for, a real card, and the test that catches it."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import removeVoidCall from '../../../../data/output/operators/calls/remove-void-call.ansi?raw';
+import removeDiscardedCall from '../../../../data/output/operators/calls/remove-discarded-call.ansi?raw';
+import removeAssignment from '../../../../data/output/operators/calls/remove-assignment.ansi?raw';
+import removeFieldWrite from '../../../../data/output/operators/calls/remove-field-write.ansi?raw';
+
+Operators that leave a step out: a call made for what it does, an assignment, a write to a field.
+Together they ask whether your tests check what the code does, not only what it returns.
+
+| Operator | Changes | Set |
+|---|---|---|
+| [`mutastic/remove-void-call`](#remove-void-call) | a call that returns nothing, removed | defaults |
+| [`mutastic/remove-discarded-call`](#remove-discarded-call) | a call whose result is thrown away, removed | defaults |
+| [`mutastic/remove-assignment`](#remove-assignment) | an assignment to a variable that already has a value, removed | defaults |
+| [`mutastic/remove-field-write`](#remove-field-write) | a write to a field, removed | stronger |
+
+Each example is a class in `samples/operator-docs` with a test that misses its mutant, and each card
+is what `mutastic run samples/operator-docs --operators=all` prints for it.
+
+## Remove void call
+
+`mutastic/remove-void-call`, in the defaults. A call that returns nothing is removed.
+
+**The bug it stands for:** a step left out: a call removed in a refactor, never added, or skipped on
+one path. It costs in side effects, which are often the point of the code: saving a record,
+reserving stock, sending an email, writing an audit entry, releasing a lock, sorting before a
+search. If removing the call passes every test, nothing checks the step happens.
+
+{/* from: samples/operator-docs/src/main/java/com/example/calls/Names.java */}
+```java
+  public static List<String> sorted(List<String> names) {
+    var copy = new ArrayList<>(names);
+    Collections.sort(copy);
+    return copy;
+  }
+```
+
+The test's names are in order already:
+
+{/* from: samples/operator-docs/src/test/java/com/example/calls/NamesTest.java */}
+```java
+  @Test
+  void namesInOrder() {
+    assertEquals(List.of("al", "bo"), Names.sorted(List.of("al", "bo")));
+  }
+```
+
+<Code code={removeVoidCall} lang="ansi" />
+
+**The test that catches it:** one that checks the effect, here an order that has to change, rather
+than only that the method returned.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/calls/NamesTest.java */}
+```java
+  @Test
+  void namesAreSorted() {
+    assertEquals(List.of("al", "bo", "cy"), Names.sorted(List.of("cy", "al", "bo")));
+  }
+```
+
+**Edition notes:** the Rust edition has the same id, for a call the crate declares with no return,
+or one of std's (`push`, `sort`, `clear`, `extend`, `drop` and the like).
+
+## Remove discarded call
+
+`mutastic/remove-discarded-call`, in the defaults. A call whose result is thrown away is removed:
+`items.add(item);`, `seen.put(key, value);`, `out.append(text);`. Its result isn't used, so only what
+it does matters.
+
+**The bug it stands for:** the same as a removed void call: a step left out. Many calls that do
+something also return something nobody needs: `add` and `remove` on a collection say whether it
+changed, `put` returns what was there, a builder's `append` returns the builder. These hide best,
+since a call written for its effect reads like a query.
+
+{/* from: samples/operator-docs/src/main/java/com/example/calls/Receipts.java */}
+```java
+  /// A receipt: each item on a line of its own.
+  public static String text(List<String> items) {
+    var out = new StringBuilder();
+    for (String item : items) {
+      out.append(item);
+      out.append(System.lineSeparator());
+    }
+    return out.toString();
+  }
+```
+
+The test has one item, and strips the receipt before it looks:
+
+{/* from: samples/operator-docs/src/test/java/com/example/calls/ReceiptsTest.java */}
+```java
+  @Test
+  void oneItem() {
+    assertEquals("tea", Receipts.text(List.of("tea")).strip());
+  }
+```
+
+<Code code={removeDiscardedCall} lang="ansi" />
+
+**The test that catches it:** one that checks the effect: here, that two items come out on two lines.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/calls/ReceiptsTest.java */}
+```java
+  @Test
+  void eachItemOnItsOwnLine() {
+    assertEquals(List.of("tea", "milk"), Receipts.text(List.of("tea", "milk")).lines().toList());
+  }
+```
+
+**Edition notes:** `Objects.requireNonNull(x);`, which only checks a value isn't `null`, is skipped
+as arid. Constructors are left alone: removing one would leave an object half made, not a gap in the
+tests. The Rust edition has the same id, for `map.insert(k, v);`, `w.flush()?;` and `let _ = f();`.
+
+## Remove assignment
+
+`mutastic/remove-assignment`, in the defaults. An assignment to a variable that already has a value
+is removed, so the variable keeps that value. What it would have been given is still worked out, so
+a call on the right-hand side still runs.
+
+**The bug it stands for:** a step left out of a calculation: a running total that isn't updated on
+one path, a value worked out and then not kept, a variable reset in the wrong place. It costs in
+totals, accumulators and anything built up over several statements: the code still runs and still
+returns something, only from a value that's out of date.
+
+{/* from: samples/operator-docs/src/main/java/com/example/calls/Tips.java */}
+```java
+  public static int withTip(int bill, int tip) {
+    int total = bill;
+    total = total + tip;
+    return total;
+  }
+```
+
+The test leaves no tip, so the total is right whether it's updated or not:
+
+{/* from: samples/operator-docs/src/test/java/com/example/calls/TipsTest.java */}
+```java
+  @Test
+  void noTip() {
+    assertEquals(10, Tips.withTip(10, 0));
+  }
+```
+
+<Code code={removeAssignment} lang="ansi" />
+
+**The test that catches it:** one whose result depends on the new value, not one where the earlier
+value happens to be right.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/calls/TipsTest.java */}
+```java
+  @Test
+  void aTipIsAdded() {
+    assertEquals(12, Tips.withTip(10, 2));
+  }
+```
+
+**Edition notes:** a variable's first value is left alone, as the code wouldn't run without it. So is
+code compiled without its table of local variables (`-g:none`, or no `vars` in `-g`), which doesn't
+say what's a variable. An assignment whose value nothing reads, because the variable is assigned
+again first or never used, is skipped as equivalent. `i++` isn't an assignment here: it's
+[flip increment](/concepts/operators/arithmetic/#flip-increment)'s. The Rust edition has the same id,
+and keeps the right-hand side as `let _ = …;`.
+
+## Remove field write
+
+`mutastic/remove-field-write`, in the `stronger` set. A write to a field is removed, so the field
+keeps the value it had.
+
+**The bug it stands for:** state that never changes: an update left out, or a write lost in a
+refactor, so the object goes on saying what it said before. It costs in anything an object has to
+remember between calls: a status moved on, a balance, a cache kept, a flag that stops something
+happening twice. Each call looks fine alone; what's wrong only shows in the next one.
+
+{/* from: samples/operator-docs/src/main/java/com/example/calls/Order.java */}
+```java
+  /// Marks the order paid, and gives what was due.
+  public int pay() {
+    this.paid = true;
+    return total;
+  }
+```
+
+The test checks what paying gives back, and never asks whether the order is paid:
+
+{/* from: samples/operator-docs/src/test/java/com/example/calls/OrderTest.java */}
+```java
+  @Test
+  void payingGivesTheTotal() {
+    assertEquals(30, new Order(30).pay());
+  }
+```
+
+<Code code={removeFieldWrite} lang="ansi" />
+
+**The test that catches it:** one that makes the change and then looks: at the field, or at what the
+object does differently now.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/calls/OrderTest.java */}
+```java
+  @Test
+  void payingMarksTheOrderPaid() {
+    var order = new Order(30);
+    order.pay();
+    assertTrue(order.isPaid());
+  }
+```
+
+**Edition notes:** run it with `--operators=stronger`. Constructors and static initialisers are left
+alone, as they are for every operator, and a setter with nothing else in it is skipped as arid. A
+write of a default value, `count = 0;` in a `reset()`, is kept: that's what `reset()` is for. The
+Rust edition has the same id, for `self.status = s;`, `*p = v;` and `v[i] = x;`, and adds
+`mutastic/remove-struct-field`, which leaves a field out of a struct update (`S { a, ..base }`).

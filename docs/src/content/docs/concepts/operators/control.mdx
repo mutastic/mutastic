@@ -1,0 +1,143 @@
+---
+title: Control flow
+description: "The operators that change where the code goes: a switch arm removed, or an exception no longer caught. The bug each stands for, a real card, and the test that catches it."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import removeSwitchArm from '../../../../data/output/operators/control/remove-switch-arm.ansi?raw';
+import dropCatchType from '../../../../data/output/operators/control/drop-catch-type.ansi?raw';
+
+Operators that change where the code goes: a `switch` arm that stops matching, or an exception that's
+no longer caught. Together they ask whether your tests reach every case the code was written for.
+
+| Operator | Changes | Set |
+|---|---|---|
+| [`mutastic/remove-switch-arm`](#remove-switch-arm) | an arm of a `switch`, its values sent to the default | extended |
+| [`mutastic/drop-catch-type`](#drop-catch-type) | one type of a multi-catch, no longer caught | extended |
+
+Each example is a class in `samples/operator-docs` with a test that misses its mutant, and each card
+is what `mutastic run samples/operator-docs --operators=all` prints for it. Run these with
+`--operators=defaults,extended`.
+
+## Remove switch arm
+
+`mutastic/remove-switch-arm`, in the `extended` set. One `case` of a `switch` is removed, and its
+values go to the default. Each label is its own mutant, so `case 1: case 2:` has two.
+
+**The bug it stands for:** a case that's missing or never worked, so its values get the default's
+behaviour: the wrong rate, the wrong message, or nothing happening at all. It costs in tables of
+business rules written as a `switch`. Tests tend to try one or two arms, and the others can be wrong
+for a long time, as the default gives an answer that looks fine.
+
+{/* from: samples/operator-docs/src/main/java/com/example/control/Zones.java */}
+```java
+  public int days(int zone) {
+    return switch (zone) {
+      case 1 -> near;
+      case 2 -> far;
+      default -> abroad;
+    };
+  }
+```
+
+The tests try the near zone and one abroad, and check every zone is within a week, which the
+default is too:
+
+{/* from: samples/operator-docs/src/test/java/com/example/control/ZonesTest.java */}
+```java
+  private final Zones zones = new Zones(1, 3, 7);
+
+  @Test
+  void nearAndAbroad() {
+    assertEquals(1, zones.days(1));
+    assertEquals(7, zones.days(9));
+  }
+
+  @Test
+  void everyZoneWithinAWeek() {
+    for (int zone = 1; zone <= 3; zone++) {
+      assertTrue(zones.days(zone) <= 7);
+    }
+  }
+```
+
+<Code code={removeSwitchArm} lang="ansi" />
+
+**The test that catches it:** one with a value that reaches the arm, asserting what it does.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/control/ZonesTest.java */}
+```java
+  @Test
+  void theFarZoneTakesThreeDays() {
+    assertEquals(3, zones.days(2));
+  }
+```
+
+**Edition notes:** it covers old-style `case`, arrows, `yield`, and a `switch` on a `String`, an
+`enum` or a pattern. The mutant is on the arm's own line, so only the tests that reach the arm run for
+it. An `enum`'s arm has no name in the bytecode, so its card says "this arm" and points at the line. A
+switch with no `default` of its own, on every constant of an `enum` or every type of a `sealed`
+interface, has one javac writes that throws: with an arm removed, a value that reached it throws, and
+the card says so. A test that reaches the arm catches that whatever it asserts, so a catch there says
+the arm is reached, not that its result is checked. javac's own parts have no mutants: the first of
+the two switches a `String` switch compiles to, which only hashes, and the gaps in a table. An arm
+with no code of its own, `case 1: break;`, is skipped as equivalent where the default goes to the
+same place. The Rust edition has the same id in `stronger`, where an arm stops matching and its values
+go to the next arm that does, and adds `mutastic/swap-break`, which turns `break` into `continue` and
+back.
+
+## Drop catch type
+
+`mutastic/drop-catch-type`, in the `extended` set, and experimental. A multi-catch stops catching one
+of its types, one mutant for each.
+
+**The bug it stands for:** an exception nobody meant to let out, or a type added to a `catch` that no
+one checked. It costs in the failure that only happens in production: a timeout, a bad file. The
+handler looks complete, and only one of its types has ever been tried.
+
+{/* from: samples/operator-docs/src/main/java/com/example/control/Reader.java */}
+```java
+  /// What `source` says, or `cached` when it can't be read.
+  public static String load(Source source, String cached) {
+    try {
+      return source.read();
+    } catch (IOException | TimeoutException e) {
+      return cached;
+    }
+  }
+```
+
+The test fails a read with an `IOException`, and never with a timeout:
+
+{/* from: samples/operator-docs/src/test/java/com/example/control/ReaderTest.java */}
+```java
+  @Test
+  void aFailedReadFallsBackToTheCache() {
+    assertEquals("cached", Reader.load(ReaderTest::unreadable, "cached"));
+  }
+
+  private static String unreadable() throws IOException {
+    throw new IOException("the file is gone");
+  }
+```
+
+<Code code={dropCatchType} lang="ansi" />
+
+**The test that catches it:** one where the `try` throws that type, asserting what the handler does.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/control/ReaderTest.java */}
+```java
+  @Test
+  void aTimeoutFallsBackToTheCache() {
+    assertEquals("cached", Reader.load(ReaderTest::tooSlow, "cached"));
+  }
+
+  private static String tooSlow() throws TimeoutException {
+    throw new TimeoutException("no answer in time");
+  }
+```
+
+**Edition notes:** separate `catch` blocks aren't changed, and a `finally` can't be: javac copies it
+onto every way out of the `try`, so there's nothing to remove. The Rust edition has no such operator,
+as Rust has no multi-catch; an error path is [remove throw](/concepts/operators/returns/#remove-throw)'s
+and `mutastic/unwrap-try`'s there.

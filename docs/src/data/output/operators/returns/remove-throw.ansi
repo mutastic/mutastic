@@ -1,0 +1,17 @@
+ [41;30;1m ✗ MISSED [0m no test needs [1mtext.isEmpty()[0m to be true in [1mparse()[0m[2m · m495af6bc[0m
+   [2m┌─[0m src/main/java/com/example/returns/Quantities.java:5
+   [2m│[0m
+ [2m4[0m [2m│[0m   public static int parse(String text) {
+ [2m5[0m [2m│[0m     if (text.isEmpty()) throw new IllegalArgumentException("no quantity given");
+   [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now always false[0m
+ [2m6[0m [2m│[0m     return Integer.parseInt(text);
+   [2m│[0m
+   [2m=[0m mutant  [1;31m- [0mif (text.isEmpty()) throw new IllegalArgumentException("no quantity given");
+             [32m+ [0mif (false) throw new IllegalArgumentException("no quantity given");
+   [2m=[0m also    [1;31m✗[0m no test needs [1mparse()[0m to throw [1mIllegalArgumentException[0m here [2m· mf69bfac0[0m
+   [2m=[0m [1;34m[1mnote[0m[0m: covered by QuantitiesTest#aQuantity, QuantitiesTest#noQuantityIsAnError (all 2 covering tests still pass)
+   [2m=[0m [32m[1mhelp[0m[0m: add a test where [1mtext.isEmpty()[0m is true, and assert what [1mparse()[0m does then
+
+   [2mdone when [0m mutastic verify m495af6bc,mf69bfac0 samples/operator-docs[2m passes[0m
+   [2mreproduce [0m mutastic run --only=m495af6bc,mf69bfac0 samples/operator-docs
+   [2mor ignore [0m mutastic ignore <id> --reason="<why>" samples/operator-docs for each of m495af6bc, mf69bfac0

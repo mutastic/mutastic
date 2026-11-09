@@ -1,0 +1,14 @@
+ [41;30;1m ✗ MISSED [0m [1mtoShip()[0m behaves the same with [1morder.paid()[0m reversed
+    [2m┌─[0m src/main/java/com/example/conditions/Warehouse.java:13
+    [2m│[0m
+ [2m12[0m [2m│[0m     for (Order order : orders) {
+ [2m13[0m [2m│[0m       if (order.paid()) {
+    [2m│[0m       [1;31m^^^^^^^^^^^^^^^^^^^ reversed[0m
+ [2m14[0m [2m│[0m         ship.add(order);
+    [2m│[0m
+    [2m=[0m [1;34m[1mnote[0m[0m: covered by WarehouseTest#oneOrderOfTwoShips (its 1 covering test still passes)
+    [2m=[0m [32m[1mhelp[0m[0m: assert the result on both sides of [1morder.paid()[0m
+
+    [2mdone when [0m mutastic verify m5f1f4e60 samples/operator-docs[2m passes[0m
+    [2mreproduce [0m mutastic run --only=m5f1f4e60 samples/operator-docs
+    [2mor ignore [0m mutastic ignore m5f1f4e60 --reason="<why>" samples/operator-docs

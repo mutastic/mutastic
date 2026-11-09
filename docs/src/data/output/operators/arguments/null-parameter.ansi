@@ -1,0 +1,14 @@
+ [41;30;1m ✗ MISSED [0m no test depends on the value of [1mroom[0m in [1mbook()[0m
+   [2m┌─[0m src/main/java/com/example/arguments/Bookings.java:7
+   [2m│[0m
+ [2m6[0m [2m│[0m   public static Booking book(String guest, String room) {
+ [2m7[0m [2m│[0m     return new Booking(guest, room);
+   [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ parameter is null[0m
+ [2m8[0m [2m│[0m   }
+   [2m│[0m
+   [2m=[0m [1;34m[1mnote[0m[0m: covered by BookingsTest#aBookingIsInTheGuestsName (its 1 covering test still passes)
+   [2m=[0m [32m[1mhelp[0m[0m: add a test whose result depends on [1mroom[0m, and assert it
+
+   [2mdone when [0m mutastic verify me9704166 samples/operator-docs[2m passes[0m
+   [2mreproduce [0m mutastic run --only=me9704166 samples/operator-docs
+   [2mor ignore [0m mutastic ignore me9704166 --reason="<why>" samples/operator-docs

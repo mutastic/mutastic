@@ -1,0 +1,14 @@
+ [41;30;1m ✗ MISSED [0m no test has a value [1m.filter(…)[0m must turn away in claim()
+    [2m┌─[0m src/main/java/com/example/optional/Nicknames.java:15
+    [2m│[0m
+ [2m14[0m [2m│[0m   public Optional<String> claim(Optional<String> asked) {
+ [2m15[0m [2m│[0m     return asked.filter(allowed);
+    [2m│[0m                  [1;31m^^^^^^ filter removed[0m
+ [2m16[0m [2m│[0m   }
+    [2m│[0m
+    [2m=[0m [1;34m[1mnote[0m[0m: covered by NicknamesTest#anAllowedNickname (its 1 covering test still passes)
+    [2m=[0m [32m[1mhelp[0m[0m: add a test with a value the filter rejects, and assert the [1mOptional[0m comes out empty
+
+    [2mdone when [0m mutastic verify m34668ba0 samples/operator-docs[2m passes[0m
+    [2mreproduce [0m mutastic run --only=m34668ba0 samples/operator-docs
+    [2mor ignore [0m mutastic ignore m34668ba0 --reason="<why>" samples/operator-docs

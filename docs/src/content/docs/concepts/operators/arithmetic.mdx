@@ -1,0 +1,450 @@
+---
+title: Arithmetic
+description: "The operators that change a calculation, a number or a bit: the bug each stands for, a real card, and the test that catches it."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import math from '../../../../data/output/operators/arithmetic/math.ansi?raw';
+import arithmeticReplacement from '../../../../data/output/operators/arithmetic/arithmetic-replacement.ansi?raw';
+import otherArithmetic from '../../../../data/output/operators/arithmetic/other-arithmetic.ansi?raw';
+import bitwise from '../../../../data/output/operators/arithmetic/bitwise.ansi?raw';
+import keepOperand from '../../../../data/output/operators/arithmetic/keep-operand.ansi?raw';
+import constantValue from '../../../../data/output/operators/arithmetic/constant-value.ansi?raw';
+import flipIncrement from '../../../../data/output/operators/arithmetic/flip-increment.ansi?raw';
+import removeNegation from '../../../../data/output/operators/arithmetic/remove-negation.ansi?raw';
+import uncheckedArithmetic from '../../../../data/output/operators/arithmetic/unchecked-arithmetic.ansi?raw';
+
+Operators that change a calculation: its operator, one of its values, a number in the code, or a
+bit. Together they ask whether your tests' values are ones where getting the arithmetic wrong would
+show.
+
+| Operator | Changes | Set |
+|---|---|---|
+| [`mutastic/math`](#math) | `+` and `-`, `*` and `/` | defaults |
+| [`mutastic/arithmetic-replacement`](#arithmetic-replacement) | `+` to `*` | stronger |
+| [`mutastic/other-arithmetic`](#other-arithmetic) | an arithmetic operator to any of the others, on every number type | stronger |
+| [`mutastic/bitwise`](#bitwise) | `&`, `\|` and `^` to the other two; `<<` and `>>`, `>>` and `>>>` | stronger |
+| [`mutastic/keep-operand`](#keep-operand) | a calculation to one of its values: `a + b` to `a`, or `b` | stronger |
+| [`mutastic/constant-value`](#constant-value) | a number to one next to it, or `0`, `1` or `-1` | stronger |
+| [`mutastic/flip-increment`](#flip-increment) | `i++` and `i--`, `i += 2` and `i -= 2` | stronger |
+| [`mutastic/remove-negation`](#remove-negation) | `-x` to `x` | stronger |
+| [`library/unchecked-arithmetic`](#unchecked-arithmetic) | `Math.addExact` and the like to the plain operation, which overflows | stronger |
+
+Each example is a class in `samples/operator-docs` with a test that misses its mutant, and each card
+is what `mutastic run samples/operator-docs --operators=all` prints for it.
+
+## Math
+
+`mutastic/math`, in the defaults. `+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`.
+
+**The bug it stands for:** the wrong operator in a calculation: `-` for `+`, `/` for `*`. It costs in
+money, quantities and time: prices, tax, totals, stock levels, durations. A wrong calculation is
+often silent: nothing crashes, the number is just wrong, and it's found later on an invoice or in a
+report, by a customer.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arithmetic/Checkout.java */}
+```java
+  public static int total(int subtotal, int shipping) {
+    return subtotal + shipping;
+  }
+```
+
+The test only tries free shipping, and adding `0` gives the same answer as taking it away:
+
+{/* from: samples/operator-docs/src/test/java/com/example/arithmetic/CheckoutTest.java */}
+```java
+  @Test
+  void freeShipping() {
+    assertEquals(30, Checkout.total(30, 0));
+  }
+```
+
+<Code code={math} lang="ansi" />
+
+**The test that catches it:** one whose values tell the operators apart. Tests often use values that
+don't: a quantity of `1` gives the same answer for `*` and `/`, and adding `0` the same for `+` and
+`-`. Those are exactly the values a quick test tends to pick.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arithmetic/CheckoutTest.java */}
+```java
+  @Test
+  void shippingIsAdded() {
+    assertEquals(35, Checkout.total(30, 5));
+  }
+```
+
+**Edition notes:** the Rust edition has the same id, and swaps `+=` and `-=`, `*=` and `/=`, and the
+`checked_`, `wrapping_`, `saturating_` and `overflowing_` methods' pairs too.
+
+## Arithmetic replacement
+
+`mutastic/arithmetic-replacement`, in the `stronger` set. `+` becomes `*`, on `int` and `long`.
+
+**The bug it stands for:** one operation mixed up with another entirely: adding where it should
+multiply, a total that should be a product. Its real value is as a check on the tests' values: `2 +
+2 == 2 * 2` and `0 + 0 == 0 * 0` are the numbers quick tests pick. It's in the `stronger` set because
+the values that let it through are rarer than math's, so it finds less, but what it finds is a test
+that checks almost nothing.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arithmetic/Tickets.java */}
+```java
+  public static int seats(int adults, int children) {
+    return adults + children;
+  }
+```
+
+{/* from: samples/operator-docs/src/test/java/com/example/arithmetic/TicketsTest.java */}
+```java
+  @Test
+  void aFamilyOfFour() {
+    assertEquals(4, Tickets.seats(2, 2));
+  }
+```
+
+<Code code={arithmeticReplacement} lang="ansi" />
+
+**The test that catches it:** one with ordinary values, where the sum and the product are far apart.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arithmetic/TicketsTest.java */}
+```java
+  @Test
+  void twoAdultsAndThreeChildren() {
+    assertEquals(5, Tickets.seats(2, 3));
+  }
+```
+
+**Edition notes:** run it with `--operators=stronger`. The Rust edition has the same id, and turns
+`+=` into `*=` too, but not `+= 1`.
+
+## Other arithmetic
+
+`mutastic/other-arithmetic`, in the `stronger` set. An arithmetic operator becomes each of the others
+among `+`, `-`, `*`, `/` and `%`, on `int`, `long`, `float` and `double`, beyond the changes math and
+arithmetic replacement make.
+
+**The bug it stands for:** any operator mixed up with another: `%` for `/`, a `-` where a `*` belongs,
+and the same on `float` and `double`, where the defaults don't look. It costs in rates, ratios,
+averages and paging, where the wrong operator gives a plausible number. It's in the `stronger` set
+for its cost: each operator has several changes.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arithmetic/Bill.java */}
+```java
+  /// Each person's share, in whole euros.
+  public static int perPerson(int total, int people) {
+    return total / people;
+  }
+```
+
+A bill of 10 shared by 4 is 2 each, and 2 is also what's left over:
+
+{/* from: samples/operator-docs/src/test/java/com/example/arithmetic/BillTest.java */}
+```java
+  @Test
+  void aBillIsShared() {
+    assertEquals(2, Bill.perPerson(10, 4));
+  }
+```
+
+<Code code={otherArithmetic} lang="ansi" />
+
+**The test that catches it:** one with values that tell every operator apart, and neither `0`, `1`
+nor two values the same.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arithmetic/BillTest.java */}
+```java
+  @Test
+  void aBillOf11SharedByFour() {
+    assertEquals(2, Bill.perPerson(11, 4));
+  }
+```
+
+**Edition notes:** run it with `--operators=stronger`. The Rust edition has the same id, with the
+compound forms too.
+
+## Bitwise
+
+`mutastic/bitwise`, in the `stronger` set. `&`, `|` and `^` each become the other two, `<<` and `>>`
+swap, and so do `>>` and `>>>`, on `int`, `long` and `boolean`.
+
+**The bug it stands for:** the wrong bit operation: setting a flag where it should be cleared,
+toggling where it should be set. It costs in permissions, flags and packed fields, where tests use
+bits that don't overlap, and on those `|` and `^` agree.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arithmetic/Permissions.java */}
+```java
+/// Permissions as bits: 1 to read, 2 to write, 4 to delete.
+public final class Permissions {
+  public static int grant(int held, int granted) {
+    return held | granted;
+  }
+}
+```
+
+{/* from: samples/operator-docs/src/test/java/com/example/arithmetic/PermissionsTest.java */}
+```java
+  @Test
+  void writeIsAddedToRead() {
+    assertEquals(3, Permissions.grant(1, 2));
+  }
+```
+
+<Code code={bitwise} lang="ansi" />
+
+**The test that catches it:** one where the bits overlap: granting what's already held keeps it.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arithmetic/PermissionsTest.java */}
+```java
+  @Test
+  void grantingWhatsHeldKeepsIt() {
+    assertEquals(3, Permissions.grant(3, 1));
+  }
+```
+
+**Edition notes:** run it with `--operators=stronger`. `~x` isn't changed: the compiler writes it as
+`x ^ -1`, which no one wrote as a `^`. Setting or clearing bits, `flags |= bit` or `flags &= ~bit`,
+never becomes flipping them with `^=`. The Rust edition has the same id.
+
+## Keep operand
+
+`mutastic/keep-operand`, in the `stronger` set. A calculation becomes one of its two values, and a
+mutant is made for each.
+
+**The bug it stands for:** a part of a calculation left out: the fee not added, the discount not
+taken off, the offset forgotten. It costs in totals of several parts, where tests set the one being
+looked at and leave the rest at values where leaving a part out gives the same answer.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arithmetic/Wheel.java */}
+```java
+  public int slotAfter(int steps) {
+    return steps % slots;
+  }
+```
+
+The test never goes round the wheel, so the `%` never does anything:
+
+{/* from: samples/operator-docs/src/test/java/com/example/arithmetic/WheelTest.java */}
+```java
+  @Test
+  void threeStepsOn() {
+    assertEquals(3, new Wheel(10).slotAfter(3));
+  }
+```
+
+<Code code={keepOperand} lang="ansi" />
+
+**The test that catches it:** one where each part has a value that changes the result: here, enough
+steps to go round.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arithmetic/WheelTest.java */}
+```java
+  @Test
+  void twelveStepsGoRound() {
+    assertEquals(2, new Wheel(10).slotAfter(12));
+  }
+```
+
+**Edition notes:** run it with `--operators=stronger`. Both values are still worked out, so a call in
+the other still runs. A constant beside a variable isn't what's kept: `count + 1` becomes `count`, not
+`1`. The Rust edition has the same id.
+
+## Constant value
+
+`mutastic/constant-value`, in the `stronger` set. A number in the code becomes one next to it, and
+`0`, `1` and `-1`, each once.
+
+**The bug it stands for:** a number set wrong: a threshold of `100` that should be `1000`, a retry
+limit one too high, a rate with a digit out. Nothing else shows these: the comparison is right, and
+only its number is wrong. It costs in limits and rates held as `static final` constants, which tests
+often reuse instead of stating: a test that says `assertTrue(isLarge(LIMIT))` passes whatever `LIMIT`
+is. It's in `stronger` because every number has several changes, which makes it the costliest
+arithmetic operator to run.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arithmetic/Postage.java */}
+```java
+/// A parcel over 500 grams goes as heavy.
+public final class Postage {
+  public static boolean isHeavy(int grams) {
+    return grams > 500;
+  }
+}
+```
+
+The test tries the edge, so `>=` and `499` are caught, but nothing just above it:
+
+{/* from: samples/operator-docs/src/test/java/com/example/arithmetic/PostageTest.java */}
+```java
+  @Test
+  void heavyFromJustOver500() {
+    assertFalse(Postage.isHeavy(100));
+    assertFalse(Postage.isHeavy(500));
+    assertTrue(Postage.isHeavy(1000));
+  }
+```
+
+<Code code={constantValue} lang="ansi" />
+
+**The test that catches it:** one that states the number, with values next to it on both sides.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arithmetic/PostageTest.java */}
+```java
+  @Test
+  void a501GramParcelIsHeavy() {
+    assertTrue(Postage.isHeavy(501));
+  }
+```
+
+**Edition notes:** run it with `--operators=stronger`. A `static final` number counts too: javac
+writes its value where it's used, so a threshold set wrong shows here and in no other operator, and
+the card names the value, as the line may only have the name. `0` and `1` are changed only where
+what uses them shows they're numbers, as in the bytecode they could be `false` and `true`, and a
+number that isn't shown to be plain stays in the range of a `byte`, `short` or `char`. The size and
+indexes of an array's `{…}`, the `-1` in `~x`, and what javac stores in temporaries of its own have
+no mutants. Some are skipped as arid: an array's size, a capacity, a wait, a `split`'s limit, and a
+variable's first value of `0` or `1`, where a counter or a total starts. The Rust edition has the
+same id, and gives `-1` only where a number is visibly signed.
+
+## Flip increment
+
+`mutastic/flip-increment`, in the `stronger` set. A local variable's step goes the other way: `i++`
+becomes `i--`, and `i += 2` becomes `i -= 2`.
+
+**The bug it stands for:** a counter going the wrong way: `--` for `++`, a retry count that climbs
+when it should fall, a position that steps back. It costs in loops and hand-written parsers, where a
+position moves through text or an array, and in counters checked against a limit. A loop counter
+that goes the wrong way usually fails fast or hangs; a count compared later doesn't, and a limit
+that's never reached never shows it.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arithmetic/Words.java */}
+```java
+  /// The first `max` of `words`, in order.
+  public static List<String> upTo(List<String> words, int max) {
+    var kept = new ArrayList<String>();
+    int count = 0;
+    for (String word : words) {
+      if (count == max) {
+        break;
+      }
+      kept.add(word);
+      count++;
+    }
+    return kept;
+  }
+```
+
+The test's list is shorter than the limit, so the count is never compared with anything it reaches:
+
+{/* from: samples/operator-docs/src/test/java/com/example/arithmetic/WordsTest.java */}
+```java
+  @Test
+  void shortListsAreKeptWhole() {
+    assertEquals(List.of("tea", "milk"), Words.upTo(List.of("tea", "milk"), 5));
+  }
+```
+
+<Code code={flipIncrement} lang="ansi" />
+
+**The test that catches it:** one that depends on the value after the step: here, a list longer than
+the limit.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arithmetic/WordsTest.java */}
+```java
+  @Test
+  void longListsAreCut() {
+    assertEquals(List.of("tea", "milk"), Words.upTo(List.of("tea", "milk", "eggs"), 2));
+  }
+```
+
+**Edition notes:** run it with `--operators=stronger`. A step nothing reads afterwards is skipped as
+equivalent. The index javac writes for an enhanced `for` isn't one of these, as no source names it,
+and code without its table of local variables has none. A loop counter that goes the wrong way
+either fails at once, on an index out of range, or never ends, which takes a whole time limit to
+catch. The Rust edition has no such operator: Rust has no `++`, and `+=` and `-=` are
+[math](#math)'s.
+
+## Remove negation
+
+`mutastic/remove-negation`, in the `stronger` set. A value's minus sign is removed.
+
+**The bug it stands for:** a missing sign: a refund that adds, a delta applied the wrong way round. It
+costs in money and coordinates, where a value and its opposite are both plausible, and a test that
+only uses zero can't tell them apart.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arithmetic/Account.java */}
+```java
+  /// Whether a balance is below what the account may go down to.
+  public boolean overdrawn(int balance) {
+    return balance < -overdraft;
+  }
+```
+
+The test only tries an account with no overdraft, and `-0` is `0`:
+
+{/* from: samples/operator-docs/src/test/java/com/example/arithmetic/AccountTest.java */}
+```java
+  @Test
+  void noOverdraft() {
+    var account = new Account(0);
+    assertTrue(account.overdrawn(-5));
+    assertFalse(account.overdrawn(0));
+    assertFalse(account.overdrawn(5));
+  }
+```
+
+<Code code={removeNegation} lang="ansi" />
+
+**The test that catches it:** one with a value that isn't zero, where the sign shows.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arithmetic/AccountTest.java */}
+```java
+  @Test
+  void anOverdraftOf100() {
+    assertFalse(new Account(100).overdrawn(-50));
+  }
+```
+
+**Edition notes:** run it with `--operators=stronger`. A negative literal or a negated constant is
+worked out by javac, so there's no negation left in the code to remove. The Rust edition has the same
+id.
+
+## Unchecked arithmetic
+
+`library/unchecked-arithmetic`, in the `stronger` set. `Math.addExact` and the like become the plain
+operation, which overflows instead of throwing.
+
+**The bug it stands for:** arithmetic that overflows silently: a total that wraps round to a negative
+number, because nothing checked that it fits. It costs in money and sizes, where someone chose
+`addExact` because a wrong number is worse than an exception. If no test overflows, nothing shows
+that the check is still there.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arithmetic/Points.java */}
+```java
+  /// Fails rather than wrap round when the points don't fit.
+  public static int add(int points, int more) {
+    return Math.addExact(points, more);
+  }
+```
+
+{/* from: samples/operator-docs/src/test/java/com/example/arithmetic/PointsTest.java */}
+```java
+  @Test
+  void pointsAddUp() {
+    assertEquals(3, Points.add(1, 2));
+  }
+```
+
+<Code code={uncheckedArithmetic} lang="ansi" />
+
+**The test that catches it:** one whose result doesn't fit the type, asserting the exception.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arithmetic/PointsTest.java */}
+```java
+  @Test
+  void tooManyPointsAreRefused() {
+    assertThrows(ArithmeticException.class, () -> Points.add(Integer.MAX_VALUE, 1));
+  }
+```
+
+**Edition notes:** run it with `--operators=stronger`. It covers `addExact`, `subtractExact`,
+`multiplyExact`, `incrementExact`, `decrementExact`, `negateExact` and `toIntExact`, on `Math` and
+`StrictMath`. The Rust edition has the same id: `a.checked_add(b)` becomes `Some(a.wrapping_add(b))`,
+and `saturating_sub` becomes `wrapping_sub`.

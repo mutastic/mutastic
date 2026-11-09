@@ -1,0 +1,180 @@
+---
+title: Returns and errors
+description: "The operators that change what a method returns, or the error it throws: the bug each stands for, a real card, and the test that catches it."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import returnValue from '../../../../data/output/operators/returns/return-value.ansi?raw';
+import replaceBody from '../../../../data/output/operators/returns/replace-body.ansi?raw';
+import removeThrow from '../../../../data/output/operators/returns/remove-throw.ansi?raw';
+
+Operators that change what a method gives back: the value it returns, its whole body, or the
+exception it throws. Together they ask whether your tests look at a method's answer, and at the
+errors it's meant to raise.
+
+| Operator | Changes | Set |
+|---|---|---|
+| [`mutastic/return-value`](#return-value) | a returned value to the other `boolean`, `0`, an empty one or `null` | defaults |
+| [`mutastic/replace-body`](#replace-body) | a method's whole body, to returning one value or nothing | extended |
+| [`mutastic/remove-throw`](#remove-throw) | a `throw`, removed, and the code carries on | extended |
+
+Each example is a class in `samples/operator-docs` with a test that misses its mutant, and each card
+is what `mutastic run samples/operator-docs --operators=all` prints for it.
+
+## Return value
+
+`mutastic/return-value`, in the defaults. A method returns the value its kind of method most
+plausibly gets wrong, instead of what it computed:
+
+| The method returns | The mutant returns |
+|---|---|
+| `boolean` | the other one: `true` becomes `false`, `false` becomes `true`, and a computed one becomes each |
+| a number | `0`, or `1` where it returns `0` |
+| `Optional` | `Optional.empty()` |
+| `String` | `""` |
+| `List`, `Collection` or `Iterable` | `List.of()` |
+| `Set`, `Map` | `Set.of()`, `Map.of()` |
+| `Stream` | `Stream.empty()` |
+| `Boolean`, `Integer`, `Long` and the other boxed numbers | as their primitive does |
+| anything else | `null` |
+
+**The bug it stands for:** a method that doesn't return what it worked out. This is less a typo than
+a sign: tests that call the method but never look at its answer. If returning the other `boolean`,
+`0`, an empty list or `null` passes every test, the tests run the method without checking it, and
+the coverage report says it's tested when it isn't. The value is the one a method of that kind most
+plausibly gets wrong: a check that answers the wrong way, a count of nothing, a search that finds
+nothing. That's why a list becomes an empty list rather than `null`: code that forgot to add the
+results returns one, and a `null` would fail on its first use, which any test notices.
+
+{/* from: samples/operator-docs/src/main/java/com/example/returns/Loyalty.java */}
+```java
+  public int points(int spent) {
+    int points = spent / perPoint;
+    return points;
+  }
+```
+
+The test only tries a spend too small to earn anything, so its answer is the `0` the mutant returns:
+
+{/* from: samples/operator-docs/src/test/java/com/example/returns/LoyaltyTest.java */}
+```java
+  @Test
+  void smallSpendsEarnNothing() {
+    assertEquals(0, new Loyalty(10).points(5));
+  }
+```
+
+<Code code={returnValue} lang="ansi" />
+
+**The test that catches it:** one that asserts a result other than the mutant's. A computed `boolean`
+gets both mutants, so it needs a test where the answer is `true` and one where it's `false`; a number
+needs an answer that isn't `0`; a list needs an answer with something in it.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/returns/LoyaltyTest.java */}
+```java
+  @Test
+  void aPointForEvery10() {
+    assertEquals(3, new Loyalty(10).points(35));
+  }
+```
+
+**Edition notes:** a return that already gives that value, `return List.of();` say, can't be changed
+by it, and is [skipped as equivalent](/concepts/equivalence/). A test that calls a method and asserts
+nothing about what comes back is the commonest gap this operator finds, and often the easiest to fix.
+The Rust edition has the same id, with Rust's own empty values (`String::new()`, `None`,
+`Vec::new()`, `Ok(..)` of the inner value), and with `--operators=extended` adds `Default::default()`
+and an `Err(..)` the function returns elsewhere.
+
+## Replace body
+
+`mutastic/replace-body`, in the `extended` set. A method's whole body is replaced: it returns the
+value [return value](#return-value) would choose, or nothing, if it returns nothing.
+
+**The bug it stands for:** a method that's wrong from top to bottom, or does nothing, and nobody
+would know: not a slip in one line, but code no test depends on. It costs in the code everyone
+assumes is tested because coverage says it runs: a method that tests reach but never check can be
+wrong in any way at all.
+
+The same method and test as return value's: the whole body returning `0` passes too.
+
+{/* from: samples/operator-docs/src/main/java/com/example/returns/Loyalty.java */}
+```java
+  public int points(int spent) {
+    int points = spent / perPoint;
+    return points;
+  }
+```
+
+<Code code={replaceBody} lang="ansi" />
+
+**The test that catches it:** one that calls the method and asserts a result other than that value.
+The test that catches return value's mutant above catches this one too.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/returns/LoyaltyTest.java */}
+```java
+  @Test
+  void tenSpentIsAPoint() {
+    assertEquals(1, new Loyalty(10).points(10));
+  }
+```
+
+**Edition notes:** use it as a fast first pass, alone, with `--operators=mutastic/replace-body`: it
+has few mutants, and each miss is a whole method to look at. It isn't a measure of how well the rest
+is tested, as any test that looks at the result catches these. A method gets one mutant, except one
+returning `boolean`, which gets both values: always `true` and always `false` are different gaps,
+and neither shows the other. A value the method's one return already gives isn't used.
+Constructors and static initialisers are left alone, and trivial getters and setters, `toString()`
+and `hashCode()` are skipped as arid. A body that's only the return of that value is skipped as
+equivalent, as with `return null;`. The Rust edition has the same id, and leaves alone `new`, `fmt`,
+`hash` and a getter of one field.
+
+## Remove throw
+
+`mutastic/remove-throw`, in the `extended` set, and experimental. A `throw` is removed, and the code
+carries on with what comes next.
+
+**The bug it stands for:** a check that doesn't stop anything, or an exception swallowed where it
+should have gone up. It costs in validation: bad input carries on into the code that assumed it had
+been refused, and what comes out is wrong, or a different error from the one the caller handles.
+
+{/* from: samples/operator-docs/src/main/java/com/example/returns/Quantities.java */}
+```java
+  public static int parse(String text) {
+    if (text.isEmpty()) throw new IllegalArgumentException("no quantity given");
+    return Integer.parseInt(text);
+  }
+```
+
+Without the `throw`, `parseInt("")` throws a `NumberFormatException`, which is an
+`IllegalArgumentException` too, so the test passes either way:
+
+{/* from: samples/operator-docs/src/test/java/com/example/returns/QuantitiesTest.java */}
+```java
+  @Test
+  void noQuantityIsAnError() {
+    assertThrows(IllegalArgumentException.class, () -> Quantities.parse(""));
+  }
+```
+
+The condition never true leaves the `throw` out just the same, so the card holds both:
+
+<Code code={removeThrow} lang="ansi" />
+
+**The test that catches it:** one where it throws, asserting that it's this exception, not one that
+happens to be there anyway.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/returns/QuantitiesTest.java */}
+```java
+  @Test
+  void noQuantityIsRefusedAsSuch() {
+    var refused = assertThrows(IllegalArgumentException.class, () -> Quantities.parse(""));
+    assertEquals("no quantity given", refused.getMessage());
+  }
+```
+
+**Edition notes:** run it with `--operators=defaults,extended`. The code after it has to be able to run: with nothing after
+it, as at the end of a method, the mutant is skipped as `unviable:`. javac's own throws aren't
+changed: the rethrow it writes for a `finally`, a `synchronized` or a try-with-resources, and the
+default it writes for a switch with none. The `throw` of a failed `assert` is skipped as arid. The
+Rust edition has the same id, for `return Err(e);`, `panic!(..)` and `bail!(..)`, and adds
+`mutastic/unwrap-try`, which turns `f()?` into `f().unwrap()`.

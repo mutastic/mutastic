@@ -1,0 +1,425 @@
+---
+title: Conditions
+description: "The operators that change a comparison, a condition, or how two conditions combine: the bug each stands for, a real card, and the test that catches it."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import boundary from '../../../../data/output/operators/conditions/boundary.ansi?raw';
+import comparison from '../../../../data/output/operators/conditions/comparison.ansi?raw';
+import otherComparison from '../../../../data/output/operators/conditions/other-comparison.ansi?raw';
+import removeConditional from '../../../../data/output/operators/conditions/remove-conditional.ansi?raw';
+import logicalConnector from '../../../../data/output/operators/conditions/logical-connector.ansi?raw';
+import swapConnector from '../../../../data/output/operators/conditions/swap-connector.ansi?raw';
+import removeNegate from '../../../../data/output/operators/conditions/remove-negate.ansi?raw';
+import removeNot from '../../../../data/output/operators/conditions/remove-not.ansi?raw';
+
+Operators that change a comparison, a condition, or how two conditions combine. Together they ask
+whether your tests look at both sides of every decision, and at its edge.
+
+| Operator | Changes | Set |
+|---|---|---|
+| [`mutastic/boundary`](#boundary) | `<` and `<=`, `>` and `>=` | defaults |
+| [`mutastic/comparison`](#comparison) | a comparison to the one that differs on one side: `<` to `!=` | stronger |
+| [`mutastic/other-comparison`](#other-comparison) | a comparison to the others, and a condition to its opposite | stronger |
+| [`mutastic/remove-conditional`](#remove-conditional) | a condition to always true, or always false | defaults |
+| [`mutastic/logical-connector`](#logical-connector) | `&&` and `\|\|` | defaults |
+| [`predicate/swap-connector`](#predicate-connector-swap) | `Predicate.and` and `or` | extended |
+| [`predicate/remove-negate`](#predicate-negation-removal) | a predicate's `negate()`, removed | extended |
+| [`predicate/remove-not`](#predicate-negation-removal) | `Predicate.not(p)` to `p` | extended |
+
+Each example is a class in `samples/operator-docs` with a test that misses its mutant, and each card
+is what `mutastic run samples/operator-docs --operators=all` prints for it.
+
+## Boundary
+
+`mutastic/boundary`, in the defaults. `<` becomes `<=`, `>` becomes `>=`, and the other way round.
+
+**The bug it stands for:** the off-by-one. `>=` and `>` read almost the same, and reviews rarely
+stop on them, so the wrong one gets written and gets through. It costs wherever a rule has a limit:
+free delivery from 50, a discount from 10 items, a login locked after 3 failures, the last day a
+refund is allowed. Customers are at the edge all the time: someone who spends exactly 50 because
+the site said "free delivery from 50" is the case the rule exists for.
+
+{/* from: samples/operator-docs/src/main/java/com/example/conditions/Delivery.java */}
+```java
+  public boolean isFree(int total) {
+    return total >= freeFrom;
+  }
+```
+
+The test tries an order on each side, and neither at the edge:
+
+{/* from: samples/operator-docs/src/test/java/com/example/conditions/DeliveryTest.java */}
+```java
+  @Test
+  void smallOrdersPayForDelivery() {
+    var delivery = new Delivery(50);
+    assertFalse(delivery.isFree(20));
+    assertTrue(delivery.isFree(80));
+  }
+```
+
+<Code code={boundary} lang="ansi" />
+
+**The test that catches it:** one at the edge. Totals of 20 and 80 pass either way; only 50 tells
+`>=` from `>`. The card's inputs seen show which values the tests tried, so the missing edge is easy
+to spot. A boundary miss is also a question for whoever owns the rule: should 50 get free delivery?
+The test records the answer.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/conditions/DeliveryTest.java */}
+```java
+  @Test
+  void deliveryIsFreeFromExactly50() {
+    assertTrue(new Delivery(50).isFree(50));
+  }
+```
+
+**Edition notes:** the Rust edition has the same id, and also moves the end of a range, `lo..hi`
+and `lo..=hi`, in a `for`, a slice or a `contains`.
+
+## Comparison
+
+`mutastic/comparison`, in the `stronger` set. A comparison becomes the one that gives the same
+answer at its edge and on one side of it, and the other answer on the other side:
+
+| Written | Becomes | Differs where |
+|---|---|---|
+| `a < b` | `a != b` | `a > b` |
+| `a <= b` | `a == b` | `a < b` |
+| `a > b` | `a != b` | `a < b` |
+| `a >= b` | `a == b` | `a > b` |
+| `a == b` | `a <= b`, and `a >= b` | `a < b`, and `a > b` |
+| `a != b` | `a < b`, and `a > b` | `a > b`, and `a < b` |
+
+**The bug it stands for:** a comparison that's right at the edge and wrong past it: `==` where `>=`
+was meant, so a rule holds for exactly 100 and stops at 101. It costs in the same rules as a
+boundary, on the side tests skip: tests often try a value below a limit and one exactly at it, and
+never one well past it.
+
+{/* from: samples/operator-docs/src/main/java/com/example/conditions/Stock.java */}
+```java
+  public boolean needsRestock(int stock) {
+    return stock < low;
+  }
+```
+
+The test tries stock below the mark and at it, so the boundary's mutant is caught, but never above
+it:
+
+{/* from: samples/operator-docs/src/test/java/com/example/conditions/StockTest.java */}
+```java
+  @Test
+  void restockWhenLow() {
+    var stock = new Stock(5);
+    assertTrue(stock.needsRestock(2));
+    assertFalse(stock.needsRestock(5));
+  }
+```
+
+<Code code={comparison} lang="ansi" />
+
+**The test that catches it:** one on the side where the two disagree, which the card names: here,
+stock above the low mark.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/conditions/StockTest.java */}
+```java
+  @Test
+  void plentyInStockNeedsNoRestock() {
+    assertFalse(new Stock(5).needsRestock(8));
+  }
+```
+
+**Edition notes:** with boundary and remove conditional, these make the smallest set of changes
+that's enough for a comparison: tests that catch the edge moved, the side changed and the condition
+always true or false catch every other way it could be written wrong. For `a < b` the three are
+`a <= b`, `a != b` and `false`, each one operator's, so no condition gets the same change twice. Nor
+does a size: for a value that's never negative, `items.size() > 0` becoming `items.size() >= 0` is
+the condition always true, so it's left to remove conditional, and of two changes that agree for
+every size only the first is made (boundary's, then comparison's, then other comparison's).
+
+Only numbers have an order: `==` on two `boolean`s or references, and `== null`, get no mutant here.
+A comparison of `float`s or `double`s gets only changes that treat `NaN` as Java does, so `x < y`
+gets none (`x != y` would differ for `NaN` too). A change that differs only for a negative size or
+length, `items.size() == 0` to `items.size() <= 0`, is skipped as equivalent. It's in `stronger`
+because, on mutastic's own code, most of what it missed was noise: a loop counter that counts up to
+its end (`i < n` and `i != n` stop at the same place), and a size compared with a value it never
+passes. The Rust edition makes the same changes, and `==` and `!=` get them only beside a number, a
+character, a length or a cast.
+
+## Other comparison
+
+`mutastic/other-comparison`, in the `stronger` set. A comparison becomes each of the others, and any
+condition its opposite: `<` becomes `>`, `>=` or `==`; `==` becomes `!=`, `<` or `>`; `== null`
+becomes `!= null`; `if (order.isPaid())` becomes `if (!order.isPaid())`.
+
+**The bug it stands for:** a condition the wrong way round: a missing `!`, `==` for `!=`, a null
+check that guards the wrong case. It costs where code decides which way to go: whether an order is
+paid before it ships, whether a user may see a page, whether to retry. Getting it backwards usually
+means doing the wrong thing in exactly the case that matters: shipping unpaid orders, or refusing
+paid ones. Security checks deserve this most: a permission check whose opposite no test notices is
+one nobody has proved refuses anyone.
+
+{/* from: samples/operator-docs/src/main/java/com/example/conditions/Warehouse.java */}
+```java
+  public static List<Order> toShip(List<Order> orders) {
+    var ship = new ArrayList<Order>();
+    for (Order order : orders) {
+      if (order.paid()) {
+        ship.add(order);
+      }
+    }
+    return ship;
+  }
+```
+
+The test gives one paid order and one unpaid, and counts what ships, but never looks at which:
+
+{/* from: samples/operator-docs/src/test/java/com/example/conditions/WarehouseTest.java */}
+```java
+  @Test
+  void oneOrderOfTwoShips() {
+    var orders = List.of(new Order("a1", true), new Order("b2", false));
+    assertEquals(1, Warehouse.toShip(orders).size());
+  }
+```
+
+<Code code={otherComparison} lang="ansi" />
+
+**The test that catches it:** one that checks which way each side goes: here, that the order that
+ships is the paid one.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/conditions/WarehouseTest.java */}
+```java
+  @Test
+  void onlyThePaidOrderShips() {
+    var paid = new Order("a1", true);
+    assertEquals(List.of(paid), Warehouse.toShip(List.of(paid, new Order("b2", false))));
+  }
+```
+
+**Edition notes:** a test that catches the mutants of boundary, comparison and remove conditional
+catches these too, so in the defaults their catches would only add to the score. It replaced
+`mutastic/negate-conditional`, whose change is the condition's opposite. The Rust edition has the
+same id, and turns `matches!(..)` into `!matches!(..)` too.
+
+## Remove conditional
+
+`mutastic/remove-conditional`, in the defaults. A condition stops deciding: the code it guards always
+runs, or never does. Each condition gets two mutants, one each way.
+
+**The bug it stands for:** a check that doesn't matter as much as its author thought, or that's the
+wrong check entirely. It costs in guards: a permission check, a validation, an "only if it's changed"
+before a write, a retry that should stop. If the code behaves the same with the guard always
+passing, no test has ever been refused by it; if it behaves the same with the guard never passing,
+no test has ever needed it to let something through.
+
+{/* from: samples/operator-docs/src/main/java/com/example/conditions/Greetings.java */}
+```java
+  public static String greeting(boolean member) {
+    if (member) {
+      return "welcome back";
+    }
+    return "welcome";
+  }
+```
+
+The test only greets a member, so the condition always true gets past it:
+
+{/* from: samples/operator-docs/src/test/java/com/example/conditions/GreetingsTest.java */}
+```java
+  @Test
+  void membersAreWelcomedBack() {
+    assertEquals("welcome back", Greetings.greeting(true));
+  }
+```
+
+<Code code={removeConditional} lang="ansi" />
+
+**The test that catches it:** one for each answer the condition can give. The card names the one no
+test has tried: here, someone who isn't a member.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/conditions/GreetingsTest.java */}
+```java
+  @Test
+  void othersAreWelcomed() {
+    assertEquals("welcome", Greetings.greeting(false));
+  }
+```
+
+**Edition notes:** other comparison asks the same question from another angle; remove conditional is
+clearer about which answer no test has tried, and catches a condition checked twice where one check
+never decides. The Rust edition has the same id, and reaches `while`, a match arm's guard, and `let
+Some(x) = e` in an `if let`, `while let` or `let`-`else`.
+
+## Logical connector
+
+`mutastic/logical-connector`, in the defaults. In a condition of two tests, `&&` becomes `||` and
+`||` becomes `&&`.
+
+**The bug it stands for:** `&&` where `||` was meant, or the other way round: a rule that needs both
+conditions written as either, a discount for members *or* big orders written as *and*. It costs in
+eligibility and permission rules, validation that should reject on any of several problems, and
+retries that stop on either of two signals. Tests that set both conditions true, or both false, pass
+either way.
+
+{/* from: samples/operator-docs/src/main/java/com/example/conditions/Shipping.java */}
+```java
+  public static boolean canShip(boolean paid, boolean inStock) {
+    return paid && inStock;
+  }
+```
+
+{/* from: samples/operator-docs/src/test/java/com/example/conditions/ShippingTest.java */}
+```java
+  @Test
+  void shipsWhenPaidAndInStock() {
+    assertTrue(Shipping.canShip(true, true));
+    assertFalse(Shipping.canShip(false, false));
+  }
+```
+
+The two give different answers exactly when one side holds and the other doesn't, which is also
+when each side always true would show, so the card holds all three:
+
+<Code code={logicalConnector} lang="ansi" />
+
+**The test that catches it:** one where the two conditions disagree, each way round: paid but out of
+stock, and in stock but unpaid.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/conditions/ShippingTest.java */}
+```java
+  @Test
+  void neitherAloneIsEnough() {
+    assertFalse(Shipping.canShip(true, false));
+    assertFalse(Shipping.canShip(false, true));
+  }
+```
+
+**Edition notes:** the bytecode has no `&&` or `||`, only two tests that jump, so mutastic recognises
+the way javac lays out a condition of two tests (in an `if`, a loop, a `return`, through a `!`) and
+turns the first test's jump round. It leaves alone a condition of three or more tests, an `if` nested
+in another on a line of its own (it compiles the same as `&&`), and a test that reads what the one
+before it binds, `value instanceof Integer number && number > 0`, which `||` couldn't run. When the
+statement has more than one `&&` or `||` the card can't say which, and says so. The Rust edition has
+the same id, and reads the source, so it has none of these limits.
+
+## Predicate connector swap
+
+`predicate/swap-connector`, in the `extended` set. `and` and `or` swap places, on `Predicate`,
+`BiPredicate` and the primitive predicates.
+
+**The bug it stands for:** "and" where "or" was meant, in a condition that's built up rather than
+written out. It costs in search filters and access rules composed from smaller predicates: a filter
+that shows too much, or nothing at all.
+
+{/* from: samples/operator-docs/src/main/java/com/example/conditions/Moderation.java */}
+```java
+  public static Predicate<String> held(Predicate<String> shouted, Predicate<String> isLong) {
+    return shouted.and(isLong);
+  }
+```
+
+The test has a message that's both, and one that's neither:
+
+{/* from: samples/operator-docs/src/test/java/com/example/conditions/ModerationTest.java */}
+```java
+  @Test
+  void aLongShoutIsHeld() {
+    Predicate<String> shouted = text -> text.equals(text.toUpperCase());
+    Predicate<String> isLong = text -> text.length() > 10;
+    var held = Moderation.held(shouted, isLong);
+    assertTrue(held.test("PLEASE READ THIS"));
+    assertFalse(held.test("hi"));
+  }
+```
+
+<Code code={swapConnector} lang="ansi" />
+
+**The test that catches it:** a value one of the two accepts and the other doesn't: a short shout.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/conditions/ModerationTest.java */}
+```java
+  @Test
+  void aShortShoutIsLetThrough() {
+    Predicate<String> shouted = text -> text.equals(text.toUpperCase());
+    assertFalse(Moderation.held(shouted, text -> text.length() > 10).test("HI"));
+  }
+```
+
+**Edition notes:** run it with `--operators=defaults,extended`. The Rust edition has no such operator,
+as std has no `Predicate` combinators: `&&` inside a closure is
+[logical connector](#logical-connector)'s.
+
+## Predicate negation removal
+
+`predicate/remove-negate` and `predicate/remove-not`, in the `extended` set. A predicate's `negate()`
+is removed, and `Predicate.not(p)` becomes `p`, so it accepts what it rejected.
+
+**The bug it stands for:** a condition the wrong way round, written as a method rather than a `!`. It
+costs in anything filtered by what it isn't: the blank lines dropped, the banned users kept out.
+Without the negation it keeps exactly what it should drop.
+
+{/* from: samples/operator-docs/src/main/java/com/example/conditions/Lines.java */}
+```java
+  private static final Predicate<String> BLANK = String::isBlank;
+
+  /// How many lines have something on them.
+  public static long written(List<String> lines) {
+    return lines.stream().filter(BLANK.negate()).count();
+  }
+```
+
+The test has one line of each, and counts what's kept: one, whichever way round the filter is.
+
+{/* from: samples/operator-docs/src/test/java/com/example/conditions/LinesTest.java */}
+```java
+  @Test
+  void blankLinesDontCount() {
+    assertEquals(1, Lines.written(List.of("total: 3", " ")));
+  }
+```
+
+<Code code={removeNegate} lang="ansi" />
+
+`Predicate.not` is the same bug, written the other way:
+
+{/* from: samples/operator-docs/src/main/java/com/example/conditions/Fields.java */}
+```java
+  /// How many of a form's fields are filled in.
+  public static long filled(List<String> values) {
+    return values.stream().filter(Predicate.not(String::isEmpty)).count();
+  }
+```
+
+{/* from: samples/operator-docs/src/test/java/com/example/conditions/FieldsTest.java */}
+```java
+  @Test
+  void anEmptyFieldIsntFilled() {
+    assertEquals(1, Fields.filled(List.of("Ann", "")));
+  }
+```
+
+<Code code={removeNot} lang="ansi" />
+
+**The test that catches it:** values it accepts and values it rejects, in numbers that differ, or a
+check on which come out.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/conditions/LinesTest.java */}
+```java
+  @Test
+  void onlyWrittenLinesCount() {
+    assertEquals(2, Lines.written(List.of("total: 3", "paid", " ")));
+  }
+```
+
+{/* added to: samples/operator-docs/src/test/java/com/example/conditions/FieldsTest.java */}
+```java
+  @Test
+  void twoFieldsOfThreeAreFilled() {
+    assertEquals(2, Fields.filled(List.of("Ann", "", "London")));
+  }
+```
+
+**Edition notes:** run them with `--operators=defaults,extended`. The Rust edition has neither: std
+has no `Predicate` combinators, and `!` inside a closure is
+[other comparison](#other-comparison)'s.

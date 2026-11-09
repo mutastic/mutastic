@@ -1,0 +1,14 @@
+ [41;30;1m ✗ MISSED [0m no test checks what [1m.peek(…)[0m does in logged()
+   [2m┌─[0m src/main/java/com/example/streams/Totals.java:8
+   [2m│[0m
+ [2m7[0m [2m│[0m   public static int logged(List<Integer> values, List<Integer> log) {
+ [2m8[0m [2m│[0m     return values.stream().peek(log::add).mapToInt(Integer::intValue).sum();
+   [2m│[0m                            [1;31m^^^^ stage removed[0m
+ [2m9[0m [2m│[0m   }
+   [2m│[0m
+   [2m=[0m [1;34m[1mnote[0m[0m: covered by TotalsTest#totalsAddUp (its 1 covering test still passes)
+   [2m=[0m [32m[1mhelp[0m[0m: add a test that asserts what [1m.peek(…)[0m does to each element
+
+   [2mdone when [0m mutastic verify m2d698876 samples/operator-docs[2m passes[0m
+   [2mreproduce [0m mutastic run --only=m2d698876 samples/operator-docs
+   [2mor ignore [0m mutastic ignore m2d698876 --reason="<why>" samples/operator-docs

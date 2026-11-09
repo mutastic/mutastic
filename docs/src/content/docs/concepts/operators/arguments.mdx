@@ -1,0 +1,261 @@
+---
+title: Arguments
+description: "The operators that change what a call is given, or what a method gets: the bug each stands for, a real card, and the test that catches it."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import omitCall from '../../../../data/output/operators/arguments/omit-call.ansi?raw';
+import swapArguments from '../../../../data/output/operators/arguments/swap-arguments.ansi?raw';
+import nullParameter from '../../../../data/output/operators/arguments/null-parameter.ansi?raw';
+import dropVararg from '../../../../data/output/operators/arguments/drop-vararg.ansi?raw';
+import omitArgument from '../../../../data/output/operators/arguments/omit-argument.ansi?raw';
+
+Operators that change what passes between calls: a call left out of the way, arguments swapped, a
+parameter or an argument gone. Together they ask whether your tests' values are ones each input makes
+a difference to.
+
+| Operator | Changes | Set |
+|---|---|---|
+| [`mutastic/omit-call`](#omit-call) | a call that returns what it's given, left out: `s.trim()` to `s` | stronger |
+| [`mutastic/swap-arguments`](#swap-arguments) | a call's last two arguments of the same type, swapped | stronger |
+| [`mutastic/null-parameter`](#null-parameter) | a parameter holding an object, `null` from the start of the method | stronger |
+| [`mutastic/drop-vararg`](#drop-vararg) | the last value in an array built for a call, left out | stronger |
+| [`library/omit-argument`](#omit-argument) | the JDK's overloads, without their last argument: `indexOf(x, from)` to `indexOf(x)` | stronger |
+
+Each example is a class in `samples/operator-docs` with a test that misses its mutant, and each card
+is what `mutastic run samples/operator-docs --operators=all` prints for it.
+
+## Omit call
+
+`mutastic/omit-call`, in the `stronger` set. A call that returns the same type as what it's given is
+left out, and what it was given goes on in its place.
+
+**The bug it stands for:** the step that was never written: the `escape` that isn't around user
+input, the `strip` that isn't on a pasted value, the builder step left out. Real faults have this
+shape, and the code reads as finished without it. It costs in anything that cleans or converts a
+value before it's used: on clean input the call makes no difference, and clean input is what tests
+tend to have.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arguments/Users.java */}
+```java
+  public static String username(String input) {
+    return input.strip().toLowerCase();
+  }
+```
+
+{/* from: samples/operator-docs/src/test/java/com/example/arguments/UsersTest.java */}
+```java
+  @Test
+  void usernamesAreLowerCase() {
+    assertEquals("ann", Users.username("Ann"));
+  }
+```
+
+<Code code={omitCall} lang="ansi" />
+
+**The test that catches it:** one with a value the call changes: text with spaces to strip,
+something to escape, a negative number for `Math.abs`.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arguments/UsersTest.java */}
+```java
+  @Test
+  void spacesArentPartOfAUsername() {
+    assertEquals("ann", Users.username(" Ann "));
+  }
+```
+
+**Edition notes:** it only leaves out calls it can be sure of: `String`'s and the string builders'
+own, `Math.abs`, and your code's own methods that return the type they're called on or their one
+argument, and have no type parameters. A library's calls are left alone, as `Stream.map` returns a
+`Stream` of something else. So is a call whose result is thrown away, which
+[remove discarded call](/concepts/operators/calls/#remove-discarded-call) removes. The Rust edition
+has the same id, for `trim`, `abs`, `to_lowercase` and the like, a builder's `(self) -> Self` step,
+and a crate function returning its one argument's type.
+
+## Swap arguments
+
+`mutastic/swap-arguments`, in the `stronger` set. A call's last two arguments swap places, where they
+have the same type.
+
+**The bug it stands for:** two arguments the wrong way round. When they have the same type the
+compiler has nothing to say, and a test whose values are equal, or whose result doesn't depend on the
+order, has nothing to say either. It costs in anything with a direction: a transfer's source and
+destination, a range's start and end, a width and a height, a replacement's old and new text.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arguments/Volume.java */}
+```java
+  /// `level`, kept between the quietest and the loudest.
+  public int set(int level) {
+    return clamp(level, min, max);
+  }
+
+  static int clamp(int value, int low, int high) {
+    return Math.max(low, Math.min(value, high));
+  }
+```
+
+Too loud is turned down to the loudest either way round:
+
+{/* from: samples/operator-docs/src/test/java/com/example/arguments/VolumeTest.java */}
+```java
+  @Test
+  void tooLoudIsTurnedDown() {
+    assertEquals(10, new Volume(0, 10).set(15));
+  }
+```
+
+<Code code={swapArguments} lang="ansi" />
+
+**The test that catches it:** one that passes different values and checks which went where: here, a
+level in between, which should stay as it is.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arguments/VolumeTest.java */}
+```java
+  @Test
+  void aLevelInRangeIsKept() {
+    assertEquals(4, new Volume(0, 10).set(4));
+  }
+```
+
+**Edition notes:** only the last two: an earlier pair has other arguments on top of it when the call
+is made. Arguments typed `Object` are left alone, as that's what a type variable compiles to, and
+`map.put(key, value)` swapped wouldn't compile. A call that gives the same result either way round,
+`Math.max(a, b)`, or that passes one value twice, `f(x, x)`, is skipped as equivalent. The Rust
+edition has the same id, for a crate function or method whose last two parameters have one type.
+
+## Null parameter
+
+`mutastic/null-parameter`, in the `stronger` set. A parameter that holds an object is `null` from the
+start of the method.
+
+**The bug it stands for:** a value that's handed in and doesn't matter as it should: a parameter
+ignored on one path, or a caller's `null` going further than it should before it's noticed. It costs
+in code with many inputs where tests pin only some.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arguments/Bookings.java */}
+```java
+  public record Booking(String guest, String room) {}
+
+  public static Booking book(String guest, String room) {
+    return new Booking(guest, room);
+  }
+```
+
+The test checks whose booking it is, and never which room:
+
+{/* from: samples/operator-docs/src/test/java/com/example/arguments/BookingsTest.java */}
+```java
+  @Test
+  void aBookingIsInTheGuestsName() {
+    assertEquals("Ann", Bookings.book("Ann", "12").guest());
+  }
+```
+
+<Code code={nullParameter} lang="ansi" />
+
+**The test that catches it:** one whose result depends on the parameter, on the path where it's used.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arguments/BookingsTest.java */}
+```java
+  @Test
+  void aBookingIsForTheRoomAsked() {
+    assertEquals("12", Bookings.book("Ann", "12").room());
+  }
+```
+
+**Edition notes:** a parameter whose value nothing reads, as it's unused or assigned first, is skipped
+as equivalent. Code compiled without its table of local variables has none, as nothing says what
+they're called. A method that rejects `null` straight away catches every one of these, which says
+little about its tests: this operator costs a run, and finds most where a parameter is used only on
+some paths. The Rust edition has the same id for an `Option` parameter, which becomes `None`, and adds
+`mutastic/default-parameter`, which gives a parameter its type's default.
+
+## Drop vararg
+
+`mutastic/drop-vararg`, in the `stronger` set. The last value in an array built for a call is left
+out. That's usually a varargs call's.
+
+**The bug it stands for:** a value left out of a list: the role not in the set, the last column not in
+the query, the argument not in the message. It costs in lists built in one expression, where one
+element's absence shows only for inputs that need it.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arguments/Scores.java */}
+```java
+  public static int bestOfThree(int first, int second, int third) {
+    return Collections.max(Arrays.asList(first, second, third));
+  }
+```
+
+The test's best score comes first, so the last never matters:
+
+{/* from: samples/operator-docs/src/test/java/com/example/arguments/ScoresTest.java */}
+```java
+  @Test
+  void theBestComesFirst() {
+    assertEquals(9, Scores.bestOfThree(9, 2, 1));
+  }
+```
+
+<Code code={dropVararg} lang="ansi" />
+
+**The test that catches it:** one that depends on the last value, not only on the others.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arguments/ScoresTest.java */}
+```java
+  @Test
+  void theBestComesLast() {
+    assertEquals(9, Scores.bestOfThree(1, 2, 9));
+  }
+```
+
+**Edition notes:** the value is still worked out, so a call in it still runs. An array that wasn't
+built on the spot, or was built with nothing in it, is left alone. `List.of(a, b)` has nothing to
+drop: it has its own overload for a few values, with no array. The Rust edition has the same id in
+`extended`, for `&[a, b, c]` and `vec![a, b, c]`, as an array's length is part of its type there and
+more of its mutants don't compile.
+
+## Omit argument
+
+`library/omit-argument`, in the `stronger` set. A call to one of the JDK's overloads leaves out its
+last argument and calls the shorter one.
+
+**The bug it stands for:** the shorter overload where the longer was meant: a search from the start
+instead of from a position, hex read as decimal, a pattern losing its flags. It costs in parsing,
+where these reads run, and often return something plausible, on inputs the argument makes no
+difference to.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arguments/Csv.java */}
+```java
+  /// Where the next field ends: the first comma at or after `from`.
+  public static int nextComma(String line, int from) {
+    return line.indexOf(',', from);
+  }
+```
+
+The test only searches from the start, where the first comma is the first comma either way:
+
+{/* from: samples/operator-docs/src/test/java/com/example/arguments/CsvTest.java */}
+```java
+  @Test
+  void theFirstFieldEndsAtItsComma() {
+    assertEquals(1, Csv.nextComma("a,b", 0));
+  }
+```
+
+<Code code={omitArgument} lang="ansi" />
+
+**The test that catches it:** one with a value the argument changes: a search that starts past a
+match.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arguments/CsvTest.java */}
+```java
+  @Test
+  void theSecondFieldEndsAtTheNextComma() {
+    assertEquals(3, Csv.nextComma("a,b,c", 2));
+  }
+```
+
+**Edition notes:** it covers `indexOf`, `lastIndexOf` and `substring` on a `String` or `StringBuilder`,
+`parseInt`, `parseLong` and `toString` with a radix, `Pattern.compile` with flags, and
+`Objects.toString` with a default. It leaves out a charset, a locale and a `split` limit, whose
+absence rarely shows. The Rust edition has no such operator, as Rust has no overloading.

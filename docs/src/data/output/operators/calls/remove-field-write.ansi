@@ -1,0 +1,14 @@
+ [41;30;1m ✗ MISSED [0m no test checks the value [1mpaid[0m is given in [1mpay()[0m
+    [2m┌─[0m src/main/java/com/example/calls/Order.java:13
+    [2m│[0m
+ [2m12[0m [2m│[0m   public int pay() {
+ [2m13[0m [2m│[0m     this.paid = true;
+    [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^ write removed[0m
+ [2m14[0m [2m│[0m     return total;
+    [2m│[0m
+    [2m=[0m [1;34m[1mnote[0m[0m: covered by OrderTest#payingGivesTheTotal (its 1 covering test still passes)
+    [2m=[0m [32m[1mhelp[0m[0m: add a test where this gives [1mpaid[0m a different value, and assert what depends on it
+
+    [2mdone when [0m mutastic verify md94e0e3d samples/operator-docs[2m passes[0m
+    [2mreproduce [0m mutastic run --only=md94e0e3d samples/operator-docs
+    [2mor ignore [0m mutastic ignore md94e0e3d --reason="<why>" samples/operator-docs

@@ -1,0 +1,16 @@
+ [41;30;1m ✗ MISSED [0m no test needs [1mmember[0m to be false in [1mgreeting()[0m
+   [2m┌─[0m src/main/java/com/example/conditions/Greetings.java:5
+   [2m│[0m
+ [2m4[0m [2m│[0m   public static String greeting(boolean member) {
+ [2m5[0m [2m│[0m     if (member) {
+   [2m│[0m     [1;31m^^^^^^^^^^^^^ now always true[0m
+ [2m6[0m [2m│[0m       return "welcome back";
+   [2m│[0m
+   [2m=[0m mutant  [1;31m- [0mif (member) {
+             [32m+ [0mif (true) {
+   [2m=[0m [1;34m[1mnote[0m[0m: covered by GreetingsTest#membersAreWelcomedBack (its 1 covering test still passes)
+   [2m=[0m [32m[1mhelp[0m[0m: add a test where [1mmember[0m is false, and assert what [1mgreeting()[0m does then
+
+   [2mdone when [0m mutastic verify m2ebb995b samples/operator-docs[2m passes[0m
+   [2mreproduce [0m mutastic run --only=m2ebb995b samples/operator-docs
+   [2mor ignore [0m mutastic ignore m2ebb995b --reason="<why>" samples/operator-docs

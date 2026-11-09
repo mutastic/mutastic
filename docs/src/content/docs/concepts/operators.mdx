@@ -1,681 +1,92 @@
 ---
-title: Operators
-description: The kinds of change mutastic makes to your code, and the gap in the tests each one finds.
+title: All operators
+description: Every kind of change mutastic makes to your code, its set, its family, and its Rust equivalent.
 ---
 
 An operator is a kind of change. Each mutant is one operator applied at one place in your code.
-Reports and rules name an operator by its id, `mutastic/boundary` say; each has its own anchor on
-this page.
+Reports and rules name an operator by its id, `mutastic/boundary` say.
 
-For why each one is worth catching, the bugs it stands for and the test that catches it, see
-[Operators (advanced)](/concepts/operators-advanced/).
+Each operator has its place on a family's page: what it changes, the bug it stands for, a real
+example with the card mutastic prints for it, and the test that catches it.
 
-| Operator | Changes | Set |
-|---|---|---|
-| [`mutastic/boundary`](#boundary) | `<` and `<=`, `>` and `>=` | defaults |
-| [`mutastic/comparison`](#comparison) | a comparison to the one that differs on one side: `<` to `!=` | stronger |
-| [`mutastic/other-comparison`](#other-comparison) | a comparison to the others, and a condition to its opposite | stronger |
-| [`mutastic/remove-conditional`](#remove-conditional) | a condition to always true, or always false | defaults |
-| [`mutastic/logical-connector`](#logical-connector) | `&&` and `\|\|` | defaults |
-| [`mutastic/math`](#math) | `+` and `-`, `*` and `/` | defaults |
-| [`mutastic/arithmetic-replacement`](#arithmetic-replacement) | `+` to `*` | stronger |
-| [`mutastic/other-arithmetic`](#other-arithmetic) | an arithmetic operator to any of the others, on every number type | stronger |
-| [`mutastic/bitwise`](#bitwise) | `&`, `\|` and `^` to the other two; `<<` and `>>`, `>>` and `>>>` | stronger |
-| [`mutastic/keep-operand`](#keep-operand) | a calculation to one of its values: `a + b` to `a`, or `b` | stronger |
-| [`mutastic/constant-value`](#constant-value) | a number to one next to it, or `0`, `1` or `-1` | stronger |
-| [`mutastic/flip-increment`](#flip-increment) | `i++` and `i--`, `i += 2` and `i -= 2` | stronger |
-| [`mutastic/remove-negation`](#remove-negation) | `-x` to `x` | stronger |
-| [`mutastic/return-value`](#return-value) | a returned value to the other `boolean`, `0`, an empty one or `null` | defaults |
-| [`mutastic/remove-void-call`](#remove-void-call) | a call that returns nothing, removed | defaults |
-| [`mutastic/remove-discarded-call`](#remove-discarded-call) | a call whose result is thrown away, removed | defaults |
-| [`mutastic/remove-assignment`](#remove-assignment) | an assignment to a variable that already has a value, removed | defaults |
-| [`mutastic/remove-field-write`](#remove-field-write) | a write to a field, removed | stronger |
-| [`mutastic/omit-call`](#omit-call) | a call that returns what it's given, left out: `s.trim()` to `s` | stronger |
-| [`mutastic/swap-arguments`](#swap-arguments) | a call's last two arguments of the same type, swapped | stronger |
-| [`mutastic/null-parameter`](#null-parameter) | a parameter holding an object, `null` from the start of the method | stronger |
-| [`mutastic/drop-vararg`](#drop-vararg) | the last value in an array built for a call, left out | stronger |
-| [`library/omit-argument`](#omit-argument) | the JDK's overloads, without their last argument: `indexOf(x, from)` to `indexOf(x)` | stronger |
-| [`library/unchecked-arithmetic`](#unchecked-arithmetic) | `Math.addExact` and the like to the plain operation, which overflows | stronger |
-| [`stream/remove-stage`](#stream-stage-removal) | a stream stage, removed | defaults |
-| [`stream/swap-match`](#stream-match-swap) | `anyMatch`, `allMatch` and `noneMatch`, swapped | defaults |
-| [`library/swap-string`](#string-method-swap) | a `String` method and the similar one: `startsWith` and `endsWith`, `toUpperCase` and `toLowerCase` | defaults |
-| [`library/swap-index-of`](#indexof-swap) | `indexOf` and `lastIndexOf` | stronger |
-| [`library/swap-math`](#math-method-swap) | `Math.min` and `Math.max`, `Math.floor` and `Math.ceil` | defaults |
-| [`stream/remove-other-stage`](#other-stage-removal) | `peek`, and `map` on a primitive stream, removed | extended |
-| [`predicate/swap-connector`](#predicate-connector-swap) | `Predicate.and` and `or` | extended |
-| [`predicate/remove-negate`](#predicate-negation-removal) | a predicate's `negate()`, removed | extended |
-| [`predicate/remove-not`](#predicate-negation-removal) | `Predicate.not(p)` to `p` | extended |
-| [`optional/swap-present`](#optional-presence-swap) | `isPresent` and `isEmpty` | extended |
-| [`optional/empty`](#optional-made-empty) | `Optional.of(x)` to `Optional.empty()` | extended |
-| [`optional/remove-filter`](#optional-filter-removal) | `Optional.filter`, removed | extended |
-| [`optional/always-default`](#optional-default) | `opt.orElse(x)` to `x` | extended |
-| [`optional/no-default`](#optional-default) | `opt.orElse(x)` to `opt.get()` | extended |
-| [`mutastic/remove-switch-arm`](#remove-switch-arm) | an arm of a `switch`, its values sent to the default | extended |
-| [`mutastic/replace-body`](#replace-body) | a method's whole body, to returning one value or nothing | extended |
-| [`mutastic/drop-catch-type`](#drop-catch-type) | one type of a multi-catch, no longer caught | extended |
-| [`mutastic/remove-throw`](#remove-throw) | a `throw`, removed, and the code carries on | extended |
-| [`mutastic/regex-constant`](#regex-constant) | a regular expression, to one that differs and still compiles | extended |
-| [`mutastic/string-constant`](#string-constant) | a string in the code, to `""` | stronger |
+- [Conditions](/concepts/operators/conditions/): comparisons, conditions, and how two combine.
+- [Arithmetic](/concepts/operators/arithmetic/): operators, numbers and bits.
+- [Returns and errors](/concepts/operators/returns/): what a method returns, and what it throws.
+- [Calls and writes](/concepts/operators/calls/): calls, assignments and field writes left out.
+- [Arguments](/concepts/operators/arguments/): what a call is given, and what a method gets.
+- [Library methods](/concepts/operators/library/): a JDK method for its counterpart, and the text in
+  your code.
+- [Streams](/concepts/operators/streams/): stream stages and matches.
+- [Optional](/concepts/operators/optional/): how an `Optional` is made, checked and unwrapped.
+- [Control flow](/concepts/operators/control/): `switch` arms and caught exceptions.
+
+| Operator | Changes | Set | Family | In Rust |
+|---|---|---|---|---|
+| <span id="boundary"></span>[`mutastic/boundary`](/concepts/operators/conditions/#boundary) | `<` and `<=`, `>` and `>=` | defaults | Conditions | the same |
+| <span id="comparison"></span>[`mutastic/comparison`](/concepts/operators/conditions/#comparison) | a comparison to the one that differs on one side: `<` to `!=` | stronger | Conditions | the same |
+| <span id="other-comparison"></span>[`mutastic/other-comparison`](/concepts/operators/conditions/#other-comparison) | a comparison to the others, and a condition to its opposite | stronger | Conditions | the same |
+| <span id="remove-conditional"></span>[`mutastic/remove-conditional`](/concepts/operators/conditions/#remove-conditional) | a condition to always true, or always false | defaults | Conditions | the same |
+| <span id="logical-connector"></span>[`mutastic/logical-connector`](/concepts/operators/conditions/#logical-connector) | `&&` and `\|\|` | defaults | Conditions | the same |
+| <span id="predicate-connector-swap"></span>[`predicate/swap-connector`](/concepts/operators/conditions/#predicate-connector-swap) | `Predicate.and` and `or` | extended | Conditions | — |
+| <span id="predicate-negation-removal"></span>[`predicate/remove-negate`](/concepts/operators/conditions/#predicate-negation-removal) | a predicate's `negate()`, removed | extended | Conditions | — |
+| [`predicate/remove-not`](/concepts/operators/conditions/#predicate-negation-removal) | `Predicate.not(p)` to `p` | extended | Conditions | — |
+| <span id="math"></span>[`mutastic/math`](/concepts/operators/arithmetic/#math) | `+` and `-`, `*` and `/` | defaults | Arithmetic | the same |
+| <span id="arithmetic-replacement"></span>[`mutastic/arithmetic-replacement`](/concepts/operators/arithmetic/#arithmetic-replacement) | `+` to `*` | stronger | Arithmetic | the same |
+| <span id="other-arithmetic"></span>[`mutastic/other-arithmetic`](/concepts/operators/arithmetic/#other-arithmetic) | an arithmetic operator to any of the others, on every number type | stronger | Arithmetic | the same |
+| <span id="bitwise"></span>[`mutastic/bitwise`](/concepts/operators/arithmetic/#bitwise) | `&`, `\|` and `^` to the other two; `<<` and `>>`, `>>` and `>>>` | stronger | Arithmetic | the same |
+| <span id="keep-operand"></span>[`mutastic/keep-operand`](/concepts/operators/arithmetic/#keep-operand) | a calculation to one of its values: `a + b` to `a`, or `b` | stronger | Arithmetic | the same |
+| <span id="constant-value"></span>[`mutastic/constant-value`](/concepts/operators/arithmetic/#constant-value) | a number to one next to it, or `0`, `1` or `-1` | stronger | Arithmetic | the same |
+| <span id="flip-increment"></span>[`mutastic/flip-increment`](/concepts/operators/arithmetic/#flip-increment) | `i++` and `i--`, `i += 2` and `i -= 2` | stronger | Arithmetic | — |
+| <span id="remove-negation"></span>[`mutastic/remove-negation`](/concepts/operators/arithmetic/#remove-negation) | `-x` to `x` | stronger | Arithmetic | the same |
+| <span id="unchecked-arithmetic"></span>[`library/unchecked-arithmetic`](/concepts/operators/arithmetic/#unchecked-arithmetic) | `Math.addExact` and the like to the plain operation, which overflows | stronger | Arithmetic | the same |
+| <span id="return-value"></span>[`mutastic/return-value`](/concepts/operators/returns/#return-value) | a returned value to the other `boolean`, `0`, an empty one or `null` | defaults | Returns and errors | the same |
+| <span id="replace-body"></span>[`mutastic/replace-body`](/concepts/operators/returns/#replace-body) | a method's whole body, to returning one value or nothing | extended | Returns and errors | the same |
+| <span id="remove-throw"></span>[`mutastic/remove-throw`](/concepts/operators/returns/#remove-throw) | a `throw`, removed, and the code carries on | extended | Returns and errors | the same |
+| <span id="remove-void-call"></span>[`mutastic/remove-void-call`](/concepts/operators/calls/#remove-void-call) | a call that returns nothing, removed | defaults | Calls and writes | the same |
+| <span id="remove-discarded-call"></span>[`mutastic/remove-discarded-call`](/concepts/operators/calls/#remove-discarded-call) | a call whose result is thrown away, removed | defaults | Calls and writes | the same |
+| <span id="remove-assignment"></span>[`mutastic/remove-assignment`](/concepts/operators/calls/#remove-assignment) | an assignment to a variable that already has a value, removed | defaults | Calls and writes | the same |
+| <span id="remove-field-write"></span>[`mutastic/remove-field-write`](/concepts/operators/calls/#remove-field-write) | a write to a field, removed | stronger | Calls and writes | the same |
+| <span id="omit-call"></span>[`mutastic/omit-call`](/concepts/operators/arguments/#omit-call) | a call that returns what it's given, left out: `s.trim()` to `s` | stronger | Arguments | the same |
+| <span id="swap-arguments"></span>[`mutastic/swap-arguments`](/concepts/operators/arguments/#swap-arguments) | a call's last two arguments of the same type, swapped | stronger | Arguments | the same |
+| <span id="null-parameter"></span>[`mutastic/null-parameter`](/concepts/operators/arguments/#null-parameter) | a parameter holding an object, `null` from the start of the method | stronger | Arguments | the same, for an `Option` |
+| <span id="drop-vararg"></span>[`mutastic/drop-vararg`](/concepts/operators/arguments/#drop-vararg) | the last value in an array built for a call, left out | stronger | Arguments | the same, in `extended` |
+| <span id="omit-argument"></span>[`library/omit-argument`](/concepts/operators/arguments/#omit-argument) | the JDK's overloads, without their last argument: `indexOf(x, from)` to `indexOf(x)` | stronger | Arguments | — |
+| <span id="string-method-swap"></span>[`library/swap-string`](/concepts/operators/library/#string-method-swap) | a `String` method and the similar one: `startsWith` and `endsWith`, `toUpperCase` and `toLowerCase` | defaults | Library methods | the same |
+| <span id="indexof-swap"></span>[`library/swap-index-of`](/concepts/operators/library/#indexof-swap) | `indexOf` and `lastIndexOf` | stronger | Library methods | the same |
+| <span id="math-method-swap"></span>[`library/swap-math`](/concepts/operators/library/#math-method-swap) | `Math.min` and `Math.max`, `Math.floor` and `Math.ceil` | defaults | Library methods | the same |
+| <span id="string-constant"></span>[`mutastic/string-constant`](/concepts/operators/library/#string-constant) | a string in the code, to `""` | stronger | Library methods | the same |
+| <span id="regex-constant"></span>[`mutastic/regex-constant`](/concepts/operators/library/#regex-constant) | a regular expression, to one that differs and still compiles | extended | Library methods | the same |
+| <span id="stream-stage-removal"></span>[`stream/remove-stage`](/concepts/operators/streams/#stream-stage-removal) | a stream stage, removed | defaults | Streams | the same, on iterators |
+| <span id="stream-match-swap"></span>[`stream/swap-match`](/concepts/operators/streams/#stream-match-swap) | `anyMatch`, `allMatch` and `noneMatch`, swapped | defaults | Streams | the same, on iterators |
+| <span id="other-stage-removal"></span>[`stream/remove-other-stage`](/concepts/operators/streams/#other-stage-removal) | `peek`, and `map` on a primitive stream, removed | extended | Streams | the same, on iterators |
+| <span id="optional-presence-swap"></span>[`optional/swap-present`](/concepts/operators/optional/#optional-presence-swap) | `isPresent` and `isEmpty` | extended | Optional | the same, in `stronger` |
+| <span id="optional-made-empty"></span>[`optional/empty`](/concepts/operators/optional/#optional-made-empty) | `Optional.of(x)` to `Optional.empty()` | extended | Optional | the same, in `stronger` |
+| <span id="optional-filter-removal"></span>[`optional/remove-filter`](/concepts/operators/optional/#optional-filter-removal) | `Optional.filter`, removed | extended | Optional | the same |
+| <span id="optional-default"></span>[`optional/always-default`](/concepts/operators/optional/#optional-default) | `opt.orElse(x)` to `x` | extended | Optional | the same, in `stronger` |
+| [`optional/no-default`](/concepts/operators/optional/#optional-default) | `opt.orElse(x)` to `opt.get()` | extended | Optional | the same, in `stronger` |
+| <span id="remove-switch-arm"></span>[`mutastic/remove-switch-arm`](/concepts/operators/control/#remove-switch-arm) | an arm of a `switch`, its values sent to the default | extended | Control flow | the same, in `stronger` |
+| <span id="drop-catch-type"></span>[`mutastic/drop-catch-type`](/concepts/operators/control/#drop-catch-type) | one type of a multi-catch, no longer caught | extended | Control flow | — |
 
 A run uses the `defaults` set unless you [choose otherwise](#choosing-operators). Plugins can add
 operators of their own: see [Plugins](/guides/plugins/). mutastic ships a few of its own that way, for
 annotations, `BigDecimal`, reactive streams and Kotlin (experimental): see [Plugins mutastic
 ships](/guides/operator-plugins/).
 
-## Boundary
-
-`mutastic/boundary`. `<` becomes `<=` and the other way round: the off-by-one at the edge of a
-range, which tests that only check values far from the edge never notice.
-
-```java
-if (total >= 100)   // becomes: if (total > 100)
-```
-
-## Comparison
-
-`mutastic/comparison`, in the `stronger` set. A comparison becomes the one that gives the same
-answer at its edge and on one side of it, and the other answer on the other side:
-
-| Written | Becomes | Differs where |
-|---|---|---|
-| `a < b` | `a != b` | `a > b` |
-| `a <= b` | `a == b` | `a < b` |
-| `a > b` | `a != b` | `a < b` |
-| `a >= b` | `a == b` | `a > b` |
-| `a == b` | `a <= b`, and `a >= b` | `a < b`, and `a > b` |
-| `a != b` | `a < b`, and `a > b` | `a > b`, and `a < b` |
-
-It goes unnoticed when no test looks at that side, and the card names it: "no test checks
-`shipping()` with `total > freeShippingFrom`".
-
-With [boundary](#boundary) and [remove conditional](#remove-conditional), these make the smallest
-set of changes that is enough for a comparison: tests that catch the edge moved, the side changed
-and the condition always true or false catch every other way the comparison could be written
-wrong. For `a < b` the three are `a <= b`, `a != b` and `false`. Each is one operator's, so no
-condition gets the same change twice. Nor does a size: for a value that's never negative,
-`items.size() > 0` becoming `items.size() >= 0` is the condition always true, so it's left to
-remove conditional, and of two changes that agree for every size only the first is made (boundary's,
-then comparison's, then other comparison's).
-
-Only numbers have an order: `==` on two `boolean`s or references, and `== null`, get no mutant
-here. A comparison of `float`s or `double`s gets only changes that treat `NaN` as Java does, so `x
-< y` gets none (`x != y` would differ for `NaN` too). A change that differs only for a negative
-size or length, `items.size() == 0` to `items.size() <= 0`, is skipped as equivalent.
-
-It's in `stronger` because, measured on mutastic's own code, most of what it missed was noise: a
-loop counter that counts up to its end (`i < n` and `i != n` stop at the same place), and a size
-compared with a value it never passes.
-
-```java
-if (total >= 100)   // becomes: if (total == 100)
-```
-
-## Other comparison
-
-`mutastic/other-comparison`, in the `stronger` set. A comparison becomes each of the others, and
-any condition its opposite: `<` becomes `>`, `>=` or `==`; `==` becomes `!=`, `<` or `>`; `==
-null` becomes `!= null`; `if (order.isPaid())` becomes `if (!order.isPaid())`. It goes unnoticed
-when no test checks what happens on one side of an `if`.
-
-A test that catches the mutants of [boundary](#boundary), [comparison](#comparison) and [remove
-conditional](#remove-conditional) catches these too, so in the defaults their catches would only
-add to the score. It replaced `mutastic/negate-conditional`, whose change is the condition's
-opposite.
-
-```java
-if (order.isPaid())   // becomes: if (!order.isPaid())
-if (coupon == null)   // becomes: if (coupon != null)
-```
-
-## Remove conditional
-
-`mutastic/remove-conditional`. A condition stops deciding: the code it guards always runs, or never
-does. Each condition gets two mutants, one each way. It goes unnoticed when no test needs the
-condition to be true one time and false another.
-
-```java
-if (order.isPaid())   // becomes: if (true), and: if (false)
-```
-
-## Logical connector
-
-`mutastic/logical-connector`. In a condition of two tests, `&&` becomes `||` and `||` becomes
-`&&`. The two give different answers exactly when one test holds and the other doesn't, so it goes
-unnoticed when no test has one of them true and the other false. The card names both: "no test
-checks `canShip()` with one of `order.isPaid()` and `order.inStock()` true and the other false".
-
-```java
-if (order.isPaid() && order.inStock())   // becomes: if (order.isPaid() || order.inStock())
-```
-
-The bytecode has no `&&` or `||`, only two tests that jump, so mutastic recognises the way javac
-lays out a condition of two tests (in an `if`, a loop, a `return`, through a `!`) and turns the
-first test's jump round. It leaves alone a condition of three or more tests, an `if` nested in
-another on a line of its own (it compiles the same as `&&`), and a test that reads what the one
-before it binds, `value instanceof Integer number && number > 0`, which `||` couldn't run. When the
-statement has more than one `&&` or `||` the card can't say which, and says so.
-
-## Math
-
-`mutastic/math`. `+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`. It goes
-unnoticed when tests only use values where the two give the same answer, such as adding `0` or
-multiplying by `1`.
-
-```java
-return price * quantity;   // becomes: return price / quantity;
-```
-
-## Arithmetic replacement
-
-`mutastic/arithmetic-replacement`, in the `stronger` set. `+` becomes `*`, on `int` and `long`. It
-goes unnoticed when tests only add numbers whose sum and product agree, `2 + 2` say.
-
-```java
-return price + shipping;   // becomes: return price * shipping;
-```
-
-## Other arithmetic
-
-`mutastic/other-arithmetic`, in the `stronger` set. An arithmetic operator becomes each of the others
-among `+`, `-`, `*`, `/` and `%`, on `int`, `long`, `float` and `double`, beyond the changes
-`mutastic/math` and `mutastic/arithmetic-replacement` make. It goes unnoticed when tests only use
-values where the two give the same answer, or don't check the result.
-
-```java
-return total % size;   // becomes: return total / size;
-```
-
-## Bitwise
-
-`mutastic/bitwise`, in the `stronger` set. `&`, `|` and `^` each become the other two, `<<` and `>>`
-swap, and so do `>>` and `>>>`, on `int`, `long` and `boolean`. It goes unnoticed when tests only use
-values whose bits give the same answer either way.
-
-```java
-return flags & mask;   // becomes: return flags | mask;   and: return flags ^ mask;
-```
-
-`~x` isn't changed: the compiler writes it as `x ^ -1`, which no one wrote as a `^`. And setting or
-clearing bits, `flags |= bit` or `flags &= ~bit`, never becomes flipping them with `^=`.
-
-## Keep operand
-
-`mutastic/keep-operand`, in the `stronger` set. A calculation becomes one of its two values, and a
-mutant is made for each. It goes unnoticed when no test has a value of the other that changes the
-result.
-
-```java
-return price + fee;   // becomes: return price;   and: return fee;
-```
-
-Both values are still worked out, so a call in the other still runs. A constant beside a variable
-isn't what's kept: `count + 1` becomes `count`, not `1`.
-
-## Constant value
-
-`mutastic/constant-value`, in the `stronger` set. A number in the code becomes one next to it, and
-`0`, `1` and `-1`, each once. It goes unnoticed when no test has a value near the one that matters.
-
-```java
-if (total >= 100)   // becomes: if (total >= 101), 99, 0, 1 and -1
-```
-
-A `static final` number counts too: javac writes its value where it's used, so a threshold set wrong
-shows here and in no other operator. The card names the value, as the line may only have the name.
-
-`0` and `1` are changed only where what uses them shows they're numbers, as in the bytecode they
-could be `false` and `true`, and a number that isn't shown to be plain stays in the range of a `byte`,
-`short` or `char`. The size and indexes of an array's `{…}`, the `-1` in `~x`, and what javac stores
-in temporaries of its own have no mutants. Some are skipped as arid: an array's size, a capacity, a
-wait, a `split`'s limit, and a variable's first value of `0` or `1`, where a counter or a total starts.
-
-## Flip increment
-
-`mutastic/flip-increment`, in the `stronger` set. A local variable's step goes the other way: `i++`
-becomes `i--`, and `i += 2` becomes `i -= 2`. It goes unnoticed when no test depends on which way the
-variable moves.
-
-```java
-count++;   // becomes: count--;
-```
-
-A step nothing reads afterwards is skipped as equivalent. The index javac writes for an enhanced
-`for` isn't one of these, as no source names it, and code without its table of local variables has
-none. A loop counter that goes the wrong way either fails at once, on an index out of range, or
-never ends, which takes a whole time limit to catch.
-
-## Remove negation
-
-`mutastic/remove-negation`, in the `stronger` set. A value's minus sign is removed. It goes unnoticed
-when tests only use zero, or don't check the sign of the result.
-
-```java
-return -balance;   // becomes: return balance;
-```
-
-A negative literal or a negated constant is worked out by javac, so there's no negation left in the
-code to remove.
-
-## Return value
-
-`mutastic/return-value`. A method returns the value its kind of method most plausibly gets wrong,
-instead of what it computed. It goes unnoticed when tests call the method but never look at what it
-returns.
-
-| The method returns | The mutant returns |
-|---|---|
-| `boolean` | the other one: `true` becomes `false`, `false` becomes `true`, and a computed one becomes each |
-| a number | `0`, or `1` where it returns `0` |
-| `Optional` | `Optional.empty()` |
-| `String` | `""` |
-| `List`, `Collection` or `Iterable` | `List.of()` |
-| `Set`, `Map` | `Set.of()`, `Map.of()` |
-| `Stream` | `Stream.empty()` |
-| `Boolean`, `Integer`, `Long` and the other boxed numbers | as their primitive does |
-| anything else | `null` |
-
-```java
-return subtotal + shipping;      // becomes: return 0;
-return customer.isEligible();    // becomes: return false; and: return true;
-return "Order " + id;            // becomes: return "";
-return orders.stream().filter(Order::isPaid).toList();   // becomes: return List.of();
-```
-
-A return that already gives that value, `return List.of();` say, can't be changed by it, and is
-[skipped as equivalent](/concepts/equivalence/).
-
-## Remove void call
-
-`mutastic/remove-void-call`. A call that returns nothing is removed. It goes unnoticed when no test
-checks what the call does.
-
-```java
-inventory.reserve(item);   // becomes: nothing, the line is gone
-```
-
-## Remove discarded call
-
-`mutastic/remove-discarded-call`. A call whose result is thrown away is removed: `items.add(item);`,
-`seen.put(key, value);`. Its result isn't used, so only what it does matters. It goes unnoticed
-when no test checks what the call does.
-
-```java
-order.lines().add(line);   // becomes: nothing, the line is gone
-text.append(", ");         // so does this, though append returns the builder
-```
-
-`Objects.requireNonNull(x);`, which only checks a value isn't `null`, is skipped as arid.
-
-Constructors are left alone: removing one would leave an object half made, not a gap in the tests.
-
-## Remove assignment
-
-`mutastic/remove-assignment`. An assignment to a variable that already has a value is removed, so
-the variable keeps that value. What it would have been given is still worked out, so a call on the
-right-hand side still runs. It goes unnoticed when no test checks anything that depends on the new
-value.
-
-```java
-total = total + line.price();   // becomes: total stays as it was
-retries = 0;                    // becomes: retries stays as it was
-```
-
-A variable's first value is left alone, as the code wouldn't run without it. So is code compiled
-without its table of local variables (`-g:none`, or no `vars` in `-g`), which doesn't say what's a
-variable. An assignment whose value nothing reads, because the variable is assigned again first or
-never used, is skipped as equivalent. `i++` isn't an assignment here.
-
-## Remove field write
-
-`mutastic/remove-field-write`. A write to a field is removed, so the field keeps the value it had.
-It's in the `stronger` set. It goes unnoticed when no test checks the field afterwards, directly or
-through what reads it.
-
-```java
-this.status = Status.PAID;   // becomes: status stays as it was
-```
-
-Constructors and static initialisers are left alone, as they are for every operator, and a setter
-with nothing else in it is skipped as arid. A write of a default value, `count = 0;` in a `reset()`,
-is kept: that's what `reset()` is for.
-
-## Omit call
-
-`mutastic/omit-call`. A call that returns the same type as what it's given is left out, and what it
-was given goes on in its place. It's in the `stronger` set. It goes unnoticed when no test has a
-value the call changes.
-
-```java
-String name = input.trim();     // becomes: String name = input;
-String safe = escape(comment);  // becomes: String safe = comment;
-```
-
-It only leaves out calls it can be sure of: `String`'s and the string builders' own, `Math.abs`, and
-your code's own methods that return the type they're called on or their one argument, and have no
-type parameters. A library's calls are left alone, as `Stream.map` returns a `Stream` of something
-else. So is a call whose result is thrown away, which
-[`mutastic/remove-discarded-call`](#remove-discarded-call) removes.
-
-## Swap arguments
-
-`mutastic/swap-arguments`. A call's last two arguments swap places, where they have the same type.
-It's in the `stronger` set. It goes unnoticed when no test passes different values for them and
-checks the result.
-
-```java
-transfer(account, from, to);   // becomes: transfer(account, to, from)
-```
-
-Only the last two: an earlier pair has other arguments on top of it when the call is made. Arguments
-typed `Object` are left alone, as that's what a type variable compiles to, and `map.put(key, value)`
-swapped wouldn't compile. A call that gives the same result either way round, `Math.max(a, b)`, or
-that passes one value twice, `f(x, x)`, is skipped as equivalent.
-
-## Null parameter
-
-`mutastic/null-parameter`. A parameter that holds an object is `null` from the start of the method.
-It's in the `stronger` set. It goes unnoticed when no test depends on its value.
-
-```java
-void ship(Order order, Carrier carrier) {   // becomes: carrier = null; as the method starts
-```
-
-A parameter whose value nothing reads, as it's unused or assigned first, is skipped as equivalent.
-Code compiled without its table of local variables has none, as nothing says what they're called. A
-method that rejects `null` straight away catches every one of these, which says little about its
-tests: this operator costs a run, and finds most where a parameter is used only on some paths.
-
-## Drop vararg
-
-`mutastic/drop-vararg`. The last value in an array built for a call is left out. That's usually a
-varargs call's. It's in the `stronger` set. It goes unnoticed when no test depends on that value.
-
-```java
-var line = String.format("%s %s %d", name, code, count);   // becomes: without count
-```
-
-The value is still worked out, so a call in it still runs. An array that wasn't built on the spot,
-or was built with nothing in it, is left alone. `List.of(a, b)` has nothing to drop: it
-has its own overload for a few values, with no array.
-
-## Omit argument
-
-`library/omit-argument`. A call to one of the JDK's overloads leaves out its last argument and calls
-the shorter one. It's in the `stronger` set. It goes unnoticed when no test has a value that argument
-makes a difference to.
-
-```java
-int value = Integer.parseInt(text, 16);   // becomes: Integer.parseInt(text)
-```
-
-It covers `indexOf`, `lastIndexOf` and `substring` on a `String` or `StringBuilder`, `parseInt`,
-`parseLong` and `toString` with a radix, `Pattern.compile` with flags, and `Objects.toString` with a
-default. It leaves out a charset, a locale and a `split` limit, whose absence rarely shows.
-
-## Unchecked arithmetic
-
-`library/unchecked-arithmetic`. `Math.addExact` and the like become the plain operation, which
-overflows instead of throwing. It's in the `stronger` set. It goes unnoticed when no test has a result
-too big for its type.
-
-```java
-int total = Math.addExact(price, fee);   // becomes: int total = price + fee;
-```
-
-It covers `addExact`, `subtractExact`, `multiplyExact`, `incrementExact`, `decrementExact`,
-`negateExact` and `toIntExact`, on `Math` and `StrictMath`.
-
-## Stream stage removal
-
-`stream/remove-stage`. A stage of a stream pipeline is removed, and the stream goes on without it:
-`filter`, `distinct`, `sorted`, `limit`, `skip`, `dropWhile` or `takeWhile`, on `Stream`,
-`IntStream`, `LongStream` and `DoubleStream`. It goes unnoticed when no test has input the stage
-would change.
-
-```java
-orders.stream().filter(Order::isPaid).count()   // becomes: orders.stream().count()
-```
-
-Removing `sorted()` before a result that ignores order (`count()`, `anyMatch`, `min`, `sum` and
-the like) can't change anything, so it's skipped as equivalent; so is removing `distinct()` before
-a result that ignores duplicates.
-
-Removing `limit` from a stream the same method starts with `Stream.iterate(seed, next)` or
-`generate`, or their `IntStream`, `LongStream` and `DoubleStream` forms, or from `ints()`, `longs()`
-or `doubles()` given no size on `Random`, `SecureRandom`, `ThreadLocalRandom`, `SplittableRandom` or
-`RandomGenerator`, is skipped as unviable when nothing else ends the stream: the tests would hang,
-and a hang counted as a catch shows nothing. The `iterate` that takes a condition can end, and so
-can `ints(5)` and a stream with `takeWhile`, another `limit` or a `findFirst` or the like, so those
-keep their mutant.
-
-## Stream match swap
-
-`stream/swap-match`. `anyMatch`, `allMatch` and `noneMatch` swap places: `anyMatch` becomes
-`allMatch` and `noneMatch`, and each of the others becomes `anyMatch`. It goes unnoticed when no
-test has input where some elements match and some don't.
-
-```java
-items.stream().anyMatch(Item::isFragile)   // becomes: .allMatch(…), and: .noneMatch(…)
-```
-
-## String method swap
-
-`library/swap-string`. A `String` method becomes the similar one: `startsWith` and `endsWith`,
-`toUpperCase` and `toLowerCase`, `stripLeading` and `stripTrailing`. It
-goes unnoticed when no test
-has text where the two differ.
-
-```java
-if (name.endsWith(".csv")) {   // becomes: name.startsWith(".csv")
-```
-
-## indexOf swap
-
-`library/swap-index-of`. `String.indexOf` and `lastIndexOf` swap places. It's in the `stronger` set.
-It goes unnoticed when no test has text with what's searched for in it twice.
-
-```java
-int dot = name.lastIndexOf('.');   // becomes: name.indexOf('.')
-```
-
-A search whose result is only tested for being there, `name.indexOf('.') >= 0`, is skipped as
-equivalent, as both find it or neither does. A search with a starting point, `indexOf(x, from)`, is
-left alone.
-
-## Math method swap
-
-`library/swap-math`. `Math.min` and `Math.max` swap places, and so do `Math.floor` and `Math.ceil`.
-It goes unnoticed when no test has values where the two differ.
-
-```java
-int size = Math.min(requested, limit);   // becomes: Math.max(requested, limit)
-```
-
-Rounding a whole number, `Math.floor((double) count)`, is skipped as equivalent, as it rounds to
-itself either way.
-
-## Other stage removal
-
-`stream/remove-other-stage`, in the `extended` set. `peek` is removed, and so is `map` on an
-`IntStream`, `LongStream` or `DoubleStream`. It goes unnoticed when no test checks what the stage
-does.
-
-```java
-return prices.stream().mapToInt(Price::cents).map(this::withTax).sum();   // becomes: without .map(…)
-```
-
-`map` on a `Stream` is left alone: it can change what the stream holds, and what comes next would
-throw on the wrong type, which would look like a catch.
-
-## Predicate connector swap
-
-`predicate/swap-connector`, in the `extended` set. `and` and `or` swap places, on `Predicate`,
-`BiPredicate` and the primitive predicates. It goes unnoticed when no test has a value one of the two
-accepts and the other doesn't.
-
-```java
-isPaid.and(isShipped)   // becomes: isPaid.or(isShipped)
-```
-
-## Predicate negation removal
-
-`predicate/remove-negate` and `predicate/remove-not`, in the `extended` set. A predicate's `negate()`
-is removed, and `Predicate.not(p)` becomes `p`, so it accepts what it rejected. It goes unnoticed
-when no test checks which values the predicate accepts.
-
-```java
-.filter(Predicate.not(String::isBlank))   // becomes: .filter(String::isBlank)
-```
-
-## Optional presence swap
-
-`optional/swap-present`, in the `extended` set. `isPresent` and `isEmpty` swap places, on `Optional`
-and its primitive forms. It goes unnoticed when no test has both an empty `Optional` and one with a
-value here.
-
-```java
-if (customer.isPresent()) {   // becomes: if (customer.isEmpty()) {
-```
-
-`isEmpty` came in Java 11: in a class file for an older release the mutant is skipped as `unviable:`,
-as the method may not be there, and a missing method would look like a catch.
-
-## Optional made empty
-
-`optional/empty`, in the `extended` set. An `Optional` made with a value is empty instead:
-`Optional.of(x)` and `ofNullable(x)` become `Optional.empty()`, and `x` is still worked out. It goes
-unnoticed when no test checks what's in it.
-
-```java
-return Optional.of(customer);   // becomes: return Optional.empty();
-```
-
-## Optional filter removal
-
-`optional/remove-filter`, in the `extended` set. `Optional.filter` is removed, so the value goes on
-whatever the predicate says. It goes unnoticed when no test has a value the filter turns away.
-
-```java
-return customer.filter(Customer::isActive);   // becomes: return customer;
-```
-
-## Optional default
-
-`optional/always-default` and `optional/no-default`, in the `extended` set. Each takes away one side
-of `orElse`. `opt.orElse(x)` becomes `x`, so the value in the `Optional` is never used, which goes
-unnoticed when no test has a value there. `opt.orElse(x)` and `opt.orElseGet(s)` become `opt.get()`,
-so an empty `Optional` throws, which goes unnoticed when no test has an empty one.
-
-```java
-int limit = configured.orElse(100);   // becomes: int limit = 100;   and: configured.get()
-```
-
-Removing `opt.ifPresent(…)` is [`mutastic/remove-void-call`](#remove-void-call)'s change, as it
-returns nothing. `orElseThrow`'s supplier is left alone: which exception is thrown is rarely worth a
-test.
-
-## Remove switch arm
-
-`mutastic/remove-switch-arm`, in the `extended` set. One `case` of a `switch` is removed, and its
-values go to the default. Each label is its own mutant, so `case 1: case 2:` has two. It goes
-unnoticed when no test has a value that reaches the arm.
-
-```java
-case GOLD -> 20;   // becomes: GOLD goes to the default
-```
-
-It covers old-style `case`, arrows, `yield`, and a `switch` on a `String`, an `enum` or a pattern. The
-mutant is on the arm's own line, so only the tests that reach the arm run for it. An `enum`'s arm has
-no name in the bytecode, so its card says "this arm" and points at the line.
-
-A switch with no `default` of its own, on every constant of an `enum` or every type of a `sealed`
-interface, has one javac writes that throws. With an arm removed, a value that reached it throws, and
-the card says so. A test that reaches the arm catches that whatever it asserts, so a catch there says
-the arm is reached, not that its result is checked; a miss still means no test reaches it.
-
-javac's own parts have no mutants: the first of the two switches a `String` switch compiles to, which
-only hashes, and the gaps in a table. An arm with no code of its own, `case 1: break;`, is skipped as
-equivalent where the default goes to the same place.
-
-## Replace body
-
-`mutastic/replace-body`, in the `extended` set. A method's whole body is replaced: it returns the
-value [`mutastic/return-value`](#return-value) would choose, or nothing, if it returns nothing. It
-goes unnoticed when no test depends on the method at all.
-
-```java
-int total(Order order) { … }   // becomes: int total(Order order) { return 0; }
-```
-
-Use it as a fast first pass, alone, with `--operators=mutastic/replace-body`: it has few mutants, and
-finds the methods no test notices. It isn't a measure of how well the rest is tested, since finer
-operators' mutants are harder to catch than these.
-
-A method gets one mutant, except one returning `boolean`, which gets both values: always `true` and
-always `false` are different gaps, and neither shows the other. A value the method's one return
-already gives isn't used. Constructors and static initialisers are left alone, and trivial getters
-and setters, `toString()` and `hashCode()` are skipped as arid. A body that's only the return of
-that value is skipped as equivalent, as with `return null;`.
-
-## Drop catch type
-
-`mutastic/drop-catch-type`, in the `extended` set, and experimental. A multi-catch stops catching one
-of its types, one mutant for each. It goes unnoticed when no test has that type thrown there.
-
-```java
-catch (IOException | TimeoutException e)   // becomes: catch (TimeoutException e)
-```
-
-Separate `catch` blocks aren't changed, and a `finally` can't be: javac copies it onto every way out
-of the `try`, so there's nothing to remove.
-
-## Remove throw
-
-`mutastic/remove-throw`, in the `extended` set, and experimental. A `throw` is removed, and the code
-carries on with what comes next. It goes unnoticed when no test needs that exception to be thrown.
-
-```java
-if (quantity < 0) throw new IllegalArgumentException();   // becomes: if (quantity < 0) { }
-```
-
-The code after it has to be able to run: with nothing after it, as at the end of a method, the mutant
-is skipped as `unviable:`. javac's own throws aren't changed: the rethrow it writes for a `finally`, a
-`synchronized` or a try-with-resources, and the default it writes for a switch with none. The `throw`
-of a failed `assert` is skipped as arid.
-
-## Regex constant
-
-`mutastic/regex-constant`, in the `extended` set. A regular expression changes, one mutant for each
-place: an anchor (`^` or `$`) goes, a character class or `\\d`, `\\w` or `\\s` turns the other way
-round, or a quantifier goes. It goes unnoticed when no test has text only one of the two matches.
-
-```java
-Pattern.compile("^\\d+$")   // becomes: "\\d+$", "^\\d+", "^\\D+$" and "^\\d$"
-```
-
-It only changes text that goes straight into `Pattern.compile`, `Pattern.matches`, `matches`, `split`,
-`replaceAll` or `replaceFirst`, and only to an expression that compiles, so what doesn't look like a
-regular expression has no mutants. It's the one operator that also runs in constructors and static
-initialisers, as a `Pattern` is usually a field. An anchor is skipped as equivalent on `matches`,
-which has to match all of the text anyway.
-
-## String constant
-
-`mutastic/string-constant`, in the `stronger` set. A string in the code becomes `""`, and an empty one
-a word. It goes unnoticed when no test depends on the text.
-
-```java
-if (type.equals("csv")) {   // becomes: if (type.equals("")) {
-```
-
-Text that only tells a person something is skipped as arid: what goes into a log call or
-`System.out`, an exception's message, including through `String.format` or `formatted`, or a failed
-check's message. An exception is known by being thrown straight away, or by its supertypes
-reaching `Throwable`: a class named `ConfigError` that isn't one keeps its mutant, and so does one
-whose supertypes can't be found. A failed check is `Objects.requireNonNull` or Guava's
-`Preconditions`. A string in an annotation isn't in the code, and the text in `"total: " + x`
-is in javac's recipe for the call, so neither has a mutant. Text a person reads in other ways, such as
-a command's output, is changed like any other, so expect misses there.
+## The Rust edition
+
+The Rust edition uses these ids wherever the meaning is the same, so a rule, a script or an agent
+that names `mutastic/boundary` means one thing in both. Six have no Rust equivalent, for want of the
+language feature they change: `mutastic/flip-increment` (Rust has no `++`, and `+=` and `-=` are
+math's), `library/omit-argument` (no overloading), the three `predicate/*` ids (std has no `Predicate`
+combinators) and `mutastic/drop-catch-type` (no multi-catch). The Rust edition adds a few of its own,
+each in the family it fits: `mutastic/unwrap-try` in returns and errors,
+`mutastic/remove-struct-field` in calls and writes, `mutastic/default-parameter` in arguments,
+`library/reverse-ordering` and `bigdecimal/remove-step` in library methods, and `mutastic/swap-break`
+in control flow.
+
+Some ids sit in another set there: the four `optional/*` ids above and `remove-switch-arm` are in
+`stronger`, since `Option`, `Result` and `match` are everyday Rust rather than modern APIs; and
+`drop-vararg` is in `extended`, as an array's length is part of its type there.
 
 ## Choosing operators
 
@@ -712,14 +123,32 @@ operators:
 A run of one mutant, by id (`verify`, `explain`, `run --only`), looks among every operator, so a
 mutant any run found can always be checked again.
 
-The Rust edition puts a few operators in another set: there, `optional/swap-present`,
-`optional/empty`, `optional/always-default`, `optional/no-default` and `mutastic/remove-switch-arm`
-are in `stronger`, where Java has them in `extended`, since `Option` and `match` are everyday Rust
-rather than modern APIs; and `mutastic/drop-vararg` is in `extended`, as an array's length is part
-of its type there.
-
 A mutant's id doesn't depend on which operators run: choosing more adds mutants, and never changes
 the ids of the others.
 
 A score does: it's a share of the mutants a set makes, so scores compare only within a set. A run
 is compared with the last one that used the same operators.
+
+## When a miss is fine
+
+Not every missed mutant is a gap worth closing. mutastic already skips the changes that would tell
+you nothing, such as calls that only log and trivial getters: see
+[Skipped mutants](/concepts/results/#skipped-mutants). What's left can still include changes no one
+could see:
+
+- **A boundary nobody can reach.** If `count` can never be exactly `limit`, `<` and `<=` behave the
+  same.
+- **A call whose effect is checked elsewhere, or not at all on purpose,** such as warming a cache
+  that only makes things faster.
+- **A result the code always overwrites,** or a check made twice where the second never decides
+  anything.
+
+For those, record the decision rather than writing a test that pins nothing. It goes in
+`.mutastic/ignores.yaml`, to commit and review, and lapses when the line changes:
+
+```sh
+mutastic ignore m855c8e3c --reason="count never reaches limit"
+```
+
+For a whole class or method that isn't worth testing, generated code say, a rule in `mutastic.yaml`
+skips it: see [Configuration and skipping](/guides/configuration/).

@@ -1,0 +1,22 @@
+ [41;30;1m ✗ MISSED [0m no test notices [1mpoints()[0m doing nothing but returning [1m0[0m
+    [2m┌─[0m src/main/java/com/example/returns/Loyalty.java:12
+    [2m│[0m
+ [2m11[0m [2m│[0m   public int points(int spent) {
+ [2m12[0m [2m│[0m     int points = spent / perPoint;
+    [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now only returns 0[0m
+ [2m13[0m [2m│[0m     return points;
+    [2m│[0m
+    [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: spent = 5
+            [2mcovered by LoyaltyTest#smallSpendsEarnNothing (its 1 covering test still passes)[0m
+    [2m=[0m [32m[1mhelp[0m[0m: add a test that calls [1mpoints()[0m and asserts a result other than [1m0[0m
+
+            [2m// in LoyaltyTest[0m
+            @Test
+            void pointsWithSpent5ForLoyalty5() {
+            [32m  assertEquals(1, new Loyalty(5).points(5)); // today 1 · with this mutant 0[0m
+            }
+            [2mcheck today's value is the one you intend: the test pins what the code does now[0m
+
+    [2mdone when [0m mutastic verify m829aa2d2 samples/operator-docs[2m passes[0m
+    [2mreproduce [0m mutastic run --only=m829aa2d2 samples/operator-docs
+    [2mor ignore [0m mutastic ignore m829aa2d2 --reason="<why>" samples/operator-docs

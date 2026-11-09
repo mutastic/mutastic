@@ -1,0 +1,14 @@
+ [41;30;1m ✗ MISSED [0m no test checks the effect of calling [1msort()[0m in [1msorted()[0m
+    [2m┌─[0m src/main/java/com/example/calls/Names.java:10
+    [2m│[0m
+ [2m 9[0m [2m│[0m     var copy = new ArrayList<>(names);
+ [2m10[0m [2m│[0m     Collections.sort(copy);
+    [2m│[0m                 [1;31m^^^^ call removed[0m
+ [2m11[0m [2m│[0m     return copy;
+    [2m│[0m
+    [2m=[0m [1;34m[1mnote[0m[0m: covered by NamesTest#namesInOrder (its 1 covering test still passes)
+    [2m=[0m [32m[1mhelp[0m[0m: assert what [1msort()[0m does: the state it changes or the call it makes
+
+    [2mdone when [0m mutastic verify m6e073afd samples/operator-docs[2m passes[0m
+    [2mreproduce [0m mutastic run --only=m6e073afd samples/operator-docs
+    [2mor ignore [0m mutastic ignore m6e073afd --reason="<why>" samples/operator-docs

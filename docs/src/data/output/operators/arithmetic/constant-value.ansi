@@ -1,0 +1,17 @@
+ [41;30;1m ✗ MISSED [0m no test tells [1m500[0m from [1m501[0m in [1misHeavy()[0m
+   [2m┌─[0m src/main/java/com/example/arithmetic/Postage.java:6
+   [2m│[0m
+ [2m5[0m [2m│[0m   public static boolean isHeavy(int grams) {
+ [2m6[0m [2m│[0m     return grams > 500;
+   [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^ changed to 501[0m
+ [2m7[0m [2m│[0m   }
+   [2m│[0m
+   [2m=[0m mutant  [1;31m- [0mreturn grams > 500;
+             [32m+ [0mreturn grams > 501;
+   [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: grams = 100, 500, 1000
+           [2mcovered by PostageTest#heavyFromJustOver500 (its 1 covering test still passes)[0m
+   [2m=[0m [32m[1mhelp[0m[0m: add a test near where [1m500[0m takes effect, whose result would differ with [1m501[0m, and assert it
+
+   [2mdone when [0m mutastic verify m783ff84d samples/operator-docs[2m passes[0m
+   [2mreproduce [0m mutastic run --only=m783ff84d samples/operator-docs
+   [2mor ignore [0m mutastic ignore m783ff84d --reason="<why>" samples/operator-docs
