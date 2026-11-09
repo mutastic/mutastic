@@ -18,6 +18,8 @@ import io.mutastic.report.Explanation;
 import io.mutastic.report.HumanText;
 import io.mutastic.report.Invocation;
 import io.mutastic.report.JsonEvents;
+import io.mutastic.report.NextText;
+import io.mutastic.report.Queue;
 import io.mutastic.report.ReportFiles;
 import io.mutastic.report.SourceView;
 import io.mutastic.report.Style;
@@ -143,12 +145,144 @@ public final class Main {
     progress.finished();
     var kept = kept(command, prepared, tested);
     display.printer().print(tested.report(), kept.comparison(), kept.written());
+    baselineNote(command, prepared, tested.report(), output);
     return exitCode(command, tested.report());
+  }
+
+  /// `baseline`: every mutant no test catches, written for the project to commit; or with
+  /// `--prune`, the baseline's mutants the tests catch now dropped. Never rewritten whole once
+  /// there, as taking in new misses would hide them.
+  private static int baseline(Command command, Prepared prepared, Passes passes, PrintStream out) {
+    var directory = prepared.directory();
+    boolean prune = command.ignore().map(Ignoring::prune).orElse(false);
+    if (prune != Baseline.exists(directory)) {
+      out.println(
+          prune
+              ? "mutastic: there's no baseline to prune: `mutastic baseline` writes one"
+              : ("mutastic: there's a baseline already, in %s. `mutastic baseline --prune` drops"
+                      + " its mutants the tests catch now; it's never rewritten to take in new"
+                      + " misses, which would hide them")
+                  .formatted(Baseline.FILE));
+      return FAILED;
+    }
+    var report = passes.run(command, prepared, passes.progress()).report();
+    passes.progress().finished();
+    out.println(prune ? pruned(directory, report) : baselined(prepared, report));
+    return PASSED;
+  }
+
+  private static String pruned(Path directory, Report report) {
+    int dropped = Baseline.prune(directory, caughtNow(report, Baseline.ids(directory)));
+    return "mutastic: %d of the baseline's mutants are caught now, and are dropped from %s"
+        .formatted(dropped, Baseline.FILE);
+  }
+
+  private static String baselined(Prepared prepared, Report report) {
+    var entries = Baseline.entries(report.results(), prepared.sources());
+    Baseline.write(prepared.directory(), entries);
+    return ("mutastic: %d mutants no test catches are in %s: commit it. A miss that isn't in it is"
+            + " new: the gate holds only new misses, and next offers them first")
+        .formatted(entries.size(), Baseline.FILE);
+  }
+
+  /// The baseline's mutants a run doesn't find uncaught: caught now, ignored, or gone with their
+  /// code.
+  private static java.util.Set<String> caughtNow(Report report, java.util.Set<String> baseline) {
+    var uncaught = Passes.uncaught(report);
+    return baseline.stream()
+        .filter(id -> !uncaught.contains(id))
+        .collect(java.util.stream.Collectors.toSet());
+  }
+
+  /// After a full run, how many of the baseline's mutants it found caught: they can be pruned.
+  private static void baselineNote(
+      Command command, Prepared prepared, Report report, Output output) {
+    var baseline = Baseline.ids(prepared.directory());
+    if (baseline.isEmpty()
+        || report.scope().isPresent()
+        || !command.only().isEmpty()
+        || output.format().equals("jsonl")) {
+      return;
+    }
+    int caught = caughtNow(report, baseline).size();
+    if (caught > 0) {
+      output
+          .out()
+          .printf(
+              "note: %d of the baseline's mutants are caught now: `mutastic baseline --prune` drops"
+                  + " them%n",
+              caught);
+    }
+  }
+
+  /// `next`: the head of the queue, or with `--top` the first few, as the format has them. Exits 1
+  /// while something is queued, so a loop can run it until it's done.
+  private static int next(Command command, Prepared prepared, Passes passes, Output output) {
+    var human = humanText(command, output, prepared.sources());
+    var legacy = Baseline.ids(prepared.directory());
+    var queue = queued(command, prepared, passes).map(report -> Queue.of(report, legacy));
+    passes.progress().finished();
+    var shown = queue.orElseGet(() -> Queue.empty(legacy));
+    var project = prepared.project().name();
+    var text = new NextText(prepared.sources(), human, output.style(), output.words());
+    switch (output.format()) {
+      case "jsonl" ->
+          new JsonEvents(output.out(), prepared.sources(), command.threshold())
+              .next(shown, command.top());
+      case "agent" -> output.out().print(text.agent(shown, project));
+      default -> output.out().print(text.human(shown, project, command.top()));
+    }
+    return shown.isEmpty() ? PASSED : FAILED;
+  }
+
+  /// The run `next` ranks: while the code under test, the operators, the scope and mutastic are as
+  /// they were, only the mutants the last `next` left uncaught, since a test written since can only
+  /// catch some of them; every mutant otherwise. Empty when the last left none, as nothing can have
+  /// made a new one.
+  private static Optional<Report> queued(Command command, Prepared prepared, Passes passes) {
+    var key = nextKey(command, prepared);
+    var last = NextRun.read(prepared.work(), key);
+    if (last.isPresent() && last.get().queued().isEmpty()) {
+      return Optional.empty();
+    }
+    var run =
+        last.map(
+                found ->
+                    new Passes(
+                        passes.engine(),
+                        passes.options().among(found.queued()),
+                        passes.progress(),
+                        passes.tool()))
+            .orElse(passes);
+    var report = run.run(command, prepared, passes.progress()).report();
+    new NextRun(key, Passes.uncaught(report)).write(prepared.work());
+    return Optional.of(report);
+  }
+
+  /// What a queue was found under: the code under test, the operators, the scope and mutastic.
+  private static String nextKey(Command command, Prepared prepared) {
+    return NextRun.keyOf(
+        RunRecord.classesOf(prepared.project()),
+        OperatorSet.active(policy(command, prepared.directory())).stream()
+            .map(io.mutastic.api.Operator::id)
+            .sorted()
+            .collect(java.util.stream.Collectors.joining(",")),
+        command.since().orElse("-"),
+        RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())));
+  }
+
+  /// A command but `run` and `gate`: `next` and `baseline` over the module, or one mutant's.
+  private static int single(Command command, Prepared prepared, Passes passes, Output output) {
+    return switch (command.subcommand()) {
+      case NEXT -> next(command, prepared, passes, output);
+      case BASELINE -> baseline(command, prepared, passes, output.out());
+      default -> oneMutant(command, prepared, passes, output);
+    };
   }
 
   /// `verify`, which runs one mutant's tests and says whether it's caught; or `ignore`, which runs
   /// none and records a decision.
-  private static int single(Command command, Prepared prepared, Passes passes, Output output) {
+  private static int oneMutant(Command command, Prepared prepared, Passes passes, Output output) {
     var out = output.out();
     if (command.explain()) {
       return explained(command, prepared, passes, output);
@@ -347,6 +481,7 @@ public final class Main {
       return Gate.Verdict.pass("mutastic gate: passed: the task changed no lines mutastic mutates");
     }
     return selfIgnored(directory, state)
+        .or(() -> selfBaselined(directory, state))
         .or(() -> fewerTests(gated, state))
         .orElseGet(() -> mutantsVerdict(gated, state));
   }
@@ -388,6 +523,24 @@ public final class Main {
                         gone.size() == 1 ? "it" : "them")));
   }
 
+  /// A mutant the task added to the baseline itself: like an ignore, a person's call.
+  private static Optional<Gate.Verdict> selfBaselined(Path directory, Gate.State state) {
+    var added = new java.util.TreeSet<>(Baseline.ids(directory));
+    added.removeAll(Baseline.idsAt(directory, state.base()));
+    return added.isEmpty()
+        ? Optional.empty()
+        : Optional.of(
+            Gate.Verdict.block(
+                ("mutastic gate: the task added %s to %s itself, and whether a miss is the"
+                        + " project's backlog is a person's call. Take %s out, and write the test,"
+                        + " or propose ignoring it: `mutastic ignore ID --propose --as=KIND"
+                        + " --reason=\"…\"`")
+                    .formatted(
+                        String.join(", ", added),
+                        Baseline.FILE,
+                        added.size() == 1 ? "it" : "them")));
+  }
+
   /// Fewer tests running than when the task started: taken away, or disabled.
   private static Optional<Gate.Verdict> fewerTests(Gated gated, Gate.State state) {
     var before = state.shape();
@@ -418,12 +571,15 @@ public final class Main {
 
   /// Done when each mutant on the changed lines is caught, or proposed for a person to ignore.
   private static Gate.Verdict missedVerdict(Gated gated, Report report) {
-    var proposed = proposedIds(gated.prepared().directory());
-    var missed = missedIds(report);
+    var directory = gated.prepared().directory();
+    var proposed = proposedIds(directory);
+    var older = Baseline.ids(directory);
+    var missed = missedIds(report).stream().filter(id -> !older.contains(id)).toList();
     var open = missed.stream().filter(id -> !proposed.contains(id)).toList();
     if (open.isEmpty()) {
-      return Gate.Verdict.pass(passed(report, missed));
+      return Gate.Verdict.pass(passed(report, missed, missedIds(report).size() - missed.size()));
     }
+    var shown = report.results().stream().filter(each -> !older.contains(each.mutant().id()));
     return Gate.Verdict.block(
         ("mutastic gate: %d mutant%s on the lines the task changed %s missed, so it isn't done."
                 + " For each card: write the test, and run its `done when` before you move on; if a"
@@ -432,7 +588,7 @@ public final class Main {
                 open.size(),
                 open.size() == 1 ? "" : "s",
                 open.size() == 1 ? "is" : "are",
-                cards(gated, report)));
+                cards(gated, report.withResults(shown.toList()))));
   }
 
   /// Tests that caught mutants and then failed on their own with no mutant in: their catches don't
@@ -498,15 +654,20 @@ public final class Main {
   }
 
   /// What a pass says: how many the tests catch, and any proposals waiting for a person.
-  private static String passed(Report report, List<String> waiting) {
-    return "mutastic gate: passed: the tests catch %d of the %d mutants on the lines the task changed%s"
+  private static String passed(Report report, List<String> waiting, int older) {
+    return ("mutastic gate: passed: the tests catch %d of the %d mutants on the lines the task"
+            + " changed%s%s")
         .formatted(
             report.count(Status.CAUGHT) + report.count(Status.TIMED_OUT),
             report.results().size() - report.count(Status.SKIPPED),
             waiting.isEmpty()
                 ? ""
                 : "; the rest wait for a person, proposed in .mutastic/proposals.yaml: "
-                    + String.join(", ", waiting));
+                    + String.join(", ", waiting),
+            older == 0
+                ? ""
+                : "; %d, missed before the task and in %s, %s the project's backlog, not the task's"
+                    .formatted(older, Baseline.FILE, older == 1 ? "is" : "are"));
   }
 
   /// The missed mutants' cards, as the agent format has them, without its verdict line.
@@ -1163,6 +1324,30 @@ public final class Main {
             "mutastic ignore --accept m855c8e3c",
             "mutastic ignore --remove m855c8e3c",
             "mutastic ignore --prune")),
+    NEXT(
+        false,
+        "next [DIR] [:MODULE] [OPTIONS]",
+        "Show the missed mutant most worth a test first, and why",
+        "The missed mutants as a queue, one line's at a time, in the order a run ranks them: its"
+            + " card, why it's first, and the command that says when it's done. --top shows the"
+            + " first few, spread over the code. With a baseline, new misses come before the"
+            + " baseline's. While the code under test is the same, it runs only the mutants the"
+            + " last next left uncaught, so any a new test catches drop out. For an agent, one"
+            + " task, and to run next again after it.",
+        "0 when nothing missed is left; 1 while something is queued.",
+        List.of("mutastic next", "mutastic next --top=5", "mutastic next --format=agent")),
+    BASELINE(
+        false,
+        "baseline [DIR] [:MODULE]",
+        "Record every mutant missed now, so later misses are told from them",
+        "Runs the mutants and writes each one missed or not covered, by id, to"
+            + " .mutastic/baseline.yaml, to commit. From then on a miss that isn't in it is new:"
+            + " gate holds only new misses, and next offers them first. It's never rewritten to"
+            + " take in new misses: --prune runs the mutants and drops the baseline's that are"
+            + " caught now.",
+        "0 when the baseline is written or pruned; 1 when there's one already and --prune isn't"
+            + " given.",
+        List.of("mutastic baseline", "mutastic baseline --prune")),
     GATE_OPEN(
         false,
         "gate open [DIR] [:MODULE]",
@@ -1319,7 +1504,8 @@ public final class Main {
       Optional<Path> setup,
       String commands,
       Gating gating,
-      java.util.Set<String> experimental) {
+      java.util.Set<String> experimental,
+      int top) {
     Optional<String> format() {
       return shown.format();
     }
@@ -1374,7 +1560,8 @@ public final class Main {
           setup,
           commands,
           gating,
-          experimental);
+          experimental,
+          top);
     }
 
     /// The run `gate check` makes: this command's project and operators, on the lines changed since
@@ -1400,7 +1587,8 @@ public final class Main {
           setup,
           commands,
           gating,
-          experimental);
+          experimental,
+          top);
     }
 
     static Command parse(String[] args) {
@@ -1453,6 +1641,7 @@ public final class Main {
       private boolean propose = false;
       private String hook = "";
       private int tries = 3;
+      private int top = 1;
       private boolean accept = false;
       private Optional<Path> setup = Optional.empty();
       private String commands = "mutastic";
@@ -1546,6 +1735,7 @@ public final class Main {
             progress = "none"; // a hook's stderr is the agent's to read, not progress
           }
           case "--tries" -> tries = number(option, given, 1, 100);
+          case "--top" -> top = number(option, given, 1, io.mutastic.report.Queue.MOST);
           case "--setup" -> setup = Optional.of(Path.of(given));
           case "--commands" -> commands = commands(given);
           default -> throw new IllegalStateException("no reader for " + option.name());
@@ -1626,6 +1816,10 @@ public final class Main {
         if (subcommand == Subcommand.IGNORE) {
           return ignoring();
         }
+        if (subcommand == Subcommand.BASELINE) {
+          // `baseline --prune`: an ignore's prune, of the baseline's mutants the tests catch now.
+          return built(subcommand).ignoring(new Ignoring(prune, false, "", "", false, false));
+        }
         if (subcommand == Subcommand.VERIFY) {
           only = mutantIds();
         } else if (subcommand.takesMutantId) {
@@ -1689,7 +1883,8 @@ public final class Main {
             setup,
             commands,
             new Gating(hook, tries),
-            java.util.Set.copyOf(experimental));
+            java.util.Set.copyOf(experimental),
+            top);
       }
 
       /// `:app`: another module, named as the module run is; or `dependents`, every module that

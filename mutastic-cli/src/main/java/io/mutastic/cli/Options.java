@@ -2,6 +2,7 @@ package io.mutastic.cli;
 
 import static io.mutastic.cli.Main.Subcommand.EXPLAIN;
 import static io.mutastic.cli.Main.Subcommand.IGNORE;
+import static io.mutastic.cli.Main.Subcommand.NEXT;
 import static io.mutastic.cli.Main.Subcommand.RUN;
 import static io.mutastic.cli.Main.Subcommand.VERIFY;
 
@@ -21,10 +22,15 @@ final class Options {
   private Options() {}
 
   private static final Set<Main.Subcommand> RUNS = EnumSet.of(RUN);
-  private static final Set<Main.Subcommand> MUTANTS_RUN = EnumSet.of(RUN, VERIFY, EXPLAIN);
 
-  /// The commands that show a mutant as a card: a run's, and explain's.
-  private static final Set<Main.Subcommand> SHOWN = EnumSet.of(RUN, EXPLAIN);
+  /// The commands that run the module's mutants, every one or those on a change.
+  private static final Set<Main.Subcommand> MODULE_RUNS = EnumSet.of(RUN, NEXT);
+
+  private static final Set<Main.Subcommand> MUTANTS_RUN =
+      EnumSet.of(RUN, VERIFY, EXPLAIN, NEXT, Main.Subcommand.BASELINE);
+
+  /// The commands that show a mutant as a card: a run's, explain's and next's.
+  private static final Set<Main.Subcommand> SHOWN = EnumSet.of(RUN, EXPLAIN, NEXT);
 
   private static final Set<Main.Subcommand> IGNORES = EnumSet.of(IGNORE);
   private static final Set<Main.Subcommand> GATES =
@@ -53,7 +59,7 @@ final class Options {
               "REF",
               List.of(),
               "Mutate only the lines changed since REF; the default branch without one",
-              RUNS,
+              MODULE_RUNS,
               "since",
               true,
               "",
@@ -153,7 +159,7 @@ final class Options {
               List.of(),
               "Which operators run: a set (defaults, stronger, extended or all), an operator's id"
                   + " or namespace, or any with - in front to leave it out; defaults unless set",
-              RUNS,
+              MODULE_RUNS,
               "operators",
               false,
               "",
@@ -166,7 +172,7 @@ final class Options {
               List.of(Main.GHOSTS),
               "Turns on something experimental: ghosts, which insert the call most sites like a"
                   + " write make and it doesn't, and say whether any test notices; never in the score",
-              RUNS,
+              MODULE_RUNS,
               "experimental",
               false,
               "MUTASTIC_EXPERIMENTAL",
@@ -192,7 +198,7 @@ final class Options {
               Main.FORMATS,
               "How the result is shown; full on a terminal, concise elsewhere, agent for coding"
                   + " agents",
-              RUNS,
+              MODULE_RUNS,
               "format",
               true,
               "MUTASTIC_FORMAT, MUTASTIC_AGENT",
@@ -323,8 +329,9 @@ final class Options {
               Group.IGNORING,
               "",
               List.of(),
-              "Take away every ignore whose code has changed",
-              IGNORES,
+              "Take away every ignore whose code has changed; with baseline, every mutant the"
+                  + " tests catch now",
+              EnumSet.of(IGNORE, Main.Subcommand.BASELINE),
               "prune",
               false,
               "",
@@ -354,6 +361,20 @@ final class Options {
               false,
               "",
               "mutastic gate check --hook=claude --tries=5"),
+          new Option(
+              "--top",
+              Kind.VALUE,
+              Group.OUTPUT,
+              "N",
+              List.of(),
+              "How many of the queue next shows, at most one a method and two a file; 1 unless"
+                  + " set, at most "
+                  + io.mutastic.report.Queue.MOST,
+              EnumSet.of(Main.Subcommand.NEXT),
+              "",
+              false,
+              "",
+              "mutastic next --top=5"),
           new Option(
               "--setup",
               Kind.VALUE,

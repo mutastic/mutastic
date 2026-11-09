@@ -155,6 +155,42 @@ public final class JsonEvents {
     runFinished(report, Optional.empty());
   }
 
+  /// `mutastic next`'s answer: a `next-item` for each item shown, its lead mutant as
+  /// `mutant-finished` has it, with every id on its line and where it stands and why; then a
+  /// `next-finished` saying how many are queued.
+  public void next(Queue queue, int count) {
+    var shown = queue.top(count);
+    for (int at = 0; at < shown.size(); at++) {
+      var finding = shown.get(at);
+      var fields = mutantFields(finding.lead());
+      fields.put("ids", finding.mutants().stream().map(result -> result.mutant().id()).toList());
+      fields.put("rank", rank(queue, finding, at + 1));
+      emit("next-item", fields);
+    }
+    var finished = new LinkedHashMap<String, Object>();
+    finished.put("queued", queue.findings().size());
+    finished.put("mutants", queue.mutants());
+    finished.put("shown", shown.size());
+    finished.put("legacy", queue.legacyCount());
+    emit("next-finished", finished);
+  }
+
+  private static Map<String, Object> rank(Queue queue, Finding finding, int position) {
+    var rank = new LinkedHashMap<String, Object>();
+    rank.put("position", position);
+    rank.put("order", Queue.ORDER);
+    rank.put("factors", queue.factors(finding).stream().map(JsonEvents::factor).toList());
+    return rank;
+  }
+
+  private static Map<String, Object> factor(Queue.Factor factor) {
+    var fields = new LinkedHashMap<String, Object>();
+    fields.put("signal", factor.signal());
+    fields.put("value", factor.value());
+    fields.put("why", factor.why());
+    return fields;
+  }
+
   public void runFinished(Report report, Optional<Comparison> comparison) {
     runFinished(report, comparison, List.of(), false);
   }

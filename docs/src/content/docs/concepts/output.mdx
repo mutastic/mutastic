@@ -40,7 +40,7 @@ The same run of the pricing sample, in each:
 </Tabs>
 
 - **Cards** are grouped by file, and in each file the method with the most misses comes first. A file shows at most seven cards, and counts the rest (`--each-mutant` shows them all): more than a few at once go unread. On a terminal, file locations are links (`--hyperlinks`) that terminals supporting OSC 8 open; others show the text.
-- **The agent format's ten entries** are those most worth a test first: a condition or a removal no test checks before arithmetic, and among those, code more tests run without checking.
+- **The agent format's ten entries** are those most worth a test first: a condition or a removal no test checks before arithmetic, and among those, code more tests run without checking (a hypothesis, not yet measured). [`mutastic next`](/concepts/next/) hands them over one at a time, in the same order.
 - **The agent format** puts the verdict first, so a truncated read still has it, and the rule that a fix changes tests, never production code. It also says when not to write one: a mutant whose case can't happen in practice, or whose change no caller can see, is declined with its reason and proposed for a person to ignore, not given a contrived test.
 - **`MUTASTIC_FORMAT`** sets the format when `--format` isn't given. While it runs, each source file gets a line as it finishes, on stderr, with its misses under it.
 - **`--vocabulary=classic`** (or `MUTASTIC_VOCABULARY=classic`) says killed and survived instead of caught and missed. JSON and the report files always use the standard statuses.

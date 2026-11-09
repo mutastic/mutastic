@@ -26,7 +26,10 @@ start from a clean tree to gate only what the agent does.
 is done when:
 
 - **each mutant on those lines is caught, or proposed** for a person to ignore. A proposed mutant
-  still counts as missed in the score, but it doesn't hold the gate: deciding it is yours;
+  still counts as missed in the score, but it doesn't hold the gate: deciding it is yours. With a
+  [baseline](/concepts/next/#a-baseline-for-older-misses), a mutant missed before the task is the
+  project's backlog, not the task's, and doesn't hold it either, though the task can't add to the
+  baseline itself;
 - **the task added no ignore of its own.** Ignoring a mutant is a person's call: the agent
   proposes, with `mutastic ignore ID --propose`;
 - **no test was taken away**: there are no fewer tests than when the task started, and no more

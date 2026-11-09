@@ -1,0 +1,62 @@
+---
+title: Working through misses
+description: "mutastic next: the missed mutants as a queue, one at a time, the one most worth a test first; and a baseline that tells new misses from the ones a project already had."
+---
+
+A run on code that has never been mutation tested can miss hundreds of mutants, and a list that
+long goes unread. `mutastic next` hands them over one at a time instead: the one most worth a test
+first, why it's first, the test to write, and the command that says when it's done.
+
+```sh
+mutastic next            # the head of the queue
+mutastic next --top=5    # the first few, spread over the code
+```
+
+Write the test, run its `done when` command, and run `mutastic next` again. Each time, `next` runs
+the mutants that were still uncaught, so any a new test catches drop out of the queue, not only the
+one it was written for. While the code under test is the same it runs only those; once the code
+changes, it runs every mutant again, since a change can make new ones.
+
+## The order
+
+The queue is in the order a run ranks its misses, and each item says why it's where it is:
+
+- **New misses come first,** where there's a [baseline](#a-baseline-for-older-misses): a miss the
+  baseline doesn't have is in new or changed code, whose context is fresh.
+- **A condition or a removal** comes before arithmetic and other changes: one no test checks
+  changes what the code decides or does, while arithmetic is more often noise.
+- **Among those, the line more tests run** comes first: many tests reach it and none checks it.
+  That this helps is a hypothesis, still to be measured, not a finding.
+- **Then where it is in the code.**
+
+The mutants on one line are one item, as they share a card. `--top` shows at most one item for a
+method and two for a file, so one method with many misses can't fill the list.
+
+## For an agent
+
+With `--format=agent`, `next` gives exactly one task: the mutant and its line as it changes, why
+it's first, the test to write, the rules (tests only, never production code, and never delete,
+disable or loosen a test), its `done when`, how to decline it (proposing an ignore, for a person
+to accept), and to run `next` again after. The order is mutastic's: an agent works the head of
+the queue, or declines it. `--format=jsonl` writes a `next-item` event for each item shown, with a
+`rank` object listing what the order went by, then a `next-finished` event with how many are
+queued.
+
+`next` exits 1 while something is queued and 0 when nothing missed is left, so a loop can run it
+until it's done.
+
+## A baseline for older misses
+
+`mutastic baseline` records every mutant no test catches now in `.mutastic/baseline.yaml`, by its
+id, to commit. From then on, a miss that isn't in the baseline is new:
+
+- **`gate`** holds only new misses on the lines a task changed: an older miss a task happens to
+  touch is the project's backlog, not the task's. A task can't add to the baseline itself: like an
+  ignore, that's a person's call.
+- **`next`** offers new misses first, and the baseline's after them.
+- **`run`** says how many of the baseline's mutants are caught now, and `mutastic baseline --prune`
+  drops them, so the file shrinks as tests are written. It's never rewritten to take in new
+  misses: that would hide them.
+
+A mutant's id comes from its class, method, position and change, so the baseline holds while code
+around a mutant moves. A mutant whose change is different is a different mutant, and new.

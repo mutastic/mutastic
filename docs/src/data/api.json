@@ -2108,6 +2108,16 @@
             },
             {
               "kind": "method",
+              "name": "withResults",
+              "anchor": "withresults",
+              "signature": "Report withResults(List<MutantResult> kept)",
+              "doc": "The same run, with only these of its results: what's shown when the rest aren't asked about.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
               "name": "merge",
               "anchor": "merge",
               "signature": "Report merge(Report other)",

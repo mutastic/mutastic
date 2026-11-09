@@ -223,6 +223,11 @@ public record RunRecord(
     return new Comparison(previous.score, sameCode, sameTool, flips);
   }
 
+  /// The hash of the code under test alone, not its tests: a test written since doesn't change it.
+  public static String classesOf(Project project) {
+    return codeOf(project.classes());
+  }
+
   /// SHA-256 over every class file's path and bytes, in a stable order.
   static String codeOf(Project project) {
     return codeOf(

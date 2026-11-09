@@ -143,6 +143,25 @@ public record Report(
         List.of());
   }
 
+  /// The same run, with only these of its results: what's shown when the rest aren't asked about.
+  public Report withResults(List<MutantResult> kept) {
+    return new Report(
+        project,
+        jdk,
+        kept,
+        tests,
+        flaky,
+        coverage,
+        workers,
+        started,
+        took,
+        audited,
+        scope,
+        staleIgnores,
+        flakyEvidence,
+        ghosts);
+  }
+
   /// This run's results with `other`'s, a run of other tests (another module's) over the same
   /// mutants: a mutant is caught if either caught it, missed rather than not covered if either
   /// reached it, and covered by the tests of both.

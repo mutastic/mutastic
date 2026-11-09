@@ -35,9 +35,14 @@ final class Runners {
     }
   }
 
-  /// Whether a build plugin runs it: not `gate`, which an agent's hooks call as the command.
+  /// Whether a build plugin runs it: not `gate`, which an agent's hooks call as the command, nor
+  /// `next` and `baseline`, which the plugins have no goal or task for yet.
   static boolean byThePlugins(String commandLine) {
-    return !commandLine.startsWith("mutastic gate ");
+    return !commandLine.startsWith("mutastic gate ")
+        && Main.Subcommand.in(commandLine)
+            .filter(
+                command -> command == Main.Subcommand.NEXT || command == Main.Subcommand.BASELINE)
+            .isEmpty();
   }
 
   /// Empty for a command the plugins don't run.

@@ -10,7 +10,7 @@
     "edition": { "$ref": "#/$defs/edition" },
     "reason": {
       "type": "string",
-      "description": "What the event is: `run-started`, `mutant-finished`, `mutant-revised` or `run-finished`. Ignore an event whose reason you don't know: a later v1 may add one."
+      "description": "What the event is: `run-started`, `mutant-finished`, `mutant-revised` or `run-finished`; from `mutastic next`, `next-item` and `next-finished`. Ignore an event whose reason you don't know: a later v1 may add one."
     }
   },
   "allOf": [
@@ -29,6 +29,14 @@
     {
       "if": { "properties": { "reason": { "const": "run-finished" } }, "required": ["reason"] },
       "then": { "$ref": "#/$defs/runFinished" }
+    },
+    {
+      "if": { "properties": { "reason": { "const": "next-item" } }, "required": ["reason"] },
+      "then": { "$ref": "#/$defs/mutantFinished", "required": ["ids", "rank"] }
+    },
+    {
+      "if": { "properties": { "reason": { "const": "next-finished" } }, "required": ["reason"] },
+      "then": { "$ref": "#/$defs/nextFinished" }
     }
   ],
   "$defs": {
@@ -135,7 +143,7 @@
       ],
       "properties": {
         "schema": { "$ref": "#/$defs/schema" },
-        "reason": { "enum": ["mutant-finished", "mutant-revised"] },
+        "reason": { "enum": ["mutant-finished", "mutant-revised", "next-item"] },
         "edition": { "$ref": "#/$defs/edition" },
         "id": { "$ref": "#/$defs/mutantId" },
         "fingerprint": {
@@ -313,6 +321,42 @@
         "rendered": {
           "type": "string",
           "description": "The mutant's entry as `--format=agent` writes it. Only for a missed mutant. Its words are for reading, and change between releases."
+        },
+        "ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/mutantId" },
+          "description": "Only in `next-item`: every mutant on the item's line, the lead (this event's mutant) first. One test usually catches them all."
+        },
+        "rank": {
+          "type": "object",
+          "description": "Only in `next-item`: where the item stands in `mutastic next`'s queue, and what the order went by.",
+          "required": ["position", "order", "factors"],
+          "properties": {
+            "position": { "type": "integer", "minimum": 1, "description": "1 for the head of the queue." },
+            "order": {
+              "type": "string",
+              "description": "Which order ranked it. `run-1` is the run's own: new misses before a baseline's, then a condition or removal before other changes, then the line more tests reach, then source order. It changes only with a release."
+            },
+            "factors": {
+              "type": "array",
+              "description": "What the order went by, in the order it's applied.",
+              "items": {
+                "type": "object",
+                "required": ["signal", "value", "why"],
+                "properties": {
+                  "signal": {
+                    "type": "string",
+                    "description": "`baseline` (only where there's a baseline), `operator` or `coveringTests`. A later v1 may add signals."
+                  },
+                  "value": {
+                    "type": ["string", "integer"],
+                    "description": "What it was ranked on: `new` or `legacy`; `condition-or-removal` or `other`; how many tests reach the line."
+                  },
+                  "why": { "type": "string", "description": "The factor in words, as the human format prints it." }
+                }
+              }
+            }
+          }
         }
       },
       "allOf": [
@@ -648,6 +692,20 @@
           "then": { "required": ["jdk"] }
         }
       ]
+    },
+    "nextFinished": {
+      "type": "object",
+      "description": "The end of `mutastic next`'s answer: how many items are queued, and how many were shown.",
+      "required": ["schema", "reason", "queued", "mutants", "shown", "legacy"],
+      "properties": {
+        "schema": { "$ref": "#/$defs/schema" },
+        "reason": { "const": "next-finished" },
+        "edition": { "$ref": "#/$defs/edition" },
+        "queued": { "type": "integer", "minimum": 0, "description": "How many items (lines with missed mutants) are queued: 0 when nothing missed is left." },
+        "mutants": { "type": "integer", "minimum": 0, "description": "How many missed mutants are on them." },
+        "shown": { "type": "integer", "minimum": 0, "description": "How many items were shown, as `--top` asked, spread over the code." },
+        "legacy": { "type": "integer", "minimum": 0, "description": "How many of the queued items a committed baseline already has." }
+      }
     }
   }
 }

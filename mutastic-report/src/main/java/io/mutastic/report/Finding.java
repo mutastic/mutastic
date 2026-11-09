@@ -55,7 +55,10 @@ record Finding(List<MutantResult> mutants) {
   /// `findings`, those most worth a test first, in their order otherwise. A condition or a removal
   /// that goes unnoticed changes what the code decides or does; arithmetic and the rest come after,
   /// as they're more often noise. Among equals, the one more tests reach goes first: many tests run
-  /// it and none checks it.
+  /// it and none checks it. That tie-break is a hypothesis, neither supported nor refuted: the
+  /// evidence favours mutants tests already reach (Beller et al., ICSE-SEIP 2021), while the
+  /// ranking studies that beat random order use no coverage at all (Kaufman et al., ICSE 2022).
+  /// `mutastic next` keeps this order until the replay against random order says otherwise.
   static List<Finding> ranked(List<Finding> findings) {
     return findings.stream()
         .sorted(
