@@ -77,6 +77,8 @@ class KotlinShapesTest {
             .filter(event -> event.contains("\"reason\":\"mutant-finished\""))
             .toList();
     mutants = events.stream().map(Seen::of).toList();
+    // Every test reads this one run: when it made nothing, say why once, not as each test's miss.
+    assertThat(mutants).as("the sample's run: %s", run.err()).isNotEmpty();
   }
 
   /// The mutants of `method` the operator made, on this file.

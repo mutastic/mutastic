@@ -1,6 +1,11 @@
 # The build on every push and pull request: format, Error Prone and NullAway, Checkstyle, the
 # tests (on JDK 25 for the engine and JDK 17 for the worker), ArchUnit and the coverage floor.
 # Actions are pinned to a commit: a tag can be moved.
+#
+# The CLI's end-to-end tests take most of the time, each running a sample's own build, so they run
+# in parallel jobs, a share of the test classes each (`-Pmutastic.shard`), beside the rest of the
+# build. The coverage floor is over every module's tests at once, so it's checked last, from what
+# each job measured.
 name: CI
 
 on:
@@ -13,6 +18,7 @@ permissions:
   contents: read
 
 jobs:
+  # Everything but the CLI's end-to-end tests and the coverage floor.
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -26,8 +32,12 @@ jobs:
             17
             25
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-      - run: ./gradlew build cyclonedxBom
-      # The reports, kept when the build fails too: test results, Checkstyle, coverage, the SBOM.
+      - run: ./gradlew build cyclonedxBom -x :mutastic-cli:test -x coverageReport -x coverageCheck
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-build
+          path: "*/build/jacoco/test.exec"
+      # The reports, kept when the build fails too: test results, Checkstyle, the SBOM.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -35,3 +45,71 @@ jobs:
           path: |
             build/reports/
             */build/reports/
+
+  # The CLI's end-to-end tests, a quarter of the test classes each.
+  cli:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            25
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - run: ./gradlew :mutastic-cli:test -Pmutastic.shard=${{ matrix.shard }}/4
+      # What the tests measured, in their JVM and outside it (the worker, Maven, Gradle).
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-cli-${{ matrix.shard }}
+          path: mutastic-cli/build/jacoco/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: reports-cli-${{ matrix.shard }}
+          path: mutastic-cli/build/reports/
+
+  # The coverage floor, over what every job measured.
+  coverage:
+    needs: [build, cli]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            25
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: coverage-build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: coverage-cli-*
+          path: shards
+      # Each share's files, named apart, where the coverage tasks read the CLI's.
+      - run: |
+          outside=mutastic-cli/build/jacoco/outside
+          mkdir -p "$outside"
+          for shard in shards/*; do
+            name=$(basename "$shard")
+            cp "$shard/test.exec" "$outside/$name-test.exec"
+            for file in "$shard"/outside/*.exec; do
+              cp "$file" "$outside/$name-$(basename "$file")"
+            done
+          done
+      - run: ./gradlew coverageReport coverageCheck -x test
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: reports-coverage
+          path: build/reports/
