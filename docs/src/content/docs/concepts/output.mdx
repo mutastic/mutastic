@@ -51,8 +51,8 @@ The same run of the pricing sample, in each:
   follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`, `NoCoverage`,
   `Ignored`. A few fields have better names beside the old ones, which go in 1.0.0: `rule` for
   `rules`, `caughtBy` and `caughtWith` for `killedBy` and `killedWith`, `killed` and the other
-  counts for `Killed` and the rest, and `scope.fileCount` and `scope.lineCount` for `scope.files`
-  and `scope.lines`. See [Deprecated names](/reference/schemas/#deprecated-names).
+  counts for `Killed` and the rest, `scope.fileCount` and `scope.lineCount` for `scope.files`
+  and `scope.lines`, and a mutation's `applied` for `bytecode`. See [Deprecated names](/reference/schemas/#deprecated-names).
 - **A mutant's id** comes from its class, method, position and change, not its line number, so it stays the same while code around it moves.
 
 ## Shared cards

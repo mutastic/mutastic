@@ -41,7 +41,9 @@ before there were editions. A few fields are required only of the Java edition, 
 them: `run-finished`'s `jdk`, a mutation's `bytecode`, and a missed mutant's `ignore` and `propose`.
 The Java edition writes them all, as it always has. What every edition shares says the same in its
 own words: `toolchain` is `{"name": "jdk", "version": "17"}` from Java and
-`{"name": "rustc", "version": "1.91.0"}` from Rust.
+`{"name": "rustc", "version": "1.91.0"}` from Rust, and a mutation's `applied` is the change as
+each engine makes it: `{"level": "bytecode", "text": "IF_ICMPLT -> IF_ICMPLE"}` from Java, to the
+compiled instruction, and `{"level": "source", "text": "x < 0 -> true"}` from Rust, to the source.
 
 The Rust edition writes some fields of its own, each marked as such in the schema:
 
@@ -76,7 +78,9 @@ Any release may add:
 
 - **A field,** always optional.
 - **An event,** with a `reason` of its own.
-- **A value** a field can take, such as a status or a skip kind.
+- **A value** a field can take, such as a status, a skip kind or a mutation's `applied.level`: an
+  engine that changes code at another level, such as `llvm-ir`, says so with a level of its own, and
+  its `text` is opaque.
 
 So read what you know and let the rest pass: ignore a field you don't know, ignore an event whose
 `reason` you don't know, and treat a value you don't know as neither caught nor missed rather than
@@ -100,6 +104,7 @@ A few fields have a better name beside them, with the same value. The old names 
 | `Killed`, `Survived`, `Timeout`, `NoCoverage`, `Ignored` | `killed`, `survived`, `timeout`, `noCoverage`, `ignored`, named like every other field | `run-finished` |
 | `scope.files` | `scope.fileCount`: it's a count | `run-finished` |
 | `scope.lines` | `scope.lineCount`: it's a count too | `run-finished` |
+| `bytecode` | `applied`, which says at what level the change was made, `text` being the same value: written by both editions (the Rust edition never wrote `bytecode`) | `mutant-finished`, `mutant-revised` |
 | `RuntimeError` (the count) | `runtimeError`, as the other counts are named (Rust edition) | `run-finished` |
 
 A status's value stays as the mutation-testing report schema names it: `"status": "Killed"` isn't

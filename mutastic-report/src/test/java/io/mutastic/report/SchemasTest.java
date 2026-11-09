@@ -43,6 +43,33 @@ class SchemasTest {
     assertThat(Schemas.problems(events, missed.replace("Survived", "NoCoverage"))).isEmpty();
   }
 
+  /// `applied` is the change as each edition's engine makes it: the Java edition's to the
+  /// instruction, beside the deprecated `bytecode`, and the Rust edition's to the source, without
+  /// it.
+  @Test
+  void eachEditionSaysAtWhatLevelItAppliedTheChange() {
+    var finished =
+        "{\"schema\":\"mutastic.events/v1\",\"reason\":\"mutant-finished\",%s"
+            + "\"id\":\"m855c8e3c\",\"fingerprint\":\"855c8e3ca8a39847\",\"status\":\"Killed\","
+            + "\"operator\":\"mutastic/boundary\",\"location\":{\"file\":\"P\",\"line\":17,"
+            + "\"class\":\"P\",\"method\":\"d\"},\"mutation\":{\"description\":\"x\",%s},"
+            + "\"coveredBy\":[],\"testsRun\":0,\"durationMs\":1}";
+    var java = "\"applied\":{\"level\":\"bytecode\",\"text\":\"IF_ICMPLT -> IF_ICMPLE\"}";
+    var rust = "\"applied\":{\"level\":\"source\",\"text\":\"x < 0 -> true\"}";
+
+    Schemas.checkEvents(finished.formatted("", java + ",\"bytecode\":\"IF_ICMPLT -> IF_ICMPLE\""));
+    Schemas.checkEvents(finished.formatted("\"edition\":\"rust\",", rust));
+    // A level a later engine adds, such as `llvm-ir`, is one a reader takes.
+    Schemas.checkEvents(
+        finished.formatted("\"edition\":\"rust\",", rust.replace("source", "llvm-ir")));
+    assertThatThrownBy(
+            () ->
+                Schemas.checkEvents(
+                    finished.formatted(
+                        "\"edition\":\"rust\",", "\"applied\":{\"level\":\"source\"}")))
+        .hasMessageContaining("text");
+  }
+
   /// What only the Java edition writes (`jdk`, a mutation's `bytecode`, a missed mutant's `ignore`
   /// and `propose`) is required of an event with no `edition`, and not of the Rust edition's.
   @Test

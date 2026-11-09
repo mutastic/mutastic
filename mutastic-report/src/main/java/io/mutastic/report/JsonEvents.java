@@ -124,7 +124,13 @@ public final class JsonEvents {
     advice.before().ifPresent(before -> mutation.put("original", before));
     advice.after().ifPresent(after -> mutation.put("replacement", after));
     mutation.put("description", advice.change());
-    mutation.put("bytecode", mutant.original() + " -> " + mutant.replacement());
+    var change = mutant.original() + " -> " + mutant.replacement();
+    var applied = new LinkedHashMap<String, Object>();
+    applied.put("level", "bytecode");
+    applied.put("text", change);
+    mutation.put("applied", applied);
+    // Deprecated for `applied`, and still written until 1.0: the schema requires it of Java.
+    mutation.put("bytecode", change);
     return mutation;
   }
 

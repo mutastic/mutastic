@@ -171,7 +171,9 @@ class JsonEventsTest {
             "\"location\":{\"file\":\"src/main/java/com/example/Pricing.java\",\"line\":5,"
                 + "\"class\":\"com.example.Pricing\",\"method\":\"discount(I)I\"}")
         .contains("\"original\":\">=\",\"replacement\":\">\"")
-        .contains("\"bytecode\":\"IF_ICMPLT -> IF_ICMPLE\"")
+        .contains(
+            "\"applied\":{\"level\":\"bytecode\",\"text\":\"IF_ICMPLT -> IF_ICMPLE\"},"
+                + "\"bytecode\":\"IF_ICMPLT -> IF_ICMPLE\"")
         .contains("\"coveredBy\":[\"com.example.PricingTest#a\"]")
         .contains("\"testsRun\":1,\"durationMs\":3")
         .contains("mutastic verify " + id + " passes")

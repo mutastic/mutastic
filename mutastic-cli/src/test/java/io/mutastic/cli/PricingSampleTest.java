@@ -26,7 +26,8 @@ class PricingSampleTest {
     assertThat(run.out())
         .contains("\"Killed\":10,\"Survived\":1,\"Timeout\":0,\"NoCoverage\":0,\"Ignored\":0");
     // `return 0` can't become 0: it becomes 1, and the tests notice.
-    assertThat(run.out()).contains("\"bytecode\":\"IRETURN -> return 1\"");
+    assertThat(run.out())
+        .contains("\"applied\":{\"level\":\"bytecode\",\"text\":\"IRETURN -> return 1\"}");
     var missed =
         run.out()
             .lines()
