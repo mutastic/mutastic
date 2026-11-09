@@ -91,6 +91,26 @@ count names the test as `falseCatchBy`.
 
 When every catch holds, nothing changes but the time: one run of each test that caught something.
 
+## When a miss is a registration another test made
+
+A worker runs test after test, and mutant after mutant, in one JVM. What code registers for the
+whole JVM stays registered: a security provider (`Security.addProvider`), a system property, a URL
+handler. So a mutant that removes a registration is missed if anything registered the same thing
+earlier, even when the test that reaches it would fail in a JVM of its own. Your build runs a
+module's test classes in one JVM too, so its tests miss the same change in the same way: the gap
+is real, but the test that would close it has to start from a JVM without the registration.
+
+Such a test takes the registration away first, then checks the code puts it back:
+
+```java
+@Test
+void registersThePostQuantumProvider() {
+  Security.removeProvider("BCPQC");
+  new SecureServer(handler);
+  assertNotNull(Security.getProvider("BCPQC"));
+}
+```
+
 ## Skipped mutants
 
 Some changes would tell you nothing, so mutastic doesn't run them. Each skip says why, with a kind

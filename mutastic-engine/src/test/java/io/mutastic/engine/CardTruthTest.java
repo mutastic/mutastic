@@ -161,6 +161,10 @@ class CardTruthTest {
         .extracting(Claim::what)
         .contains("its changed line, `if (b < 0 || a >= EDGE) {`");
     assertThat(failures).as("cards that say something their mutant doesn't do").isEmpty();
+    // A string javac wrote in, and a class literal, are claimed as the source writes them.
+    assertThat(claims.stream().map(claim -> claim.mutant().methodName()))
+        .contains(
+            "namedText", "namedTextFirst", "finalLocalText", "classLiteral", "primitiveClass");
   }
 
   /// A mutant skipped as equivalent behaves as the code does on every input: a skip rule that's

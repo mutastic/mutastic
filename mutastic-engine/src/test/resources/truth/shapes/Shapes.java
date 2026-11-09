@@ -10,6 +10,9 @@ public final class Shapes {
   /// A constant javac inlines: the bytecode has `3`, the source `EDGE`.
   static final int EDGE = 3;
 
+  /// A string constant javac inlines too: the bytecode has `"3"`, the source `TEXT`.
+  static final String TEXT = "3";
+
   /// Read as a static field, not inlined as a constant would be.
   static int limit = 2;
 
@@ -259,6 +262,49 @@ public final class Shapes {
 
   static int namedConstant(int a, int b) {
     if (b < 0 || a > EDGE) {
+      return 1;
+    }
+    return 2;
+  }
+
+  /// A string the bytecode has as `"3"`, an argument the source names.
+  static int namedText(int a, int b) {
+    if (String.valueOf(a).equals(TEXT)) {
+      return 1;
+    }
+    return 2;
+  }
+
+  /// The same string, a receiver the source names.
+  static int namedTextFirst(int a, int b) {
+    if (TEXT.equals(String.valueOf(b))) {
+      return 1;
+    }
+    return 2;
+  }
+
+  /// A `final` local set to a string: javac inlines it as it does a constant.
+  static int finalLocalText(int a, int b) {
+    final String three = "3";
+    if (!String.valueOf(a).equals(three)) {
+      return 1;
+    }
+    return 2;
+  }
+
+  /// A class literal: the bytecode loads the class itself, the source writes `Number.class`.
+  static int classLiteral(int a, int b) {
+    Class<?> type = a > b ? Integer.class : String.class;
+    if (Number.class.isAssignableFrom(type)) {
+      return 1;
+    }
+    return 2;
+  }
+
+  /// A primitive's class: the bytecode reads `Integer.TYPE`, the source writes `int.class`.
+  static int primitiveClass(int a, int b) {
+    Class<?> type = a > b ? int.class : long.class;
+    if (type == int.class) {
       return 1;
     }
     return 2;

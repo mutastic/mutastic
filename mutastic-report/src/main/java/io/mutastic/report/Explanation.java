@@ -82,7 +82,7 @@ public final class Explanation {
 
   /// `javac compiles total >= 100 to IF_ICMPLT, a jump past the body when total < 100 ...`.
   private Optional<String> concrete(Mutant mutant) {
-    var operands = mutant.operands();
+    var operands = sources.written(mutant).operands();
     var advice = sources.advice(mutant);
     var jumps = Opcodes.symbol(mutant.original());
     var mutatedJumps = Opcodes.symbol(mutant.replacement());

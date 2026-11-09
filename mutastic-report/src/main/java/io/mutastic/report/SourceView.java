@@ -138,8 +138,31 @@ public final class SourceView {
   }
 
   private Advice advice(Mutant mutant, java.util.Map<String, List<Long>> seen) {
-    var advice = bytecodeAdvice(mutant, seen);
+    var advice = bytecodeAdvice(written(mutant), seen);
     return isKotlin(mutant) ? advice.reworded(asKotlinWrites(mutant)) : advice;
+  }
+
+  /// The mutant with its operands as its statement writes them: a string javac wrote in by the name
+  /// the source gives it, `msg.equals(EXIT_CODE)` for `msg.equals("{}")`.
+  Mutant written(Mutant mutant) {
+    var operands = mutant.operands();
+    if (operands.stream().noneMatch(operand -> operand.indexOf('"') >= 0)) {
+      return mutant;
+    }
+    var written = WrittenOperands.of(operands, String.join("\n", statement(mutant)));
+    return new Mutant(
+        mutant.className(),
+        mutant.methodName(),
+        mutant.descriptor(),
+        mutant.ordinal(),
+        mutant.line(),
+        mutant.operator(),
+        mutant.original(),
+        mutant.replacement(),
+        mutant.skipped(),
+        mutant.copies(),
+        written,
+        mutant.inlinedFrom());
   }
 
   /// `name.isEmpty()` is `length() == 0` to the bytecode, as kotlinc copies it in: the card says
@@ -365,7 +388,7 @@ public final class SourceView {
                 return constantChanged(text, advice);
               }
               if (advice.before().isPresent() && advice.after().isPresent()) {
-                return operatorChanged(mutant, advice, text);
+                return operatorChanged(written(mutant), advice, text);
               }
               if (mutant.operator() == BuiltIn.REMOVE_CONDITIONAL) {
                 return conditionReplaced(text, advice);

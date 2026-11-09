@@ -43,6 +43,19 @@ final class Operands {
           "java/lang/Float",
           "java/lang/Double");
 
+  /// The primitive each box's `TYPE` is the class of.
+  private static final java.util.Map<String, String> PRIMITIVES =
+      java.util.Map.of(
+          "java/lang/Integer", "int",
+          "java/lang/Long", "long",
+          "java/lang/Short", "short",
+          "java/lang/Byte", "byte",
+          "java/lang/Character", "char",
+          "java/lang/Boolean", "boolean",
+          "java/lang/Float", "float",
+          "java/lang/Double", "double",
+          "java/lang/Void", "void");
+
   /// One value on the stack and where its instructions start; `start` is -1 when unknown. Its
   /// precedence is the operator's, for an operation, so an operation around it knows to bracket it.
   private record Operand(String text, int start, boolean predicate, int precedence) {
@@ -281,12 +294,24 @@ final class Operands {
         .orElse(new Operand("local" + load.slot(), start, false));
   }
 
+  /// A constant as the source writes it: `"{}"`, `100`, and a class as `KyberParameterSpec.class`,
+  /// where its descriptor would say `ClassOrInterfaceDesc[KyberParameterSpec]`.
   private static String literal(Object value) {
-    return value instanceof String text ? "\"" + text + "\"" : String.valueOf(value);
+    return switch (value) {
+      case String text -> "\"" + text + "\"";
+      case java.lang.constant.ClassDesc type -> type.displayName().replace('$', '.') + ".class";
+      default -> String.valueOf(value);
+    };
   }
 
   /// `BuiltIn.BOUNDARY`, `limit`: a static field, as a static call is named.
   private Operand staticField(FieldInstruction field, int start) {
+    // `int.class` is `Integer.TYPE` to the bytecode.
+    if (field.name().equalsString("TYPE")
+        && field.typeSymbol().descriptorString().equals("Ljava/lang/Class;")
+        && PRIMITIVES.containsKey(field.owner().asInternalName())) {
+      return new Operand(PRIMITIVES.get(field.owner().asInternalName()) + ".class", start, false);
+    }
     return new Operand(
         owned(field.owner()) + field.name().stringValue(),
         start,

@@ -1,0 +1,119 @@
+
+ Missed ────────────────────────────────────────────────────────────
+
+ ❯ src/main/java/com/example/protocol/Messages.java  6 missed in 2 methods
+
+ [✗ MISSED] no test needs Number.class.isAssignableFrom(type) to be false in numeric()
+    ┌─ src/main/java/com/example/protocol/Messages.java:18
+    │
+ 17 │   public boolean numeric(Class<?> type) {
+ 18 │     if (Number.class.isAssignableFrom(type)) {
+    │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now always true
+ 19 │       return true;
+    │
+    = mutant  - if (Number.class.isAssignableFrom(type)) {
+              + if (true) {
+    = note: covered by MessagesTest#numbersAreNumeric (its 1 covering test still passes)
+    = help: add a test where Number.class.isAssignableFrom(type) is false, and assert what numeric() does then
+
+    done when  mutastic verify m63a5e3c6 samples/constants passes
+    reproduce  mutastic run --only=m63a5e3c6 samples/constants
+    or ignore  mutastic ignore m63a5e3c6 --reason="<why>" samples/constants
+
+ [✗ MISSED] no test needs type == int.class to be false in numeric()
+    ┌─ src/main/java/com/example/protocol/Messages.java:21
+    │
+ 20 │     }
+ 21 │     return type == int.class || type == long.class;
+    │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now always true
+ 22 │   }
+    │
+    = mutant  - return type == int.class || type == long.class;
+              + return true || type == long.class;
+    = note: covered by MessagesTest#numbersAreNumeric (its 1 covering test still passes)
+    = help: add a test where type == int.class is false, and assert what numeric() does then
+
+    done when  mutastic verify medebe1f6 samples/constants passes
+    reproduce  mutastic run --only=medebe1f6 samples/constants
+    or ignore  mutastic ignore medebe1f6 --reason="<why>" samples/constants
+
+ [✗ MISSED] no test needs type == int.class to be true in numeric()
+    ┌─ src/main/java/com/example/protocol/Messages.java:21
+    │
+ 20 │     }
+ 21 │     return type == int.class || type == long.class;
+    │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now always false
+ 22 │   }
+    │
+    = mutant  - return type == int.class || type == long.class;
+              + return false || type == long.class;
+    = note: covered by MessagesTest#numbersAreNumeric (its 1 covering test still passes)
+    = help: add a test where type == int.class is true, and assert what numeric() does then
+
+    done when  mutastic verify me85bc7c6 samples/constants passes
+    reproduce  mutastic run --only=me85bc7c6 samples/constants
+    or ignore  mutastic ignore me85bc7c6 --reason="<why>" samples/constants
+
+ [✗ MISSED] no test needs type == long.class to be false in numeric()
+    ┌─ src/main/java/com/example/protocol/Messages.java:21
+    │
+ 20 │     }
+ 21 │     return type == int.class || type == long.class;
+    │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now always true
+ 22 │   }
+    │
+    = mutant  - return type == int.class || type == long.class;
+              + return type == int.class || true;
+    = note: covered by MessagesTest#numbersAreNumeric (its 1 covering test still passes)
+    = help: add a test where type == long.class is false, and assert what numeric() does then
+
+    done when  mutastic verify mb3874693 samples/constants passes
+    reproduce  mutastic run --only=mb3874693 samples/constants
+    or ignore  mutastic ignore mb3874693 --reason="<why>" samples/constants
+
+ [✗ MISSED] no test checks numeric() returning false here
+    ┌─ src/main/java/com/example/protocol/Messages.java:21
+    │
+ 20 │     }
+ 21 │     return type == int.class || type == long.class;
+    │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now returns true
+ 22 │   }
+    │
+    = mutant  - return type == int.class || type == long.class;
+              + return true;
+    = note: tests reach this return, but none fails when it returns true
+            covered by MessagesTest#numbersAreNumeric (its 1 covering test still passes)
+    = help: add a test where numeric() returns false here, and assert it
+
+    done when  mutastic verify m22d64891 samples/constants passes
+    reproduce  mutastic run --only=m22d64891 samples/constants
+    or ignore  mutastic ignore m22d64891 --reason="<why>" samples/constants
+
+ [✗ MISSED] no test needs message.equals(Protocol.EXIT_CODE) to be true in beforeExit()
+    ┌─ src/main/java/com/example/protocol/Messages.java:10
+    │
+  9 │     String message;
+ 10 │     while ((message = messages.poll()) != null && !message.equals(Protocol.EXIT_CODE)) {
+    │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now always false
+ 11 │       count++;
+    │
+    = mutant  - while ((message = messages.poll()) != null && !message.equals(Protocol.EXIT_CODE)) {
+              + while ((message = messages.poll()) != null && !false) {
+    = note: covered by MessagesTest#countsEveryMessage (its 1 covering test still passes)
+    = help: add a test where message.equals(Protocol.EXIT_CODE) is true, and assert what beforeExit() does then
+
+    done when  mutastic verify m187e7e27 samples/constants passes
+    reproduce  mutastic run --only=m187e7e27 samples/constants
+    or ignore  mutastic ignore m187e7e27 --reason="<why>" samples/constants
+
+   Classes  0 clean | 1 with misses (1)
+   Mutants  ✓ 10 caught · ✗ 6 missed (16)
+  Worst at  Messages.numeric() 5 ✗ · Messages.beforeExit() 1 ✗
+ Test runs  16 (32 without coverage selection)
+  Start at  …
+  Duration  … (setup …, coverage …, mutants …)
+     Tests  2 on JDK 17 · … workers
+     Score  62.5%  = vs last run (same code)  threshold 80
+
+ [FAIL] Score below 80: 6 missed, 0 not covered.
+ Next: mutastic verify <id> samples/constants · mutastic run --only=<id> samples/constants · mutastic explain <id> samples/constants

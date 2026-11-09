@@ -50,7 +50,8 @@ class CardsTest {
         "observable",
         "selection",
         "testng",
-        "lombok"
+        "lombok",
+        "constants"
       })
   void everyCardOnTheSample(String sample) throws Exception {
     var project = Samples.copy(SAMPLES.resolve(sample), work.resolve(sample));

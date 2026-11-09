@@ -1,0 +1,64 @@
+mutastic: FAIL · score 62.5% (threshold 80) · 6 missed, 0 not covered, 10 caught of 16 mutants
+rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/constants` passes
+decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and propose ignoring it with that reason (and --as equivalent, unreachable, telemetry, deprecated or accepted-risk) for a person to accept (`mutastic ignore <id> --propose --reason="<why>" samples/constants`)
+
+1. missed m187e7e27: no test needs `message.equals(Protocol.EXIT_CODE)` to be true in `beforeExit()`
+   at src/main/java/com/example/protocol/Messages.java:10
+   - while ((message = messages.poll()) != null && !message.equals(Protocol.EXIT_CODE)) {
+   + while ((message = messages.poll()) != null && !false) {
+   covered by: MessagesTest#countsEveryMessage; all still pass with the change
+   fix: add a test where `message.equals(Protocol.EXIT_CODE)` is true, and assert what `beforeExit()` does then
+   done when: mutastic verify m187e7e27 samples/constants passes
+   reproduce: mutastic run --only=m187e7e27 samples/constants
+   or propose: mutastic ignore m187e7e27 --propose --reason="<why>" samples/constants
+
+2. missed m63a5e3c6: no test needs `Number.class.isAssignableFrom(type)` to be false in `numeric()`
+   at src/main/java/com/example/protocol/Messages.java:18
+   - if (Number.class.isAssignableFrom(type)) {
+   + if (true) {
+   covered by: MessagesTest#numbersAreNumeric; all still pass with the change
+   fix: add a test where `Number.class.isAssignableFrom(type)` is false, and assert what `numeric()` does then
+   done when: mutastic verify m63a5e3c6 samples/constants passes
+   reproduce: mutastic run --only=m63a5e3c6 samples/constants
+   or propose: mutastic ignore m63a5e3c6 --propose --reason="<why>" samples/constants
+
+3. missed medebe1f6: no test needs `type == int.class` to be false in `numeric()`
+   at src/main/java/com/example/protocol/Messages.java:21
+   - return type == int.class || type == long.class;
+   + return true || type == long.class;
+   covered by: MessagesTest#numbersAreNumeric; all still pass with the change
+   fix: add a test where `type == int.class` is false, and assert what `numeric()` does then
+   done when: mutastic verify medebe1f6 samples/constants passes
+   reproduce: mutastic run --only=medebe1f6 samples/constants
+   or propose: mutastic ignore medebe1f6 --propose --reason="<why>" samples/constants
+
+4. missed me85bc7c6: no test needs `type == int.class` to be true in `numeric()`
+   at src/main/java/com/example/protocol/Messages.java:21
+   - return type == int.class || type == long.class;
+   + return false || type == long.class;
+   covered by: MessagesTest#numbersAreNumeric; all still pass with the change
+   fix: add a test where `type == int.class` is true, and assert what `numeric()` does then
+   done when: mutastic verify me85bc7c6 samples/constants passes
+   reproduce: mutastic run --only=me85bc7c6 samples/constants
+   or propose: mutastic ignore me85bc7c6 --propose --reason="<why>" samples/constants
+
+5. missed mb3874693: no test needs `type == long.class` to be false in `numeric()`
+   at src/main/java/com/example/protocol/Messages.java:21
+   - return type == int.class || type == long.class;
+   + return type == int.class || true;
+   covered by: MessagesTest#numbersAreNumeric; all still pass with the change
+   fix: add a test where `type == long.class` is false, and assert what `numeric()` does then
+   done when: mutastic verify mb3874693 samples/constants passes
+   reproduce: mutastic run --only=mb3874693 samples/constants
+   or propose: mutastic ignore mb3874693 --propose --reason="<why>" samples/constants
+
+6. missed m22d64891: no test checks `numeric()` returning `false` here
+   at src/main/java/com/example/protocol/Messages.java:21
+   - return type == int.class || type == long.class;
+   + return true;
+   covered by: MessagesTest#numbersAreNumeric; all still pass with the change
+   evidence: tests reach this return, but none fails when it returns `true`
+   fix: add a test where `numeric()` returns `false` here, and assert it
+   done when: mutastic verify m22d64891 samples/constants passes
+   reproduce: mutastic run --only=m22d64891 samples/constants
+   or propose: mutastic ignore m22d64891 --propose --reason="<why>" samples/constants
