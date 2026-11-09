@@ -230,7 +230,7 @@
         "coveredBy": {
           "type": "array",
           "items": { "$ref": "#/$defs/test" },
-          "description": "The tests that reach the mutant's line, fastest first. Empty when none does, or when it was skipped."
+          "description": "The tests that reach the mutant's line: its own test class's first (PricingTest's, for Pricing), then the rest, each by name, whatever order they ran in. Empty when none does, or when it was skipped."
         },
         "killedBy": {
           "$ref": "#/$defs/test",

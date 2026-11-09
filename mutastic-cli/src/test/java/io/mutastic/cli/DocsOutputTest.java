@@ -33,9 +33,11 @@ class DocsOutputTest {
   private static final Map<String, String> TERMINAL =
       Map.of("FORCE_COLOR", "1", "MUTASTIC_FORMAT", "full");
 
-  /// What changes from run to run: when it started and how long it took, in words or in JSON.
+  /// What changes from run to run: when it started and how long it took, in words or in JSON, and
+  /// how many covering tests ran before a mutant's result was known, as they run fastest first and
+  /// a test's time moves with the machine's load.
   private static final Pattern TIMINGS =
-      Pattern.compile("\\d+(\\.\\d+)?(ms|s)\\b|\\d\\d:\\d\\d:\\d\\d|Ms\":\\d+");
+      Pattern.compile("\\d+(\\.\\d+)?(ms|s)\\b|\\d\\d:\\d\\d:\\d\\d|Ms\":\\d+|\"testsRun\":\\d+");
 
   @TempDir Path work;
 

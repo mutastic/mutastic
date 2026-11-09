@@ -7,7 +7,7 @@
  [2m15[0m [2m│[0m     return custom.orElse(standard);
     [2m│[0m
     [2m=[0m also    [1;31m✗[0m no test checks the value in the [1mOptional[0m made by [1mofNullable(…)[0m in size() [2m· m02d5e708[0m
-    [2m=[0m [1;34m[1mnote[0m[0m: covered by PagesTest#theStandardSize, PagesTest#aChosenSize (all 2 covering tests still pass)
+    [2m=[0m [1;34m[1mnote[0m[0m: covered by PagesTest#aChosenSize, PagesTest#theStandardSize (all 2 covering tests still pass)
     [2m=[0m [32m[1mhelp[0m[0m: add a test whose result depends on [1mchosen[0m, and assert it
 
             [2m// in PagesTest[0m

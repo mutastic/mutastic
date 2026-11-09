@@ -473,7 +473,7 @@ public final class AgentText {
         .collect(Collectors.joining("; "));
   }
 
-  /// The fastest few, which are the ones to read first, and how many more there are.
+  /// The first few, the mutant's own test class's first, and how many more there are.
   static String covering(List<String> tests) {
     var shown =
         tests.stream()

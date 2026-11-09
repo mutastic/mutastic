@@ -81,6 +81,26 @@ class HumanTextTest {
                 .formatted(boundary().id()));
   }
 
+  /// Covering tests run fastest first, and their timings move with the machine's load: the card
+  /// lists them the same whichever ran first, the mutant's own test class's first, then by name.
+  @Test
+  void aCardListsItsTestsTheSameWhicheverRanFirst() {
+    var oneNight =
+        List.of(
+            "com.example.CheckoutTest#total",
+            "com.example.PricingTest#smallOrders",
+            "com.example.PricingTest#bigOrders");
+    var slowerNight = oneNight.reversed();
+
+    var card = text(HumanText.Detail.FULL, Vocabulary.PLAIN).card(coveredBy(oneNight));
+
+    assertThat(card)
+        .isEqualTo(text(HumanText.Detail.FULL, Vocabulary.PLAIN).card(coveredBy(slowerNight)))
+        .contains(
+            "covered by PricingTest#bigOrders, PricingTest#smallOrders, CheckoutTest#total"
+                + " (all 3 covering tests still pass)");
+  }
+
   @Test
   void briefKeepsTheGapTheLineAndTheEvidence() {
     var card =
@@ -484,6 +504,22 @@ class HumanTextTest {
         inputs,
         Optional.empty(),
         Duration.ofMillis(5));
+  }
+
+  private static MutantResult coveredBy(List<String> tests) {
+    var one = missed(boundary(), Map.of());
+    return new MutantResult(
+        one.mutant(),
+        one.status(),
+        tests,
+        one.caughtBy(),
+        one.failure(),
+        one.failureOrigin(),
+        one.testsRun(),
+        one.unconfirmed(),
+        one.inputs(),
+        one.suggestion(),
+        one.took());
   }
 
   private static Report report(MutantResult... results) {

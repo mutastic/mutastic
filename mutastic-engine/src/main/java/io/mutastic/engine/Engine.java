@@ -801,7 +801,7 @@ public final class Engine {
         result = result.withCaughtByAll(everyCatcher(trial, covering, tested.run()));
       }
       if (suggestions && isOnAnInstruction(mutant) && tested.run().status() == Status.MISSED) {
-        var receiver = receiverFor(mutant, covering.getFirst());
+        var receiver = receiverFor(mutant, result.coveredBy().getFirst());
         if (receiver.isPresent()) {
           result = result.withSuggestion(suggest(receiver.get(), trial, inputs));
         }
@@ -928,11 +928,12 @@ public final class Engine {
       return suggest(receiver.get(), trial, Map.of());
     }
 
-    /// How the test class a suggestion would go into, the fastest covering test's, could write its
-    /// call: `-` for a static method, else the constructor for the receiver. Empty if it can't.
-    private Optional<String> receiverFor(Mutant mutant, String fastestTest) {
-      int hash = fastestTest.indexOf('#');
-      var testClass = hash < 0 ? fastestTest : fastestTest.substring(0, hash);
+    /// How the test class a suggestion would go into, the first covering test's as the result lists
+    /// them, could write its call: `-` for a static method, else the constructor for the receiver.
+    /// Empty if it can't.
+    private Optional<String> receiverFor(Mutant mutant, String firstListed) {
+      int hash = firstListed.indexOf('#');
+      var testClass = hash < 0 ? firstListed : firstListed.substring(0, hash);
       synchronized (mutations) {
         return Access.receiver(models, mutant, testClass);
       }

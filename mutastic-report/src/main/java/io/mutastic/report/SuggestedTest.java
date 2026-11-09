@@ -6,9 +6,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/// A suggested test as code to paste: into the test class of the fastest test that already reaches
-/// the mutant, written the way that class writes assertions (AssertJ's `assertThat` if it imports
-/// AssertJ, JUnit's otherwise), with a name it doesn't already use.
+/// A suggested test as code to paste: into the test class of the first test listed as reaching the
+/// mutant (its own test class, if a test there does), written the way that class writes assertions
+/// (AssertJ's `assertThat` if it imports AssertJ, JUnit's otherwise), with a name it doesn't
+/// already use.
 ///
 /// @param testClass where it goes, `PricingTest`
 /// @param lines the test method, one line each, unindented
@@ -24,8 +25,8 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
       return Optional.empty();
     }
     var suggestion = result.suggestion().get();
-    var fastest = result.coveredBy().getFirst();
-    var testClass = fastest.contains("#") ? fastest.substring(0, fastest.indexOf('#')) : fastest;
+    var first = result.coveredBy().getFirst();
+    var testClass = first.contains("#") ? first.substring(0, first.indexOf('#')) : first;
     if (sources.isKotlin(result.mutant())) {
       return inKotlin(result, testClass, sources);
     }

@@ -6,7 +6,12 @@ import java.util.Optional;
 
 /// One mutant's outcome.
 ///
-/// @param coveredBy the tests that reach the mutant's line, fastest first
+/// @param coveredBy the tests that reach the mutant's line, as they're listed: the mutant's own
+///   test class's (`PricingTest`'s, and its nested classes', for `Pricing`) first, as the tests
+///   most about its code, then the rest, each by name. Not the order they ran in, fastest first,
+///   which is measured afresh each run and moves with the machine's load: a card is compared across
+///   runs, kept in the docs and read by agents, so what it lists mustn't. The first is where a
+///   suggested test goes.
 /// @param caughtBy the test that failed, if one did
 /// @param failure what it failed with: the exception's class
 /// @param failureOrigin where that came from: `assertion` (a check failed), `test` (the test's own
@@ -39,7 +44,7 @@ public record MutantResult(
     List<String> caughtByAll) {
 
   public MutantResult {
-    coveredBy = List.copyOf(coveredBy);
+    coveredBy = listed(mutant, coveredBy);
     inputs = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(inputs));
     caughtByAll = List.copyOf(caughtByAll);
   }
@@ -130,6 +135,18 @@ public record MutantResult(
         java.util.Map.of(),
         Optional.empty(),
         Duration.ZERO);
+  }
+
+  private static List<String> listed(Mutant mutant, List<String> tests) {
+    var ownTestClass = mutant.binaryName() + "Test";
+    return tests.stream()
+        .sorted(
+            java.util.Comparator.comparing(
+                    (String test) ->
+                        !test.startsWith(ownTestClass + "#")
+                            && !test.startsWith(ownTestClass + "$"))
+                .thenComparing(java.util.Comparator.naturalOrder()))
+        .toList();
   }
 
   /// The same result, reached by `tests` too: another run's, over the same mutant.

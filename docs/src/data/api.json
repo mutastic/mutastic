@@ -1490,7 +1490,7 @@
           "params": [
             {
               "name": "coveredBy",
-              "doc": "the tests that reach the mutant's line, fastest first"
+              "doc": "the tests that reach the mutant's line, as they're listed: the mutant's own test class's (`PricingTest`'s, and its nested classes', for `Pricing`) first, as the tests most about its code, then the rest, each by name. Not the order they ran in, fastest first, which is measured afresh each run and moves with the machine's load: a card is compared across runs, kept in the docs and read by agents, so what it lists mustn't. The first is where a suggested test goes."
             },
             {
               "name": "caughtBy",
