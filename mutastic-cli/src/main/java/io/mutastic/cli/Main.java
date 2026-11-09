@@ -1861,11 +1861,39 @@ public final class Main {
         return ids;
       }
 
+      /// The id first, or several split by commas: taking a directory for one would read the
+      /// current directory as the project, and say it isn't a build.
       private String mutantId(String subcommand) {
         if (positional.isEmpty()) {
-          throw new UsageException(subcommand + " needs a mutant id");
+          throw new UsageException(needsAnId(subcommand, "<directory>"));
+        }
+        var given = positional.getFirst();
+        for (String id : given.split(",", -1)) {
+          if (!MUTANT_ID.matcher(id).matches()) {
+            throw new UsageException(notAnId(subcommand, given));
+          }
         }
         return positional.removeFirst();
+      }
+
+      /// `given` where the id goes: a directory, a module or something else.
+      private static String notAnId(String subcommand, String given) {
+        if (given.startsWith(":")) {
+          return "%s is a module, not a mutant id. %s"
+              .formatted(given, needsAnId(subcommand, "<directory> " + given));
+        }
+        if (Files.isDirectory(Path.of(given))) {
+          return "%s is a directory, not a mutant id. %s"
+              .formatted(given, needsAnId(subcommand, given));
+        }
+        return "%s isn't a mutant id. %s".formatted(given, needsAnId(subcommand, "<directory>"));
+      }
+
+      /// What `subcommand` needs first, as a run names a mutant, with `after` after it.
+      private static String needsAnId(String subcommand, String after) {
+        return ("%s needs a mutant id first, an m and eight hex digits as a run prints them:%n"
+                + "  mutastic %s m855c8e3c %s")
+            .formatted(subcommand, subcommand, after);
       }
 
       private Command built(Subcommand subcommand) {

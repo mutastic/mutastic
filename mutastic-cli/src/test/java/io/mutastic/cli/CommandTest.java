@@ -180,11 +180,31 @@ class CommandTest {
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--format=xml"}))
         .hasMessage("unknown format xml (one of full, brief, concise, grouped, agent, jsonl)");
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"verify"}))
-        .hasMessage("verify needs a mutant id");
+        .hasMessageStartingWith("verify needs a mutant id first")
+        .hasMessageEndingWith("mutastic verify m855c8e3c <directory>");
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--workers=0"}))
         .hasMessage("--workers must be at least 1");
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--threshold=high"}))
         .hasMessage("--threshold needs a whole number, not high");
+  }
+
+  /// What's in the id's place but isn't one is named, with the command it needs, rather than taken
+  /// as the id and the current directory as the project.
+  @Test
+  void theIdComesFirst() {
+    assertThatThrownBy(() -> parse("explain", "src"))
+        .hasMessage(
+            "src is a directory, not a mutant id. explain needs a mutant id first, an m and eight"
+                + " hex digits as a run prints them:%n  mutastic explain m855c8e3c src",
+            "");
+    assertThatThrownBy(() -> parse("verify", "m855c8e3c,price"))
+        .hasMessageStartingWith("m855c8e3c,price isn't a mutant id. verify needs")
+        .hasMessageEndingWith("mutastic verify m855c8e3c <directory>");
+    assertThatThrownBy(() -> parse("ignore", ":core", "--reason=x"))
+        .hasMessageStartingWith(":core is a module, not a mutant id. ignore needs")
+        .hasMessageEndingWith("mutastic ignore m855c8e3c <directory> :core");
+    assertThat(parse("verify", "m855c8e3c,m0d5b4a21", "src").only())
+        .containsExactly("m855c8e3c", "m0d5b4a21");
   }
 
   @Test
