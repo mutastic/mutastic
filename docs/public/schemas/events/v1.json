@@ -239,6 +239,11 @@
           "type": "string",
           "description": "What the test that caught it failed with: in the Java edition the exception's class, `org.opentest4j.AssertionFailedError`. Written from 0.6.0."
         },
+        "caughtByAll": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/test" },
+          "description": "Every covering test that catches it, in the order they ran, the first being `caughtBy`: only with `--kill-matrix`, and only when one did. Written from 0.6.0."
+        },
         "nearUnsafe": {
           "type": "string",
           "description": "The Rust edition only: why the mutant is near unsafe code, when it is (`called from unsafe code`, `in a module with unsafe code`, `in a function with an unsafe block`, `inside unsafe code`). It ran on its own, and a crash isn't counted as caught (`RuntimeError`)."
@@ -510,7 +515,8 @@
           "type": "object",
           "description": "The Rust edition only: places mutastic found and chose not to mutate, by why.",
           "properties": {
-            "unsafe": { "$ref": "#/$defs/count", "description": "Mutants not made because their code is near `unsafe` and `run-started`'s `unsafe` setting leaves it out." }
+            "unsafe": { "$ref": "#/$defs/count", "description": "Mutants not made because their code is near `unsafe` and `run-started`'s `unsafe` setting leaves it out." },
+            "cfg": { "$ref": "#/$defs/count", "description": "Mutants not made because their code is under a `cfg` that's off in this build (another platform, or a feature not enabled), so it's never compiled: not counted as not covered. Optional." }
           }
         },
         "build": {

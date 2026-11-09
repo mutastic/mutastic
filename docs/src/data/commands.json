@@ -11,7 +11,7 @@
       "exits": "0 when the score reaches the threshold, 1 when it doesn't.",
       "takesMutantId": false,
       "examples": [{ "gradle": "./gradlew mutasticRun", "maven": "mvn mutastic:run", "commandLine": "mutastic run" }, { "gradle": "./gradlew mutasticRun -Pmutastic.threshold=70 -p samples/pricing", "maven": "mvn mutastic:run -Dmutastic.threshold=70 -f samples/pricing", "commandLine": "mutastic run samples/pricing --threshold=70" }, { "gradle": "./gradlew mutasticRun -Pmutastic.since=main", "maven": "mvn mutastic:run -Dmutastic.since=main", "commandLine": "mutastic run --since=main" }, { "gradle": "./gradlew :core:mutasticRun -Pmutastic.testsFrom=dependents", "maven": "mvn mutastic:run -Dmutastic.testsFrom=dependents -pl core", "commandLine": "mutastic run . :core --tests-from=dependents" }],
-      "options": ["--threshold", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--no-suggestions", "--exclude-tests", "--suite", "--operators", "--experimental", "--report", "--format", "--each-mutant", "--vocabulary", "--color", "--hyperlinks", "--progress"]
+      "options": ["--threshold", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--kill-matrix", "--no-suggestions", "--exclude-tests", "--suite", "--operators", "--experimental", "--report", "--format", "--each-mutant", "--vocabulary", "--color", "--hyperlinks", "--progress"]
     },
     {
       "name": "verify",
@@ -186,6 +186,20 @@
       "maven": { "property": "-Dmutastic.confirmCatches", "setting": "<confirmCatches>true</confirmCatches>" },
       "gradle": { "property": "-Pmutastic.confirmCatches", "setting": "confirmCatches = true" },
       "examples": { "baseline": { "gradle": "", "maven": "", "commandLine": "mutastic baseline --confirm-catches", "gradleBuild": "mutastic {\n    confirmCatches = true\n}", "mavenBuild": "<configuration>\n  <confirmCatches>true</confirmCatches>\n</configuration>" }, "explain": { "gradle": "./gradlew mutasticExplain -Pmutastic.mutant=m855c8e3c -Pmutastic.confirmCatches", "maven": "mvn mutastic:explain -Dmutastic.mutant=m855c8e3c -Dmutastic.confirmCatches", "commandLine": "mutastic explain m855c8e3c --confirm-catches", "gradleBuild": "mutastic {\n    confirmCatches = true\n}", "mavenBuild": "<configuration>\n  <confirmCatches>true</confirmCatches>\n</configuration>" }, "next": { "gradle": "", "maven": "", "commandLine": "mutastic next --confirm-catches", "gradleBuild": "mutastic {\n    confirmCatches = true\n}", "mavenBuild": "<configuration>\n  <confirmCatches>true</confirmCatches>\n</configuration>" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.confirmCatches", "maven": "mvn mutastic:run -Dmutastic.confirmCatches", "commandLine": "mutastic run --confirm-catches", "gradleBuild": "mutastic {\n    confirmCatches = true\n}", "mavenBuild": "<configuration>\n  <confirmCatches>true</confirmCatches>\n</configuration>" }, "verify": { "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c -Pmutastic.confirmCatches", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -Dmutastic.confirmCatches", "commandLine": "mutastic verify m855c8e3c --confirm-catches", "gradleBuild": "mutastic {\n    confirmCatches = true\n}", "mavenBuild": "<configuration>\n  <confirmCatches>true</confirmCatches>\n</configuration>" } }
+    },
+    {
+      "name": "--kill-matrix",
+      "synopsis": "--kill-matrix",
+      "kind": "flag",
+      "group": "Running",
+      "value": "",
+      "choices": [],
+      "help": "Run every test that reaches a caught mutant, to name each that catches it, not only the first: for measuring an order, slower",
+      "commands": ["run"],
+      "environment": "",
+      "maven": { "property": "-Dmutastic.killMatrix", "setting": null },
+      "gradle": { "property": "-Pmutastic.killMatrix", "setting": null },
+      "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.killMatrix -Pmutastic.format=jsonl", "maven": "mvn mutastic:run -Dmutastic.killMatrix -Dmutastic.format=jsonl", "commandLine": "mutastic run --kill-matrix --format=jsonl", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--no-suggestions",

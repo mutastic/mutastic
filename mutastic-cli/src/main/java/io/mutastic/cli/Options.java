@@ -114,6 +114,19 @@ final class Options {
               "",
               "mutastic run --confirm-catches"),
           new Option(
+              "--kill-matrix",
+              Kind.FLAG,
+              Group.RUNNING,
+              "",
+              List.of(),
+              "Run every test that reaches a caught mutant, to name each that catches it, not"
+                  + " only the first: for measuring an order, slower",
+              RUNS,
+              "killMatrix",
+              false,
+              "",
+              "mutastic run --kill-matrix --format=jsonl"),
+          new Option(
               "--no-suggestions",
               Kind.FLAG,
               Group.RUNNING,

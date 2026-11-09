@@ -60,3 +60,13 @@ id, to commit. From then on, a miss that isn't in the baseline is new:
 
 A mutant's id comes from its class, method, position and change, so the baseline holds while code
 around a mutant moves. A mutant whose change is different is a different mutant, and new.
+
+## Is the order any good?
+
+`mutastic run --kill-matrix` runs every test that reaches a caught mutant, not only until the
+first fails, and names each that catches it (`caughtByAll` in `--format=jsonl`). From that, a
+replay (`tools/replay.py` in mutastic's repository) holds out half of a project's test classes,
+takes the queue the rest leave, and has a simulated developer work through it in mutastic's order
+and in random order, adding one held-out test at a time. The order whose tests catch the distinct
+kinds of mutant sooner is the better one. A new signal goes into the order only when the replay
+shows it beats the order without it.

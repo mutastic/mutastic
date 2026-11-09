@@ -161,7 +161,48 @@ public final class Engine {
       java.util.Set<String> among,
       Policy policy,
       Optional<ChangedLines> changed,
-      boolean ghosts) {
+      boolean ghosts,
+      boolean killMatrix) {
+    /// Options that stop at a mutant's first catch.
+    public Options(
+        List<String> only,
+        boolean confirmCatches,
+        int workers,
+        boolean suggestions,
+        boolean auditArid,
+        java.util.Set<String> among,
+        Policy policy,
+        Optional<ChangedLines> changed,
+        boolean ghosts) {
+      this(
+          only,
+          confirmCatches,
+          workers,
+          suggestions,
+          auditArid,
+          among,
+          policy,
+          changed,
+          ghosts,
+          false);
+    }
+
+    /// The same options, running every covering test of a caught mutant, to find each that catches
+    /// it (`--kill-matrix`), not only the first.
+    public Options withKillMatrix(boolean every) {
+      return new Options(
+          only,
+          confirmCatches,
+          workers,
+          suggestions,
+          auditArid,
+          among,
+          policy,
+          changed,
+          ghosts,
+          every);
+    }
+
     /// Options without ghosts.
     public Options(
         List<String> only,
@@ -178,7 +219,16 @@ public final class Engine {
     /// The same options, for only the mutants with these ids.
     public Options among(java.util.Set<String> ids) {
       return new Options(
-          only, confirmCatches, workers, suggestions, auditArid, ids, policy, changed, ghosts);
+          only,
+          confirmCatches,
+          workers,
+          suggestions,
+          auditArid,
+          ids,
+          policy,
+          changed,
+          ghosts,
+          killMatrix);
     }
 
     public Options {
@@ -340,7 +390,8 @@ public final class Engine {
             options.suggestions(),
             options.auditArid(),
             java.util.Collections.synchronizedList(new ArrayList<>()),
-            project.sources());
+            project.sources(),
+            options.killMatrix());
     return new Plan(mutants, mutantRun, instrumented, found.stale(), ghosts);
   }
 
@@ -674,6 +725,8 @@ public final class Engine {
   /// side. Coverage is only read once the coverage pass is over.
   ///
   /// @param audited each arid mutant's result when run anyway, in an audit
+  /// @param killMatrix whether a caught mutant runs its other covering tests too, to name each that
+  ///   catches it
   private record MutantRun(
       Map<String, ClassModel> models,
       Mutations mutations,
@@ -682,7 +735,8 @@ public final class Engine {
       boolean suggestions,
       boolean auditArid,
       List<MutantResult> audited,
-      List<Path> sources) {
+      List<Path> sources,
+      boolean killMatrix) {
     /// At most this many sets of arguments to try per mutant.
     static final int CANDIDATES = 400;
 
@@ -713,6 +767,9 @@ public final class Engine {
       var tested = testConfirmed(trial, covering);
       var inputs = coverage.inputs(mutant, covering);
       var result = resultOf(trial, covering, tested, inputs);
+      if (killMatrix && tested.run().status() == Status.CAUGHT) {
+        result = result.withCaughtByAll(everyCatcher(trial, covering, tested.run()));
+      }
       if (suggestions && isOnAnInstruction(mutant) && tested.run().status() == Status.MISSED) {
         var receiver = receiverFor(mutant, covering.getFirst());
         if (receiver.isPresent()) {
@@ -720,6 +777,27 @@ public final class Engine {
         }
       }
       return new Outcome(result, tested.run().portClash());
+    }
+
+    /// Every covering test that catches the mutant, from the one that did first: each run picks up
+    /// after the last test that failed, until the rest pass or one doesn't finish in time. A test
+    /// that failed but isn't among `covering` (a class failing as a whole) ends it there.
+    private static List<String> everyCatcher(
+        Trial trial, List<String> covering, TestWorker.Run first) {
+      var catchers = new ArrayList<String>();
+      var run = first;
+      var rest = covering;
+      while (run.status() == Status.CAUGHT && run.failedTest().isPresent()) {
+        var catcher = run.failedTest().get();
+        catchers.add(catcher);
+        int at = rest.indexOf(catcher);
+        if (at < 0 || at == rest.size() - 1) {
+          break;
+        }
+        rest = rest.subList(at + 1, rest.size());
+        run = trial.run(rest);
+      }
+      return catchers;
     }
 
     /// Whether a call to the mutant's method can show it: a change to a class as a whole has no one

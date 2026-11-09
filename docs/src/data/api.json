@@ -1484,7 +1484,7 @@
           "name": "MutantResult",
           "slug": "mutantresult",
           "kind": "record",
-          "signature": "@Internal record MutantResult(\n    Mutant mutant,\n    Status status,\n    List<String> coveredBy,\n    Optional<String> caughtBy,\n    Optional<String> failure,\n    Optional<String> failureOrigin,\n    int testsRun,\n    Optional<String> unconfirmed,\n    Map<String, List<Long>> inputs,\n    Optional<Suggestion> suggestion,\n    Duration took,\n    Optional<String> falseCatchBy)",
+          "signature": "@Internal record MutantResult(\n    Mutant mutant,\n    Status status,\n    List<String> coveredBy,\n    Optional<String> caughtBy,\n    Optional<String> failure,\n    Optional<String> failureOrigin,\n    int testsRun,\n    Optional<String> unconfirmed,\n    Map<String, List<Long>> inputs,\n    Optional<Suggestion> suggestion,\n    Duration took,\n    Optional<String> falseCatchBy,\n    List<String> caughtByAll)",
           "summary": "One mutant's outcome.",
           "doc": "One mutant's outcome.",
           "params": [
@@ -1523,6 +1523,10 @@
             {
               "name": "falseCatchBy",
               "doc": "a test that failed against the mutant, then failed on the unmutated code too when run again after the mutants, so its catch wasn't the mutant's: the mutant ran again without it, and this result is what the other covering tests made of it"
+            },
+            {
+              "name": "caughtByAll",
+              "doc": "with `--kill-matrix`, every covering test that catches it, in the order they ran, the first being `caughtBy`; empty otherwise"
             }
           ],
           "members": [
@@ -1530,6 +1534,16 @@
               "kind": "constructor",
               "name": "MutantResult",
               "anchor": "mutantresult",
+              "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy)",
+              "doc": "A result without every catcher: the run stopped at the first.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "MutantResult",
+              "anchor": "mutantresult-2",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took)",
               "doc": "A result whose catch, if it has one, stands.",
               "params": [],
@@ -1582,6 +1596,16 @@
               "anchor": "withfalsecatchby",
               "signature": "MutantResult withFalseCatchBy(String test)",
               "doc": "The same result, its catch by `test` found false: the mutant's result without that test.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withCaughtByAll",
+              "anchor": "withcaughtbyall",
+              "signature": "MutantResult withCaughtByAll(List<String> tests)",
+              "doc": "The same result, with every covering test that catches it (`--kill-matrix`).",
               "params": [],
               "returns": "",
               "throws": []

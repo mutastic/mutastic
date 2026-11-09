@@ -124,6 +124,9 @@ public final class JsonEvents {
     // `killedWith` is deprecated for `caughtWith`, beside `caughtBy`; removed in 1.0.
     result.failure().ifPresent(failure -> fields.put("killedWith", failure));
     result.failure().ifPresent(failure -> fields.put("caughtWith", failure));
+    if (!result.caughtByAll().isEmpty()) {
+      fields.put("caughtByAll", result.caughtByAll());
+    }
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
     result.unconfirmed().ifPresent(test -> fields.put("unconfirmedCatchBy", test));
     result.falseCatchBy().ifPresent(test -> fields.put("falseCatchBy", test));

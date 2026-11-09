@@ -995,15 +995,16 @@ public final class Main {
   /// What the engine runs with: the command's choices, and the project's `mutastic.yaml`.
   private static Engine.Options options(Command command, Terminal terminal, Path directory) {
     return new Engine.Options(
-        command.only(),
-        command.confirmCatches(),
-        command.workers().orElse(Engine.defaultWorkers()),
-        command.suggestions() && !command.verify(),
-        terminal.auditArid(),
-        java.util.Set.of(),
-        policy(command, directory),
-        command.since().map(since -> new Git(directory).changedSince(since)),
-        command.experimental().contains(GHOSTS) || terminal.experimental().contains(GHOSTS));
+            command.only(),
+            command.confirmCatches(),
+            command.workers().orElse(Engine.defaultWorkers()),
+            command.suggestions() && !command.verify(),
+            terminal.auditArid(),
+            java.util.Set.of(),
+            policy(command, directory),
+            command.since().map(since -> new Git(directory).changedSince(since)),
+            command.experimental().contains(GHOSTS) || terminal.experimental().contains(GHOSTS))
+        .withKillMatrix(command.killMatrix());
   }
 
   /// The project's say, from `mutastic.yaml` and its ignores, with the operators to run: the
@@ -1505,7 +1506,8 @@ public final class Main {
       String commands,
       Gating gating,
       java.util.Set<String> experimental,
-      int top) {
+      int top,
+      boolean killMatrix) {
     Optional<String> format() {
       return shown.format();
     }
@@ -1561,7 +1563,8 @@ public final class Main {
           commands,
           gating,
           experimental,
-          top);
+          top,
+          killMatrix);
     }
 
     /// The run `gate check` makes: this command's project and operators, on the lines changed since
@@ -1588,7 +1591,8 @@ public final class Main {
           commands,
           gating,
           experimental,
-          top);
+          top,
+          killMatrix);
     }
 
     static Command parse(String[] args) {
@@ -1642,6 +1646,7 @@ public final class Main {
       private String hook = "";
       private int tries = 3;
       private int top = 1;
+      private boolean killMatrix = false;
       private boolean accept = false;
       private Optional<Path> setup = Optional.empty();
       private String commands = "mutastic";
@@ -1736,6 +1741,7 @@ public final class Main {
           }
           case "--tries" -> tries = number(option, given, 1, 100);
           case "--top" -> top = number(option, given, 1, io.mutastic.report.Queue.MOST);
+          case "--kill-matrix" -> killMatrix = true;
           case "--setup" -> setup = Optional.of(Path.of(given));
           case "--commands" -> commands = commands(given);
           default -> throw new IllegalStateException("no reader for " + option.name());
@@ -1884,7 +1890,8 @@ public final class Main {
             commands,
             new Gating(hook, tries),
             java.util.Set.copyOf(experimental),
-            top);
+            top,
+            killMatrix);
       }
 
       /// `:app`: another module, named as the module run is; or `dependents`, every module that
