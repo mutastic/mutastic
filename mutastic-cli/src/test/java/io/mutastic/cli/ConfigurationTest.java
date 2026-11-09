@@ -94,13 +94,14 @@ class ConfigurationTest {
     }
   }
 
-  /// The example the Configuration guide shows is one mutastic reads and the schema takes.
+  /// The example of every key the Configuration guide shows, its last, is one mutastic reads and
+  /// the schema takes. The sample's file it quotes before it is read in DocsOutputTest's runs.
   @Test
   void theGuidesExampleIsInTheSchema() throws Exception {
     var guide =
         Files.readString(
             Path.of(System.getProperty("mutastic.docs")).resolve("guides/configuration.mdx"));
-    var example = guide.substring(guide.indexOf("```yaml\nrules:") + "```yaml\n".length());
+    var example = guide.substring(guide.lastIndexOf("```yaml\nrules:") + "```yaml\n".length());
     example = example.substring(0, example.indexOf("```"));
     write(example);
 

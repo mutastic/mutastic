@@ -1,0 +1,11 @@
+
+ [2m  Classes[0m  [32m[1m2 clean[0m[0m[2m (2)[0m
+ [2m  Mutants[0m  [32m✓ [1m1 caught[0m[0m[2m · [0m[2m7 skipped (1 arid, 6 user)[0m[2m (8)[0m
+ [2mTest runs[0m  1[2m (1 without coverage selection)[0m
+ [2m Start at[0m  17:49:46
+ [2m Duration[0m  1.6s [2m(setup 495ms, coverage 196ms, mutants 950ms)[0m
+ [2m    Tests[0m  1 on JDK 17 · 1 worker
+ [2m  Reports[0m  build/mutastic/mutation.json[2m · [0mbuild/mutastic/mutation.html
+ [2m    Score[0m  [32m[1m100.0%[0m[0m  [32m▲ 85.7 vs last run[0m[2m (same code)[0m[2m  threshold 80[0m
+
+ [42;30;1m PASS [0m [32mEvery mutant was caught.[0m

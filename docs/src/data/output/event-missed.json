@@ -1,0 +1,54 @@
+{
+  "schema" : "mutastic.events/v1",
+  "reason" : "mutant-finished",
+  "id" : "m855c8e3c",
+  "fingerprint" : "855c8e3ca8a39847",
+  "status" : "Survived",
+  "operator" : "mutastic/boundary",
+  "location" : {
+    "file" : "src/main/java/com/example/pricing/Pricing.java",
+    "line" : 17,
+    "class" : "com.example.pricing.Pricing",
+    "method" : "discount(I)I"
+  },
+  "mutation" : {
+    "original" : ">=",
+    "replacement" : ">",
+    "description" : "`>=` becomes `>`",
+    "applied" : {
+      "level" : "bytecode",
+      "text" : "IF_ICMPLT -> IF_ICMPLE"
+    },
+    "bytecode" : "IF_ICMPLT -> IF_ICMPLE"
+  },
+  "coveredBy" : [ "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff", "com.example.pricing.PricingTest#smallOrdersPayFullPrice" ],
+  "inputs" : {
+    "total" : [ 50, 250 ]
+  },
+  "suggestedTest" : {
+    "testClass" : "PricingTest",
+    "name" : "discountWithTotal100",
+    "code" : "@Test\nvoid discountWithTotal100() {\n  assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0\n}",
+    "call" : "new Pricing().discount(100)",
+    "today" : "10",
+    "withMutant" : "0"
+  },
+  "suggestion" : {
+    "call" : "new Pricing().discount(100)",
+    "parameters" : [ "total" ],
+    "arguments" : [ 100 ],
+    "receiver" : [ {
+      "type" : "Pricing",
+      "arguments" : [ ]
+    } ],
+    "today" : "10",
+    "withMutant" : "0"
+  },
+  "testsRun" : 2,
+  "durationMs" : 9,
+  "doneWhen" : "mutastic verify m855c8e3c samples/pricing passes",
+  "reproduce" : "mutastic run --only=m855c8e3c samples/pricing",
+  "ignore" : "mutastic ignore m855c8e3c --reason=\"<why>\" samples/pricing",
+  "propose" : "mutastic ignore m855c8e3c --propose --reason=\"<why>\" samples/pricing",
+  "rendered" : "missed m855c8e3c: no test checks `discount()` at `total == 100`\n   at src/main/java/com/example/pricing/Pricing.java:17\n   - if (total >= 100) {\n   + if (total > 100) {\n   covered by: PricingTest#bigOrdersGetTenPercentOff, PricingTest#smallOrdersPayFullPrice; all still pass with the change\n   evidence: every test calls `discount()` away from the boundary\n   evidence: inputs seen: 50, 250 (none is 100)\n   fix: test `discount()` with `total = 100` and assert the result\n   test to add in PricingTest:\n     @Test\n     void discountWithTotal100() {\n       assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0\n     }\n     // check today's value is the one you intend: the test pins what the code does now\n   done when: mutastic verify m855c8e3c samples/pricing passes\n   reproduce: mutastic run --only=m855c8e3c samples/pricing\n   or propose: mutastic ignore m855c8e3c --propose --reason=\"<why>\" samples/pricing\n"
+}

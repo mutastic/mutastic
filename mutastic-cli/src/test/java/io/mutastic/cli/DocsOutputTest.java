@@ -2,6 +2,7 @@ package io.mutastic.cli;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,12 +10,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import tools.jackson.databind.json.JsonMapper;
 
 /// The output the docs show is what mutastic prints: each file in docs/src/data/output is a
-/// command's output on the pricing sample, in colour, compared here with a fresh run. A change to
-/// what mutastic prints fails this until the docs' copy is written again.
+/// command's output on a sample, in colour, compared here with a fresh run. A change to what
+/// mutastic prints fails this until the docs' copy is written again. And the code the pages quote
+/// is the samples' own: a block marked `{/* from: path */}` is that file's text, word for word, and
+/// the test the quickstart adds is the one its tour adds.
 ///
 /// To write it: `./gradlew :mutastic-cli:exportDocsOutput`.
 class DocsOutputTest {
@@ -25,6 +30,18 @@ class DocsOutputTest {
   private static final Path FLAKY = Path.of(System.getProperty("mutastic.samples"), "flaky");
   private static final Path SUGGESTIONS =
       Path.of(System.getProperty("mutastic.samples"), "suggestions");
+  private static final Path CONFIGURED =
+      Path.of(System.getProperty("mutastic.samples"), "configured");
+  private static final Path PAGES = Path.of(System.getProperty("mutastic.docs"));
+
+  /// A mutant of the configured sample's generated code, which its rule skips.
+  private static final String GENERATED = "m6393711d";
+
+  /// A marked code block in a page: `{/* from: path */}` quotes a file; `{/* added to: path */}` is
+  /// code the page adds to one.
+  private static final Pattern MARKED =
+      Pattern.compile(
+          "(?m)^\\{/\\* (?<kind>from|added to): (?<path>\\S+) \\*/}\\n```\\w+\\n(?<code>(?s:.*?))^```$");
 
   /// Colour and style codes, to find a line by its words.
   private static final Pattern ANSI = Pattern.compile("\u001B\\[[0-9;]*m");
@@ -37,7 +54,8 @@ class DocsOutputTest {
   /// how many covering tests ran before a mutant's result was known, as they run fastest first and
   /// a test's time moves with the machine's load.
   private static final Pattern TIMINGS =
-      Pattern.compile("\\d+(\\.\\d+)?(ms|s)\\b|\\d\\d:\\d\\d:\\d\\d|Ms\":\\d+|\"testsRun\":\\d+");
+      Pattern.compile(
+          "\\d+(\\.\\d+)?(ms|s)\\b|\\d\\d:\\d\\d:\\d\\d|Ms\" ?: ?\\d+|\"testsRun\" ?: ?\\d+");
 
   @TempDir Path work;
 
@@ -69,7 +87,25 @@ class DocsOutputTest {
               "--workers=1");
       assertThat(result.exit()).as(format).isEqualTo(Main.PASSED);
       shown("format-" + format + ".ansi", project, result);
+      if (format.equals("jsonl")) {
+        shown("event-missed.json", project, theMissedEvent(result));
+      }
     }
+  }
+
+  /// The one missed mutant's event, laid out to be read, as Schemas and stability shows it.
+  private static Samples.Result theMissedEvent(Samples.Result result) {
+    var mapper = JsonMapper.builder().build();
+    var missed =
+        result
+            .out()
+            .lines()
+            .map(mapper::readTree)
+            .filter(event -> event.path("status").asString("").equals("Survived"))
+            .findFirst()
+            .orElseThrow();
+    var laidOut = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(missed) + "\n";
+    return new Samples.Result(result.exit(), laidOut, result.err());
   }
 
   /// The flaky sample, run twice: the second time, every check has something to say. Only the end
@@ -99,6 +135,61 @@ class DocsOutputTest {
 
     assertThat(result.exit()).isEqualTo(Main.FAILED);
     shown("shared-card.ansi", project, theCard(result, "no test checks inCredit()"));
+  }
+
+  /// The configuration guide's example: the configured sample without its mutastic.yaml, where the
+  /// generated code counts as not covered, then with it, where its rule skips that code, and one of
+  /// those skipped mutants explained.
+  @Test
+  void aRuleThatSkipsGeneratedCode() throws Exception {
+    var project = Samples.copy(CONFIGURED, work.resolve("configured"));
+    var settings = Files.readString(project.resolve("mutastic.yaml"));
+    Files.delete(project.resolve("mutastic.yaml"));
+    var without = concise(project);
+    Files.writeString(project.resolve("mutastic.yaml"), settings);
+    var with = concise(project);
+
+    assertThat(without.exit()).isEqualTo(Main.FAILED);
+    shown("configured-without.ansi", project, without);
+    shown("configured.ansi", project, with);
+    shown("configured-explain.ansi", project, mutastic("explain", GENERATED, project.toString()));
+  }
+
+  /// Troubleshooting's examples, one for each exit status a person meets: a score below the
+  /// threshold, a mutant's id given to another project, and a test that fails with no mutant in.
+  @Test
+  void eachExitStatus() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+    var below =
+        Samples.mutastic(
+            TERMINAL,
+            "run",
+            project.toString(),
+            "--format=concise",
+            "--threshold=95",
+            "--workers=4");
+    var elsewhere = Samples.mutastic(TERMINAL, "verify", GENERATED, project.toString());
+    var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
+    Files.writeString(test, Files.readString(test).replace("assertEquals(25,", "assertEquals(24,"));
+    var failing = Samples.mutastic(TERMINAL, "run", project.toString());
+
+    assertThat(below.exit()).isEqualTo(Main.FAILED);
+    assertThat(elsewhere.exit()).isEqualTo(Main.USAGE);
+    assertThat(failing.exit()).isEqualTo(Main.TESTS_FAIL);
+    shown("below-threshold.ansi", project, below);
+    shown("id-elsewhere.ansi", project, itsMessage(elsewhere));
+    shown("tests-fail.ansi", project, itsMessage(failing));
+  }
+
+  private static Samples.Result concise(Path project) {
+    return Samples.mutastic(TERMINAL, "run", project.toString(), "--format=concise", "--workers=1");
+  }
+
+  /// What mutastic says on stderr, without its progress, whose first line names its version.
+  private static Samples.Result itsMessage(Samples.Result result) {
+    var said = result.err().lines().filter(line -> line.startsWith("mutastic: ")).toList();
+    assertThat(said).as(result.err()).isNotEmpty();
+    return new Samples.Result(result.exit(), String.join("\n", said) + "\n", "");
   }
 
   /// The card whose headline starts `headline`, up to the next card or file.
@@ -133,20 +224,60 @@ class DocsOutputTest {
     return result;
   }
 
-  /// The test the card suggests, as the quickstart adds it.
+  /// The test the card suggests, as the quickstart adds it: the page's own block.
   private static void addTheSuggestedTest(Path project) throws Exception {
+    var block =
+        marked(PAGES.resolve("getting-started/quickstart.mdx")).stream()
+            .filter(found -> found.kind().equals("added to"))
+            .findFirst()
+            .orElseThrow();
     var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
+    assertThat(block.path()).isEqualTo("samples/pricing/" + project.relativize(test));
     var source = Files.readString(test).stripTrailing();
-    var added =
-        """
+    var indented = block.code().indent(2);
+    Files.writeString(
+        test,
+        source.substring(0, source.lastIndexOf('}')).stripTrailing() + "\n\n" + indented + "}\n");
+  }
 
-          @Test
-          void discountWithTotal100() {
-            assertEquals(10, new Pricing().discount(100));
-          }
+  /// Every block a page quotes from a file outside the operator pages, which DocsOperatorsTest
+  /// checks, is that file's text, word for word.
+  @Test
+  void everyQuoteIsTheFilesText() throws Exception {
+    var root = SAMPLE.getParent().getParent();
+    var quoted = 0;
+    for (Path page : pagesOutsideTheOperators()) {
+      for (Marked block : marked(page)) {
+        if (block.kind().equals("from")) {
+          assertThat(Files.readString(root.resolve(block.path())))
+              .as("%s, quoted in %s", block.path(), PAGES.relativize(page))
+              .contains(block.code());
+          quoted++;
         }
-        """;
-    Files.writeString(test, source.substring(0, source.lastIndexOf('}')).stripTrailing() + added);
+      }
+    }
+    assertThat(quoted).as("blocks quoted from a file").isPositive();
+  }
+
+  private record Marked(String kind, String path, String code) {}
+
+  private static List<Marked> marked(Path page) throws IOException {
+    var found = new ArrayList<Marked>();
+    var matcher = MARKED.matcher(Files.readString(page));
+    while (matcher.find()) {
+      found.add(new Marked(matcher.group("kind"), matcher.group("path"), matcher.group("code")));
+    }
+    return found;
+  }
+
+  private static List<Path> pagesOutsideTheOperators() throws IOException {
+    var operators = PAGES.resolve("concepts/operators");
+    try (Stream<Path> files = Files.walk(PAGES)) {
+      return files
+          .filter(file -> file.toString().endsWith(".mdx") && !file.startsWith(operators))
+          .sorted()
+          .toList();
+    }
   }
 
   /// As the docs show it, from the repository's root, where the sample is typed as

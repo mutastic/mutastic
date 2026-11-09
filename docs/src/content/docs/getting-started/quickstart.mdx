@@ -8,8 +8,9 @@ import run from '../../../data/output/run.ansi?raw';
 import runAgain from '../../../data/output/run-again.ansi?raw';
 import verify from '../../../data/output/verify.ansi?raw';
 
-This runs mutastic on `samples/pricing`, a small Gradle project in mutastic's repository whose
-tests pass and cover every line, and still miss something. It needs the
+Your tests pass and cover every line: does that mean they check what the code does? This runs
+mutastic on `samples/pricing`, a small Gradle project in mutastic's repository whose tests pass and
+cover every line, and still miss something. Then it closes the gap and proves it. It needs the
 [command line](/getting-started/install/) on your `PATH`.
 
 ## 1. Run it
@@ -37,16 +38,26 @@ them:
 - **The commands** to prove a fix, to see the mutant again, or to record a decision not to test it.
   Each names this project, so it works as it's copied. `m855c8e3c` is the mutant's id.
 
+The summary says how the rest went. The score is high enough to pass, but the run still shows the
+one it missed: a passing score isn't a reason to leave a gap you can close.
+
 ## 3. Close the gap
 
-Add the suggested test to `samples/pricing/src/test/java/com/example/pricing/PricingTest.java`:
+The card's test asserts what `discount(100)` gives today, 10. Is that right? The method's comment
+says 10% off orders of 100 or more, so yes. Add the test to
+`samples/pricing/src/test/java/com/example/pricing/PricingTest.java`:
 
+{/* added to: samples/pricing/src/test/java/com/example/pricing/PricingTest.java */}
 ```java
 @Test
 void discountWithTotal100() {
   assertEquals(10, new Pricing().discount(100));
 }
 ```
+
+With `>` in place of `>=`, `discount(100)` is 0, and this test fails. When today's value isn't the
+one the code should give, keep the test and write the right value: then it's the code that needs
+fixing. See [Suggested tests](/concepts/suggested-tests/).
 
 ## 4. Prove it
 
@@ -58,7 +69,9 @@ mutastic verify m855c8e3c samples/pricing
 
 <Code code={verify} lang="ansi" />
 
-The mutant is caught: a test now fails when `>=` becomes `>`.
+The mutant is caught: a test now fails when `>=` becomes `>`. `verify` exits with 0 when every
+mutant it names is caught, and 1 while one is still missed, so a script or a coding agent can use it
+as the check that a gap is closed.
 
 ## 5. Run it again
 

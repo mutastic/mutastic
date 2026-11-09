@@ -1,0 +1,23 @@
+
+ [46;30;1m SKIPPED [0m [1mskipped: user: written by a code generator (rule [1mskip: com.example.configured.generated.**[0m)[0m
+    [2m┌─[0m src/main/java/com/example/configured/generated/Checksums.java:10
+    [2m│[0m
+ [2m 9[0m [2m│[0m     for (byte b : bytes) {
+ [2m10[0m [2m│[0m       sum += b;
+    [2m│[0m       [1;31m^^^^^^^^^ changed to -[0m
+ [2m11[0m [2m│[0m     }
+    [2m│[0m
+
+    [2mreproduce [0m mutastic run --only=m6393711d samples/configured
+
+[1m About this mutant [0m[2m───────────────────────────────────────────────[0m
+    [2m=[0m [1;34m[1mbytecode[0m[0m  [1mIADD → ISUB[0m
+                [2mIADD: add two ints[0m
+                [2mISUB: subtract two ints[0m
+    [2m=[0m [1;34m[1moperator[0m[0m  mutastic/math: `+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`.
+    [2m=[0m [1;34m[1mid      [0m[0m  m6393711d: `m` and the first 8 hex digits of its fingerprint, 6393711ddb367a4b, a
+                SHA-256 of the class, method, site and change
+                [2mno line number goes in, so the id stays the same when code above it moves[0m
+    [2m=[0m [1;34m[1msite    [0m[0m  instruction site 3 of of([B)I, counting from 1 (arithmetic, branches and returns are
+                counted in bytecode order; calls apart)
+    [2m=[0m [1;34m[1mlast run[0m[0m  skipped

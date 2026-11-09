@@ -3,7 +3,63 @@ title: Configuration and skipping
 description: "Tell mutastic what not to mutate, and why: annotations, mutastic.yaml rules, filters and recorded ignores."
 ---
 
-Some mutants are never worth a test. mutastic skips some on its own, and a project can say which others to skip, or bring back, always with a reason.
+import { Code } from '@astrojs/starlight/components';
+import without from '../../../data/output/configured-without.ansi?raw';
+import configured from '../../../data/output/configured.ansi?raw';
+import explained from '../../../data/output/configured-explain.ansi?raw';
+
+Some mutants are never worth a test: code a generator wrote, a call that only logs. Left in, they
+count against the score, and the gaps worth closing hide among them. mutastic skips some on its
+own, and a project can say which others to skip, or bring back, always with a reason, so the score
+is about the code you mean to test and anyone reviewing a skip can see why it's there.
+
+## A rule, and what it changes
+
+The `configured` sample in mutastic's repository has a class its tests check, and one a code
+generator wrote, tested where it's generated:
+
+{/* from: samples/configured/src/main/java/com/example/configured/generated/Checksums.java */}
+```java
+public final class Checksums {
+  private Checksums() {}
+
+  public static int of(byte[] bytes) {
+    int sum = 1;
+    for (byte b : bytes) {
+      sum += b;
+    }
+    return sum;
+  }
+}
+```
+
+With no `mutastic.yaml`, the generated code's mutants count as not covered, and the score says
+more about the generator than about the tests:
+
+<Code code={without} lang="ansi" />
+
+One rule in `mutastic.yaml`, beside the build, says to skip that package, and why:
+
+{/* from: samples/configured/mutastic.yaml */}
+```yaml
+rules:
+  - skip: com.example.configured.generated.**
+    reason: written by a code generator
+```
+
+The run after it skips them as `user`, out of the score. `Customer.toString()` was skipped both
+times, as `arid`, by mutastic on its own:
+
+<Code code={configured} lang="ansi" />
+
+Each skipped mutant keeps its reason, with the rule that skipped it. `mutastic explain` shows it,
+and so do the [events](/reference/schemas/#events) and the [report files](/reference/reports/):
+
+```sh
+mutastic explain m6393711d samples/configured
+```
+
+<Code code={explained} lang="ansi" />
 
 ## What mutastic skips
 
