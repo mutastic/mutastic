@@ -749,9 +749,8 @@ public final class Main {
   /// times `check` sends a hooked agent back before it lets it stop.
   record Gating(String hook, int tries) {}
 
-  /// How a caught mutant's tests run: each catch run once more to confirm it
-  /// (`--confirm-catches`), and every covering test run, not only up to the first catch
-  /// (`--kill-matrix`).
+  /// How a caught mutant's tests run: each catch run once more to confirm it (`--confirm-catches`),
+  /// and every covering test run, not only up to the first catch (`--kill-matrix`).
   record Catches(boolean confirm, boolean every) {}
 
   record Ignoring(

@@ -402,11 +402,7 @@ public final class Engine {
     var mutations = found.mutations();
     var coverage = new Coverage(context);
     var ghosts =
-        options.ghosts()
-            ? ghostsIn(models, mutations).stream()
-                .filter(ghost -> options.shard().holds(ghost.mutant().id()))
-                .toList()
-            : List.<Ghosts.Found>of();
+        options.ghosts() ? ghostsIn(models, mutations, options.shard()) : List.<Ghosts.Found>of();
     var toRun = new ArrayList<>(mutants);
     ghosts.forEach(ghost -> toRun.add(ghost.mutant()));
     var instrumented = instrumentMutated(models, toRun, coverage, options.auditArid());
@@ -424,14 +420,17 @@ public final class Engine {
     return new Plan(mutants, mutantRun, instrumented, found.stale(), ghosts);
   }
 
-  /// The ghosts in the module's classes that would load: one that doesn't verify proves nothing.
-  private static List<Ghosts.Found> ghostsIn(Map<String, ClassModel> models, Mutations mutations) {
+  /// The ghosts in the module's classes that would load, in this run's share: one that doesn't
+  /// verify proves nothing.
+  private static List<Ghosts.Found> ghostsIn(
+      Map<String, ClassModel> models, Mutations mutations, Shard shard) {
     var byInternalName =
         models.values().stream()
             .collect(Collectors.toMap(model -> model.thisClass().asInternalName(), model -> model));
     var finder = new Ghosts(new MissingNotification(), byInternalName);
     return models.values().stream()
         .flatMap(model -> finder.find(model).stream())
+        .filter(found -> shard.holds(found.mutant().id()))
         .filter(
             found -> mutations.unviable(model(models, found.mutant()), found.mutant()).isEmpty())
         .toList();

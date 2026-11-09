@@ -34,14 +34,14 @@ A suite but `test` keeps its own run record and reports, under `suites/<name>/` 
 A whole module's run can take longer than one CI job should. `--shard=N/M` runs only the Nth of M shares of its mutants, so M jobs side by side each run one share:
 
 ```sh
-mutastic run --shard=2/4 --threshold=0 --format=jsonl > share-2.jsonl
+mutastic run --shard=2/4 --threshold=0 --format=jsonl
 ```
 
 Each mutant is dealt to a share by its id alone, so every mutant is in exactly one share, whichever job runs it, and the shares come out about the same size, each with mutants from across the module. Coverage is still measured over all the module's tests in each job, so a mutant's result is the one a whole run would give it.
 
 A share's score is only that share's, and so is its threshold: give each share `--threshold=0` and check the floor once the shares are back together. Each share's `run-finished` event (with `--format=jsonl`) has its counts. Add them up across the shares, and the whole run's score is caught plus timed out, over every mutant but the skipped ones:
 
-```
+```text
 score = 100 × (Killed + Timeout) / (mutants − Ignored)
 ```
 

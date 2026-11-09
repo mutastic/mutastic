@@ -10,10 +10,12 @@ import org.junit.jupiter.api.Test;
 class ShardTest {
   @Test
   void eachMutantIsInExactlyOneShare() {
-    var ids = IntStream.range(0, 400).mapToObj(n -> "m%08x".formatted(n * 2654435761L)).toList();
+    var ids =
+        IntStream.range(0, 400).mapToObj(seed -> "m%08x".formatted(seed * 2654435761L)).toList();
 
     for (var id : ids) {
-      assertThat(IntStream.rangeClosed(1, 4).filter(n -> new Shard(n, 4).holds(id)).count())
+      assertThat(
+              IntStream.rangeClosed(1, 4).filter(number -> new Shard(number, 4).holds(id)).count())
           .as(id)
           .isOne();
       assertThat(Shard.WHOLE.holds(id)).isTrue();
