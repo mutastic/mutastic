@@ -3,10 +3,26 @@ title: Troubleshooting
 description: What mutastic's exit status means, and what to do about each.
 ---
 
-mutastic says what went wrong, then exits with a status that says what kind of thing it was. The
-build plugins fail the build on any status but 0.
+import { Code } from '@astrojs/starlight/components';
+import below from '../../../data/output/below-threshold.ansi?raw';
+import elsewhere from '../../../data/output/id-elsewhere.ansi?raw';
+import testsFail from '../../../data/output/tests-fail.ansi?raw';
+
+When a run doesn't pass, what to do depends on why: a gap in the tests is closed with a test, a
+command typed wrong is typed again, and a failing test is fixed before mutastic can say anything.
+So mutastic says what went wrong, then exits with a status that says what kind of thing it was, and
+a script or a CI step can tell them apart. The build plugins fail the build on any status but 0.
+Each section below starts from what you see, on mutastic's samples, then says what to do.
 
 ## 1: the score is below the threshold
+
+On the pricing sample, with the threshold set above its score:
+
+```sh
+mutastic run samples/pricing --format=concise --threshold=95
+```
+
+<Code code={below} lang="ansi" />
 
 For `run`, the score didn't reach the threshold. Each missed mutant in the output says what to test
 and how to prove it; start with the ones on lines you changed. If the threshold is wrong for this
@@ -17,13 +33,26 @@ the inputs your tests used and a test that would catch it.
 
 ## 2: a usage error, or a build mutastic couldn't read
 
-The message says which. For an option, check `mutastic --help`: a value follows `=` or a space,
-except `--since`, which needs `=` (`--since=main`). For a build, mutastic must be run in, or
-pointed at, a Gradle or Maven build's directory, and a module named as the build names it: `:app`
-for Gradle, a directory as `-pl` takes it for Maven. A mutant's id belongs to the project its run
-was on, so run the command the run printed.
+The message says which. Here, a mutant's id from the `configured` sample, given to the pricing
+sample:
+
+```sh
+mutastic verify m6393711d samples/pricing
+```
+
+<Code code={elsewhere} lang="ansi" />
+
+A mutant's id belongs to the project its run was on, so run the command the run printed. For an
+option, check `mutastic --help`: a value follows `=` or a space, except `--since`, which needs `=`
+(`--since=main`). For a build, mutastic must be run in, or pointed at, a Gradle or Maven build's
+directory, and a module named as the build names it: `:app` for Gradle, a directory as `-pl` takes
+it for Maven.
 
 ## 3: the tests fail without any mutant
+
+On the pricing sample, with one of its tests changed to expect 24 where the code gives 25:
+
+<Code code={testsFail} lang="ansi" />
 
 mutastic runs your tests once before it changes anything. They have to pass first, as a mutant is
 only caught when a test that passed fails. Run the build's own tests and fix what fails. A test
