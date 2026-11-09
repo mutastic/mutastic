@@ -2563,6 +2563,47 @@
               "throws": []
             }
           ]
+        },
+        {
+          "name": "Wrappers",
+          "slug": "wrappers",
+          "kind": "class",
+          "signature": "@Internal class Wrappers",
+          "summary": "How a build tool's setup finds the command its build runs with: the build's own wrapper, else the tool on the PATH.",
+          "doc": "How a build tool's setup finds the command its build runs with: the build's own wrapper, else\nthe tool on the PATH.",
+          "params": [],
+          "members": [
+            {
+              "kind": "method",
+              "name": "root",
+              "anchor": "root",
+              "signature": "static Path root(Path directory, Predicate<Path> isRoot)",
+              "doc": "The nearest directory from `directory` up that `isRoot` holds for: the top of the build a\nmodule directory belongs to. `directory` itself when none does, as a build of its own.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "wrapper",
+              "anchor": "wrapper",
+              "signature": "static Optional<Path> wrapper(Path directory, Path root, String wrapper)",
+              "doc": "The executable `wrapper` nearest `directory`, looking in it and each directory above it up to\n`root`: a module's own, else the one at the top of its build.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "onPath",
+              "anchor": "onpath",
+              "signature": "static boolean onPath(String name, String path)",
+              "doc": "Whether `name` is a program in one of `path`'s directories (the PATH variable's value), as\nit's named on any system: `gradle`, or `gradle.bat` on Windows.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
         }
       ]
     }

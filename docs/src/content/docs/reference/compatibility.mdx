@@ -86,6 +86,12 @@ mutastic's build holds this as well: it compares the events schema with the last
 fails on a change that would break a reader. [Schemas and stability](../schemas/) has the schemas,
 for the events, `mutastic.yaml` and rules files, and exactly what counts as breaking.
 
+## Builds
+
+mutastic runs a Gradle or Maven build as its own developers do: with the build's wrapper
+(`gradlew`, `mvnw`) whenever it has one, including from a module's directory, where the wrapper is
+at the top of the build. A build without a wrapper runs with the `gradle` or `mvn` on the `PATH`.
+
 ## What's experimental
 
 Some things ship before they're settled, and may change in a minor release: Kotlin support, and

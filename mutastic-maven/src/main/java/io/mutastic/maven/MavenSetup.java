@@ -4,6 +4,7 @@ import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
 import io.mutastic.api.Project;
 import io.mutastic.api.ProjectSetup;
+import io.mutastic.api.Wrappers;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
@@ -11,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /// A Maven module's setup: compiles the code and tests with `mvn test-compile` and mutastic's
 /// extension loaded (`-Dmaven.ext.class.path`), which writes what Surefire's `test` would use.
@@ -120,27 +122,33 @@ final class MavenSetup {
 
   private static int mvn(Path directory, List<String> command, Path log)
       throws IOException, InterruptedException {
-    try {
-      return new ProcessBuilder(command)
-          .directory(directory.toFile())
-          .redirectErrorStream(true)
-          .redirectOutput(log.toFile())
-          .start()
-          .waitFor();
-    } catch (IOException e) {
-      if (command.getFirst().equals("mvn")) {
-        throw new SetupFailed(
-            "%s has no Maven wrapper (mvnw), and there's no `mvn` to run instead"
-                .formatted(directory));
-      }
-      throw e;
-    }
+    return new ProcessBuilder(command)
+        .directory(directory.toFile())
+        .redirectErrorStream(true)
+        .redirectOutput(log.toFile())
+        .start()
+        .waitFor();
   }
 
-  /// The project's wrapper, as its own build runs; `mvn` on the PATH without one.
   private static String mvn(Path directory) {
-    var wrapper = directory.resolve("mvnw");
-    return Files.isExecutable(wrapper) ? wrapper.toString() : "mvn";
+    return mvn(directory, Objects.requireNonNullElse(System.getenv("PATH"), ""));
+  }
+
+  /// The build's wrapper, as its own build runs: the nearest from `directory` up to the top of its
+  /// build, where `.mvn` is, so a module directory runs its build's. Else `mvn` on `path`, the
+  /// PATH.
+  static String mvn(Path directory, String path) {
+    var root = Wrappers.root(directory, at -> Files.isDirectory(at.resolve(".mvn")));
+    var found = Wrappers.wrapper(directory, root, "mvnw");
+    if (found.isPresent()) {
+      return found.get().toString();
+    }
+    if (!Wrappers.onPath("mvn", path)) {
+      throw new SetupFailed(
+          "%s has no Maven wrapper (mvnw), and there's no `mvn` to run instead"
+              .formatted(directory));
+    }
+    return "mvn";
   }
 
   private static String noJava(Path directory, String module, String typed) {

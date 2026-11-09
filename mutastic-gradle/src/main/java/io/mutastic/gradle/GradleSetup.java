@@ -4,6 +4,7 @@ import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
 import io.mutastic.api.Project;
 import io.mutastic.api.ProjectSetup;
+import io.mutastic.api.Wrappers;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,6 +12,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 
 /// A Gradle module's setup, read by running its build with mutastic's init script: compiles the
 /// code and tests, and writes what the `test` task would use.
@@ -50,7 +52,7 @@ final class GradleSetup {
     writeInitScript(build.init());
     Files.deleteIfExists(out);
     var log = workDirectory.resolve("gradle.log");
-    int exit = gradle(build, out, log, (module.equals(":") ? "" : module) + ":mutasticSetup");
+    int exit = gradle(build, out, log, task(build.directory(), module, "mutasticSetup"));
     if (exit != 0 || !Files.exists(out)) {
       var output = Files.readString(log).strip();
       if (output.contains("'mutasticSetup' not found")) {
@@ -113,7 +115,7 @@ final class GradleSetup {
       writeInitScript(build.init());
       var listed = workDirectory.resolve("dependents.txt");
       Files.deleteIfExists(listed);
-      var task = (module.equals(":") ? "" : module) + ":mutasticDependents";
+      var task = task(directory, module, "mutasticDependents");
       if (gradle(build, listed, workDirectory.resolve("gradle-dependents.log"), task) != 0) {
         throw new SetupFailed(
             "Gradle couldn't list the modules that depend on %s; its output is in %s"
@@ -165,27 +167,17 @@ final class GradleSetup {
   /// Runs the build's own Gradle with mutastic's init script; its output goes to `log`.
   private static int gradle(Build build, Path out, Path log, String task)
       throws IOException, InterruptedException {
-    var command = gradleCommand(build, out, task);
-    try {
-      return new ProcessBuilder(command)
-          .directory(build.directory().toFile())
-          .redirectOutput(log.toFile())
-          .redirectErrorStream(true)
-          .start()
-          .waitFor();
-    } catch (IOException e) {
-      if (command.getFirst().equals("gradle")) {
-        throw new SetupFailed(
-            "%s has no Gradle wrapper (gradlew), and there's no `gradle` to run instead"
-                .formatted(build.directory()));
-      }
-      throw e;
-    }
+    return new ProcessBuilder(gradleCommand(build, out, task))
+        .directory(build.directory().toFile())
+        .redirectOutput(log.toFile())
+        .redirectErrorStream(true)
+        .start()
+        .waitFor();
   }
 
   private static List<String> gradleCommand(Build build, Path out, String task) {
     return List.of(
-        gradle(build.directory()),
+        gradle(build.directory(), Objects.requireNonNullElse(System.getenv("PATH"), "")),
         "-q",
         "--no-configuration-cache",
         "-I",
@@ -201,9 +193,42 @@ final class GradleSetup {
         + (module.equals(":") ? "" : module.replace(':', '/'));
   }
 
-  /// The project's wrapper, as its own build runs; `gradle` on the PATH without one.
-  private static String gradle(Path directory) {
-    var wrapper = directory.resolve(File.separatorChar == '\\' ? "gradlew.bat" : "gradlew");
-    return Files.isExecutable(wrapper) ? wrapper.toAbsolutePath().toString() : "gradle";
+  /// The build's wrapper, as its own build runs: the nearest from `directory` up to the top of its
+  /// build, where its settings file is, so a module directory runs its build's. Else `gradle` on
+  /// `path`, the PATH.
+  static String gradle(Path directory, String path) {
+    var root = Wrappers.root(directory, GradleSetup::hasSettings);
+    var wrapper = File.separatorChar == '\\' ? "gradlew.bat" : "gradlew";
+    var found = Wrappers.wrapper(directory, root, wrapper);
+    if (found.isPresent()) {
+      return found.get().toString();
+    }
+    if (!Wrappers.onPath("gradle", path)) {
+      throw new SetupFailed(
+          "%s has no Gradle wrapper (gradlew), and there's no `gradle` to run instead"
+              .formatted(directory));
+    }
+    return "gradle";
+  }
+
+  /// `module`'s task by its full Gradle path: `:core:mutasticSetup` for the build in a module
+  /// directory, `core`, since Gradle runs the whole build from any directory in it, and a path from
+  /// its top. A module is where Gradle keeps it by default, its path's directories.
+  static String task(Path directory, String module, String task) {
+    var root = Wrappers.root(directory, GradleSetup::hasSettings);
+    var below = root.relativize(directory.toAbsolutePath().normalize());
+    var path = new StringBuilder();
+    for (var name : below) {
+      if (!name.toString().isEmpty()) {
+        path.append(':').append(name);
+      }
+    }
+    return path + (module.equals(":") ? "" : module) + ":" + task;
+  }
+
+  private static boolean hasSettings(Path directory) {
+    return BUILD_FILES.stream()
+        .filter(name -> name.startsWith("settings"))
+        .anyMatch(name -> Files.isRegularFile(directory.resolve(name)));
   }
 }

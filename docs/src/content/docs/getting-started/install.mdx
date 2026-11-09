@@ -31,6 +31,9 @@ Then, in a Gradle or Maven project's directory:
 mutastic run
 ```
 
+mutastic builds the project the way you do: with its wrapper, `gradlew` or `mvnw`, whenever the
+build has one, and with the `gradle` or `mvn` on your `PATH` when it doesn't.
+
 Or by hand: download <code>mutastic-{release}.zip</code> from the{' '}
 <a href={`https://github.com/mutastic/mutastic/releases/tag/v${release}`}>{release} release</a>,
 unzip it, and put its `bin` directory on your `PATH`.
