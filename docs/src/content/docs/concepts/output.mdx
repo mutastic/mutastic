@@ -13,7 +13,11 @@ import jsonl from '../../../data/output/format-jsonl.ansi?raw';
 import full from '../../../data/output/run.ansi?raw';
 import shared from '../../../data/output/shared-card.ansi?raw';
 
-mutastic prints its result on stdout and its progress on stderr. How the result looks is `--format`'s choice.
+The same run is read by a person at a terminal, by a CI log, by a coding agent and by a tool, and
+each needs something different from it: a person wants the code with the change marked, a log one
+line per gap, an agent the verdict first and plain text it can act on, a tool fields it can parse.
+So mutastic prints one result in several formats, and picks the one that fits where it's running.
+Its result goes to stdout and its progress to stderr.
 
 ## Formats
 
