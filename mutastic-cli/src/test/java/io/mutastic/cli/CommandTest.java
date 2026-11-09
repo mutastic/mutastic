@@ -207,6 +207,21 @@ class CommandTest {
         .containsExactly("m855c8e3c", "m0d5b4a21");
   }
 
+  /// A word a command doesn't take is refused, not dropped: `run` with `explain m…` after it would
+  /// otherwise run, and look like the explain.
+  @Test
+  void wordsACommandDoesntTakeAreRefused() {
+    assertThatThrownBy(() -> parse("run", "samples/pricing", "explain", "md3a59003"))
+        .hasMessage("run doesn't take explain md3a59003: mutastic run [DIR] [:MODULE] [OPTIONS]");
+    assertThatThrownBy(() -> parse("explain", "m855c8e3c", "src", "m0d5b4a21"))
+        .hasMessage("explain doesn't take m0d5b4a21: mutastic explain ID [DIR] [:MODULE]");
+    assertThatThrownBy(() -> parse("gate", "check", ".", ":core", ":app"))
+        .hasMessage("gate check doesn't take :app: mutastic gate check [DIR] [:MODULE]");
+    assertThat(parse("verify", "m855c8e3c", "m0d5b4a21", "src", ":core").module())
+        .isEqualTo(":core");
+    assertThat(parse("run", ":core", "src").directory()).isEqualTo(Path.of("src"));
+  }
+
   @Test
   void reportsReplaceTheDefaultsAndTakeAPath() {
     assertThat(

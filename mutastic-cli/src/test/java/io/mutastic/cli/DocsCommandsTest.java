@@ -23,6 +23,9 @@ class DocsCommandsTest {
   /// What help and the version answer before a command is parsed.
   private static final List<String> ANSWERED = List.of("--help", "-h", "--version", "help");
 
+  /// What ends a command in a shell line, another command after it.
+  private static final List<String> END_OF_COMMAND = List.of("||", "&&", "|", ";");
+
   @Test
   void everyCommandTheDocsShowParses() throws IOException {
     var failures = new ArrayList<String>();
@@ -183,7 +186,7 @@ class DocsCommandsTest {
   }
 
   /// `line` split as a shell would: on spaces, but not inside double quotes, which it drops.
-  private static List<String> words(String line) {
+  static List<String> words(String line) {
     var words = new ArrayList<String>();
     var word = new StringBuilder();
     boolean quoted = false;
@@ -202,6 +205,18 @@ class DocsCommandsTest {
     }
     if (word.length() > 0) {
       words.add(word.toString());
+    }
+    return command(words);
+  }
+
+  /// The command alone: up to a comment (`# the head of the queue`) or the next command (`||
+  /// send-back`).
+  private static List<String> command(List<String> words) {
+    for (int index = 0; index < words.size(); index++) {
+      var word = words.get(index);
+      if (word.startsWith("#") || END_OF_COMMAND.contains(word)) {
+        return words.subList(0, index);
+      }
     }
     return words;
   }

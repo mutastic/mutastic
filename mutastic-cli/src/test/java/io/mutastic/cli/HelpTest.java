@@ -54,8 +54,9 @@ class HelpTest {
   void everyExampleParses() {
     for (Main.Subcommand command : Main.Subcommand.values()) {
       for (String example : command.examples) {
-        // Quotes are the shell's: without them, a reason in words is still words.
-        var args = example.replace("\"", "").replaceFirst("^mutastic ", "").split(" ", -1);
+        // Split as the shell would: a reason in quotes is one word.
+        var args =
+            DocsCommandsTest.words(example.replaceFirst("^mutastic ", "")).toArray(String[]::new);
 
         assertThat(Main.Command.parse(args).subcommand()).as(example).isEqualTo(command);
       }

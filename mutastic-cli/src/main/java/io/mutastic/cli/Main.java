@@ -1909,11 +1909,30 @@ public final class Main {
             .formatted(subcommand, subcommand, after);
       }
 
+      /// What's left once the ids are taken is a directory and a `:module`, each at most once: any
+      /// other word was meant for something, and doing the command without it would hide that.
+      private void noStrayWords(Subcommand subcommand) {
+        var stray = new ArrayList<>(positional);
+        stray.stream().filter(arg -> !arg.startsWith(":")).findFirst().ifPresent(stray::remove);
+        stray.stream().filter(arg -> arg.startsWith(":")).findFirst().ifPresent(stray::remove);
+        if (!stray.isEmpty()) {
+          throw new UsageException(
+              "%s doesn't take %s: mutastic %s"
+                  .formatted(subcommand.word(), String.join(" ", stray), subcommand.synopsis));
+        }
+      }
+
+      /// The command, once nothing is left over.
       private Command built(Subcommand subcommand) {
+        noStrayWords(subcommand);
+        return assembled(subcommand, directory(), module());
+      }
+
+      private Command assembled(Subcommand subcommand, Path directory, String module) {
         return new Command(
             subcommand,
-            directory(),
-            module(),
+            directory,
+            module,
             new Shown(format, colour, links, progress, vocabulary, eachMutant),
             threshold,
             only,
