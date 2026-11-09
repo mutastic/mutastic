@@ -1,11 +1,11 @@
 ---
 title: Changed lines, other tests and suites
-description: "Mutate only what a change touched, run another module's tests or another test suite, split one run across CI jobs, or run one mutant."
+description: "Mutate only what a change touched, run another module's tests or another test suite, or run one mutant."
 ---
 
 ## Only what changed
 
-`--since=main` mutates only the lines changed since the branch left `main` (its merge-base), uncommitted edits and new files included: a pull request's or an agent's change, which is where a missed mutant is worth acting on. A bare `--since` means the repository's default branch. The summary says what the run covered (`Changed  12 lines in 3 files since main`); a scoped run writes its reports but doesn't replace the last full run's record.
+`--since=main` mutates only the lines changed since the branch left `main` (its merge-base), uncommitted edits and new files included: a pull request's or an agent's change, which is where a missed mutant is worth acting on. A bare `--since` means the repository's default branch. The summary says what the run covered (`Changed  12 lines in 3 files since main`); a scoped run writes its reports but doesn't replace the last full run's record. In CI, a pull request's run needs the base branch's history: see [Running in CI](/guides/ci/#only-what-a-pull-request-changed).
 
 ## Other modules' tests
 
@@ -31,63 +31,7 @@ A suite but `test` keeps its own run record and reports, under `suites/<name>/` 
 
 ## One run across CI jobs
 
-A whole module's run can take longer than one CI job should. `--shard=N/M` runs only the Nth of M shares of its mutants, so M jobs side by side each run one share, and `--from-shards` puts their results back together as the whole run:
-
-```sh
-mutastic run --shard=2/4 --threshold=0
-mutastic run --from-shards=shares --threshold=70
-```
-
-Each mutant is dealt to a share by its id alone, so every mutant is in exactly one share, whichever job runs it, and the shares come out about the same size, each with mutants from across the module. Coverage is still measured over all the module's tests in each job, so a mutant's result is the one a whole run would give it.
-
-A share's score is only that share's, so give each share `--threshold=0` and the threshold you mean to the run that puts them together. A share keeps everything that run needs in one folder, `shares/N-of-M/` in the module's work directory (`build/mutastic/shares/2-of-4/` with Gradle, `target/mutastic/shares/2-of-4/` with Maven): its results, as the [events](/reference/schemas/) `--format=jsonl` writes, whatever format it shows, and its own run record, so a share only compares with the same share's last run. Its reports go where a whole run's go.
-
-`--from-shards=DIR` runs no mutants. It reads the build, finds the mutants as a whole run would, takes each one's result from the share that ran it, wherever the share's folder is under `DIR`, and then is that whole run: the same summary and cards in every format, the same report files, the threshold checked on the whole score, and the whole run's record, which `explain`, `next` and the next run's comparison read. A share's folder name doesn't matter, so each job can upload its own and the last job download them all into one directory.
-
-It refuses, with exit status 2 and what's wrong, shares that aren't every share of one run: a share missing or there twice, one that didn't finish, shares split into a different number, a mutant in two shares, or shares run by another mutastic or on other code than each other or than the build it reads. Put them together on the same commit, built the same way, with the same options and `mutastic.yaml`. A share also fails on its own, even with `--threshold=0`, when a test that caught mutants fails with no mutant in, as the whole run would.
-
-In GitHub Actions, a matrix of shares, then one job that puts them together:
-
-```yaml
-jobs:
-  mutants:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        share: [1, 2, 3, 4]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 25
-      - run: curl -fsSL https://mutastic.io/install.sh | sh
-      - run: mutastic run --shard=${{ matrix.share }}/4 --threshold=0
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: share-${{ matrix.share }}
-          path: build/mutastic/shares/${{ matrix.share }}-of-4/
-
-  mutation-score:
-    needs: mutants
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 25
-      - run: curl -fsSL https://mutastic.io/install.sh | sh
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: share-*
-          path: shares
-      - run: mutastic run --from-shards=shares --threshold=70
-```
-
-The last job fails when the whole score is below the threshold, and when a share is missing because its job failed. For a module of a multi-module build, name it in both commands (`mutastic run :core --shard=…`) and upload the share from its work directory: `build/mutastic/core/shares/…` with Gradle, `core/target/mutastic/shares/…` with Maven.
+`--shard` splits a module's run across CI jobs, and `--from-shards` puts the shares back together: see [Running in CI](/guides/ci/#one-run-across-ci-jobs).
 
 ## One mutant
 

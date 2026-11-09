@@ -1,0 +1,270 @@
+---
+title: Running in CI
+description: "Run mutastic in CI and keep it fast: fail the build on a low score, mutate only what a pull request changed, keep the run record between runs, split a run across jobs, and keep the reports."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+In CI, mutastic is a check like the tests: a score below the bar fails the job. A pull request
+needs only the lines it changed, which is quick; the whole module runs on `main`, or at night,
+and can be split across jobs when it takes too long for one.
+
+The examples are GitHub Actions, for a Gradle project run with the `mutastic` command, installed as
+[Install](/getting-started/install/) shows. A Maven project's files are under `target/mutastic/`
+where a Gradle one's are under `build/mutastic/`, and from a [build plugin](/guides/build-plugins/)
+each option is a `mutastic.` property of the same name. Actions are pinned to a commit, with the
+version beside it, as a tag can be moved.
+
+## Fail the build on a low score
+
+`--threshold` is the score a run must reach, 80 unless set. Below it, the run fails:
+
+<Tabs syncKey="runner">
+<TabItem label="Command line">
+
+```sh
+mutastic run --threshold=70
+```
+
+</TabItem>
+<TabItem label="Gradle">
+
+```sh
+./gradlew mutasticRun -Pmutastic.threshold=70
+```
+
+```kotlin title="build.gradle.kts"
+mutastic {
+    threshold = 70
+}
+```
+
+</TabItem>
+<TabItem label="Maven">
+
+```sh
+mvn mutastic:run -Dmutastic.threshold=70
+```
+
+```xml title="pom.xml"
+<configuration>
+  <threshold>70</threshold>
+</configuration>
+```
+
+</TabItem>
+</Tabs>
+
+The `mutastic` command exits 0 when the score reaches the threshold and 1 when it doesn't, so the
+step fails with it. A run with nothing to score passes: there's nothing to fail. The other codes
+aren't about the score: 2 for a command or a build mutastic couldn't read, 3 for tests that fail
+with no mutant in, 4 for mutastic itself; each is in [exit codes](/reference/environment/#exit-codes).
+From a build plugin, a score below the threshold fails the build, and the build tool exits as it
+does for any failure.
+
+Off a terminal, mutastic prints the `concise` [format](/concepts/output/#formats), a line for each
+missed mutant, made for logs. `--format` or `MUTASTIC_FORMAT` chooses another, and `FORCE_COLOR`
+keeps the colour in a log that shows it. Where a score has to hold, [`--confirm-catches`](/concepts/flaky-tests/#confirming-catches)
+runs each catching test again, and a catch that doesn't repeat doesn't count.
+
+## Only what a pull request changed
+
+`--since=REF` mutates only the lines changed since the branch left `REF`, so a pull request's run
+tries its own mutants, not the whole module's. In Actions, a pull request is checked out as one
+commit, its change merged into the base, with no other history: `--since` needs the base branch and
+the history back to where the branch left it, which `fetch-depth: 0` fetches. Name the base branch
+as the remote has it, since the checkout has no local branch of that name:
+
+```yaml
+name: Mutants
+
+on:
+  pull_request:
+
+jobs:
+  changed-lines:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: 25
+      - run: curl -fsSL https://mutastic.io/install.sh | sh
+      - run: mutastic run --since=origin/${{ github.base_ref }} --threshold=80
+```
+
+From a build plugin, the same run is `-Pmutastic.since=origin/main` or `-Dmutastic.since=origin/main`:
+
+```sh
+./gradlew mutasticRun -Pmutastic.since=origin/main -Pmutastic.threshold=80
+```
+
+The threshold applies to the change's mutants alone, so it can be stricter than the module's: new
+code is where a missed mutant is cheapest to fix. A change that touches no line mutastic mutates
+(docs, build files, tests only) has nothing to score, and passes. A run of a change writes its
+reports, but it isn't compared with the last full run, nor kept as one: see
+[changed lines](/guides/scoping/#only-what-changed).
+
+## Keep the run record between runs
+
+Each full run keeps a record of how every mutant went, in the module's work directory beside the
+reports, and the next full run compares with it: the score line says how far it moved since the
+last run (`▲ 2.0 vs last run (code changed)`), and with the same code, a mutant whose result
+changed points at the [likely flaky test](/concepts/flaky-tests/#between-runs) that caught it. A
+CI job starts from a fresh checkout, so the record has to be carried from one run to the next.
+
+The record is two files in the work directory:
+
+| Build | Work directory | Keep |
+|---|---|---|
+| Gradle | `build/mutastic/`, or `build/mutastic/<module>/` for a module (`:core` → `build/mutastic/core/`) | `last-run.tsv` and `last-runs/` |
+| Maven | the module's `target/mutastic/` | `last-run.tsv` and `last-runs/` |
+
+It's the same directory for the `mutastic` command and either build plugin. `last-runs/` keeps the
+last run under each other set of [operators](/concepts/operators/) you use; a suite other than
+`test` keeps its own under `suites/<name>/`, and a share of a split run its own under
+`shares/N-of-M/`.
+
+Restore the record before the run and save it after, even when the run fails, since a failing run
+is the one the next wants to compare with. A cache entry can't be replaced, so each run saves its
+own and the next restores the newest:
+
+```yaml
+name: Mutants
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  whole-module:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: 25
+      - run: curl -fsSL https://mutastic.io/install.sh | sh
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            build/mutastic/last-run.tsv
+            build/mutastic/last-runs/
+          key: mutastic-${{ github.run_id }}
+          restore-keys: mutastic-
+      - run: mutastic run --threshold=70
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: always()
+        with:
+          path: |
+            build/mutastic/last-run.tsv
+            build/mutastic/last-runs/
+          key: mutastic-${{ github.run_id }}
+```
+
+Don't clean the build between the restore and the run: `clean` deletes the record with the rest of
+the build directory. A record counts only for the project it was made in, in the same directory,
+which a hosted runner's checkout always is.
+
+Without it, every run is a first run. It scores, fails and reports just the same, but says nothing
+of what changed since the last, and can't name a test whose catches came and went. The
+[baseline](/concepts/next/#a-baseline-for-older-misses) and the ignores aren't in the record: they
+are files in `.mutastic/` to commit, so every checkout has them.
+
+For a history of the score, `--format=jsonl` ends with a `run-finished` [event](/reference/schemas/)
+that has the score, the threshold and, when there was a last run, its score (`previousScore`).
+
+## One run across CI jobs
+
+A whole module's run can take longer than one CI job should. `--shard=N/M` runs only the Nth of M shares of its mutants, so M jobs side by side each run one share, and `--from-shards` puts their results back together as the whole run:
+
+```sh
+mutastic run --shard=2/4 --threshold=0
+mutastic run --from-shards=shares --threshold=70
+```
+
+Each mutant is dealt to a share by its id alone, so every mutant is in exactly one share, whichever job runs it, and the shares come out about the same size, each with mutants from across the module. Coverage is still measured over all the module's tests in each job, so a mutant's result is the one a whole run would give it.
+
+A share's score is only that share's, so give each share `--threshold=0` and the threshold you mean to the run that puts them together. A share keeps everything that run needs in one folder, `shares/N-of-M/` in the module's work directory (`build/mutastic/shares/2-of-4/` with Gradle, `target/mutastic/shares/2-of-4/` with Maven): its results, as the [events](/reference/schemas/) `--format=jsonl` writes, whatever format it shows, and its own run record, so a share only compares with the same share's last run. Its reports go where a whole run's go.
+
+`--from-shards=DIR` runs no mutants. It reads the build, finds the mutants as a whole run would, takes each one's result from the share that ran it, wherever the share's folder is under `DIR`, and then is that whole run: the same summary and cards in every format, the same report files, the threshold checked on the whole score, and the whole run's record, which `explain`, `next` and the next run's comparison read. A share's folder name doesn't matter, so each job can upload its own and the last job download them all into one directory.
+
+It refuses, with exit status 2 and what's wrong, shares that aren't every share of one run: a share missing or there twice, one that didn't finish, shares split into a different number, a mutant in two shares, or shares run by another mutastic or on other code than each other or than the build it reads. Put them together on the same commit, built the same way, with the same options and `mutastic.yaml`. A share also fails on its own, even with `--threshold=0`, when a test that caught mutants fails with no mutant in, as the whole run would.
+
+In GitHub Actions, a matrix of shares, then one job that puts them together:
+
+```yaml
+jobs:
+  mutants:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        share: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: 25
+      - run: curl -fsSL https://mutastic.io/install.sh | sh
+      - run: mutastic run --shard=${{ matrix.share }}/4 --threshold=0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: share-${{ matrix.share }}
+          path: build/mutastic/shares/${{ matrix.share }}-of-4/
+
+  mutation-score:
+    needs: mutants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: 25
+      - run: curl -fsSL https://mutastic.io/install.sh | sh
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: share-*
+          path: shares
+      - run: mutastic run --from-shards=shares --threshold=70
+```
+
+The last job fails when the whole score is below the threshold, and when a share is missing because its job failed. For a module of a multi-module build, name it in both commands (`mutastic run :core --shard=…`) and upload the share from its work directory: `build/mutastic/core/shares/…` with Gradle, `core/target/mutastic/shares/…` with Maven.
+
+To [keep the records](#keep-the-run-record-between-runs) too, each share's job caches its own
+folder, `build/mutastic/shares/N-of-4/`, under a key with its share in it, and the last job caches
+the whole run's record, as above.
+
+## Reports as artifacts
+
+Each run writes its [report files](/reference/reports/) to the work directory, `mutation.json` and
+`mutation.html` unless `--report` chooses others: the HTML is the whole report in one file, which
+opens from disk, and the JSON is what report viewers, dashboards and badges read. Upload them even
+when the run fails, since that's when they're read:
+
+```yaml
+      - run: mutastic run --threshold=70
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: mutation-report
+          path: build/mutastic/mutation.*
+```
+
+For a module, the files are in its own work directory (`build/mutastic/core/mutation.*`), and
+`build/mutastic/*/mutation.*` takes every module's. For build-server and code-quality plugins,
+`mutations.xml` is `--report=xml`; `--report` replaces the defaults, so name each file you want:
+`--report=json --report=html --report=xml`.
+
+## The gate and agents
+
+[`mutastic gate`](/agents/gate/) holds a coding agent's task to the lines it changed, from the
+agent's hooks, while it works: it isn't a CI step. In CI, `--since` against the base branch checks
+the same lines once the change is pushed.

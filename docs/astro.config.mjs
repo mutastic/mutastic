@@ -137,6 +137,7 @@ export default defineConfig({
           items: [
             'guides/build-plugins',
             'guides/scoping',
+            'guides/ci',
             'guides/configuration',
             'guides/plugins',
             'guides/operator-plugins',
