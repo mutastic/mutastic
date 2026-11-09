@@ -24,6 +24,12 @@ another, and the later condition's mutants are counted one place further on: the
 and its id, now belong to the new condition. An id can't be both stable across edits and free of
 the code it's in.
 
+Identical lines show it plainest. Four `i = i + 1;` lines in a row compile to the same code, so
+what tells their mutants apart is their place in the method, not their text or their line: each
+has its own ids and its own card, on its own line, and comments or blank lines added above them
+move the cards but no id. Delete the second line, though, and the third line's mutants take the
+ids the second's had, the fourth's take the third's, and the fourth's ids are gone.
+
 So an [ignore](../ignore/) keeps the source line its mutant was on as well as the id, and lapses
 when that line changes. An id written down while the code changes, in a
 note or a script, should be checked again once the code settles.
