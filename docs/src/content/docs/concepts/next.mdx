@@ -45,6 +45,12 @@ queued.
 `next` exits 1 while something is queued and 0 when nothing missed is left, so a loop can run it
 until it's done.
 
+A mutant [proposed for ignoring](/guides/configuration/#ignoring-one-mutant) isn't queued: it still counts as
+missed in a run, but the next step is a person's, to accept the proposal or withdraw it, not
+another test. `next` says how many are waiting (`2 mutants proposed for ignoring, waiting on a
+person to accept them`), `next-finished` counts them as `waiting`, and when they're all that's
+left, `next` exits 0.
+
 ## A baseline for older misses
 
 `mutastic baseline` records every mutant no test catches now in `.mutastic/baseline.yaml`, by its

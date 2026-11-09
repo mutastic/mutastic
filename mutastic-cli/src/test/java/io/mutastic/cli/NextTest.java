@@ -60,6 +60,37 @@ class NextTest {
     assertThat(after.out()).isEqualTo("mutastic next: nothing missed is left in pricing\n");
   }
 
+  /// Once every mutant on the head's line is proposed for ignoring, nothing is queued: the next
+  /// step is a person's, so `next` counts them, and a loop over it stops.
+  @Test
+  void proposalsWaitOnAPersonAndNextIsDone() {
+    var first = mutastic("next", project.toString(), "--format=jsonl");
+    var ids = java.util.regex.Pattern.compile("\"ids\":\\[(?<ids>[^\\]]*)\\]").matcher(first.out());
+    assertThat(ids.find()).as(first.out()).isTrue();
+    var proposed =
+        java.util.regex.Pattern.compile("m[0-9a-f]{8}")
+            .matcher(ids.group("ids"))
+            .results()
+            .map(java.util.regex.MatchResult::group)
+            .toList();
+    for (var id : proposed) {
+      assertThat(
+              mutastic("ignore", id, project.toString(), "--propose", "--reason=can't happen")
+                  .exit())
+          .isEqualTo(Main.PASSED);
+    }
+    var after = mutastic("next", project.toString(), "--format=agent");
+
+    assertThat(first.exit()).isEqualTo(Main.FAILED);
+    assertThat(after.exit()).isEqualTo(Main.PASSED);
+    assertThat(after.out())
+        .isEqualTo(
+            "mutastic next: nothing missed is left in pricing but %d %s proposed for ignoring,"
+                    .formatted(proposed.size(), proposed.size() == 1 ? "mutant" : "mutants")
+                + " waiting on a person to accept %s (.mutastic/proposals.yaml)\n"
+                    .formatted(proposed.size() == 1 ? "it" : "them"));
+  }
+
   /// The baseline takes in today's misses once, not again; next says which are older; and the gate
   /// leaves an older miss on a line a task touched to the person, but not one the task baselined.
   @Test

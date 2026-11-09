@@ -7,6 +7,9 @@ import java.util.List;
 /// write, how it's done, how to decline it, and to ask for the next one after, so an agent can work
 /// a backlog one `next` at a time.
 public final class NextText {
+  /// Where proposals wait, as `ignore --propose` writes them.
+  static final String PROPOSALS = ".mutastic/proposals.yaml";
+
   private final SourceView sources;
   private final HumanText human;
   private final Style style;
@@ -22,7 +25,7 @@ public final class NextText {
   /// For people: how many are queued, then each item's card with why it's ranked there.
   public String human(Queue queue, String project, int count) {
     if (queue.findings().isEmpty()) {
-      return "Next: " + nothingLeft(project) + "\n";
+      return "Next: " + nothingLeft(queue, project) + "\n";
     }
     var shown = queue.top(count);
     var out = new StringBuilder();
@@ -40,7 +43,7 @@ public final class NextText {
   /// For an agent: one task, the head of the queue, whole.
   public String agent(Queue queue, String project) {
     if (queue.findings().isEmpty()) {
-      return "mutastic next: " + nothingLeft(project) + "\n";
+      return "mutastic next: " + nothingLeft(queue, project) + "\n";
     }
     var head = queue.findings().getFirst();
     var out = new StringBuilder();
@@ -56,15 +59,24 @@ public final class NextText {
     return out.toString();
   }
 
-  /// The rules a fix follows, when it's done, and how to decline it instead.
+  /// The rules a fix follows, when it's done, and how to decline it instead: for each of the line's
+  /// mutants, as each is proposed on its own.
   private String rules(Finding head) {
+    var ids = head.mutants().stream().map(result -> result.mutant().id()).toList();
+    var propose =
+        ids.size() == 1
+            ? "`%s`".formatted(MutantCommand.PROPOSE.command(ids.getFirst(), sources.invocation()))
+            : "`%s`, for each of %s"
+                .formatted(
+                    MutantCommand.PROPOSE.command("<id>", sources.invocation()),
+                    String.join(", ", ids));
     return ("rules: %s, and never delete, disable or loosen a test; it's done when `%s` passes%n"
-            + "decline: %s (`%s`)%n%n")
+            + "decline: %s (%s)%n%n")
         .formatted(
             MutantCommand.RULE,
             MutantCommand.DONE_WHEN.command(head.ids(), sources.invocation()),
             MutantCommand.DECLINE,
-            MutantCommand.PROPOSE.command(head.lead().mutant().id(), sources.invocation()));
+            propose);
   }
 
   private static String whyFirst(Queue queue, Finding head) {
@@ -77,19 +89,37 @@ public final class NextText {
     int all = queue.findings().size();
     int legacy = queue.legacyCount();
     return "%s of %d line%s with %s mutants in %s%s"
-        .formatted(
-            shown == 1 ? "1" : "the first " + shown,
-            all,
-            all == 1 ? "" : "s",
-            words.undetected,
-            project,
-            queue.legacy().isEmpty()
-                ? ""
-                : " (%d new, %d in the baseline)".formatted(all - legacy, legacy));
+            .formatted(
+                shown == 1 ? "1" : "the first " + shown,
+                all,
+                all == 1 ? "" : "s",
+                words.undetected,
+                project,
+                queue.legacy().isEmpty()
+                    ? ""
+                    : " (%d new, %d in the baseline)".formatted(all - legacy, legacy))
+        + waiting(queue, "; ");
   }
 
-  private String nothingLeft(String project) {
-    return "nothing %s is left in %s".formatted(words.undetected, project);
+  private String nothingLeft(Queue queue, String project) {
+    return "nothing %s is left in %s".formatted(words.undetected, project)
+        + waiting(queue, " but ");
+  }
+
+  /// `; 2 mutants proposed for ignoring, waiting on a person to accept them`, after `joined`: what
+  /// the queue leaves out, since the next step there is a person's. Nothing when there's none.
+  private static String waiting(Queue queue, String joined) {
+    int waiting = queue.waiting();
+    if (waiting == 0) {
+      return "";
+    }
+    return "%s%d %s proposed for ignoring, waiting on a person to accept %s (%s)"
+        .formatted(
+            joined,
+            waiting,
+            waiting == 1 ? "mutant" : "mutants",
+            waiting == 1 ? "it" : "them",
+            PROPOSALS);
   }
 
   /// `Ranked first because`, `Ranked 2nd because`.

@@ -216,11 +216,13 @@ public final class Main {
   }
 
   /// `next`: the head of the queue, or with `--top` the first few, as the format has them. Exits 1
-  /// while something is queued, so a loop can run it until it's done.
+  /// while something is queued, so a loop can run it until it's done. A mutant proposed for
+  /// ignoring waits on a person, not a test: it's counted, not queued.
   private static int next(Command command, Prepared prepared, Passes passes, Output output) {
     var human = humanText(command, output, prepared.sources());
     var legacy = Baseline.ids(prepared.directory());
-    var queue = queued(command, prepared, passes).map(report -> Queue.of(report, legacy));
+    var proposed = proposedIds(prepared.directory());
+    var queue = queued(command, prepared, passes).map(report -> Queue.of(report, legacy, proposed));
     passes.progress().finished();
     var shown = queue.orElseGet(() -> Queue.empty(legacy));
     var project = prepared.project().name();

@@ -175,6 +175,7 @@ public final class JsonEvents {
     finished.put("mutants", queue.mutants());
     finished.put("shown", shown.size());
     finished.put("legacy", queue.legacyCount());
+    finished.put("waiting", queue.waiting());
     emit("next-finished", finished);
   }
 

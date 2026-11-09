@@ -15,9 +15,14 @@ import java.util.Set;
 /// `--top` spreads what it shows over the code, at most [#PER_METHOD] finding a method and
 /// [#PER_FILE] a file, so one hot method can't fill it.
 ///
+/// A mutant proposed for ignoring (`ignore --propose`) isn't queued: the next step is a person's,
+/// to accept or withdraw it, and handing it back would have an agent decline it again. It's counted
+/// in `waiting` instead.
+///
 /// @param findings every missed finding, in the queue's order
 /// @param legacy the ids of the missed mutants a committed baseline already knew of
-public record Queue(List<Finding> findings, Set<String> legacy) {
+/// @param waiting how many missed mutants are left out, proposed for ignoring
+public record Queue(List<Finding> findings, Set<String> legacy, int waiting) {
   /// The most `--top` shows: more than a few at a time go unread.
   public static final int MOST = 25;
 
@@ -35,18 +40,25 @@ public record Queue(List<Finding> findings, Set<String> legacy) {
   /// The queue of `report`'s missed mutants: one finding a line, new before legacy, then as a run
   /// ranks them.
   public static Queue of(Report report, Set<String> legacy) {
-    var missed =
+    return of(report, legacy, Set.of());
+  }
+
+  /// The queue of `report`'s missed mutants but those `proposed` for ignoring, which it counts.
+  public static Queue of(Report report, Set<String> legacy, Set<String> proposed) {
+    var allMissed =
         report.results().stream().filter(result -> result.status() == Status.MISSED).toList();
+    var missed =
+        allMissed.stream().filter(result -> !proposed.contains(result.mutant().id())).toList();
     var findings = Finding.ranked(Finding.of(missed, false));
     var queue = new ArrayList<Finding>();
     findings.stream().filter(finding -> !isLegacy(finding, legacy)).forEach(queue::add);
     findings.stream().filter(finding -> isLegacy(finding, legacy)).forEach(queue::add);
-    return new Queue(queue, legacy);
+    return new Queue(queue, legacy, allMissed.size() - missed.size());
   }
 
   /// A queue with nothing in it: what's left when the last `next` left nothing uncaught.
   public static Queue empty(Set<String> legacy) {
-    return new Queue(List.of(), legacy);
+    return new Queue(List.of(), legacy, 0);
   }
 
   /// A finding the baseline knew of: every mutant on it was there already.

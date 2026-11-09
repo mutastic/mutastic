@@ -710,7 +710,8 @@
         "queued": { "type": "integer", "minimum": 0, "description": "How many items (lines with missed mutants) are queued: 0 when nothing missed is left." },
         "mutants": { "type": "integer", "minimum": 0, "description": "How many missed mutants are on them." },
         "shown": { "type": "integer", "minimum": 0, "description": "How many items were shown, as `--top` asked, spread over the code." },
-        "legacy": { "type": "integer", "minimum": 0, "description": "How many of the queued items a committed baseline already has." }
+        "legacy": { "type": "integer", "minimum": 0, "description": "How many of the queued items a committed baseline already has." },
+        "waiting": { "type": "integer", "minimum": 0, "description": "How many missed mutants are left out of the queue because they are proposed for ignoring (`ignore --propose`), waiting on a person to accept them. Optional: absent means none." }
       }
     }
   }

@@ -129,6 +129,48 @@ class QueueTest {
     assertThat(NextText.ordinal(22)).isEqualTo("22nd");
   }
 
+  /// A mutant proposed for ignoring waits on a person, not a test: it's counted, not queued, and
+  /// when only proposals are left nothing is. Declining a line names every mutant on it.
+  @Test
+  void aProposalIsCountedNotQueued() {
+    var head = missed(mutant("discount", 5, BuiltIn.BOUNDARY), 2);
+    var sameLine = missed(mutant("discount", 5, BuiltIn.RETURN_VALUE), 2);
+    var proposed = missed(mutant("shipping", 12, BuiltIn.MATH), 3);
+    var report = AgentTextTest.report(List.of(head, sameLine, proposed), List.of(), List.of());
+    var ids = List.of(head.mutant().id(), sameLine.mutant().id(), proposed.mutant().id());
+    var queue = Queue.of(report, Set.of(), Set.of(proposed.mutant().id()));
+    var onlyProposals = Queue.of(report, Set.of(), Set.copyOf(ids));
+    var bytes = new java.io.ByteArrayOutputStream();
+
+    new JsonEvents(new java.io.PrintStream(bytes, true, StandardCharsets.UTF_8), sources, 80)
+        .next(onlyProposals, 1);
+    var events = bytes.toString(StandardCharsets.UTF_8);
+
+    assertThat(queue.findings()).hasSize(1);
+    assertThat(queue.waiting()).isEqualTo(1);
+    assertThat(text().agent(queue, "pricing"))
+        .startsWith(
+            "mutastic next: 1 of 1 line with missed mutants in pricing; 1 mutant proposed for"
+                + " ignoring, waiting on a person to accept it (.mutastic/proposals.yaml); close"
+                + " this one")
+        .contains(
+            "(`mutastic ignore <id> --propose --reason=\"<why>\"`, for each of "
+                + queue.findings().getFirst().ids().replace(",", ", ")
+                + ")")
+        .doesNotContain(proposed.mutant().id());
+    assertThat(queue.findings().getFirst().ids())
+        .contains(head.mutant().id())
+        .contains(sameLine.mutant().id());
+    assertThat(onlyProposals.isEmpty()).isTrue();
+    assertThat(text().agent(onlyProposals, "pricing"))
+        .isEqualTo(
+            "mutastic next: nothing missed is left in pricing but 3 mutants proposed for ignoring,"
+                + " waiting on a person to accept them (.mutastic/proposals.yaml)\n");
+    Schemas.checkEvents(events);
+    assertThat(events)
+        .contains("\"queued\":0,\"mutants\":0,\"shown\":0,\"legacy\":0,\"waiting\":3");
+  }
+
   /// For tools, an event for each item shown, its lead in full with where it stands and why, and
   /// one saying how many are queued: each as the published schema describes it.
   @Test
