@@ -108,9 +108,10 @@ for the events, `mutastic.yaml` and rules files, and exactly what counts as brea
 
 ## The two editions
 
-From 1.0.0, the Java and Rust editions are released together, at the same version, and keep the
-same promises. The native `mutastic` runs the Java edition with its own version in a Gradle or
-Maven project, unless `MUTASTIC_VERSION` names another.
+From 1.0.0, the Java and Rust editions release each minor version together, at the same version,
+and keep the same promises; either may ship a patch alone. In a Gradle or Maven project, the native
+`mutastic` runs the newest Java edition of its own major and minor version, so `mutastic 1.2.0`
+runs Java 1.2.3 once that's out, unless `MUTASTIC_VERSION` names another.
 
 ## Builds
 

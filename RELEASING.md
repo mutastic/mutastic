@@ -80,6 +80,12 @@ version can never be changed or removed.
      how.
    - **Ids.** Run `./gradlew :mutastic-cli:exportIds`. If `src/test/ids/ids.tsv` changes, it's an
      operator new since the last release: commit it, so its ids are held from this release on.
+   - **The Rust edition.** From 1.0.0 the editions release each minor version together: for
+     `X.Y.0`, the Rust edition's `X.Y.0` is ready to publish beside this one (`RELEASING.md` in
+     `mutastic/mutastic-rs`), as the native `mutastic X.Y.z` runs the newest Java `X.Y.*`. A patch
+     (`X.Y.Z+1`) may ship alone: everyone on the native `X.Y.*` gets it within a day, once its
+     GitHub release is published. Until the CLI is attached, the native `mutastic` keeps running
+     the patch it has.
    - **Files on Central.** Central counts every file against a monthly limit
      ([Usage](https://central.sonatype.com/publishing/usage)). `checkCentralFiles` keeps a release
      small enough for four a month; look at the usage before a second release in a month.

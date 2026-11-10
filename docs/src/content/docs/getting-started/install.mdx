@@ -31,8 +31,11 @@ away. The Java edition runs on the `java` in `JAVA_HOME`, or on the `PATH`, whic
 later, and `mutastic` checks for one before it downloads anything. A Rust project needs no JDK.
 
 Running the installer again updates the native `mutastic`. From 1.0.0 the Rust and Java editions
-are released together, at the same version, and `mutastic` uses the Java edition with its own
-version; before 1.0.0 it uses the newest it has kept, or the latest release when it has none.
+release each minor version together, and either may ship a patch alone, so `mutastic` uses the
+newest Java edition of its own minor version: `mutastic 1.2.0` runs Java 1.2.3 once that's out,
+fetching it the first time. It looks for a newer patch at most once a day, and runs what it has
+kept when the releases can't be reached. Before 1.0.0 it uses the newest it has kept, or the latest
+release when it has none.
 `MUTASTIC_VERSION=0.3.0` uses that release instead, fetching it if it isn't kept, and `MUTASTIC_HOME` and `MUTASTIC_BIN_DIR` choose the
 directories. `mutastic --version` shows the version of each.
 
