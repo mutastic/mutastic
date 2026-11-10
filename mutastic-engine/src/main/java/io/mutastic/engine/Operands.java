@@ -26,7 +26,8 @@ import org.jspecify.annotations.Nullable;
 /// Fed every instruction in order, and told when a jump target is passed: what came before a jump
 /// target isn't the only way in, so it doesn't count.
 final class Operands {
-  private record Local(int slot, String name, int from, int to, boolean predicate) {}
+  private record Local(
+      int slot, String name, int from, int to, boolean predicate, boolean character) {}
 
   /// `this$0`: the outer instance, in an inner class.
   private static final java.util.regex.Pattern OUTER =
@@ -58,12 +59,38 @@ final class Operands {
 
   /// One value on the stack and where its instructions start; `start` is -1 when unknown. Its
   /// precedence is the operator's, for an operation, so an operation around it knows to bracket it.
-  private record Operand(String text, int start, boolean predicate, int precedence) {
+  /// `character` when its type is `char`; `code` when it's an `int` constant, which a `char` beside
+  /// it makes a character too (javac writes `'/'` as `47`).
+  private record Operand(
+      String text,
+      int start,
+      boolean predicate,
+      int precedence,
+      boolean character,
+      @Nullable Integer code) {
     /// A value with no operator of its own: a load, a constant, a call.
     Operand(String text, int start, boolean predicate) {
-      this(text, start, predicate, ATOM);
+      this(text, start, predicate, ATOM, false, null);
+    }
+
+    /// A value with no operator of its own, of type `char` when `character`.
+    static Operand of(String text, int start, boolean predicate, boolean character) {
+      return new Operand(text, start, predicate, ATOM, character, null);
+    }
+
+    /// The constant as a character, `'/'`, when it's an `int` one.
+    Operand asCharacter() {
+      return code == null || code < 0 || code > Character.MAX_VALUE
+          ? this
+          : of(characterLiteral(code), start, false, true);
     }
   }
+
+  /// `String`'s methods whose first `int` is a character: `indexOf('/')`.
+  private static final Set<String> CODE_POINTS_IN_TEXT = Set.of("indexOf", "lastIndexOf");
+
+  /// `Character`'s methods whose first `int` isn't a character: `forDigit(digit, radix)`.
+  private static final Set<String> NOT_CODE_POINTS = Set.of("forDigit");
 
   /// The precedence of a value that isn't an operation: above every operator's.
   private static final int ATOM = 100;
@@ -107,7 +134,8 @@ final class Operands {
                         variable.name().stringValue(),
                         variable.startPc(),
                         variable.startPc() + variable.length(),
-                        variable.type().equalsString("Z")));
+                        variable.type().equalsString("Z"),
+                        variable.type().equalsString("C")));
               }
             });
   }
@@ -134,22 +162,39 @@ final class Operands {
       before = before.subList(0, before.size() - 1);
     }
     int wanted = operandCount(instruction, afterCompare);
-    var names = new ArrayList<String>();
+    var found = lastOperands(before, wanted);
+    if (found.size() < wanted) {
+      return List.of();
+    }
+    var operands = found.size() == 2 ? alike(found.get(0), found.get(1)) : found;
+    var names = new ArrayList<String>(operands.stream().map(Operand::text).toList());
+    if (wanted == 1 && !found.getFirst().predicate()) {
+      names.add(isNullCheck(instruction) ? "null" : "0");
+    }
+    return names;
+  }
+
+  /// The last `wanted` operands of `before`, in order; fewer if they can't all be named. Only the
+  /// first may have no known start.
+  private List<Operand> lastOperands(List<Instruction> before, int wanted) {
+    var found = new ArrayList<Operand>();
     int end = before.size();
-    boolean predicate = false;
     for (int i = 0; i < wanted; i++) {
       var operand = endingAt(before, end);
       if (operand == null || (operand.start() < 0 && i < wanted - 1)) {
         return List.of();
       }
-      names.addFirst(operand.text());
+      found.addFirst(operand);
       end = operand.start();
-      predicate = operand.predicate();
     }
-    if (wanted == 1 && !predicate) {
-      names.add(isNullCheck(instruction) ? "null" : "0");
-    }
-    return names;
+    return found;
+  }
+
+  /// `left` and `right`, each a character when the other is: `c >= 'a'`, not `c >= 97`.
+  private static List<Operand> alike(Operand left, Operand right) {
+    return List.of(
+        right.character() ? left.asCharacter() : left,
+        left.character() ? right.asCharacter() : right);
   }
 
   /// How many values on the stack `instruction` works on, of the ones its operands can name.
@@ -174,8 +219,7 @@ final class Operands {
     }
     return switch (before.get(end - 1)) {
       case LoadInstruction load -> local(load, end - 1);
-      case ConstantInstruction constant ->
-          new Operand(literal(constant.constantValue()), end - 1, false);
+      case ConstantInstruction constant -> constant(constant, end - 1);
       // `price * quantity` with a long and an int: javac widens `quantity` first. Still `quantity`.
       case ConvertInstruction _ -> endingAt(before, end - 1);
       case FieldInstruction field when field.opcode() == Opcode.GETFIELD ->
@@ -207,10 +251,9 @@ final class Operands {
     var name = field.name().stringValue();
     // `this$0` is the outer instance javac gives an inner class: the source names its fields bare.
     boolean own = owner.text().equals("this") || OUTER.matcher(owner.text()).matches();
-    return new Operand(
-        own ? name : owner.text() + "." + name,
-        owner.start(),
-        field.typeSymbol().descriptorString().equals("Z"));
+    var type = field.typeSymbol().descriptorString();
+    return Operand.of(
+        own ? name : owner.text() + "." + name, owner.start(), type.equals("Z"), type.equals("C"));
   }
 
   /// `b + 1`, `(a + b) * 2`: an operation on two values the operands can name, bracketed where
@@ -226,13 +269,14 @@ final class Operands {
       return null;
     }
     int precedence = arithmetic.precedence();
+    var sides = alike(left, right);
     var text =
         "%s %s %s"
             .formatted(
-                bracketed(left, left.precedence() < precedence),
+                bracketed(sides.get(0), left.precedence() < precedence),
                 arithmetic.symbol(),
-                bracketed(right, right.precedence() <= precedence));
-    return new Operand(text, left.start(), false, precedence);
+                bracketed(sides.get(1), right.precedence() <= precedence));
+    return new Operand(text, left.start(), false, precedence, false, null);
   }
 
   private static String bracketed(Operand operand, boolean needed) {
@@ -243,7 +287,11 @@ final class Operands {
     var boxed = endingAt(before, end - 1);
     return boxed == null
         ? null
-        : new Operand(boxed.text(), boxed.start(), call.name().equalsString("booleanValue"));
+        : Operand.of(
+            boxed.text(),
+            boxed.start(),
+            call.name().equalsString("booleanValue"),
+            call.name().equalsString("charValue"));
   }
 
   /// `Integer.intValue()` and the like: a call javac adds, not one the source makes.
@@ -258,29 +306,45 @@ final class Operands {
   /// or receiver are more than a load or a constant.
   private Operand call(List<Instruction> before, int end, InvokeInstruction call) {
     var type = call.typeSymbol();
-    boolean predicate = type.returnType().descriptorString().equals("Z");
+    var returns = type.returnType().descriptorString();
+    boolean predicate = returns.equals("Z");
+    boolean character = returns.equals("C");
     var name = call.name().stringValue();
-    var arguments = new ArrayList<String>();
-    int at = end - 1;
-    for (int i = 0; i < type.parameterCount(); i++) {
-      var argument = endingAt(before, at);
-      if (argument == null || argument.start() < 0) {
-        return new Operand(name + "(…)", -1, predicate);
-      }
-      if (!argument.text().isEmpty()) {
-        arguments.addFirst(argument.text());
-      }
-      at = argument.start();
+    var arguments = arguments(before, end, call);
+    if (arguments == null) {
+      return Operand.of(name + "(…)", -1, predicate, character);
     }
-    var list = "(" + String.join(", ", arguments) + ")";
+    int at = arguments.start();
+    var list = "(" + String.join(", ", arguments.texts()) + ")";
     if (call.opcode() == Opcode.INVOKESTATIC) {
-      return new Operand(owned(call.owner()) + name + list, at, predicate);
+      return Operand.of(owned(call.owner()) + name + list, at, predicate, character);
     }
     var receiver = endingAt(before, at);
     // A local with no name is javac's own, like a for-each loop's iterator: leave it out.
     return receiver == null || receiver.start() < 0 || receiver.text().startsWith("local")
-        ? new Operand(name + list, -1, predicate)
-        : new Operand(receiver.text() + "." + name + list, receiver.start(), predicate);
+        ? Operand.of(name + list, -1, predicate, character)
+        : Operand.of(receiver.text() + "." + name + list, receiver.start(), predicate, character);
+  }
+
+  /// A call's arguments as the source writes them, and where the first starts.
+  private record Arguments(List<String> texts, int start) {}
+
+  /// The arguments of `call`, which ends at `end`, each a character where the call takes one; null
+  /// if one can't be named.
+  private @Nullable Arguments arguments(List<Instruction> before, int end, InvokeInstruction call) {
+    var texts = new ArrayList<String>();
+    int at = end - 1;
+    for (int i = call.typeSymbol().parameterCount() - 1; i >= 0; i--) {
+      var argument = endingAt(before, at);
+      if (argument == null || argument.start() < 0) {
+        return null;
+      }
+      if (!argument.text().isEmpty()) {
+        texts.addFirst(takesACharacter(call, i) ? argument.asCharacter().text() : argument.text());
+      }
+      at = argument.start();
+    }
+    return new Arguments(texts, at);
   }
 
   /// The source name for a local, by where it's read: javac reuses a slot for variables in
@@ -290,7 +354,7 @@ final class Operands {
     return locals.stream()
         .filter(local -> local.slot() == load.slot() && local.from() <= at && at < local.to())
         .findFirst()
-        .map(local -> new Operand(local.name(), start, local.predicate()))
+        .map(local -> Operand.of(local.name(), start, local.predicate(), local.character()))
         .orElse(new Operand("local" + load.slot(), start, false));
   }
 
@@ -312,10 +376,49 @@ final class Operands {
         && PRIMITIVES.containsKey(field.owner().asInternalName())) {
       return new Operand(PRIMITIVES.get(field.owner().asInternalName()) + ".class", start, false);
     }
-    return new Operand(
+    var type = field.typeSymbol().descriptorString();
+    return Operand.of(
         owned(field.owner()) + field.name().stringValue(),
         start,
-        field.typeSymbol().descriptorString().equals("Z"));
+        type.equals("Z"),
+        type.equals("C"));
+  }
+
+  /// An `int` constant keeps its value as `code`, in case a `char` beside it makes it one.
+  private static Operand constant(ConstantInstruction constant, int start) {
+    var value = constant.constantValue();
+    return new Operand(
+        literal(value), start, false, ATOM, false, value instanceof Integer code ? code : null);
+  }
+
+  /// Whether the call's parameter at `index` is a character: a `char`, or the `int` code point
+  /// `String.indexOf('/')` and `Character.isDigit(c)` take.
+  private static boolean takesACharacter(InvokeInstruction call, int index) {
+    var type = call.typeSymbol();
+    if (type.parameterType(index).descriptorString().equals("C")) {
+      return true;
+    }
+    var owner = call.owner().asInternalName();
+    var name = call.name().stringValue();
+    return index == 0
+        && type.parameterType(0).descriptorString().equals("I")
+        && ((owner.equals("java/lang/String") && CODE_POINTS_IN_TEXT.contains(name))
+            || ((owner.equals("java/lang/StringBuilder") || owner.equals("java/lang/StringBuffer"))
+                && name.equals("appendCodePoint"))
+            || (owner.equals("java/lang/Character") && !NOT_CODE_POINTS.contains(name)));
+  }
+
+  /// `'/'`, `'\n'`, `'\''`; a character not written as itself as its escape.
+  static String characterLiteral(int code) {
+    return switch (code) {
+      case 0 -> "'\\0'";
+      case '\n' -> "'\\n'";
+      case '\t' -> "'\\t'";
+      case '\r' -> "'\\r'";
+      case '\'' -> "'\\''";
+      case '\\' -> "'\\\\'";
+      default -> code >= ' ' && code <= '~' ? "'" + (char) code + "'" : "'\\u%04x'".formatted(code);
+    };
   }
 
   /// `Rates.` before a static of another class; nothing before one of this class's own.

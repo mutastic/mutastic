@@ -80,6 +80,61 @@ class AdviceTest {
             "inputs seen: 5, 20 (none is 100)");
   }
 
+  /// A `char` reads as a character, as the source writes it: `'a'`, not `97`.
+  @Test
+  void aCharactersValuesAreCharacters() {
+    var boundary =
+        new Mutant(
+            "com/example/Pricing",
+            "kind",
+            "(CI)I",
+            0,
+            5,
+            BuiltIn.BOUNDARY,
+            "IF_ICMPLT",
+            "IF_ICMPLE",
+            Optional.empty(),
+            List.of(),
+            List.of("c", "'a'"));
+    var seen = new java.util.LinkedHashMap<String, List<Long>>();
+    seen.put("c", List.of(65L, 122L));
+    seen.put("count", List.of(3L));
+    var advice = Advice.of(boundary, seen, false);
+
+    assertThat(advice.headline()).isEqualTo("no test checks `kind()` at `c == 'a'`");
+    assertThat(advice.notes())
+        .containsExactly(
+            "every test calls `kind()` away from the boundary",
+            "inputs seen: 'A', 'z' (none is 'a')");
+    assertThat(advice.fix()).isEqualTo("test `kind()` with `c = 'a'` and assert the result");
+    var removed = with(BuiltIn.REMOVE_CONDITIONAL, "IF_ICMPLT", "never jump", "c", "'a'");
+    assertThat(Advice.of(removed, Map.of("total", List.of(47L)), false).notes())
+        .as("an int stays a number")
+        .containsExactly("inputs seen: total = 47");
+    assertThat(Inputs.of(boundary, seen).written("c")).isEqualTo("c = 'A', 'z'");
+    assertThat(Inputs.of(boundary, seen).written("count")).isEqualTo("count = 3");
+    assertThat(Inputs.of(boundary, Map.of("count", List.of(3L))).characters())
+        .as("which parameter has no values isn't known, so neither is which is the char")
+        .isEmpty();
+    var returned =
+        new Mutant(
+            "com/example/Paths",
+            "separator",
+            "(Z)C",
+            0,
+            5,
+            BuiltIn.RETURN_VALUE,
+            "IRETURN",
+            "return 0",
+            Optional.empty(),
+            List.of(),
+            List.of());
+    assertThat(Advice.of(returned).change()).isEqualTo("returns `'\\0'` instead");
+    assertThat(Advice.of(returned).after()).contains("return '\\0';");
+    assertThat(Inputs.characters(List.of(10L, 39L, 92L, 233L, 70000L)))
+        .isEqualTo("'\\n', '\\'', '\\\\', '\\u00e9', 70000");
+  }
+
   /// `total >= 100` to `total == 100`: they disagree only where `total > 100`, so that's the test
   /// the card asks for; `<` to `!=`, where it's above.
   @Test
@@ -137,7 +192,7 @@ class AdviceTest {
     var named =
         Advice.connector(
             mutant,
-            Map.of(),
+            Inputs.of(mutant, Map.of()),
             Optional.of(new Advice.Connective("&&", Optional.of("a > 0"), Optional.of("b < 2"))));
     assertThat(named.change()).isEqualTo("`&&` becomes `||`");
     assertThat(named.headline())
@@ -150,7 +205,7 @@ class AdviceTest {
     var sideless =
         Advice.connector(
             mutant,
-            Map.of(),
+            Inputs.of(mutant, Map.of()),
             Optional.of(new Advice.Connective("||", Optional.empty(), Optional.empty())));
     assertThat(sideless.change()).isEqualTo("`||` becomes `&&`");
     assertThat(sideless.headline())

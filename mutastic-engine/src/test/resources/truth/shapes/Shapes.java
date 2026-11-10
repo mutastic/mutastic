@@ -336,6 +336,15 @@ public final class Shapes {
     return chosen > 3 ? chosen : 3;
   }
 
+  static int charEdge(int a, int b) {
+    char c = (char) ('a' + a);
+    return c >= 'b' ? 1 : 0;
+  }
+
+  static int slashBefore(int a, int b) {
+    return "ab/c".indexOf('/') > a ? 1 : 0;
+  }
+
   static int notAClamp(int a, int b) {
     return a < 3 ? 4 : a;
   }

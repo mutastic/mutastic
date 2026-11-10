@@ -161,6 +161,10 @@ class CardTruthTest {
         .extracting(Claim::what)
         .contains("its changed lines, `if (b < 0 || a >= EDGE) {`");
     assertThat(failures).as("cards that say something their mutant doesn't do").isEmpty();
+    // A char compared, or passed where a character goes, is claimed as the character it is.
+    assertThat(claims.stream().map(claim -> claim.advice().headline()))
+        .anySatisfy(headline -> assertThat(headline).contains("`c == 'b'`"))
+        .anySatisfy(headline -> assertThat(headline).contains("indexOf('/')"));
     // A string javac wrote in, and a class literal, are claimed as the source writes them.
     assertThat(claims.stream().map(claim -> claim.mutant().methodName()))
         .contains(

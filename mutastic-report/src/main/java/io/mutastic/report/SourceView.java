@@ -187,9 +187,12 @@ public final class SourceView {
 
   private Advice bytecodeAdvice(Mutant mutant, java.util.Map<String, List<Long>> seen) {
     return switch (mutant.operator()) {
-      case BuiltIn.LOGICAL_CONNECTOR -> Advice.connector(mutant, seen, connective(mutant));
-      case BuiltIn.CONSTANT_VALUE -> Advice.constant(mutant, seen, charactersOn(mutant));
-      case BuiltIn.REMOVE_SWITCH_ARM -> Advice.switchArm(mutant, seen, charactersOn(mutant));
+      case BuiltIn.LOGICAL_CONNECTOR ->
+          Advice.connector(mutant, Inputs.of(mutant, seen), connective(mutant));
+      case BuiltIn.CONSTANT_VALUE ->
+          Advice.constant(mutant, Inputs.of(mutant, seen), charactersOn(mutant));
+      case BuiltIn.REMOVE_SWITCH_ARM ->
+          Advice.switchArm(mutant, Inputs.of(mutant, seen), charactersOn(mutant));
       default -> Advice.of(mutant, seen, asWritten(mutant));
     };
   }

@@ -71,6 +71,9 @@ public record Advice(
 
   private static final Pattern NUMBER = Pattern.compile("-?\\d+");
 
+  /// A character as an operand writes it: `'/'`, `'\\n'`, `'\\''`.
+  private static final Pattern CHARACTER = Pattern.compile("'(?<character>[^'\\\\]|\\\\.)'");
+
   /// The advice with nothing but the mutant to go on, reading a jump as javac usually writes it.
   public static Advice of(Mutant mutant) {
     return of(mutant, Map.of(), false);
@@ -84,7 +87,8 @@ public record Advice(
   /// The advice, its jump read as written in the source or inverted as javac usually compiles it.
   ///
   /// @param asWritten the jump tests the source's own condition, not its opposite
-  static Advice of(Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
+  static Advice of(Mutant mutant, Map<String, List<Long>> values, boolean asWritten) {
+    var seen = Inputs.of(mutant, values);
     boolean written = jumpsWhenTrue(mutant).orElse(asWritten);
     return switch (mutant.operator()) {
       case Mutator mutator -> added(mutator.words(mutant), seen);
@@ -93,8 +97,7 @@ public record Advice(
     };
   }
 
-  private static Advice ofBuiltIn(
-      BuiltIn builtIn, Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
+  private static Advice ofBuiltIn(BuiltIn builtIn, Mutant mutant, Inputs seen, boolean asWritten) {
     return switch (builtIn) {
       case BOUNDARY, COMPARISON, OTHER_COMPARISON -> comparison(mutant, seen, asWritten);
       case MATH, ARITHMETIC_REPLACEMENT, OTHER_ARITHMETIC, BITWISE -> math(mutant, seen);
@@ -120,7 +123,7 @@ public record Advice(
   }
 
   /// The operators that change more of the code than one instruction's value.
-  private static Advice wholeCode(BuiltIn builtIn, Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice wholeCode(BuiltIn builtIn, Mutant mutant, Inputs seen) {
     return switch (builtIn) {
       case REPLACE_BODY -> replacedBody(mutant, seen);
       case DROP_CATCH_TYPE -> droppedCatch(mutant, seen);
@@ -167,8 +170,7 @@ public record Advice(
 
   /// `&&` becomes `||`, or the other way round: they differ exactly where one side holds and the
   /// other doesn't, so that's the test to add.
-  static Advice connector(
-      Mutant mutant, Map<String, List<Long>> seen, Optional<Connective> connective) {
+  static Advice connector(Mutant mutant, Inputs seen, Optional<Connective> connective) {
     var method = method(mutant);
     if (connective.isEmpty()) {
       return unnamedConnector(method, seen);
@@ -190,7 +192,7 @@ public record Advice(
   }
 
   /// A connector the source doesn't say: the statement has more than one, or isn't there.
-  private static Advice unnamedConnector(String method, Map<String, List<Long>> seen) {
+  private static Advice unnamedConnector(String method, Inputs seen) {
     return new Advice(
         Optional.empty(),
         Optional.empty(),
@@ -203,7 +205,7 @@ public record Advice(
   }
 
   /// A plugin's or rules file's operator: its own words for the card.
-  private static Advice added(Mutator.Words words, Map<String, List<Long>> seen) {
+  private static Advice added(Mutator.Words words, Inputs seen) {
     return new Advice(
         Optional.empty(),
         Optional.empty(),
@@ -216,8 +218,7 @@ public record Advice(
 
   /// The condition no longer decides: always true or always false, by which way the jump now goes
   /// and which way javac compiled it.
-  private static Advice removeConditional(
-      Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
+  private static Advice removeConditional(Mutant mutant, Inputs seen, boolean asWritten) {
     var method = method(mutant);
     var token = jump(mutant.original(), mutant.operands(), asWritten);
     var condition = condition(mutant.operands(), token);
@@ -242,7 +243,7 @@ public record Advice(
   /// sides are equal, its edge moved (`<` to `<=`), and the advice is the boundary's; everywhere,
   /// the condition reversed; otherwise on one side of the edge (`<` to `!=` disagree where `a >
   /// b`), and the advice names that side.
-  private static Advice comparison(Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
+  private static Advice comparison(Mutant mutant, Inputs seen, boolean asWritten) {
     // A jump on a boolean has no operator to show, but one that's ordered (`IFLT`) compares a
     // number with zero.
     boolean numbers =
@@ -269,7 +270,7 @@ public record Advice(
   private record Change(String before, String after, Sides differ) {}
 
   /// `<` to `!=`: they disagree where `a > b`, so the test to add has `a > b`.
-  private static Advice sided(Mutant mutant, Map<String, List<Long>> seen, Change change) {
+  private static Advice sided(Mutant mutant, Inputs seen, Change change) {
     var method = method(mutant);
     var operands = mutant.operands();
     var where = change.differ().token();
@@ -298,17 +299,17 @@ public record Advice(
   /// That no test's input is on the side where the two disagree, when the inputs show it: the name
   /// compared with a number, and every value it was seen with on the other side.
   private static List<String> sidedNotes(
-      String method, List<String> operands, Sides differ, Map<String, List<Long>> seen) {
+      String method, List<String> operands, Sides differ, Inputs seen) {
     var comparison = Comparison.of(operands);
     if (comparison.isEmpty()
-        || !NUMBER.matcher(comparison.get().value()).matches()
-        || !seen.containsKey(comparison.get().name())) {
+        || number(comparison.get().value()).isEmpty()
+        || !seen.values().containsKey(comparison.get().name())) {
       return inputsSeen(seen);
     }
-    long value = Long.parseLong(comparison.get().value());
+    long value = number(comparison.get().value()).getAsLong();
     // The name's side of the comparison, as the source has it: `100 < total` has `total` second.
     boolean nameFirst = operands.get(0).equals(comparison.get().name());
-    var values = seen.get(comparison.get().name());
+    var values = seen.values().get(comparison.get().name());
     boolean noneThere =
         values.stream()
             .noneMatch(
@@ -322,7 +323,34 @@ public record Advice(
     return List.of(
         "every test calls %s with `%s %s %s`"
             .formatted(method, operands.get(0), other, operands.get(1)),
-        "inputs seen: %s".formatted(join(values)));
+        "inputs seen: %s".formatted(comparison.get().join(values)));
+  }
+
+  /// The number an operand writes: `100`, or `47` for `'/'`; empty for anything else.
+  static java.util.OptionalLong number(String operand) {
+    if (NUMBER.matcher(operand).matches()) {
+      return java.util.OptionalLong.of(Long.parseLong(operand));
+    }
+    var character = CHARACTER.matcher(operand);
+    if (!character.matches()) {
+      return java.util.OptionalLong.empty();
+    }
+    var written = character.group("character");
+    return java.util.OptionalLong.of(
+        written.length() == 1 ? written.charAt(0) : unescaped(written.charAt(1)));
+  }
+
+  /// The character an escape, `\\n` and the like, stands for.
+  private static char unescaped(char escape) {
+    return switch (escape) {
+      case 'n' -> '\n';
+      case 't' -> '\t';
+      case 'r' -> '\r';
+      case 'b' -> '\b';
+      case 'f' -> '\f';
+      case '0' -> '\0';
+      default -> escape;
+    };
   }
 
   /// The signs of `a - b` a comparison holds for, from below to above: `<=` holds below and at
@@ -373,8 +401,7 @@ public record Advice(
   }
 
   /// The edge of the comparison moved: `<` to `<=`.
-  private static Advice boundary(
-      Mutant mutant, Map<String, List<Long>> seen, String before, String after) {
+  private static Advice boundary(Mutant mutant, Inputs seen, String before, String after) {
     var method = method(mutant);
     var comparison = Comparison.of(mutant.operands());
     return new Advice(
@@ -389,7 +416,7 @@ public record Advice(
 
   /// That every test stays away from the boundary, when the inputs show it; else the inputs seen.
   private static List<String> boundaryNotes(
-      String method, Optional<Comparison> comparison, Map<String, List<Long>> seen) {
+      String method, Optional<Comparison> comparison, Inputs seen) {
     return comparison
         .flatMap(
             found ->
@@ -400,7 +427,7 @@ public record Advice(
                             List.of(
                                 "every test calls %s away from the boundary".formatted(method),
                                 "inputs seen: %s (none is %s)"
-                                    .formatted(join(values), found.value()))))
+                                    .formatted(found.join(values), found.value()))))
         .orElseGet(() -> inputsSeen(seen));
   }
 
@@ -425,8 +452,7 @@ public record Advice(
                 .formatted(before, after));
   }
 
-  private static Advice negateConditional(
-      Mutant mutant, Map<String, List<Long>> seen, boolean asWritten) {
+  private static Advice negateConditional(Mutant mutant, Inputs seen, boolean asWritten) {
     var method = method(mutant);
     var before = jump(mutant.original(), mutant.operands(), asWritten);
     var after = jump(mutant.replacement(), mutant.operands(), asWritten);
@@ -443,7 +469,7 @@ public record Advice(
         "assert the result on both sides of " + condition);
   }
 
-  private static Advice math(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice math(Mutant mutant, Inputs seen) {
     var method = method(mutant);
     var operands = mutant.operands();
     var before = arithmetic(mutant.original());
@@ -467,7 +493,7 @@ public record Advice(
 
   /// A calculation down to one of its values: the test to add is one the other changes the result
   /// of. The label says which is kept, `keep first`.
-  private static Advice keptOperand(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice keptOperand(Mutant mutant, Inputs seen) {
     var method = method(mutant);
     var symbol = arithmetic(mutant.original());
     boolean first = mutant.replacement().endsWith("first");
@@ -490,8 +516,7 @@ public record Advice(
         seen);
   }
 
-  private static Advice kept(
-      String change, String headline, String fix, Map<String, List<Long>> seen) {
+  private static Advice kept(String change, String headline, String fix, Inputs seen) {
     return new Advice(
         Optional.empty(),
         Optional.empty(),
@@ -504,16 +529,18 @@ public record Advice(
 
   /// The return gives another value: the card says which, and asks for a test that needs the one it
   /// gives today. A `boolean`, or a number that's `0` today, names that value.
-  private static Advice returnValue(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice returnValue(Mutant mutant, Inputs seen) {
     var method = method(mutant);
-    var value = mutant.replacement().substring("return ".length());
+    var written = returnedAsWritten(mutant);
+    var number = mutant.replacement().substring("return ".length());
+    var value = written.apply(number);
     var notes = new ArrayList<String>();
     notes.add("tests reach this return, but none fails when it returns `%s`".formatted(value));
     notes.addAll(inputsSeen(seen));
-    var today = returnedToday(value);
+    var today = returnedToday(number).map(written);
     return new Advice(
         Optional.empty(),
-        Optional.of(mutant.replacement() + ";"),
+        Optional.of("return " + value + ";"),
         "returns `%s` instead".formatted(value),
         "now returns " + value,
         today
@@ -528,7 +555,16 @@ public record Advice(
   }
 
   /// What a return gives today, when the mutant's value says: the other `boolean`, or the `0` a
-  /// mutant that returns `1` took away.
+  /// mutant that returns `1` took away. A value a `char` method returns as a character, `'\\0'`,
+  /// where the bytecode has `0`.
+  private static UnaryOperator<String> returnedAsWritten(Mutant mutant) {
+    boolean character = mutant.descriptor().endsWith(")C");
+    return value ->
+        character && NUMBER.matcher(value).matches()
+            ? Inputs.character(Long.parseLong(value))
+            : value;
+  }
+
   private static Optional<String> returnedToday(String value) {
     return switch (value) {
       case "true" -> Optional.of("false");
@@ -541,13 +577,13 @@ public record Advice(
     if (value.equals("null")) {
       return "assert the value %s returns on this path".formatted(method);
     }
-    var other = value.startsWith("0") ? "`" + value + "`" : "empty";
+    var other = value.startsWith("0") || value.startsWith("'") ? "`" + value + "`" : "empty";
     return "assert the value %s returns on this path, with inputs where it isn't %s"
         .formatted(method, other);
   }
 
   /// An assignment or a field write taken away: what's stored keeps the value it had.
-  private static Advice removedStore(Mutant mutant, Map<String, List<Long>> seen, String kind) {
+  private static Advice removedStore(Mutant mutant, Inputs seen, String kind) {
     var change = mutant.replacement();
     var name = "`%s`".formatted(change.substring(change.lastIndexOf(' ') + 1));
     return new Advice(
@@ -562,7 +598,7 @@ public record Advice(
   }
 
   /// A call left out: what it was called on, or given, goes on in its place.
-  private static Advice omittedCall(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice omittedCall(Mutant mutant, Inputs seen) {
     var called = "`%s()`".formatted(SourceView.calledName(mutant.original()));
     var kept =
         mutant.replacement().endsWith("receiver") ? "what it's called on" : "what it's given";
@@ -577,7 +613,7 @@ public record Advice(
   }
 
   /// A call's last two arguments, the other way round.
-  private static Advice swappedArguments(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice swappedArguments(Mutant mutant, Inputs seen) {
     var called = "`%s()`".formatted(SourceView.calledName(mutant.original()));
     return new Advice(
         Optional.empty(),
@@ -592,7 +628,7 @@ public record Advice(
   }
 
   /// A parameter that's `null` however the method is called.
-  private static Advice nullParameter(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice nullParameter(Mutant mutant, Inputs seen) {
     var change = mutant.replacement();
     var name = "`%s`".formatted(change.substring(change.lastIndexOf(' ') + 1));
     return new Advice(
@@ -606,7 +642,7 @@ public record Advice(
   }
 
   /// The array built for a call, one element short.
-  private static Advice droppedElement(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice droppedElement(Mutant mutant, Inputs seen) {
     var called = "`%s()`".formatted(SourceView.calledName(mutant.original()));
     return new Advice(
         Optional.empty(),
@@ -623,8 +659,7 @@ public record Advice(
   /// where it's used, so the source may have a name instead: the card says the value.
   ///
   /// @param written a value as the source would write it: `'a'` for `97`, if that's what it has
-  static Advice constant(
-      Mutant mutant, Map<String, List<Long>> seen, UnaryOperator<String> written) {
+  static Advice constant(Mutant mutant, Inputs seen, UnaryOperator<String> written) {
     var label = mutant.replacement().split(" ", 4);
     var today = written.apply(label[1]);
     var mutated = written.apply(label[3]);
@@ -645,8 +680,7 @@ public record Advice(
   /// arm's own line. `throwing ` in front says the default is javac's, which throws.
   ///
   /// @param written a value as the source would write it: `'a'` for `97`, if that's what it has
-  static Advice switchArm(
-      Mutant mutant, Map<String, List<Long>> seen, UnaryOperator<String> written) {
+  static Advice switchArm(Mutant mutant, Inputs seen, UnaryOperator<String> written) {
     var label = mutant.replacement();
     boolean throwing = label.startsWith("throwing ");
     var words = label.substring(label.indexOf("arm ") + "arm ".length()).split(" ", 2);
@@ -665,7 +699,7 @@ public record Advice(
 
   /// A whole method's code gone. The label is `body return 0`, or `body emptied` for a method that
   /// returns nothing.
-  private static Advice replacedBody(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice replacedBody(Mutant mutant, Inputs seen) {
     var method = method(mutant);
     var label = mutant.replacement();
     if (!label.startsWith("body return ")) {
@@ -690,7 +724,7 @@ public record Advice(
   }
 
   /// One type of a multi-catch gone. The label ends in the type's internal name.
-  private static Advice droppedCatch(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice droppedCatch(Mutant mutant, Inputs seen) {
     var label = mutant.replacement();
     var type = "`%s`".formatted(label.substring(label.lastIndexOf('/') + 1));
     return new Advice(
@@ -705,7 +739,7 @@ public record Advice(
 
   /// A `throw` gone. The label is `remove throw X`, with what's thrown if the code just before it
   /// says: a type, or a variable.
-  private static Advice removedThrow(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice removedThrow(Mutant mutant, Inputs seen) {
     var label = mutant.replacement();
     var named = label.length() > "remove throw".length();
     var what = named ? "`%s`".formatted(label.substring(label.lastIndexOf(' ') + 1)) : "this";
@@ -724,7 +758,7 @@ public record Advice(
   }
 
   /// A string changed. The label is `string "a" to ""`.
-  private static Advice changedString(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice changedString(Mutant mutant, Inputs seen) {
     var label = mutant.replacement();
     int to = label.lastIndexOf(" to ");
     var today = label.substring("string ".length(), to);
@@ -742,7 +776,7 @@ public record Advice(
   /// A regular expression changed. The label is `regex "^a" to "a"`, with each as a string in the
   /// source would be written. The card shows them as they mean, and in a field says so: its method
   /// is javac's.
-  private static Advice changedRegex(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice changedRegex(Mutant mutant, Inputs seen) {
     var label = mutant.replacement();
     int to = label.lastIndexOf("\" to \"");
     var today = label.substring("regex \"".length(), to).replace("\\\\", "\\");
@@ -766,7 +800,7 @@ public record Advice(
   }
 
   /// A variable's step the other way. The label is the step the mutant takes, `i by -1`.
-  private static Advice flippedIncrement(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice flippedIncrement(Mutant mutant, Inputs seen) {
     var label = mutant.replacement().split(" ", 3);
     var name = "`%s`".formatted(label[0]);
     int step = Integer.parseInt(label[2]);
@@ -784,7 +818,7 @@ public record Advice(
   }
 
   /// A value without its minus sign.
-  private static Advice removedNegation(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice removedNegation(Mutant mutant, Inputs seen) {
     return new Advice(
         Optional.empty(),
         Optional.empty(),
@@ -795,7 +829,7 @@ public record Advice(
         "add a test with a value that isn't zero, and assert the sign of the result");
   }
 
-  private static Advice removeVoidCall(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice removeVoidCall(Mutant mutant, Inputs seen) {
     if (mutant.original().contains("kotlin/jvm/internal/Intrinsics.checkNotNull(")) {
       return kotlinNullCheck(mutant, seen);
     }
@@ -811,7 +845,7 @@ public record Advice(
   }
 
   /// A Kotlin `x!!`, or with a message `x as String`: the check that's the source's, not kotlinc's.
-  private static Advice kotlinNullCheck(Mutant mutant, Map<String, List<Long>> seen) {
+  private static Advice kotlinNullCheck(Mutant mutant, Inputs seen) {
     var written = mutant.original().contains("(Ljava/lang/Object;)V") ? "`!!`" : "`as`";
     return new Advice(
         Optional.empty(),
@@ -843,8 +877,8 @@ public record Advice(
       if (operands.size() != 2) {
         return Optional.empty();
       }
-      boolean leftNumber = NUMBER.matcher(operands.get(0)).matches();
-      boolean rightNumber = NUMBER.matcher(operands.get(1)).matches();
+      boolean leftNumber = number(operands.get(0)).isPresent();
+      boolean rightNumber = number(operands.get(1)).isPresent();
       if (leftNumber && !rightNumber) {
         return Optional.of(new Comparison(operands.get(1), operands.get(0)));
       }
@@ -853,12 +887,18 @@ public record Advice(
 
     /// The inputs the tests passed for the name, when it's a parameter compared with a number and
     /// none of them is that number.
-    Optional<List<Long>> boundary(Map<String, List<Long>> seen) {
-      var values = seen.get(name);
-      if (values == null || values.isEmpty() || !NUMBER.matcher(value).matches()) {
+    Optional<List<Long>> boundary(Inputs seen) {
+      var values = seen.values().get(name);
+      var number = number(value);
+      if (values == null || values.isEmpty() || number.isEmpty()) {
         return Optional.empty();
       }
-      return values.contains(Long.parseLong(value)) ? Optional.empty() : Optional.of(values);
+      return values.contains(number.getAsLong()) ? Optional.empty() : Optional.of(values);
+    }
+
+    /// The values seen, as the value's written: characters, `'a', 'z'`, for a character.
+    String join(List<Long> values) {
+      return CHARACTER.matcher(value).matches() ? Inputs.characters(values) : Advice.join(values);
     }
   }
 
@@ -890,16 +930,17 @@ public record Advice(
         .orElse("`%s()`".formatted(where.method()));
   }
 
-  private static List<String> inputsSeen(Map<String, List<Long>> seen) {
+  private static List<String> inputsSeen(Inputs seen) {
     // A parameter the source doesn't have, as the Compose compiler's `$changed` mask, isn't an
     // input.
-    var named = seen.entrySet().stream().filter(entry -> !entry.getKey().startsWith("$")).toList();
+    var named =
+        seen.values().entrySet().stream().filter(entry -> !entry.getKey().startsWith("$")).toList();
     return named.isEmpty()
         ? List.of()
         : List.of(
             "inputs seen: "
                 + named.stream()
-                    .map(entry -> entry.getKey() + " = " + join(entry.getValue()))
+                    .map(entry -> seen.written(entry.getKey()))
                     .collect(Collectors.joining("; ")));
   }
 
