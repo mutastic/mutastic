@@ -66,7 +66,8 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
-      # With their checksums, which install.sh checks a download against.
+      # With their checksums, which the native mutastic (mutastic-rs) checks the download against
+      # when it fetches the Java edition.
       - name: Attach the CLI to the release
         env:
           GH_TOKEN: ${{ github.token }}
