@@ -223,9 +223,13 @@ class DocsCommandsTest {
     return EXPRESSION.matcher(command).replaceAll("1");
   }
 
+  /// A Java edition page. The Rust edition's pages under `rust/` are written there by the docs
+  /// build from a mutastic-rs release (scripts/rust-docs.mjs), and mutastic-rs's own docs test
+  /// checks their commands against its CLI, so this one leaves them out.
   private static boolean isPage(Path file) {
     var name = file.getFileName().toString();
-    return name.endsWith(".md") || name.endsWith(".mdx");
+    return (name.endsWith(".md") || name.endsWith(".mdx"))
+        && !DOCS.relativize(file).startsWith("rust");
   }
 
   private static boolean isCommand(String line) {
