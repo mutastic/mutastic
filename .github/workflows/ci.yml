@@ -64,6 +64,38 @@ jobs:
             25
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - run: ./gradlew :mutastic-cli:test -Pmutastic.shard=${{ matrix.shard }}/4
+      # These tests build a copy of a sample project, and each copy is a new directory, so Gradle
+      # forks a javac worker for it rather than reusing the identical one it forked for the copy
+      # before. A worker belongs to the daemon that forked it and outlives the build with it, for
+      # the three hours a daemon waits by default: a full build left 118 of them idle, and a few
+      # builds left hundreds, gigabytes of them, which starved everything else on the machine. The
+      # samples' builds now share a daemon that goes twenty seconds after they stop using it
+      # (mutastic-cli's build file), which takes its workers with it.
+      #
+      # What is left is counted rather than told apart, because a worker the samples left looks
+      # exactly like one this build forked for mutastic's own JDK 17 modules, and the daemons that
+      # own them can stand in for each other. The counts are far apart: a shard of these tests left
+      # one worker with the samples' daemon bounded and about thirty without, so eight is clear of
+      # both. A daemon takes a moment to go and the samples' waits for its timeout, so the state is
+      # given a minute to settle first. The pattern is written `Mai[n]`, and the processes filtered
+      # to those running a JVM, so this step's own command line isn't counted as one of them.
+      - name: the sample builds left nothing running
+        if: always()
+        run: |
+          left=99
+          for attempt in $(seq 1 13); do
+            ps -eo pid=,ppid=,args= | grep 'bin/java' > processes.txt || true
+            left=$(grep -c 'process\.internal\.worker\.GradleWorkerMai[n]' processes.txt || true)
+            if [ "$left" -le 8 ]; then break; fi
+            sleep 5
+          done
+          echo "Workers alive: $left. Daemons: $(grep -c 'launcher\.daemon\.bootstrap\.GradleDaemo[n]' processes.txt || true)."
+          if [ "$left" -gt 8 ]; then
+            echo "The samples' builds left $left Gradle workers running a minute after the tests:"
+            awk '/process\.internal\.worker\.GradleWorkerMai[n]/ { print "  " $1 " (daemon " $2 ")" }' processes.txt
+            exit 1
+          fi
+          echo "Nothing left but what this build forked for its own modules."
       # What the tests measured, in their JVM and outside it (the worker, Maven, Gradle).
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
