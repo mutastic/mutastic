@@ -134,3 +134,9 @@ ignores:
     code: 'int lineEnd = code.indexOf(''\n'', from) < 0 ? code.length() : code.indexOf(''\n'', from);'
     reason: 'Differs only when code.indexOf(''\n'', from) is 0. That can''t happen because from is 0 only when javac''s line is the statement''s first line, which always has code, so the text never starts with a line break; a later from finds at least from.'
     kind: equivalent
+  - id: m2dc1c497
+    at: 'io.mutastic.engine.Coverage#lambda$instrument$0, line 69'
+    change: '`method.code().isPresent()` is always true'
+    code: 'if (element instanceof MethodModel method && method.code().isPresent()) {'
+    reason: 'Differs only when a method has no code (abstract, native or an annotation''s element), which the mutant sends through transformingCode instead of copying it with with(). That can''t change anything because a code transform only rewrites a Code attribute, so the instrumented bytes are identical, and the whole-number parameters it also notes for that method are never read, as no mutant is in a method without code.'
+    kind: equivalent
