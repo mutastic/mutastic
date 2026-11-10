@@ -610,16 +610,59 @@ public final class Main {
     if (open.isEmpty()) {
       return Gate.Verdict.pass(passed(report, missed, missedIds(report).size() - missed.size()));
     }
-    var shown = report.results().stream().filter(each -> !older.contains(each.mutant().id()));
+    // The cards are for what holds the gate: a proposed mutant waits on a person, not the agent.
+    var shown =
+        report.results().stream()
+            .filter(each -> !older.contains(each.mutant().id()))
+            .filter(each -> !proposed.contains(each.mutant().id()) || !open(each))
+            .toList();
+    var waiting = missed.stream().filter(proposed::contains).toList();
     return Gate.Verdict.block(
-        ("mutastic gate: %d mutant%s on the lines the task changed %s missed, so it isn't done."
-                + " For each card: write the test, and run its `done when` before you move on; if a"
-                + " case can't happen, propose ignoring it, for a person to accept.\n\n%s")
+        "%s\n\n%s"
             .formatted(
-                open.size(),
-                open.size() == 1 ? "" : "s",
-                open.size() == 1 ? "is" : "are",
-                cards(gated, report.withResults(shown.toList()))));
+                heldBy(
+                    withStatus(shown, Status.MISSED),
+                    withStatus(shown, Status.NOT_COVERED),
+                    waiting),
+                cards(gated, report.withResults(shown))));
+  }
+
+  /// Whether a mutant no test catches: missed, or reached by none.
+  private static boolean open(MutantResult result) {
+    return result.status() == Status.MISSED || result.status() == Status.NOT_COVERED;
+  }
+
+  private static List<String> withStatus(List<MutantResult> results, Status status) {
+    return results.stream()
+        .filter(each -> each.status() == status)
+        .map(each -> each.mutant().id())
+        .toList();
+  }
+
+  /// What holds the gate, every mutant by id: those missed, those no test reaches, and apart from
+  /// them those proposed, which wait on a person, not the agent.
+  static String heldBy(List<String> missed, List<String> uncovered, List<String> waiting) {
+    int count = missed.size() + uncovered.size();
+    var parts = new ArrayList<String>();
+    if (!missed.isEmpty()) {
+      parts.add("missed: " + String.join(", ", missed));
+    }
+    if (!uncovered.isEmpty()) {
+      parts.add("no test reaches: " + String.join(", ", uncovered));
+    }
+    return ("mutastic gate: %d mutant%s on the lines the task changed %s it, so it isn't done (%s).%s"
+            + " For each card: write the test, and run its `done when` before you move on; for a"
+            + " line no test reaches, write a test that reaches it; if a case can't happen,"
+            + " propose ignoring it, for a person to accept.")
+        .formatted(
+            count,
+            count == 1 ? "" : "s",
+            count == 1 ? "holds" : "hold",
+            String.join("; ", parts),
+            waiting.isEmpty()
+                ? ""
+                : " Proposed, waiting on a person, and not holding it: %s."
+                    .formatted(String.join(", ", waiting)));
   }
 
   /// Tests that caught mutants and then failed on their own with no mutant in: their catches don't

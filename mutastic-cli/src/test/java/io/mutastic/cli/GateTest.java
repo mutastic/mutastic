@@ -78,6 +78,39 @@ class GateTest {
         .contains("the rest wait for a person, proposed in .mutastic/proposals.yaml");
   }
 
+  /// What holds the gate is named, each mutant by id, those no test reaches too, and a proposed one
+  /// is said to wait on a person, not to be missed: the shape an eval was blocked by.
+  @Test
+  void everyMutantThatHoldsTheGateIsNamed() throws Exception {
+    mutastic("gate", "open", project.toString());
+    aDiscountForOrdersOverFifty();
+    var pricing = project.resolve(PRICING);
+    var text = Files.readString(pricing);
+    Files.writeString(
+        pricing,
+        text.substring(0, text.lastIndexOf('}'))
+            + "  public int surcharge(int total) {\n    return total > 10 ? 1 : 0;\n  }\n}\n");
+    var gap = mutastic("gate", "check", project.toString());
+    for (var id : missedIds(gap.out())) {
+      mutastic("ignore", id, project.toString(), "--propose", "--reason=fifty is checked by hand");
+    }
+    var held = mutastic("gate", "check", project.toString());
+    var uncovered =
+        java.util.regex.Pattern.compile("no test reaches: (?<ids>m[0-9a-f]{8}(?:, m[0-9a-f]{8})*)")
+            .matcher(held.out());
+
+    assertThat(held.exit()).isEqualTo(Main.FAILED);
+    assertThat(uncovered.find()).as(held.out()).isTrue();
+    assertThat(held.out())
+        .contains("Proposed, waiting on a person, and not holding it: " + missedIds(gap.out())[0])
+        .doesNotContain("missed: ")
+        .doesNotContain("1. missed");
+    for (var id : uncovered.group("ids").split(", ", -1)) {
+      mutastic("ignore", id, project.toString(), "--propose", "--reason=never called yet");
+    }
+    assertThat(mutastic("gate", "check", project.toString()).exit()).isEqualTo(Main.PASSED);
+  }
+
   /// The task can't settle a mutant itself: an ignore it made, or a test taken away, holds it.
   @Test
   void aTaskCantIgnoreAMutantOrTakeATestAway() throws Exception {
