@@ -1,0 +1,136 @@
+# Mutants this project has decided not to test, written by `mutastic ignore`. Commit it:
+# each entry is a decision to review. One whose code has changed no longer holds; remove
+# those with `mutastic ignore --prune`.
+ignores:
+  - id: m4e856d32
+    at: 'io.mutastic.report.ChangedSource#operatorChanged, line 103'
+    change: '`||` becomes `&&`'
+    code: 'if (advice.before().isEmpty() || advice.after().isEmpty()) {'
+    reason: 'Differs only when an advice has a before but no after, or the reverse. That can''t happen because every advice that reaches operatorChanged (a comparison''s, a calculation''s or a connector''s) has both or neither.'
+    kind: equivalent
+  - id: me283a393
+    at: 'io.mutastic.report.ChangedSource#operatorChanged, line 103'
+    change: '`advice.before().isEmpty()` is always false'
+    code: 'if (advice.before().isEmpty() || advice.after().isEmpty()) {'
+    reason: 'Differs only when an advice has a before but no after, or the reverse. That can''t happen because every advice that reaches operatorChanged (a comparison''s, a calculation''s or a connector''s) has both or neither.'
+    kind: equivalent
+  - id: m439a11d4
+    at: 'io.mutastic.report.ChangedSource#operatorChanged, line 103'
+    change: '`advice.after().isEmpty()` is always false'
+    code: 'if (advice.before().isEmpty() || advice.after().isEmpty()) {'
+    reason: 'Differs only when an advice has a before but no after, or the reverse. That can''t happen because every advice that reaches operatorChanged (a comparison''s, a calculation''s or a connector''s) has both or neither.'
+    kind: equivalent
+  - id: m9d83168f
+    at: 'io.mutastic.report.ChangedSource#reversed, line 133'
+    change: '`mutant.operator() != BuiltIn.COMPARISON` is always true'
+    code: 'if (mutant.operator() != BuiltIn.COMPARISON'
+    reason: 'Differs only when a comparison or boundary mutant''s advice has no operator. That can''t happen because the engine makes those operators only on ordered number jumps, whose advice always names both sides.'
+    kind: equivalent
+  - id: m3a1c7f36
+    at: 'io.mutastic.report.ChangedSource#reversed, line 135'
+    change: '`mutant.operator() != BuiltIn.BOUNDARY` is always true'
+    code: '&& mutant.operator() != BuiltIn.BOUNDARY) {'
+    reason: 'Differs only when a comparison or boundary mutant''s advice has no operator. That can''t happen because the engine makes those operators only on ordered number jumps, whose advice always names both sides.'
+    kind: equivalent
+  - id: m0ea414f5
+    at: 'io.mutastic.report.ChangedSource#lambda$returned$0, line 217'
+    change: 'returns `true` instead'
+    code: 'var after = advice.after().filter(value -> value.startsWith("return "));'
+    reason: 'Differs only when a return mutant''s advice doesn''t start with `return `. That can''t happen because Advice.returnValue always writes `return ���;`.'
+    kind: equivalent
+  - id: m5be28794
+    at: 'io.mutastic.report.ChangedSource#returned, line 226'
+    change: '`after.isEmpty()` is always false'
+    code: 'if (after.isEmpty() || !whole) {'
+    reason: 'Differs only when a return mutant''s advice doesn''t start with `return `. That can''t happen because Advice.returnValue always writes `return ���;`.'
+    kind: equivalent
+  - id: m821fd4c1
+    at: 'io.mutastic.report.ChangedSource#throwRemoved, line 326'
+    change: '`code.endsWith(";")` is always true'
+    code: 'return code.startsWith("throw ") && code.endsWith(";") && code.indexOf('';'') == code.length() - 1'
+    reason: 'Differs only when the code doesn''t end in `;` but its first `;` is its last character. That can''t happen because a `;` that is the last character is the code ending in `;`, so the next condition fails whenever this one would.'
+    kind: equivalent
+  - id: m5e8da7ee
+    at: 'io.mutastic.report.ChangedSource#returned, line 224'
+    change: '`<` becomes `<=`'
+    code: '&& code.indexOf("return ", at + 1) < 0'
+    reason: 'Differs only when code.indexOf("return ", at + 1) is 0. That can''t happen because the search starts at at + 1, after the `return ` already found at at, so it gives -1 or at least 1.'
+    kind: equivalent
+  - id: m8f67126e
+    at: 'io.mutastic.report.ChangedSource#literalChanged, line 312'
+    change: '`<` becomes `<=`'
+    code: 'if (to < 0) {'
+    reason: 'Differs only when the label''s `" to "` is at index 0. That can''t happen because the engine writes the label as `string ��� to ���` or `regex ��� to ���`, so a word comes before it.'
+    kind: equivalent
+  - id: m8f0325a2
+    at: 'io.mutastic.report.ChangedSource#literalChanged, line 318'
+    change: '`>=` becomes `>`'
+    code: 'return first < 0 || text.indexOf(before, first + 1) >= 0'
+    reason: 'Differs only when text.indexOf(before, first + 1) is 0. That can''t happen because the search starts at first + 1, after the string already found at first, so it gives -1 or at least 1.'
+    kind: equivalent
+  - id: ma5907682
+    at: 'io.mutastic.report.Code#masked, line 20'
+    change: '`<` becomes `<=`'
+    code: 'at = cover(out, at, end < 0 ? text.length() : end, '' '');'
+    reason: 'Differs only when the line break that ends a `//` comment is at index 0. That can''t happen because it''s searched for from the `//` already found at at, so it''s at least at + 2.'
+    kind: equivalent
+  - id: m46ab03d7
+    at: 'io.mutastic.report.Code#masked, line 23'
+    change: '`<` becomes `<=`'
+    code: 'at = cover(out, at, end < 0 ? text.length() : end + 2, '' '');'
+    reason: 'Differs only when the `*/` that ends a block comment is at index 0. That can''t happen because it''s searched for from at + 2, past the `/*` already found at at.'
+    kind: equivalent
+  - id: m82fc6d10
+    at: 'io.mutastic.report.CallText#at, line 55'
+    change: '`<` becomes `<=`'
+    code: 'if (close < 0) {'
+    reason: 'Differs only when the call''s closing bracket is at index 0. That can''t happen because Code.closing searches from the call''s `(` at open, which comes after the call''s name, so it gives -1 or at least 1.'
+    kind: equivalent
+  - id: m2581a7ce
+    at: 'io.mutastic.report.CallText#lastValueDropped, line 169'
+    change: '`<` becomes `<=`'
+    code: 'if (close < 0 || elements.isEmpty()) {'
+    reason: 'Differs only when the array''s closing `}` is at index 0. That can''t happen because Code.closing searches from the array''s `{`, which is inside the call''s brackets, so it gives -1 or a position after the call''s `(`.'
+    kind: equivalent
+  - id: mbbbfb7d3
+    at: 'io.mutastic.report.CallText#split, line 89'
+    change: '`+` becomes `-`'
+    code: 'depth += Code.depthChange(each);'
+    reason: 'Differs only when the bracket depth is nonzero with the opposite sign. That can''t happen because the depth starts at 0 and only depth == 0 is ever tested, which holds for the negated depth exactly when it holds for the depth.'
+    kind: equivalent
+  - id: m118e52bb
+    at: 'io.mutastic.report.Code#closing, line 64'
+    change: '`+` becomes `-`'
+    code: 'depth += depthChange(code.charAt(at));'
+    reason: 'Differs only when the bracket depth is nonzero with the opposite sign. That can''t happen because the depth starts at 0 and only depth == 0 is ever tested, which holds for the negated depth exactly when it holds for the depth.'
+    kind: equivalent
+  - id: ma6dea557
+    at: 'io.mutastic.report.Code#opening, line 76'
+    change: '`-` becomes `+`'
+    code: 'depth -= depthChange(code.charAt(at));'
+    reason: 'Differs only when the bracket depth is nonzero with the opposite sign. That can''t happen because the depth starts at 0 and only depth == 0 is ever tested, which holds for the negated depth exactly when it holds for the depth.'
+    kind: equivalent
+  - id: m3efc8009
+    at: 'io.mutastic.report.Code#isOperation, line 152'
+    change: '`+` becomes `-`'
+    code: 'depth += depthChange(code.charAt(at));'
+    reason: 'Differs only when the bracket depth is nonzero with the opposite sign. That can''t happen because the depth starts at 0 and only depth == 0 is ever tested, which holds for the negated depth exactly when it holds for the depth.'
+    kind: equivalent
+  - id: m0255b9ae
+    at: 'io.mutastic.report.Code#isOneCall, line 222'
+    change: '`+` becomes `-`'
+    code: 'depth += depthChange(each);'
+    reason: 'Differs only when the bracket depth is nonzero with the opposite sign. That can''t happen because the depth starts at 0 and only depth == 0 is ever tested, which holds for the negated depth exactly when it holds for the depth.'
+    kind: equivalent
+  - id: m7d9fdd4c
+    at: 'io.mutastic.report.Statements#linesOf, line 93'
+    change: '`text.isEmpty()` is always false'
+    code: 'if (text.isEmpty()) {'
+    reason: 'Differs only when the changed text is empty and the statement''s first line is blank. That can''t happen because a statement never starts on a blank line: SourceView.diff starts it on javac''s line, which it checks isn''t blank, or on an earlier line Statements.start takes only when it has code.'
+    kind: equivalent
+  - id: m7e603a52
+    at: 'io.mutastic.report.CallText#find, line 35'
+    change: '`<` becomes `<=`'
+    code: 'int lineEnd = code.indexOf(''\n'', from) < 0 ? code.length() : code.indexOf(''\n'', from);'
+    reason: 'Differs only when code.indexOf(''\n'', from) is 0. That can''t happen because from is 0 only when javac''s line is the statement''s first line, which always has code, so the text never starts with a line break; a later from finds at least from.'
+    kind: equivalent
