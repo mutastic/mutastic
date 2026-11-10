@@ -9,6 +9,14 @@ real projects to promise it.
 mutastic reads class files, so a Kotlin project runs as a Java one does: the same command, the same
 operators and the same cards. This page is only what's different.
 
+## Kotlin Multiplatform
+
+A Kotlin Multiplatform module runs through its JVM target, `jvm()` or `jvm("desktop")`: mutastic
+mutates the target's code, common code included, and runs the target's tests (`jvmTest`,
+`desktopTest`). With one JVM target that's the module's suite; with more, `--suite` names one
+(`--suite=desktopTest`). A file named for where it runs, `Board.common.kt` or `Board.desktop.kt`, is
+shown as itself, though kotlinc names its class `Board_commonKt`.
+
 ## What kotlinc writes is left alone
 
 kotlinc writes code that isn't in your source. A mutant of it would ask for a test of code you didn't
