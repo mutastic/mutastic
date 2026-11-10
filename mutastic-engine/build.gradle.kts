@@ -29,20 +29,29 @@ tasks.test {
     useJUnitPlatform()
 }
 
-// TestNG's engine for the JUnit Platform, for a project whose tests are TestNG's: inside the jar
-// as a resource, not on any classpath, since a platform that finds it there would try to run
-// TestNG. The engine copies it out for the workers that need it.
+// The JUnit Platform's engines for TestNG's tests and JUnit 4's, for a project whose build runs
+// them without the platform: inside the jar as resources, not on any classpath, since a platform
+// that finds one there would try to run its tests. The engine copies one out for the workers that
+// need it.
 val testngEngine by configurations.creating {
+    isTransitive = false
+}
+val vintageEngine by configurations.creating {
     isTransitive = false
 }
 
 dependencies {
     testngEngine(libs.testng.engine)
+    vintageEngine(libs.junit.vintage.engine)
 }
 
 tasks.processResources {
     from(testngEngine) {
         into("io/mutastic/engine")
         rename { "testng-engine.jar" }
+    }
+    from(vintageEngine) {
+        into("io/mutastic/engine")
+        rename { "vintage-engine.jar" }
     }
 }

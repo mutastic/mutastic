@@ -24,6 +24,8 @@ junit-platform-launcher-floor = { module = "org.junit.platform:junit-platform-la
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 archunit = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
 testng-engine = { module = "org.junit.support:testng-engine", version.ref = "testng-engine" }
+# Runs JUnit 4 tests on the JUnit Platform, for a project whose build runs them with JUnit 4 alone.
+junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit" }
 maven-core = { module = "org.apache.maven:maven-core", version.ref = "maven" }
 maven-plugin-api = { module = "org.apache.maven:maven-plugin-api", version.ref = "maven" }
 json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }

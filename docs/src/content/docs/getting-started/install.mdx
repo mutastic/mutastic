@@ -111,8 +111,9 @@ Next: the [Quickstart](/getting-started/quickstart/) runs mutastic on a small sa
 gap it finds.
 
 [^tests]: Its tests run on the JDK its build gives them, as they always do. They can be JUnit 5 or 6
-    (Jupiter), anything else on the JUnit Platform, or TestNG, which mutastic runs with TestNG's own
-    engine for the platform, so a project needs nothing extra. TestNG's groups count as the
+    (Jupiter), anything else on the JUnit Platform, JUnit 4, or TestNG. A build that runs JUnit 4 or
+    TestNG without the platform (Gradle's `useJUnit()`, which Kotlin's `kotlin("test")` picks)
+    gets the platform's own engine for it from mutastic, so a project needs nothing extra. TestNG's groups count as the
     platform's tags: a build that leaves out a group leaves it out of mutastic's runs too.
     `@QuarkusTest` tests work as they are: Quarkus loads the app in its own class loader, and
     mutastic swaps each mutant into Quarkus's copy of the class, so the app starts once per worker,
