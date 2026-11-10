@@ -143,6 +143,24 @@ module already has a test by that name. When the module has no `use super::*;`, 
 with `super::`. When there's no test module, the card says where a new one goes, and the call is
 written with `super::` too.
 
+When the input is at a value the source names, the test says it the source's way and is named for
+it. A `const` in the function's file that the comparison reads is passed by name, its value in the
+comment:
+
+```text
+#[test]
+fn discount_at_free_from() {
+    assert_eq!(discount(FREE_FROM), 10); // FREE_FROM = 100 · today 10 · with this mutant 0
+}
+```
+
+When a covering test in the module beside the function makes the receiver with values written
+out, the suggested test makes it the same way and says so (`let delivery = Delivery::new(50); //
+as tests::small_orders builds it`). Otherwise a field the receiver is made with, of the
+parameter's type and passed the same value, is one `let`, passed to both (`is_free_at_free_from`),
+and the receiver's values are named by its fields or `new`'s parameters:
+`open_on_with_day_5_for_start_5_and_end_10`.
+
 `--format=agent` gives the same test under `test to add in`.
 
 </div>

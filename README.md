@@ -26,7 +26,7 @@ suggests the test that would catch it, and gives the command that proves the fix
     │
  16 │   public int discount(int total) {
  17 │     if (total >= 100) {
-    │               ^^ changed to >
+    │               ^^ >= changed to >
  18 │       return total / 10;
     │
     = mutant  - if (total >= 100) {
@@ -47,7 +47,7 @@ suggests the test that would catch it, and gives the command that proves the fix
     reproduce  mutastic run --only=m855c8e3c samples/pricing
     or ignore  mutastic ignore m855c8e3c --reason="<why>" samples/pricing
 
-     Score  88.9%  threshold 80
+     Score  90.9%  threshold 80
 
   PASS  1 missed, above the threshold.
 ```
@@ -77,12 +77,14 @@ release. The project mutastic tests can be on JDK 17 or later.
 
 ## Status
 
-Early. Nine operators (boundaries, negated and removed conditions, arithmetic, returned defaults,
-removed void calls, stream stages and matches), plugins that add more as rules files or Java,
-Gradle and Maven projects with JUnit Platform or TestNG tests and more than one test suite,
-parallel workers, suggested tests, flaky-test detection, and output for people, coding agents and
-tools (JSON Lines, and JSON, HTML and XML reports). Expect it to change before 1.0. Each release's changes are in its
-[release notes](https://github.com/mutastic/mutastic/releases).
+The Java edition runs Gradle and Maven projects, Kotlin's among them (experimental), with JUnit
+Platform, JUnit 4 or TestNG tests and more than one test suite. It has operators in tiers
+(`defaults`, `stronger` and `extended`), plugins that add more as rules files or Java, parallel
+workers, suggested tests, flaky-test detection, a gate for coding agents, and output for people,
+coding agents and tools (JSON Lines, and JSON, HTML and XML reports). What stays the same from one
+release to the next, mutant ids, scores, the events format and the plugin API, is on the
+[Compatibility](https://docs.mutastic.io/reference/compatibility/) page. Each release's changes
+are in its [release notes](https://github.com/mutastic/mutastic/releases).
 
 ## Contributing
 
