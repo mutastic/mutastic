@@ -40,7 +40,8 @@ import java.util.Set;
 /// - every calculation, comparison and store that works on a mask, or on what a runtime call
 ///   answered (`changed(x)`, `getSkipping()`, `isTraceInProgress()`, whether a cached value is
 ///   `Composer.Empty`), followed through the code as values on the stack and in locals;
-/// - the masks given to another composable function it calls.
+/// - the masks given to another composable function it calls, or to a composable lambda: a
+///   `FunctionN.invoke` given the `Composer`, then its boxed `$changed`.
 final class Compose {
   private static final ClassDesc COMPOSER = ClassDesc.of("androidx.compose.runtime.Composer");
 
@@ -71,6 +72,10 @@ final class Compose {
   private final List<Integer> places = new ArrayList<>();
   private final Map<Integer, Label> labelsBefore = new HashMap<>();
   private final Set<Integer> maskSlots = new HashSet<>();
+
+  /// The slot of the `Composer` the method takes.
+  private int composerSlot = -1;
+
   private final Set<Integer> marked = new HashSet<>();
   private final Map<Label, List<Value>> atLabel = new HashMap<>();
 
@@ -96,6 +101,7 @@ final class Compose {
     }
     var found = new Compose(code);
     found.maskSlots.addAll(masks);
+    found.composerSlot = composerSlot(method);
     found.read();
     var places = new HashSet<Integer>();
     found.marked.forEach(index -> places.add(found.places.get(index)));
@@ -125,6 +131,19 @@ final class Compose {
       slot += java.lang.classfile.TypeKind.from(parameters.get(at)).slotSize();
     }
     return masks;
+  }
+
+  /// The slot of the method's `Composer` parameter; -1 for none.
+  private static int composerSlot(MethodModel method) {
+    var parameters = method.methodTypeSymbol().parameterList();
+    int slot = method.flags().has(java.lang.reflect.AccessFlag.STATIC) ? 0 : 1;
+    for (var parameter : parameters) {
+      if (parameter.equals(COMPOSER)) {
+        return slot;
+      }
+      slot += java.lang.classfile.TypeKind.from(parameter).slotSize();
+    }
+    return -1;
   }
 
   /// Whether a call takes a `Composer` and its masks: another composable function.
@@ -216,18 +235,62 @@ final class Compose {
       marked.add(at);
       arguments.forEach(this::markFrom);
     } else if (isComposableCall(call.typeSymbol())) {
-      var parameters = call.typeSymbol().parameterList();
-      int composer = parameters.indexOf(COMPOSER);
-      int masks = parameters.size() - composer - 1;
-      arguments.subList(arguments.size() - masks, arguments.size()).forEach(this::markFrom);
-      markDefaulted(
-          arguments.subList(arguments.size() - masks - composer - 1, arguments.size()),
-          composer,
-          masks);
+      markMasks(call, arguments);
     }
-    if (effect.pushes() > 0) {
+    if (isComposableLambda(call, arguments)) {
+      markFrom(arguments.getLast());
+    }
+    if (isBoxing(call) && constant(arguments.getFirst()).isPresent()) {
+      stack.add(boxedConstant(at, arguments.getFirst()));
+    } else if (effect.pushes() > 0) {
       stack.add(new Value(runtime, List.of()));
     }
+  }
+
+  /// The masks a composable call passes, and the stand-ins its `$default` masks mark.
+  private void markMasks(InvokeInstruction call, List<Value> arguments) {
+    var parameters = call.typeSymbol().parameterList();
+    int composer = parameters.indexOf(COMPOSER);
+    int masks = parameters.size() - composer - 1;
+    arguments.subList(arguments.size() - masks, arguments.size()).forEach(this::markFrom);
+    markDefaulted(
+        arguments.subList(arguments.size() - masks - composer - 1, arguments.size()),
+        composer,
+        masks);
+  }
+
+  /// A constant boxed: still known to be that constant, for a composable lambda's `$changed`.
+  private static Value boxedConstant(int at, Value constant) {
+    var from = new ArrayList<Integer>(List.of(at));
+    from.addAll(constant.from());
+    return new Value(false, from);
+  }
+
+  /// A call to a composable lambda: `invoke` on one of Kotlin's function types, given the
+  /// `Composer` and then its `$changed` mask, boxed. Its type doesn't say so, its arguments do.
+  private boolean isComposableLambda(InvokeInstruction call, List<Value> arguments) {
+    return call.opcode() == Opcode.INVOKEINTERFACE
+        && call.owner().asInternalName().startsWith("kotlin/jvm/functions/Function")
+        && call.name().equalsString("invoke")
+        && arguments.size() >= 3
+        && isComposer(arguments.get(arguments.size() - 2));
+  }
+
+  /// Whether a value is the method's own `Composer`, as a load of it put it there.
+  private boolean isComposer(Value value) {
+    return composerSlot >= 0
+        && value.from().size() == 1
+        && instructions.get(value.from().getFirst()) instanceof LoadInstruction load
+        && load.slot() == composerSlot
+        && load.typeKind() == java.lang.classfile.TypeKind.REFERENCE;
+  }
+
+  /// `Integer.valueOf(int)`: the same number, boxed, as a lambda's arguments are.
+  private static boolean isBoxing(InvokeInstruction call) {
+    return call.opcode() == Opcode.INVOKESTATIC
+        && call.owner().asInternalName().equals("java/lang/Integer")
+        && call.name().equalsString("valueOf")
+        && call.typeSymbol().descriptorString().equals("(I)Ljava/lang/Integer;");
   }
 
   /// The stand-ins a composable call passes for the arguments it leaves to their defaults: a zero
