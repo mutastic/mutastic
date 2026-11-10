@@ -32,7 +32,7 @@ const loaded = rustDocs(base);
 const rust = loaded?.sidebar;
 // The two editions line up: every page the edition switch opens exists, and every Rust page has
 // its place in the sidebar. A release or CI build stops when they don't.
-if (loaded) await checkEditions(loaded.pages, loaded.unplaced);
+if (loaded) await checkEditions(loaded.pages, loaded.unplaced, loaded.shared);
 
 /** Root-relative links in the Markdown, `/concepts/results/`, under this build's base path. */
 function linksUnderBase() {
@@ -51,10 +51,14 @@ function linksUnderBase() {
 export default defineConfig({
   site: 'https://docs.mutastic.io',
   base,
-  // The Rust edition's commands had one page before each had its own.
-  ...(loaded?.pages.has('rust/reference/run') && !loaded.pages.has('rust/reference/cli')
-    ? { redirects: { '/rust/reference/cli': `${base}rust/reference/run/` } }
-    : {}),
+  // The Rust edition's commands had one page before each had its own, and its concepts their own
+  // pages before both editions shared them.
+  redirects: {
+    ...(loaded?.pages.has('rust/reference/run') && !loaded.pages.has('rust/reference/cli')
+      ? { '/rust/reference/cli': `${base}rust/reference/run/` }
+      : {}),
+    ...loaded?.redirects,
+  },
   markdown: { processor: unified({ rehypePlugins: [linksUnderBase] }) },
   integrations: [
     starlight({
@@ -94,6 +98,7 @@ export default defineConfig({
         // One edition at a time, and which edition a page is: see src/route-editions.ts.
         Sidebar: './src/components/Sidebar.astro',
         PageTitle: './src/components/PageTitle.astro',
+        Pagination: './src/components/Pagination.astro',
       },
       plugins: [starlightLlmsTxt()],
       // One edition's sidebar at a time: a `Java` group and a `Rust` group, each with the same
@@ -121,6 +126,8 @@ export default defineConfig({
                 'concepts/equivalence',
                 'concepts/flaky-tests',
                 'concepts/output',
+                'concepts/how-a-run-works',
+                'concepts/ids',
                 'concepts/ghosts',
               ],
             },

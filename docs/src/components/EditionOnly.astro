@@ -1,0 +1,30 @@
+---
+// A part of a page both editions share that's about one of them only, such as Lombok for Java or
+// a crashed test process for Rust: shown when that edition is the reader's, from the switch or an
+// edition tab. Its headings leave the page's contents with it. Without the Rust edition's pages,
+// the Java parts are the page as it always was, and the Rust parts aren't there.
+import type { EditionPanes } from '../route-editions';
+
+interface Props {
+  edition: 'java' | 'rust';
+}
+const { edition } = Astro.props;
+const rust = (Astro.locals as { editionPanes?: EditionPanes }).editionPanes !== undefined;
+---
+
+{rust ? <div data-edition-only={edition}><slot /></div> : edition === 'java' && <slot />}
+
+<script>
+  // Each heading's entry in the page's contents goes with its part: tagged as the part is, so the
+  // same rule hides both (components/Sidebar.astro).
+  for (const part of document.querySelectorAll<HTMLElement>('[data-edition-only]')) {
+    for (const heading of part.querySelectorAll('h2[id], h3[id], h4[id]')) {
+      const href = `#${heading.id}`;
+      for (const link of document.querySelectorAll('starlight-toc a, mobile-starlight-toc a')) {
+        if (link.getAttribute('href') === href) {
+          link.closest('li')?.setAttribute('data-edition-only', part.dataset.editionOnly!);
+        }
+      }
+    }
+  }
+</script>

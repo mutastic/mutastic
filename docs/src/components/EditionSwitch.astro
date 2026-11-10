@@ -1,7 +1,8 @@
 ---
 // Java or Rust, at the top of the sidebar. Choosing the other edition opens the same topic there
 // when it has one, or its overview, saying so first, when it doesn't. On a page both editions
-// share it swaps the sidebar in place. The choice is remembered in this browser.
+// share it swaps the sidebar, and the page's edition tabs, in place. The choice is remembered in
+// this browser.
 import type { EditionPanes } from '../route-editions';
 
 interface Props {
@@ -41,18 +42,64 @@ const sides = [
 {note && <p class="switch-note">{panes.edition === 'java' ? 'No Rust page on this topic yet: Rust opens at its overview.' : 'No Java page on this topic: Java opens at its overview.'}</p>}
 
 <script>
+  // The switch and a page's edition tabs (Starlight's, synced by the key `edition`) are one choice:
+  // choosing an edition in either shows it in both, and both are remembered in this browser.
+  type Edition = 'java' | 'rust';
+  const LABELS: Record<Edition, string> = { java: 'Java', rust: 'Rust' };
+  const TABS = 'starlight-tabs[data-sync-key="edition"]';
+  const inPlace = document.querySelector('.edition-switch a[data-inplace]') !== null;
+
+  function remember(edition: Edition) {
+    try {
+      localStorage.setItem('mutastic-edition', edition);
+      localStorage.setItem('starlight-synced-tabs__edition', LABELS[edition]);
+    } catch {}
+  }
+
+  /** Opens each edition tab group on the page at `edition`, as Starlight restores a synced tab. */
+  function showTabs(edition: Edition) {
+    for (const group of document.querySelectorAll<HTMLElement>(TABS)) {
+      const tabs = [...group.querySelectorAll<HTMLElement>(':scope > .tablist-wrapper [role="tab"]')];
+      const panels = [...group.querySelectorAll<HTMLElement>(':scope > [role="tabpanel"]')];
+      const at = tabs.findIndex((tab) => tab.textContent?.trim() === LABELS[edition]);
+      if (at === -1) continue;
+      tabs.forEach((tab, i) => {
+        tab.setAttribute('aria-selected', String(i === at));
+        if (i === at) tab.removeAttribute('tabindex');
+        else tab.setAttribute('tabindex', '-1');
+      });
+      panels.forEach((panel, i) => (panel.hidden = i !== at));
+    }
+  }
+
   for (const link of document.querySelectorAll<HTMLAnchorElement>('.edition-switch a')) {
     link.addEventListener('click', (event) => {
-      const edition = link.dataset.edition!;
-      try {
-        localStorage.setItem('mutastic-edition', edition);
-      } catch {}
+      const edition = link.dataset.edition as Edition;
+      remember(edition);
       if (link.hasAttribute('data-inplace')) {
         event.preventDefault();
         document.documentElement.dataset.edition = edition;
+        showTabs(edition);
       }
     });
   }
+
+  // A tab chosen on a shared page changes the sidebar too. Starlight has already switched the
+  // page's other edition tabs and remembered the tab by the time this reads which is selected.
+  const fromTabs = (event: Event) => {
+    const tab = (event.target as Element | null)?.closest('[role="tab"]');
+    const group = tab?.closest<HTMLElement>('starlight-tabs');
+    if (group?.dataset.syncKey !== 'edition') return;
+    setTimeout(() => {
+      const label = group.querySelector(':scope > .tablist-wrapper [aria-selected="true"]')?.textContent?.trim();
+      const edition = (Object.keys(LABELS) as Edition[]).find((e) => LABELS[e] === label);
+      if (edition === undefined) return;
+      remember(edition);
+      if (inPlace) document.documentElement.dataset.edition = edition;
+    });
+  };
+  document.addEventListener('click', fromTabs);
+  document.addEventListener('keyup', fromTabs);
 </script>
 
 <style>

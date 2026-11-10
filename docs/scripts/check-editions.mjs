@@ -1,6 +1,7 @@
 // Fails the build when the two editions' pages don't line up: a page the edition switch would open
-// (src/edition-pages.mjs) that doesn't exist, or a Rust page with no place in the Rust sidebar
-// (LAYOUT in scripts/rust-docs.mjs). Either would otherwise pass unnoticed: the switch would fall
+// (src/edition-pages.mjs) that doesn't exist, a shared concept that doesn't exist or stands for a
+// mutastic-rs page that doesn't, or a Rust page with no place in the Rust sidebar (LAYOUT in
+// scripts/rust-docs.mjs). Either would otherwise pass unnoticed: the switch would fall
 // back to an overview, and the page would sit under "More". A release or CI build (DOCS_VERSION
 // set) stops; a local one says what's wrong and carries on, so a page being written can be read.
 import { existsSync, readdirSync } from 'node:fs';
@@ -11,6 +12,7 @@ import {
   JAVA_OPERATORS,
   PAIRS,
   RUST_ONLY_WAY,
+  SHARED,
 } from '../src/edition-pages.mjs';
 
 const content = fileURLToPath(new URL('../src/content/docs/', import.meta.url));
@@ -38,10 +40,11 @@ async function javaPages() {
 }
 
 /**
- * @param {Set<string>} rust     every Rust page's path, `rust/concepts/ids`
+ * @param {Set<string>} rust     every Rust page's path, `rust/concepts/unsafe`
  * @param {string[]} unplaced    Rust pages the Rust sidebar's layout doesn't list
+ * @param {string[]} gone        mutastic-rs pages a shared page stands for that it doesn't have
  */
-export async function checkEditions(rust, unplaced) {
+export async function checkEditions(rust, unplaced, gone = []) {
   const java = await javaPages();
   const problems = [];
   const need = (pages, path, edition, why) => {
@@ -60,6 +63,11 @@ export async function checkEditions(rust, unplaced) {
     need(java, j, 'Java', 'named in src/edition-pages.mjs');
   }
   need(java, JAVA_OPERATORS, 'Java', "every Rust operator family's page opens");
+  // A shared page is one page, at the Java edition's URL, so it needs no pair.
+  for (const [page] of SHARED) need(java, page, 'shared', 'named in SHARED in src/edition-pages.mjs');
+  for (const page of gone) {
+    problems.push(`the Rust page '${page}' a shared page stands for (SHARED in src/edition-pages.mjs) isn't in mutastic-rs`);
+  }
   for (const page of unplaced) {
     problems.push(`the Rust page '/${page}' has no place in the Rust sidebar: add it to LAYOUT in scripts/rust-docs.mjs`);
   }

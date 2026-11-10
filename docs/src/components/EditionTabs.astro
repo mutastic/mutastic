@@ -1,0 +1,30 @@
+---
+// What the editions do differently, on a page both share: Java and Rust tabs, Starlight's, synced by
+// the key `edition`, so the edition switch and every such tab on the site move together (see
+// EditionSwitch.astro). Without the Rust edition's pages, as on a site that doesn't publish them,
+// only the Java side is shown, as the page always was.
+//
+//   <EditionTabs>
+//     <div slot="java">…</div>
+//     <div slot="rust">…</div>
+//   </EditionTabs>
+import { TabItem, Tabs } from '@astrojs/starlight/components';
+import type { EditionPanes } from '../route-editions';
+
+const rust = (Astro.locals as { editionPanes?: EditionPanes }).editionPanes !== undefined;
+---
+
+{
+  rust ? (
+    <Tabs syncKey="edition">
+      <TabItem label="Java">
+        <slot name="java" />
+      </TabItem>
+      <TabItem label="Rust">
+        <slot name="rust" />
+      </TabItem>
+    </Tabs>
+  ) : (
+    <slot name="java" />
+  )
+}

@@ -3,10 +3,13 @@ title: Results and the score
 description: What happens to each mutant, how the score is worked out, and why some mutants are skipped.
 ---
 
+import EditionOnly from '../../../components/EditionOnly.astro';
+import EditionTabs from '../../../components/EditionTabs.astro';
+import RustOutput from '../../../components/RustOutput.astro';
+
 A **mutant** is your code with one small change in it, `>=` becoming `>` say. mutastic runs the
-tests that reach the changed line. If one fails, the tests noticed: the mutant is **caught**. If
-they all pass, nothing checks what that line does: the mutant is **missed**, and that's a gap in
-the tests.
+tests that reach the change. If one fails, the tests noticed: the mutant is **caught**. If they all
+pass, nothing checks what that code does: the mutant is **missed**, and that's a gap in the tests.
 
 ## What happens to a mutant
 
@@ -15,19 +18,57 @@ the tests.
 | Caught | ✓ | A test failed with the mutant in. |
 | Missed | ✗ | Every test that reaches it still passes: a gap in the tests. |
 | Timed out | ⏱ | The tests stopped finishing in time, usually a loop that no longer ends. Counts as caught. |
-| Not covered | ○ | No test reaches its line. |
+| Not covered | ○ | No test reaches it. |
 | Skipped | | Never run, for the reason given with it. Left out of the score. |
 
-Colour is never the only signal: every result also has its symbol or word. With
-`--vocabulary=classic` (or `MUTASTIC_VOCABULARY=classic`) mutastic says *killed* and *survived*
-instead of caught and missed. The JSON report and the event stream always use the standard names:
-`Killed`, `Survived`, `Timeout`, `NoCoverage` and `Ignored`.
+<EditionOnly edition="rust">
+
+The Rust edition has one more: **crashed where a crash proves nothing**. The test process died
+where the crash may be undefined behaviour, or where std's own check of an unsafe precondition
+stopped it, so it says nothing about the tests, and the mutant is left out of the score. A crash in
+safe code is the mutant's doing, and counts as caught: see
+[Caught only because the test process crashed](#caught-only-because-the-test-process-crashed).
+
+</EditionOnly>
+
+Colour is never the only signal: every result also has its symbol or its words. The JSON report and
+the event stream always use the standard names: `Killed`, `Survived`, `Timeout`, `NoCoverage` and
+`Ignored`, and the Rust edition's `RuntimeError` for a crash that proves nothing. In the Java
+edition, `--vocabulary=classic` (or `MUTASTIC_VOCABULARY=classic`) says *killed* and *survived*
+instead of caught and missed.
+
+## How a test catches a mutant
+
+A test catches a mutant by failing, the way it would fail in your own test run:
+
+<EditionTabs>
+<div slot="java">
+
+An assertion that doesn't hold, an exception the test doesn't expect, an `assertThrows` that no
+longer throws. A mutant that makes setup throw, or teardown fail an assertion, is caught by the
+test that setup or teardown ran for.
+
+</div>
+<div slot="rust">
+
+An `assert!` that doesn't hold, a panic, an `unwrap` on `None`, a `#[should_panic]` test that no
+longer panics. mutastic says which test, and how, when the language raised the panic itself. A
+test that fails only because the arithmetic overflowed is still a catch, but worth knowing about:
+see [Profiles](/rust/concepts/profiles/#why-overflow-checks-are-forced).
+
+</div>
+</EditionTabs>
 
 ## Which tests reach a line
 
-Before any mutant, mutastic runs every test once and records which lines each one runs. A line run
-inside a test, or in that test's own setup and teardown, reaches that test. A line run around the
-tests, where no one test is running, reaches every test it could have shaped:
+Before any mutant, mutastic runs every test once and records the code each one runs. A mutant then
+runs against only the tests that reach it, and the first to fail stops them.
+
+<EditionTabs>
+<div slot="java">
+
+A line run inside a test, or in that test's own setup and teardown, reaches that test. A line run
+around the tests, where no one test is running, reaches every test it could have shaped:
 
 | Where the code runs | The tests it reaches |
 |---|---|
@@ -36,32 +77,90 @@ tests, where no one test is running, reaches every test it could have shaped:
 | A `@MethodSource` | The parameterised test it feeds |
 | Where no class can be told apart: TestNG's suite and `<test>` methods, its `@AfterClass`, its `@DataProvider` and test classes (made as the tests are found), a static `@RegisterExtension` | Every test |
 
-The wider a line's reach, the more tests run against its mutants, though the first to fail stops
-them. A test runs on its own against a mutant, with its class's setup and teardown around it, so a
-mutant that makes setup throw or teardown fail an assertion is caught by that test, and so is one
-that changes what setup gives the test.
+The wider a line's reach, the more tests run against its mutants. A test runs on its own against a
+mutant, with its class's setup and teardown around it, so a mutant that changes what setup gives the
+test is caught by that test too.
 
 A test that passes among the others but fails on its own, because it counts on what another test
 left behind, would fail against every mutant it met: see
 [When a catch isn't the mutant's](#when-a-catch-isnt-the-mutants).
 
+</div>
+<div slot="rust">
+
+Each test runs on its own, in a process of its own, so what it reaches is what it ran: unit tests
+in `#[cfg(test)]` modules, integration tests in `tests/`, and each binary's tests. A test marked
+`#[ignore]` is left out. See [How a run works](/concepts/how-a-run-works/#what-each-test-reaches).
+
+</div>
+</EditionTabs>
+
+<EditionOnly edition="rust">
+
+## Caught only because the test process crashed
+
+Sometimes no test fails: the test process dies instead, by `std::process::abort()`, a panic that
+can't unwind, or a stack overflow. mutastic runs the tests again one at a time to see how, and what
+it means depends on where the mutant is.
+
+**In safe code,** a crash is the mutant's doing and nothing else's, so the mutant is caught. But no
+test's check caught it: the process died before any test could pass or fail. So no test is named,
+and mutastic says so plainly:
+
+<RustOutput name="concepts/verify-crash" />
+
+The summary counts these apart, on a line of their own (`caught only because the test process
+crashed, not by a test's check`), and in the event stream the mutant has `caughtWith` starting
+`crash:` and no `caughtBy`:
+
+<RustOutput name="concepts/crash-event" />
+
+It counts as caught: the change does show, as the tests can't pass with it, and there's nothing to
+fix. Here, `if true` makes `guarded()` abort on every call, before the test's `assert_eq!` gets to
+look at the answer.
+
+**Near unsafe code,** a crash may be undefined behaviour, which proves nothing about the tests. The
+mutant is a `RuntimeError`, left out of the score. So is a mutant anywhere that std's own debug check
+of an unsafe precondition stopped. See [Unsafe code](/rust/concepts/unsafe/).
+
+This is the unsafety fixture, which has one of each:
+
+<RustOutput name="concepts/unsafe-run" />
+
+</EditionOnly>
+
 ## The score
 
 The score is the share of the mutants that ran which the tests noticed:
+
+<EditionTabs>
+<div slot="java">
 
 ```text
 score = (caught + timed out) / (every mutant − skipped) × 100
 ```
 
+</div>
+<div slot="rust">
+
+```text
+score = (caught + timed out) / (every mutant − skipped − crashed where a crash proves nothing) × 100
+```
+
+</div>
+</EditionTabs>
+
 A mutant no test reaches counts against the score, as one no test checks does. A run passes when
-the score reaches the threshold, 80 unless `--threshold` says otherwise; a run with nothing to
-score says so, rather than claiming 100%.
+the score reaches the threshold, which `--threshold` sets (its default is in `mutastic --help`); a
+run with nothing to score says so, rather than claiming 100%.
 
 When some code is out of every test's reach, the result also gives the score of the code they do
 reach (`74.1% where tests reach`, and `coveredScore` in `--format=jsonl`): how well the tests check
 what they run, apart from what they don't. The threshold is always on the whole score. The code no
 test reaches is listed once per method, with the lines its mutants are on, since one test that calls
-the method reaches them all; `--each-mutant` lists each line.
+the method reaches them all. In the Java edition, `--each-mutant` lists each line.
+
+<EditionOnly edition="java">
 
 ## When a catch isn't the mutant's
 
@@ -111,10 +210,15 @@ void registersThePostQuantumProvider() {
 }
 ```
 
+</EditionOnly>
+
 ## Skipped mutants
 
 Some changes would tell you nothing, so mutastic doesn't run them. Each skip says why, with a kind
-first:
+first, and the summary counts them by kind (`2 skipped (1 arid, 1 unviable)`):
+
+<EditionTabs>
+<div slot="java">
 
 | Kind | Means | For example |
 |---|---|---|
@@ -130,6 +234,30 @@ first:
 mutastic never mutates constructors, static initialisers, an enum's `values()`, or a record's
 generated `equals`, `hashCode` and `toString`. The `defaults` set also leaves `float` and `double`
 arithmetic alone.
+
+</div>
+<div slot="rust">
+
+| Kind | Means | For example |
+|---|---|---|
+| `unviable:` | It doesn't compile | `unviable: doesn't compile (E0308: mismatched types)` |
+| `arid:` | Code whose change no test should have to notice | `arid: only writes output`, for a `println!` or `log::warn!` statement removed |
+| `equivalent:` | No test can tell it from the code ([what that means](/concepts/equivalence/)) | a `?` that only passes on a formatter's error |
+| `user:` | The project's own decision, in `mutastic.yaml` or `.mutastic/ignores.yaml` | ``user: written by a code generator (rule `skip: shop::generated::**`)`` |
+
+A mutant is unviable when the build withdrew it, and its reason is the compiler's error. A change
+that doesn't compile is one no test needs to catch, so it's left out of the score. See
+[How a run works](/concepts/how-a-run-works/#a-mutant-that-doesnt-compile-is-rolled-back).
+
+Code mutastic doesn't make mutants for at all, such as test code and code inside `unsafe`, isn't in
+the count. The summary names what was left out around unsafe code (`not mutated: unsafe`, with how
+many), and code under a `cfg` this build doesn't have (``not built here: `cfg(windows)` ``, with how
+many), so you know what the score doesn't cover.
+
+</div>
+</EditionTabs>
+
+<EditionOnly edition="java">
 
 ### Lombok
 
@@ -150,3 +278,35 @@ file to tell its code from yours, so its mutants run and count in the score. Add
 ```properties
 lombok.addLombokGeneratedAnnotation = true
 ```
+
+</EditionOnly>
+
+<EditionOnly edition="rust">
+
+## What `verify` says
+
+`mutastic verify` runs only the mutants named, and passes when each is settled. One line each says
+how it went:
+
+| It prints | Means | Passes |
+|---|---|---|
+| `is caught by tests::discount_with_total_100` | a test failed | yes |
+| `is caught by run::totals, through a panic: attempt to subtract with overflow` | a test failed through a panic the language raised | yes |
+| `is caught only because the test process crashed (SIGABRT): no test's check caught it` | no test failed: the process died, in safe code | yes |
+| `is caught by a timeout` | the tests ran out of time | yes |
+| `is still missed` | every test that reaches it passed | no |
+| `isn't reached by any test` | no test reaches it | no |
+| `is skipped (unviable: …), so it isn't run and needs no test` | it doesn't compile | yes |
+| `crashes, and no test can be said to catch it (…)` | it crashed where a crash proves nothing | yes |
+
+See [`mutastic verify`](/rust/reference/verify/) for the command itself.
+
+## Exit status
+
+| Status | When |
+|---|---|
+| 0 | The run passed, or every mutant `verify` named is caught, skipped, or crashed where a crash proves nothing |
+| 1 | The score is under the threshold, or a mutant `verify` named is missed or not covered |
+| 2 | mutastic couldn't run: not a Cargo package, a test that fails with no mutant in, a build that fails for a reason no mutant explains |
+
+</EditionOnly>

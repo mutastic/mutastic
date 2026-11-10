@@ -1,0 +1,158 @@
+---
+title: How a run works
+description: "How mutastic makes every mutant, finds which tests reach each one, and runs each against only those tests."
+---
+
+import EditionOnly from '../../../components/EditionOnly.astro';
+import EditionTabs from '../../../components/EditionTabs.astro';
+import RustOutput from '../../../components/RustOutput.astro';
+
+A run makes every mutant of your code, runs each of your tests once to see what it reaches, then
+runs each mutant against only the tests that reach it. Your source and your build files are never
+changed.
+
+<EditionOnly edition="java">
+
+## Reading your build
+
+mutastic runs your build with its own code loaded, which compiles your code and tests and records
+what the tests would run with: their JDK, JVM arguments, working directory and classpath. For
+Gradle that's an init script reading the `test` task; for Maven, an extension reading Surefire's
+settings after `mvn test-compile`. The build plugins read the same from inside the build.
+
+## Mutants in the class files
+
+mutastic reads your compiled classes, not your source, and finds every place each operator in the
+run can make a change: mutastic's own, and any a [plugin](/guides/plugins/) adds. There's no
+compiler between a mutant and the tests: for each mutant, the class is changed and handed to a
+worker. A mutant's id comes from its method, site and change, so a new operator never changes the
+ids of the others: see [Mutant ids](/concepts/ids/).
+
+</EditionOnly>
+
+<EditionOnly edition="rust">
+
+A mutation testing tool for Rust has a problem the Java edition doesn't: a change to the source
+needs the compiler, and building a crate once per mutant takes too long. mutastic builds your crate
+once, with every mutant in it, and picks which one is live when the tests run. What it says as it
+goes, on `fixtures/pricing`:
+
+<RustOutput name="concepts/run-progress" />
+
+## One copy, one build
+
+mutastic never touches your source, your `Cargo.toml` or your `target/`. It copies the workspace to
+`target/mutastic/copy`, beside a target directory of its own, and writes each mutant into the copy
+behind a switch. A site with mutants becomes a `match` on the switch: the mutants are its arms, and
+your code is the last one. `if total >= 100 {` becomes, in the copy:
+
+<RustOutput name="concepts/schema-line" />
+
+The switch reads `MUTASTIC_ACTIVE` once, as the test binary starts. With no mutant named, every
+`match` takes your code's arm, so the copy behaves as your crate does. A small module at the end of
+your crate root holds the switch; nothing is added to `Cargo.toml`, so a `--locked`, `--offline` or
+vendored build works as it does for you.
+
+The copy keeps your line numbers: the rewritten code never adds a line, so a panic's line and a
+card's line are your file's. The copy is written only where its bytes change, so Cargo's own
+freshness checks keep the next run's build short.
+
+mutastic builds the copy with your own `cargo` and `rustc`, stable or not, from Rust 1.79 on: the
+code it adds to your crate uses inline `const` blocks, which came then. Flags reach only your
+crate, through `RUSTC_WORKSPACE_WRAPPER`, never `RUSTFLAGS`, so your own rustflags still apply and
+no dependency is built again. The one flag added caps lints, so a `#![deny(warnings)]` in your crate
+doesn't fail a build on code it was never meant to judge. The build uses a profile of mutastic's
+own: see [Profiles](/rust/concepts/profiles/).
+
+## A mutant that doesn't compile is rolled back
+
+Each mutant and your code are arms of one `match`, so they must have the same type. Most operators
+only make changes that are sure to compile. A few rely on the compiler to say: an argument list
+swapped where the types might differ, a call left out whose result might be another type, a `?`
+turned into `.unwrap()`.
+
+When the build fails, mutastic reads the compiler's errors, works out which mutants they belong
+to, withdraws those, and builds again. An error in a mutant's own arm names that mutant. An error
+around a guard, such as a borrow that a mutant's arm upsets, names the mutants in it. Only when an
+error can't be placed closer does it name every mutant in its function. The rounds are `cargo
+check`, and once that passes, a `cargo build`; the summary counts them.
+
+A withdrawn mutant is skipped as unviable, with the compiler's error as its reason, and stays out
+of the score: a change that doesn't compile is one no test needs to catch. See
+[Troubleshooting](/rust/troubleshooting/#a-mutant-is-skipped-as-unviable) for what one looks like.
+
+If the build fails for a reason no mutant explains, mutastic stops and prints the compiler's
+error: your crate needs to build as it is first.
+
+</EditionOnly>
+
+## What each test reaches
+
+Before any mutant, mutastic runs every test once, recording which code each one reaches and the
+whole numbers each method was called with: the "inputs seen" on a card. See
+[Which tests reach a line](/concepts/results/#which-tests-reach-a-line).
+
+<EditionTabs>
+<div slot="java">
+
+A test worker starts on your project's JDK and runs every test, with each line instrumented.
+
+</div>
+<div slot="rust">
+
+mutastic lists every test in your package's test binaries: unit tests in `#[cfg(test)]` modules,
+integration tests in `tests/`, and the tests of each binary. Tests marked `#[ignore]` are left out.
+Then it runs each test once, on its own, with the switches recording which sites it reaches.
+
+</div>
+</EditionTabs>
+
+Every test must pass here. A test that fails with no mutant in would look as if it caught every
+mutant it met, so a test that fails runs again on its own, a few times. If it passes, it's
+[flaky](/concepts/flaky-tests/): the run goes on without it, and says so. A test that fails every
+time stops the run.
+
+## Each mutant against the tests that reach it
+
+Each mutant then runs against only the tests that reach it. The first test to fail stops it: the
+mutant is caught. If they all pass, it's missed. If none reach it, it isn't run, and it's not
+covered. Mutants run side by side, as many at once as `--workers` says.
+
+Each run has a time limit, so a mutant that makes a loop run forever is stopped and counted as timed
+out, which counts as caught.
+
+<EditionTabs>
+<div slot="java">
+
+Each worker is a JVM of its own, as Gradle's parallel test forks are, and runs the tests that reach
+the mutant fastest first. Classes load once per worker, and each mutant is swapped in by class
+redefinition, so nothing restarts between mutants. Redefinition never reruns a static initialiser,
+so a mutant on a line the tests only ran while its class was loading runs in a fresh class loader,
+against every test that reaches its class. A worker that runs out of time is killed and replaced.
+
+Workers side by side can get in each other's way: tests that use a fixed port collide, and tests
+that share a lock, a database or a slow start run slower than they did alone. So neither a catch
+caused by a port in use nor a timeout is trusted: that mutant runs again on its own once the others
+are done. Each worker has a temporary directory of its own, deleted once the worker has gone.
+
+</div>
+<div slot="rust">
+
+Each mutant runs in the test binary mutastic built, with `MUTASTIC_ACTIVE` naming it, one process
+each. The time limit is set from how long its tests took in the coverage pass.
+
+A test process that dies without a test failing, by a signal or an abort, is run again one test at a
+time to see how it died. What that means depends on where the mutant is: see
+[Results](/concepts/results/#caught-only-because-the-test-process-crashed).
+
+</div>
+</EditionTabs>
+
+<EditionOnly edition="rust">
+
+## Running it again
+
+The copy and its build stay in `target/mutastic`, so the next run, or a `verify`, rebuilds only what
+changed. `cargo clean` removes them with the rest of `target/`.
+
+</EditionOnly>

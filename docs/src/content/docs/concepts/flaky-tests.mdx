@@ -4,6 +4,8 @@ description: "How mutastic finds tests that pass or fail at random, keeps them f
 ---
 
 import { Code } from '@astrojs/starlight/components';
+import EditionOnly from '../../../components/EditionOnly.astro';
+import EditionTabs from '../../../components/EditionTabs.astro';
 import flaky from '../../../data/output/flaky.ansi?raw';
 
 A flaky test passes or fails at random, with nothing changed. In mutation testing that matters
@@ -11,8 +13,13 @@ more than usual: a mutant is caught when a test fails, so a test that fails by c
 mutants it never checked. The score goes up for nothing, and moves from run to run with no change
 to the code.
 
-mutastic looks for flaky tests in three ways. Two cost nothing and happen on their own; the third
-is a choice. Whatever it finds, it names the test, so you know what to fix.
+Whatever mutastic finds, it names the test, so you know what to fix.
+
+<EditionTabs>
+<div slot="java">
+
+The Java edition looks for flaky tests in three ways. Two cost nothing and happen on their own; the
+third is a choice.
 
 | Check | When | Costs |
 |---|---|---|
@@ -22,6 +29,17 @@ is a choice. Whatever it finds, it names the test, so you know what to fix.
 
 A test that passes among the others but fails on its own is found after the mutants: see
 [A test that fails on its own](#a-test-that-fails-on-its-own).
+
+</div>
+<div slot="rust">
+
+The Rust edition looks [before any mutant](#before-any-mutant), on every run, at no cost but a
+failing test's reruns.
+
+</div>
+</EditionTabs>
+
+<EditionOnly edition="java">
 
 ## What you'll see
 
@@ -37,17 +55,20 @@ with `--confirm-catches`, the end of the output has every warning:
 - The score fell by 11.1 points with the code unchanged (`same code`). That drop is the flaky
   test's luck running out, not a change in the tests.
 
+</EditionOnly>
+
 ## Before any mutant
 
 mutastic runs all your tests once before it changes anything, to see which tests reach each line.
 They have to pass then: a mutant is only caught when a test that passed fails.
 
-- **A test that fails is run again on its own, up to three times.** If it passes, it's flaky: the
-  run goes on without it, and names it (`! flaky: …`). Its catches would be luck, so none count.
-- **A test that fails every time stops the run** with exit status 3: the tests fail without any
-  mutant, and nothing can be judged against them. See
-  [Troubleshooting](/guides/troubleshooting/).
-- **A test class that fails as a whole,** in its setup or teardown (a `@BeforeAll`, JUnit 4's or
+- **A test that fails is run again on its own, a few times.** If it passes, it's flaky: the run
+  goes on without it, and names it (`! flaky: …`, and a `Flaky` row in the summary). Its catches
+  would be luck, so none count.
+- **A test that fails every time stops the run,** with its name: the tests fail without any
+  mutant, and nothing can be judged against them. The exit status is 3 in the Java edition (see
+  [Troubleshooting](/guides/troubleshooting/)), and 2 in the Rust edition.
+- **In the Java edition, a test class that fails as a whole,** in its setup or teardown (a `@BeforeAll`, JUnit 4's or
   TestNG's `@BeforeClass`, a class rule, a static initialiser), is run again as a class, all its
   tests with it. If it passes, its setup is flaky: the run goes on without the class and every
   test in it, and names it (`! flaky: SetupTest as a whole …`), since against any mutant its setup
@@ -56,16 +77,31 @@ They have to pass then: a mutant is only caught when a test that passed fails.
 
 ### Why it's flaky, and what to do
 
-What to do about a flaky test depends on why it's flaky, so mutastic says what it saw: the
-exception the test failed with, and anything the test, or the code it ran, reaches that answers
-differently every run. A seeded `new Random(42)` answers the same each time, so only the unseeded
-sources count: `new Random()`, `ThreadLocalRandom`, `SecureRandom`, `Math.random`,
-`UUID.randomUUID`, `Collections.shuffle`, the system clock and the `now()`s.
+What to do about a flaky test depends on why it's flaky, so mutastic says what it saw: anything the
+test, or the code it ran, reaches that answers differently every run, and in the Java edition the
+exception the test failed with. A seeded generator answers the same each time, so only the
+unseeded sources count:
+
+<EditionTabs>
+<div slot="java">
+
+`new Random()`, `ThreadLocalRandom`, `SecureRandom`, `Math.random`, `UUID.randomUUID`,
+`Collections.shuffle`, the system clock and the `now()`s. A seeded `new Random(42)` isn't one.
+
+</div>
+<div slot="rust">
+
+Calls such as `SystemTime::now`, `Instant::now`, `rand::thread_rng` or `Uuid::new_v4`, read from the
+source, and fields of a type like `RandomState` that a method reads through `self`. A seeded
+`StdRng::seed_from_u64` isn't one.
+
+</div>
+</EditionTabs>
 
 | What mutastic saw | Why it's likely flaky | What it says to do |
 |---|---|---|
 | The test's own code reaches one, as a stand-in service with a random delay does | Its own doing, even when it fails on the network | Make it the same every run, and if it stands in for something real, like a slow service, keep that checked by a test of its own |
-| It failed with an exception from the network, a database or a file, and nothing in the test varies | The environment: a shared service, a database that's sometimes slow | Leave the test and the code alone, since changing them to get past it would hide it; tell the person, and run without it with `--exclude-tests` |
+| In the Java edition, it failed with an exception from the network, a database or a file, and nothing in the test varies | The environment: a shared service, a database that's sometimes slow | Leave the test and the code alone, since changing them to get past it would hide it; tell the person, and run without it with `--exclude-tests` |
 | The code it ran reaches one | The code's own randomness or clock | Make it the same every run, through the code's own seam (a `Random` or a `Clock` passed in), so long as the test still checks what it did |
 | None of these | Unknown | Leave it unless the cause is plain in the code, and say it's flaky |
 
@@ -84,6 +120,8 @@ alone and asked the person what to do.
 Leaving a flaky test out has a price you'll see: lines that only it reached are now reached by
 nothing. Their mutants are counted as not covered, under the heading "no test reaches these lines,
 or only a flaky one does", and they lower the score until the test is fixed.
+
+<EditionOnly edition="java">
 
 ## Between runs
 
@@ -145,6 +183,8 @@ The same evidence is in the other formats:
   reasons (`changed-since-last-run`, `catch-not-repeated`). A mutant whose catch didn't repeat says
   which test made it, as `unconfirmedCatchBy`.
 
+</EditionOnly>
+
 ## Fixing a flaky test
 
 mutastic tells you which test; why it's flaky is in the test or the code it runs. The usual causes:
@@ -156,8 +196,8 @@ mutastic tells you which test; why it's flaky is in the test or the code it runs
 - **Randomness.** It uses random input without a fixed seed.
 - **The outside world.** A network call, a port, a file left behind by an earlier run.
 
-Until it's fixed, a test class that can't run reliably under mutastic, with a race or a fixed port, can be left out of every run: [`--exclude-tests=CheckoutRaceTest`](/reference/run/#exclude-tests), by its name or full name. The summary names what was left out (`Left out  CheckoutRaceTest (--exclude-tests)`), and the lines only it reached count as not covered, as for a flaky test mutastic leaves out itself.
+In the Java edition, until it's fixed, a test class that can't run reliably under mutastic, with a race or a fixed port, can be left out of every run: [`--exclude-tests=CheckoutRaceTest`](/reference/run/#exclude-tests), by its name or full name. The summary names what was left out (`Left out  CheckoutRaceTest (--exclude-tests)`), and the lines only it reached count as not covered, as for a flaky test mutastic leaves out itself.
 
 Once it's fixed, run mutastic again. A test that was left out is back in, and the mutants it
-covers are judged by it again. A test named likely flaky stops being named once its catches
-repeat.
+covers are judged by it again. In the Java edition, a test named likely flaky stops being named
+once its catches repeat.

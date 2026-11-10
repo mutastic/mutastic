@@ -4,6 +4,9 @@ description: "What mutastic prints, for people, for agents and for tools, and wh
 ---
 
 import { Code, TabItem, Tabs } from '@astrojs/starlight/components';
+import EditionOnly from '../../../components/EditionOnly.astro';
+import EditionTabs from '../../../components/EditionTabs.astro';
+import RustOutput from '../../../components/RustOutput.astro';
 import explain from '../../../data/output/explain.ansi?raw';
 import agent from '../../../data/output/format-agent.ansi?raw';
 import brief from '../../../data/output/format-brief.ansi?raw';
@@ -26,13 +29,17 @@ Its result goes to stdout and its progress to stderr.
 | Format | For | Each missed mutant |
 |---|---|---|
 | `full` | People at a terminal, the default there | A card: the gap, the code with the change marked, the evidence, the test to add, and how to prove it |
-| `brief` | People who know the cards | The gap, the changed line and the evidence |
+| `brief` | People who know the cards (Java edition) | The gap, the changed line and the evidence |
 | `concise` | Logs and CI, the default off a terminal | One line |
-| `grouped` | Reading many misses at once | One line, under its file and method |
+| `grouped` | Reading many misses at once (Java edition) | One line, under its file and method |
 | `agent` | Coding agents, the default with `MUTASTIC_AGENT=1` | Plain text: the verdict first, then the change, the fix and how to prove it |
 | `jsonl` | Tools and scripts | One JSON event per line, as each mutant finishes |
 
-The same run of the pricing sample, in each:
+`MUTASTIC_FORMAT` sets the format when `--format` isn't given. The same run of the pricing sample,
+in each:
+
+<EditionTabs>
+<div slot="java">
 
 <Tabs>
 <TabItem label="full"><Code code={full} lang="ansi" /></TabItem>
@@ -43,35 +50,68 @@ The same run of the pricing sample, in each:
 <TabItem label="jsonl"><Code code={jsonl} lang="ansi" /></TabItem>
 </Tabs>
 
+</div>
+<div slot="rust">
+
+<Tabs>
+<TabItem label="full"><RustOutput name="getting-started/run" /></TabItem>
+<TabItem label="concise"><RustOutput name="concepts/format-concise" /></TabItem>
+<TabItem label="agent"><RustOutput name="concepts/format-agent" /></TabItem>
+<TabItem label="jsonl"><RustOutput name="concepts/format-jsonl" /></TabItem>
+</Tabs>
+
+</div>
+</EditionTabs>
+
+- **The agent format** puts the verdict first, so a truncated read still has it, and the rule that a
+  fix changes tests, never production code. It also says when not to write one: a mutant whose case
+  can't happen in practice, or whose change no caller can see, is declined with its reason and
+  proposed for a person to ignore, not given a contrived test. It shows the misses most worth a
+  test first.
+- **`jsonl`** writes `mutastic.events/v1` events, described field by field by [their JSON
+  Schema](https://docs.mutastic.io/schemas/events/v1.json). Progress is off, so stdout is only the
+  events. Statuses follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`,
+  `NoCoverage`, `Ignored`, and the Rust edition's `RuntimeError`.
+- **A mutant's id** comes from what the mutant is, not its line number, so it stays the same while
+  code around it moves: see [Mutant ids](/concepts/ids/).
+
+<EditionOnly edition="java">
+
 - **Cards** are grouped by file, and in each file the method with the most misses comes first. A file shows at most seven cards, and counts the rest (`--each-mutant` shows them all): more than a few at once go unread. On a terminal, file locations are links (`--hyperlinks`) that terminals supporting OSC 8 open; others show the text.
 - **The agent format's ten entries** are those most worth a test first: a condition or a removal no test checks before arithmetic, and among those, code more tests run without checking (a hypothesis, not yet measured). [`mutastic next`](/concepts/next/) hands them over one at a time, in the same order.
-- **The agent format** puts the verdict first, so a truncated read still has it, and the rule that a fix changes tests, never production code. It also says when not to write one: a mutant whose case can't happen in practice, or whose change no caller can see, is declined with its reason and proposed for a person to ignore, not given a contrived test.
 - **The agent format's contract.** It's for a coding agent to read as text, and both editions write it the same way. From 1.0.0 its structure is fixed and its words are not. What stays: the verdict is the first line, starting `mutastic: PASS` or `mutastic: FAIL`, then the `rules:` and `decline:` lines; each missed line is an entry of its own, starting `N. missed <id>:`, numbered from 1, with its lines indented under it: `at` and the place, the change as `-` and `+` lines, and each command on a line of its own after its label (`done when:`, `reproduce:`, `or propose:`), whole, so it can be run as shown. What may change in any release: the words of a headline, the evidence, a fix and the rules; which other labelled lines an entry has; and how many entries are shown. A tool that needs fields reads `jsonl`, where each missed mutant's `rendered` is its entry in these words.
-- **`MUTASTIC_FORMAT`** sets the format when `--format` isn't given. While it runs, each source file gets a line as it finishes, on stderr, with its misses under it.
+- **While it runs,** each source file gets a line as it finishes, on stderr, with its misses under it.
 - **`--vocabulary=classic`** (or `MUTASTIC_VOCABULARY=classic`) says killed and survived instead of caught and missed. JSON and the report files always use the standard statuses.
 - **Colour** follows the usual rules: only on a terminal, never with `NO_COLOR` or `TERM=dumb`, always with `FORCE_COLOR`. Every colour has a symbol beside it (✓ caught, ✗ missed, ○ not covered, ⏱ timed out), so nothing is lost without it. Labels such as `MISSED` and `PASS` are coloured blocks, `[MISSED]` without colour, and have rounded ends with `MUTASTIC_PILLS=rounded` for terminals with a Nerd Font. `MUTASTIC_PILLS=off` draws no blocks: the label's words in its colour.
-- **`jsonl`** writes `mutastic.events/v1` events, described field by field by [their JSON
-  Schema](https://docs.mutastic.io/schemas/events/v1.json). Within v1 they only gain fields, events
-  and values, never lose or rename one: see [Schemas and stability](/reference/schemas/). Statuses
-  follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`, `NoCoverage`,
-  `Ignored`.
-- **A mutant's id** comes from its class, method, position and change, not its line number, so it stays the same while code around it moves.
+- **The events** follow [Schemas and stability](/reference/schemas/): from 1.0.0 they only gain
+  fields, events and values within v1, never lose or rename one.
+
+</EditionOnly>
+
+<EditionOnly edition="rust">
+
+- **The events** are described on [Events](/rust/reference/events/).
+
+</EditionOnly>
 
 ## Shared cards
 
 The mutants of one line share a card, and an entry in the agent format: one test there usually
 catches them all, the edge of a condition its boundary and its removal alike. The card is written
 about one of them, with its id after the headline, and lists each of the others under `also`, with
-its id and the line as it changes. A suggested test says which mutant it was found for. The card's
-`done when` checks them all at once, so the test proves the whole fix; each is still counted, and
-ignored, on its own.
+its id and the line as it changes. The card's `done when` checks them all at once, so the test
+proves the whole fix; each is still counted, and ignored, on its own.
 
-In the `suggestions` sample, `inCredit()` misses both its boundary and the condition always being
-true. A test at `balance = 0` catches both:
+<EditionOnly edition="java">
+
+A suggested test says which mutant it was found for. In the `suggestions` sample, `inCredit()`
+misses both its boundary and the condition always being true. A test at `balance = 0` catches both:
 
 <Code code={shared} lang="ansi" />
 
 `--each-mutant` gives every missed mutant a card of its own.
+
+</EditionOnly>
 
 ## Streams
 
@@ -79,13 +119,35 @@ The result goes to stdout and progress to stderr, so `mutastic run > result.txt`
 
 ## The commands it offers
 
-The commands mutastic prints for a mutant name the project it ran on (`mutastic verify m855c8e3c samples/pricing`), so they work as copied. A mutant's id belongs to its project: run in a directory with no Java code, or one that isn't a Gradle or Maven build, mutastic says so (for Gradle, it names the modules that have Java code). A Maven module is named by its directory, as `-pl` takes it: `mutastic run . :services/api`.
+The commands mutastic prints for a mutant name the project it ran on, so they work as copied. A
+mutant's id belongs to its project.
+
+<EditionTabs>
+<div slot="java">
+
+`mutastic verify m855c8e3c samples/pricing`. Run in a directory with no Java code, or one that
+isn't a Gradle or Maven build, mutastic says so (for Gradle, it names the modules that have Java
+code). A Maven module is named by its directory, as `-pl` takes it: `mutastic run . :services/api`.
+
+</div>
+<div slot="rust">
+
+`mutastic verify mb2f8ae57 fixtures/pricing`. mutastic runs one Cargo package at a time, so the
+directory is the package's: a workspace member's, in a workspace.
+
+</div>
+</EditionTabs>
 
 ## One mutant, explained
 
-`mutastic explain ID [dir] [:module]` runs that one mutant and shows its card, whatever became of
-it, then what it is. The summary's `Next:` line offers it, for the one-line formats. On the pricing
-sample, after a run:
+`mutastic explain ID [dir]` runs that one mutant and shows its card, whatever became of it, then
+what it is. On the pricing sample, after a run:
+
+<EditionTabs>
+<div slot="java">
+
+The summary's `Next:` line offers it, for the one-line formats. In a multi-module build, the module
+comes after the directory: `mutastic explain ID [dir] [:module]`.
 
 <Code code={explain} lang="ansi" />
 
@@ -98,3 +160,20 @@ Under **About this mutant**:
 - **id**: how the id is made, and why it stays the same when code above it moves.
 - **site**: which of the method's sites it is.
 - **last run**: how the last run of every mutant went (a `run`, or the `next` that first ran them all), or `none yet`.
+
+</div>
+<div slot="rust">
+
+<RustOutput name="concepts/explain-missed" />
+
+A mutant that's caught, not covered or skipped gets a card that says so, without help or a test to
+add:
+
+<RustOutput name="concepts/explain-caught" />
+
+Under **About this mutant**: the **change**, as source; its **operator**; how its **id** is made;
+the **site**, where it is; and the **last run**, how the last full run went for it, from that run's
+`mutation.json`.
+
+</div>
+</EditionTabs>

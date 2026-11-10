@@ -25,11 +25,18 @@
 // captured block is read from output/, in the colour mutastic printed it (`.ansi`; a release
 // from before colour was captured has `.txt`), and shown the way the other pages show theirs. The
 // page's own copy of the block is the same output without colour, for GitHub.
+//
+// The concepts both editions share (SHARED in src/edition-pages.mjs) are the site's own pages,
+// written once with edition tabs. The mutastic-rs page each stands for stays there, for GitHub,
+// and is left out here: a link to it goes to the shared page, and the Rust sidebar lists the
+// shared page in its place. The shared pages show the Rust edition's output from its captures,
+// every block in output/, copied to src/data/rust/captures/ (see components/RustOutput.astro).
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SHARED } from '../src/edition-pages.mjs';
 
 const target = fileURLToPath(new URL('../src/content/docs/rust/', import.meta.url));
 /** Where the commands' data goes: commands.json, and each command's output in output/. */
@@ -38,6 +45,8 @@ const data = fileURLToPath(new URL('../src/data/rust/', import.meta.url));
 const MARKER = '.written-by-rust-docs';
 /** Where the section's pages are served, under the site's base. */
 const SECTION = 'rust';
+/** Each mutastic-rs page a shared page stands for, `concepts/results.md`, and the shared page's path. */
+const SHARED_PAGES = new Map(SHARED.filter(([, rust]) => rust).map(([site, rust]) => [`${rust}.md`, site]));
 
 const pinFile = fileURLToPath(new URL('../rust-edition.json', import.meta.url));
 const cache = fileURLToPath(new URL('../node_modules/.cache/mutastic-rs/', import.meta.url));
@@ -118,6 +127,8 @@ function href(target, page, known, commands) {
   const resolved = posix.normalize(posix.join(posix.dirname(page), path));
   if (resolved === COMMANDS_PAGE && commands) return commandsHref(anchor ?? '', commands);
   if (!known.has(resolved)) return undefined; // a file in mutastic-rs, not a page
+  const shared = SHARED_PAGES.get(resolved);
+  if (shared) return `/${shared}/${anchor ? `#${anchor}` : ''}`;
   return `/${slug(resolved)}/${anchor ? `#${anchor}` : ''}`;
 }
 
@@ -174,9 +185,13 @@ function convert(text, page, dir, known, commands) {
  */
 const LAYOUT = [
   ['Getting started', [['', 'Overview'], ['install', 'Install'], ['getting-started', 'Quickstart'], ['editions', 'Java and Rust together']]],
+  // A page both editions share is listed by its mutastic-rs page, which it stands for, or by its
+  // own path from the site's root when mutastic-rs has none: '/concepts/flaky-tests'.
   ['Concepts', [
     ['concepts/results', 'Results and the score'],
     ['concepts/suggested-tests', 'Suggested tests'],
+    ['/concepts/equivalence', 'Equivalent mutants'],
+    ['/concepts/flaky-tests', 'Flaky tests'],
     ['concepts/output', 'Output'],
     ['concepts/how-a-run-works', 'How a run works'],
     ['concepts/ids', 'Mutant ids'],
@@ -225,14 +240,17 @@ function sidebar(known, commands, base) {
   const listed = new Set();
   const groups = LAYOUT.map(([label, items]) => {
     const pages = items
-      .filter(([path]) => known.has(path === '' ? 'README.md' : `${path}.md`))
+      .filter(([path]) => path.startsWith('/') || known.has(path === '' ? 'README.md' : `${path}.md`))
       .map(([path, text]) => {
-        listed.add(path === '' ? 'README.md' : `${path}.md`);
-        return { label: text, slug: path === '' ? SECTION : `${SECTION}/${path}` };
+        if (path.startsWith('/')) return { label: text, slug: path.slice(1) };
+        const page = path === '' ? 'README.md' : `${path}.md`;
+        listed.add(page);
+        const shared = SHARED_PAGES.get(page);
+        return { label: text, slug: shared ?? (path === '' ? SECTION : `${SECTION}/${path}`) };
       });
     return { label, items: label === 'Reference' ? [...reference(commands, base), ...pages] : pages };
   });
-  const rest = [...known].filter((page) => !listed.has(page)).sort();
+  const rest = [...known].filter((page) => !listed.has(page) && !SHARED_PAGES.has(page)).sort();
   if (rest.length > 0) groups.push({ label: 'More', items: rest.map(slug) });
   return {
     group: { label: 'Rust', items: groups.filter((group) => group.items.length > 0) },
@@ -247,6 +265,20 @@ function clear(folder) {
     throw new Error(`${folder} wasn't written by scripts/rust-docs.mjs; move it before building`);
   }
   rmSync(folder, { recursive: true });
+}
+
+/** Copies every captured output to src/data/rust/captures/, at its path under output/. */
+function copyCaptures(dir, under = '') {
+  const from = join(dir, 'output', under);
+  if (!existsSync(from)) return;
+  for (const entry of readdirSync(from, { withFileTypes: true })) {
+    const path = under === '' ? entry.name : `${under}/${entry.name}`;
+    if (entry.isDirectory()) copyCaptures(dir, path);
+    else if (/\.(ansi|txt)$/.test(entry.name)) {
+      mkdirSync(dirname(join(data, 'captures', path)), { recursive: true });
+      writeFileSync(join(data, 'captures', path), readFileSync(join(from, entry.name)));
+    }
+  }
 }
 
 /** Copies commands.json and each command's captured output to src/data/rust/, when it's there. */
@@ -268,11 +300,12 @@ function copyCommands(dir) {
 }
 
 /**
- * Writes the Rust pages under src/content/docs/rust/, and its commands' data under src/data/rust/,
- * when there are any to read, and removes what an earlier build wrote when there aren't. Returns
- * the section's sidebar group, its pages' paths and any page the sidebar doesn't place, or
- * undefined when there are no Rust pages. `base` is the site's, which the commands' links start
- * with.
+ * Writes the Rust pages under src/content/docs/rust/, and its commands' data and captured output
+ * under src/data/rust/, when there are any to read, and removes what an earlier build wrote when
+ * there aren't. Returns the section's sidebar group, its pages' paths, any page the sidebar doesn't
+ * place, the redirects from the Rust pages a shared page stands for, and any of those mutastic-rs
+ * doesn't have; or undefined when there are no Rust pages. `base` is the site's, which the
+ * commands' links start with.
  */
 export function rustDocs(base = '/') {
   clear(target);
@@ -281,13 +314,29 @@ export function rustDocs(base = '/') {
   if (dir === undefined || !existsSync(join(dir, 'README.md'))) return undefined;
   const known = new Set(pages(dir));
   const commands = copyCommands(dir);
-  for (const page of known) {
+  if (!existsSync(join(data, MARKER))) {
+    mkdirSync(data, { recursive: true });
+    writeFileSync(join(data, MARKER), `Written from ${dir} by scripts/rust-docs.mjs; ignored by git.\n`);
+  }
+  copyCaptures(dir);
+  const written = [...known].filter((page) => !SHARED_PAGES.has(page));
+  for (const page of written) {
     const into = join(target, page.replace(/(^|\/)README\.md$/, '$1index.md'));
     mkdirSync(dirname(into), { recursive: true });
     writeFileSync(into, convert(readFileSync(join(dir, page), 'utf8'), page, dir, known, commands).text);
   }
   writeFileSync(join(target, MARKER), `Written from ${dir} by scripts/rust-docs.mjs; ignored by git.\n`);
-  console.log(`[rust-docs] ${known.size} Rust pages${commands ? ` and ${commands.commands.length} commands` : ''} from ${dir}`);
+  console.log(`[rust-docs] ${written.length} Rust pages${commands ? ` and ${commands.commands.length} commands` : ''} from ${dir}`);
   const { group, unplaced } = sidebar(known, commands, base);
-  return { sidebar: group, pages: new Set([...[...known].map(slug), ...commandPages(commands)]), unplaced };
+  // A Rust page a shared page stands for has the shared page's address, should it be linked.
+  const redirects = Object.fromEntries(
+    [...SHARED_PAGES].filter(([page]) => known.has(page)).map(([page, site]) => [`/${slug(page)}`, `${base}${site}/`]),
+  );
+  return {
+    sidebar: group,
+    pages: new Set([...written.map(slug), ...commandPages(commands)]),
+    unplaced,
+    redirects,
+    shared: [...SHARED_PAGES.keys()].filter((page) => !known.has(page)),
+  };
 }

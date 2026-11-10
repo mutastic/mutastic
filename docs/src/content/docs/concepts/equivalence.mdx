@@ -3,6 +3,10 @@ title: Equivalent mutants
 description: "What it means for a mutant to be equivalent, which ones mutastic skips on its own and why it's sure, and what to do with one it can't tell."
 ---
 
+import EditionOnly from '../../../components/EditionOnly.astro';
+import EditionTabs from '../../../components/EditionTabs.astro';
+import RustOutput from '../../../components/RustOutput.astro';
+
 A mutant is **equivalent** when no input can tell it apart from the original: the code changed, but
 what it does didn't. No test can catch it, because there's nothing to catch.
 
@@ -22,7 +26,7 @@ Three reasons not to write a test sound alike, and aren't:
 
 | | The question it answers | An example | Who decides |
 |---|---|---|---|
-| **Equivalent** | Could any input tell the change apart? No. | `a < b ? a : b` becoming `a <= b ? a : b`: at `a == b` both give the same | mutastic, when the bytecode proves it; you, otherwise |
+| **Equivalent** | Could any input tell the change apart? No. | `a < b ? a : b` becoming `a <= b ? a : b`: at `a == b` both give the same | mutastic, when the code proves it; you, otherwise |
 | **Arid** | Could a test tell? Yes, but none should have to. | Removing a log line, or changing a `new ArrayList<>(n * 2)` capacity | mutastic's [arid filters](/concepts/results/#skipped-mutants) |
 | **Unreachable** | Could an input tell? Yes, but that input never happens. | A guard for a negative balance the ledger already rules out | You: `mutastic ignore --as=unreachable` |
 
@@ -32,8 +36,14 @@ in the summary (`3 skipped (2 equivalent, 1 arid)`), and none of them counts in 
 
 ## What mutastic skips on its own
 
-Each of these is matched in the bytecode, around the mutant's own instruction, and the reason is
-said with the mutant (`equivalent: …`). `mutastic explain ID` shows it.
+mutastic skips a mutant as equivalent only where the code around it proves it, and says why with
+the mutant (`equivalent: …`). The mutant keeps its id, and stays out of the score.
+
+<EditionTabs>
+<div slot="java">
+
+Each is matched in the bytecode, around the mutant's own instruction. `mutastic explain ID` shows
+the reason.
 
 **It already returns that value.** A changed return that gives what the return already does
 changes nothing: an empty list where it already returns one, `null` where it already returns
@@ -81,6 +91,33 @@ ignores duplicates.
 names.stream().sorted().anyMatch(String::isBlank)   // order can't change whether any is blank
 ```
 
+</div>
+<div slot="rust">
+
+**A `?` that only passes on a formatter's error.** Inside the `fmt` of `Display`, `Debug` or another
+formatting trait, and anywhere a `?` is on a write to a `Formatter` the function takes
+(`write!(f, ..)?`, `f.write_str(..)?`, `helper(f, ..)?`), turning the `?` into `.unwrap()` changes
+nothing a test can see. That error comes from the writer under the formatter, and what tests format
+into, a `String`, never fails, so no test can take that path.
+
+```rust
+impl std::fmt::Display for Pieces {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)?;
+        f.write_str(" pcs")
+    }
+}
+```
+
+The event stream gives the reason, and the kind as `skipKind`:
+
+<RustOutput name="operators/returns/unwrap-try-skipped" />
+
+</div>
+</EditionTabs>
+
+<EditionOnly edition="java">
+
 ## How mutastic stays honest about it
 
 A wrong "equivalent" is worse than a missed mutant: it hides a gap a test could have caught, and
@@ -95,6 +132,8 @@ says it can't. So:
 - **It can't be overridden by accident.** `@DoMutate` and `mutate:` rules bring back arid code, never
   equivalent mutants, since running them can't tell you anything.
 
+</EditionOnly>
+
 ## When mutastic can't tell
 
 In general, whether two programs always behave the same can't be decided, so most equivalent
@@ -105,8 +144,8 @@ mutastic ignore m1a2b3c4d --as=equivalent --reason="count is items.size(), and p
 ```
 
 It goes in `.mutastic/ignores.yaml`, with the line it's on and the reason, to commit and review. It
-holds until that line changes, then the mutant runs again. The summary counts it apart (`1 ignored
-as equivalent`), so what ignores hide can be reviewed by kind.
+holds until that line changes, then the mutant runs again. In the Java edition the summary counts it
+apart (`1 ignored as equivalent`), so what ignores hide can be reviewed by kind.
 
 Be sure before you do. If you can write an input where the two give different results, it isn't
 equivalent, it's a missing test, and that input is the test. If the input exists but can't happen,

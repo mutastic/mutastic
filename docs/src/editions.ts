@@ -1,7 +1,7 @@
 // The site's two editions, Java and Rust, and how a page in one finds its counterpart in the other.
 //
-// Every page belongs to one edition by its path: /rust/… is Rust, the coding agents' pages are
-// shared by both, and the rest is Java. The sidebar shows one edition at a time (see
+// Every page belongs to one edition by its path: /rust/… is Rust, the coding agents' pages and the
+// concepts written once for both (SHARED in edition-pages.mjs) are shared, and the rest is Java. The sidebar shows one edition at a time (see
 // route-editions.ts), and the switch at its top opens the same topic in the other edition when
 // there is one, or that edition's overview when there isn't.
 
@@ -11,6 +11,7 @@ import {
   PAIRS,
   RUST_ONLY_WAY,
   RUST_OPERATORS,
+  SHARED,
 } from './edition-pages.mjs';
 
 export type Edition = 'java' | 'rust' | 'shared';
@@ -22,9 +23,16 @@ export function pagePath(pathname: string, base: string): string {
   return path.replace(/\/+$/, '').replace(/\.html$/, '');
 }
 
+const sharedPages = new Set<string>(SHARED.map(([page]) => page as string));
+
+/** Whether the page is one both editions share: a coding agents' page or a shared concept. */
+export function isShared(path: string): boolean {
+  return /^agents(\/|$)/.test(path) || path === '404' || sharedPages.has(path);
+}
+
 export function editionOf(path: string): Edition {
   if (/^rust(\/|$)/.test(path)) return 'rust';
-  if (/^agents(\/|$)/.test(path) || path === '404') return 'shared';
+  if (isShared(path)) return 'shared';
   return 'java';
 }
 
@@ -55,7 +63,12 @@ export function switchLinks(path: string, base: string): Record<'java' | 'rust',
   const root = base.replace(/\/$/, '');
   const url = (to: string) => `${root}/${to === '' ? '' : `${to}/`}`;
   const edition = editionOf(path);
-  if (edition === 'shared') return { java: { href: url('') }, rust: { href: url('rust') } };
+  // On a shared page the switch changes the sidebar and the tabs in place; without script, a
+  // shared concept stays where it is, and an agents' page opens the edition's overview.
+  if (edition === 'shared') {
+    if (sharedPages.has(path)) return { java: { href: url(path) }, rust: { href: url(path) } };
+    return { java: { href: url('') }, rust: { href: url('rust') } };
+  }
   const here = { href: url(path) };
   const there = counterpart(path, edition);
   const other: SwitchLink =

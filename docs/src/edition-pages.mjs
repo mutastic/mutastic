@@ -2,14 +2,28 @@
 // editions.ts), and the build fails when a page named here doesn't exist (scripts/check-editions.mjs).
 // Paths are under the site's base, without slashes: '' is the Java edition's overview.
 
+/**
+ * The concepts both editions share: one page each, at the Java edition's URL, written once with
+ * edition tabs only where the editions differ. Both sidebars list them, and on one the switch
+ * changes the sidebar and the tabs in place. Each names the mutastic-rs page it stands for, when
+ * there is one: the site leaves that page out (it stays in mutastic-rs, for GitHub) and sends the
+ * Rust pages' links to it here. A shared page needs no pair.
+ */
+export const SHARED = [
+  ['concepts/results', 'concepts/results'],
+  ['concepts/suggested-tests', 'concepts/suggested-tests'],
+  ['concepts/equivalence', undefined],
+  ['concepts/flaky-tests', undefined],
+  ['concepts/output', 'concepts/output'],
+  ['concepts/how-a-run-works', 'concepts/how-a-run-works'],
+  ['concepts/ids', 'concepts/ids'],
+];
+
 /** The same topic in both editions. Each pair works both ways. */
 export const PAIRS = [
   ['', 'rust'],
   ['getting-started/install', 'rust/install'],
   ['getting-started/quickstart', 'rust/getting-started'],
-  ['concepts/results', 'rust/concepts/results'],
-  ['concepts/suggested-tests', 'rust/concepts/suggested-tests'],
-  ['concepts/output', 'rust/concepts/output'],
   ['concepts/operators', 'rust/operators'],
   // The operator families: the same in both, but streams and Optional, which are iterators and
   // Option and Result in Rust.

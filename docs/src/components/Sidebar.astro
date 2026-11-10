@@ -19,12 +19,17 @@ const edition = panes?.edition;
       <SidebarSublist sublist={sidebar} />
     ) : (
       <>
-        {/* Before anything it hides is drawn: the page's edition, or on a shared page the last one read. */}
+        {/*
+          Before anything it hides is drawn: the page's edition, or on a shared page the last one
+          read. The page's edition tabs (Starlight's, synced by the key `edition`) open on the same
+          one, as Starlight restores a synced tab from this key before it draws them.
+        */}
         <script is:inline define:vars={{ edition }}>
           var e = edition;
           try {
-            if (e === 'shared') e = localStorage.getItem('mutastic-edition') || 'java';
+            if (e === 'shared') e = localStorage.getItem('mutastic-edition') === 'rust' ? 'rust' : 'java';
             else localStorage.setItem('mutastic-edition', e);
+            localStorage.setItem('starlight-synced-tabs__edition', e === 'rust' ? 'Rust' : 'Java');
           } catch (_) {
             if (e === 'shared') e = 'java';
           }
@@ -55,8 +60,11 @@ const edition = panes?.edition;
 </div>
 
 <style is:global>
+  /* The other edition's sidebar, previous and next, and a shared page's parts for it alone. */
   :root[data-edition='rust'] [data-edition-pane='java'],
-  :root:not([data-edition='rust']) [data-edition-pane='rust'] {
+  :root:not([data-edition='rust']) [data-edition-pane='rust'],
+  :root[data-edition='rust'] [data-edition-only='java'],
+  :root:not([data-edition='rust']) [data-edition-only='rust'] {
     display: none;
   }
 </style>

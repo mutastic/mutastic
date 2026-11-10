@@ -3,9 +3,15 @@ title: Suggested tests
 description: "The inputs your tests used, and the test mutastic suggests for a missed mutant."
 ---
 
-Each missed mutant shows the whole numbers its covering tests passed to its method (`inputs seen: total = 50, 250`), so what they never tried is plain.
+import EditionTabs from '../../../components/EditionTabs.astro';
+import RustOutput from '../../../components/RustOutput.astro';
 
-For a missed mutant in a method whose parameters are all whole numbers (`int`, `long`, `Integer`, `Long`), mutastic also looks for a test that would catch it. The method can be static, or on an object mutastic can make: with a no-argument constructor, or one whose parameters are whole numbers too, as a record of numbers has. The call must be one the test class could write itself (nothing private, nothing package-private from another package). It calls the method with candidate inputs, first as it is and then with the mutant in, and keeps the first input where the results differ. The constants near the change, ±1, come first, then what the tests passed, then a few small numbers. The test is written for the class of a test that already reaches the mutant (the mutant's own test class, `PricingTest` for `Pricing`, if one of its tests does, or else the first by name), in its assertion style (AssertJ, JUnit or TestNG, whose test methods it makes public and whose `assertEquals` it gives the actual value first), with a name it doesn't already use:
+Each missed mutant shows the whole numbers its covering tests passed to its method (`inputs seen:
+total = 50, 250`), so what they never tried is plain. For many, mutastic also writes the test that
+would catch it, found by running your code:
+
+<EditionTabs>
+<div slot="java">
 
 ```java
 // in PricingTest
@@ -15,6 +21,90 @@ void discountWithTotal100() {
 }
 ```
 
-A method no test reaches at all gets a starting point instead: under *Not covered*, `try:` and an assertion a test in the class's own package could make (`start with:` in the agent format), found the same way, so it also catches one of the method's mutants. It's written in the style of the class's test class, `PricingTest` for `Pricing`, if there is one.
+</div>
+<div slot="rust">
 
-A method that answers differently to the same call (it uses a random number or the clock) gets no suggestion. The expected value is what the code does today. Check it's what you intend before keeping the test. The search runs your code outside your tests, in the test worker with a time limit; `--no-suggestions` turns it off.
+<RustOutput name="concepts/suggested-test" />
+
+</div>
+</EditionTabs>
+
+## How it's found
+
+mutastic calls the method with candidate inputs, first as it is and then with the mutant in, and
+keeps the first input where the two give different results. The constants near the change, and one
+either side of each, come first, then the values the tests passed, then a few small numbers. The
+value the test asserts is what the call gives today, and the comment says what it gave with the
+mutant. Neither is guessed: both come from running the code.
+
+A method that answers the same call two ways, because it reads the clock, a random number or state
+another call changed, gets no suggestion. The test pins what the code does today: check that's
+what it should do before you keep it. When today's value is wrong, the test is still the one to
+write, with the value it should be.
+
+The calls run outside your tests, with a time limit: in the Java edition in the test worker, and in
+the Rust edition in a test mutastic builds beside the function in its copy of your crate, in a
+process of its own. `--no-suggestions` turns the search off, so nothing of yours runs outside your
+tests.
+
+## Which get one
+
+A suggestion is written only where mutastic can make the call a test would make:
+
+<EditionTabs>
+<div slot="java">
+
+- **The method's parameters** are all whole numbers (`int`, `long`, `Integer`, `Long`).
+- **The method** is static, or on an object mutastic can make: with a no-argument constructor, or
+  one whose parameters are whole numbers too, as a record of numbers has.
+- **The call** is one the test class could write itself: nothing private, nothing package-private
+  from another package.
+
+</div>
+<div slot="rust">
+
+- **The call:** a free function, an associated function, or a method of an inherent `impl`, whose
+  parameters are all whole numbers (`i32`, `u64`, `usize` and the rest).
+- **The receiver,** for a method: made with whole numbers too, by the type's own `new`, or, when
+  the type has no `new`, a struct literal of its fields, which must all be whole numbers.
+- **The result:** something a test can write as a literal: a whole number, a `bool`, a `char`, a
+  `String` or a `&str`.
+
+Generic functions, trait methods, `impl Trait` and `dyn` parameters, `async` and `unsafe`
+functions, and code near unsafe code get none: a guess would be worse than nothing. Each call is
+made twice, and any difference means no suggestion.
+
+</div>
+</EditionTabs>
+
+## Where it goes
+
+<EditionTabs>
+<div slot="java">
+
+The test is written for the class of a test that already reaches the mutant (the mutant's own
+test class, `PricingTest` for `Pricing`, if one of its tests does, or else the first by name), in its
+assertion style (AssertJ, JUnit or TestNG, whose test methods it makes public and whose
+`assertEquals` it gives the actual value first), with a name it doesn't already use.
+
+A method no test reaches at all gets a starting point instead: under *Not covered*, `try:` and an
+assertion a test in the class's own package could make (`start with:` in the agent format), found
+the same way, so it also catches one of the method's mutants. It's written in the style of the
+class's test class, `PricingTest` for `Pricing`, if there is one.
+
+</div>
+<div slot="rust">
+
+The test goes in the test module beside the function, `mod tests` with `use super::*;` as `cargo
+new` writes it, and is named for its call (`discount_with_total_100`), with a number added if the
+module already has a test by that name. When the module has no `use super::*;`, the call is written
+with `super::`. When there's no test module, the card says where a new one goes, and the call is
+written with `super::` too.
+
+`--format=agent` gives the same test under `test to add in`.
+
+</div>
+</EditionTabs>
+
+In `--format=jsonl`, the mutant's event has it as `suggestedTest`: where it goes, its name, its
+code, the call, and both values.
