@@ -6,8 +6,9 @@
 [![Maven Central](https://img.shields.io/maven-central/v/io.mutastic/mutastic-cli?label=Maven%20Central)](https://central.sonatype.com/namespace/io.mutastic)
 [![Licence](https://img.shields.io/badge/licence-Apache%202.0-blue)](LICENSE)
 
-mutastic is a mutation-testing tool for Java. It makes small changes to your compiled code, such as
-`>=` to `>`, and runs your tests against each one. A change no test notices is a **missed mutant**:
+mutastic is a mutation-testing tool for Java and Rust, and this is its Java edition, for Java and
+Kotlin; the Rust edition is [mutastic-rs](https://github.com/mutastic/mutastic-rs). It makes small
+changes to your compiled code, such as `>=` to `>`, and runs your tests against each one. A change no test notices is a **missed mutant**:
 a place your tests run but don't check. For each one, mutastic shows the inputs your tests used,
 suggests the test that would catch it, and gives the command that proves the fix.
 

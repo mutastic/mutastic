@@ -67,7 +67,7 @@ export default defineConfig({
       // Its own 404 page is src/content/docs/404.md, in the site's words.
       disable404Route: true,
       description:
-        "Mutation testing for Java: finds the changes your tests don't notice, and suggests the tests that would.",
+        "Mutation testing for Java and Rust: finds the changes your tests don't notice, and suggests the tests that would.",
       head: [
         ...(notLatest ? [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex' } }] : []),
         // Umami, the same cookie-free analytics as mutastic.io, as its own website: counted only
