@@ -18,6 +18,24 @@ kind, and its change, with the operator for all but mutastic's first operators. 
 of it, so code moving around a method doesn't change it, and nor does choosing more operators:
 they add mutants, and the others keep their ids.
 
+**What keeps an id:**
+
+- **Code moving.** Lines added or removed above it, the method moved within its class, comments and
+  blank lines: the line isn't part of an id.
+- **Other operators.** Choosing more operators, or fewer, adds or takes away mutants; the others
+  keep their ids.
+- **A new version of mutastic.** mutastic's own operators keep their ids from release to release;
+  a new operator only adds ids.
+
+**What changes an id:**
+
+- **The class or the method.** Renaming the class or moving it to another package, renaming the
+  method, or changing its parameter or return types.
+- **The same kind of change added or removed earlier in the method,** which moves the count of its
+  places, as the limit below explains.
+- **What the change makes of the code.** A mutant that changes the code to something else is a new
+  mutant, with a new id.
+
 **The limit:** a position is counted in the method's code as it is, so when the method's code
 changes, an id can come to mean a different mutant in the same method. Add a condition before
 another, and the later condition's mutants are counted one place further on: the earlier position,
