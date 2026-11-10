@@ -1,24 +1,24 @@
 {
   "concepts/results": {
-    "commit": "d6378762d0b29bc9f408a33631d4ca44abfd0426",
+    "commit": "0468b1ffd9c99107debd8672d66a204a8d7f06b4",
     "sources": {
       "concepts/results.md": "b2bcc290ae9a1568"
     }
   },
   "concepts/suggested-tests": {
-    "commit": "d6378762d0b29bc9f408a33631d4ca44abfd0426",
+    "commit": "0468b1ffd9c99107debd8672d66a204a8d7f06b4",
     "sources": {
       "concepts/suggested-tests.md": "8dbc06ed4eff6a5f"
     }
   },
   "concepts/equivalence": {
-    "commit": "d6378762d0b29bc9f408a33631d4ca44abfd0426",
+    "commit": "0468b1ffd9c99107debd8672d66a204a8d7f06b4",
     "sources": {
       "operators/returns.md#unwrap-try": "978d40a728bf2600"
     }
   },
   "concepts/flaky-tests": {
-    "commit": "d6378762d0b29bc9f408a33631d4ca44abfd0426",
+    "commit": "0468b1ffd9c99107debd8672d66a204a8d7f06b4",
     "sources": {
       "concepts/how-a-run-works.md#what-each-test-reaches": "39b9098379c64c5b",
       "troubleshooting.md#a-test-fails-before-any-mutant": "6e78adaab5abb6b7",
@@ -27,28 +27,28 @@
     }
   },
   "concepts/output": {
-    "commit": "602150f2ff3df7d384f816ce9f0a2f448c40b9c5",
+    "commit": "0468b1ffd9c99107debd8672d66a204a8d7f06b4",
     "sources": {
       "concepts/output.md": "b3e1d489b196bb11"
     }
   },
   "concepts/how-a-run-works": {
-    "commit": "e3b367fdb37ba52b1bd254c5a48e318eef7120a6",
+    "commit": "0468b1ffd9c99107debd8672d66a204a8d7f06b4",
     "sources": {
       "concepts/how-a-run-works.md": "3d027607de7d034e"
     }
   },
   "concepts/ids": {
-    "commit": "d6378762d0b29bc9f408a33631d4ca44abfd0426",
+    "commit": "0468b1ffd9c99107debd8672d66a204a8d7f06b4",
     "sources": {
       "concepts/ids.md": "48135a408f289787"
     }
   },
   "guides/ci": {
-    "commit": "e3b367fdb37ba52b1bd254c5a48e318eef7120a6",
+    "commit": "0468b1ffd9c99107debd8672d66a204a8d7f06b4",
     "sources": {
       "concepts/how-a-run-works.md#one-run-across-ci-jobs": "f8fc71c9048e1937",
-      "install.md#with-the-installer": "78b83d51ae39c4e4"
+      "install.md#with-the-installer": "28686edd74865921"
     }
   }
 }
