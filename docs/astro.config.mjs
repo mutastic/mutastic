@@ -16,6 +16,7 @@ import { unified } from '@astrojs/markdown-remark';
 import starlight from '@astrojs/starlight';
 import { defineConfig } from 'astro/config';
 import starlightLlmsTxt from 'starlight-llms-txt';
+import { checkEditions } from './scripts/check-editions.mjs';
 import { rustDocs } from './scripts/rust-docs.mjs';
 
 const base = process.env.DOCS_BASE ?? '/';
@@ -27,7 +28,11 @@ const latest = process.env.DOCS_LATEST ?? '';
  */
 const notLatest = (version !== '' && version !== latest) || base !== '/';
 /** The Rust edition's section, when its pages are there to read: see scripts/rust-docs.mjs. */
-const rust = rustDocs();
+const loaded = rustDocs(base);
+const rust = loaded?.sidebar;
+// The two editions line up: every page the edition switch opens exists, and every Rust page has
+// its place in the sidebar. A release or CI build stops when they don't.
+if (loaded) await checkEditions(loaded.pages, loaded.unplaced);
 
 /** Root-relative links in the Markdown, `/concepts/results/`, under this build's base path. */
 function linksUnderBase() {
@@ -46,6 +51,10 @@ function linksUnderBase() {
 export default defineConfig({
   site: 'https://docs.mutastic.io',
   base,
+  // The Rust edition's commands had one page before each had its own.
+  ...(loaded?.pages.has('rust/reference/run') && !loaded.pages.has('rust/reference/cli')
+    ? { redirects: { '/rust/reference/cli': `${base}rust/reference/run/` } }
+    : {}),
   markdown: { processor: unified({ rehypePlugins: [linksUnderBase] }) },
   integrations: [
     starlight({
@@ -119,7 +128,15 @@ export default defineConfig({
               label: 'Operators',
               items: [
                 { label: 'All operators', slug: 'concepts/operators' },
-                { label: 'Advanced operators', slug: 'concepts/operators-advanced' },
+                'concepts/operators/conditions',
+                'concepts/operators/arithmetic',
+                'concepts/operators/returns',
+                'concepts/operators/calls',
+                'concepts/operators/arguments',
+                'concepts/operators/library',
+                'concepts/operators/streams',
+                'concepts/operators/optional',
+                'concepts/operators/control',
               ],
             },
             {

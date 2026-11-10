@@ -1,0 +1,38 @@
+---
+// The Rust edition's command reference, one page for each command and one for its environment and
+// exit codes, written from mutastic-rs's docs/commands.json: the Rust CLI's own declarations, in
+// the Java edition's shape. scripts/rust-docs.mjs copies it, and each command's captured output,
+// to src/data/rust/; without them, as in a build with no Rust pages, there are no pages here.
+import CommandReference from '../../../components/CommandReference.astro';
+import type javaModel from '../../../data/commands.json';
+
+type Model = typeof javaModel;
+type Command = Model['commands'][number];
+
+/** What each command prints, in colour, as the Rust edition's docs test keeps it: `run.ansi` is `mutastic run`'s. */
+const outputs = import.meta.glob<string>('../../../data/rust/output/*.ansi', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+});
+
+export function getStaticPaths() {
+  const models = import.meta.glob<Model>('../../../data/rust/commands.json', {
+    import: 'default',
+    eager: true,
+  });
+  const model = Object.values(models)[0];
+  if (model === undefined) return [];
+  return [
+    ...model.commands.map((command) => ({ params: { page: command.page }, props: { model, command } })),
+    { params: { page: 'environment' }, props: { model, command: undefined } },
+  ];
+}
+
+const { model, command } = Astro.props as { model: Model; command?: Command };
+const output = command
+  ? outputs[`../../../data/rust/output/${command.page}.ansi`]?.replace(/\n$/, '')
+  : undefined;
+---
+
+<CommandReference model={model} command={command} output={output} edition="rust" />

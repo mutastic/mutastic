@@ -5,6 +5,14 @@
 // route-editions.ts), and the switch at its top opens the same topic in the other edition when
 // there is one, or that edition's overview when there isn't.
 
+import {
+  JAVA_ONLY_WAY,
+  JAVA_OPERATORS,
+  PAIRS,
+  RUST_ONLY_WAY,
+  RUST_OPERATORS,
+} from './edition-pages.mjs';
+
 export type Edition = 'java' | 'rust' | 'shared';
 
 /** A page's path under the site's base, without slashes at either end: `rust/concepts/ids`. */
@@ -20,43 +28,19 @@ export function editionOf(path: string): Edition {
   return 'java';
 }
 
-/** The same topic in both editions. Each pair works both ways. */
-const PAIRS: [java: string, rust: string][] = [
-  ['', 'rust'],
-  ['getting-started/install', 'rust/install'],
-  ['getting-started/quickstart', 'rust/getting-started'],
-  ['concepts/results', 'rust/concepts/results'],
-  ['concepts/suggested-tests', 'rust/concepts/suggested-tests'],
-  ['concepts/operators', 'rust/operators'],
-  ['reference/run', 'rust/reference/cli'],
-  ['reference/schemas', 'rust/reference/events'],
-  ['guides/configuration', 'rust/reference/configuration'],
-  ['guides/troubleshooting', 'rust/troubleshooting'],
-];
-
-/** Topics whose nearest counterpart is a page that maps back somewhere else. */
-const JAVA_ONLY_WAY: [string, string][] = [['concepts/operators-advanced', 'rust/operators']];
-const RUST_ONLY_WAY: [string, string][] = [
-  ['rust/editions', 'getting-started/install'],
-  ['rust/differences-from-java', ''],
-];
-
-const toRust = new Map<string, string>([...PAIRS, ...JAVA_ONLY_WAY]);
-const toJava = new Map<string, string>([...PAIRS.map(([j, r]) => [r, j] as [string, string]), ...RUST_ONLY_WAY]);
+const toRust = new Map<string, string>([...PAIRS, ...JAVA_ONLY_WAY] as [string, string][]);
+const toJava = new Map<string, string>([
+  ...(PAIRS as [string, string][]).map(([j, r]) => [r, j] as [string, string]),
+  ...(RUST_ONLY_WAY as [string, string][]),
+]);
 
 function counterpart(path: string, edition: 'java' | 'rust'): string | undefined {
   if (edition === 'java') {
-    const exact = toRust.get(path);
-    if (exact !== undefined) return exact;
-    // Every command's page has its counterpart in the Rust edition's one page of commands.
-    if (/^reference\/(run|verify|explain|ignore|next|baseline|gate-[a-z]+|environment)$/.test(path)) {
-      return 'rust/reference/cli';
-    }
-    return undefined;
+    return toRust.get(path);
   }
   const exact = toJava.get(path);
   if (exact !== undefined) return exact;
-  if (/^rust\/operators\//.test(path)) return 'concepts/operators';
+  if (RUST_OPERATORS.test(path)) return JAVA_OPERATORS;
   return undefined;
 }
 
