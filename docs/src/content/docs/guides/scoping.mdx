@@ -35,4 +35,4 @@ A suite but `test` keeps its own run record and reports, under `suites/<name>/` 
 
 ## One mutant
 
-With `--only=<id>` the run is about one mutant, so it passes when that mutant is caught (or skipped, with nothing to catch), as `verify` does, and says the mutant's fate rather than a score.
+With `--only=<id>` the run is about one mutant, so it passes when that mutant is caught (or skipped, with nothing to catch), as `verify` does, and says the mutant's fate rather than a score. Given several ids (`--only=<id>,<id>`), it says each one's fate, with the card of each one missed, and passes when every one does.

@@ -260,7 +260,7 @@ public final class JsonEvents {
   /// The last event: the totals, the score and verdict, and how this run compares with the last.
   ///
   /// @param reports the report files written
-  /// @param oneMutant the run was one mutant asked for by id: `passed` says whether it's caught,
+  /// @param oneMutant the run was mutants asked for by id: `passed` says whether each is caught,
   ///   not whether a score reaches the threshold
   public void runFinished(
       Report report, Optional<Comparison> comparison, List<String> reports, boolean oneMutant) {

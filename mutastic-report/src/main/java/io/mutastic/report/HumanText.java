@@ -1031,11 +1031,11 @@ public final class HumanText {
         : style.dim("  · %.1f%% where tests reach".formatted(covered.getAsDouble()));
   }
 
-  /// The last line: the one mutant's fate, or PASS or FAIL with why.
+  /// The last line: each mutant's fate when they were asked for by id, or PASS or FAIL with why.
   private String verdict(Report report, Run run) {
     long missed = report.count(Status.MISSED);
     if (run.oneMutant() && !report.results().isEmpty()) {
-      return " %s\n".formatted(fate(report.results().getFirst()));
+      return fates(report);
     }
     if (report.score().isEmpty()) {
       return " %s %s\n"
@@ -1056,6 +1056,13 @@ public final class HumanText {
                       : "%d %s, above the threshold.".formatted(missed, words.undetected)));
     }
     return failed(missed, report.count(Status.NOT_COVERED));
+  }
+
+  /// Each mutant's fate, one a line, when they were asked for by id.
+  private String fates(Report report) {
+    return report.results().stream()
+        .map(result -> " %s\n".formatted(fate(result)))
+        .collect(Collectors.joining());
   }
 
   /// FAIL, whatever the score: a test that caught mutants fails on its own.

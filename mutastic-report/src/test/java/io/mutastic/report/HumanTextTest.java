@@ -183,6 +183,23 @@ class HumanTextTest {
             " Next: mutastic verify <id> · mutastic run --only=<id> · mutastic explain <id>");
   }
 
+  /// `--only=a,b` ends on each mutant's fate, not the first one's alone.
+  @Test
+  void mutantsAskedForByIdEachEndOnTheirFate() {
+    var askedFor =
+        new HumanText.Run(LocalTime.of(9, 30, 5), Duration.ofMillis(500), List.of(), true);
+    var output =
+        text(HumanText.Detail.FULL, Vocabulary.PLAIN)
+            .render(
+                report(missed(boundary(0), Map.of()), missed(boundary(1), Map.of())),
+                Optional.empty(),
+                askedFor);
+    var lines = output.strip().lines().toList();
+
+    assertThat(lines.get(lines.size() - 2)).contains(boundary(0).id() + " is still missed");
+    assertThat(lines.getLast()).contains(boundary(1).id() + " is still missed");
+  }
+
   /// No mutants is no evidence either way: it passes, but never reads as a perfect score.
   @Test
   void nothingToScoreIsNeverAPerfectScore() {

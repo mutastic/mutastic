@@ -566,11 +566,11 @@
         },
         "passed": {
           "type": "boolean",
-          "description": "Whether the score reached the threshold. For a run of one mutant (`--only`), whether that mutant was caught."
+          "description": "Whether the score reached the threshold. For a run of mutants asked for by id (`--only`), whether every one was caught."
         },
         "only": {
           "type": ["string", "null"],
-          "description": "For a run of one mutant, its id; null when it wasn't found. Only for such a run."
+          "description": "For a run of mutants asked for by id (`--only`), the first one found; null when none was. Only for such a run."
         },
         "coveredScore": {
           "$ref": "#/$defs/score",

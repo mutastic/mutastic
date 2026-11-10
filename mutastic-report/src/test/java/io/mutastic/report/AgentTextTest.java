@@ -357,6 +357,20 @@ class AgentTextTest {
         .contains("missed " + boundary(0).id() + ": ");
   }
 
+  /// `--only=a,b,c` once printed the first mutant's fate and card alone.
+  @Test
+  void everyMutantAskedForGetsItsFate() {
+    var caught = result(boundary(0), Status.CAUGHT);
+    var missed = result(boundary(1), Status.MISSED);
+    var several =
+        text.render(report(List.of(caught, missed), List.of(), List.of()), Optional.empty(), true);
+
+    assertThat(several)
+        .startsWith("mutastic: %s is caught by ".formatted(caught.mutant().id()))
+        .contains("mutastic: %s is still missed".formatted(missed.mutant().id()))
+        .contains("missed " + missed.mutant().id() + ": ");
+  }
+
   @Test
   void namesAndInputsAreShort() {
     assertThat(AgentText.shortName("com.example.PricingTest#a")).isEqualTo("PricingTest#a");

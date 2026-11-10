@@ -56,10 +56,12 @@ public final class AgentText {
 
   /// The whole run for an agent: the verdict, then each missed mutant, then what no test reaches.
   ///
-  /// @param oneMutant the run was one mutant asked for by id: its fate is the verdict, not a score
+  /// @param oneMutant the run was mutants asked for by id: each one's fate is the verdict, not a
+  ///   score
   public String render(Report report, Optional<Comparison> comparison, boolean oneMutant) {
     if (oneMutant && !report.results().isEmpty()) {
-      return oneMutant(report.results().getFirst()) + failingAlone(report);
+      return report.results().stream().map(this::oneMutant).collect(Collectors.joining("\n"))
+          + failingAlone(report);
     }
     var missed =
         report.results().stream().filter(result -> result.status() == Status.MISSED).toList();
