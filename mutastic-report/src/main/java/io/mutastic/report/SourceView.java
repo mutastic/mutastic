@@ -134,7 +134,7 @@ public final class SourceView {
 
   /// The advice with the inputs the covering tests passed, its jump read the way the source has it.
   public Advice advice(io.mutastic.api.MutantResult result) {
-    return advice(result.mutant(), result.inputs());
+    return NamedNotes.of(advice(result.mutant(), result.inputs()), result);
   }
 
   private Advice advice(Mutant mutant, java.util.Map<String, List<Long>> seen) {

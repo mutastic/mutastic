@@ -10,15 +10,16 @@ $ mutastic explain m86ee3ce6
     │
     = mutant  - return total >= freeFrom;
               + return total > freeFrom;
-    = note: inputs seen: total = 50
+    = note: inputs seen: total = 50, with freeFrom = 20 (Delivery's field, from new Delivery(20))
+            none has total == freeFrom
             covered by DeliveryTest#bigOrdersGoFree (its 1 covering test still passes)
     = help: test isFree() with total = freeFrom and assert the result
 
             // in DeliveryTest
             @Test
             void isFreeAtFreeFrom() {
-              int freeFrom = 50;
-              assertThat(new Delivery(freeFrom).isFree(freeFrom)).isTrue(); // today true · with this mutant false
+              var delivery = new Delivery(20); // as DeliveryTest#bigOrdersGoFree builds it
+              assertThat(delivery.isFree(20)).isTrue(); // total == freeFrom · today true · with this mutant false
             }
             check today's value is the one you intend: the test pins what the code does now
 
@@ -60,8 +61,9 @@ $ mutastic explain m43173676
 
             // in DeliveryTest
             @Test
-            void isFreeWithTotal0ForFreeFrom50() {
-              assertThat(new Delivery(50).isFree(0)).isFalse(); // today false · with this mutant true
+            void isFreeWithTotal0ForFreeFrom20() {
+              var delivery = new Delivery(20); // as DeliveryTest#bigOrdersGoFree builds it
+              assertThat(delivery.isFree(0)).isFalse(); // today false · with this mutant true
             }
             check today's value is the one you intend: the test pins what the code does now
 
@@ -104,8 +106,9 @@ $ mutastic explain m2e5ded43
 
             // in DeliveryTest
             @Test
-            void isFreeWithTotalMinus1ForFreeFrom0() {
-              assertThat(new Delivery(0).isFree(-1)).isFalse(); // today false · with this mutant true
+            void isFreeWithTotal0ForFreeFrom20() {
+              var delivery = new Delivery(20); // as DeliveryTest#bigOrdersGoFree builds it
+              assertThat(delivery.isFree(0)).isFalse(); // today false · with this mutant true
             }
             check today's value is the one you intend: the test pins what the code does now
 
@@ -142,6 +145,7 @@ $ mutastic explain m56784e43
               + return total > FREE_FROM ? 10 : 0;
     = note: every test calls discount() away from the boundary
             inputs seen: 250 (none is 100)
+            the edge is FREE_FROM (Discounts.FREE_FROM = 100)
             covered by DiscountsTest#bigTotalsGetADiscount (its 1 covering test still passes)
     = help: test discount() with total = 100 and assert the result
 
@@ -229,6 +233,7 @@ $ mutastic explain m63f5f45e
               + return BULK_FROM < count ? 5 : 0;
     = note: every test calls bulk() away from the boundary
             inputs seen: 80 (none is 50)
+            the edge is BULK_FROM (Discounts's private BULK_FROM = 50)
             covered by DiscountsTest#bulkOrdersGetADiscount (its 1 covering test still passes)
     = help: test bulk() with count = 50 and assert the result
 

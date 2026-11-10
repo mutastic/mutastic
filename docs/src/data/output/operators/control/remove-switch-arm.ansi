@@ -13,8 +13,9 @@
 
             [2m// in ZonesTest[0m
             @Test
-            void daysWithZone2ForNear1AndFar1AndAbroad2() {
-            [32m  assertEquals(1, new Zones(1, 1, 2).days(2)); // today 1 · with this mutant 2[0m
+            void daysWithZone2ForNear1AndFar3AndAbroad7() {
+            [32m  var zones = new Zones(1, 3, 7); // as ZonesTest builds it[0m
+            [32m  assertEquals(3, zones.days(2)); // today 3 · with this mutant 7[0m
             }
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m
 

@@ -8,15 +8,16 @@
     [2m│[0m
     [2m=[0m mutant  [1;31m- [0mreturn steps % slots;
               [32m+ [0mreturn steps;
-    [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: steps = 3
+    [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: steps = 3, with slots = 10 (Wheel's field, from new Wheel(10))
+            [2mnone has steps == slots[0m
             [2mcovered by WheelTest#threeStepsOn (its 1 covering test still passes)[0m
     [2m=[0m [32m[1mhelp[0m[0m: add a test where [1mslots[0m changes the result of [1msteps % slots[0m, and assert it
 
             [2m// in WheelTest[0m
             @Test
             void slotAfterAtSlots() {
-            [32m  int slots = 3;[0m
-            [32m  assertEquals(0, new Wheel(slots).slotAfter(slots)); // today 0 · with this mutant 3[0m
+            [32m  var wheel = new Wheel(10); // as WheelTest#threeStepsOn builds it[0m
+            [32m  assertEquals(0, wheel.slotAfter(10)); // steps == slots · today 0 · with this mutant 10[0m
             }
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m
 

@@ -14,8 +14,9 @@
 
             [2m// in StockTest[0m
             @Test
-            void needsRestockWithStock5ForLow2() {
-            [32m  assertFalse(new Stock(2).needsRestock(5)); // today false · with this mutant true[0m
+            void needsRestockWithStock10ForLow5() {
+            [32m  var stock = new Stock(5); // as StockTest#restockWhenLow builds it[0m
+            [32m  assertFalse(stock.needsRestock(10)); // today false · with this mutant true[0m
             }
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m
 

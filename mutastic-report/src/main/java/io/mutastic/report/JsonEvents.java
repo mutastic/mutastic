@@ -171,6 +171,7 @@ public final class JsonEvents {
     suggestion.put("today", found.today());
     suggestion.put("withMutant", found.mutated());
     found.named().ifPresent(named -> suggestion.put("named", namedValue(named)));
+    found.builtBy().ifPresent(test -> suggestion.put("builtBy", test));
     return suggestion;
   }
 
@@ -179,6 +180,9 @@ public final class JsonEvents {
     fields.put("name", named.name());
     fields.put("note", named.note());
     named.local().ifPresent(local -> fields.put("local", local));
+    if (!named.meaning().isEmpty()) {
+      fields.put("meaning", named.meaning());
+    }
     return fields;
   }
 

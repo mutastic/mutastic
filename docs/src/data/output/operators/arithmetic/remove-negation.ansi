@@ -9,6 +9,7 @@
     [2m=[0m mutant  [1;31m- [0mreturn balance < -overdraft;
               [32m+ [0mreturn balance < overdraft;
     [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: balance = -5, 0, 5
+            [2mthe edge is overdraft (Account's field, set by its constructor)[0m
             [2mcovered by AccountTest#noOverdraft (its 1 covering test still passes)[0m
     [2m=[0m [32m[1mhelp[0m[0m: add a test with a value that isn't zero, and assert the sign of the result
 

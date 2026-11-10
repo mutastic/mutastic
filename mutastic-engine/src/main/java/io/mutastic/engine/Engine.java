@@ -415,7 +415,7 @@ public final class Engine {
             options.suggestions(),
             options.auditArid(),
             java.util.Collections.synchronizedList(new ArrayList<>()),
-            project.sources(),
+            project,
             options.killMatrix());
     return new Plan(mutants, mutantRun, instrumented, found.stale(), ghosts);
   }
@@ -765,7 +765,7 @@ public final class Engine {
       boolean suggestions,
       boolean auditArid,
       List<MutantResult> audited,
-      List<Path> sources,
+      Project project,
       boolean killMatrix) {
     /// At most this many sets of arguments to try per mutant.
     static final int CANDIDATES = 400;
@@ -806,7 +806,10 @@ public final class Engine {
           result =
               result.withSuggestion(
                   suggest(
-                      receiver.get(), trial, inputs, testClassOf(result.coveredBy().getFirst())));
+                      receiver.get(),
+                      trial,
+                      inputs,
+                      new Tests(testClassOf(result.coveredBy().getFirst()), result.coveredBy())));
         }
       }
       return new Outcome(result, tested.run().portClash());
@@ -928,7 +931,8 @@ public final class Engine {
         return Optional.empty();
       }
       var trial = new Trial(worker, mutant, verifiedMutation(mutant), coverage);
-      return suggest(receiver.get(), trial, Map.of(), mutant.binaryName() + "Test");
+      return suggest(
+          receiver.get(), trial, Map.of(), new Tests(mutant.binaryName() + "Test", List.of()));
     }
 
     /// `com.example.PricingTest` for `com.example.PricingTest#bigOrders`.
@@ -948,9 +952,11 @@ public final class Engine {
       }
     }
 
-    /// Each candidate is the receiver's constructor arguments, if any, then the method's.
+    /// Each candidate is the receiver's constructor arguments, if any, then the method's: first
+    /// with the receiver made as a covering test makes it, when one does, so the call is one its
+    /// reader knows and a field the receiver keeps has the value the tests use.
     private Optional<Suggestion> suggest(
-        String receiver, Trial trial, Map<String, List<Long>> inputs, String testClass) {
+        String receiver, Trial trial, Map<String, List<Long>> inputs, Tests tests) {
       var mutant = trial.mutant();
       var shape = CallShape.of(mutant, receiver);
       if (!shape.takesWholeNumbers()) {
@@ -960,13 +966,59 @@ public final class Engine {
       if (isKotlin(mutant) && kotlin.isEmpty()) {
         return Optional.empty();
       }
-      var values = candidateValues(mutant, inputs);
-      var candidates = new ArrayList<List<Long>>();
-      combine(List.copyOf(values), shape.arity(), new ArrayList<>(), candidates);
+      var built = builtByATest(shape, tests.covering());
+      var candidates = candidates(shape, candidateValues(mutant, inputs), built);
+      var target = new Target(tests.into(), built);
       return trial
           .worker()
           .suggest(mutant, receiver, trial.bytes(), candidates)
-          .map(found -> suggestion(shape, found, kotlin, testClass));
+          .map(found -> suggestion(shape, found, kotlin, target));
+    }
+
+    /// The test class a suggestion goes in, and the tests that reach the mutant, first listed
+    /// first.
+    private record Tests(String into, List<String> covering) {}
+
+    /// How a suggestion's receiver may be made: the test class it goes in, and how a covering test
+    /// makes it, if one does.
+    private record Target(String testClass, Optional<Constructions.Built> built) {
+      /// How the covering test makes the receiver, if a call made it with `arguments` too.
+      Optional<Constructions.Built> builtWith(List<Long> arguments) {
+        return built.filter(test -> test.arguments().equals(arguments));
+      }
+    }
+
+    /// The calls to try: with the receiver made as `built` is first, its own values first among the
+    /// rest, then every way from `values`.
+    private static List<List<Long>> candidates(
+        CallShape shape, java.util.SequencedSet<Long> values, Optional<Constructions.Built> built) {
+      var candidates = new ArrayList<List<Long>>();
+      built.ifPresent(
+          made -> {
+            var withItsValues = new java.util.LinkedHashSet<>(made.arguments());
+            withItsValues.addAll(values);
+            combine(
+                List.copyOf(withItsValues),
+                shape.arity(),
+                new ArrayList<>(made.arguments()),
+                candidates);
+          });
+      combine(List.copyOf(values), shape.arity(), new ArrayList<>(), candidates);
+      return candidates;
+    }
+
+    /// How the first covering test that makes the receiver makes it, when it's one instance made of
+    /// whole numbers written out.
+    private Optional<Constructions.Built> builtByATest(CallShape shape, List<String> coveredBy) {
+      if (shape.receiver().size() != 1 || shape.receiverArity() == 0 || coveredBy.isEmpty()) {
+        return Optional.empty();
+      }
+      var made = shape.receiver().getFirst();
+      return Constructions.in(
+          project.testSources(),
+          coveredBy,
+          made.simpleName().replace('$', '.'),
+          shape.receiverArity());
     }
 
     /// Whether kotlinc compiled the mutant's class, so a test of it is written in Kotlin.
@@ -978,7 +1030,7 @@ public final class Engine {
 
     private Optional<KotlinCall> kotlinCall(Mutant mutant) {
       synchronized (mutations) {
-        return KotlinCall.of(model(mutant), mutant, sources);
+        return KotlinCall.of(model(mutant), mutant, project.sources());
       }
     }
 
@@ -1000,19 +1052,17 @@ public final class Engine {
     /// The suggestion from the worker's `found`: the arguments, then what the method returns today
     /// and with the mutant.
     private Suggestion suggestion(
-        CallShape shape, String[] found, Optional<KotlinCall> kotlin, String testClass) {
+        CallShape shape, String[] found, Optional<KotlinCall> kotlin, Target target) {
       var all = found[0].equals("-") ? List.<Long>of() : wholeNumbers(found[0]);
       int receiverCount = shape.receiverArity();
       var receiverArguments = all.subList(0, receiverCount);
       var arguments = all.subList(receiverCount, all.size());
       var names = namesOf(shape.mutant(), arguments.size());
-      var naming =
-          kotlin.isPresent()
-              ? Optional.<NamedValues.Naming>empty()
-              : named(
-                  shape,
-                  new NamedValues.Call(
-                      names, arguments, Optional.empty(), receiverArguments, testClass));
+      var builtBy = target.builtWith(receiverArguments).filter(test -> kotlin.isEmpty());
+      var at =
+          new NamedValues.Call(
+              names, arguments, Optional.empty(), receiverArguments, target.testClass(), builtBy);
+      var naming = kotlin.isPresent() ? Optional.<NamedValues.Naming>empty() : named(shape, at);
       return new Suggestion(
           kotlin
               .map(call -> shape.kotlin(call, receiverArguments, arguments))
@@ -1022,7 +1072,8 @@ public final class Engine {
           shape.instances(receiverArguments, this::parameterNames),
           found[1],
           found[2],
-          naming.map(NamedValues.Naming::named));
+          naming.map(NamedValues.Naming::named),
+          builtBy.map(Constructions.Built::test));
     }
 
     /// The mutant's method's parameter names, or `arg0`, `arg1`… if they aren't `count`.
@@ -1040,11 +1091,16 @@ public final class Engine {
             shape
                 .innermost()
                 .flatMap(made -> method(made.className(), "<init>", made.descriptor()));
-        return new NamedValues(models, sources)
+        return new NamedValues(models, project.sources())
             .of(
                 shape.mutant(),
                 new NamedValues.Call(
-                    call.parameters(), call.inputs(), constructor, constructed, call.testClass()));
+                    call.parameters(),
+                    call.inputs(),
+                    constructor,
+                    constructed,
+                    call.testClass(),
+                    call.built()));
       }
     }
 

@@ -2449,7 +2449,7 @@
           "name": "Suggestion",
           "slug": "suggestion",
           "kind": "record",
-          "signature": "@Internal record Suggestion(\n    String call,\n    List<String> parameters,\n    List<Long> inputs,\n    List<Suggestion.Instance> receiver,\n    String today,\n    String mutated,\n    Optional<Suggestion.Named> named)",
+          "signature": "@Internal record Suggestion(\n    String call,\n    List<String> parameters,\n    List<Long> inputs,\n    List<Suggestion.Instance> receiver,\n    String today,\n    String mutated,\n    Optional<Suggestion.Named> named,\n    Optional<String> builtBy)",
           "summary": "A call that tells a missed mutant from the code today, found by running both: the test to write is an assertion of today's value.",
           "doc": "A call that tells a missed mutant from the code today, found by running both: the test to write\nis an assertion of today's value. Today's value is what the code does, not necessarily what it\nshould, so the person checks it before keeping the test.",
           "params": [
@@ -2480,6 +2480,10 @@
             {
               "name": "named",
               "doc": "the value the call is at the edge of, when the source names it: a constant, or a field the constructor sets from an argument"
+            },
+            {
+              "name": "builtBy",
+              "doc": "the covering test the receiver is made as, `DeliveryTest#smallOrders`, when the call makes it the same way: its reader knows that one"
             }
           ],
           "members": [
@@ -2487,6 +2491,16 @@
               "kind": "constructor",
               "name": "Suggestion",
               "anchor": "suggestion",
+              "signature": "Suggestion(String call, List<String> parameters, List<Long> inputs, List<Suggestion.Instance> receiver, String today, String mutated, Optional<Suggestion.Named> named)",
+              "doc": "A call whose receiver isn't made as a test makes it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "Suggestion",
+              "anchor": "suggestion-2",
               "signature": "Suggestion(String call, List<String> parameters, List<Long> inputs, List<Suggestion.Instance> receiver, String today, String mutated)",
               "doc": "A call at no value the source names.",
               "params": [],
@@ -2496,7 +2510,7 @@
             {
               "kind": "constructor",
               "name": "Suggestion",
-              "anchor": "suggestion-2",
+              "anchor": "suggestion-3",
               "signature": "Suggestion(String call, List<String> parameters, List<Long> inputs, String today, String mutated)",
               "doc": "A call with no receiver arguments: a static method, or a no-argument constructor.",
               "params": [],
@@ -2550,7 +2564,7 @@
           "name": "Suggestion.Named",
           "slug": "suggestion-named",
           "kind": "record",
-          "signature": "record Named(String name, String note, Optional<String> local)",
+          "signature": "record Named(\n    String name,\n    String note,\n    Optional<String> local,\n    String meaning)",
           "summary": "The value a suggested call is at the edge of, as the source names it, which the test is named after: a constant (`FREE_FROM`), or a field the constructor sets (`freeFrom`).",
           "doc": "The value a suggested call is at the edge of, as the source names it, which the test is named\nafter: a constant (`FREE_FROM`), or a field the constructor sets (`freeFrom`).",
           "params": [
@@ -2565,9 +2579,24 @@
             {
               "name": "local",
               "doc": "the line a test declares the value in, when it's passed twice: `int freeFrom = 20;`"
+            },
+            {
+              "name": "meaning",
+              "doc": "what the name is, and its value where it's known, for a card's evidence: `FREE_FROM (Discounts.FREE_FROM = 100)`, `freeFrom = 50 (Delivery's field, from new Delivery(50))`, `freeFrom (Delivery's field, set by its constructor)`; empty if not known"
             }
           ],
-          "members": []
+          "members": [
+            {
+              "kind": "constructor",
+              "name": "Named",
+              "anchor": "named",
+              "signature": "Named(String name, String note, Optional<String> local)",
+              "doc": "A name whose meaning isn't said.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
         },
         {
           "name": "TestSelection",

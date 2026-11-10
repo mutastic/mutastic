@@ -8,15 +8,16 @@
     [2m│[0m
     [2m=[0m mutant  [1;31m- [0mreturn total >= freeFrom;
               [32m+ [0mreturn total > freeFrom;
-    [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: total = 20, 80
+    [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: total = 20, 80, with freeFrom = 50 (Delivery's field, from new Delivery(50))
+            [2mnone has total == freeFrom[0m
             [2mcovered by DeliveryTest#smallOrdersPayForDelivery (its 1 covering test still passes)[0m
     [2m=[0m [32m[1mhelp[0m[0m: test [1misFree()[0m with [1mtotal = freeFrom[0m and assert the result
 
             [2m// in DeliveryTest[0m
             @Test
             void isFreeAtFreeFrom() {
-            [32m  int freeFrom = 20;[0m
-            [32m  assertTrue(new Delivery(freeFrom).isFree(freeFrom)); // today true · with this mutant false[0m
+            [32m  var delivery = new Delivery(50); // as DeliveryTest#smallOrdersPayForDelivery builds it[0m
+            [32m  assertTrue(delivery.isFree(50)); // total == freeFrom · today true · with this mutant false[0m
             }
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m
 

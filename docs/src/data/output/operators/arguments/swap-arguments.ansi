@@ -14,8 +14,9 @@
 
             [2m// in VolumeTest[0m
             @Test
-            void setWithLevel0ForMin15AndMax0() {
-            [32m  assertEquals(15, new Volume(15, 0).set(0)); // today 15 · with this mutant 0[0m
+            void setWithLevel0ForMin0AndMax10() {
+            [32m  var volume = new Volume(0, 10); // as VolumeTest#tooLoudIsTurnedDown builds it[0m
+            [32m  assertEquals(0, volume.set(0)); // today 0 · with this mutant 10[0m
             }
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m
 

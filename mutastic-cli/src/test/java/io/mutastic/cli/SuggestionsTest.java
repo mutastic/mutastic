@@ -67,15 +67,16 @@ class SuggestionsTest {
 
     // Two mutants on a side of one condition share a test: one of each. A boxed parameter is
     // named as the source names it (`chosen`), a constructor's arguments by its parameters, and
-    // a value the source names is said its way: a constant the test can use, one it can't, and
-    // a field the constructor sets, passed the same value as the argument it's compared with.
+    // a value the source names is said its way: a constant the test can use, one it can't. An
+    // object a covering test makes is made the same way, and says which test it follows, so a
+    // field the constructor sets has the tests' value, not one mutastic picked.
     assertThat(java.util.Set.copyOf(suggested.values()))
         .containsExactlyInAnyOrder(
             """
         @Test
         void isFreeAtFreeFrom() {
-          int freeFrom = 50;
-          assertThat(new Delivery(freeFrom).isFree(freeFrom)).isTrue(); // today true · with this mutant false
+          var delivery = new Delivery(20); // as DeliveryTest#bigOrdersGoFree builds it
+          assertThat(delivery.isFree(20)).isTrue(); // total == freeFrom · today true · with this mutant false
         }""",
             """
         @Test
@@ -85,8 +86,8 @@ class SuggestionsTest {
             """
         @Test
         void openOnAtStart() {
-          int start = 5;
-          assertThat(new Window(start, 10L).openOn(start)).isTrue(); // today true · with this mutant false
+          var window = new Window(1, 10L); // as WindowTest#openInTheMiddle builds it
+          assertThat(window.openOn(1)).isTrue(); // day == start · today true · with this mutant false
         }""",
             """
         @Test
@@ -100,8 +101,9 @@ class SuggestionsTest {
         }""",
             """
         @Test
-        void isFreeWithTotal0ForFreeFrom50() {
-          assertThat(new Delivery(50).isFree(0)).isFalse(); // today false · with this mutant true
+        void isFreeWithTotal0ForFreeFrom20() {
+          var delivery = new Delivery(20); // as DeliveryTest#bigOrdersGoFree builds it
+          assertThat(delivery.isFree(0)).isFalse(); // today false · with this mutant true
         }""",
             """
         @Test
@@ -111,8 +113,8 @@ class SuggestionsTest {
             """
         @Test
         void openOnAtEnd() {
-          int end = 5;
-          assertThat(new Window(5, end).openOn(end)).isFalse(); // today false · with this mutant true
+          var window = new Window(1, 10L); // as WindowTest#openInTheMiddle builds it
+          assertThat(window.openOn(10)).isFalse(); // day == end · today false · with this mutant true
         }""",
             """
         @Test
@@ -121,8 +123,9 @@ class SuggestionsTest {
         }""",
             """
         @Test
-        void openOnWithDay0ForStart0AndEnd0() {
-          assertThat(new Window(0, 0L).openOn(0)).isFalse(); // today false · with this mutant true
+        void openOnWithDay0ForStart1AndEnd10() {
+          var window = new Window(1, 10L); // as WindowTest#openInTheMiddle builds it
+          assertThat(window.openOn(0)).isFalse(); // today false · with this mutant true
         }""",
             """
         @Test
@@ -131,18 +134,14 @@ class SuggestionsTest {
         }""",
             """
         @Test
-        void isFreeWithTotalMinus1ForFreeFrom0() {
-          assertThat(new Delivery(0).isFree(-1)).isFalse(); // today false · with this mutant true
+        void openOnWithDay10ForStart1AndEnd10() {
+          var window = new Window(1, 10L); // as WindowTest#openInTheMiddle builds it
+          assertThat(window.openOn(10)).isFalse(); // today false · with this mutant true
         }""",
             """
         @Test
         void discountAtFreeFrom() {
           assertThat(Discounts.discount(Discounts.FREE_FROM)).isEqualTo(10); // FREE_FROM = 100 · today 10 · with this mutant 0
-        }""",
-            """
-        @Test
-        void openOnWithDay0ForStart5AndEnd5() {
-          assertThat(new Window(5, 5L).openOn(0)).isFalse(); // today false · with this mutant true
         }""");
 
     // Each into the test class it was written for: RatesTest, or WindowTest for the record.

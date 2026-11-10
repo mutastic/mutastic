@@ -40,12 +40,14 @@ final class NamedValues {
   /// @param constructor the innermost receiver's constructor, if the call makes one
   /// @param constructed that constructor's arguments
   /// @param testClass the test class it goes in, by binary name
+  /// @param built how a covering test makes the receiver, when the call makes it the same way
   record Call(
       List<String> parameters,
       List<Long> inputs,
       Optional<MethodModel> constructor,
       List<Long> constructed,
-      String testClass) {}
+      String testClass,
+      Optional<Constructions.Built> built) {}
 
   private static final Pattern NAME = Pattern.compile("[A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)*");
 
@@ -90,25 +92,37 @@ final class NamedValues {
     var name = call.parameters().get(parameter);
     return writtenAgainst(mutant, name)
         .flatMap(written -> declared(mutant, written, value))
-        .map(
-            constant -> {
-              var owner = simpleName(constant.owner());
-              var field = constant.field().fieldName().stringValue();
-              return reachable(constant, call.testClass())
-                  ? new Naming(
-                      new Suggestion.Named(field, field + " = " + value, Optional.empty()),
-                      Map.of(parameter, owner + "." + field),
-                      Map.of())
-                  : new Naming(
-                      new Suggestion.Named(
-                          field, "%d is %s's %s".formatted(value, owner, field), Optional.empty()),
-                      Map.of(),
-                      Map.of());
-            });
+        .map(constant -> constantNaming(constant, call, parameter, value));
+  }
+
+  /// `Discounts.FREE_FROM` in the call and `FREE_FROM = 100` in the comment, or for a constant the
+  /// test can't use, the number, and `100 is Discounts's FREE_FROM`.
+  private static Naming constantNaming(Constant constant, Call call, int parameter, long value) {
+    var owner = simpleName(constant.owner());
+    var field = constant.field().fieldName().stringValue();
+    if (!reachable(constant, call.testClass())) {
+      return new Naming(
+          new Suggestion.Named(
+              field,
+              "%d is %s's %s".formatted(value, owner, field),
+              Optional.empty(),
+              "%s (%s's private %s = %d)".formatted(field, owner, field, value)),
+          Map.of(),
+          Map.of());
+    }
+    return new Naming(
+        new Suggestion.Named(
+            field,
+            field + " = " + value,
+            Optional.empty(),
+            "%s (%s.%s = %d)".formatted(field, owner, field, value)),
+        Map.of(parameter, owner + "." + field),
+        Map.of());
   }
 
   /// `total >= freeFrom`, with `freeFrom` set by the constructor from an argument the call passes
-  /// the same value as `total`: one local, passed to both.
+  /// the same value as `total`: the value the covering test made the receiver with, said, when the
+  /// call makes it that way; else one local, passed to both.
   private Optional<Naming> field(Mutant mutant, Call call, int parameter, String field) {
     if (call.constructor().isEmpty() || !NAME.matcher(field).matches() || field.contains(".")) {
       return Optional.empty();
@@ -121,17 +135,49 @@ final class NamedValues {
     if (!passes(call.constructed(), argument, input)) {
       return Optional.empty();
     }
+    var tie =
+        new Tie(field, constructor.parent().map(NamedValues::simpleName).orElse(""), parameter);
+    if (call.built().isPresent()) {
+      return Optional.of(tie.fromATest(call));
+    }
     var passed = java.lang.constant.MethodTypeDesc.ofDescriptor(mutant.descriptor());
     var types =
         List.of(
             constructor.methodTypeSymbol().parameterType(setBy), passed.parameterType(parameter));
     return local(field, input, types.stream().map(type -> type.descriptorString()).toList())
-        .map(
-            local ->
-                new Naming(
-                    new Suggestion.Named(field, "", Optional.of(local)),
-                    Map.of(parameter, field),
-                    Map.of(argument, field)));
+        .map(local -> tie.withALocal(local, argument));
+  }
+
+  /// A field of `owner`'s the call's argument at `parameter` is compared with.
+  private record Tie(String field, String owner, int parameter) {
+    /// Made as a covering test makes it: its value is the test's, said, not a local's.
+    Naming fromATest(Call call) {
+      return new Naming(
+          new Suggestion.Named(
+              field,
+              "%s == %s".formatted(call.parameters().get(parameter), field),
+              Optional.empty(),
+              "%s = %d (%s's field, from %s)"
+                  .formatted(
+                      field,
+                      call.inputs().get(parameter),
+                      owner,
+                      call.built().orElseThrow().text())),
+          Map.of(),
+          Map.of());
+    }
+
+    /// One local, `local`, passed to the method and to the constructor's `argument`.
+    Naming withALocal(String local, int argument) {
+      return new Naming(
+          new Suggestion.Named(
+              field,
+              "",
+              Optional.of(local),
+              "%s (%s's field, set by its constructor)".formatted(field, owner)),
+          Map.of(parameter, field),
+          Map.of(argument, field));
+    }
   }
 
   /// Whether the constructor's argument at `argument` is there, and is `value`.

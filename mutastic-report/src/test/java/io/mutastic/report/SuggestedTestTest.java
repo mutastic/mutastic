@@ -196,6 +196,38 @@ class SuggestedTestTest {
         "new Pricing().discount(100)", List.of("total"), List.of(100L), today, mutated);
   }
 
+  /// A receiver made as a covering test makes it is declared as that test does, and says so; the
+  /// value the call is at is the test's, with what it is in the comment.
+  @Test
+  void aReceiverMadeAsATestMakesItSaysWhichTest() {
+    var suggestion =
+        new Suggestion(
+            "new Delivery(50).isFree(50)",
+            List.of("total"),
+            List.of(50L),
+            List.of(new Suggestion.Instance("Delivery", List.of(50L), List.of("freeFrom"))),
+            "true",
+            "false",
+            Optional.of(
+                new Suggestion.Named(
+                    "freeFrom",
+                    "total == freeFrom",
+                    Optional.empty(),
+                    "freeFrom = 50 (Delivery's field, from new Delivery(50))")),
+            Optional.of("DeliveryTest#smallOrders"));
+
+    var test = SuggestedTest.of(missed(suggestion), sources()).orElseThrow();
+
+    assertThat(test.lines())
+        .containsExactly(
+            "@Test",
+            "void discountAtFreeFrom() {",
+            "  var delivery = new Delivery(50); // as DeliveryTest#smallOrders builds it",
+            "  assertTrue(delivery.isFree(50)); // total == freeFrom · today true · with this"
+                + " mutant false",
+            "}");
+  }
+
   private static MutantResult missed(Suggestion suggestion) {
     var mutant =
         new Mutant(

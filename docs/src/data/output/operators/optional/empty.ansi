@@ -14,8 +14,9 @@
 
             [2m// in PagesTest[0m
             @Test
-            void sizeWithChosen1ForStandard0() {
-            [32m  assertEquals(1, new Pages(0).size(1)); // today 1 · with m528413d3 0[0m
+            void sizeWithChosen0ForStandard20() {
+            [32m  var pages = new Pages(20); // as PagesTest#aChosenSize builds it[0m
+            [32m  assertEquals(0, pages.size(0)); // today 0 · with m528413d3 20[0m
             }
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m
 

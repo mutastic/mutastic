@@ -7,13 +7,14 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    - return total >= freeFrom;
    + return total > freeFrom;
    covered by: DeliveryTest#bigOrdersGoFree; all still pass with the change
-   evidence: inputs seen: total = 50
+   evidence: inputs seen: total = 50, with freeFrom = 20 (Delivery's field, from new Delivery(20))
+   evidence: none has total == freeFrom
    fix: test `isFree()` with `total = freeFrom` and assert the result
    test to add in DeliveryTest:
      @Test
      void isFreeAtFreeFrom() {
-       int freeFrom = 50;
-       assertThat(new Delivery(freeFrom).isFree(freeFrom)).isTrue(); // today true · with this mutant false
+       var delivery = new Delivery(20); // as DeliveryTest#bigOrdersGoFree builds it
+       assertThat(delivery.isFree(20)).isTrue(); // total == freeFrom · today true · with this mutant false
      }
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify m86ee3ce6 samples/suggestions passes
@@ -29,8 +30,9 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    fix: add a test where `total >= freeFrom` is false, and assert what `isFree()` does then
    test to add in DeliveryTest:
      @Test
-     void isFreeWithTotal0ForFreeFrom50() {
-       assertThat(new Delivery(50).isFree(0)).isFalse(); // today false · with this mutant true
+     void isFreeWithTotal0ForFreeFrom20() {
+       var delivery = new Delivery(20); // as DeliveryTest#bigOrdersGoFree builds it
+       assertThat(delivery.isFree(0)).isFalse(); // today false · with this mutant true
      }
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify m43173676 samples/suggestions passes
@@ -47,8 +49,9 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    fix: add a test where `isFree()` returns `false` here, and assert it
    test to add in DeliveryTest:
      @Test
-     void isFreeWithTotalMinus1ForFreeFrom0() {
-       assertThat(new Delivery(0).isFree(-1)).isFalse(); // today false · with this mutant true
+     void isFreeWithTotal0ForFreeFrom20() {
+       var delivery = new Delivery(20); // as DeliveryTest#bigOrdersGoFree builds it
+       assertThat(delivery.isFree(0)).isFalse(); // today false · with this mutant true
      }
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify m2e5ded43 samples/suggestions passes
@@ -62,6 +65,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    covered by: DiscountsTest#bigTotalsGetADiscount; all still pass with the change
    evidence: every test calls `discount()` away from the boundary
    evidence: inputs seen: 250 (none is 100)
+   evidence: the edge is FREE_FROM (Discounts.FREE_FROM = 100)
    fix: test `discount()` with `total = 100` and assert the result
    test to add in DiscountsTest:
      @Test
@@ -97,6 +101,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    covered by: DiscountsTest#bulkOrdersGetADiscount; all still pass with the change
    evidence: every test calls `bulk()` away from the boundary
    evidence: inputs seen: 80 (none is 50)
+   evidence: the edge is BULK_FROM (Discounts's private BULK_FROM = 50)
    fix: test `bulk()` with `count = 50` and assert the result
    test to add in DiscountsTest:
      @Test

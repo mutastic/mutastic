@@ -102,7 +102,24 @@ void bulkAtBulkFrom() {
 }
 ```
 
-A field the constructor sets, compared with the method's argument, is one value passed to both:
+When a covering test makes the object the method is called on with numbers written out, the
+suggested test makes it the same way and says which test it follows, so its values are ones the
+tests already use. A field it sets, compared with the method's argument, then has the test's value,
+and the card's evidence says what the field is and where its value came from (`inputs seen: total
+= 20, 80, with freeFrom = 50 (Delivery's field, from new Delivery(50))`, `none has total ==
+freeFrom`):
+
+```java
+@Test
+void isFreeAtFreeFrom() {
+  var delivery = new Delivery(50); // as DeliveryTest#smallOrdersPayForDelivery builds it
+  assertTrue(delivery.isFree(50)); // total == freeFrom · today true · with this mutant false
+}
+```
+
+When no covering test shows how it's made, a field the constructor sets is one value passed to
+both, and the evidence still says what the name is (`the edge is freeFrom (Delivery's field, set
+by its constructor)`; for a constant, `the edge is FREE_FROM (Discounts.FREE_FROM = 100)`):
 
 ```java
 @Test

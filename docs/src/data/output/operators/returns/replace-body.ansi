@@ -13,8 +13,9 @@
 
             [2m// in LoyaltyTest[0m
             @Test
-            void pointsWithSpent5ForPerPoint5() {
-            [32m  assertEquals(1, new Loyalty(5).points(5)); // today 1 · with this mutant 0[0m
+            void pointsWithSpent10ForPerPoint10() {
+            [32m  var loyalty = new Loyalty(10); // as LoyaltyTest#smallSpendsEarnNothing builds it[0m
+            [32m  assertEquals(1, loyalty.points(10)); // today 1 · with this mutant 0[0m
             }
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m
 

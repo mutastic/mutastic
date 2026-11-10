@@ -224,7 +224,9 @@ public final class ShareEvents {
                     new Suggestion.Named(
                         text(named, "name").orElse(""),
                         text(named, "note").orElse(""),
-                        text(named, "local"))));
+                        text(named, "local"),
+                        text(named, "meaning").orElse(""))),
+        text(fields, "builtBy"));
   }
 
   private static Map<String, List<Long>> inputs(Map<String, Object> fields) {

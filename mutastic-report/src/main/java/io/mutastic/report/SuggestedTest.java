@@ -48,9 +48,46 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
     lines.add("@Test");
     lines.add((style == Style.TESTNG ? "public void %s() {" : "void %s() {").formatted(name));
     suggestion.named().flatMap(Suggestion.Named::local).ifPresent(local -> lines.add("  " + local));
-    lines.add("  " + assertion(suggestion, style) + " // " + comment(suggestion));
+    var made = madeAsATestMakesIt(suggestion);
+    made.ifPresent(receiver -> lines.add("  " + receiver.declaration()));
+    var called = made.map(MadeAsATest::calledOnIt).orElse(suggestion);
+    lines.add("  " + assertion(called, style) + " // " + comment(suggestion));
     lines.add("}");
     return lines;
+  }
+
+  /// A receiver made as a covering test makes it: declared as that test does, `var delivery = new
+  /// Delivery(50); // as DeliveryTest#smallOrders builds it`, so the reader knows where its values
+  /// come from.
+  ///
+  /// @param declaration the line that makes it
+  /// @param calledOnIt the suggestion with its call made on the local
+  private record MadeAsATest(String declaration, Suggestion calledOnIt) {}
+
+  private static Optional<MadeAsATest> madeAsATestMakesIt(Suggestion suggestion) {
+    if (suggestion.builtBy().isEmpty() || suggestion.receiver().size() != 1) {
+      return Optional.empty();
+    }
+    var call = suggestion.call();
+    var type = suggestion.receiver().getFirst().type();
+    var dot = call.indexOf(").") + 1;
+    if (!call.startsWith("new " + type + "(") || dot <= 0) {
+      return Optional.empty();
+    }
+    var local = Character.toLowerCase(type.charAt(0)) + type.substring(1);
+    var made = call.substring(0, dot);
+    return Optional.of(
+        new MadeAsATest(
+            "var %s = %s; // as %s builds it".formatted(local, made, suggestion.builtBy().get()),
+            new Suggestion(
+                local + call.substring(dot),
+                suggestion.parameters(),
+                suggestion.inputs(),
+                suggestion.receiver(),
+                suggestion.today(),
+                suggestion.mutated(),
+                suggestion.named(),
+                suggestion.builtBy())));
   }
 
   /// The test in Kotlin, for what kotlinc compiled. A call written in Kotlin can't be pasted into a

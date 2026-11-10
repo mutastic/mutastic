@@ -336,9 +336,11 @@
               "properties": {
                 "name": { "type": "string", "description": "A constant's or a field's name, as the source has it: `FREE_FROM`, `freeFrom`." },
                 "note": { "type": "string", "description": "What the test's comment says of it: `FREE_FROM = 100`, or `100 is Pricing's FREE_FROM` for a constant the test can't use; empty if nothing." },
-                "local": { "type": "string", "description": "The line the test declares the value in, when it passes it twice: `int freeFrom = 20;`." }
+                "local": { "type": "string", "description": "The line the test declares the value in, when it passes it twice: `int freeFrom = 20;`." },
+                "meaning": { "type": "string", "description": "What the name is, and its value where it's known: `FREE_FROM (Discounts.FREE_FROM = 100)`, `freeFrom = 50 (Delivery's field, from new Delivery(50))`. Optional." }
               }
-            }
+            },
+            "builtBy": { "type": "string", "description": "The covering test the call makes its receiver as, `DeliveryTest#smallOrders`, when it makes it the same way. Optional." }
           }
         },
         "testsRun": {

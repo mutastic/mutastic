@@ -15,7 +15,8 @@
             [2m// in DiscountsTest[0m
             @Test
             void cappedWithPercent0ForCap50() {
-            [32m  assertEquals(0, new Discounts(50).capped(0)); // today 0 · with this mutant 50[0m
+            [32m  var discounts = new Discounts(50); // as DiscountsTest#halfOffAtMost builds it[0m
+            [32m  assertEquals(0, discounts.capped(0)); // today 0 · with this mutant 50[0m
             }
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m
 

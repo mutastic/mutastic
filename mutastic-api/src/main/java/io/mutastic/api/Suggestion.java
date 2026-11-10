@@ -17,6 +17,8 @@ import java.util.List;
 /// @param mutated what it returns with the mutant in, the same way, or `doesn't return`
 /// @param named the value the call is at the edge of, when the source names it: a constant, or a
 ///   field the constructor sets from an argument
+/// @param builtBy the covering test the receiver is made as, `DeliveryTest#smallOrders`, when the
+///   call makes it the same way: its reader knows that one
 @Internal
 public record Suggestion(
     String call,
@@ -25,12 +27,25 @@ public record Suggestion(
     List<Suggestion.Instance> receiver,
     String today,
     String mutated,
-    java.util.Optional<Named> named) {
+    java.util.Optional<Named> named,
+    java.util.Optional<String> builtBy) {
 
   public Suggestion {
     parameters = List.copyOf(parameters);
     inputs = List.copyOf(inputs);
     receiver = List.copyOf(receiver);
+  }
+
+  /// A call whose receiver isn't made as a test makes it.
+  public Suggestion(
+      String call,
+      List<String> parameters,
+      List<Long> inputs,
+      List<Instance> receiver,
+      String today,
+      String mutated,
+      java.util.Optional<Named> named) {
+    this(call, parameters, inputs, receiver, today, mutated, named, java.util.Optional.empty());
   }
 
   /// A call at no value the source names.
@@ -72,7 +87,15 @@ public record Suggestion(
   ///   FREE_FROM` for a constant the test can't use; empty if it needs nothing
   /// @param local the line a test declares the value in, when it's passed twice: `int freeFrom =
   ///   20;`
-  public record Named(String name, String note, java.util.Optional<String> local) {}
+  /// @param meaning what the name is, and its value where it's known, for a card's evidence:
+  ///   `FREE_FROM (Discounts.FREE_FROM = 100)`, `freeFrom = 50 (Delivery's field, from new
+  ///   Delivery(50))`, `freeFrom (Delivery's field, set by its constructor)`; empty if not known
+  public record Named(String name, String note, java.util.Optional<String> local, String meaning) {
+    /// A name whose meaning isn't said.
+    public Named(String name, String note, java.util.Optional<String> local) {
+      this(name, note, local, "");
+    }
+  }
 
   /// Whether making the receiver takes any arguments.
   public boolean receiverTakesArguments() {
