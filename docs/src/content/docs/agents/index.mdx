@@ -54,7 +54,7 @@ The proposal goes in `.mutastic/proposals.yaml`, and the mutant still counts as 
 accept it (`mutastic ignore --accept ID`) or withdraw it (`--remove`). Commit the proposals with the
 change, and a pull request's reviewer decides them. [Configuration](/guides/configuration/) has the
 details, and [equivalent mutants](/concepts/equivalence/) says which kinds mutastic skips on its own
-and [how to argue one](/concepts/equivalence/#how-to-argue-a-mutant-is-equivalent).
+and [how to argue one](/concepts/equivalence/#how-to-argue-a-mutant-cant-be-caught).
 
 The gate holds the rest of the line: a task that ignores a mutant itself, or deletes or disables a
 test, isn't done either. And when the agent can't get there, or you've told it not to, the gate

@@ -10,10 +10,24 @@ import RustOutput from '../../../components/RustOutput.astro';
 A mutant is **equivalent** when no input can tell it apart from the original: the code changed, but
 what it does didn't. No test can catch it, because there's nothing to catch.
 
+<EditionTabs>
+<div slot="java">
+
 ```java
 int fee = amount < 10 ? 10 : amount;   // the original
 int fee = amount <= 10 ? 10 : amount;  // a mutant: at amount == 10 both give 10
 ```
+
+</div>
+<div slot="rust">
+
+```rust
+let fee = if amount < 10 { 10 } else { amount };   // the original
+let fee = if amount <= 10 { 10 } else { amount };  // a mutant: at amount == 10 both give 10
+```
+
+</div>
+</EditionTabs>
 
 That matters more than it looks. Counted as missed, an equivalent mutant asks for a test that can't
 exist, lowers the score for nothing, and sends people, and coding agents, looking for a gap that
@@ -24,11 +38,26 @@ can't.
 
 Three reasons not to write a test sound alike, and aren't:
 
+<EditionTabs>
+<div slot="java">
+
 | | The question it answers | An example | Who decides |
 |---|---|---|---|
 | **Equivalent** | Could any input tell the change apart? No. | `a < b ? a : b` becoming `a <= b ? a : b`: at `a == b` both give the same | mutastic, when the code proves it; you, otherwise |
 | **Arid** | Could a test tell? Yes, but none should have to. | Removing a log line, or changing a `new ArrayList<>(n * 2)` capacity | mutastic's [arid filters](/concepts/results/#skipped-mutants) |
 | **Unreachable** | Could an input tell? Yes, but that input never happens. | A guard for a negative balance the ledger already rules out | You: `mutastic ignore --as=unreachable` |
+
+</div>
+<div slot="rust">
+
+| | The question it answers | An example | Who decides |
+|---|---|---|---|
+| **Equivalent** | Could any input tell the change apart? No. | `if a < b { a } else { b }` becoming `if a <= b { a } else { b }`: at `a == b` both give the same | mutastic, when the code proves it; you, otherwise |
+| **Arid** | Could a test tell? Yes, but none should have to. | Removing a `println!` or `log::warn!` statement (`arid: only writes output`) | mutastic's [arid filters](/concepts/results/#skipped-mutants) |
+| **Unreachable** | Could an input tell? Yes, but that input never happens. | A guard for a negative balance the ledger already rules out | You: `mutastic ignore --as=unreachable` |
+
+</div>
+</EditionTabs>
 
 An equivalent mutant is a fact about the code. The other two are judgements, which is why mutastic
 makes only the first kind on its own, and only on proof. Each skipped mutant is counted by its kind
@@ -139,43 +168,81 @@ says it can't. So:
 In general, whether two programs always behave the same can't be decided, so most equivalent
 mutants aren't the shapes above. When you can see that one is, record it:
 
+<EditionTabs>
+<div slot="java">
+
 ```sh
-mutastic ignore m1a2b3c4d --as=equivalent --reason="count is items.size(), and process() handles an empty list"
+mutastic ignore m1a2b3c4d --as=equivalent --reason="Differs only when count is negative. That can't happen because count is basket.count(), a size."
 ```
 
 It goes in `.mutastic/ignores.yaml`, with the line it's on and the reason, to commit and review. It
-holds until that line changes, then the mutant runs again. In the Java edition the summary counts it
-apart (`1 ignored as equivalent`), so what ignores hide can be reviewed by kind.
+holds until that line changes, then the mutant runs again. The summary counts it apart (`1 ignored
+as equivalent`), so what ignores hide can be reviewed by kind.
+
+</div>
+<div slot="rust">
+
+```sh
+mutastic ignore md9d70acc --as=equivalent --reason="Differs only when amount is 10. That can't happen because both arms give 10 there."
+```
+
+It goes in `.mutastic/ignores.yaml` in the package's directory, with the line it's on and the
+reason, to commit and review. It holds until that line changes, then the mutant runs again.
+The summary counts it with the skipped (`1 skipped (1 user)`), not apart by its kind as the Java
+edition does.
+
+</div>
+</EditionTabs>
 
 Be sure before you do. If you can write an input where the two give different results, it isn't
 equivalent, it's a missing test, and that input is the test. If the input exists but can't happen,
 it's [unreachable](#not-the-same-as-doesnt-matter), which is a different decision, so say that
 instead with `--as=unreachable`.
 
-## How to argue a mutant is equivalent
+## How to argue a mutant can't be caught
 
-"It's equivalent" on its own asks the reader to take it on trust. Say it in two sentences instead,
-the first naming the one case where the mutant could differ, the second why that case can't happen:
+"It's equivalent" or "it can't happen" on its own asks the reader to take it on trust. Say it in two
+sentences instead, the first naming the one case where the mutant could differ, the second why that
+case can't happen. The shape is the same for an equivalent mutant and an unreachable one:
 
 ```text
 Differs only when <case>. That can't happen because <why>.
 ```
 
 The first sentence is the input a test would need. The second is what rules it out, written so a
-reviewer can check it in the code, not just believe it. If you can't finish the second sentence
-that way, the case can happen, and it's the test to write.
+reviewer can check it, not just believe it, and where a test can hold it, a test that pins the
+"because": it fails if the reason ever stops holding. That test doesn't try to catch the mutant; if
+one could, the mutant was a [missing test](#when-mutastic-cant-tell) all along. If you can't finish
+the second sentence that way, the case can happen, and it's the test to write.
+
+### Equivalent: the code rules the case out
 
 **A size compared with zero.**
 
+<EditionTabs>
+<div slot="java">
+
 ```java
-int count = items.size();
-if (count == 0) return List.of();   // a mutant: count <= 0
+int count = basket.count();          // basket.count() is items.size()
+if (count == 0) return List.of();    // a mutant: count <= 0
 ```
 
-> Differs only when count is negative. That can't happen because count is `items.size()`, and a
-> size is never negative.
+> Differs only when count is negative. That can't happen because `basket.count()` is
+> `items.size()`, and a size is never negative.
+
+</div>
+<div slot="rust">
+
+Rust has no such mutant to argue: a size is a `usize`, which can't be negative, and mutastic-rs
+doesn't change `==` to `<=`.
+
+</div>
+</EditionTabs>
 
 **A check for a value the code never holds.**
+
+<EditionTabs>
+<div slot="java">
 
 ```java
 private final List<Item> items = new ArrayList<>();
@@ -186,21 +253,97 @@ if (items == null || items.isEmpty()) return 0;   // a mutant: items == null is 
 > Differs only when items is null. That can't happen because the field is final and set where it's
 > declared.
 
-**An input that exists, but never comes.** This one isn't equivalent: an input could tell it apart.
-It's unreachable, and the argument has the same shape:
+The compiler pins this one: a `final` field can't be assigned again, so no test is needed to keep
+the reason true, and none could fail.
+
+</div>
+<div slot="rust">
+
+```rust
+pub fn per_part(total: u32, parts: NonZeroU32) -> u32 {
+    if parts.get() == 0 {   // a mutant: `if false`
+        return 0;
+    }
+    total / parts.get()
+}
+```
+
+> Differs only when parts is 0. That can't happen because parts is a `NonZeroU32`.
+
+The compiler pins this one: a `NonZeroU32` can't hold 0, so no test is needed to keep the reason
+true, and none could fail.
+
+</div>
+</EditionTabs>
+
+### Unreachable: how it's used rules the case out
+
+**An input that exists, but never comes.** A guard the only caller never lets a value reach:
+
+<EditionTabs>
+<div slot="java">
 
 ```java
-if (balance < -1000) throw new Overdrawn(balance);   // a mutant: balance <= -1000
+// Ledger.withdraw refuses any withdrawal that would take the balance below -999, then calls:
+static void check(long balance) {
+  if (balance < -1000) throw new Overdrawn(balance);   // a mutant: balance <= -1000
+}
 ```
 
 > Differs only when balance is exactly -1000. That can't happen because the ledger refuses a
 > withdrawal that would take a balance below -999.
 
+It isn't equivalent: a test that calls `check` directly with -1000 tells them apart. So record it
+with `--as=unreachable`, and pin the "because" with a test of the rule it rests on:
+
+```java
+@Test
+void aWithdrawalPastTheOverdraftIsRefused() {
+  var ledger = new Ledger();
+  assertThrows(Overdrawn.class, () -> ledger.withdraw(1_000)); // would leave -1000
+  assertEquals(0, ledger.balance());
+}
+```
+
+</div>
+<div slot="rust">
+
+```rust
+// Ledger::withdraw refuses any withdrawal that would take the balance below -999, then calls:
+fn check(balance: i64) -> Result<(), Overdrawn> {
+    if balance < -1000 {   // a mutant: balance <= -1000
+        return Err(Overdrawn(balance));
+    }
+    Ok(())
+}
+```
+
+> Differs only when balance is exactly -1000. That can't happen because the ledger refuses a
+> withdrawal that would take a balance below -999.
+
+It isn't equivalent: a test that calls `check` directly with -1000 tells them apart. So record it
+with `--as=unreachable`, and pin the "because" with a test of the rule it rests on:
+
+```rust
+#[test]
+fn a_withdrawal_past_the_overdraft_is_refused() {
+    let mut ledger = Ledger::new();
+    assert_eq!(ledger.withdraw(1_000), Err(Overdrawn(-1_000)));
+    assert_eq!(ledger.balance(), 0);
+}
+```
+
+</div>
+</EditionTabs>
+
 **One that doesn't hold.** "Differs only when total is 100. That can't happen because orders are
 usually bigger." Usually isn't never: a test with a total of 100 catches it.
 
-mutastic writes its own skips this way where there's a case to name: `equivalent: differs only when
-a size or length is negative. That can't happen because sizes and lengths count from 0.`
+mutastic writes its own skips this way where there's a case to name. In the Java edition:
+`equivalent: differs only when a size or length is negative. That can't happen because sizes and
+lengths count from 0.` In the Rust edition: ``equivalent: differs only when the formatter fails. That
+can't happen because inside `fmt` its error comes from the writer under it, which no test can make
+fail.``
 
 ### Coding agents
 
@@ -209,9 +352,22 @@ happen, or no caller can see the change, don't contrive a test; propose ignoring
 accept, with its kind and the two sentences. Each missed mutant, and each one no test reaches,
 comes with the command:
 
-```sh
-mutastic ignore m1a2b3c4d --propose --as=equivalent --reason="Differs only when count is negative. That can't happen because count is items.size()."
+<EditionTabs>
+<div slot="java">
+
+```text
+or propose: mutastic ignore m855c8e3c --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/pricing
 ```
+
+</div>
+<div slot="rust">
+
+```text
+or propose: mutastic ignore mb2f8ae57 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." fixtures/pricing
+```
+
+</div>
+</EditionTabs>
 
 A proposal that a mutant is equivalent or unreachable is refused without a "because": it says
 plainly what's wanted. Proposals wait in `.mutastic/proposals.yaml`, and the mutant counts as missed

@@ -67,7 +67,7 @@ in each:
   fix changes tests, never production code. It also says when not to write one: a mutant whose case
   can't happen in practice, or whose change no caller can see, is proposed for a person to ignore,
   with its kind and a reason in two sentences (the one case where it differs, and [why that can't
-  happen](/concepts/equivalence/#how-to-argue-a-mutant-is-equivalent)), not given a contrived test.
+  happen](/concepts/equivalence/#how-to-argue-a-mutant-cant-be-caught)), not given a contrived test.
   It shows the misses most worth a test first, then each line no test reaches, with its mutants'
   ids to propose.
 - **`jsonl`** writes `mutastic.events/v1` events, described field by field by [their JSON
