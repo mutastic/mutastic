@@ -54,6 +54,17 @@ applied by google-java-format through Spotless: that is the spec, not taste.
 14. Name every regex group, including the ones nothing reads back. Never read a group by number.
 15. One concern per type. Caching, prefixing or retrying wraps the thing it adds to (`X` and
     `CachingX`) instead of being folded into it.
+16. Commits follow Conventional Commits and 50/72: `type(scope): subject` in at most 50
+    characters, imperative and lower case; a blank line; then a body wrapped at 72 that says why.
+    The diff already says what.
+
+    The types are `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `build`, `ci`, `chore` and
+    `revert`, with `!` or a `BREAKING CHANGE:` footer for a breaking change. The scope, optional, is
+    the module or area: `engine`, `worker`, `cli`, `report`, `api`, `plugins`, `gradle`, `maven`,
+    `samples`, `docs`, `ci` or `release`. [Commit messages](CONTRIBUTING.md#commit-messages) has
+    examples from this log. `.githooks/commit-msg` checks each message (`git config core.hooksPath
+    .githooks`), and CI checks every new commit. Commits before 9 Nov 2026 use the older style and
+    are never reworded.
 
 ## mutastic's own rules
 

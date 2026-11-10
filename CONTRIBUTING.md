@@ -61,9 +61,58 @@ projects the end-to-end tests run on.
 ## Pull requests
 
 - One change per pull request, with a description of what it changes and why. The template asks.
-- Commit messages explain why, as the log does: what was wrong or missing, and what the change does
-  about it.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org) and 50/72: a
+  `type(scope): subject` of at most 50 characters, imperative and lower case, a blank line, then a
+  body wrapped at 72 that explains why: what was wrong or missing, and what the change does about it.
 - CI must pass. A pull request that changes the docs gets a preview link of its own.
+
+## Commit messages
+
+What [Pull requests](#pull-requests) asks of a commit message, in full:
+
+- **Subject:** no full stop at the end. Imperative means "add", not "adds" or "added".
+- **Type:** `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `build`, `ci`, `chore` or
+  `revert`. A breaking change adds `!` before the colon (`feat(cli)!: …`), or a
+  `BREAKING CHANGE:` footer.
+- **Scope:** optional and lower case, the module or area changed: `engine`, `worker`, `cli`,
+  `report`, `api` (the API and the annotations), `plugins`, `gradle` (and the Gradle plugin),
+  `maven` (the extension and the plugin), `samples`, `docs`, `ci` or `release`. Leave it out when a
+  change spans several.
+- **Long lines:** URLs, indented or fenced code, and trailers such as `Co-Authored-By:` (last)
+  may run past 72.
+
+Two from the log, as they'd be written now:
+
+```text
+fix(maven): run mvn.cmd on Windows
+
+Before a Windows build is promised, the end-to-end tests have to pass
+there. On windows-latest Maven never started, as mutastic ran mvnw, not
+mvnw.cmd; paths came out with \ and lines mixed LF and CRLF. Cards and
+ids are now the same as on Linux, and a Windows job keeps them so.
+```
+
+```text
+fix(api): list covering tests in a stable order
+
+Cards listed covering tests fastest first, and timings move with load,
+so a slow build swapped two tests on a card and a docs test failed. A
+card is compared across runs and read by agents, so its order must not
+move: the mutant's own test class comes first, then the rest by name.
+```
+
+Commits before 9 Nov 2026 use the older style, a long subject that says why, and are not
+rewritten.
+
+`.githooks/commit-msg` checks each message as you commit, and lets merge, revert, `fixup!` and
+`squash!` commits through as git writes them. Turn it on once in each clone:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+CI runs the same check on each new commit in a push or pull request (`.githooks/check-commits`),
+counting from the commit that added the hook. `sh .githooks/test-commit-msg` tests the hook.
 
 ## Licence
 
