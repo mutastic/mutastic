@@ -28,4 +28,9 @@ tasks.test {
     val schemas = rootDir.resolve("docs/public/schemas")
     systemProperty("mutastic.schemas", schemas.absolutePath)
     inputs.dir(schemas).withPathSensitivity(PathSensitivity.RELATIVE)
+    // SchemaCompatibilityTest holds the schema to the last 1.0+ release's, once there is one.
+    systemProperty(
+        "mutastic.lastStableRelease",
+        providers.gradleProperty("lastStableRelease").getOrElse(""),
+    )
 }

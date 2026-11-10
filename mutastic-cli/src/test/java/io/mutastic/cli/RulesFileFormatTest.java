@@ -5,43 +5,66 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.mutastic.engine.CallRule;
 import io.mutastic.engine.CallRules;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/// The rules-file format is a promise: a rules file that read in a release reads in every later
-/// one, as the same operators with the same changes and words. So each rules file a release shipped
-/// (src/test/resources/rules/<version>: mutastic's own stream rules and the docs' examples, as they
-/// were) is read now and held to how it read when kept (`<name>.read`, beside it). A key may be
-/// added to the format; none may be taken away or read another way.
+/// The rules-file format is a promise from 1.0.0: a rules file that read in a 1.0+ release reads in
+/// every later one, as the same operators with the same changes and words. So each rules file the
+/// last 1.0+ release shipped (src/test/resources/rules/<version>: mutastic's own stream rules and
+/// the docs' examples, as they were) is read now and held to how it read when kept (`<name>.read`,
+/// beside it). A key may be added to the format; none may be taken away or read another way.
+///
+/// `lastStableRelease` (gradle.properties) names that release. Before 1.0.0 the format may change,
+/// so there's nothing to hold it to, and no earlier release's files may stand in.
 ///
 /// To write the `.read` files: `./gradlew :mutastic-cli:exportIds`, then read the diff.
 class RulesFileFormatTest {
   private static final boolean WRITE = Boolean.getBoolean("mutastic.ids.write");
+  private static final String LAST_STABLE = System.getProperty("mutastic.lastStableRelease", "");
 
-  static List<Path> released() throws IOException, URISyntaxException {
-    var rules =
-        Path.of(Objects.requireNonNull(RulesFileFormatTest.class.getResource("/rules")).toURI());
-    try (Stream<Path> files = Files.walk(rules)) {
+  static List<Path> released() throws IOException {
+    var kept = keptRules();
+    if (LAST_STABLE.isEmpty() || !Files.isDirectory(kept.resolve(LAST_STABLE))) {
+      return List.of();
+    }
+    try (Stream<Path> files = Files.walk(kept.resolve(LAST_STABLE))) {
       return files.filter(file -> file.toString().endsWith(".yaml")).sorted().toList();
     }
   }
 
-  @ParameterizedTest
+  /// The kept rules are the last 1.0+ release's, and only once there is one.
+  @Test
+  void theKeptRulesAreTheLastStableReleases() throws IOException {
+    var kept = keptRules();
+    List<String> versions;
+    if (Files.isDirectory(kept)) {
+      try (Stream<Path> dirs = Files.list(kept)) {
+        versions = dirs.map(dir -> dir.getFileName().toString()).sorted().toList();
+      }
+    } else {
+      versions = List.of();
+    }
+
+    assertThat(versions)
+        .as("src/test/resources/rules: the last 1.0+ release's rules (RELEASING.md)")
+        .isEqualTo(LAST_STABLE.isEmpty() ? List.of() : List.of(LAST_STABLE));
+  }
+
+  @ParameterizedTest(allowZeroInvocations = true)
   @MethodSource("released")
   void aReleasedRulesFileReadsAsItDid(Path file) throws IOException {
     var read = describe(CallRules.read(file));
     var name = file.getFileName().toString().replace(".yaml", ".read");
-    var kept = keptBeside(file, name);
+    var kept = file.resolveSibling(name);
     if (WRITE) {
       Files.writeString(kept, read, StandardCharsets.UTF_8);
     }
@@ -51,11 +74,9 @@ class RulesFileFormatTest {
         .isEqualTo(Files.exists(kept) ? Files.readString(kept, StandardCharsets.UTF_8) : "");
   }
 
-  /// The source copy beside the one on the test classpath, so writing it changes what's committed.
-  private static Path keptBeside(Path file, String name) {
-    var resources = Path.of(System.getProperty("mutastic.ids")).resolve("../resources").normalize();
-    var version = file.getParent().getFileName().toString();
-    return resources.resolve("rules").resolve(version).resolve(name);
+  /// The source copies, so writing a `.read` file changes what's committed.
+  private static Path keptRules() {
+    return Path.of(System.getProperty("mutastic.ids")).resolve("../resources/rules").normalize();
   }
 
   /// Every rule as it was read, each field on a line of its own, sets in order.

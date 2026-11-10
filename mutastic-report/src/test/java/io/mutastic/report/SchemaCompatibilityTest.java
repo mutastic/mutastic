@@ -2,26 +2,43 @@ package io.mutastic.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
-/// The events format only grows within a major version: the schema docs.mutastic.io serves keeps
-/// every promise of the last release's, kept in `released/events-v1.json`. A release copies the
-/// published schema there (RELEASING.md), so a field added since can still change until it ships.
+/// From 1.0.0 the events format only grows within a major version: the schema docs.mutastic.io
+/// serves keeps every promise of the last 1.0+ release's, kept in `released/events-v1.json`.
+/// `lastStableRelease` (gradle.properties) names that release, and a release copies its published
+/// schema there (RELEASING.md), so a field added since can still change until it ships.
+///
+/// Before 1.0.0 the schema may change; from 1.0.0 it only gains. So until a 1.0+ release names a
+/// baseline, there's nothing to compare with, and no earlier release's schema may stand in for one.
 class SchemaCompatibilityTest {
-  private static final JsonNode RELEASED =
-      Schemas.read(SchemaCompatibilityTest.class.getResourceAsStream("released/events-v1.json"));
+  private static final String LAST_STABLE = System.getProperty("mutastic.lastStableRelease", "");
   private static final JsonNode PUBLISHED = Schemas.read(Schemas.EVENTS);
 
   @Test
-  void thePublishedSchemaKeepsTheLastReleasesPromises() {
-    assertThat(SchemaCompatibility.breaks(RELEASED, PUBLISHED))
-        .as(
-            "docs/public/schemas/events/v1.json against the last release's: a v1 reader would break")
-        .isEmpty();
+  void thePublishedSchemaKeepsTheLastStableReleasesPromises() throws IOException {
+    try (var released =
+        SchemaCompatibilityTest.class.getResourceAsStream("released/events-v1.json")) {
+      if (LAST_STABLE.isEmpty()) {
+        assertThat(released)
+            .as("released/events-v1.json, with no 1.0+ release to hold (lastStableRelease)")
+            .isNull();
+        return;
+      }
+      assertThat(released)
+          .as("lastStableRelease is %s: copy its schema to released/ (RELEASING.md)", LAST_STABLE)
+          .isNotNull();
+      assertThat(SchemaCompatibility.breaks(Schemas.read(released), PUBLISHED))
+          .as(
+              "docs/public/schemas/events/v1.json against %s's: a v1 reader would break",
+              LAST_STABLE)
+          .isEmpty();
+    }
   }
 
   @Test

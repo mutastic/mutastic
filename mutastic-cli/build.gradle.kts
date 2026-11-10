@@ -85,6 +85,11 @@ tasks.test {
     // StableIdsTest holds the mutants of a fixed set of class files to the ids kept beside them.
     systemProperty("mutastic.ids", ids.absolutePath)
     inputs.dir(ids).withPathSensitivity(PathSensitivity.RELATIVE)
+    // RulesFileFormatTest holds the rules files of the last 1.0+ release, once there is one.
+    systemProperty(
+        "mutastic.lastStableRelease",
+        providers.gradleProperty("lastStableRelease").getOrElse(""),
+    )
     // The plugins' end-to-end tests list the jar as a project would.
     val pluginsJar = project(":mutastic-plugins").tasks.named<Jar>("jar").flatMap { it.archiveFile }
     inputs.file(pluginsJar).withPathSensitivity(PathSensitivity.NONE)
@@ -298,5 +303,9 @@ tasks.register<Test>("exportIds") {
     systemProperty("mutastic.docs", rootDir.resolve("docs/src/content/docs").absolutePath)
     systemProperty("mutastic.ids", ids.absolutePath)
     systemProperty("mutastic.ids.write", "true")
+    systemProperty(
+        "mutastic.lastStableRelease",
+        providers.gradleProperty("lastStableRelease").getOrElse(""),
+    )
     outputs.upToDateWhen { false }
 }

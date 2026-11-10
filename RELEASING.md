@@ -107,15 +107,23 @@ version can never be changed or removed.
    ```
    Check the schemas are served at their `$id`s too:
    [/schemas/events/v1.json](https://docs.mutastic.io/schemas/events/v1.json).
-7. Hold the next release to this one's plugin API: once it's on Central, set `lastRelease` in
-   `mutastic-api/build.gradle.kts` to the new version, so `checkApiCompatibility` compares with it.
-8. Hold it to this one's events format too: record the events schema as released, so
-   `SchemaCompatibilityTest` compares with it ([Schemas and
-   stability](docs/src/content/docs/reference/schemas.mdx) says what counts as breaking):
+7. From 1.0.0 on, hold the next release to this one: its plugin API, events format and rules files.
+   Before 1.0.0 skip this step: anything may change, and the checks have nothing to compare with.
+   Once the release is on Central, set `lastStableRelease` in `gradle.properties` to its version,
+   so `checkApiCompatibility` compares the plugin API with its jar, and keep its events schema and
+   rules files beside it, so `SchemaCompatibilityTest` and `RulesFileFormatTest` compare with them
+   ([Schemas and stability](docs/src/content/docs/reference/schemas.mdx) says what counts as
+   breaking):
    ```sh
+   V=X.Y.Z
    cp docs/public/schemas/events/v1.json mutastic-report/src/test/resources/io/mutastic/report/released/events-v1.json
+   R=mutastic-cli/src/test/resources/rules
+   git rm -rq $R; mkdir -p $R/$V
+   cp mutastic-engine/src/main/resources/io/mutastic/engine/streams.yaml docs/src/data/plugins/*.yaml $R/$V/
+   ./gradlew :mutastic-cli:exportIds   # writes each rules file's .read beside it
    ```
-   Until a release does, a field added since the last one can still change or go.
+   Commit them together. Until a release does, a field added since the last one can still change
+   or go.
 
 If validation fails, drop the deployment, fix the cause, delete the GitHub release and its tag, and
 release again. Nothing reached Central, so the version is still free.

@@ -154,7 +154,8 @@ release notes, as 1.0.0 will for these names.
 
 ## What counts as breaking
 
-The build compares the events schema with the last release's, and fails when a change:
+Before 1.0.0 the schema may change; from 1.0.0 it only gains. The build compares the events schema
+with the last 1.0+ release's, and fails when a change:
 
 - removes a field, or renames one, which is the same thing to a reader;
 - makes an optional field required, or a required one optional (a field required of every event
