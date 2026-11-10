@@ -60,7 +60,7 @@ class SuggestionsTest {
                 assertThat(line)
                     .as("only the random method and the null check go without")
                     .containsAnyOf(
-                        "\"method\":\"jitter(I)I\"", "\"bytecode\":\"IFNULL -> never jump\"");
+                        "\"method\":\"jitter(I)I\"", "\"text\":\"IFNULL -> never jump\"");
               }
             });
 

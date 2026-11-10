@@ -29,7 +29,7 @@ class TestsFromTest {
     assertThat(own.out()).contains(BOUNDARY.formatted("Survived"));
     assertThat(both.out())
         .contains(BOUNDARY.formatted("Killed"))
-        .contains("\"killedBy\":\"com.example.app.CheckoutTest#tenPaysAFee\"")
+        .contains("\"caughtBy\":\"com.example.app.CheckoutTest#tenPaysAFee\"")
         .contains("\"sameCodeAsLastRun\":false")
         .contains("\"likelyFlaky\":[]");
   }

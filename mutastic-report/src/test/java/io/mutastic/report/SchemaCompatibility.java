@@ -20,16 +20,9 @@ import tools.jackson.databind.node.ObjectNode;
 /// (`$ref`) are compared by what they point to, so moving a definition into `$defs` changes
 /// nothing.
 ///
-/// What a schema asks only of the Java edition's events, in a branch on [#JAVA], is compared as if
-/// it were asked of every event. That condition matches an event with no `edition` (and one whose
-/// `edition` is `java`), and every event a schema from before editions described has none: a field
-/// it required stays required of each of them when it moves into that branch, and the Java edition
-/// still writes it. So a field other editions don't write moves there without breaking a reader of
-/// the format as it was.
+/// A requirement moved under one edition's branch is a break too: every event names its edition, so
+/// the other editions' events no longer have to have the field.
 final class SchemaCompatibility {
-  /// The condition that an event is the Java edition's: it has no `edition`, or `java`.
-  static final JsonNode JAVA = Schemas.read("{\"properties\":{\"edition\":{\"const\":\"java\"}}}");
-
   private static final Set<String> WORDS =
       Set.of("description", "title", "examples", "$comment", "default", "deprecated");
 
@@ -50,8 +43,8 @@ final class SchemaCompatibility {
   }
 
   private void compare(String at, JsonNode was, JsonNode now) {
-    var before = folded(resolved(released, was));
-    var after = folded(resolved(current, now));
+    var before = resolved(released, was);
+    var after = resolved(current, now);
     var keywords = new LinkedHashSet<>(before.propertyNames());
     keywords.addAll(after.propertyNames());
     keywords.removeAll(WORDS);
@@ -151,71 +144,6 @@ final class SchemaCompatibility {
           }
         });
     return merged;
-  }
-
-  /// `node` with what it asks of the Java edition's events asked of every event: each branch on
-  /// [#JAVA] merged into it.
-  private static JsonNode folded(JsonNode node) {
-    var branches = node.get("allOf");
-    if (branches == null || branches.values().stream().noneMatch(SchemaCompatibility::isJava)) {
-      return node;
-    }
-    var merged = (ObjectNode) node.deepCopy();
-    var others = merged.arrayNode();
-    branches.values().stream().filter(branch -> !isJava(branch)).forEach(others::add);
-    if (others.isEmpty()) {
-      merged.remove("allOf");
-    } else {
-      merged.set("allOf", others);
-    }
-    branches.values().stream()
-        .filter(SchemaCompatibility::isJava)
-        .forEach(branch -> merge(merged, branch.get("then")));
-    return merged;
-  }
-
-  private static boolean isJava(JsonNode branch) {
-    return JAVA.equals(branch.get("if"));
-  }
-
-  /// Adds what `more` asks to `into`: its required fields to those required, what it asks of a
-  /// field to that field, and what it asks under a condition to that condition's branch.
-  private static void merge(ObjectNode into, JsonNode more) {
-    more.forEachEntry(
-        (key, value) -> {
-          var there = into.get(key);
-          if (there == null) {
-            into.set(key, value.deepCopy());
-          } else if (key.equals("required")) {
-            value.values().stream()
-                .filter(field -> !there.values().contains(field))
-                .forEach(((ArrayNode) there)::add);
-          } else if (key.equals("properties")) {
-            value.forEachEntry((field, asked) -> mergeField((ObjectNode) there, field, asked));
-          } else if (key.equals("allOf")) {
-            value.values().forEach(branch -> mergeBranch((ArrayNode) there, branch));
-          } else {
-            into.set(key, value.deepCopy());
-          }
-        });
-  }
-
-  private static void mergeField(ObjectNode fields, String field, JsonNode asked) {
-    if (fields.get(field) instanceof ObjectNode known) {
-      merge(known, asked);
-    } else {
-      fields.set(field, asked.deepCopy());
-    }
-  }
-
-  private static void mergeBranch(ArrayNode branches, JsonNode branch) {
-    var same =
-        branches.values().stream().filter(it -> branch.get("if").equals(it.get("if"))).findFirst();
-    if (same.isPresent() && same.get().get("then") instanceof ObjectNode then) {
-      merge(then, branch.get("then"));
-    } else {
-      branches.add(branch.deepCopy());
-    }
   }
 
   /// `required` or `type` as a set: its order, or one type written without brackets, is no change.

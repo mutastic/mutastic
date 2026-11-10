@@ -60,32 +60,31 @@ class SchemaCompatibilityTest {
 
   @Test
   void removingOrRenamingAFieldBreaksThem() {
-    assertThat(breaks(schema -> fields(schema).remove("killedBy")))
-        .contains("/if " + reason("mutant-finished") + ": the field `killedBy` is gone")
-        .allMatch(problem -> problem.endsWith("the field `killedBy` is gone"));
-    assertThat(breaks(schema -> fields(schema).set("caughtBy", fields(schema).remove("killedBy"))))
-        .contains("/if " + reason("mutant-finished") + ": the field `killedBy` is gone")
-        .allMatch(problem -> problem.endsWith("the field `killedBy` is gone"));
+    assertThat(breaks(schema -> fields(schema).remove("caughtBy")))
+        .contains("/if " + reason("mutant-finished") + ": the field `caughtBy` is gone")
+        .allMatch(problem -> problem.endsWith("the field `caughtBy` is gone"));
+    assertThat(breaks(schema -> fields(schema).set("killedBy", fields(schema).remove("caughtBy"))))
+        .contains("/if " + reason("mutant-finished") + ": the field `caughtBy` is gone")
+        .allMatch(problem -> problem.endsWith("the field `caughtBy` is gone"));
   }
 
   @Test
   void requiringAnOptionalFieldBreaksThem() {
-    assertThat(breaks(schema -> ((ArrayNode) mutant(schema).get("required")).add("killedBy")))
+    assertThat(breaks(schema -> ((ArrayNode) mutant(schema).get("required")).add("caughtBy")))
         .isNotEmpty()
         .allMatch(problem -> problem.contains("`required` changed"));
   }
 
-  /// A field only the Java edition writes is still required of every event without an `edition`,
-  /// which is every event a schema from before editions described.
+  /// Every event names its edition, so a field required only of the Java edition's is no longer
+  /// required of the others'.
   @Test
-  void aRequirementMovedUnderTheJavaEditionKeepsThem() {
-    assertThat(breaks(schema -> onlyInJava(schema, "durationMs"))).isEmpty();
-    assertThat(breaks(schema -> javaAlsoRequires(schema, "aridAudit")))
+  void aRequirementMovedUnderTheJavaEditionBreaksThem() {
+    assertThat(breaks(schema -> onlyInJava(schema, "durationMs")))
         .isNotEmpty()
-        .allMatch(problem -> problem.contains("`required` changed"));
+        .anyMatch(problem -> problem.contains("`required` changed"));
   }
 
-  /// Under any other condition, it's no longer required of every event it was required of.
+  /// Nor under any other edition's.
   @Test
   void aRequirementMovedUnderAnotherEditionBreaksThem() {
     assertThat(
@@ -147,7 +146,7 @@ class SchemaCompatibilityTest {
 
   private static void javaAlsoRequires(ObjectNode schema, String field) {
     var branch = finished(schema).withArray("allOf").addObject();
-    branch.set("if", SchemaCompatibility.JAVA.deepCopy());
+    branch.set("if", Schemas.read("{\"properties\":{\"edition\":{\"const\":\"java\"}}}"));
     branch.putObject("then").putArray("required").add(field);
   }
 

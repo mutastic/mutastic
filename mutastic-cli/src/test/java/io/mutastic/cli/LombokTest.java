@@ -31,7 +31,7 @@ class LombokTest {
     private static final Pattern EVENT =
         Pattern.compile(
             "\"id\":\"(?<id>[^\"]+)\".*\"status\":\"(?<status>\\w+)\".*\"line\":(?<line>\\d+)"
-                + ".*\"method\":\"(?<method>[^\"(]+)\\(.*\"bytecode\":\"(?<bytecode>[^\"]*)\""
+                + ".*\"method\":\"(?<method>[^\"(]+)\\(.*\"level\":\"bytecode\",\"text\":\"(?<bytecode>[^\"]*)\""
                 + "(?:.*\"statusReason\":\"(?<reason>[^\"]*)\")?");
 
     static Seen of(String event) {

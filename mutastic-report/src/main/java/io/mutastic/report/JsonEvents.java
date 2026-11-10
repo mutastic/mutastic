@@ -55,11 +55,8 @@ public final class JsonEvents {
   public void runStarted(String project) {
     var fields = new LinkedHashMap<String, Object>();
     fields.put("project", project);
-    // Deprecated for `rule`, removed in 1.0: it was only ever one rule.
-    fields.put("rules", MutantCommand.RULE);
     fields.put("rule", MutantCommand.RULE);
     fields.put("decline", MutantCommand.DECLINE);
-    fields.put("edition", EDITION);
     share.ifPresent(found -> fields.put("share", shareFields(found)));
     emit("run-started", fields);
   }
@@ -124,13 +121,10 @@ public final class JsonEvents {
     advice.before().ifPresent(before -> mutation.put("original", before));
     advice.after().ifPresent(after -> mutation.put("replacement", after));
     mutation.put("description", advice.change());
-    var change = mutant.original() + " -> " + mutant.replacement();
     var applied = new LinkedHashMap<String, Object>();
     applied.put("level", "bytecode");
-    applied.put("text", change);
+    applied.put("text", mutant.original() + " -> " + mutant.replacement());
     mutation.put("applied", applied);
-    // Deprecated for `applied`, and still written until 1.0: the schema requires it of Java.
-    mutation.put("bytecode", change);
     return mutation;
   }
 
@@ -150,11 +144,7 @@ public final class JsonEvents {
 
   /// Which test caught it, with what, from where; or whose catch didn't repeat.
   private static void putCatch(Map<String, Object> fields, MutantResult result) {
-    // `killedBy` is deprecated for `caughtBy`, the word `changedSinceLastRun` uses; removed in 1.0.
-    result.caughtBy().ifPresent(test -> fields.put("killedBy", test));
     result.caughtBy().ifPresent(test -> fields.put("caughtBy", test));
-    // `killedWith` is deprecated for `caughtWith`, beside `caughtBy`; removed in 1.0.
-    result.failure().ifPresent(failure -> fields.put("killedWith", failure));
     result.failure().ifPresent(failure -> fields.put("caughtWith", failure));
     if (!result.caughtByAll().isEmpty()) {
       fields.put("caughtByAll", result.caughtByAll());
@@ -265,7 +255,6 @@ public final class JsonEvents {
   public void runFinished(
       Report report, Optional<Comparison> comparison, List<String> reports, boolean oneMutant) {
     var fields = new LinkedHashMap<String, Object>();
-    fields.put("edition", EDITION);
     fields.put("jdk", report.jdk());
     fields.put("toolchain", toolchain(report));
     fields.put("mutants", report.results().size());
@@ -327,13 +316,9 @@ public final class JsonEvents {
     return toolchain;
   }
 
-  /// `files` and `lines` are counts, deprecated for `fileCount` and `lineCount`, which say so;
-  /// removed in 1.0.
   private static Map<String, Object> scopeOf(ChangedLines scope) {
     var found = new LinkedHashMap<String, Object>();
     found.put("since", scope.since());
-    found.put("files", scope.files());
-    found.put("lines", scope.lineCount());
     found.put("fileCount", scope.files());
     found.put("lineCount", scope.lineCount());
     return found;
@@ -384,12 +369,8 @@ public final class JsonEvents {
         .toList();
   }
 
-  /// How many mutants have each status. The schema's names (`Killed`) are deprecated for keys like
-  /// every other (`killed`), and removed in 1.0.
+  /// How many mutants have each status, keyed as every other field is (`killed`).
   private static void putCounts(Map<String, Object> fields, Report report) {
-    for (Status status : Status.values()) {
-      fields.put(status.schemaName(), report.count(status));
-    }
     for (Status status : Status.values()) {
       fields.put(countKey(status), report.count(status));
     }
@@ -474,6 +455,7 @@ public final class JsonEvents {
   private void emit(String reason, Map<String, Object> fields) {
     var event = new LinkedHashMap<String, Object>();
     event.put("schema", SCHEMA);
+    event.put("edition", EDITION);
     event.put("reason", reason);
     event.putAll(fields);
     out.print(Json.write(event) + "\n");

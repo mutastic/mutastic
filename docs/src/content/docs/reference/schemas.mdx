@@ -56,12 +56,9 @@ every event has it, and the values it can take.
 
 ## Editions
 
-The same events come from each edition of mutastic, Java's and Rust's. An event's `edition` says
-which wrote it, `java` or `rust`; an event without one is the Java edition's, as every event was
-before there were editions. A few fields are required only of the Java edition, because only it has
-them: `run-finished`'s `jdk`, a mutation's `bytecode`, and a missed mutant's `ignore` and `propose`.
-The Java edition writes them all, as it always has. What every edition shares says the same in its
-own words: `toolchain` is `{"name": "jdk", "version": "17"}` from Java and
+The same events come from each edition of mutastic, Java's and Rust's. Every event's `edition`
+says which wrote it, `java` or `rust`. One field is required only of the Java edition, because only
+it has it: `run-finished`'s `jdk`. What every edition shares says the same in its own words: `toolchain` is `{"name": "jdk", "version": "17"}` from Java and
 `{"name": "rustc", "version": "1.91.0"}` from Rust, and a mutation's `applied` is the change as
 each engine makes it: `{"level": "bytecode", "text": "IF_ICMPLT -> IF_ICMPLE"}` from Java, to the
 compiled instruction, and `{"level": "source", "text": "x < 0 -> true"}` from Rust, to the source.
@@ -106,7 +103,7 @@ version 2, and mutastic's tests check it against that schema too. See [Report fi
 This is the events format's part of what stays the same between releases; [Compatibility](../compatibility/)
 has the rest: mutant ids, scores and the plugin API.
 
-While events say `mutastic.events/v1`:
+From 1.0.0, while events say `mutastic.events/v1`:
 
 - **A field keeps its name and its type.** A field every event has stays in every event, and a field
   only some events have stays optional, so a reader that handles it missing keeps working.
@@ -130,27 +127,7 @@ Some fields hold words for people and agents to read: `rendered`, `rule`, `decli
 `description` and the commands offered with a missed mutant. The field stays, but its words can
 change from one release to the next. The order of the fields in an event isn't part of the promise.
 
-## Deprecated names
-
-A few fields have a better name beside them, with the same value. The old names are marked
-`deprecated` in the schema, and go in 1.0.0: read the new ones.
-
-| Deprecated | Read instead | In |
-|---|---|---|
-| `rules` | `rule`: it's one rule | `run-started` |
-| `killedBy` | `caughtBy`, as `changedSinceLastRun` says | `mutant-finished`, `mutant-revised` |
-| `killedWith` | `caughtWith`, beside `caughtBy` | `mutant-finished`, `mutant-revised` |
-| `Killed`, `Survived`, `Timeout`, `NoCoverage`, `Ignored` | `killed`, `survived`, `timeout`, `noCoverage`, `ignored`, named like every other field | `run-finished` |
-| `scope.files` | `scope.fileCount`: it's a count | `run-finished` |
-| `scope.lines` | `scope.lineCount`: it's a count too | `run-finished` |
-| `bytecode` | `applied`, which says at what level the change was made, `text` being the same value: written by both editions (the Rust edition never wrote `bytecode`) | `mutant-finished`, `mutant-revised` |
-| `RuntimeError` (the count) | `runtimeError`, as the other counts are named (Rust edition) | `run-finished` |
-
-A status's value stays as the mutation-testing report schema names it: `"status": "Killed"` isn't
-deprecated, only the counts keyed by those names.
-
-The promises above hold from 1.0.0. Before it, a release that has to break one says so in its
-release notes, as 1.0.0 will for these names.
+Before 1.0.0, a release that has to break one of these says so in its release notes.
 
 ## What counts as breaking
 
@@ -158,9 +135,8 @@ Before 1.0.0 the schema may change; from 1.0.0 it only gains. The build compares
 with the last 1.0+ release's, and fails when a change:
 
 - removes a field, or renames one, which is the same thing to a reader;
-- makes an optional field required, or a required one optional (a field required of every event
-  that moves to being required only of the Java edition's, which every event without an `edition`
-  is, is still required of every event it was);
+- makes an optional field required, or a required one optional, including for one edition's
+  events only;
 - changes a field's type, whether narrowing it (a number that's no longer ever null) or widening it
   (a whole number that can now have a fraction);
 - removes a value from those a field can take;

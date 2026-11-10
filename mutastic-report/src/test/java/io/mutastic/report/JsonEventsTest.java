@@ -151,10 +151,10 @@ class JsonEventsTest {
 
     assertThat(lines())
         .containsExactly(
-            "{\"schema\":\"mutastic.events/v1\",\"reason\":\"run-started\",\"project\":\"pricing\","
-                + "\"rules\":\"add or change tests only, never production code\","
+            "{\"schema\":\"mutastic.events/v1\",\"edition\":\"java\",\"reason\":\"run-started\","
+                + "\"project\":\"pricing\","
                 + "\"rule\":\"add or change tests only, never production code\","
-                + "\"decline\":\"%s\",\"edition\":\"java\"}".formatted(MutantCommand.DECLINE));
+                + "\"decline\":\"%s\"}".formatted(MutantCommand.DECLINE));
   }
 
   @Test
@@ -164,21 +164,19 @@ class JsonEventsTest {
     var id = boundary(0).id();
     assertThat(lines().getFirst())
         .startsWith(
-            "{\"schema\":\"mutastic.events/v1\",\"reason\":\"mutant-finished\",\"id\":\"%s\","
+            "{\"schema\":\"mutastic.events/v1\",\"edition\":\"java\",\"reason\":\"mutant-finished\",\"id\":\"%s\","
                 .formatted(id))
         .contains("\"status\":\"Survived\",\"operator\":\"mutastic/boundary\"")
         .contains(
             "\"location\":{\"file\":\"src/main/java/com/example/Pricing.java\",\"line\":5,"
                 + "\"class\":\"com.example.Pricing\",\"method\":\"discount(I)I\"}")
         .contains("\"original\":\">=\",\"replacement\":\">\"")
-        .contains(
-            "\"applied\":{\"level\":\"bytecode\",\"text\":\"IF_ICMPLT -> IF_ICMPLE\"},"
-                + "\"bytecode\":\"IF_ICMPLT -> IF_ICMPLE\"")
+        .contains("\"applied\":{\"level\":\"bytecode\",\"text\":\"IF_ICMPLT -> IF_ICMPLE\"}},")
         .contains("\"coveredBy\":[\"com.example.PricingTest#a\"]")
         .contains("\"testsRun\":1,\"durationMs\":3")
         .contains("mutastic verify " + id + " passes")
         .contains("\"rendered\":\"missed " + id + ": ")
-        .doesNotContain("killedBy", "statusReason", "inputs");
+        .doesNotContain("caughtBy", "statusReason", "inputs");
   }
 
   @Test
@@ -188,9 +186,8 @@ class JsonEventsTest {
 
     assertThat(lines().get(0))
         .contains("\"status\":\"Killed\"")
-        .contains("\"killedBy\":\"a.PricingTest#a\",\"caughtBy\":\"a.PricingTest#a\"")
         .contains(
-            "\"killedWith\":\"org.opentest4j.AssertionFailedError\","
+            "\"caughtBy\":\"a.PricingTest#a\","
                 + "\"caughtWith\":\"org.opentest4j.AssertionFailedError\"")
         .contains("\"failureOrigin\":\"assertion\"")
         .doesNotContain("rendered");
@@ -245,10 +242,11 @@ class JsonEventsTest {
 
     assertThat(lines().getFirst())
         .contains(
-            "\"reason\":\"run-finished\",\"edition\":\"java\",\"jdk\":17,"
+            "\"edition\":\"java\",\"reason\":\"run-finished\",\"jdk\":17,"
                 + "\"toolchain\":{\"name\":\"jdk\",\"version\":\"17\"},\"mutants\":2")
-        .contains("\"Killed\":1,\"Survived\":1,\"Timeout\":0,\"NoCoverage\":0,\"Ignored\":0")
-        .contains("\"killed\":1,\"survived\":1,\"timeout\":0,\"noCoverage\":0,\"ignored\":0")
+        .doesNotContain("\"Killed\":")
+        .contains(
+            "\"mutants\":2,\"killed\":1,\"survived\":1,\"timeout\":0,\"noCoverage\":0,\"ignored\":0")
         .contains("\"score\":50.0,\"threshold\":80,\"passed\":false,\"coveredScore\":50.0")
         .contains("\"tests\":2,\"workers\":1,\"workersStarted\":1,\"coverageMs\":100")
         .contains("\"flaky\":[\"com.example.PricingTest#f\"]")
@@ -393,9 +391,7 @@ class JsonEventsTest {
     events.runFinished(scoped);
 
     assertThat(lines().getFirst())
-        .contains(
-            "\"scope\":{\"since\":\"main\",\"files\":1,\"lines\":2,\"fileCount\":1,"
-                + "\"lineCount\":2}");
+        .contains("\"scope\":{\"since\":\"main\",\"fileCount\":1,\"lineCount\":2}");
   }
 
   private List<String> lines() {

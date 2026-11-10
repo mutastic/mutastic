@@ -61,7 +61,7 @@ class FalseCatchesTest {
 
     var lines = run.out().lines().toList();
     assertThat(eventFor(lines, "mutant-finished", FEE_MUTANT))
-        .contains("\"status\":\"Killed\"", "\"killedBy\":\"" + FEES + "\"");
+        .contains("\"status\":\"Killed\"", "\"caughtBy\":\"" + FEES + "\"");
     assertThat(eventFor(lines, "mutant-revised", FEE_MUTANT))
         .contains(
             "\"status\":\"Survived\"",
@@ -70,7 +70,7 @@ class FalseCatchesTest {
     assertThat(lines.getLast())
         .contains(
             "\"reason\":\"run-finished\"",
-            "\"Killed\":12",
+            "\"killed\":12",
             "\"passed\":false",
             "{\"test\":\"" + FEES + "\",\"failure\":[\"org.opentest4j.AssertionFailedError\"]",
             "\"failsAlone\":true");

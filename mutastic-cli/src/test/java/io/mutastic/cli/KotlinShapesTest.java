@@ -41,7 +41,7 @@ class KotlinShapesTest {
                 + "\"operator\":\"(?<operator>[^\"]+)\","
                 + "\"location\":\\{\"file\":\"(?<file>[^\"]+)\",\"line\":(?<line>\\d+),"
                 + ".*\"method\":\"(?<method>[^\"(]+)\\(.*?\\}"
-                + ".*?\"bytecode\":\"(?<bytecode>.*?)\"\\}"
+                + ".*?\"applied\":\\{\"level\":\"bytecode\",\"text\":\"(?<bytecode>.*?)\"\\}\\}"
                 + ".*?(\"statusReason\":\"(?<why>[^\"]*)\")?,\"(skipKind|coveredBy)\".*");
 
     static Seen of(String event) {

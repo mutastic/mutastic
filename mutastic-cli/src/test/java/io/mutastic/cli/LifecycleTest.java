@@ -23,7 +23,7 @@ class LifecycleTest {
   private static final Pattern MUTANT =
       Pattern.compile(
           "\"status\":\"(?<status>\\w+)\".*\"method\":\"(?<method>\\w+)\\(.*\"original\":\"\\+\""
-              + ".*\"coveredBy\":\\[(?<covered>[^]]*)](?:,\"killedBy\":\"(?<by>[^\"]+)\")?");
+              + ".*\"coveredBy\":\\[(?<covered>[^]]*)](?:,\"caughtBy\":\"(?<by>[^\"]+)\")?");
 
   @TempDir Path work;
 
