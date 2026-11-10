@@ -1,0 +1,75 @@
+---
+// The sidebar, one edition at a time: the edition switch, that edition's groups, then the groups
+// both editions share under their own heading. On a shared page both editions' groups are here,
+// and the reader's last edition (remembered in this browser) shows one. See route-editions.ts.
+import MobileMenuFooter from 'virtual:starlight/components/MobileMenuFooter';
+import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.astro';
+import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro';
+import type { EditionPanes } from '../route-editions';
+import EditionSwitch from './EditionSwitch.astro';
+
+const { sidebar } = Astro.locals.starlightRoute;
+const panes = (Astro.locals as { editionPanes?: EditionPanes }).editionPanes;
+const edition = panes?.edition;
+---
+
+<SidebarPersister>
+  {
+    panes === undefined ? (
+      <SidebarSublist sublist={sidebar} />
+    ) : (
+      <>
+        {/* Before anything it hides is drawn: the page's edition, or on a shared page the last one read. */}
+        <script is:inline define:vars={{ edition }}>
+          var e = edition;
+          try {
+            if (e === 'shared') e = localStorage.getItem('mutastic-edition') || 'java';
+            else localStorage.setItem('mutastic-edition', e);
+          } catch (_) {
+            if (e === 'shared') e = 'java';
+          }
+          document.documentElement.dataset.edition = e;
+        </script>
+        <EditionSwitch panes={panes} />
+        {edition === 'shared' ? (
+          <>
+            <div class="edition-pane" data-edition-pane="java">
+              <SidebarSublist sublist={panes.java} />
+            </div>
+            <div class="edition-pane" data-edition-pane="rust">
+              <SidebarSublist sublist={panes.rust} />
+            </div>
+          </>
+        ) : (
+          <SidebarSublist sublist={edition === 'rust' ? panes.rust : panes.java} />
+        )}
+        <p class="shared-heading">Both editions</p>
+        <SidebarSublist sublist={panes.shared} />
+      </>
+    )
+  }
+</SidebarPersister>
+
+<div class="md:sl-hidden">
+  <MobileMenuFooter />
+</div>
+
+<style is:global>
+  :root[data-edition='rust'] [data-edition-pane='java'],
+  :root:not([data-edition='rust']) [data-edition-pane='rust'] {
+    display: none;
+  }
+</style>
+
+<style>
+  .shared-heading {
+    margin: 1.75rem 0 0.25rem;
+    padding: 0.75rem 0.5rem 0;
+    border-top: 1px solid var(--sl-color-hairline-light);
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--sl-color-gray-3);
+  }
+</style>

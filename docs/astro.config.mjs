@@ -16,6 +16,7 @@ import { unified } from '@astrojs/markdown-remark';
 import starlight from '@astrojs/starlight';
 import { defineConfig } from 'astro/config';
 import starlightLlmsTxt from 'starlight-llms-txt';
+import { rustDocs } from './scripts/rust-docs.mjs';
 
 const base = process.env.DOCS_BASE ?? '/';
 const version = process.env.DOCS_VERSION ?? '';
@@ -25,6 +26,8 @@ const latest = process.env.DOCS_LATEST ?? '';
  * pinned copy under /v<line>/. Kept out of search engines, which should find the one at the root.
  */
 const notLatest = (version !== '' && version !== latest) || base !== '/';
+/** The Rust edition's section, when its pages are there to read: see scripts/rust-docs.mjs. */
+const rust = rustDocs();
 
 /** Root-relative links in the Markdown, `/concepts/results/`, under this build's base path. */
 function linksUnderBase() {
@@ -79,78 +82,87 @@ export default defineConfig({
         Banner: './src/components/Banner.astro',
         // A link back to mutastic.io beside GitHub's.
         SocialIcons: './src/components/SocialIcons.astro',
+        // One edition at a time, and which edition a page is: see src/route-editions.ts.
+        Sidebar: './src/components/Sidebar.astro',
+        PageTitle: './src/components/PageTitle.astro',
       },
       plugins: [starlightLlmsTxt()],
+      // One edition's sidebar at a time: a `Java` group and a `Rust` group, each with the same
+      // groups in the same order, then the groups both editions share. src/route-editions.ts
+      // gives each page its own edition's; without the Rust pages, the Java group is opened out.
+      routeMiddleware: './src/route-editions.ts',
       sidebar: [
         {
-          label: 'Getting started',
-          items: ['getting-started/install', 'getting-started/quickstart'],
-        },
-        {
-          label: 'Concepts',
+          label: 'Java',
           items: [
-            'concepts/results',
-            'concepts/equivalence',
-            'concepts/output',
-            'concepts/next',
-            'concepts/suggested-tests',
-            'concepts/flaky-tests',
-            'concepts/ghosts',
+            {
+              label: 'Getting started',
+              items: [
+                { label: 'Overview', link: base },
+                'getting-started/install',
+                'getting-started/quickstart',
+              ],
+            },
+            {
+              label: 'Concepts',
+              items: [
+                'concepts/results',
+                'concepts/suggested-tests',
+                'concepts/next',
+                'concepts/equivalence',
+                'concepts/flaky-tests',
+                'concepts/output',
+                'concepts/ghosts',
+              ],
+            },
+            {
+              label: 'Operators',
+              items: [
+                { label: 'All operators', slug: 'concepts/operators' },
+                { label: 'Advanced operators', slug: 'concepts/operators-advanced' },
+              ],
+            },
+            {
+              label: 'Reference',
+              items: [
+                { label: 'mutastic run', link: `${base}reference/run/` },
+                { label: 'mutastic verify', link: `${base}reference/verify/` },
+                { label: 'mutastic explain', link: `${base}reference/explain/` },
+                { label: 'mutastic ignore', link: `${base}reference/ignore/` },
+                { label: 'mutastic next', link: `${base}reference/next/` },
+                { label: 'mutastic baseline', link: `${base}reference/baseline/` },
+                { label: 'mutastic gate open', link: `${base}reference/gate-open/` },
+                { label: 'mutastic gate check', link: `${base}reference/gate-check/` },
+                { label: 'mutastic gate close', link: `${base}reference/gate-close/` },
+                { label: 'Environment and exit codes', link: `${base}reference/environment/` },
+                'reference/reports',
+                'reference/compatibility',
+                'reference/schemas',
+                { label: 'Plugin API', link: `${base}reference/api/` },
+              ],
+            },
+            {
+              label: 'Guides',
+              items: [
+                'guides/build-plugins',
+                'guides/scoping',
+                'guides/ci',
+                'guides/configuration',
+                'guides/plugins',
+                'guides/operator-plugins',
+                'guides/kotlin',
+              ],
+            },
+            {
+              label: 'Help',
+              items: ['guides/troubleshooting'],
+            },
           ],
         },
-        {
-          label: 'Operators',
-          items: [
-            'concepts/operators',
-            'concepts/operators/conditions',
-            'concepts/operators/arithmetic',
-            'concepts/operators/returns',
-            'concepts/operators/calls',
-            'concepts/operators/arguments',
-            'concepts/operators/library',
-            'concepts/operators/streams',
-            'concepts/operators/optional',
-            'concepts/operators/control',
-          ],
-        },
-        {
-          label: 'Reference',
-          items: [
-            { label: 'mutastic run', link: `${base}reference/run/` },
-            { label: 'mutastic verify', link: `${base}reference/verify/` },
-            { label: 'mutastic explain', link: `${base}reference/explain/` },
-            { label: 'mutastic ignore', link: `${base}reference/ignore/` },
-            { label: 'mutastic next', link: `${base}reference/next/` },
-            { label: 'mutastic baseline', link: `${base}reference/baseline/` },
-            { label: 'mutastic gate open', link: `${base}reference/gate-open/` },
-            { label: 'mutastic gate check', link: `${base}reference/gate-check/` },
-            { label: 'mutastic gate close', link: `${base}reference/gate-close/` },
-            { label: 'Environment and exit codes', link: `${base}reference/environment/` },
-            'reference/reports',
-            'reference/compatibility',
-            'reference/schemas',
-            { label: 'Plugin API', link: `${base}reference/api/` },
-          ],
-        },
-        {
-          label: 'Guides',
-          items: [
-            'guides/build-plugins',
-            'guides/scoping',
-            'guides/ci',
-            'guides/configuration',
-            'guides/plugins',
-            'guides/operator-plugins',
-            'guides/kotlin',
-          ],
-        },
+        ...(rust ? [rust] : []),
         {
           label: 'Coding agents',
           items: ['agents', 'agents/claude-code', 'agents/codex', 'agents/gate', 'agents/other-agents'],
-        },
-        {
-          label: 'Help',
-          items: ['guides/troubleshooting'],
         },
       ],
     }),

@@ -1,0 +1,123 @@
+---
+// Java or Rust, at the top of the sidebar. Choosing the other edition opens the same topic there
+// when it has one, or its overview, saying so first, when it doesn't. On a page both editions
+// share it swaps the sidebar in place. The choice is remembered in this browser.
+import type { EditionPanes } from '../route-editions';
+
+interface Props {
+  panes: EditionPanes;
+}
+const { panes } = Astro.props;
+const shared = panes.edition === 'shared';
+const other = panes.edition === 'java' ? 'rust' : panes.edition === 'rust' ? 'java' : undefined;
+const note = other ? panes.links[other].note : undefined;
+const sides = [
+  { edition: 'java', label: 'Java', sub: 'and Kotlin' },
+  { edition: 'rust', label: 'Rust', sub: 'Cargo' },
+] as const;
+---
+
+<div class="edition-switch" role="group" aria-label="Edition">
+  <span class="thumb" aria-hidden="true"></span>
+  {
+    sides.map(({ edition, label, sub }) => {
+      const link = panes.links[edition];
+      const current = panes.edition === edition;
+      return (
+        <a
+          href={link.href}
+          data-edition={edition}
+          data-inplace={shared ? '' : undefined}
+          aria-current={current ? 'page' : undefined}
+          title={link.note}
+        >
+          <span class="label">{label}</span>
+          <span class="sub">{sub}</span>
+        </a>
+      );
+    })
+  }
+</div>
+{note && <p class="switch-note">{panes.edition === 'java' ? 'No Rust page on this topic yet: Rust opens at its overview.' : 'No Java page on this topic: Java opens at its overview.'}</p>}
+
+<script>
+  for (const link of document.querySelectorAll<HTMLAnchorElement>('.edition-switch a')) {
+    link.addEventListener('click', (event) => {
+      const edition = link.dataset.edition!;
+      try {
+        localStorage.setItem('mutastic-edition', edition);
+      } catch {}
+      if (link.hasAttribute('data-inplace')) {
+        event.preventDefault();
+        document.documentElement.dataset.edition = edition;
+      }
+    });
+  }
+</script>
+
+<style>
+  .edition-switch {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    padding: 0.25rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.75rem;
+    background: var(--sl-color-gray-6);
+  }
+  .thumb {
+    position: absolute;
+    inset: 0.25rem auto 0.25rem 0.25rem;
+    width: calc(50% - 0.25rem);
+    border-radius: 0.5rem;
+    background: var(--sl-color-accent-low);
+    box-shadow: inset 0 0 0 1px var(--sl-color-accent);
+    transition: transform 180ms ease;
+  }
+  :global(:root[data-edition='rust']) .thumb {
+    transform: translateX(100%);
+  }
+  a {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.45rem 0.5rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    color: var(--sl-color-gray-3);
+    line-height: 1.15;
+  }
+  a:hover {
+    color: var(--sl-color-white);
+  }
+  a:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 1px;
+  }
+  .label {
+    font-weight: 700;
+    font-size: var(--sl-text-base);
+  }
+  .sub {
+    font-size: var(--sl-text-2xs, 0.7rem);
+    opacity: 0.8;
+  }
+  :global(:root:not([data-edition='rust'])) a[data-edition='java'],
+  :global(:root[data-edition='rust']) a[data-edition='rust'] {
+    color: var(--sl-color-white);
+  }
+  .switch-note {
+    margin: -0.75rem 0 1.25rem;
+    padding: 0 0.25rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .thumb {
+      transition: none;
+    }
+  }
+</style>

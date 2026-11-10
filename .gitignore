@@ -10,3 +10,5 @@ target/
 docs/node_modules/
 docs/dist/
 docs/.astro/
+# The Rust edition's pages, read from mutastic-rs at build time (docs/scripts/rust-docs.mjs).
+docs/src/content/docs/rust/
