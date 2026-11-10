@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
@@ -17,6 +18,7 @@ public final class SourceView {
   private final List<Path> sources;
   private final List<Path> testSources;
   private final Invocation invocation;
+  private final Function<String, Optional<String>> classSources;
 
   /// `root` is the project directory, which locations are relative to.
   public SourceView(Path root, List<Path> sources) {
@@ -25,20 +27,33 @@ public final class SourceView {
 
   /// With the test sources too, so suggested tests match the class they'd go into.
   public SourceView(Path root, List<Path> sources, List<Path> testSources) {
-    this(root, sources, testSources, Invocation.HERE);
+    this(root, sources, testSources, Invocation.HERE, className -> Optional.empty());
   }
 
-  private SourceView(Path root, List<Path> sources, List<Path> testSources, Invocation invocation) {
+  private SourceView(
+      Path root,
+      List<Path> sources,
+      List<Path> testSources,
+      Invocation invocation,
+      Function<String, Optional<String>> classSources) {
     this.root = root;
     this.sources = List.copyOf(sources);
     this.testSources = List.copyOf(testSources);
     this.invocation = invocation;
+    this.classSources = classSources;
   }
 
   /// How the person runs mutastic on this run's project, from where they ran it: what the commands
   /// the output offers need, to work as they're copied.
   public SourceView withInvocation(Invocation invocation) {
-    return new SourceView(root, sources, testSources, invocation);
+    return new SourceView(root, sources, testSources, invocation, classSources);
+  }
+
+  /// Where each class's source is, under a source root, as its class file names it
+  /// (`com/example/tally/Tally.common.kt` for `com/example/tally/Tally_commonKt`), when it's known:
+  /// a class's name doesn't always say.
+  public SourceView withClassSources(Function<String, Optional<String>> classSources) {
+    return new SourceView(root, sources, testSources, invocation, classSources);
   }
 
   public Invocation invocation() {
@@ -82,7 +97,7 @@ public final class SourceView {
   /// `src/main/java/com/example/Pricing.java`, relative to the project, or the class's own path if
   /// no source directory has it.
   public String file(Mutant mutant) {
-    return sourceFile(mutant).map(this::relative).orElse(expectedPath(mutant));
+    return sourceFile(mutant).map(this::relative).orElseGet(() -> namedPath(mutant));
   }
 
   /// The source file itself, for linking to, if it's there.
@@ -404,10 +419,17 @@ public final class SourceView {
   private Optional<Path> sourceFile(Mutant mutant) {
     var found =
         sources.stream()
-            .map(source -> source.resolve(expectedPath(mutant)))
+            .map(source -> source.resolve(namedPath(mutant)))
             .filter(Files::isRegularFile)
             .findFirst();
     return mutant.inlinedFrom().isPresent() ? found : found.or(() -> kotlinFile(mutant));
+  }
+
+  /// The path its class file names, when it names one; else the one its class's name implies.
+  private String namedPath(Mutant mutant) {
+    return mutant.inlinedFrom().isPresent()
+        ? expectedPath(mutant)
+        : classSources.apply(mutant.className()).orElseGet(() -> expectedPath(mutant));
   }
 
   /// Where kotlinc's class came from: Kotlin doesn't name a file for a class. `ShelfKt`, a file's

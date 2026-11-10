@@ -9,6 +9,7 @@ import io.mutastic.api.Policy;
 import io.mutastic.api.Project;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
+import io.mutastic.engine.ClassSources;
 import io.mutastic.engine.Engine;
 import io.mutastic.engine.OperatorSet;
 import io.mutastic.engine.RunRecord;
@@ -1060,6 +1061,7 @@ public final class Main {
     var setup = Duration.ofNanos(System.nanoTime() - start);
     var sources =
         new SourceView(directory, project.sources(), project.testSources())
+            .withClassSources(new ClassSources(project.classes()))
             .withInvocation(Invocation.of(command.commands(), target));
     return new Prepared(directory, work, project, sources, startedAt, setup);
   }
