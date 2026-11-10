@@ -30,9 +30,10 @@ it against its release's checksums, and keeps it in `~/.mutastic`; after that it
 away. The Java edition runs on the `java` in `JAVA_HOME`, or on the `PATH`, which must be JDK 25 or
 later, and `mutastic` checks for one before it downloads anything. A Rust project needs no JDK.
 
-Running the installer again updates the native `mutastic`; the Java edition it uses is the newest
-it has kept, or the latest release when it has none. `MUTASTIC_VERSION=0.3.0` uses that release
-instead, fetching it if it isn't kept, and `MUTASTIC_HOME` and `MUTASTIC_BIN_DIR` choose the
+Running the installer again updates the native `mutastic`. From 1.0.0 the Rust and Java editions
+are released together, at the same version, and `mutastic` uses the Java edition with its own
+version; before 1.0.0 it uses the newest it has kept, or the latest release when it has none.
+`MUTASTIC_VERSION=0.3.0` uses that release instead, fetching it if it isn't kept, and `MUTASTIC_HOME` and `MUTASTIC_BIN_DIR` choose the
 directories. `mutastic --version` shows the version of each.
 
 Then, in a Gradle or Maven project's directory:

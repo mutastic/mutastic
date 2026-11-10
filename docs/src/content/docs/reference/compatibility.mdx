@@ -106,6 +106,12 @@ release's, and fails on a change that would break a reader. Before 1.0.0 the sch
 from 1.0.0 it only gains. [Schemas and stability](../schemas/) has the schemas,
 for the events, `mutastic.yaml` and rules files, and exactly what counts as breaking.
 
+## The two editions
+
+From 1.0.0, the Java and Rust editions are released together, at the same version, and keep the
+same promises. The native `mutastic` runs the Java edition with its own version in a Gradle or
+Maven project, unless `MUTASTIC_VERSION` names another.
+
 ## Builds
 
 mutastic runs a Gradle or Maven build as its own developers do: with the build's wrapper
