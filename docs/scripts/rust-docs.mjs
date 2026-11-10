@@ -213,6 +213,7 @@ const LAYOUT = [
   // A page for each command from commands.json comes first, then Environment and exit codes: see
   // reference() below.
   ['Reference', [['reference/reports', 'Report files'], ['reference/events', 'Events'], ['reference/configuration', 'Configuration']]],
+  ['Guides', [['/guides/ci', 'Running in CI']]],
   ['Help', [['troubleshooting', 'Troubleshooting'], ['differences-from-java', 'Differences from Java']]],
 ];
 

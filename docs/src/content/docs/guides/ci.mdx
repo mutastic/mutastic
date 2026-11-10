@@ -4,31 +4,49 @@ description: "Run mutastic in CI and keep it fast: fail the build on a low score
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
+import EditionOnly from '../../../components/EditionOnly.astro';
+import EditionTabs from '../../../components/EditionTabs.astro';
 
 In CI, mutastic is a check like the tests: a score below the bar fails the job. A pull request
-needs only the lines it changed, which is quick; the whole module runs on `main`, or at night,
-and can be split across jobs when it takes too long for one.
+needs only the lines it changed, which is quick; a whole run is for `main`, or at night, and can be
+split across jobs when it takes too long for one.
 
-Each example is shown for GitHub Actions and for GitLab CI, for a Gradle project run with the
-`mutastic` command, installed as [Install](/getting-started/install/) shows. A Maven project's
-files are under `target/mutastic/` where a Gradle one's are under `build/mutastic/`, and from a
-[build plugin](/guides/build-plugins/) each option is a `mutastic.` property of the same name.
-Actions are pinned to a commit, with the version beside it, as a tag can be moved. GitLab's jobs
-run in a JDK 25 image pinned by its version tag, which has no `curl` until the job installs it; a
-GitLab example is jobs to add to `.gitlab-ci.yml`.
+Each example is shown for GitHub Actions and for GitLab CI. Actions are pinned to a commit, with the
+version beside it, as a tag can be moved; GitLab's jobs run in an image pinned by its version tag,
+and a GitLab example is jobs to add to `.gitlab-ci.yml`.
+
+<EditionTabs>
+<div slot="java">
+
+The examples are for a Gradle project run with the `mutastic` command, installed as
+[Install](/getting-started/install/) shows. A Maven project's files are under `target/mutastic/`
+where a Gradle one's are under `build/mutastic/`, and from a [build plugin](/guides/build-plugins/)
+each option is a `mutastic.` property of the same name. GitLab's JDK 25 image has no `curl` until
+the job installs it.
+
+</div>
+<div slot="rust">
+
+The examples are for a Cargo package, its files under `target/mutastic/`, with the `mutastic`
+command installed by its installer, as [Install](/rust/install/) shows. GitLab's Rust image has the
+`curl` the installer needs.
+
+</div>
+</EditionTabs>
 
 ## Fail the build on a low score
 
 `--threshold` is the score a run must reach, 80 unless set. Below it, the run fails:
 
-<Tabs syncKey="runner">
-<TabItem label="Command line">
-
 ```sh
 mutastic run --threshold=70
 ```
 
-</TabItem>
+<EditionOnly edition="java">
+
+From a build plugin:
+
+<Tabs syncKey="runner">
 <TabItem label="Gradle">
 
 ```sh
@@ -57,22 +75,43 @@ mvn mutastic:run -Dmutastic.threshold=70
 </TabItem>
 </Tabs>
 
+</EditionOnly>
+
 The `mutastic` command exits 0 when the score reaches the threshold and 1 when it doesn't, so the
 step fails with it. A run with nothing to score passes: there's nothing to fail. The other codes
-aren't about the score: 2 for a command or a build mutastic couldn't read, 3 for tests that fail
-with no mutant in, 4 for mutastic itself; each is in [exit codes](/reference/environment/#exit-codes).
-From a build plugin, a score below the threshold fails the build, and the build tool exits as it
-does for any failure.
+aren't about the score:
+
+<EditionTabs>
+<div slot="java">
+
+2 for a command or a build mutastic couldn't read, 3 for tests that fail with no mutant in, 4 for
+mutastic itself; each is in [exit codes](/reference/environment/#exit-codes). From a build plugin,
+a score below the threshold fails the build, and the build tool exits as it does for any failure.
+
+</div>
+<div slot="rust">
+
+2 when mutastic couldn't run: an option it doesn't know, a directory that isn't a Cargo package, or
+a test that fails with no mutant in. Each is in [exit status](/concepts/results/#exit-status).
+
+</div>
+</EditionTabs>
 
 Off a terminal, mutastic prints the `concise` [format](/concepts/output/#formats), a line for each
 missed mutant, made for logs. `--format` or `MUTASTIC_FORMAT` chooses another, and `FORCE_COLOR`
-keeps the colour in a log that shows it. Where a score has to hold, [`--confirm-catches`](/concepts/flaky-tests/#confirming-catches)
-runs each catching test again, and a catch that doesn't repeat doesn't count.
+keeps the colour in a log that shows it.
+
+<EditionOnly edition="java">
+
+Where a score has to hold, [`--confirm-catches`](/concepts/flaky-tests/#confirming-catches) runs
+each catching test again, and a catch that doesn't repeat doesn't count.
+
+</EditionOnly>
 
 ## Only what a pull request changed
 
 `--since=REF` mutates only the lines changed since the branch left `REF`, so a pull request's run
-tries its own mutants, not the whole module's. It needs the base branch, and the history back to
+tries its own mutants, not the whole run's. It needs the base branch, and the history back to
 where the branch left it, which a CI checkout doesn't have unless asked. Name the base branch as the
 remote has it, since the checkout has no local branch of that name.
 
@@ -81,6 +120,9 @@ remote has it, since the checkout has no local branch of that name.
 
 A pull request is checked out as one commit, its change merged into the base, with no other
 history; `fetch-depth: 0` fetches every branch's:
+
+<EditionTabs>
+<div slot="java">
 
 ```yaml
 name: Mutants
@@ -105,12 +147,40 @@ jobs:
       - run: mutastic run --since=origin/${{ github.base_ref }} --threshold=80
 ```
 
+</div>
+<div slot="rust">
+
+```yaml
+name: Mutants
+
+on:
+  pull_request:
+
+jobs:
+  changed-lines:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - run: |
+          curl -fsSL https://mutastic.io/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: mutastic run --since=origin/${{ github.base_ref }} --threshold=80
+```
+
+</div>
+</EditionTabs>
+
 </TabItem>
 <TabItem label="GitLab CI">
 
 A merge request pipeline checks out the merge request's commit, shallow, and not the target branch:
 `GIT_DEPTH: 0` fetches the commit's whole history, and the job fetches the target branch under the
 name the run gives it:
+
+<EditionTabs>
+<div slot="java">
 
 ```yaml
 mutants-changed-lines:
@@ -128,8 +198,31 @@ mutants-changed-lines:
     - mutastic run --since=origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME --threshold=80
 ```
 
+</div>
+<div slot="rust">
+
+```yaml
+mutants-changed-lines:
+  image: rust:1.99.1
+  before_script:
+    - curl -fsSL https://mutastic.io/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  variables:
+    GIT_DEPTH: 0
+  script:
+    - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME:refs/remotes/origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+    - mutastic run --since=origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME --threshold=80
+```
+
+</div>
+</EditionTabs>
+
 </TabItem>
 </Tabs>
+
+<EditionOnly edition="java">
 
 From a build plugin, the same run is `-Pmutastic.since=origin/main` or `-Dmutastic.since=origin/main`:
 
@@ -137,11 +230,27 @@ From a build plugin, the same run is `-Pmutastic.since=origin/main` or `-Dmutast
 ./gradlew mutasticRun -Pmutastic.since=origin/main -Pmutastic.threshold=80
 ```
 
-The threshold applies to the change's mutants alone, so it can be stricter than the module's: new
-code is where a missed mutant is cheapest to fix. A change that touches no line mutastic mutates
-(docs, build files, tests only) has nothing to score, and passes. A run of a change writes its
-reports, but it isn't compared with the last full run, nor kept as one: see
-[changed lines](/guides/scoping/#only-what-changed).
+</EditionOnly>
+
+The threshold applies to the change's mutants alone, so it can be stricter than the whole run's:
+new code is where a missed mutant is cheapest to fix. A change that touches no line mutastic
+mutates (docs, build files, tests only) has nothing to score, and passes.
+
+<EditionOnly edition="java">
+
+A run of a change writes its reports, but it isn't compared with the last full run, nor kept as
+one: see [changed lines](/guides/scoping/#only-what-changed).
+
+</EditionOnly>
+
+<EditionOnly edition="rust">
+
+The Rust edition doesn't compare a run with the last, so there's no record to carry from one CI run
+to the next: each run scores, fails and reports on its own.
+
+</EditionOnly>
+
+<EditionOnly edition="java">
 
 ## Keep the run record between runs
 
@@ -251,22 +360,50 @@ are files in `.mutastic/` to commit, so every checkout has them.
 For a history of the score, `--format=jsonl` ends with a `run-finished` [event](/reference/schemas/)
 that has the score, the threshold and, when there was a last run, its score (`previousScore`).
 
+</EditionOnly>
+
 ## One run across CI jobs
 
-A whole module's run can take longer than one CI job should. `--shard=N/M` runs only the Nth of M shares of its mutants, so M jobs side by side each run one share, and `--from-shards` puts their results back together as the whole run:
+A whole run can take longer than one CI job should. `--shard=N/M` runs only the Nth of M shares of its mutants, so M jobs side by side each run one share, and `--from-shards` puts their results back together as the whole run:
 
 ```sh
 mutastic run --shard=2/4 --threshold=0
 mutastic run --from-shards=shares --threshold=70
 ```
 
-Each mutant is dealt to a share by its id alone, so every mutant is in exactly one share, whichever job runs it, and the shares come out about the same size, each with mutants from across the module. Coverage is still measured over all the module's tests in each job, so a mutant's result is the one a whole run would give it.
+Each mutant is dealt to a share by its id alone, so every mutant is in exactly one share, whichever job runs it, and the shares come out about the same size, each with mutants from across the code.
 
-A share's score is only that share's, so give each share `--threshold=0` and the threshold you mean to the run that puts them together. A share keeps everything that run needs in one folder, `shares/N-of-M/` in the module's work directory (`build/mutastic/shares/2-of-4/` with Gradle, `target/mutastic/shares/2-of-4/` with Maven): its results, as the [events](/reference/schemas/) `--format=jsonl` writes, whatever format it shows, and its own run record, so a share only compares with the same share's last run. Its reports go where a whole run's go.
+<EditionTabs>
+<div slot="java">
 
-`--from-shards=DIR` runs no mutants. It reads the build, finds the mutants as a whole run would, takes each one's result from the share that ran it, wherever the share's folder is under `DIR`, and then is that whole run: the same summary and cards in every format, the same report files, the threshold checked on the whole score, and the whole run's record, which `explain`, `next` and the next run's comparison read. A share's folder name doesn't matter, so each job can upload its own and the last job download them all into one directory.
+Coverage is still measured over all the module's tests in each job, so a mutant's result is the one a whole run would give it.
 
-It refuses, with exit status 2 and what's wrong, shares that aren't every share of one run: a share missing or there twice, one that didn't finish, shares split into a different number, a mutant in two shares, or shares run by another mutastic or on other code than each other or than the build it reads. Put them together on the same commit, built the same way, with the same options and `mutastic.yaml`. A share also fails on its own, even with `--threshold=0`, when a test that caught mutants fails with no mutant in, as the whole run would.
+</div>
+<div slot="rust">
+
+Each job still makes the one build, with only its share's mutants in, and runs every test in the coverage pass, so a mutant's result is the one a whole run would give it. That build is each share's setup, so splitting a run shares out the mutants' time, not the build's.
+
+</div>
+</EditionTabs>
+
+A share's score is only that share's, so give each share `--threshold=0` and the threshold you mean to the run that puts them together.
+
+<EditionTabs>
+<div slot="java">
+
+A share keeps everything that run needs in one folder, `shares/N-of-M/` in the module's work directory (`build/mutastic/shares/2-of-4/` with Gradle, `target/mutastic/shares/2-of-4/` with Maven): its results, as the [events](/reference/schemas/) `--format=jsonl` writes, whatever format it shows, and its own run record, so a share only compares with the same share's last run. Its reports go where a whole run's go.
+
+</div>
+<div slot="rust">
+
+A share keeps everything that run needs in one folder, `target/mutastic/shares/N-of-M/`: its results, as the [events](/rust/reference/events/) `--format=jsonl` writes, whatever format it shows, and its own report files, so neither `explain` nor the next run takes a share for the whole run.
+
+</div>
+</EditionTabs>
+
+`--from-shards=DIR` runs no mutants. It finds the mutants as a whole run would, takes each one's result from the share that ran it, wherever the share's folder is under `DIR`, and then is that whole run: the same summary and cards in every format, the same report files, the threshold checked on the whole score, and the whole run's last-run files, which `explain` reads. A share's folder name doesn't matter, so each job can upload its own and the last job download them all into one directory.
+
+It refuses, with exit status 2 and what's wrong, shares that aren't every share of one run: a share missing or there twice, one that didn't finish, shares split into a different number, a mutant in two shares, or shares run by another mutastic or on other code than each other or than the code it reads. Put them together on the same commit, built the same way, with the same options and `mutastic.yaml`. A share also fails on its own, even with `--threshold=0`, when a test fails with no mutant in, as the whole run would.
 
 Jobs side by side, one for each share, then one job that puts them together.
 
@@ -274,6 +411,9 @@ Jobs side by side, one for each share, then one job that puts them together.
 <TabItem label="GitHub Actions">
 
 A matrix of shares, each uploading its folder, and a last job that downloads them all:
+
+<EditionTabs>
+<div slot="java">
 
 ```yaml
 jobs:
@@ -318,13 +458,57 @@ jobs:
       - run: mutastic run --from-shards=shares --threshold=70
 ```
 
+</div>
+<div slot="rust">
+
+```yaml
+jobs:
+  mutants:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        share: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: |
+          curl -fsSL https://mutastic.io/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: mutastic run --shard=${{ matrix.share }}/4 --threshold=0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: share-${{ matrix.share }}
+          path: target/mutastic/shares/${{ matrix.share }}-of-4/
+
+  mutation-score:
+    needs: mutants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: |
+          curl -fsSL https://mutastic.io/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: share-*
+          path: shares
+      - run: mutastic run --from-shards=shares --threshold=70
+```
+
+</div>
+</EditionTabs>
+
 </TabItem>
 <TabItem label="GitLab CI">
 
 `parallel` runs a job as that many jobs, each told which it is in `CI_NODE_INDEX`, counting from 1,
 and how many there are in `CI_NODE_TOTAL`. A job that `needs` it waits for all of them, and gets
-each one's artifacts at the paths they were uploaded from, so every share's folder lands under
-`build/mutastic/shares/`:
+each one's artifacts at the paths they were uploaded from, so every share's folder lands under the
+work directory's `shares/`:
+
+<EditionTabs>
+<div slot="java">
 
 ```yaml
 mutants:
@@ -354,24 +538,72 @@ mutation-score:
     - mutastic run --from-shards=build/mutastic/shares --threshold=70
 ```
 
+</div>
+<div slot="rust">
+
+```yaml
+mutants:
+  image: rust:1.99.1
+  parallel: 4
+  before_script:
+    - curl -fsSL https://mutastic.io/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+  script:
+    - mutastic run --shard=$CI_NODE_INDEX/$CI_NODE_TOTAL --threshold=0
+  artifacts:
+    when: always
+    paths:
+      - target/mutastic/shares/
+
+mutation-score:
+  image: rust:1.99.1
+  needs:
+    - job: mutants
+      artifacts: true
+  before_script:
+    - curl -fsSL https://mutastic.io/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+  script:
+    - mutastic run --from-shards=target/mutastic/shares --threshold=70
+```
+
+</div>
+</EditionTabs>
+
 </TabItem>
 </Tabs>
 
-When a share's job fails, the pipeline fails, and the last job doesn't run; when they all pass, the last job fails if the whole score is below the threshold. For a module of a multi-module build, name it in both commands (`mutastic run :core --shard=…`) and upload the share from its work directory: `build/mutastic/core/shares/…` with Gradle, `core/target/mutastic/shares/…` with Maven.
+When a share's job fails, the pipeline fails, and the last job doesn't run; when they all pass, the last job fails if the whole score is below the threshold.
+
+<EditionTabs>
+<div slot="java">
+
+For a module of a multi-module build, name it in both commands (`mutastic run :core --shard=…`) and upload the share from its work directory: `build/mutastic/core/shares/…` with Gradle, `core/target/mutastic/shares/…` with Maven.
 
 To [keep the records](#keep-the-run-record-between-runs) too, each share's job caches its own
 folder, `build/mutastic/shares/N-of-4/`, under a key with its share in it (`${{ matrix.share }}`
 in Actions, `$CI_NODE_INDEX` in GitLab), and the last job caches the whole run's record, as above.
 
+</div>
+<div slot="rust">
+
+For a member of a workspace, name its directory in both commands (`mutastic run crates/core --shard=…`) and upload the share from the workspace's `target/mutastic/shares/…`.
+
+</div>
+</EditionTabs>
+
 ## Reports as artifacts
 
-Each run writes its [report files](/reference/reports/) to the work directory, `mutation.json` and
-`mutation.html` unless `--report` chooses others: the HTML is the whole report in one file, which
-opens from disk, and the JSON is what report viewers, dashboards and badges read. Upload them even
-when the run fails, since that's when they're read.
+Each run writes its report files to the work directory, `mutation.json` and `mutation.html` unless
+`--report` chooses others: the HTML is the whole report in one file, which opens from disk, and the
+JSON is what report viewers, dashboards and badges read. Upload them even when the run fails, since
+that's when they're read.
 
 <Tabs syncKey="ci">
 <TabItem label="GitHub Actions">
+
+<EditionTabs>
+<div slot="java">
 
 ```yaml
       - run: mutastic run --threshold=70
@@ -382,8 +614,26 @@ when the run fails, since that's when they're read.
           path: build/mutastic/mutation.*
 ```
 
+</div>
+<div slot="rust">
+
+```yaml
+      - run: mutastic run --threshold=70
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: mutation-report
+          path: target/mutastic/mutation.*
+```
+
+</div>
+</EditionTabs>
+
 </TabItem>
 <TabItem label="GitLab CI">
+
+<EditionTabs>
+<div slot="java">
 
 ```yaml
 mutants:
@@ -395,13 +645,41 @@ mutants:
       - build/mutastic/mutation.*
 ```
 
+</div>
+<div slot="rust">
+
+```yaml
+mutants:
+  script:
+    - mutastic run --threshold=70
+  artifacts:
+    when: always
+    paths:
+      - target/mutastic/mutation.*
+```
+
+</div>
+</EditionTabs>
+
 </TabItem>
 </Tabs>
 
-For a module, the files are in its own work directory (`build/mutastic/core/mutation.*`), and
-`build/mutastic/*/mutation.*` takes every module's. For build-server and code-quality plugins,
-`mutations.xml` is `--report=xml`; `--report` replaces the defaults, so name each file you want:
-`--report=json --report=html --report=xml`.
+<EditionTabs>
+<div slot="java">
+
+The [report files](/reference/reports/) of a module are in its own work directory
+(`build/mutastic/core/mutation.*`), and `build/mutastic/*/mutation.*` takes every module's. For
+build-server and code-quality plugins, `mutations.xml` is `--report=xml`; `--report` replaces the
+defaults, so name each file you want: `--report=json --report=html --report=xml`.
+
+</div>
+<div slot="rust">
+
+See [report files](/rust/reference/reports/) for each one. `--report` replaces the defaults, so
+name each file you want: `--report=json --report=html`.
+
+</div>
+</EditionTabs>
 
 ## The gate and agents
 

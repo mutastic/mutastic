@@ -20,6 +20,7 @@ export const SHARED = [
   ['concepts/output', 'concepts/output'],
   ['concepts/how-a-run-works', 'concepts/how-a-run-works'],
   ['concepts/ids', 'concepts/ids'],
+  ['guides/ci', undefined],
 ];
 
 /** The same topic in both editions. Each pair works both ways. */
