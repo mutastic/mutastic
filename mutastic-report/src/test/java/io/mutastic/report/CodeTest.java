@@ -106,5 +106,11 @@ class CodeTest {
     assertThat(Code.asStatement("(a) + next()")).isEmpty();
     assertThat(Code.asStatement("next().value")).isEmpty();
     assertThat(Code.asStatement("a ? next() : b()")).isEmpty();
+    assertThat(Code.asStatement("(items).next()")).contains("(items).next()");
+    assertThat(Code.asStatement("x")).as("a name alone").isEmpty();
+    assertThat(Code.asStatement("   ")).isEmpty();
+    assertThat(Code.asStatement("/* only a comment */")).isEmpty();
+    assertThat(Code.asStatement("a+next()")).isEmpty();
+    assertThat(Code.asStatement("a next()")).isEmpty();
   }
 }

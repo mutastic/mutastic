@@ -111,7 +111,14 @@ class JsonEventsTest {
                         List.of(100L),
                         List.of(new io.mutastic.api.Suggestion.Instance("Pricing", List.of(3L))),
                         "10",
-                        "0")));
+                        "0",
+                        Optional.of(
+                            new io.mutastic.api.Suggestion.Named(
+                                "FREE_FROM",
+                                "FREE_FROM = 100",
+                                Optional.empty(),
+                                "FREE_FROM (Pricing.FREE_FROM = 100)")),
+                        Optional.of("PricingTest#a"))));
     var flaky =
         new FlakyTest("com.example.PricingTest#c", List.of("x.Y"), List.of(), List.of(), true);
     var report =
