@@ -337,17 +337,40 @@ public final class AgentText {
                 noneMissed ? "" : "; fix the %s mutants first".formatted(words.undetected)));
     notCoveredByLine(notCovered)
         .forEach(
-            (where, count) ->
-                out.append("- %s (%d mutant%s)\n".formatted(where, count, count == 1 ? "" : "s")));
+            (where, mutants) -> {
+              int count = mutants.size();
+              out.append("- %s (%d mutant%s)\n".formatted(where, count, count == 1 ? "" : "s"));
+              appendProposals(out, mutants);
+            });
     SuggestedTest.startingPoints(notCovered, sources, LIMIT)
         .forEach(assertion -> out.append("  start with: %s\n".formatted(assertion)));
   }
 
-  /// `src/…/Pricing.java:12-15 discount()` to how many mutants no test reaches there, in report
-  /// order: by method, or with `--each-mutant` by line.
-  private Map<String, Long> notCoveredByLine(List<MutantResult> notCovered) {
-    return NotCovered.counted(
+  /// `src/…/Pricing.java:12-15 discount()` to the mutants no test reaches there, in report order:
+  /// by method, or with `--each-mutant` by line.
+  private Map<String, List<io.mutastic.api.Mutant>> notCoveredByLine(
+      List<MutantResult> notCovered) {
+    return NotCovered.grouped(
         notCovered, sources, eachMutant, mutant -> Advice.method(mutant).replace("`", ""));
+  }
+
+  /// How to propose ignoring each of a place's mutants, by line: an agent decides a line no test
+  /// reaches can't be reached as it decides a missed mutant's case can't happen.
+  private void appendProposals(StringBuilder out, List<io.mutastic.api.Mutant> mutants) {
+    var byLine = new java.util.TreeMap<Integer, List<String>>();
+    mutants.forEach(
+        mutant ->
+            byLine
+                .computeIfAbsent(sources.place(mutant).line(), line -> new ArrayList<>())
+                .add(mutant.id()));
+    byLine.forEach(
+        (line, ids) ->
+            out.append(
+                "  %s%s: %s\n"
+                    .formatted(
+                        MutantCommand.PROPOSE.label(),
+                        byLine.size() == 1 ? "" : " (line %d)".formatted(line),
+                        MutantCommand.PROPOSE.eachOf(ids, sources.invocation()))));
   }
 
   /// One missed mutant, numbered, or unnumbered (0) where it stands alone.

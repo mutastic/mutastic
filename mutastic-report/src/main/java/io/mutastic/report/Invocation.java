@@ -138,10 +138,11 @@ public record Invocation(Form form, String launcher, List<String> target) {
     return camel.toString();
   }
 
-  /// A word with a space or a quote, quoted for a shell. Not a template the person fills in, `<id>`
-  /// or `--reason="<why>"`: quoting it wouldn't help them.
+  /// A word with a space or a quote, quoted for a shell. Not a template the person fills in,
+  /// `<id>`, `--as=<equivalent|unreachable|…>` or `--reason="<why>"`: quoting it wouldn't help
+  /// them.
   static String quoted(String word) {
-    return word.matches(PLAIN) || word.matches(".*<[a-z]+>.*")
+    return word.matches(PLAIN) || word.matches(".*<[^<>]+>.*")
         ? word
         : "'" + word.replace("'", "'\\''") + "'";
   }

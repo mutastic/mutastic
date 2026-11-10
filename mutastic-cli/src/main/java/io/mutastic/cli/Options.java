@@ -344,12 +344,15 @@ final class Options {
               Group.IGNORING,
               "",
               List.of(),
-              "Propose the ignore for a person to accept, rather than make it: a coding agent's way",
+              "Propose the ignore for a person to accept, rather than make it: a coding agent's way."
+                  + " An equivalent or unreachable mutant's reason says the one case where it"
+                  + " differs and why that can't happen",
               IGNORES,
               "propose",
               false,
               "",
-              "mutastic ignore m855c8e3c --propose --as=unreachable --reason=\"totals are rounded to tens\""),
+              "mutastic ignore m855c8e3c --propose --as=unreachable --reason=\"Differs only when"
+                  + " total is 100. That can't happen because prices end in 9.\""),
           new Option(
               "--accept",
               Kind.FLAG,

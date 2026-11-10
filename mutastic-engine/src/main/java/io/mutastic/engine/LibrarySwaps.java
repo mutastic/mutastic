@@ -33,7 +33,9 @@ final class LibrarySwaps {
     }
     if (isMath(call) && isRoundingPair(name, to) && convertedFromWhole(code, at)) {
       return Optional.of(
-          "equivalent: a whole number rounds to itself with `%s` and `%s`".formatted(name, to));
+          ("equivalent: differs only when the value `%s` takes has a fraction. That can't happen"
+                  + " because it's a whole number, which rounds to itself with `%s` and `%s`.")
+              .formatted(name, name, to));
     }
     return Optional.empty();
   }

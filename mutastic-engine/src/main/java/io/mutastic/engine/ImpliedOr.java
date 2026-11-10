@@ -28,6 +28,11 @@ import java.util.Optional;
 /// Both compare the same `int` local with a constant, or the first calls a static method of this
 /// class whose whole body is such a comparison of its parameter. Anything else isn't judged.
 final class ImpliedOr {
+  /// Why such a mutant is skipped: the one case where it differs, and why that can't happen.
+  static final String WHY =
+      "equivalent: differs only when this test of the `||` is true and the next isn't. That"
+          + " can't happen because the next test already covers its case.";
+
   private ImpliedOr() {}
 
   /// The `int` values a test holds for, from `low` to `high`.
@@ -60,7 +65,7 @@ final class ImpliedOr {
     var covered = next.get().holds();
     return tested.get().holds().within(covered)
             && edgeCovered(forcedFalse, replacement, site, covered)
-        ? Optional.of("equivalent: the next test of the `||` already covers its case")
+        ? Optional.of(WHY)
         : Optional.empty();
   }
 

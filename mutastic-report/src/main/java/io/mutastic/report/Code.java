@@ -170,6 +170,63 @@ final class Code {
   private static final java.util.regex.Pattern DEFERRED =
       java.util.regex.Pattern.compile("(?s)^(?:\\([^()]*\\)|[\\w$]+)\\s*->.*|^[\\w$.]+::[\\w$]+$");
 
+  /// A variable, field or array element written to: what an assignment, `++` or `--` can change.
+  private static final String WRITTEN = "[\\w$]+(?:\\s*\\.\\s*[\\w$]+|\\[[^\\[\\]]*])*";
+
+  /// An expression Java runs as a statement of its own: an assignment, `++` or `--`.
+  private static final java.util.regex.Pattern WRITES =
+      java.util.regex.Pattern.compile(
+          "(?s)^(?:%s\\s*(?:[-+*/%%&|^]|<<|>>>?)?=(?!=).+|%s\\s*(?:\\+\\+|--)|(?:\\+\\+|--)\\s*%s)$"
+              .formatted(WRITTEN, WRITTEN, WRITTEN));
+
+  /// The code as a statement of its own, when it can be one: a call, a new object, an assignment,
+  /// `++` or `--`, without brackets around it all, which a statement can't have. `(next())` is
+  /// `next()`; `a + next()` is none.
+  static java.util.Optional<String> asStatement(String text) {
+    var part = trimmed(text);
+    var code = masked(part);
+    while (code.startsWith("(") && closing(code, 0) == code.length() - 1) {
+      part = trimmed(part.substring(1, part.length() - 1));
+      code = masked(part);
+    }
+    return isOneCall(code) || WRITES.matcher(code).matches()
+        ? java.util.Optional.of(part)
+        : java.util.Optional.empty();
+  }
+
+  /// The text without the space and comments before and after its code.
+  private static String trimmed(String text) {
+    var code = masked(text);
+    int from = 0;
+    while (from < code.length() && Character.isWhitespace(code.charAt(from))) {
+      from++;
+    }
+    int to = code.length();
+    while (to > from && Character.isWhitespace(code.charAt(to - 1))) {
+      to--;
+    }
+    return text.substring(from, to);
+  }
+
+  /// Whether masked code is one call, or one new object, maybe at the end of a chain of members:
+  /// nothing outside brackets is space, but around a `.`.
+  private static boolean isOneCall(String code) {
+    if (!code.endsWith(")")) {
+      return false;
+    }
+    var chained = code.replaceAll("\\s*\\.\\s*", ".");
+    var withoutNew = chained.startsWith("new ") ? chained.substring(4) : chained;
+    int depth = 0;
+    for (int at = 0; at < withoutNew.length(); at++) {
+      char each = withoutNew.charAt(at);
+      depth += depthChange(each);
+      if (depth == 0 && (Character.isWhitespace(each) || "+-*/%<>=!&|^?:".indexOf(each) >= 0)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /// Whether working out the code does something a card couldn't show it leaving out: it calls a
   /// method, makes an object or assigns. A lambda or a method reference does nothing until called.
   static boolean doesSomething(String text) {

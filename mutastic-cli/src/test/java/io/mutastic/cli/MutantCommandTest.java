@@ -21,7 +21,7 @@ class MutantCommandTest {
     var target = List.of("samples/pricing", ":api");
     var invocation = Invocation.of("mutastic", target);
     for (MutantCommand command : MutantCommand.values()) {
-      var arguments = new ArrayList<>(command.arguments(ID));
+      var arguments = new ArrayList<>(filled(command.arguments(ID)));
       arguments.addAll(target);
 
       var parsed = Main.Command.parse(arguments.toArray(String[]::new));
@@ -87,7 +87,7 @@ class MutantCommandTest {
   void everyCommandOfferedFromMavenParsesForTheSameProject() {
     var invocation = Invocation.of("maven", List.of("samples/pricing", ":api"));
     for (MutantCommand command : MutantCommand.values()) {
-      var words = List.of(command.command(ID, invocation).split(" ", -1));
+      var words = filled(words(command.command(ID, invocation)));
       var arguments = new ArrayList<String>();
       arguments.add(words.get(1).substring("mutastic:".length())); // the goal
       for (int index = 2; index < words.size(); index++) {
@@ -102,7 +102,7 @@ class MutantCommandTest {
       var expected =
           Main.Command.parse(
               java.util.stream.Stream.concat(
-                      command.arguments(ID).stream(), Stream.of("samples/pricing", ":api"))
+                      filled(command.arguments(ID)).stream(), Stream.of("samples/pricing", ":api"))
                   .toArray(String[]::new));
 
       assertThat(parsed).as(command.command(ID, invocation)).isEqualTo(expected);
@@ -128,7 +128,7 @@ class MutantCommandTest {
   void everyCommandOfferedFromGradleParsesForTheSameProject() {
     var invocation = Invocation.of("gradle:./gradlew", List.of("samples/pricing", ":api"));
     for (MutantCommand command : MutantCommand.values()) {
-      var words = List.of(command.command(ID, invocation).split(" ", -1));
+      var words = filled(words(command.command(ID, invocation)));
       var task = words.get(1);
       var goal = task.substring(task.lastIndexOf(":mutastic") + ":mutastic".length());
       var arguments = new ArrayList<String>();
@@ -147,8 +147,61 @@ class MutantCommandTest {
   /// What `command` parses to from the command line, for `samples/pricing :api`.
   private static Main.Command commandLine(MutantCommand command) {
     return Main.Command.parse(
-        Stream.concat(command.arguments(ID).stream(), Stream.of("samples/pricing", ":api"))
+        Stream.concat(filled(command.arguments(ID)).stream(), Stream.of("samples/pricing", ":api"))
             .toArray(String[]::new));
+  }
+
+  /// A command as a shell splits it: a double-quoted value is one word.
+  private static List<String> words(String command) {
+    var words = new ArrayList<String>();
+    var word = new StringBuilder();
+    boolean quoted = false;
+    for (int at = 0; at < command.length(); at++) {
+      char each = command.charAt(at);
+      if (each == ' ' && !quoted) {
+        words.add(word.toString());
+        word.setLength(0);
+      } else {
+        quoted ^= each == '"';
+        word.append(each);
+      }
+    }
+    words.add(word.toString());
+    return words;
+  }
+
+  /// The words with the parts a person or an agent fills in filled: `--as=<equivalent|…>` and the
+  /// reason's case and why.
+  private static List<String> filled(List<String> words) {
+    return words.stream()
+        .map(
+            word ->
+                word.replace("<equivalent|unreachable|…>", "equivalent")
+                    .replace("<case>", "count is negative")
+                    .replace("<why>", "count is a size"))
+        .toList();
+  }
+
+  /// The agent's proposal asks for the kind and a reason in two sentences, and the reason as it's
+  /// offered is one word to a shell, in every form.
+  @Test
+  void aProposalAsksForItsKindAndAReduction() {
+    var target = List.of("samples/pricing");
+
+    assertThat(MutantCommand.PROPOSE.command(ID, Invocation.of("mutastic", target)))
+        .isEqualTo(
+            "mutastic ignore m855c8e3c --propose --as=<equivalent|unreachable|…>"
+                + " --reason=\"Differs only when <case>. That can't happen because <why>.\""
+                + " samples/pricing");
+    assertThat(MutantCommand.PROPOSE.arguments(ID))
+        .containsExactly(
+            "ignore",
+            ID,
+            "--propose",
+            "--as=<equivalent|unreachable|…>",
+            "--reason=\"Differs only when <case>. That can't happen because <why>.\"");
+    assertThat(MutantCommand.PROPOSE.command(ID, Invocation.of("maven", target)))
+        .contains(" -Dmutastic.as=<equivalent|unreachable|…> -Dmutastic.reason=\"Differs only");
   }
 
   @Test

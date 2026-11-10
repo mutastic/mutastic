@@ -135,7 +135,23 @@ class CallTextTest {
     assertThat(
             CallText.find("    x.run(a, b());", 0, "run")
                 .flatMap(call -> call.removedStatement(false)))
+        .contains("    b();");
+    assertThat(
+            CallText.find("    x\n        .run(a, b() + 1);", 0, "run")
+                .flatMap(call -> call.removedStatement(false)))
         .isEmpty();
+  }
+
+  /// A receiver kept alone takes the call's line break with the call: `raw` and its `;`, not a line
+  /// of `;`.
+  @Test
+  void aReceiverKeptAloneEndsItsStatementWhereItEnds() {
+    assertThat(rewritten("    var name = raw\n        .strip();", "strip", "{receiver}"))
+        .contains("    var name = raw;");
+    assertThat(rewritten("    var name = raw .strip();", "strip", "{receiver}"))
+        .contains("    var name = raw;");
+    assertThat(rewritten("    var name = raw\n        .strip();", "strip", "{receiver}.trim()"))
+        .contains("    var name = raw\n        .trim();");
   }
 
   @Test

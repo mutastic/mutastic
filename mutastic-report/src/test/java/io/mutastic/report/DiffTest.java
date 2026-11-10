@@ -190,7 +190,7 @@ class DiffTest {
   }
 
   @Test
-  void aRemovedCallWhoseArgumentStillRunsIsSaidInWords() {
+  void aRemovedCallWhoseArgumentStillRunsLeavesIt() {
     var removed =
         new Mutant(
             "com/example/Text",
@@ -206,9 +206,8 @@ class DiffTest {
     var shown = diff(removed);
 
     // `format(ofField)` still runs: the line taken out would say it doesn't.
-    assertThat(shown.shown()).isFalse();
-    assertThat(shown.unshown())
-        .isEqualTo("the call to `record()` is removed (not shown in the source)");
+    assertThat(shown.removed()).isFalse();
+    assertThat(shown.shownAfter()).containsExactly("format(ofField);");
   }
 
   @Test

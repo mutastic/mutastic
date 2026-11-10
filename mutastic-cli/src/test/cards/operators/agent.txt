@@ -1,6 +1,6 @@
 mutastic: FAIL · score 63.6% (threshold 80) · 4 missed, 0 not covered, 7 caught of 11 mutants
 rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/operators` passes
-decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and propose ignoring it with that reason (and --as equivalent, unreachable, telemetry, deprecated or accepted-risk) for a person to accept (`mutastic ignore <id> --propose --reason="<why>" samples/operators`)
+decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: propose ignoring it, for a person to accept, as the kind it is (equivalent, unreachable, telemetry, deprecated or accepted-risk), with the reason in two sentences: the one case where it differs, and why that can't happen (`mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/operators`)
 
 1. missed m374858c7: no test checks a lambda in `large()` at `total == 100`
    at src/main/java/com/example/orders/Orders.java:8
@@ -10,7 +10,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    fix: test a lambda in `large()` with `total = 100` and assert the result
    done when: mutastic verify m374858c7 samples/operators passes
    reproduce: mutastic run --only=m374858c7 samples/operators
-   or propose: mutastic ignore m374858c7 --propose --reason="<why>" samples/operators
+   or propose: mutastic ignore m374858c7 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/operators
 
 2. missed m911a2864: no test needs `total >= 100` to be false in a lambda in `large()`
    at src/main/java/com/example/orders/Orders.java:8
@@ -20,7 +20,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    fix: add a test where `total >= 100` is false, and assert what a lambda in `large()` does then
    done when: mutastic verify m911a2864 samples/operators passes
    reproduce: mutastic run --only=m911a2864 samples/operators
-   or propose: mutastic ignore m911a2864 --propose --reason="<why>" samples/operators
+   or propose: mutastic ignore m911a2864 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/operators
 
 3. missed m378f41b1: no test checks a lambda in `large()` returning `false` here
    at src/main/java/com/example/orders/Orders.java:8
@@ -31,7 +31,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    fix: add a test where a lambda in `large()` returns `false` here, and assert it
    done when: mutastic verify m378f41b1 samples/operators passes
    reproduce: mutastic run --only=m378f41b1 samples/operators
-   or propose: mutastic ignore m378f41b1 --propose --reason="<why>" samples/operators
+   or propose: mutastic ignore m378f41b1 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/operators
 
 4. missed me98ceb51: no test needs `.filter(…)` in large()
    at src/main/java/com/example/orders/Orders.java:8
@@ -41,4 +41,4 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    fix: add a test with an element the filter must drop, and assert it's gone
    done when: mutastic verify me98ceb51 samples/operators passes
    reproduce: mutastic run --only=me98ceb51 samples/operators
-   or propose: mutastic ignore me98ceb51 --propose --reason="<why>" samples/operators
+   or propose: mutastic ignore me98ceb51 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/operators

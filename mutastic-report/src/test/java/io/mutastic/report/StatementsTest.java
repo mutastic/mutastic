@@ -119,8 +119,42 @@ class StatementsTest {
     assertThat(Statements.endsStatement("    outer:")).isTrue();
     assertThat(Statements.endsStatement("   ")).isTrue();
     assertThat(Statements.endsStatement("    x = a ? b :")).isFalse();
+    assertThat(Statements.endsStatement("        low :")).as("a conditional's arm").isFalse();
+    assertThat(Statements.endsStatement("        1 :")).as("a number isn't a label").isFalse();
+    assertThat(Statements.endsStatement("      default :")).isTrue();
     assertThat(Statements.endsStatement("    run(\"a;\")")).isFalse();
     assertThat(Statements.endsStatement("    run(a,")).isFalse();
+  }
+
+  /// A conditional's arm on a line of its own, `low :`, is part of the statement, not a label.
+  @Test
+  void aConditionalsArmOnItsOwnLineIsPartOfTheStatement() {
+    var lines =
+        List.of(
+            "    int pick = high > limit ?", // 1
+            "        low :", // 2
+            "        1 :", // 3
+            "        high;"); // 4
+
+    assertThat(Statements.start(lines, 4, false)).isEqualTo(1);
+    assertThat(Statements.end(lines, 1, false)).isEqualTo(4);
+  }
+
+  /// A line that starts with a comment that closes has code after it; one that doesn't close is
+  /// only comment.
+  @Test
+  void aLineThatStartsWithAClosedCommentHasItsCode() {
+    var lines =
+        List.of(
+            "    int total = price", // 1
+            "        /* fee */ + fee;", // 2
+            "    /* a note", // 3
+            "       on two lines */", // 4
+            "    run();"); // 5
+
+    assertThat(Statements.start(lines, 2, false)).isEqualTo(1);
+    assertThat(Statements.end(lines, 1, false)).isEqualTo(2);
+    assertThat(Statements.start(lines, 5, false)).isEqualTo(5);
   }
 
   @Test

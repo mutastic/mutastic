@@ -17,9 +17,16 @@ public enum MutantCommand {
   REPRODUCE("reproduce", "reproduce", "run --only=%s", "", Shown.EVERYWHERE),
   /// How to decide it isn't worth a test: recorded, with the reason, for review.
   IGNORE("or ignore", "ignore", "ignore %s --reason=\"<why>\"", "", Shown.WITH_A_MUTANT),
-  /// How a coding agent says it isn't worth a test: a proposal, for a person to accept. Offered to
-  /// agents instead of [#IGNORE]: whether a case can happen is a person's decision.
-  PROPOSE("or propose", "propose", "ignore %s --propose --reason=\"<why>\"", "", Shown.TO_AGENTS),
+  /// How a coding agent says it isn't worth a test: a proposal, for a person to accept, with its
+  /// kind and a reason a person can check: the one case where the mutant differs, and why that
+  /// can't happen. Offered to agents instead of [#IGNORE]: whether a case can happen is a person's
+  /// decision.
+  PROPOSE(
+      "or propose",
+      "propose",
+      "ignore %s --propose --as=<equivalent|unreachable|…> --reason=\"" + Reason.TEMPLATE + "\"",
+      "",
+      Shown.TO_AGENTS),
   /// Everything known of it, for a line that only names it.
   EXPLAIN("explain", "explain", "explain %s", "", Shown.IN_THE_SUMMARY);
 
@@ -40,9 +47,35 @@ public enum MutantCommand {
   /// and an agent told only to close gaps will contrive one.
   public static final String DECLINE =
       "if a mutant's case can't happen in practice, or the change is one no caller can see, don't"
-          + " contrive a test: say why, and propose ignoring it with that reason (and --as"
-          + " equivalent, unreachable, telemetry, deprecated or accepted-risk) for a person to"
-          + " accept";
+          + " contrive a test: propose ignoring it, for a person to accept, as the kind it is"
+          + " (equivalent, unreachable, telemetry, deprecated or accepted-risk), with the reason in"
+          + " two sentences: the one case where it differs, and why that can't happen";
+
+  /// What a proposal that a mutant is equivalent or unreachable says: the reduction a person
+  /// checks, in place of a test.
+  public static final class Reason {
+    /// The reason's shape, with the parts to fill in.
+    public static final String TEMPLATE =
+        "Differs only when <case>. That can't happen because <why>.";
+
+    /// The kinds whose reason must say why the case can't happen.
+    public static final List<String> ARGUED = List.of("equivalent", "unreachable");
+
+    private static final java.util.regex.Pattern BECAUSE =
+        java.util.regex.Pattern.compile("(?i)\\bbecause\\b");
+
+    private Reason() {}
+
+    /// Whether `reason` says why: it has a `because`.
+    public static boolean argued(String reason) {
+      return BECAUSE.matcher(reason).find();
+    }
+
+    /// Whether `reason` is the template as it's given, its parts not filled in.
+    public static boolean unfilled(String reason) {
+      return reason.contains("<case>") || reason.contains("<why>");
+    }
+  }
 
   private final String label;
   private final String key;
@@ -105,15 +138,38 @@ public enum MutantCommand {
   /// The command for every mutant in `finding`: one run proves or shows them all, but each is
   /// ignored on its own, for its own reason.
   String text(Finding finding, Invocation invocation) {
-    if ((this == IGNORE || this == PROPOSE) && finding.mutants().size() > 1) {
-      return command("<id>", invocation) + " for each of " + finding.ids().replace(",", ", ");
+    if (this == IGNORE || this == PROPOSE) {
+      return eachOf(List.of(finding.ids().split(",", -1)), invocation);
     }
     return text(finding.ids(), invocation);
   }
 
-  /// The arguments after `mutastic`, for checking they parse: `verify m855c8e3c`.
+  /// The command for each of `ids`, each decided on its own: `… <id> … for each of a, b`.
+  String eachOf(List<String> ids, Invocation invocation) {
+    return ids.size() == 1
+        ? text(ids.getFirst(), invocation)
+        : command("<id>", invocation) + " for each of " + String.join(", ", ids);
+  }
+
+  /// The arguments after `mutastic`, for checking they parse: `verify m855c8e3c`. A quoted value is
+  /// one word, spaces and all.
   public List<String> arguments(String id) {
-    return List.of(arguments.formatted(id).split(" ", -1));
+    var words = new java.util.ArrayList<String>();
+    var word = new StringBuilder();
+    boolean quoted = false;
+    var written = arguments.formatted(id);
+    for (int at = 0; at < written.length(); at++) {
+      char each = written.charAt(at);
+      if (each == ' ' && !quoted) {
+        words.add(word.toString());
+        word.setLength(0);
+      } else {
+        quoted ^= each == '"';
+        word.append(each);
+      }
+    }
+    words.add(word.toString());
+    return List.copyOf(words);
   }
 
   /// `mutastic verify <id> · mutastic run --only=<id> · mutastic explain <id>`: the summary's.

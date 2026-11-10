@@ -56,16 +56,27 @@ final class Statements {
     return !endsStatement(code) && !code.startsWith("@");
   }
 
-  /// A line's code, stripped: without a comment, or empty for a line that's only one.
+  /// A line's code, stripped: without a comment, or empty for a line that's only one. A line in a
+  /// block comment starts with `*` or ends it with `*/`; one that opens a comment may have code
+  /// after it closes.
   private static String code(String line) {
-    var stripped = line.strip();
-    if (stripped.startsWith("*") || stripped.startsWith("/*")) {
+    if (line.strip().startsWith("*")) {
       return "";
+    }
+    int close = line.indexOf("*/");
+    int open = line.indexOf("/*");
+    if (close >= 0 && (open < 0 || open > close)) {
+      return Code.masked(line.substring(close + 2)).strip(); // the end of a comment, then code
     }
     return Code.masked(line).strip();
   }
 
-  /// Whether a line of Java ends a statement or opens or closes a block, or is a `case` label: the
+  /// A `case` or `default` label, or a statement's label, `outer:`: never written with a space
+  /// before its colon, as a conditional's `low :` is, and never a number, as `1 :` is.
+  private static final Pattern LABEL =
+      Pattern.compile("(?:case\\b.*|default\\s*|[A-Za-z_$][\\w$]*):");
+
+  /// Whether a line of Java ends a statement or opens or closes a block, or is a label: the
   /// statement can't run past it.
   static boolean endsStatement(String line) {
     var end = Code.masked(line).stripTrailing();
@@ -73,7 +84,7 @@ final class Statements {
         || end.endsWith(";")
         || end.endsWith("{")
         || end.endsWith("}")
-        || (end.endsWith(":") && end.strip().matches("(?:case\\b.*|default|\\w+)\\s*:"));
+        || LABEL.matcher(end.strip()).matches();
   }
 
   /// The statement's text, with a change made, as lines: none when the change takes it out, and

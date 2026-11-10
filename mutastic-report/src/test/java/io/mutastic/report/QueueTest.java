@@ -154,7 +154,8 @@ class QueueTest {
                 + " ignoring, waiting on a person to accept it (.mutastic/proposals.yaml); close"
                 + " this one")
         .contains(
-            "(`mutastic ignore <id> --propose --reason=\"<why>\"`, for each of "
+            "(`mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason=\"Differs"
+                + " only when <case>. That can't happen because <why>.\"`, for each of "
                 + queue.findings().getFirst().ids().replace(",", ", ")
                 + ")")
         .doesNotContain(proposed.mutant().id());

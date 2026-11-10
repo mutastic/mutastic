@@ -45,6 +45,11 @@ final class TextConstants {
   /// Anyone else's `Preconditions` may do anything with a string.
   private static final String PRECONDITIONS = "com/google/common/base/Preconditions";
 
+  /// Why an anchor taken off a pattern that must match all of the text is skipped.
+  static final String WHOLE_MATCH =
+      "equivalent: differs only when a match is part of the text. That can't happen because it"
+          + " has to match all of the text anyway.";
+
   private TextConstants() {}
 
   /// A call a value goes straight into, where it is among the call's values (`0` is an instance
@@ -145,9 +150,7 @@ final class TextConstants {
       changes.add(
           new Change(
               regexLabel(text, to),
-              whole && isAnchorGone(text, to)
-                  ? Optional.of("equivalent: it has to match all of the text anyway")
-                  : Optional.empty()));
+              whole && isAnchorGone(text, to) ? Optional.of(WHOLE_MATCH) : Optional.empty()));
     }
     return changes;
   }

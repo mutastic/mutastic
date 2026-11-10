@@ -87,8 +87,10 @@ class AgentTextTest {
     assertThat(output)
         .contains("rules: add or change tests only, never production code")
         .contains("decline: if a mutant's case can't happen in practice")
-        .contains("propose ignoring it with that reason")
-        .contains("for a person to accept (`mutastic ignore <id> --propose --reason=\"<why>\"`)")
+        .contains("propose ignoring it, for a person to accept, as the kind it is")
+        .contains(
+            "why that can't happen (`mutastic ignore <id> --propose --as=<equivalent|unreachable|…>"
+                + " --reason=\"Differs only when <case>. That can't happen because <why>.\"`)")
         .doesNotContain("or ignore:")
         .contains(
             "1. missed " + boundary(0).id() + ": no test checks `discount()` at `total == 100`")
@@ -132,7 +134,9 @@ class AgentTextTest {
         .contains("   also missed " + always.id() + ": ")
         .contains("   done when: mutastic verify " + ids + " passes")
         .contains("   reproduce: mutastic run --only=" + ids)
-        .contains("   or propose: mutastic ignore <id> --propose --reason=\"<why>\"")
+        .contains(
+            "   or propose: mutastic ignore <id> --propose --as=<equivalent|unreachable|…>"
+                + " --reason=\"Differs only when <case>. That can't happen because <why>.\"")
         .contains("for each of " + boundary.id() + ", " + always.id())
         .doesNotContain("2. missed");
     assertThat(each).contains("1. missed " + always.id()).contains("2. missed " + boundary.id());
@@ -173,7 +177,11 @@ class AgentTextTest {
 
     assertThat(output)
         .contains("not covered (no test reaches these lines):")
-        .contains("- src/main/java/com/example/Pricing.java:5 discount() (2 mutants)");
+        .contains(
+            "- src/main/java/com/example/Pricing.java:5 discount() (2 mutants)\n"
+                + "  or propose: mutastic ignore <id> --propose --as=<equivalent|unreachable|…>"
+                + " --reason=\"Differs only when <case>. That can't happen because <why>.\""
+                + " for each of %s, %s\n".formatted(boundary(0).id(), boundary(1).id()));
   }
 
   /// A method no test reaches is one line, with the lines its mutants are on; `--each-mutant` lists
@@ -198,7 +206,9 @@ class AgentTextTest {
             List.of());
 
     assertThat(text.render(uncovered))
-        .contains("- src/main/java/com/example/Pricing.java:5-8 discount() (2 mutants)");
+        .contains("- src/main/java/com/example/Pricing.java:5-8 discount() (2 mutants)")
+        .contains("  or propose (line 5): mutastic ignore %s --propose".formatted(boundary(0).id()))
+        .contains("  or propose (line 8): mutastic ignore %s --propose".formatted(elsewhere.id()));
     assertThat(text.eachMutant(true).render(uncovered))
         .contains("- src/main/java/com/example/Pricing.java:5 discount() (1 mutant)")
         .contains("- src/main/java/com/example/Pricing.java:8 discount() (1 mutant)");

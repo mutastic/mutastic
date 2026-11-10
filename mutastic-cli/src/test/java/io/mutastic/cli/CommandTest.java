@@ -136,6 +136,48 @@ class CommandTest {
     assertThatThrownBy(() -> parse("run", "--only")).hasMessage("--only needs a value: --only=ID");
   }
 
+  /// An empty id is said to be one, not looked for as a mutant with no name.
+  @Test
+  void anEmptyOnlyIdIsRefused() {
+    assertThatThrownBy(() -> parse("run", "--only="))
+        .hasMessage("--only needs a mutant's id: --only=ID, as a card shows it");
+    assertThatThrownBy(() -> parse("run", "--only=m855c8e3c,,m2e491c40"))
+        .hasMessage("--only=m855c8e3c,,m2e491c40 has an empty id between its commas: --only=ID,ID");
+  }
+
+  /// A proposal says why in a form a person can check: an equivalent or unreachable mutant's reason
+  /// has a because, and no proposal keeps the template's parts unfilled.
+  @Test
+  void aProposalThatAMutantCantMatterSaysWhy() {
+    var argued =
+        "--reason=Differs only when total is 100. That can't happen because prices end in 9.";
+
+    assertThat(parse("ignore", "m855c8e3c", "--propose", "--as=equivalent", argued).ignore())
+        .isPresent();
+    assertThatThrownBy(
+            () -> parse("ignore", "m855c8e3c", "--propose", "--as=unreachable", "--reason=never"))
+        .hasMessageStartingWith(
+            "a proposal that a mutant is unreachable needs a reason a person can check")
+        .hasMessageEndingWith(
+            "--reason=\"Differs only when <case>. That can't happen because <why>.\"");
+    assertThatThrownBy(
+            () ->
+                parse(
+                    "ignore",
+                    "m855c8e3c",
+                    "--propose",
+                    "--as=telemetry",
+                    "--reason=Differs only when <case>. That can't happen because <why>."))
+        .hasMessageStartingWith("the reason still has the template's <case> or <why>");
+    assertThat(
+            parse("ignore", "m855c8e3c", "--propose", "--as=telemetry", "--reason=logs").ignore())
+        .as("other kinds keep a free reason")
+        .isPresent();
+    assertThat(parse("ignore", "m855c8e3c", "--as=equivalent", "--reason=same").ignore())
+        .as("a person's own ignore isn't argued with")
+        .isPresent();
+  }
+
   /// `--since` may go without a value, so the word after it is the directory: one that isn't a
   /// directory was meant as its value, and the error says how to write it.
   @Test

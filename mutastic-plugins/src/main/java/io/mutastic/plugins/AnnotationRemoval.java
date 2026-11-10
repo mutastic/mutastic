@@ -107,7 +107,9 @@ abstract class AnnotationRemoval implements ClassMutator {
     boolean primitive =
         parameter.isEmpty() && member.isField() && member.descriptor().length() == 1;
     return notNull && primitive
-        ? Optional.of("equivalent: a primitive is never null, so `@NotNull` can't refuse anything")
+        ? Optional.of(
+            "equivalent: differs only when the value is null. That can't happen because a"
+                + " primitive is never null, so `@NotNull` can't refuse anything.")
         : Optional.empty();
   }
 

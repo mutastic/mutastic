@@ -153,7 +153,7 @@ class TextConstantTruthTest {
 
   @Test
   void anAnchorOnWhatHasToMatchAllOfItIsEquivalent() throws Exception {
-    var why = " (equivalent: it has to match all of the text anyway)";
+    var why = " (" + TextConstants.WHOLE_MATCH + ")";
     assertThat(regexes.changesIn("anchorsThatDoNothing"))
         .containsExactly(
             "regex \"^a+$\" to \"a+$\"" + why,

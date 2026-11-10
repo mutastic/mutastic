@@ -32,6 +32,9 @@ class ShownChangeTruthTest {
           new Fixture("discards/Discards.java", "mutastic/remove-discarded-call", Inputs.NUMBERS),
           new Fixture("discards/Discards.java", "mutastic/remove-void-call", Inputs.NUMBERS),
           new Fixture("stores/Assignments.java", "mutastic/remove-assignment", Inputs.NUMBERS),
+          new Fixture("discards/Leftovers.java", "mutastic/remove-discarded-call", Inputs.NUMBERS),
+          new Fixture("discards/Leftovers.java", "mutastic/remove-void-call", Inputs.NUMBERS),
+          new Fixture("discards/Leftovers.java", "mutastic/remove-assignment", Inputs.NUMBERS),
           new Fixture("returns/Returns.java", "mutastic/return-value", Inputs.NUMBERS),
           new Fixture("calls/Omitted.java", "mutastic/omit-call"),
           new Fixture("calls/Swapped.java", "mutastic/swap-arguments"),
@@ -67,5 +70,17 @@ class ShownChangeTruthTest {
 
     assertThat(failures).as("cards that show lines that aren't the mutant's").isEmpty();
     assertThat(shown).as("the cards whose lines were checked").hasSizeGreaterThan(100);
+    assertThat(shown)
+        .as("a removed part that still runs, shown as what's left")
+        .anyMatch(card -> card.startsWith("anArgument ") && card.endsWith(": seen.addAndGet(b);"))
+        .anyMatch(card -> card.startsWith("aReceiver ") && card.endsWith(": listIn(made);"))
+        .anyMatch(
+            card -> card.startsWith("aVoidCallsArgument ") && card.endsWith(": seen.getAndAdd(b);"))
+        .anyMatch(
+            card -> card.startsWith("afterAComment ") && card.endsWith(": seen.addAndGet(b);"))
+        .anyMatch(card -> card.startsWith("inAConditional ") && card.endsWith(": "))
+        .anyMatch(
+            card ->
+                card.startsWith("aBracketedValue ") && card.endsWith(": seen.incrementAndGet();"));
   }
 }

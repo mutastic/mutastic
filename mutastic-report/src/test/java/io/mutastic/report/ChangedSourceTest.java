@@ -115,9 +115,32 @@ class ChangedSourceTest {
     assertThat(changed("    audit.record(name);", removed)).contains("");
     assertThat(kotlin("    audit.record(name)", removed)).contains("");
     assertThat(changed("    audit.record(name)", removed)).as("no `;` in Java").isEmpty();
-    assertThat(changed("    audit().record(name);", removed)).as("audit() still runs").isEmpty();
-    assertThat(changed("    audit.record(count++);", removed)).as("count++ still runs").isEmpty();
     assertThat(changed("    if (on) audit.record(name);", removed)).isEmpty();
+  }
+
+  /// Java works out what a call is on and its arguments before it calls, so a removed call leaves
+  /// those that do something, in that order, written as statements; and nothing is shown where one
+  /// can't be a statement.
+  @Test
+  void aRemovedCallLeavesWhatStillRunsAsStatements() {
+    var removed =
+        mutant(
+            BuiltIn.REMOVE_DISCARDED_CALL,
+            "INVOKEVIRTUAL java/lang/StringBuilder.append(Ljava/lang/String;)Ljava/lang/StringBuilder;",
+            "remove call");
+
+    assertThat(changed("    out.append(System.lineSeparator());", removed))
+        .contains("    System.lineSeparator();");
+    assertThat(changed("    audit().append(name);", removed)).contains("    audit();");
+    assertThat(changed("    out.append(count++);", removed)).contains("    count++;");
+    assertThat(changed("    out.append((next()));", removed)).contains("    next();");
+    assertThat(changed("    log().append(a(), b);", removed)).contains("    log();\n    a();");
+    assertThat(kotlin("    out.append(lineSeparator())", removed)).contains("    lineSeparator()");
+    assertThat(changed("    out.append(prefix + next());", removed))
+        .as("`prefix + next()` isn't a statement")
+        .isEmpty();
+    assertThat(changed("    out.append(!next());", removed)).isEmpty();
+    assertThat(changed("    out.append(items[i++]);", removed)).isEmpty();
   }
 
   @Test
@@ -384,6 +407,12 @@ class ChangedSourceTest {
     assertThat(changed("    total = next(price, 2);", store)).contains("    next(price, 2);");
     assertThat(changed("    total = a + next(price);", store)).isEmpty();
     assertThat(changed("    total = next(price).value;", store)).isEmpty();
+    assertThat(changed("    total = (next());", store))
+        .as("brackets around a whole statement aren't Java")
+        .contains("    next();");
+    assertThat(changed("    total = ((items.next()));", store)).contains("    items.next();");
+    assertThat(changed("    total = (a) + next();", store)).isEmpty();
+    assertThat(changed("    total = count++;", store)).contains("    count++;");
   }
 
   @Test

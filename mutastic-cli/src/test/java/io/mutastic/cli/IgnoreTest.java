@@ -13,6 +13,8 @@ import org.junit.jupiter.api.io.TempDir;
 class IgnoreTest {
   private static final Path SAMPLE = Path.of(System.getProperty("mutastic.samples"), "pricing");
   private static final String ID = "m855c8e3c";
+  private static final String ARGUED =
+      "Differs only when total is 100. That cannot happen because prices end in 9.";
 
   @TempDir Path work;
 
@@ -97,7 +99,7 @@ class IgnoreTest {
             project.toString(),
             "--propose",
             "--as=unreachable",
-            "--reason=never 100");
+            "--reason=" + ARGUED);
     var stillMissed =
         Samples.mutastic(
             "run", project.toString(), "--only=" + ID, "--format=jsonl", "--report=none");
@@ -108,13 +110,13 @@ class IgnoreTest {
 
     assertThat(proposed.exit()).isEqualTo(Main.PASSED);
     assertThat(proposed.out())
-        .contains(ID + " is proposed for ignoring: never 100")
+        .contains(ID + " is proposed for ignoring: " + ARGUED)
         .contains("it counts as missed until a person accepts it")
         .contains("to accept: mutastic ignore --accept " + ID);
     assertThat(stillMissed.out()).contains("\"status\":\"Survived\"");
-    assertThat(accepted.out()).contains(ID + " is ignored, as proposed: never 100");
+    assertThat(accepted.out()).contains(ID + " is ignored, as proposed: " + ARGUED);
     assertThat(Files.readString(project.resolve(".mutastic/ignores.yaml")))
-        .contains("- id: " + ID, "reason: 'never 100'", "kind: unreachable");
+        .contains("- id: " + ID, "reason: '" + ARGUED + "'", "kind: unreachable");
     assertThat(proposals).doesNotExist(); // none left waiting
     assertThat(nowIgnored.out()).contains("\"status\":\"Ignored\"");
   }

@@ -152,9 +152,68 @@ equivalent, it's a missing test, and that input is the test. If the input exists
 it's [unreachable](#not-the-same-as-doesnt-matter), which is a different decision, so say that
 instead with `--as=unreachable`.
 
+## How to argue a mutant is equivalent
+
+"It's equivalent" on its own asks the reader to take it on trust. Say it in two sentences instead,
+the first naming the one case where the mutant could differ, the second why that case can't happen:
+
+```text
+Differs only when <case>. That can't happen because <why>.
+```
+
+The first sentence is the input a test would need. The second is what rules it out, written so a
+reviewer can check it in the code, not just believe it. If you can't finish the second sentence
+that way, the case can happen, and it's the test to write.
+
+**A size compared with zero.**
+
+```java
+int count = items.size();
+if (count == 0) return List.of();   // a mutant: count <= 0
+```
+
+> Differs only when count is negative. That can't happen because count is `items.size()`, and a
+> size is never negative.
+
+**A check for a value the code never holds.**
+
+```java
+private final List<Item> items = new ArrayList<>();
+…
+if (items == null || items.isEmpty()) return 0;   // a mutant: items == null is always false
+```
+
+> Differs only when items is null. That can't happen because the field is final and set where it's
+> declared.
+
+**An input that exists, but never comes.** This one isn't equivalent: an input could tell it apart.
+It's unreachable, and the argument has the same shape:
+
+```java
+if (balance < -1000) throw new Overdrawn(balance);   // a mutant: balance <= -1000
+```
+
+> Differs only when balance is exactly -1000. That can't happen because the ledger refuses a
+> withdrawal that would take a balance below -999.
+
+**One that doesn't hold.** "Differs only when total is 100. That can't happen because orders are
+usually bigger." Usually isn't never: a test with a total of 100 catches it.
+
+mutastic writes its own skips this way where there's a case to name: `equivalent: differs only when
+a size or length is negative. That can't happen because sizes and lengths count from 0.`
+
 ### Coding agents
 
 The [agent format](/concepts/output/) tells a coding agent the same: when a mutant's case can't
-happen, or no caller can see the change, don't contrive a test; say why, and ignore it with that
-reason. An agent's ignore is a proposal: review it like any other entry in `ignores.yaml`, with its
-kind and reason in front of you.
+happen, or no caller can see the change, don't contrive a test; propose ignoring it, for a person to
+accept, with its kind and the two sentences. Each missed mutant, and each one no test reaches,
+comes with the command:
+
+```sh
+mutastic ignore m1a2b3c4d --propose --as=equivalent --reason="Differs only when count is negative. That can't happen because count is items.size()."
+```
+
+A proposal that a mutant is equivalent or unreachable is refused without a "because": it says
+plainly what's wanted. Proposals wait in `.mutastic/proposals.yaml`, and the mutant counts as missed
+until a person accepts one with `mutastic ignore --accept ID`, with its kind and reason in front of
+them.

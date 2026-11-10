@@ -87,4 +87,24 @@ class CodeTest {
     assertThat(Code.doesSomething("\"call()\"")).isFalse();
     assertThat(Code.doesSomething("a[i] + 1")).isFalse();
   }
+
+  /// What can be a statement of its own: a call, a new object, an assignment, `++` or `--`, without
+  /// the brackets around it all.
+  @Test
+  void aStatementIsACallANewObjectOrAWrite() {
+    assertThat(Code.asStatement(" (next()) ")).contains("next()");
+    assertThat(Code.asStatement("\n  /* the sum */ next() // now")).contains("next()");
+    assertThat(Code.asStatement("items\n    .next()")).contains("items\n    .next()");
+    assertThat(Code.asStatement("new Total(price)")).contains("new Total(price)");
+    assertThat(Code.asStatement("count++")).contains("count++");
+    assertThat(Code.asStatement("--count")).contains("--count");
+    assertThat(Code.asStatement("this.total = next()")).contains("this.total = next()");
+    assertThat(Code.asStatement("totals[i] += 2")).contains("totals[i] += 2");
+    assertThat(Code.asStatement("a == next()")).isEmpty();
+    assertThat(Code.asStatement("a + next()")).isEmpty();
+    assertThat(Code.asStatement("!next()")).isEmpty();
+    assertThat(Code.asStatement("(a) + next()")).isEmpty();
+    assertThat(Code.asStatement("next().value")).isEmpty();
+    assertThat(Code.asStatement("a ? next() : b()")).isEmpty();
+  }
 }

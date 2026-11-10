@@ -1,6 +1,6 @@
 mutastic: PASS · score 81.8% (threshold 80) · 2 missed, 0 not covered, 9 caught of 11 mutants
 rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/selection` passes
-decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and propose ignoring it with that reason (and --as equivalent, unreachable, telemetry, deprecated or accepted-risk) for a person to accept (`mutastic ignore <id> --propose --reason="<why>" samples/selection`)
+decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: propose ignoring it, for a person to accept, as the kind it is (equivalent, unreachable, telemetry, deprecated or accepted-risk), with the reason in two sentences: the one case where it differs, and why that can't happen (`mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/selection`)
 
 1. missed md5554dc3: no test checks `fee()` at `amount == 10`
    at src/main/java/com/example/selection/Fees.java:6
@@ -18,7 +18,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify md5554dc3 samples/selection passes
    reproduce: mutastic run --only=md5554dc3 samples/selection
-   or propose: mutastic ignore md5554dc3 --propose --reason="<why>" samples/selection
+   or propose: mutastic ignore md5554dc3 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/selection
 
 2. missed m71d455f1: no test needs `rate == null` to be true in `rate()`
    at src/main/java/com/example/selection/Fees.java:14
@@ -28,4 +28,4 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    fix: add a test where `rate == null` is true, and assert what `rate()` does then
    done when: mutastic verify m71d455f1 samples/selection passes
    reproduce: mutastic run --only=m71d455f1 samples/selection
-   or propose: mutastic ignore m71d455f1 --propose --reason="<why>" samples/selection
+   or propose: mutastic ignore m71d455f1 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/selection

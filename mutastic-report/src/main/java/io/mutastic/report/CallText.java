@@ -118,12 +118,23 @@ record CallText(String text, int start, int dot, int open, int close, List<Span>
     if (filled.isEmpty() || dropsAnEffect(template, keepsReceiver)) {
       return Optional.empty();
     }
-    int from = keepsReceiver ? dot : start;
+    int from = keepsReceiver ? replacedFrom(shown.isEmpty()) : start;
     var replacement =
         keepsReceiver || !needsBrackets(filled.get(), from)
             ? filled.get()
             : "(" + filled.get() + ")";
     return Optional.of(text.substring(0, from) + replacement + text.substring(close + 1));
+  }
+
+  /// Where a call written after its receiver starts: at its `.`, or for a receiver kept alone at
+  /// the receiver's end, so `raw\n .strip()` is `raw`, not `raw` and a line of its own for the
+  /// rest.
+  private int replacedFrom(boolean receiverAlone) {
+    int from = dot;
+    while (receiverAlone && Character.isWhitespace(text.charAt(from - 1))) {
+      from--;
+    }
+    return from;
   }
 
   /// The statement with the call given other arguments, in the order given: from the ones it has,
@@ -165,11 +176,17 @@ record CallText(String text, int start, int dot, int open, int close, List<Span>
         : Optional.of(text.substring(0, from) + text.substring(close));
   }
 
-  /// The statement without it, when the call is all the statement does: `audit.record(x);`.
+  /// The statement without it, when the call is all the statement does: `audit.record(x);` gone, or
+  /// what still runs left in its place. Java works out what a call is on and its arguments before
+  /// it calls, so the mutant still does: `out.append(System.lineSeparator());` leaves
+  /// `System.lineSeparator();`. None when what's left can't be written as statements.
   Optional<String> removedStatement(boolean kotlin) {
     var after = text.substring(close + 1).strip();
     boolean whole =
         text.substring(0, start).isBlank() && (after.equals(";") || (kotlin && after.isEmpty()));
+    if (!whole) {
+      return Optional.empty();
+    }
     var dropped = new ArrayList<String>();
     if (dot >= 0) {
       dropped.add(receiver());
@@ -177,9 +194,22 @@ record CallText(String text, int start, int dot, int open, int close, List<Span>
     for (int index = 0; index < arguments.size(); index++) {
       dropped.add(argument(index));
     }
-    return whole && dropped.stream().noneMatch(Code::doesSomething)
-        ? Optional.of("")
-        : Optional.empty();
+    return leftOver(dropped, kotlin);
+  }
+
+  /// Each of `dropped` that does something, as a statement of its own at the statement's indent;
+  /// none if one can't be a statement.
+  private Optional<String> leftOver(List<String> dropped, boolean kotlin) {
+    var indent = text.substring(0, text.length() - text.stripLeading().length());
+    var left = new ArrayList<String>();
+    for (var part : dropped.stream().filter(Code::doesSomething).toList()) {
+      var statement = Code.asStatement(part);
+      if (statement.isEmpty()) {
+        return Optional.empty();
+      }
+      left.add(indent + statement.get() + (kotlin ? "" : ";"));
+    }
+    return Optional.of(String.join("\n", left));
   }
 
   int argumentCount() {

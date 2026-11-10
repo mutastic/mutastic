@@ -65,9 +65,11 @@ in each:
 
 - **The agent format** puts the verdict first, so a truncated read still has it, and the rule that a
   fix changes tests, never production code. It also says when not to write one: a mutant whose case
-  can't happen in practice, or whose change no caller can see, is declined with its reason and
-  proposed for a person to ignore, not given a contrived test. It shows the misses most worth a
-  test first.
+  can't happen in practice, or whose change no caller can see, is proposed for a person to ignore,
+  with its kind and a reason in two sentences (the one case where it differs, and [why that can't
+  happen](/concepts/equivalence/#how-to-argue-a-mutant-is-equivalent)), not given a contrived test.
+  It shows the misses most worth a test first, then each line no test reaches, with its mutants'
+  ids to propose.
 - **`jsonl`** writes `mutastic.events/v1` events, described field by field by [their JSON
   Schema](https://docs.mutastic.io/schemas/events/v1.json). Progress is off, so stdout is only the
   events. Statuses follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`,

@@ -43,16 +43,18 @@ does.
 An agent decides how to test a line. Whether a case can happen in practice is a different
 question, and it's yours. When the agent thinks a mutant's case can't happen (a balance the ledger
 caps, a log line no caller reads), it doesn't contrive a test, and it doesn't ignore the mutant: it
-**proposes** the ignore, with its reason.
+**proposes** the ignore, with its reason: the one case where the mutant differs, and why that can't
+happen.
 
 ```sh
-mutastic ignore m90db0c4e --propose --as=unreachable --reason="balances are capped by the ledger"
+mutastic ignore m90db0c4e --propose --as=unreachable --reason="Differs only when balance is below -1000. That can't happen because the ledger caps overdrafts at 1000."
 ```
 
 The proposal goes in `.mutastic/proposals.yaml`, and the mutant still counts as missed until you
 accept it (`mutastic ignore --accept ID`) or withdraw it (`--remove`). Commit the proposals with the
 change, and a pull request's reviewer decides them. [Configuration](/guides/configuration/) has the
-details, and [equivalent mutants](/concepts/equivalence/) says which kinds mutastic skips on its own.
+details, and [equivalent mutants](/concepts/equivalence/) says which kinds mutastic skips on its own
+and [how to argue one](/concepts/equivalence/#how-to-argue-a-mutant-is-equivalent).
 
 The gate holds the rest of the line: a task that ignores a mutant itself, or deletes or disables a
 test, isn't done either. And when the agent can't get there, or you've told it not to, the gate

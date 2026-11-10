@@ -250,30 +250,10 @@ record ChangedSource(String text, int from, boolean kotlin) {
     return Code.doesSomething(value) ? leftAlone(value) : Optional.of("");
   }
 
-  /// What was assigned, as a statement of its own, when it's a call: it still runs.
+  /// What was assigned, as a statement of its own, when it can be one: it still runs.
   private Optional<String> leftAlone(String value) {
     var indent = text.substring(0, text.length() - text.stripLeading().length());
-    return isCall(value)
-        ? Optional.of(indent + value.strip() + (kotlin ? "" : ";"))
-        : Optional.empty();
-  }
-
-  /// Whether code is one call, or one new object, which can be a statement on its own.
-  private static boolean isCall(String value) {
-    var code = Code.masked(value).strip();
-    if (!code.endsWith(")")) {
-      return false;
-    }
-    var withoutNew = code.startsWith("new ") ? code.substring(4) : code;
-    int depth = 0;
-    for (int at = 0; at < withoutNew.length(); at++) {
-      char each = withoutNew.charAt(at);
-      depth += Code.depthChange(each);
-      if (depth == 0 && Character.isWhitespace(each)) {
-        return false;
-      }
-    }
-    return true;
+    return Code.asStatement(value).map(statement -> indent + statement + (kotlin ? "" : ";"));
   }
 
   /// `i++` as `i--`, `i += 2` as `i -= 2`, and the other way round. The label is the step the

@@ -229,7 +229,8 @@ class AnnotationRemovalTest {
         .singleElement()
         .satisfies(
             change ->
-                assertThat(change.skipped().orElseThrow()).startsWith("equivalent: a primitive"));
+                assertThat(change.skipped().orElseThrow())
+                    .startsWith("equivalent: differs only when the value is null."));
     assertThat(changes)
         .filteredOn(change -> change.member().name().equals("<field name>"))
         .singleElement()

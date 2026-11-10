@@ -169,7 +169,9 @@ class LibraryTruthTest {
 
   @Test
   void aWholeNumberBeingRoundedIsSkippedAsEquivalent() throws Exception {
-    var why = "equivalent: a whole number rounds to itself with `%s` and `%s`";
+    var why =
+        "equivalent: differs only when the value `%1$s` takes has a fraction. That can't happen"
+            + " because it's a whole number, which rounds to itself with `%1$s` and `%2$s`.";
     assertThat(skips("floorOfAnInt")).containsExactly(why.formatted("floor", "ceil"));
     assertThat(skips("ceilOfADivision")).containsExactly(why.formatted("ceil", "floor"));
     assertThat(skips("floorOfALong")).containsExactly(why.formatted("floor", "ceil"));

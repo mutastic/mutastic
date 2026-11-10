@@ -19,6 +19,7 @@ import io.mutastic.report.Explanation;
 import io.mutastic.report.HumanText;
 import io.mutastic.report.Invocation;
 import io.mutastic.report.JsonEvents;
+import io.mutastic.report.MutantCommand;
 import io.mutastic.report.NextText;
 import io.mutastic.report.Queue;
 import io.mutastic.report.ReportFiles;
@@ -1437,12 +1438,14 @@ public final class Main {
             + " lapses when that line changes. --remove takes one back; ignore --prune takes away"
             + " every one that has lapsed. --propose records it in .mutastic/proposals.yaml"
             + " instead, for a person to accept with --accept: how a coding agent says a mutant"
-            + " isn't worth a test, since until then it still counts as missed.",
+            + " isn't worth a test, since until then it still counts as missed. A proposal that a"
+            + " mutant is equivalent or unreachable says the one case where it differs, and why"
+            + " that can't happen.",
         "0 when the decision is recorded, proposed, accepted or removed; 1 when --accept names a mutant that isn't proposed.",
         List.of(
             "mutastic ignore m855c8e3c --reason=\"only logs\"",
-            "mutastic ignore m855c8e3c --propose --as=unreachable --reason=\"totals are rounded to"
-                + " tens\"",
+            "mutastic ignore m855c8e3c --propose --as=unreachable --reason=\"Differs only when"
+                + " total is 100. That can't happen because prices end in 9.\"",
             "mutastic ignore --accept m855c8e3c",
             "mutastic ignore --remove m855c8e3c",
             "mutastic ignore --prune")),
@@ -1841,7 +1844,7 @@ public final class Main {
         switch (option.name()) {
           case "--threshold" -> threshold = number(option, given, 0, 100);
           case "--since" -> since(value);
-          case "--only" -> only = List.of(given.split(",", -1));
+          case "--only" -> only = onlyIds(given);
           case "--tests-from" -> testsFrom.add(module(given));
           case "--operators" -> operators(given);
           case "--experimental" -> experimental.add(choice(option, given));
@@ -1859,6 +1862,19 @@ public final class Main {
           case "--progress" -> progress = choice(option, given);
           default -> setIgnoringOrForAPlugin(option, given);
         }
+      }
+
+      /// `--only=ID[,ID…]`'s ids: an empty one, from `--only=` or a comma too many, is no id.
+      private static List<String> onlyIds(String given) {
+        var ids = List.of(given.split(",", -1));
+        if (given.isBlank()) {
+          throw new UsageException("--only needs a mutant's id: --only=ID, as a card shows it");
+        }
+        if (ids.stream().anyMatch(String::isBlank)) {
+          throw new UsageException(
+              "--only=%s has an empty id between its commas: --only=ID,ID".formatted(given));
+        }
+        return ids;
       }
 
       /// `--since=REF`, or a bare `--since`, whose ref may be the word after it.
@@ -2002,8 +2018,30 @@ public final class Main {
           throw new UsageException(
               "--propose records a proposal: not with --accept, --remove or --prune");
         }
+        if (propose) {
+          checkArgued();
+        }
         return built(Subcommand.IGNORE)
             .ignoring(new Ignoring(prune, remove, reason, kind, propose, accept));
+      }
+
+      /// A proposal's reason, which a person checks in place of a test: filled in, and for a mutant
+      /// said to be equivalent or unreachable, saying why its case can't happen.
+      private void checkArgued() {
+        if (MutantCommand.Reason.unfilled(this.reason)) {
+          throw new UsageException(
+              "the reason still has the template's <case> or <why>: fill them in, as"
+                  + " --reason=\"Differs only when count is negative. That can't happen because"
+                  + " count is a size.\"");
+        }
+        if (MutantCommand.Reason.ARGUED.contains(kind)
+            && !MutantCommand.Reason.argued(this.reason)) {
+          throw new UsageException(
+              ("a proposal that a mutant is %s needs a reason a person can check: the one case"
+                      + " where it differs, and why that can't happen, with a because:"
+                      + " --reason=\"%s\"")
+                  .formatted(kind, MutantCommand.Reason.TEMPLATE));
+        }
       }
 
       /// `verify`'s ids: every word before the directory that is one, `m` and eight hex digits, or

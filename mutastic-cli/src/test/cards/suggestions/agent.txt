@@ -1,6 +1,6 @@
 mutastic: FAIL · score 50.0% (threshold 80) · 21 missed, 0 not covered, 21 caught of 42 mutants (2 more skipped)
 rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/suggestions` passes
-decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: say why, and propose ignoring it with that reason (and --as equivalent, unreachable, telemetry, deprecated or accepted-risk) for a person to accept (`mutastic ignore <id> --propose --reason="<why>" samples/suggestions`)
+decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: propose ignoring it, for a person to accept, as the kind it is (equivalent, unreachable, telemetry, deprecated or accepted-risk), with the reason in two sentences: the one case where it differs, and why that can't happen (`mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions`)
 
 1. missed m86ee3ce6: no test checks `isFree()` at `total == freeFrom`
    at src/main/java/com/example/rates/Delivery.java:12
@@ -18,7 +18,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify m86ee3ce6 samples/suggestions passes
    reproduce: mutastic run --only=m86ee3ce6 samples/suggestions
-   or propose: mutastic ignore m86ee3ce6 --propose --reason="<why>" samples/suggestions
+   or propose: mutastic ignore m86ee3ce6 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
 2. missed m43173676: no test needs `total >= freeFrom` to be false in `isFree()`
    at src/main/java/com/example/rates/Delivery.java:12
@@ -35,7 +35,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify m43173676 samples/suggestions passes
    reproduce: mutastic run --only=m43173676 samples/suggestions
-   or propose: mutastic ignore m43173676 --propose --reason="<why>" samples/suggestions
+   or propose: mutastic ignore m43173676 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
 3. missed m2e5ded43: no test checks `isFree()` returning `false` here
    at src/main/java/com/example/rates/Delivery.java:12
@@ -53,7 +53,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify m2e5ded43 samples/suggestions passes
    reproduce: mutastic run --only=m2e5ded43 samples/suggestions
-   or propose: mutastic ignore m2e5ded43 --propose --reason="<why>" samples/suggestions
+   or propose: mutastic ignore m2e5ded43 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
 4. missed m56784e43: no test checks `discount()` at `total == 100`
    at src/main/java/com/example/rates/Discounts.java:11
@@ -71,7 +71,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify m56784e43 samples/suggestions passes
    reproduce: mutastic run --only=m56784e43 samples/suggestions
-   or propose: mutastic ignore m56784e43 --propose --reason="<why>" samples/suggestions
+   or propose: mutastic ignore m56784e43 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
 5. missed m209a60d0: no test needs `total >= 100` to be false in `discount()`
    at src/main/java/com/example/rates/Discounts.java:11
@@ -88,7 +88,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify m209a60d0 samples/suggestions passes
    reproduce: mutastic run --only=m209a60d0 samples/suggestions
-   or propose: mutastic ignore m209a60d0 --propose --reason="<why>" samples/suggestions
+   or propose: mutastic ignore m209a60d0 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
 6. missed m63f5f45e: no test checks `bulk()` at `count == 50`
    at src/main/java/com/example/rates/Discounts.java:15
@@ -106,7 +106,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify m63f5f45e samples/suggestions passes
    reproduce: mutastic run --only=m63f5f45e samples/suggestions
-   or propose: mutastic ignore m63f5f45e --propose --reason="<why>" samples/suggestions
+   or propose: mutastic ignore m63f5f45e --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
 7. missed m2b0d1651: no test needs `50 <= count` to be false in `bulk()`
    at src/main/java/com/example/rates/Discounts.java:15
@@ -123,7 +123,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify m2b0d1651 samples/suggestions passes
    reproduce: mutastic run --only=m2b0d1651 samples/suggestions
-   or propose: mutastic ignore m2b0d1651 --propose --reason="<why>" samples/suggestions
+   or propose: mutastic ignore m2b0d1651 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
 8. missed m49a00b3f: no test checks `columns()` at `chosen == 3`
    at src/main/java/com/example/rates/Discounts.java:20
@@ -139,7 +139,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify m49a00b3f samples/suggestions passes
    reproduce: mutastic run --only=m49a00b3f samples/suggestions
-   or propose: mutastic ignore m49a00b3f --propose --reason="<why>" samples/suggestions
+   or propose: mutastic ignore m49a00b3f --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
 9. missed m111a435d: no test needs `chosen > 3` to be false in `columns()`
    at src/main/java/com/example/rates/Discounts.java:20
@@ -155,7 +155,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify m111a435d samples/suggestions passes
    reproduce: mutastic run --only=m111a435d samples/suggestions
-   or propose: mutastic ignore m111a435d --propose --reason="<why>" samples/suggestions
+   or propose: mutastic ignore m111a435d --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
 10. missed m2e491c40: no test checks `lateFee()` at `daysLate == 7`
    at src/main/java/com/example/rates/Rates.java:10
@@ -173,6 +173,6 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
      // check today's value is the one you intend: the test pins what the code does now
    done when: mutastic verify m2e491c40 samples/suggestions passes
    reproduce: mutastic run --only=m2e491c40 samples/suggestions
-   or propose: mutastic ignore m2e491c40 --propose --reason="<why>" samples/suggestions
+   or propose: mutastic ignore m2e491c40 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
 11 more missed mutants: run again after fixing these

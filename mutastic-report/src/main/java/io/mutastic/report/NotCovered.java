@@ -20,6 +20,18 @@ final class NotCovered {
       SourceView sources,
       boolean byLine,
       Function<Mutant, String> method) {
+    var counted = new LinkedHashMap<String, Long>();
+    grouped(uncovered, sources, byLine, method)
+        .forEach((where, inGroup) -> counted.put(where, (long) inGroup.size()));
+    return counted;
+  }
+
+  /// The same places, each to its mutants, in report order.
+  static Map<String, List<Mutant>> grouped(
+      List<MutantResult> uncovered,
+      SourceView sources,
+      boolean byLine,
+      Function<Mutant, String> method) {
     var groups = new LinkedHashMap<String, List<Mutant>>();
     for (MutantResult result : uncovered) {
       var mutant = result.mutant();
@@ -31,11 +43,9 @@ final class NotCovered {
               + (byLine ? ":" + sources.place(mutant).line() : "");
       groups.computeIfAbsent(key, ignored -> new java.util.ArrayList<>()).add(mutant);
     }
-    var counted = new LinkedHashMap<String, Long>();
-    groups
-        .values()
-        .forEach(inGroup -> counted.put(where(inGroup, sources, method), (long) inGroup.size()));
-    return counted;
+    var grouped = new LinkedHashMap<String, List<Mutant>>();
+    groups.values().forEach(inGroup -> grouped.put(where(inGroup, sources, method), inGroup));
+    return grouped;
   }
 
   private static String where(

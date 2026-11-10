@@ -124,7 +124,8 @@ final class Comparisons {
           "java/lang/StringBuffer");
 
   static final String NEVER_NEGATIVE =
-      "equivalent: differs only for a negative size or length, which can't be";
+      "equivalent: differs only when a size or length is negative. That can't happen because"
+          + " sizes and lengths count from 0.";
 
   private Comparisons() {}
 

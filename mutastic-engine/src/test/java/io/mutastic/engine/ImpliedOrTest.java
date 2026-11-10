@@ -14,8 +14,7 @@ import org.junit.jupiter.api.Test;
 /// Which `||` tests are skipped as covered by the next one. That each skipped one really is
 /// equivalent, CardTruthTest checks by running it.
 class ImpliedOrTest {
-  private static final String REASON =
-      "equivalent: the next test of the `||` already covers its case";
+  private static final String REASON = ImpliedOr.WHY;
 
   @Test
   void skipsOnlyATestTheNextOneCovers() throws Exception {
