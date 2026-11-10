@@ -59,10 +59,11 @@ abstract class RootsLoader extends ClassLoader {
     return own != null ? own : super.getResource(name);
   }
 
+  /// The project's own, then the parent's, but for its copy of the project's ([ResourceCopy]).
   @Override
   public Enumeration<URL> getResources(String name) throws IOException {
     var found = resourcesIn(resourceRoots, name);
-    found.addAll(Collections.list(getParent().getResources(name)));
+    found.addAll(ResourceCopy.without(Collections.list(getParent().getResources(name))));
     return Collections.enumeration(found);
   }
 

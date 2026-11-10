@@ -85,6 +85,14 @@ public final class SystemLoader extends ClassLoader {
     return to == null ? null : to.findResource(name);
   }
 
+  /// The parent's and then the project's, and once the project is here, not the parent's copy of
+  /// its resources too ([ResourceCopy]).
+  @Override
+  public Enumeration<URL> getResources(String name) throws IOException {
+    var found = Collections.list(super.getResources(name));
+    return Collections.enumeration(project == null ? found : ResourceCopy.without(found));
+  }
+
   @Override
   protected Enumeration<URL> findResources(String name) throws IOException {
     var found = agentResources(name);

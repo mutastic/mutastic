@@ -45,7 +45,8 @@ import org.junit.platform.launcher.core.LauncherFactory;
 /// corrupt the protocol.
 ///
 /// Arguments: `--production=<dirs>` (main classes and resources) and `--tests=<dirs>` (test classes
-/// and resources), each separated by the platform's path separator.
+/// and resources), each separated by the platform's path separator; `--resource-copy=<dir>`, the
+/// engine's copy of the project's resources on the classpath ([ResourceCopy]).
 ///
 /// Protocol, one command per line, fields separated by tabs (test ids can contain spaces:
 /// `#play(java.lang.String, int)`):
@@ -142,6 +143,7 @@ public final class Worker {
   public static void main(String[] args) throws Exception {
     var protocol = new PrintStream(new FileOutputStream(FileDescriptor.out), true, UTF_8);
     System.setOut(System.err);
+    ResourceCopy.at(roots(args, "--resource-copy=").stream().findFirst().orElse(null));
     var worker =
         new Worker(
             roots(args, "--production="),

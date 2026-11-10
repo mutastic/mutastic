@@ -52,6 +52,9 @@ final class TestWorker implements AutoCloseable {
   private final Path log;
   private final ClassesToWarm toWarm;
 
+  /// The project's resources, for its libraries to find ([ResourceCopy]).
+  private final Path resources;
+
   /// The worker process while one is running: none before the first command, or after a kill.
   private @Nullable Running running;
 
@@ -63,17 +66,18 @@ final class TestWorker implements AutoCloseable {
 
   /// `log` collects the tests' own output, for when a baseline fails for reasons only the tests'
   /// output explains.
-  TestWorker(Project project, Path workerJar, Path log, ClassesToWarm toWarm) {
+  TestWorker(Project project, Path workerJar, Path log, ClassesToWarm toWarm, Path resources) {
     this.project = project;
     this.workerJar = workerJar;
     this.log = log;
     this.toWarm = toWarm;
+    this.resources = resources;
   }
 
   /// A worker for the same project, not yet started, that writes its tests' output to `log` and
   /// warms the same classes when it starts.
   TestWorker another(Path log) {
-    return new TestWorker(project, workerJar, log, toWarm);
+    return new TestWorker(project, workerJar, log, toWarm, resources);
   }
 
   /// The tests' result with every class in `instrumented` swapped for its instrumented copy.
@@ -439,12 +443,14 @@ final class TestWorker implements AutoCloseable {
     return running();
   }
 
-  /// The worker first, then the project's test classpath, then what mutastic brings for its tests
+  /// The worker first, then the project's resources ahead of its libraries, as the build has them
+  /// ([ResourceCopy]), then the project's test classpath, then what mutastic brings for its tests
   /// to run on the JUnit Platform, when they need it ([TestFrameworks]); for a framework that loads
-  /// the app itself, the project's own directories last, where it finds them.
+  /// the app itself, the project's own directories last, where it finds them, and no copy.
   private String classpath() {
+    boolean framework = TestFrameworks.loadsTheApp(project.dependencies());
     var own =
-        TestFrameworks.loadsTheApp(project.dependencies())
+        framework
             ? Stream.of(
                     project.classes(),
                     project.alongside(),
@@ -456,6 +462,7 @@ final class TestWorker implements AutoCloseable {
     return join(
         Stream.of(
                 Stream.of(workerJar),
+                framework ? Stream.<Path>empty() : Stream.of(resources),
                 project.dependencies().stream(),
                 TestFrameworks.support(project.dependencies()).stream(),
                 own)
@@ -525,6 +532,7 @@ final class TestWorker implements AutoCloseable {
                     .flatMap(List::stream)),
         "--tests="
             + join(Stream.concat(project.testClasses().stream(), project.testResources().stream())),
+        "--resource-copy=" + resources,
         "--include-tags=" + String.join(",", project.tests().includeTags()),
         "--exclude-tags=" + String.join(",", project.tests().excludeTags()));
   }

@@ -503,9 +503,10 @@ public final class Engine {
   private List<TestWorker> workersFor(Project project, int wanted, int mutantCount) {
     var workers = new ArrayList<TestWorker>();
     var toWarm = new ClassesToWarm();
+    var resources = ResourceCopy.of(project, resourcesBeside(log));
     for (int number = 1; number <= Math.min(wanted, Math.max(1, mutantCount)); number++) {
-      workers.add(
-          new TestWorker(project, workerJar, number == 1 ? log : numbered(log, number), toWarm));
+      var numberedLog = number == 1 ? log : numbered(log, number);
+      workers.add(new TestWorker(project, workerJar, numberedLog, toWarm, resources));
     }
     return workers;
   }
@@ -677,6 +678,13 @@ public final class Engine {
   /// `worker-2.log` beside `worker.log`.
   private static Path numbered(Path log, int number) {
     return named(log, String.valueOf(number));
+  }
+
+  /// `resources-worker` beside `worker.log`: the project's resources, for its libraries.
+  private static Path resourcesBeside(Path log) {
+    var name = log.getFileName().toString();
+    int dot = name.lastIndexOf('.');
+    return log.resolveSibling("resources-" + (dot < 0 ? name : name.substring(0, dot)));
   }
 
   /// `worker-unmutated.log` beside `worker.log`.
