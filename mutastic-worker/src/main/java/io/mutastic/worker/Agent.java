@@ -58,7 +58,14 @@ public final class Agent {
       }
     }
     if (!definitions.isEmpty()) {
-      instrumentation().redefineClasses(definitions.toArray(ClassDefinition[]::new));
+      try {
+        instrumentation().redefineClasses(definitions.toArray(ClassDefinition[]::new));
+      } catch (InternalError e) {
+        // One of them may be a class that can't run again: each on its own, to leave that one.
+        for (var definition : definitions) {
+          redefine(definition);
+        }
+      }
     }
   }
 
@@ -71,9 +78,33 @@ public final class Agent {
 
   /// Replaces a loaded class's bytes: method bodies may differ, its shape may not.
   static void redefine(Class<?> loaded, byte[] bytes) throws Exception {
-    if (instrumentation == null) {
-      throw new IllegalStateException("the worker must start with -javaagent:<the worker jar>");
+    redefine(new ClassDefinition(loaded, bytes));
+  }
+
+  /// A class whose static initialiser failed can't be redefined (the JVM calls it an invalid
+  /// class), and none of its code runs again: every use of it throws `NoClassDefFoundError`. So its
+  /// bytes no longer matter, and it's left as it is; anything else that can't be redefined is still
+  /// an error.
+  private static void redefine(ClassDefinition definition) throws Exception {
+    try {
+      instrumentation().redefineClasses(definition);
+    } catch (InternalError e) {
+      if (!failedToInitialise(definition.getDefinitionClass())) {
+        throw e;
+      }
     }
-    instrumentation.redefineClasses(new ClassDefinition(loaded, bytes));
+  }
+
+  /// Whether `loaded`'s static initialiser failed: initialising it again says so. Asked only once
+  /// its redefinition has failed, which a class not yet initialised doesn't.
+  static boolean failedToInitialise(Class<?> loaded) {
+    try {
+      Class.forName(loaded.getName(), true, loaded.getClassLoader());
+      return false;
+    } catch (NoClassDefFoundError | ExceptionInInitializerError e) {
+      return true;
+    } catch (ClassNotFoundException e) {
+      return false;
+    }
   }
 }
