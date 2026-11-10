@@ -208,7 +208,7 @@ class CardTruthTest {
         .as("the edges where both sides give the same value")
         .filteredOn(mutant -> mutant.skipped().get().contains("same value at the edge"))
         .extracting(Mutant::methodName)
-        .contains("clampLow", "clampZero", "clampLong", "raiseTo")
+        .contains("clampLow", "clampZero", "clampLong", "clampBoxed", "raiseTo")
         .doesNotContain("notAClamp", "clampToSomethingElse");
     assertThat(equivalent)
         .as("comparisons of a size or length that differ only below zero")

@@ -26,7 +26,8 @@ import org.jspecify.annotations.Nullable;
 ///   call that only waits. What a test sees doesn't change, only how fast it runs.
 /// - **equivalent:** a boundary where both sides give the same value at the edge: `if (x > max) max
 ///   = x;` stores the value `max` already holds when they're equal, `a < b ? a : b` gives either,
-///   as they're the same, and so do `x < 10 ? 10 : x` and `if (x < 2) x = 2;`.
+///   as they're the same, and so do `x < 10 ? 10 : x` and `if (x < 2) x = 2;`, and `x > 3 ? x : 3`
+///   with `x` an `Integer`, unboxed each time it's read.
 final class SiteSkips {
   /// Classes whose `int` constructor argument is only the capacity to start with.
   private static final Set<String> SIZED =
@@ -54,6 +55,10 @@ final class SiteSkips {
           BuiltIn.KEEP_OPERAND,
           BuiltIn.REMOVE_NEGATION,
           BuiltIn.CONSTANT_VALUE);
+
+  /// The calls that unbox a whole number: its value, the same each time it's asked for.
+  private static final Set<String> UNBOXING =
+      Set.of("java/lang/Integer.intValue", "java/lang/Long.longValue");
 
   private SiteSkips() {}
 
@@ -157,21 +162,74 @@ final class SiteSkips {
   private static List<String> comparedBefore(
       List<CodeElement> code, int at, BranchInstruction branch) {
     var opcode = branch.opcode();
+    var before = ImpliedOr.instructionsBefore(code, at, 5);
     if (comparesTwoInts(branch)) {
-      return values(ImpliedOr.instructionsBefore(code, at, 2));
+      return lastValues(before, 2);
     }
     if (!isEdge(opcode)) {
       return List.of();
     }
-    var before = ImpliedOr.instructionsBefore(code, at, 3);
-    if (before.size() == 3 && before.get(2).opcode() == Opcode.LCMP) {
-      return values(before.subList(0, 2));
+    if (!before.isEmpty() && before.getLast().opcode() == Opcode.LCMP) {
+      return lastValues(before.subList(0, before.size() - 1), 2);
     }
-    return !before.isEmpty()
-            && before.getLast() instanceof LoadInstruction load
-            && load.opcode().name().startsWith("ILOAD")
-        ? List.of(value(load), "constant 0")
-        : List.of();
+    var compared = lastValues(before, 1);
+    return compared.isEmpty() || compared.getFirst().startsWith("constant")
+        ? List.of()
+        : List.of(compared.getFirst(), "constant 0");
+  }
+
+  /// The last `count` values `instructions` push, as [#value]s, read back from the end; empty if
+  /// something else comes first.
+  private static List<String> lastValues(List<Instruction> instructions, int count) {
+    var found = new ArrayList<String>();
+    int end = instructions.size();
+    while (found.size() < count && end > 0) {
+      var pushed = pushedEndingAt(instructions, end);
+      if (pushed == null) {
+        return List.of();
+      }
+      found.addFirst(pushed.value());
+      end -= pushed.length();
+    }
+    return found.size() == count ? found : List.of();
+  }
+
+  /// The value pushed by the instructions just before `end`: one [#value], or a boxed local read
+  /// and unboxed.
+  private static @Nullable Pushed pushedEndingAt(List<? extends CodeElement> elements, int end) {
+    var unboxed = end >= 2 ? pushedFrom(elements.subList(end - 2, end), 0) : null;
+    return unboxed != null && unboxed.length() == 2
+        ? unboxed
+        : pushedFrom(elements.subList(end - 1, end), 0);
+  }
+
+  /// The value pushed by the elements from `from`, as [#pushedEndingAt]; null if they don't push
+  /// one.
+  private static @Nullable Pushed pushedFrom(List<? extends CodeElement> elements, int from) {
+    if (from + 1 < elements.size()) {
+      var unboxed = unboxed(elements.get(from), elements.get(from + 1));
+      if (unboxed != null) {
+        return new Pushed(unboxed, 2);
+      }
+    }
+    var value = from < elements.size() ? value(elements.get(from)) : null;
+    return value == null ? null : new Pushed(value, 1);
+  }
+
+  /// A value and how many instructions push it.
+  private record Pushed(String value, int length) {}
+
+  /// `unboxed slot 2` for `ALOAD 2; INVOKEVIRTUAL Integer.intValue`, or `Long.longValue`: the boxed
+  /// local's value, the same each time it's read; null for anything else.
+  private static @Nullable String unboxed(CodeElement load, CodeElement call) {
+    return load instanceof LoadInstruction boxed
+            && boxed.opcode().name().startsWith("ALOAD")
+            && call instanceof InvokeInstruction unboxing
+            && unboxing.opcode() == Opcode.INVOKEVIRTUAL
+            && UNBOXING.contains(
+                unboxing.owner().asInternalName() + "." + unboxing.name().stringValue())
+        ? "unboxed slot " + boxed.slot()
+        : null;
   }
 
   private static boolean isEdge(Opcode opcode) {
@@ -179,19 +237,6 @@ final class SiteSkips {
         || opcode == Opcode.IFLE
         || opcode == Opcode.IFGT
         || opcode == Opcode.IFGE;
-  }
-
-  /// Each instruction's [#value], or nothing if one isn't a value.
-  private static List<String> values(List<Instruction> instructions) {
-    var found = new ArrayList<String>();
-    for (var instruction : instructions) {
-      var value = value(instruction);
-      if (value == null) {
-        return List.of();
-      }
-      found.add(value);
-    }
-    return found;
   }
 
   /// What an instruction puts on the stack, said so two can be compared: `slot 3` for a load of an
@@ -230,10 +275,18 @@ final class SiteSkips {
   /// `a < b ? a : b`, `x < 10 ? 10 : x`: `push one; goto END; target: push the other; END:`.
   private static boolean picksOneOrTheOther(
       List<CodeElement> code, int at, Label target, List<String> compared) {
-    var next = significantAfter(code, at, 5);
-    return next.size() == 5
-        && armsMeet(next, target)
-        && bothOf(compared, value(next.get(0)), value(next.get(3)));
+    var next = significantAfter(code, at, 7);
+    var first = pushedFrom(next, 0);
+    if (first == null) {
+      return false;
+    }
+    int jump = first.length();
+    var second = pushedFrom(next, jump + 2);
+    return second != null
+        && next.size() > jump + 2 + second.length()
+        && armsMeet(
+            next.get(jump), next.get(jump + 1), next.get(jump + 2 + second.length()), target)
+        && bothOf(compared, first.value(), second.value());
   }
 
   /// Whether `one` and `other` are the two compared values, either way round.
@@ -247,12 +300,13 @@ final class SiteSkips {
   }
 
   /// `goto END; target: …; END:`: the first arm jumps past the second, which starts at `target`.
-  private static boolean armsMeet(List<CodeElement> next, Label target) {
-    return next.get(1) instanceof BranchInstruction jump
+  private static boolean armsMeet(
+      CodeElement goTo, CodeElement second, CodeElement after, Label target) {
+    return goTo instanceof BranchInstruction jump
         && jump.opcode() == Opcode.GOTO
-        && next.get(2) instanceof LabelTarget other
+        && second instanceof LabelTarget other
         && other.label().equals(target)
-        && next.get(4) instanceof LabelTarget end
+        && after instanceof LabelTarget end
         && end.label().equals(jump.target());
   }
 

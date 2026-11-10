@@ -87,7 +87,10 @@ final class Javac {
       }
     }
     if (!missing.isEmpty()) {
-      var fresh = run(List.copyOf(missing.keySet()), alongside, options);
+      // A source kept already is still there for the others to refer to.
+      var around = new ArrayList<>(alongside);
+      sources.stream().filter(source -> !missing.containsKey(source)).forEach(around::add);
+      var fresh = run(List.copyOf(missing.keySet()), around, options);
       for (var each : missing.entrySet()) {
         var classes = fresh.getOrDefault(each.getKey().path(), Map.of());
         write(each.getValue(), classes);

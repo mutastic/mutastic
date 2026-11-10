@@ -331,6 +331,11 @@ public final class Shapes {
     return x + b;
   }
 
+  static int clampBoxed(int a, int b) {
+    Integer chosen = a;
+    return chosen > 3 ? chosen : 3;
+  }
+
   static int notAClamp(int a, int b) {
     return a < 3 ? 4 : a;
   }
