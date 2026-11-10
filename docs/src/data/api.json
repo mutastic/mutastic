@@ -2574,6 +2574,16 @@
           "params": [],
           "members": [
             {
+              "kind": "field",
+              "name": "WINDOWS",
+              "anchor": "windows",
+              "signature": "static final boolean WINDOWS",
+              "doc": "Whether this is Windows, where a program's file is named with its kind (`mvn.cmd`) and a build\nhas a wrapper for it (`mvnw.cmd`, `gradlew.bat`) beside the one for other systems.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
               "kind": "method",
               "name": "root",
               "anchor": "root",
@@ -2598,7 +2608,17 @@
               "name": "onPath",
               "anchor": "onpath",
               "signature": "static boolean onPath(String name, String path)",
-              "doc": "Whether `name` is a program in one of `path`'s directories (the PATH variable's value), as\nit's named on any system: `gradle`, or `gradle.bat` on Windows.",
+              "doc": "Whether `name` is a program in one of `path`'s directories (the PATH variable's value).",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "program",
+              "anchor": "program",
+              "signature": "static Optional<String> program(String name, String path)",
+              "doc": "`name` as a process is started with it when it's in one of `path`'s directories: `mvn`, or on\nWindows the file that's there, `mvn.cmd`, since Windows only adds `.exe` to a name itself. A\ndirectory's own `mvn`, a script for other systems, isn't one Windows can run.",
               "params": [],
               "returns": "",
               "throws": []

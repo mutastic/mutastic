@@ -36,7 +36,7 @@ public final class NextText {
       out.append(' ').append(style.bold(rankedBecause(at + 1))).append('\n');
       queue.factors(finding).forEach(factor -> out.append("   ").append(factor.why()).append('\n'));
     }
-    out.append("%nThen: %s, for the next one%n".formatted(command()));
+    out.append("\nThen: %s, for the next one\n".formatted(command()));
     return out.toString();
   }
 
@@ -48,13 +48,13 @@ public final class NextText {
     var head = queue.findings().getFirst();
     var out = new StringBuilder();
     out.append(
-        "mutastic next: %s; close this one, then ask for the next%n"
+        "mutastic next: %s; close this one, then ask for the next\n"
             .formatted(header(queue, project, 1)));
-    out.append("why first: %s%n".formatted(whyFirst(queue, head)));
+    out.append("why first: %s\n".formatted(whyFirst(queue, head)));
     out.append(rules(head));
     out.append(new AgentText(sources, 0, words).entry(0, head));
     out.append(
-        "%nthen: run `%s` again for the next one; when it says nothing is left, you're done%n"
+        "\nthen: run `%s` again for the next one; when it says nothing is left, you're done\n"
             .formatted(command()));
     return out.toString();
   }
@@ -70,8 +70,11 @@ public final class NextText {
                 .formatted(
                     MutantCommand.PROPOSE.command("<id>", sources.invocation()),
                     String.join(", ", ids));
-    return ("rules: %s, and never delete, disable or loosen a test; it's done when `%s` passes%n"
-            + "decline: %s (%s)%n%n")
+    return """
+        rules: %s, and never delete, disable or loosen a test; it's done when `%s` passes
+        decline: %s (%s)
+
+        """
         .formatted(
             MutantCommand.RULE,
             MutantCommand.DONE_WHEN.command(head.ids(), sources.invocation()),

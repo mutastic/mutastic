@@ -476,7 +476,7 @@ public final class JsonEvents {
     event.put("schema", SCHEMA);
     event.put("reason", reason);
     event.putAll(fields);
-    out.println(Json.write(event));
+    out.print(Json.write(event) + "\n");
     out.flush();
   }
 }

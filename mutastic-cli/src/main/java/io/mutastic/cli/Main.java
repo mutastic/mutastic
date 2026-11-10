@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -88,7 +89,17 @@ public final class Main {
   private Main() {}
 
   public static void main(String[] args) {
-    System.exit(run(args, System.out, System.err, Terminal.current()));
+    var terminal = Terminal.current();
+    System.exit(run(args, utf8(System.out, terminal), utf8(System.err, terminal), terminal));
+  }
+
+  /// Output for a pipe or a file in UTF-8 on every platform, as agents, JSON readers and the other
+  /// edition write it. Windows would write it in its legacy code page, which has no `✓`. A terminal
+  /// keeps its own encoding, which is the one it shows.
+  private static PrintStream utf8(PrintStream stream, Terminal terminal) {
+    return terminal.interactive() || stream.charset().equals(StandardCharsets.UTF_8)
+        ? stream
+        : new PrintStream(stream, true, StandardCharsets.UTF_8);
   }
 
   static int run(String[] args, PrintStream out, PrintStream err, Terminal terminal) {
@@ -100,18 +111,18 @@ public final class Main {
       var command = Command.parse(args);
       return nothingToGate(command) ? PASSED : run(command, out, err, terminal);
     } catch (UsageException e) {
-      err.println("mutastic: " + e.getMessage());
+      err.print("mutastic: " + e.getMessage() + "\n");
       err.print(Help.usage());
       return USAGE;
     } catch (BuildTool.SetupFailed | Engine.UnknownMutant | Shares.Refused e) {
-      err.println("mutastic: " + e.getMessage());
-      CodexSandbox.hint(e, terminal.env()).ifPresent(err::println);
+      err.print("mutastic: " + e.getMessage() + "\n");
+      CodexSandbox.hint(e, terminal.env()).ifPresent(hint -> err.print(hint + "\n"));
       return USAGE;
     } catch (Engine.BaselineFailed e) {
-      err.println("mutastic: " + e.getMessage());
+      err.print("mutastic: " + e.getMessage() + "\n");
       return TESTS_FAIL;
     } catch (RuntimeException e) {
-      err.println("mutastic: internal error: " + e);
+      err.print("mutastic: internal error: " + e + "\n");
       return INTERNAL;
     }
   }
@@ -166,18 +177,19 @@ public final class Main {
     var directory = prepared.directory();
     boolean prune = command.ignore().map(Ignoring::prune).orElse(false);
     if (prune != Baseline.exists(directory)) {
-      out.println(
-          prune
-              ? "mutastic: there's no baseline to prune: `mutastic baseline` writes one"
-              : ("mutastic: there's a baseline already, in %s. `mutastic baseline --prune` drops"
-                      + " its mutants the tests catch now; it's never rewritten to take in new"
-                      + " misses, which would hide them")
-                  .formatted(Baseline.FILE));
+      out.print(
+          (prune
+                  ? "mutastic: there's no baseline to prune: `mutastic baseline` writes one"
+                  : ("mutastic: there's a baseline already, in %s. `mutastic baseline --prune`"
+                          + " drops its mutants the tests catch now; it's never rewritten to take"
+                          + " in new misses, which would hide them")
+                      .formatted(Baseline.FILE))
+              + "\n");
       return FAILED;
     }
     var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
-    out.println(prune ? pruned(directory, report) : baselined(prepared, report));
+    out.print((prune ? pruned(directory, report) : baselined(prepared, report)) + "\n");
     return PASSED;
   }
 
@@ -220,7 +232,7 @@ public final class Main {
           .out()
           .printf(
               "note: %d of the baseline's mutants are caught now: `mutastic baseline --prune` drops"
-                  + " them%n",
+                  + " them\n",
               caught);
     }
   }
@@ -369,7 +381,7 @@ public final class Main {
           gated
               .output()
               .out()
-              .println(closed ? "mutastic gate: closed" : "mutastic gate: none open here");
+              .print(closed ? "mutastic gate: closed\n" : "mutastic gate: none open here\n");
         }
         yield PASSED;
       }
@@ -392,7 +404,7 @@ public final class Main {
         .out()
         .printf(
             "mutastic gate: this task is gated from %s: before you finish, check the lines it"
-                + " changes with `mutastic run --since=%s --format=agent`; %s%n",
+                + " changes with `mutastic run --since=%s --format=agent`; %s\n",
             base.substring(0, Math.min(7, base.length())), base, whenItsDone(gated));
     return PASSED;
   }
@@ -421,7 +433,7 @@ public final class Main {
         gated
             .output()
             .out()
-            .println("mutastic gate: none open here: `mutastic gate open` starts one");
+            .print("mutastic gate: none open here: `mutastic gate open` starts one\n");
       }
       return gated.hooked() ? PASSED : USAGE; // nothing gated: a hooked agent may stop
     }
@@ -460,7 +472,7 @@ public final class Main {
     return new Gate.Verdict(
         true,
         verdict.gaveUp(),
-        ("%s%n%nThe task changed what tests that were there when it started expect, in %s: check"
+        ("%s\n\nThe task changed what tests that were there when it started expect, in %s: check"
                 + " that's what you asked for")
             .formatted(verdict.text(), String.join(", ", changed)));
   }
@@ -481,10 +493,10 @@ public final class Main {
   private static int answer(Gated gated, Gate.Verdict verdict) {
     var out = gated.output().out();
     if (gated.hooked()) {
-      out.println(Gate.claudeHook(verdict));
+      out.print(Gate.claudeHook(verdict) + "\n");
       return PASSED;
     }
-    out.println(verdict.text());
+    out.print(verdict.text() + "\n");
     return verdict.passes() ? PASSED : FAILED;
   }
 
@@ -601,7 +613,7 @@ public final class Main {
     return Gate.Verdict.block(
         ("mutastic gate: %d mutant%s on the lines the task changed %s missed, so it isn't done."
                 + " For each card: write the test, and run its `done when` before you move on; if a"
-                + " case can't happen, propose ignoring it, for a person to accept.%n%n%s")
+                + " case can't happen, propose ignoring it, for a person to accept.\n\n%s")
             .formatted(
                 open.size(),
                 open.size() == 1 ? "" : "s",
@@ -613,7 +625,7 @@ public final class Main {
   /// count, and the task isn't done while they do.
   private static String falseCaught(Report report) {
     return "mutastic gate: a test that caught mutants on the lines the task changed fails on its"
-        + " own, with no mutant in, so its catches don't count and the task isn't done.%n%n%s"
+        + " own, with no mutant in, so its catches don't count and the task isn't done.\n\n%s"
             .formatted(AgentText.failingAlone(report).strip());
   }
 
@@ -631,7 +643,7 @@ public final class Main {
           + " and stop. Either way, leave a failing test in place: the gate doesn't pass a task"
           + " by taking it away";
     }
-    return ("mutastic gate: %s.%n%n%s %s there when the task started: if %s passed then, the task's"
+    return ("mutastic gate: %s.\n\n%s %s there when the task started: if %s passed then, the task's"
             + " change broke %s. Find out whether the change or the test is wrong. Don't change"
             + " what a test expects, or take it away, to make it pass unless the task asked for"
             + " that behaviour, and if you're not sure, ask")
@@ -777,7 +789,13 @@ public final class Main {
   private static String shown(Path file) {
     var here = Path.of("").toAbsolutePath().normalize();
     var absolute = file.toAbsolutePath().normalize();
-    return absolute.startsWith(here) ? here.relativize(absolute).toString() : absolute.toString();
+    return absolute.startsWith(here) ? slashed(here.relativize(absolute)) : absolute.toString();
+  }
+
+  /// A relative path with `/` between its parts, as every platform's shells take it, so what
+  /// mutastic prints reads the same on Windows as elsewhere.
+  static String slashed(Path relative) {
+    return relative.toString().replace(java.io.File.separatorChar, '/');
   }
 
   /// Each source file's line as it finishes, for people. With other modules' tests, a mutant's
@@ -1102,7 +1120,7 @@ public final class Main {
               "is skipped (%s), so it isn't run and needs no test"
                   .formatted(result.mutant().skipped().orElse("skipped"));
         };
-    out.printf("mutastic: %s %s%n", result.mutant().id(), fate);
+    out.printf("mutastic: %s %s\n", result.mutant().id(), fate);
     return settled(result) ? PASSED : FAILED;
   }
 
@@ -1253,7 +1271,7 @@ public final class Main {
 
   /// A file as a report's is listed: relative to the project where it's in it.
   private static String shownFrom(Path directory, Path file) {
-    return file.startsWith(directory) ? directory.relativize(file).toString() : file.toString();
+    return file.startsWith(directory) ? slashed(directory.relativize(file)) : file.toString();
   }
 
   /// Keeps a run of every mutant as the last run (what `explain` and the next run's comparison
@@ -1329,9 +1347,7 @@ public final class Main {
     var words = new ArrayList<String>();
     if (!directory.equals(here)) {
       words.add(
-          directory.startsWith(here)
-              ? here.relativize(directory).toString()
-              : directory.toString());
+          directory.startsWith(here) ? slashed(here.relativize(directory)) : directory.toString());
     }
     if (!module.equals(":")) {
       words.add(module);
@@ -2030,7 +2046,7 @@ public final class Main {
 
       /// What `subcommand` needs first, as a run names a mutant, with `after` after it.
       private static String needsAnId(String subcommand, String after) {
-        return ("%s needs a mutant id first, an m and eight hex digits as a run prints them:%n"
+        return ("%s needs a mutant id first, an m and eight hex digits as a run prints them:\n"
                 + "  mutastic %s m855c8e3c %s")
             .formatted(subcommand, subcommand, after);
       }

@@ -304,14 +304,14 @@ public final class HumanText {
   /// A method and its count of misses, then each miss: `line:column ✗ headline id`.
   private void appendMethodMisses(StringBuilder out, List<MutantResult> inMethod) {
     out.append(
-        "   %s %s%n"
+        "   %s %s\n"
             .formatted(
                 plain(Advice.method(inMethod.getFirst().mutant())),
                 style.red("%d %s".formatted(inMethod.size(), words.undetected))));
     for (MutantResult result : inMethod) {
       var place = sources.place(result.mutant());
       out.append(
-          "     %s %s %s %s%n"
+          "     %s %s %s %s\n"
               .formatted(
                   style.dim("%-7s".formatted(place.line() + ":" + place.start())),
                   style.red("✗"),
@@ -699,7 +699,7 @@ public final class HumanText {
     SuggestedTest.startingPoints(uncovered, sources, 1)
         .forEach(
             assertion ->
-                out.append("     %s %s%n".formatted(style.dim("try:"), style.green(assertion))));
+                out.append("     %s %s\n".formatted(style.dim("try:"), style.green(assertion))));
   }
 
   /// The first [#CARDS] places no test reaches, and how many more there are.
@@ -710,13 +710,13 @@ public final class HumanText {
     if (byLine.size() > CARDS) {
       out.append(
           style.dim(
-              "   … and %d more %s%n"
+              "   … and %d more %s\n"
                   .formatted(byLine.size() - CARDS, eachMutant ? "lines" : "methods")));
     }
   }
 
   private String notCoveredLine(String where, long count) {
-    return "   %s %s %s%n"
+    return "   %s %s %s\n"
         .formatted(
             style.amber("○"),
             where,
@@ -910,7 +910,7 @@ public final class HumanText {
     rows.forEach(
         (label, value) ->
             out.append(
-                " %s  %s%n"
+                " %s  %s\n"
                     .formatted(style.dim(" ".repeat(width - label.length()) + label), value)));
   }
 
@@ -1020,10 +1020,10 @@ public final class HumanText {
   private String verdict(Report report, Run run) {
     long missed = report.count(Status.MISSED);
     if (run.oneMutant() && !report.results().isEmpty()) {
-      return " %s%n".formatted(fate(report.results().getFirst()));
+      return " %s\n".formatted(fate(report.results().getFirst()));
     }
     if (report.score().isEmpty()) {
-      return " %s %s%n"
+      return " %s %s\n"
           .formatted(
               style.label("PASS", Style.GREEN),
               style.dim("Nothing to measure: no mutants to score."));
@@ -1032,7 +1032,7 @@ public final class HumanText {
       return failedAlone();
     }
     if (report.passes(threshold)) {
-      return " %s %s%n"
+      return " %s %s\n"
           .formatted(
               style.label("PASS", Style.GREEN),
               style.green(
@@ -1045,7 +1045,7 @@ public final class HumanText {
 
   /// FAIL, whatever the score: a test that caught mutants fails on its own.
   private String failedAlone() {
-    return " %s %s%n"
+    return " %s %s\n"
         .formatted(
             style.label("FAIL", Style.RED),
             style.red(
@@ -1054,7 +1054,7 @@ public final class HumanText {
   }
 
   private String failed(long missed, long notCovered) {
-    return " %s %s%n"
+    return " %s %s\n"
         .formatted(
             style.label("FAIL", Style.RED),
             style.red(

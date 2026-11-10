@@ -541,10 +541,14 @@ public final class SourceView {
         : className;
   }
 
+  /// `src/main/java/com/example/Pricing.java`, with `/` between its parts on every platform, so a
+  /// card reads the same on Windows; the whole path when it's outside the project.
   private String relative(Path file) {
     var absolute = real(file);
     var base = real(root);
-    return absolute.startsWith(base) ? base.relativize(absolute).toString() : absolute.toString();
+    return absolute.startsWith(base)
+        ? base.relativize(absolute).toString().replace(java.io.File.separatorChar, '/')
+        : absolute.toString();
   }
 
   /// Links resolved: the build may name a directory through one (macOS's `/var` is `/private/var`)

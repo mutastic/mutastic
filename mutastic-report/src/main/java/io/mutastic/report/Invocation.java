@@ -141,8 +141,13 @@ public record Invocation(Form form, String launcher, List<String> target) {
   /// A word with a space or a quote, quoted for a shell. Not a template the person fills in, `<id>`
   /// or `--reason="<why>"`: quoting it wouldn't help them.
   static String quoted(String word) {
-    return word.matches("[A-Za-z0-9_./:@%+=,-]+") || word.matches(".*<[a-z]+>.*")
+    return word.matches(PLAIN) || word.matches(".*<[a-z]+>.*")
         ? word
         : "'" + word.replace("'", "'\\''") + "'";
   }
+
+  /// The characters a word can have and not need quotes. On Windows, a path's `\` and the `~` of a
+  /// short name (`C:\Users\RUNNER~1`) are typed as they are.
+  private static final String PLAIN =
+      java.io.File.separatorChar == '\\' ? "[A-Za-z0-9_./:@%+=,~\\\\-]+" : "[A-Za-z0-9_./:@%+=,-]+";
 }

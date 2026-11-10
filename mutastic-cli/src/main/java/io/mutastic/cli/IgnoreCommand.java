@@ -50,8 +50,8 @@ final class IgnoreCommand {
     proposals.add(entry(mutant, how, where.sources()));
     Ignores.propose(where.directory(), proposals);
     out.printf(
-        "mutastic: %s is proposed for ignoring: %s%n  recorded in %s: it counts as missed until a"
-            + " person accepts it%n  to accept: %s%n  to withdraw: %s%n",
+        "mutastic: %s is proposed for ignoring: %s\n  recorded in %s: it counts as missed until a"
+            + " person accepts it\n  to accept: %s\n  to withdraw: %s\n",
         mutant.id(),
         how.reason(),
         where.shownProposals(),
@@ -68,7 +68,7 @@ final class IgnoreCommand {
             .findFirst();
     if (proposal.isEmpty()) {
       out.printf(
-          "mutastic: %s isn't proposed in %s: nothing to accept%n", id, where.shownProposals());
+          "mutastic: %s isn't proposed in %s: nothing to accept\n", id, where.shownProposals());
       return Main.FAILED;
     }
     var entries = without(id, where);
@@ -76,8 +76,8 @@ final class IgnoreCommand {
     Ignores.write(where.directory(), entries);
     Ignores.propose(where.directory(), withoutProposal(id, where));
     out.printf(
-        "mutastic: %s is ignored, as proposed: %s%n  recorded in %s: commit it, as a decision to"
-            + " review%n  to undo: %s%n",
+        "mutastic: %s is ignored, as proposed: %s\n  recorded in %s: commit it, as a decision to"
+            + " review\n  to undo: %s\n",
         id,
         proposal.get().ignore().reason(),
         where.shownFile(),
@@ -99,7 +99,7 @@ final class IgnoreCommand {
         .filter(skip -> skip.startsWith("generated:") || skip.startsWith("equivalent:"))
         .isPresent()) {
       out.printf(
-          "mutastic: %s doesn't run anyway (%s): nothing to ignore%n", mutant.id(), already.get());
+          "mutastic: %s doesn't run anyway (%s): nothing to ignore\n", mutant.id(), already.get());
       return Main.PASSED;
     }
     var entries = without(mutant.id(), where);
@@ -107,8 +107,11 @@ final class IgnoreCommand {
     Ignores.write(where.directory(), entries);
     Ignores.propose(where.directory(), withoutProposal(mutant.id(), where)); // decided now
     out.printf(
-        "mutastic: %s is ignored: %s%n  recorded in %s: commit it, as a decision to review%n"
-            + "  to undo: %s%n",
+        """
+        mutastic: %s is ignored: %s
+          recorded in %s: commit it, as a decision to review
+          to undo: %s
+        """,
         mutant.id(), reason, where.shownFile(), where.command(List.of("--remove", mutant.id())));
     return Main.PASSED;
   }
@@ -122,12 +125,12 @@ final class IgnoreCommand {
       return Main.PASSED;
     }
     if (removed.isEmpty()) {
-      out.printf("mutastic: %s isn't ignored in %s: nothing to remove%n", id, where.shownFile());
+      out.printf("mutastic: %s isn't ignored in %s: nothing to remove\n", id, where.shownFile());
       return Main.PASSED;
     }
     Ignores.write(where.directory(), without(id, where));
     out.printf(
-        "mutastic: %s is no longer ignored: it runs again%n  removed from %s%n  to undo: %s%n",
+        "mutastic: %s is no longer ignored: it runs again\n  removed from %s\n  to undo: %s\n",
         id, where.shownFile(), where.command(undo(removed.get().ignore())));
     return Main.PASSED;
   }
@@ -145,7 +148,7 @@ final class IgnoreCommand {
     var again = new ArrayList<>(undo(proposal.get().ignore()));
     again.add(1, "--propose");
     out.printf(
-        "mutastic: %s is no longer proposed%n  removed from %s%n  to undo: %s%n",
+        "mutastic: %s is no longer proposed\n  removed from %s\n  to undo: %s\n",
         id, where.shownProposals(), where.command(again));
     return true;
   }
@@ -184,14 +187,17 @@ final class IgnoreCommand {
     var entries = Ignores.read(where.directory());
     var kept = entries.stream().filter(entry -> !stale.contains(entry.ignore().id())).toList();
     if (kept.size() == entries.size()) {
-      out.println("mutastic: every ignore still holds: nothing to remove");
+      out.print("mutastic: every ignore still holds: nothing to remove\n");
       return Main.PASSED;
     }
     Ignores.write(where.directory(), kept);
     int removed = entries.size() - kept.size();
     out.printf(
-        "mutastic: removed %d ignore%s that no longer hold: %s%n  from %s%n"
-            + "  to undo: git checkout -- %s%n",
+        """
+        mutastic: removed %d ignore%s that no longer hold: %s
+          from %s
+          to undo: git checkout -- %s
+        """,
         removed,
         removed == 1 ? "" : "s",
         String.join(", ", stale.stream().sorted().toList()),

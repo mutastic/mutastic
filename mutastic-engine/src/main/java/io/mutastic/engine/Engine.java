@@ -123,7 +123,7 @@ public final class Engine {
               .distinct()
               .map(name -> "--exclude-tests=" + name)
               .collect(Collectors.joining(" "));
-      return ("%nIf they pass in the build, this is likely why: the project provides %s in"
+      return ("\nIf they pass in the build, this is likely why: the project provides %s in"
               + " META-INF/services, which the JDK looks for on the system class path. mutastic"
               + " loads the project in class loaders of its own, so the JDK doesn't find it here."
               + " To run without those tests: %s")

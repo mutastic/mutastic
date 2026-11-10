@@ -24,11 +24,13 @@ class MavenPluginTest {
   private static final Pattern DONE_WHEN =
       Pattern.compile("\"doneWhen\":\"(?<command>mvn [^\"]*) passes\"");
 
+  /// Its real path: Windows's temporary directory has a short name (`RUNNER~1`), which Maven's
+  /// `-pl` doesn't match to the module it scanned under the long one.
   @TempDir Path work;
 
   @Test
   void eachModuleIsMutatedAndTheCommandsOfferedAreGoals() throws Exception {
-    var project = Samples.copy(SAMPLE, work.resolve("maven-modules"));
+    var project = Samples.copy(SAMPLE, work.toRealPath().resolve("maven-modules"));
 
     // The plugin's default threshold, 80, which core's 80% reaches.
     var byDefault = mvn(project, PLUGIN + ":run", "-Dmutastic.format=jsonl", "-pl", "core");
@@ -72,7 +74,7 @@ class MavenPluginTest {
     var project =
         Samples.copy(
             Path.of(System.getProperty("mutastic.samples"), "maven-suites"),
-            work.resolve("maven-suites"));
+            work.toRealPath().resolve("maven-suites"));
 
     var unit = mvn(project, PLUGIN + ":run", "-Dmutastic.format=agent");
     var integration =
@@ -113,7 +115,9 @@ class MavenPluginTest {
       throws IOException, InterruptedException {
     var settings = work.resolve("settings.xml");
     Files.writeString(settings, settings(REPOSITORY.toUri().toString()));
-    var command = new ArrayList<>(List.of("mvn", "-B", "-U", "-s", settings.toString()));
+    // Windows starts a program by its file's name, `mvn.cmd` there.
+    var mvn = java.io.File.separatorChar == '\\' ? "mvn.cmd" : "mvn";
+    var command = new ArrayList<>(List.of(mvn, "-B", "-U", "-s", settings.toString()));
     command.add("-Dmaven.repo.local=" + REPOSITORY.resolveSibling("samples-maven-local"));
     command.addAll(List.of(arguments));
     var log = work.resolve("mvn.log");

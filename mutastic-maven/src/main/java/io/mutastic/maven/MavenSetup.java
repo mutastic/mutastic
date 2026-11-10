@@ -139,16 +139,16 @@ final class MavenSetup {
   /// PATH.
   static String mvn(Path directory, String path) {
     var root = Wrappers.root(directory, at -> Files.isDirectory(at.resolve(".mvn")));
-    var found = Wrappers.wrapper(directory, root, "mvnw");
+    var found = Wrappers.wrapper(directory, root, Wrappers.WINDOWS ? "mvnw.cmd" : "mvnw");
     if (found.isPresent()) {
       return found.get().toString();
     }
-    if (!Wrappers.onPath("mvn", path)) {
-      throw new SetupFailed(
-          "%s has no Maven wrapper (mvnw), and there's no `mvn` to run instead"
-              .formatted(directory));
-    }
-    return "mvn";
+    return Wrappers.program("mvn", path)
+        .orElseThrow(
+            () ->
+                new SetupFailed(
+                    "%s has no Maven wrapper (mvnw), and there's no `mvn` to run instead"
+                        .formatted(directory)));
   }
 
   private static String noJava(Path directory, String module, String typed) {

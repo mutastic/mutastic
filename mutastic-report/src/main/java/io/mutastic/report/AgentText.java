@@ -70,7 +70,7 @@ public final class AgentText {
     appendFlaky(out, report);
     appendStaleIgnores(out, report);
     RepeatedIgnores.in(report)
-        .forEach(repeated -> out.append("note: %s%n".formatted(RepeatedIgnores.text(repeated))));
+        .forEach(repeated -> out.append("note: %s\n".formatted(RepeatedIgnores.text(repeated))));
     comparison.ifPresent(found -> appendVsLastRun(out, report, found));
     appendSuspects(out, report, comparison);
     appendUnrelatedCatches(out, report);
@@ -88,8 +88,8 @@ public final class AgentText {
       return;
     }
     out.append(
-        ("%nghosts: %s. Each is a question for the person, not a gap to close: don't add the call"
-                + " unless the task or spec says listeners should hear of that write.%n")
+        ("\nghosts: %s. Each is a question for the person, not a gap to close: don't add the call"
+                + " unless the task or spec says listeners should hear of that write.\n")
             .formatted(GhostCards.summary(report)));
     var cards = new GhostCards(sources);
     report.ghosts().stream()
@@ -104,7 +104,7 @@ public final class AgentText {
 
   private static void appendVsLastRun(StringBuilder out, Report report, Comparison found) {
     out.append(
-        "vs last run: %s → %s (%s)%n"
+        "vs last run: %s → %s (%s)\n"
             .formatted(percent(found.previousScore()), percent(report.score()), found.sameness()));
   }
 
@@ -112,11 +112,11 @@ public final class AgentText {
   private void appendGaps(
       StringBuilder out, Report report, List<MutantResult> missed, List<MutantResult> notCovered) {
     out.append(
-        "rules: %s; a fix counts when `%s` passes%n"
+        "rules: %s; a fix counts when `%s` passes\n"
             .formatted(
                 MutantCommand.RULE, MutantCommand.DONE_WHEN.command("<id>", sources.invocation())));
     out.append(
-        "decline: %s (`%s`)%n"
+        "decline: %s (`%s`)\n"
             .formatted(
                 MutantCommand.DECLINE,
                 MutantCommand.PROPOSE.command("<id>", sources.invocation())));
@@ -129,10 +129,10 @@ public final class AgentText {
   /// The one mutant's fate, and for a missed one the rules and its entry.
   private String oneMutant(MutantResult result) {
     var out = new StringBuilder();
-    out.append("mutastic: %s %s%n".formatted(result.mutant().id(), fate(result)));
+    out.append("mutastic: %s %s\n".formatted(result.mutant().id(), fate(result)));
     if (result.status() == Status.MISSED) {
       out.append(
-          "rules: %s; a fix counts when `%s` passes%n%n"
+          "rules: %s; a fix counts when `%s` passes\n\n"
               .formatted(
                   MutantCommand.RULE,
                   MutantCommand.DONE_WHEN.command(result.mutant().id(), sources.invocation())));
@@ -155,7 +155,7 @@ public final class AgentText {
   private void appendVerdict(StringBuilder out, Report report, int missed, int notCovered) {
     var skipped = report.count(Status.SKIPPED);
     out.append(
-        "mutastic: %s · score %s (threshold %d%s) · %d %s, %d %s, %d %s of %d mutants%s%n"
+        "mutastic: %s · score %s (threshold %d%s) · %d %s, %d %s, %d %s of %d mutants%s\n"
             .formatted(
                 verdict(report),
                 report.score().isPresent() ? percent(report.score()) : "none (no mutants to score)",
@@ -199,7 +199,7 @@ public final class AgentText {
             + " sets up or leaves behind. It's left out, so its catches don't count: the mutants it"
             + " reached ran again without it, and the run can't pass until it passes on its own."
             + " Make it set up what it needs and clean up what it leaves, or run without it with"
-            + " `--exclude-tests=%s`. Never remove, disable or loosen it to get a run through%n")
+            + " `--exclude-tests=%s`. Never remove, disable or loosen it to get a run through\n")
         .formatted(
             shortName(why.test()),
             why.failedWith().map(" with %s"::formatted).orElse(""),
@@ -210,7 +210,7 @@ public final class AgentText {
   private void appendStaleIgnores(StringBuilder out, Report report) {
     if (!report.staleIgnores().isEmpty()) {
       out.append(
-          "stale ignores: %s no longer match their code, so their mutants ran; ask before removing them (%s)%n"
+          "stale ignores: %s no longer match their code, so their mutants ran; ask before removing them (%s)\n"
               .formatted(
                   String.join(
                       ", ",
@@ -229,7 +229,7 @@ public final class AgentText {
       out.append(
           why.filter(FlakyTest::failsAlone).isPresent()
               ? failingAloneLine(why.get())
-              : "flaky: %s failed, then passed when run again; %s. %s Never remove, disable or loosen it to get a run through%n"
+              : "flaky: %s failed, then passed when run again; %s. %s Never remove, disable or loosen it to get a run through\n"
                   .formatted(whatFailed(test), leftOut(test), flakyAdvice(test, why)));
     }
   }
@@ -285,11 +285,11 @@ public final class AgentText {
       out.append(
           "likely flaky: %s; with the code unchanged, whether it catches %s changed since the last run. "
                   .formatted(shortName(suspect.test()), String.join(", ", suspect.mutants()))
-              + "Its catches can't be trusted until it's fixed%n".formatted());
+              + "Its catches can't be trusted until it's fixed\n".formatted());
     }
     for (var suspect : Suspects.unconfirmed(report)) {
       out.append(
-          "likely flaky: %s; its %s of %s didn't repeat when run again, so the other covering tests decided%n"
+          "likely flaky: %s; its %s of %s didn't repeat when run again, so the other covering tests decided\n"
               .formatted(
                   shortName(suspect.test()),
                   suspect.mutants().size() == 1 ? "catch" : "catches",
@@ -301,7 +301,7 @@ public final class AgentText {
     for (var note : Suspects.unrelatedCatches(report)) {
       out.append(
           ("note: %s caught %d mutants in %d different methods, each with %s thrown in the test itself; "
-                  + "if it fails that way whatever changes, it may be flaky%n")
+                  + "if it fails that way whatever changes, it may be flaky\n")
               .formatted(
                   shortName(note.test()),
                   note.mutants().size(),
@@ -315,11 +315,11 @@ public final class AgentText {
     var findings = Finding.ranked(Finding.of(missed, eachMutant));
     int number = 0;
     for (Finding finding : findings.stream().limit(LIMIT).toList()) {
-      out.append(System.lineSeparator()).append(entry(++number, finding));
+      out.append('\n').append(entry(++number, finding));
     }
     if (findings.size() > LIMIT) {
       out.append(
-          "%n%d more %s mutants: run again after fixing these%n"
+          "\n%d more %s mutants: run again after fixing these\n"
               .formatted(
                   Finding.mutantsIn(findings.subList(LIMIT, findings.size())), words.undetected));
     }
@@ -328,7 +328,7 @@ public final class AgentText {
   private void appendNotCovered(
       StringBuilder out, Report report, List<MutantResult> notCovered, boolean noneMissed) {
     out.append(
-        "%n%s (no test reaches these lines%s%s):%n"
+        "\n%s (no test reaches these lines%s%s):\n"
             .formatted(
                 words.notCovered,
                 report.flaky().isEmpty() ? "" : ", or only a flaky one does",
@@ -336,9 +336,9 @@ public final class AgentText {
     notCoveredByLine(notCovered)
         .forEach(
             (where, count) ->
-                out.append("- %s (%d mutant%s)%n".formatted(where, count, count == 1 ? "" : "s")));
+                out.append("- %s (%d mutant%s)\n".formatted(where, count, count == 1 ? "" : "s")));
     SuggestedTest.startingPoints(notCovered, sources, LIMIT)
-        .forEach(assertion -> out.append("  start with: %s%n".formatted(assertion)));
+        .forEach(assertion -> out.append("  start with: %s\n".formatted(assertion)));
   }
 
   /// `src/…/Pricing.java:12-15 discount()` to how many mutants no test reaches there, in report
@@ -373,7 +373,7 @@ public final class AgentText {
       lines.add(
           "   %s: %s".formatted(command.label(), command.text(finding, sources.invocation())));
     }
-    return String.join(System.lineSeparator(), lines) + System.lineSeparator();
+    return String.join("\n", lines) + "\n";
   }
 
   /// `1. missed m855c8e3c: headline`, unnumbered for 0.

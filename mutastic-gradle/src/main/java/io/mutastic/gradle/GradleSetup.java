@@ -5,7 +5,6 @@ import io.mutastic.api.BuildTool.SetupFailed;
 import io.mutastic.api.Project;
 import io.mutastic.api.ProjectSetup;
 import io.mutastic.api.Wrappers;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -99,7 +98,7 @@ final class GradleSetup {
             ? "the root project of " + build.directory()
             : "module %s of %s".formatted(module, build.directory());
     if (modules.isEmpty()) {
-      return "%s has no Java code for mutastic to test, and no module of it has.%n".formatted(where)
+      return "%s has no Java code for mutastic to test, and no module of it has.\n".formatted(where)
           + "Run mutastic on the project with your Java code and tests:\n"
           + "  mutastic run <project directory> [:module]\n"
           + SetupFailed.ID_HINT;
@@ -198,17 +197,16 @@ final class GradleSetup {
   /// `path`, the PATH.
   static String gradle(Path directory, String path) {
     var root = Wrappers.root(directory, GradleSetup::hasSettings);
-    var wrapper = File.separatorChar == '\\' ? "gradlew.bat" : "gradlew";
-    var found = Wrappers.wrapper(directory, root, wrapper);
+    var found = Wrappers.wrapper(directory, root, Wrappers.WINDOWS ? "gradlew.bat" : "gradlew");
     if (found.isPresent()) {
       return found.get().toString();
     }
-    if (!Wrappers.onPath("gradle", path)) {
-      throw new SetupFailed(
-          "%s has no Gradle wrapper (gradlew), and there's no `gradle` to run instead"
-              .formatted(directory));
-    }
-    return "gradle";
+    return Wrappers.program("gradle", path)
+        .orElseThrow(
+            () ->
+                new SetupFailed(
+                    "%s has no Gradle wrapper (gradlew), and there's no `gradle` to run instead"
+                        .formatted(directory)));
   }
 
   /// `module`'s task by its full Gradle path: `:core:mutasticSetup` for the build in a module

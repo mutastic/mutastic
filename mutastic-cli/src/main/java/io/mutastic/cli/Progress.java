@@ -67,7 +67,7 @@ final class Progress implements Listener {
       err.print("\r\u001b[2K");
     }
     if (mode != Mode.NONE) {
-      err.println(text);
+      err.print(text + "\n");
     }
   }
 
@@ -77,14 +77,14 @@ final class Progress implements Listener {
       err.print("\r\u001b[2K");
     }
     if (mode != Mode.NONE) {
-      err.printf("tests from %s · reading its build…%n", module);
+      err.printf("tests from %s · reading its build…\n", module);
     }
   }
 
   /// The first line, before anything slow: within 100 ms of starting.
   void started(String version, String buildTool) {
     if (mode != Mode.NONE) {
-      err.printf("mutastic %s · reading the %s build…%n", version, buildTool);
+      err.printf("mutastic %s · reading the %s build…\n", version, buildTool);
     }
   }
 
@@ -98,10 +98,10 @@ final class Progress implements Listener {
     total = pass.mutants();
     done = 0; // a pass over another module's tests counts its own
     if (mode != Mode.NONE && pass.tests() == 0) {
-      err.printf("coverage  no tests found · %s%n", count(pass.mutants(), "mutant"));
+      err.printf("coverage  no tests found · %s\n", count(pass.mutants(), "mutant"));
     } else if (mode != Mode.NONE) {
       err.printf(
-          "coverage  %s on JDK %d in %s%s · %s%n",
+          "coverage  %s on JDK %d in %s%s · %s\n",
           count(pass.tests(), "test"),
           pass.jdk(),
           io.mutastic.report.HumanText.seconds(pass.took()),
@@ -120,7 +120,7 @@ final class Progress implements Listener {
         // With file lines, those are the progress; without, a counter line now and then.
         if (fileLines == null
             && (System.nanoTime() - lastPrinted >= EVERY.toNanos() || done == total)) {
-          err.println(counter());
+          err.print(counter() + "\n");
           lastPrinted = System.nanoTime();
         }
       }
