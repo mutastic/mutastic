@@ -89,40 +89,94 @@ final class KotlinDefaults {
         || (call.name().equalsString("<init>") && last.equals(MARKER));
   }
 
-  /// The instructions that push the mask, and the stand-ins for the arguments it marks.
+  /// The instructions that push the masks, and the stand-ins for the arguments they mark. A mask
+  /// has a bit for each of 32 arguments, so a call with more has a mask for every 32, in order,
+  /// before the last parameter.
   private static List<Integer> standIns(
       List<Instruction> instructions, int at, MethodTypeDesc type, Set<Integer> targets) {
     int count = type.parameterCount();
-    var mask = StackProducers.producer(instructions, at, 2, targets);
-    var bits = mask.flatMap(index -> number(instructions.get(index)));
-    if (bits.isEmpty()) {
-      return List.of();
-    }
-    var found = new ArrayList<Integer>(List.of(mask.get()));
-    var call = new Call(instructions, at, count, targets);
+    List<Integer> masksOnly = List.of();
     // A member's or an extension's receiver comes first and has no bit: the stand-ins are one on.
     for (int receivers = 0; receivers <= 1; receivers++) {
-      var standIns = call.standIns(bits.get(), receivers);
+      int masks = masks(type, receivers);
+      if (masks == 0) {
+        continue;
+      }
+      var call = new Call(instructions, at, count, receivers, masks, targets);
+      var words = call.words();
+      if (words.isEmpty()) {
+        continue;
+      }
+      var standIns = call.standIns(words.get().bits());
       if (standIns.isPresent()) {
+        var found = new ArrayList<>(words.get().places());
         found.addAll(standIns.get());
-        break;
+        return found;
+      }
+      if (masksOnly.isEmpty()) {
+        masksOnly = words.get().places();
       }
     }
-    return found;
+    return masksOnly;
   }
 
-  /// The arguments of one call.
-  private record Call(List<Instruction> instructions, int at, int count, Set<Integer> targets) {
-    /// The stand-ins for each argument the mask marks, with this many receivers before them; empty
-    /// unless each is a zero or a `null`.
-    Optional<List<Integer>> standIns(long bits, int receivers) {
+  /// How many masks a call takes with this many receivers: `n` arguments that may be left out have
+  /// a mask for every 32 of them, all `int`s. None if the parameters can't be read that way.
+  static int masks(MethodTypeDesc type, int receivers) {
+    var parameters = type.parameterList();
+    int argumentsAndMasks = parameters.size() - 1 - receivers;
+    for (int masks = 1; masks <= argumentsAndMasks; masks++) {
+      int arguments = argumentsAndMasks - masks;
+      if (arguments > 0 && (arguments + Integer.SIZE - 1) / Integer.SIZE == masks) {
+        boolean ints =
+            parameters.subList(parameters.size() - 1 - masks, parameters.size() - 1).stream()
+                .allMatch(parameter -> parameter.descriptorString().equals("I"));
+        return ints ? masks : 0;
+      }
+    }
+    return 0;
+  }
+
+  /// The masks' values, and the instructions that push them.
+  private record Words(List<Long> bits, List<Integer> places) {}
+
+  /// The arguments of one call, with its receivers and its masks.
+  private record Call(
+      List<Instruction> instructions,
+      int at,
+      int count,
+      int receivers,
+      int masks,
+      Set<Integer> targets) {
+    /// Each mask, when every one is a constant.
+    Optional<Words> words() {
+      var bits = new ArrayList<Long>();
+      var places = new ArrayList<Integer>();
+      for (int word = 0; word < masks; word++) {
+        var mask = StackProducers.producer(instructions, at, 1 + masks - word, targets);
+        var value = mask.flatMap(index -> number(instructions.get(index)));
+        if (value.isEmpty()) {
+          return Optional.empty();
+        }
+        bits.add(value.get());
+        places.add(mask.get());
+      }
+      return Optional.of(new Words(bits, places));
+    }
+
+    /// The stand-ins for each argument the masks mark; empty unless each is a zero or a `null`.
+    Optional<List<Integer>> standIns(List<Long> bits) {
       var found = new ArrayList<Integer>();
-      int arguments = count - 2 - receivers;
-      for (int bit = 0; bit < Integer.SIZE; bit++) {
-        if ((bits & (1L << bit)) != 0) {
+      int arguments = count - 1 - masks - receivers;
+      for (int word = 0; word < masks; word++) {
+        for (int bit = 0; bit < Integer.SIZE; bit++) {
+          if ((bits.get(word) & (1L << bit)) == 0) {
+            continue;
+          }
+          int argument = word * Integer.SIZE + bit;
           var producer =
-              bit < arguments
-                  ? StackProducers.producer(instructions, at, count - receivers - bit, targets)
+              argument < arguments
+                  ? StackProducers.producer(instructions, at, count - receivers - argument, targets)
                       .filter(index -> isZeroOrNull(instructions.get(index)))
                   : Optional.<Integer>empty();
           if (producer.isEmpty()) {
