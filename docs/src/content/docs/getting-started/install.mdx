@@ -8,8 +8,8 @@ import { release } from '../../../components/versions';
 
 {/* Every version on this page is `release`, the newest release tag's: none is typed in. */}
 
-mutastic runs on JDK 25. The project it tests can be on JDK 17 or later, with JUnit or TestNG
-tests.[^tests]
+For a Java or Kotlin project, mutastic runs on JDK 25. The project it tests can be on JDK 17 or
+later, with JUnit or TestNG tests.[^tests]
 
 <Tabs syncKey="runner">
 <TabItem label="Command line">
@@ -18,12 +18,22 @@ tests.[^tests]
 curl -fsSL https://mutastic.io/install.sh | sh
 ```
 
-It downloads the latest release into `~/.mutastic` and links the `mutastic` command into
-`~/.local/bin`, which must be on your `PATH`. Run it again to update. It runs on the `java` in
-`JAVA_HOME`, or on the `PATH`, which must be JDK 25 or later. `… | MUTASTIC_VERSION=0.3.0 sh` installs that
-release instead, and `MUTASTIC_HOME` and `MUTASTIC_BIN_DIR` choose the directories. The script is
-[`install.sh`](https://github.com/mutastic/mutastic/blob/main/install.sh) in the repository, to read
-before you run it.
+That one line installs the `mutastic` command for Java, Kotlin and Rust projects alike. It
+downloads the native `mutastic` for your machine into `~/.mutastic`, checks it against the
+release's checksums, and links it into `~/.local/bin`, which must be on your `PATH`; if it isn't,
+the installer prints the line to add. The script is
+[`install.sh`](https://github.com/mutastic/mutastic-rs/blob/main/scripts/install.sh) in mutastic-rs's
+repository, to read before you run it.
+
+The first time `mutastic` runs in a Gradle or Maven project, it fetches the Java edition, checks
+it against its release's checksums, and keeps it in `~/.mutastic`; after that it runs straight
+away. The Java edition runs on the `java` in `JAVA_HOME`, or on the `PATH`, which must be JDK 25 or
+later, and `mutastic` checks for one before it downloads anything. A Rust project needs no JDK.
+
+Running the installer again updates the native `mutastic`; the Java edition it uses is the newest
+it has kept, or the latest release when it has none. `MUTASTIC_VERSION=0.3.0` uses that release
+instead, fetching it if it isn't kept, and `MUTASTIC_HOME` and `MUTASTIC_BIN_DIR` choose the
+directories. `mutastic --version` shows the version of each.
 
 Then, in a Gradle or Maven project's directory:
 
@@ -34,7 +44,7 @@ mutastic run
 mutastic builds the project the way you do: with its wrapper, `gradlew` or `mvnw`, whenever the
 build has one, and with the `gradle` or `mvn` on your `PATH` when it doesn't.
 
-Or by hand: download <code>mutastic-{release}.zip</code> from the{' '}
+Or the Java edition by hand: download <code>mutastic-{release}.zip</code> from the{' '}
 <a href={`https://github.com/mutastic/mutastic/releases/tag/v${release}`}>{release} release</a>,
 unzip it, and put its `bin` directory on your `PATH`.
 

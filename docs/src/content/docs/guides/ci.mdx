@@ -99,7 +99,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
-      - run: curl -fsSL https://mutastic.io/install.sh | sh
+      - run: |
+          curl -fsSL https://mutastic.io/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: mutastic run --since=origin/${{ github.base_ref }} --threshold=80
 ```
 
@@ -185,7 +187,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
-      - run: curl -fsSL https://mutastic.io/install.sh | sh
+      - run: |
+          curl -fsSL https://mutastic.io/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -285,7 +289,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
-      - run: curl -fsSL https://mutastic.io/install.sh | sh
+      - run: |
+          curl -fsSL https://mutastic.io/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: mutastic run --shard=${{ matrix.share }}/4 --threshold=0
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
@@ -302,7 +308,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
-      - run: curl -fsSL https://mutastic.io/install.sh | sh
+      - run: |
+          curl -fsSL https://mutastic.io/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: share-*
