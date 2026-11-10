@@ -282,7 +282,7 @@ public final class JsonEvents {
     fields.put("unrelatedCatches", unrelatedCatches(report));
     fields.put("reports", reports);
     putAudit(fields, AridAudit.of(report));
-    if (GhostCards.any(report)) {
+    if (GhostCards.lookedFor(report)) {
       fields.put("ghosts", ghosts(report));
     }
     report.scope().ifPresent(scope -> fields.put("scope", scopeOf(scope)));
@@ -343,7 +343,7 @@ public final class JsonEvents {
   /// when no test runs the write.
   private List<Map<String, Object>> ghosts(Report report) {
     var cards = new GhostCards(sources);
-    return report.ghosts().stream().map(ghost -> ghost(ghost, cards)).toList();
+    return GhostCards.found(report).stream().map(ghost -> ghost(ghost, cards)).toList();
   }
 
   private Map<String, Object> ghost(io.mutastic.api.Ghost ghost, GhostCards cards) {

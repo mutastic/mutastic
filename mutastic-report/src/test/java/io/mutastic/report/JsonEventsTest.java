@@ -67,6 +67,20 @@ class JsonEventsTest {
     Schemas.checkEvents(bytes.toString(StandardCharsets.UTF_8));
   }
 
+  /// With `--experimental=ghosts`, a run that found none has an empty list; one that didn't look,
+  /// none at all.
+  @Test
+  void aGhostsRunThatFoundNoneListsNone() {
+    var report = report(List.of(result(boundary(0), Status.MISSED)), List.of(), List.of());
+
+    events.runFinished(HumanTextTest.withGhosts(report, Optional.of(List.of())));
+    events.runFinished(report);
+
+    var finished = bytes.toString(StandardCharsets.UTF_8).lines().toList();
+    assertThat(finished.get(0)).contains("\"ghosts\":[]");
+    assertThat(finished.get(1)).doesNotContain("\"ghosts\"");
+  }
+
   /// A share's events read back are what it ran, result for result: `run --from-shards` makes the
   /// whole run's cards and report from them.
   @Test

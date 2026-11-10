@@ -17,12 +17,25 @@ final class GhostCards {
   }
 
   static boolean any(Report report) {
-    return !report.ghosts().isEmpty();
+    return !found(report).isEmpty();
   }
 
-  /// `3 ghosts: 2 passed unseen, 1 appeared`.
+  /// Whether the run looked for ghosts, whether or not it found any.
+  static boolean lookedFor(Report report) {
+    return report.ghosts().isPresent();
+  }
+
+  /// The ghosts the run found: none if it didn't look.
+  static List<Ghost> found(Report report) {
+    return report.ghosts().orElse(List.of());
+  }
+
+  /// `3 (experimental, not in the score): 2 passed unseen, 1 appeared`, or that there were none.
   static String summary(Report report) {
-    var ghosts = report.ghosts();
+    var ghosts = found(report);
+    if (ghosts.isEmpty()) {
+      return "none found (experimental, not in the score)";
+    }
     long unseen = ghosts.stream().filter(Ghost::passedUnseen).count();
     long appeared = ghosts.stream().filter(Ghost::appeared).count();
     long notReached = ghosts.stream().filter(GhostCards::notReached).count();
@@ -51,7 +64,7 @@ final class GhostCards {
   /// Every ghost, those no test noticed first.
   String render(Report report) {
     var out = new StringBuilder("Ghosts (experimental, not in the score)\n");
-    for (var ghost : ordered(report.ghosts())) {
+    for (var ghost : ordered(found(report))) {
       out.append('\n');
       card(ghost).forEach(line -> out.append(line).append('\n'));
     }

@@ -51,4 +51,5 @@ Ghosts (experimental, not in the score)
 ```
 
 In `--format=jsonl`, the `run-finished` event lists them under `ghosts`, each with `"experimental": true`
-and a `status` of `passedUnseen`, `appeared` or `notCovered`.
+and a `status` of `passedUnseen`, `appeared` or `notCovered`. A run that finds none says so: its
+summary's `Ghosts` row reads `none found`, and `ghosts` is an empty list.

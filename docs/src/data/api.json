@@ -2059,7 +2059,7 @@
           "name": "Report",
           "slug": "report",
           "kind": "record",
-          "signature": "@Internal record Report(\n    String project,\n    int jdk,\n    List<MutantResult> results,\n    int tests,\n    List<String> flaky,\n    Duration coverage,\n    int workers,\n    int started,\n    Duration took,\n    List<MutantResult> audited,\n    Optional<ChangedLines> scope,\n    List<Ignore> staleIgnores,\n    List<FlakyTest> flakyEvidence,\n    List<Ghost> ghosts)",
+          "signature": "@Internal record Report(\n    String project,\n    int jdk,\n    List<MutantResult> results,\n    int tests,\n    List<String> flaky,\n    Duration coverage,\n    int workers,\n    int started,\n    Duration took,\n    List<MutantResult> audited,\n    Optional<ChangedLines> scope,\n    List<Ignore> staleIgnores,\n    List<FlakyTest> flakyEvidence,\n    Optional<List<Ghost>> ghosts)",
           "summary": "A finished run: every mutant's result, in the order they were found.",
           "doc": "A finished run: every mutant's result, in the order they were found.",
           "params": [
@@ -2101,7 +2101,7 @@
             },
             {
               "name": "ghosts",
-              "doc": "with `--experimental=ghosts`, each ghost and what its run found; never in the score, the counts or `results`"
+              "doc": "with `--experimental=ghosts`, each ghost and what its run found, none if it found none; never in the score, the counts or `results`. Empty when the run didn't look for ghosts."
             }
           ],
           "members": [

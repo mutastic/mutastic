@@ -22,8 +22,8 @@ import org.jspecify.annotations.Nullable;
 ///   mutants ran
 /// @param flakyEvidence for each of the `flaky` tests the run found out about, what it failed with
 ///   and what it reaches that changes from run to run
-/// @param ghosts with `--experimental=ghosts`, each ghost and what its run found; never in the
-///   score, the counts or `results`
+/// @param ghosts with `--experimental=ghosts`, each ghost and what its run found, none if it found
+///   none; never in the score, the counts or `results`. Empty when the run didn't look for ghosts.
 @Internal
 public record Report(
     String project,
@@ -39,10 +39,10 @@ public record Report(
     Optional<ChangedLines> scope,
     List<Ignore> staleIgnores,
     List<FlakyTest> flakyEvidence,
-    List<Ghost> ghosts) {
+    Optional<List<Ghost>> ghosts) {
 
   public Report {
-    ghosts = List.copyOf(ghosts);
+    ghosts = ghosts.map(List::copyOf);
     staleIgnores = List.copyOf(staleIgnores);
     flakyEvidence = List.copyOf(flakyEvidence);
     results = List.copyOf(results);
@@ -79,7 +79,7 @@ public record Report(
         scope,
         staleIgnores,
         flakyEvidence,
-        List.of());
+        Optional.empty());
   }
 
   /// A run with nothing known of why its flaky tests are flaky.

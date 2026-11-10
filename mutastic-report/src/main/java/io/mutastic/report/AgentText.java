@@ -94,7 +94,7 @@ public final class AgentText {
                 + " unless the task or spec says listeners should hear of that write.\n")
             .formatted(GhostCards.summary(report)));
     var cards = new GhostCards(sources);
-    report.ghosts().stream()
+    GhostCards.found(report).stream()
         .filter(ghost -> !ghost.appeared())
         .forEach(ghost -> cards.card(ghost).forEach(line -> out.append(line).append('\n')));
   }

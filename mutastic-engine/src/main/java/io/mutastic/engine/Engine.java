@@ -283,7 +283,7 @@ public final class Engine {
           options.changed().map(changed -> changed.within(project.sources())),
           plan.stale(),
           ran.flaky(),
-          ran.ghosts());
+          options.ghosts() ? Optional.of(ran.ghosts()) : Optional.empty());
     } finally {
       workers.forEach(TestWorker::close);
     }

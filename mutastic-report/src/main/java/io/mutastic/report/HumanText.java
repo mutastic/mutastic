@@ -908,7 +908,7 @@ public final class HumanText {
     if (audit.happened()) {
       rows.put("Arid audit", audit.summary());
     }
-    if (GhostCards.any(report)) {
+    if (GhostCards.lookedFor(report)) {
       rows.put("Ghosts", GhostCards.summary(report));
     }
   }

@@ -485,6 +485,38 @@ class HumanTextTest {
     assertThat(output).doesNotContain("\u001b[");
   }
 
+  /// With `--experimental=ghosts`, a run that found none says so, apart from a run that didn't
+  /// look.
+  @Test
+  void aGhostsRunThatFoundNoneSaysSo() {
+    var none = withGhosts(report(missed(boundary(), Map.of())), Optional.of(List.of()));
+    var notAsked = report(missed(boundary(), Map.of()));
+
+    assertThat(text(HumanText.Detail.FULL, Vocabulary.PLAIN).render(none, Optional.empty(), RUN))
+        .containsPattern("Ghosts +none found \\(experimental, not in the score\\)");
+    assertThat(
+            text(HumanText.Detail.FULL, Vocabulary.PLAIN).render(notAsked, Optional.empty(), RUN))
+        .doesNotContain("Ghosts");
+  }
+
+  static Report withGhosts(Report report, Optional<List<io.mutastic.api.Ghost>> ghosts) {
+    return new Report(
+        report.project(),
+        report.jdk(),
+        report.results(),
+        report.tests(),
+        report.flaky(),
+        report.coverage(),
+        report.workers(),
+        report.started(),
+        report.took(),
+        report.audited(),
+        report.scope(),
+        report.staleIgnores(),
+        report.flakyEvidence(),
+        ghosts);
+  }
+
   private HumanText text(HumanText.Detail detail, Vocabulary words) {
     return new HumanText(sources, 80, Style.PLAIN, detail, words);
   }

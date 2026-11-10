@@ -646,7 +646,7 @@
         },
         "ghosts": {
           "type": "array",
-          "description": "Experimental, with `--experimental=ghosts`: each ghost, the call most writes like this one make inserted where this one doesn't, and what its tests did. Never in the score or the counts. Only in such a run, and only when a ghost was found.",
+          "description": "Experimental, with `--experimental=ghosts`: each ghost, the call most writes like this one make inserted where this one doesn't, and what its tests did. Never in the score or the counts. Only in such a run, and empty when it found none.",
           "items": {
             "type": "object",
             "required": ["id", "experimental", "status", "file", "line", "class", "method", "field", "inserted", "rule", "writes", "peers", "coveredBy", "rendered"],
