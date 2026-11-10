@@ -187,9 +187,8 @@ mutastic ignore md9d70acc --as=equivalent --reason="Differs only when amount is 
 ```
 
 It goes in `.mutastic/ignores.yaml` in the package's directory, with the line it's on and the
-reason, to commit and review. It holds until that line changes, then the mutant runs again.
-The summary counts it with the skipped (`1 skipped (1 user)`), not apart by its kind as the Java
-edition does.
+reason, to commit and review. It holds until that line changes, then the mutant runs again. The
+summary counts it apart (`1 ignored as equivalent`), so what ignores hide can be reviewed by kind.
 
 </div>
 </EditionTabs>
