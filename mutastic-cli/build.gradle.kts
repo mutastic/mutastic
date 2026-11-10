@@ -68,6 +68,22 @@ val cards = layout.projectDirectory.dir("src/test/cards").asFile
 // Mutants' ids in a fixed set of class files (src/test/ids), which every later version must keep.
 val ids = layout.projectDirectory.dir("src/test/ids").asFile
 
+// Every one of these tasks runs mutastic on copies of the samples, and each copy is a new
+// temporary directory, so Gradle forks a javac worker for it rather than reusing the identical one
+// it forked for the last copy. A worker belongs to the daemon that forked it and outlives the
+// build with it, for the three hours a daemon waits by default: a few runs of these tests left
+// hundreds of idle JVMs, gigabytes of them, and starved everything else on the machine. A daemon
+// that goes twenty seconds after the samples stop using it takes its workers with it, so a run
+// leaves nothing, and the samples' builds still share a daemon while the tests are using it: that
+// costs a few per cent, where giving them no daemon at all costs about three quarters.
+//
+// In the environment rather than each copy's gradle.properties, because a test may move a copy's
+// build root (RunningElsewhereTest), and because every build that a sample's build starts inherits
+// it. MAVEN_OPTS below reaches the samples' Maven builds the same way.
+tasks.withType<Test>().configureEach {
+    environment("GRADLE_OPTS", "-Dorg.gradle.daemon.idletimeout=20000")
+}
+
 tasks.test {
     useJUnitPlatform()
     // The end-to-end tests run mutastic against the sample projects, each its own Gradle build.
