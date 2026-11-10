@@ -66,7 +66,7 @@ function pinned() {
 }
 
 /** The mutastic-rs docs folder to read, or undefined when there's none. */
-function source() {
+export function source() {
   const named = process.env.MUTASTIC_RS_DOCS;
   if (named === '') return undefined;
   if (named === 'pinned') return pinned();
@@ -304,7 +304,7 @@ function copyCommands(dir) {
  * under src/data/rust/, when there are any to read, and removes what an earlier build wrote when
  * there aren't. Returns the section's sidebar group, its pages' paths, any page the sidebar doesn't
  * place, the redirects from the Rust pages a shared page stands for, and any of those mutastic-rs
- * doesn't have; or undefined when there are no Rust pages. `base` is the site's, which the
+ * doesn't have, and the folder they were read from; or undefined when there are no Rust pages. `base` is the site's, which the
  * commands' links start with.
  */
 export function rustDocs(base = '/') {
@@ -338,5 +338,6 @@ export function rustDocs(base = '/') {
     unplaced,
     redirects,
     shared: [...SHARED_PAGES.keys()].filter((page) => !known.has(page)),
+    dir,
   };
 }

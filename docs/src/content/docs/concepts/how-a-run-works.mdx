@@ -156,3 +156,29 @@ The copy and its build stay in `target/mutastic`, so the next run, or a `verify`
 changed. `cargo clean` removes them with the rest of `target/`.
 
 </EditionOnly>
+
+## One run across CI jobs
+
+A run that takes longer than one CI job should can be split: `--shard=N/M` runs only the Nth of M
+shares of the mutants, dealt by each mutant's id, so every mutant is in exactly one share and each
+job's results are the ones a whole run would give. `--from-shards=DIR` then puts the shares back
+together as the whole run, with its summary, cards, reports and threshold. What each share still
+does for itself is the setup:
+
+<EditionTabs>
+<div slot="java">
+
+Each share reads the build, compiles it and runs every test once to see which lines each reaches,
+then runs only its own mutants.
+
+</div>
+<div slot="rust">
+
+Each share makes the one build, with only its share's mutants in, and runs every test once to see
+which sites each reaches, then runs only its own mutants.
+
+</div>
+</EditionTabs>
+
+So splitting shares out the mutants' time, not the setup's. [Running in CI](/guides/ci/#one-run-across-ci-jobs)
+has a complete example.

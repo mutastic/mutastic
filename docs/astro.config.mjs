@@ -31,8 +31,9 @@ const notLatest = (version !== '' && version !== latest) || base !== '/';
 const loaded = rustDocs(base);
 const rust = loaded?.sidebar;
 // The two editions line up: every page the edition switch opens exists, and every Rust page has
-// its place in the sidebar. A release or CI build stops when they don't.
-if (loaded) await checkEditions(loaded.pages, loaded.unplaced, loaded.shared);
+// its place in the sidebar, and no Rust page a shared concept was written from has changed since.
+// A release or CI build stops when they don't.
+if (loaded) await checkEditions(loaded.pages, loaded.unplaced, loaded.shared, loaded.dir);
 
 /** Root-relative links in the Markdown, `/concepts/results/`, under this build's base path. */
 function linksUnderBase() {

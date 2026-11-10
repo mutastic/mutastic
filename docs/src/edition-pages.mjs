@@ -8,6 +8,9 @@
  * changes the sidebar and the tabs in place. Each names the mutastic-rs page it stands for, when
  * there is one: the site leaves that page out (it stays in mutastic-rs, for GitHub) and sends the
  * Rust pages' links to it here. A shared page needs no pair.
+ *
+ * The mutastic-rs pages each one's Rust side was written from are in src/shared-sources.json,
+ * with a fingerprint of each: the build says when one has changed since (scripts/shared-sources.mjs).
  */
 export const SHARED = [
   ['concepts/results', 'concepts/results'],
