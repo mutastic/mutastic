@@ -75,9 +75,10 @@ tasks.check {
 
 // The plugin API is a promise from 1.0.0: a plugin built against the last 1.0+ release still builds
 // and runs against this one. A checker, in a source set of its own that ships nowhere, compares the
-// class files with that release's jar, from Maven Central, for the types a plugin implements and
-// every type their signatures reach. Before 1.0.0 there's no such release, and the API may change:
-// the checker is still built, and runs once `lastStableRelease` (gradle.properties) names one.
+// class files with that release's jar, from Maven Central, for the types a plugin implements
+// (`Mutator`, `ClassMutator`, `Filter`) and every type their signatures reach. Before 1.0.0
+// there's no such release, and the API may change: the checker is still built, and runs once
+// `lastStableRelease` (gradle.properties) names one.
 val lastRelease = providers.gradleProperty("lastStableRelease").orNull?.ifBlank { null }
 val compat by sourceSets.creating
 val apiBaseline by configurations.creating {
@@ -105,7 +106,7 @@ val checkApiCompatibility by tasks.registering(JavaExec::class) {
     onlyIf("a 1.0+ release to compare with (lastStableRelease)") { lastRelease != null }
     argumentProviders.add {
         listOf(apiBaseline.singleFile.absolutePath, classes.singleFile.absolutePath) +
-            listOf("Mutator", "ClassMutator").map { "io/mutastic/api/$it" }
+            listOf("Mutator", "ClassMutator", "Filter").map { "io/mutastic/api/$it" }
     }
     doLast { marker.get().asFile.writeText("compatible with $lastRelease\n") }
 }

@@ -79,7 +79,8 @@ A plugin built against one release builds and runs against every later release w
 major version. That covers:
 
 - [`Mutator`](../api/mutator/), an operator on an instruction, and
-  [`ClassMutator`](../api/classmutator/), one on a class as a whole: no method a plugin's class
+  [`ClassMutator`](../api/classmutator/), one on a class as a whole, and
+  [`Filter`](../api/filter/), which skips a method's mutants with a reason: no method a plugin's class
   implements is added without a body, and nothing a plugin calls on the types they use is taken
   away or changed.
 - **Rules files:** a rules file that reads today reads in later releases, with the same operators,

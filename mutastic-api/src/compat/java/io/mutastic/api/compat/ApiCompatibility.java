@@ -25,9 +25,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 
-/// Fails when the plugin API breaks what a plugin built against the last release relies on: the
-/// types a plugin implements (`Mutator`, `ClassMutator`) and every type their signatures reach,
-/// compared class file to class file with the last release's `mutastic-api` jar.
+/// Fails when the plugin API breaks what a plugin built against the last 1.0+ release relies on:
+/// the types a plugin implements (`Mutator`, `ClassMutator`, `Filter`) and every type their
+/// signatures reach, compared class file to class file with that release's `mutastic-api` jar.
 ///
 /// A break is a promised type gone or no longer public, a public member gone or with another
 /// signature, and an abstract method a plugin's class would now have to write. What's marked
