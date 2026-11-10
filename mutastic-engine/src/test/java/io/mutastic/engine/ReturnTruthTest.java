@@ -114,12 +114,12 @@ class ReturnTruthTest {
     for (var mutant : mutants) {
       var advice = sources.advice(mutant);
       cards.add(advice);
-      var shown = sources.mutatedLine(mutant, advice);
-      if (shown.isEmpty()) {
+      var shown = sources.diff(mutant, advice);
+      if (!shown.shown()) {
         failures.add(describe(mutant, advice) + "\n  has no changed line");
         continue;
       }
-      variants.add(variant(text, mutant.line(), shown.get()));
+      variants.add(variant(text, shown));
     }
     assertThat(failures).as("cards with no changed line").isEmpty();
     var loader = Javac.loader(Javac.compile(variants, List.of()));
@@ -207,11 +207,8 @@ class ReturnTruthTest {
 
   /// The line `number` (from 1) replaced by `shown`, kept at its indentation, as a class of its
   /// own.
-  private static Javac.Source variant(String text, int number, String shown) {
-    var lines = new ArrayList<>(text.lines().toList());
-    var old = lines.get(number - 1);
-    lines.set(number - 1, old.substring(0, old.length() - old.stripLeading().length()) + shown);
-    var changed = String.join("\n", lines);
+  private static Javac.Source variant(String text, io.mutastic.report.Diff shown) {
+    var changed = String.join("\n", shown.appliedTo(text.lines().toList(), line -> line));
     var name = Javac.nameFor("Returns", changed);
     return new Javac.Source(
         "returns." + name,

@@ -1,12 +1,14 @@
 
- [46;30;1m SKIPPED [0m [1mskipped: user: written by a code generator (rule [1mskip: com.example.configured.generated.**[0m)[0m
+ [46;30;1m SKIPPED [0m [1muser: written by a code generator (rule [1mskip: com.example.configured.generated.**[0m)[0m
     [2m┌─[0m src/main/java/com/example/configured/generated/Checksums.java:10
     [2m│[0m
  [2m 9[0m [2m│[0m     for (byte b : bytes) {
  [2m10[0m [2m│[0m       sum += b;
-    [2m│[0m       [1;31m^^^^^^^^^ changed to -[0m
+    [2m│[0m       [1;31m^^^^^^^^^ + changed to -[0m
  [2m11[0m [2m│[0m     }
     [2m│[0m
+    [2m=[0m mutant  [1;31m- [0msum += b;
+              [32m+ [0msum -= b;
 
     [2mreproduce [0m mutastic run --only=m6393711d samples/configured
 

@@ -416,12 +416,20 @@ public final class HumanText {
 
   /// `= also ✗ headline · m2e491c40`, then `+ the line` with its change, when it can be shown.
   private void addOther(List<String> lines, MutantResult other, String gutter) {
-    var advice = sources.advice(other);
+    var diff = sources.diff(other.mutant(), sources.advice(other));
     lines.add(annotation(gutter, alsoMissed(other)));
-    sources
-        .mutatedLine(other.mutant(), advice)
-        .ifPresent(
-            line -> lines.add(" %s           %s".formatted(gutter, style.green("+ ") + line)));
+    if (diff.shown() && !diff.removed()) {
+      diff.shownAfter()
+          .forEach(
+              line -> lines.add(" %s           %s".formatted(gutter, style.green("+ ") + line)));
+    } else {
+      lines.add(changeInWords(gutter, diff.removed() ? diff.change() : diff.unshown()));
+    }
+  }
+
+  /// `= change the change in words`, for a change the card shows no `+` line for.
+  private String changeInWords(String gutter, String words) {
+    return " %s %s change  %s".formatted(gutter, style.dim("="), code(words));
   }
 
   /// One mutant in full whatever became of it, for `explain`: a miss gets its card; anything else a
@@ -485,7 +493,7 @@ public final class HumanText {
                       .orElse(""));
       case TIMED_OUT -> "its tests stopped finishing in time, which counts as caught";
       case NOT_COVERED -> "no test reaches this line";
-      case SKIPPED -> "skipped: " + result.mutant().skipped().orElse("");
+      case SKIPPED -> result.mutant().skipped().orElse("");
       case MISSED -> "missed";
     };
   }
@@ -556,15 +564,22 @@ public final class HumanText {
                 + style.red("^".repeat(place.end() - place.start()) + " " + advice.changedTo()));
   }
 
-  /// `= mutant - the line` and `+ the line mutated`, when it can be shown exactly.
+  /// `= mutant - the statement` and `+ the statement mutated`, when the source shows the change
+  /// exactly; otherwise `= change the change in words`, never words where code goes.
   private void addBeforeAndAfter(List<String> lines, Mutant mutant, Advice advice, String gutter) {
-    var mutated = sources.mutatedLine(mutant, advice);
-    var before = sources.line(mutant);
-    if (mutated.isPresent() && before.isPresent()) {
-      lines.add(
-          " %s %s mutant  %s".formatted(gutter, style.dim("="), style.red("- ") + before.get()));
-      lines.add(" %s           %s".formatted(gutter, style.green("+ ") + mutated.get()));
+    var diff = sources.diff(mutant, advice);
+    if (!diff.shown()) {
+      lines.add(changeInWords(gutter, diff.unshown()));
+      return;
     }
+    var before = diff.shownBefore();
+    lines.add(
+        " %s %s mutant  %s".formatted(gutter, style.dim("="), style.red("- ") + before.getFirst()));
+    before.stream()
+        .skip(1)
+        .forEach(line -> lines.add(" %s           %s".formatted(gutter, style.red("- ") + line)));
+    diff.shownAfter()
+        .forEach(line -> lines.add(" %s           %s".formatted(gutter, style.green("+ ") + line)));
   }
 
   /// The advice's evidence, then which tests cover it and that they still pass.

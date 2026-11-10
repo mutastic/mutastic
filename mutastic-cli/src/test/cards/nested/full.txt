@@ -8,7 +8,7 @@
     │
  55 │       public int compare(Integer left, Integer right) {
  56 │         return left - right;
-    │                     ^ changed to +
+    │                     ^ - changed to +
  57 │       }
     │
     = mutant  - return left - right;
@@ -46,6 +46,7 @@
     │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^ now returns null
  54 │       @Override
     │
+    = change  returns null instead (not shown in the source)
     = note: tests reach this return, but none fails when it returns null
             covered by ShippingTest#cheapestComesFirstSomehow (its 1 covering test still passes)
     = help: assert the value cheapestFirst() returns on this path
@@ -59,7 +60,7 @@
     │
  76 │   public long heavyOnes(List<Integer> weights) {
  77 │     return weights.stream().filter(weight -> weight >= heavyFrom).count();
-    │                                                     ^^ changed to >
+    │                                                     ^^ >= changed to >
  78 │   }
     │
     = mutant  - return weights.stream().filter(weight -> weight >= heavyFrom).count();
@@ -76,7 +77,7 @@
     │
  46 │     public boolean heavy() {
  47 │       return weight >= heavyFrom;
-    │                     ^^ changed to >
+    │                     ^^ >= changed to >
  48 │     }
     │
     = mutant  - return weight >= heavyFrom;
@@ -86,7 +87,7 @@
 
             // in ShippingTest.Parcels
             @Test
-            void heavyResultForParcel0InShipping0() {
+            void heavyResultForWeight0InHeavyFrom0() {
               assertTrue(new Shipping(0).new Parcel(0).heavy()); // today true · with this mutant false
             }
             check today's value is the one you intend: the test pins what the code does now
@@ -100,7 +101,7 @@
     │
  24 │     public int surcharge() {
  25 │       if (distance >= 100) {
-    │                    ^^ changed to >
+    │                    ^^ >= changed to >
  26 │         return 3;
     │
     = mutant  - if (distance >= 100) {
@@ -110,7 +111,7 @@
 
             // in ShippingTest.Zones
             @Test
-            void surchargeResultForZone100() {
+            void surchargeResultForDistance100() {
               assertEquals(3, new Shipping.Zone(100).surcharge()); // today 3 · with this mutant 0
             }
             check today's value is the one you intend: the test pins what the code does now

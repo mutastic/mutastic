@@ -8,7 +8,7 @@
    │
  5 │   public int lateFee(int days) {
  6 │     if (days >= 30) {
-   │              ^^ changed to >
+   │              ^^ >= changed to >
  7 │       return 25;
    │
    = mutant  - if (days >= 30) {

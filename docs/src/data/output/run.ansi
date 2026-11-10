@@ -8,7 +8,7 @@
     [2m│[0m
  [2m16[0m [2m│[0m   public int discount(int total) {
  [2m17[0m [2m│[0m     if (total >= 100) {
-    [2m│[0m               [1;31m^^ changed to >[0m
+    [2m│[0m               [1;31m^^ >= changed to >[0m
  [2m18[0m [2m│[0m       return total / 10;
     [2m│[0m
     [2m=[0m mutant  [1;31m- [0mif (total >= 100) {
@@ -33,8 +33,8 @@
  [2m  Mutants[0m  [32m✓ [1m10 caught[0m[0m[2m · [0m[1;31m✗ [1m1 missed[0m[0m[2m (11)[0m
  [2m Worst at[0m  Pricing.discount() 1 ✗
  [2mTest runs[0m  13[2m (33 without coverage selection)[0m
- [2m Start at[0m  17:31:20
- [2m Duration[0m  4.5s [2m(setup 1.6s, coverage 281ms, mutants 2.6s)[0m
+ [2m Start at[0m  01:42:38
+ [2m Duration[0m  3.7s [2m(setup 1.1s, coverage 239ms, mutants 2.4s)[0m
  [2m    Tests[0m  3 on JDK 17 · 4 workers
  [2m  Reports[0m  build/mutastic/mutation.json[2m · [0mbuild/mutastic/mutation.html
  [2m    Score[0m  [32m[1m90.9%[0m[0m[2m  threshold 80[0m

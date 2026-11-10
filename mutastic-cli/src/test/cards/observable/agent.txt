@@ -5,7 +5,6 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
 1. missed mddb9663e: no test checks the effect of calling `firePropertyChange()` in `setEmail()`
    at src/main/java/com/example/observable/Person.java:35
    - changes.firePropertyChange("email", old, email);
-   + (the call to `firePropertyChange()` is removed)
    covered by: PersonTest#anEmailIsKept; all still pass with the change
    fix: assert what `firePropertyChange()` does: the state it changes or the call it makes
    done when: mutastic verify mddb9663e samples/observable passes

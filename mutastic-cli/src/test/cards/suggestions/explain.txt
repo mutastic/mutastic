@@ -1,3 +1,391 @@
+$ mutastic explain m86ee3ce6
+
+ [✗ MISSED] no test checks isFree() at total == freeFrom
+    ┌─ src/main/java/com/example/rates/Delivery.java:12
+    │
+ 11 │   public boolean isFree(int total) {
+ 12 │     return total >= freeFrom;
+    │                  ^^ >= changed to >
+ 13 │   }
+    │
+    = mutant  - return total >= freeFrom;
+              + return total > freeFrom;
+    = note: inputs seen: total = 50
+            covered by DeliveryTest#bigOrdersGoFree (its 1 covering test still passes)
+    = help: test isFree() with total = freeFrom and assert the result
+
+            // in DeliveryTest
+            @Test
+            void isFreeAtFreeFrom() {
+              int freeFrom = 50;
+              assertThat(new Delivery(freeFrom).isFree(freeFrom)).isTrue(); // today true · with this mutant false
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m86ee3ce6 samples/suggestions passes
+    reproduce  mutastic run --only=m86ee3ce6 samples/suggestions
+    or ignore  mutastic ignore m86ee3ce6 --reason="<why>" samples/suggestions
+
+ About this mutant ───────────────────────────────────────────────
+    = bytecode  IF_ICMPLT → IF_ICMPLE
+                IF_ICMPLT: jump if the first int is less than the second
+                IF_ICMPLE: jump if the first int is less than or equal to the second
+                javac compiles `total >= freeFrom` to IF_ICMPLT, a jump past the body when `total <
+                freeFrom`: the opposite of the source. With IF_ICMPLE it jumps when `total <=
+                freeFrom`, so the body runs only when `total > freeFrom`
+    = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
+                edge of a range, which tests that only check values far from the edge never notice.
+    = id        m86ee3ce6: `m` and the first 8 hex digits of its fingerprint, 86ee3ce6145111cf, a
+                SHA-256 of the class, method, site and change
+                no line number goes in, so the id stays the same when code above it moves
+    = site      instruction site 1 of isFree(I)Z, counting from 1 (arithmetic, branches and returns
+                are counted in bytecode order; calls apart)
+    = last run  missed: every covering test still passed
+
+$ mutastic explain m43173676
+
+ [✗ MISSED] no test needs total >= freeFrom to be false in isFree()
+    ┌─ src/main/java/com/example/rates/Delivery.java:12
+    │
+ 11 │   public boolean isFree(int total) {
+ 12 │     return total >= freeFrom;
+    │                  ^^ now always true
+ 13 │   }
+    │
+    = mutant  - return total >= freeFrom;
+              + return true;
+    = note: inputs seen: total = 50
+            covered by DeliveryTest#bigOrdersGoFree (its 1 covering test still passes)
+    = help: add a test where total >= freeFrom is false, and assert what isFree() does then
+
+            // in DeliveryTest
+            @Test
+            void isFreeWithTotal0ForFreeFrom50() {
+              assertThat(new Delivery(50).isFree(0)).isFalse(); // today false · with this mutant true
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m43173676 samples/suggestions passes
+    reproduce  mutastic run --only=m43173676 samples/suggestions
+    or ignore  mutastic ignore m43173676 --reason="<why>" samples/suggestions
+
+ About this mutant ───────────────────────────────────────────────
+    = bytecode  IF_ICMPLT → never jump
+                IF_ICMPLT: jump if the first int is less than the second
+                never jump: never jump: the code the jump would skip always runs
+                javac compiles an `if` to a jump past its body when the condition is false, so the
+                jump tests the opposite of the source
+    = operator  mutastic/remove-conditional: A condition stops deciding: the code it guards always
+                runs, or never does. It goes unnoticed when no test needs the condition to be true
+                one time and false another.
+    = id        m43173676: `m` and the first 8 hex digits of its fingerprint, 431736768e0e6a02, a
+                SHA-256 of the class, method, site and change, and the operator
+                no line number goes in, so the id stays the same when code above it moves
+    = site      instruction site 1 of isFree(I)Z, counting from 1 (arithmetic, branches and returns
+                are counted in bytecode order; calls apart)
+    = last run  missed: every covering test still passed
+
+$ mutastic explain m2e5ded43
+
+ [✗ MISSED] no test checks isFree() returning false here
+    ┌─ src/main/java/com/example/rates/Delivery.java:12
+    │
+ 11 │   public boolean isFree(int total) {
+ 12 │     return total >= freeFrom;
+    │     ^^^^^^^^^^^^^^^^^^^^^^^^^ now returns true
+ 13 │   }
+    │
+    = mutant  - return total >= freeFrom;
+              + return true;
+    = note: tests reach this return, but none fails when it returns true
+            inputs seen: total = 50
+            covered by DeliveryTest#bigOrdersGoFree (its 1 covering test still passes)
+    = help: add a test where isFree() returns false here, and assert it
+
+            // in DeliveryTest
+            @Test
+            void isFreeWithTotalMinus1ForFreeFrom0() {
+              assertThat(new Delivery(0).isFree(-1)).isFalse(); // today false · with this mutant true
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m2e5ded43 samples/suggestions passes
+    reproduce  mutastic run --only=m2e5ded43 samples/suggestions
+    or ignore  mutastic ignore m2e5ded43 --reason="<why>" samples/suggestions
+
+ About this mutant ───────────────────────────────────────────────
+    = bytecode  IRETURN → return true
+                IRETURN: return the value on the stack (one of the ints)
+                return true: return true instead
+    = operator  mutastic/return-value: A method returns the value its kind of method most plausibly
+                gets wrong: a `boolean` the other one, a number `0` (`1` where it returns `0`), an
+                `Optional`, string, collection or stream an empty one, anything else `null`. It goes
+                unnoticed when tests call the method but never look at what it returns.
+    = id        m2e5ded43: `m` and the first 8 hex digits of its fingerprint, 2e5ded43d0f5f36f, a
+                SHA-256 of the class, method, site and change, and the operator
+                no line number goes in, so the id stays the same when code above it moves
+    = site      instruction site 3 of isFree(I)Z, counting from 1 (arithmetic, branches and returns
+                are counted in bytecode order; calls apart)
+    = last run  missed: every covering test still passed
+
+$ mutastic explain m56784e43
+
+ [✗ MISSED] no test checks discount() at total == 100
+    ┌─ src/main/java/com/example/rates/Discounts.java:11
+    │
+ 10 │   public static int discount(int total) {
+ 11 │     return total >= FREE_FROM ? 10 : 0;
+    │                  ^^ >= changed to >
+ 12 │   }
+    │
+    = mutant  - return total >= FREE_FROM ? 10 : 0;
+              + return total > FREE_FROM ? 10 : 0;
+    = note: every test calls discount() away from the boundary
+            inputs seen: 250 (none is 100)
+            covered by DiscountsTest#bigTotalsGetADiscount (its 1 covering test still passes)
+    = help: test discount() with total = 100 and assert the result
+
+            // in DiscountsTest
+            @Test
+            void discountAtFreeFrom() {
+              assertThat(Discounts.discount(Discounts.FREE_FROM)).isEqualTo(10); // FREE_FROM = 100 · today 10 · with this mutant 0
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m56784e43 samples/suggestions passes
+    reproduce  mutastic run --only=m56784e43 samples/suggestions
+    or ignore  mutastic ignore m56784e43 --reason="<why>" samples/suggestions
+
+ About this mutant ───────────────────────────────────────────────
+    = bytecode  IF_ICMPLT → IF_ICMPLE
+                IF_ICMPLT: jump if the first int is less than the second
+                IF_ICMPLE: jump if the first int is less than or equal to the second
+                javac compiles `total >= 100` to IF_ICMPLT, a jump past the body when `total < 100`:
+                the opposite of the source. With IF_ICMPLE it jumps when `total <= 100`, so the body
+                runs only when `total > 100`
+    = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
+                edge of a range, which tests that only check values far from the edge never notice.
+    = id        m56784e43: `m` and the first 8 hex digits of its fingerprint, 56784e43908a6d05, a
+                SHA-256 of the class, method, site and change
+                no line number goes in, so the id stays the same when code above it moves
+    = site      instruction site 1 of discount(I)I, counting from 1 (arithmetic, branches and
+                returns are counted in bytecode order; calls apart)
+    = last run  missed: every covering test still passed
+
+$ mutastic explain m209a60d0
+
+ [✗ MISSED] no test needs total >= 100 to be false in discount()
+    ┌─ src/main/java/com/example/rates/Discounts.java:11
+    │
+ 10 │   public static int discount(int total) {
+ 11 │     return total >= FREE_FROM ? 10 : 0;
+    │                  ^^ now always true
+ 12 │   }
+    │
+    = mutant  - return total >= FREE_FROM ? 10 : 0;
+              + return true ? 10 : 0;
+    = note: inputs seen: total = 250
+            covered by DiscountsTest#bigTotalsGetADiscount (its 1 covering test still passes)
+    = help: add a test where total >= 100 is false, and assert what discount() does then
+
+            // in DiscountsTest
+            @Test
+            void discountWithTotal99() {
+              assertThat(Discounts.discount(99)).isEqualTo(0); // today 0 · with this mutant 10
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m209a60d0 samples/suggestions passes
+    reproduce  mutastic run --only=m209a60d0 samples/suggestions
+    or ignore  mutastic ignore m209a60d0 --reason="<why>" samples/suggestions
+
+ About this mutant ───────────────────────────────────────────────
+    = bytecode  IF_ICMPLT → never jump
+                IF_ICMPLT: jump if the first int is less than the second
+                never jump: never jump: the code the jump would skip always runs
+                javac compiles an `if` to a jump past its body when the condition is false, so the
+                jump tests the opposite of the source
+    = operator  mutastic/remove-conditional: A condition stops deciding: the code it guards always
+                runs, or never does. It goes unnoticed when no test needs the condition to be true
+                one time and false another.
+    = id        m209a60d0: `m` and the first 8 hex digits of its fingerprint, 209a60d0632fbbbd, a
+                SHA-256 of the class, method, site and change, and the operator
+                no line number goes in, so the id stays the same when code above it moves
+    = site      instruction site 1 of discount(I)I, counting from 1 (arithmetic, branches and
+                returns are counted in bytecode order; calls apart)
+    = last run  missed: every covering test still passed
+
+$ mutastic explain m63f5f45e
+
+ [✗ MISSED] no test checks bulk() at count == 50
+    ┌─ src/main/java/com/example/rates/Discounts.java:15
+    │
+ 14 │   public static int bulk(int count) {
+ 15 │     return BULK_FROM <= count ? 5 : 0;
+    │                      ^^ <= changed to <
+ 16 │   }
+    │
+    = mutant  - return BULK_FROM <= count ? 5 : 0;
+              + return BULK_FROM < count ? 5 : 0;
+    = note: every test calls bulk() away from the boundary
+            inputs seen: 80 (none is 50)
+            covered by DiscountsTest#bulkOrdersGetADiscount (its 1 covering test still passes)
+    = help: test bulk() with count = 50 and assert the result
+
+            // in DiscountsTest
+            @Test
+            void bulkAtBulkFrom() {
+              assertThat(Discounts.bulk(50)).isEqualTo(5); // 50 is Discounts's BULK_FROM · today 5 · with this mutant 0
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m63f5f45e samples/suggestions passes
+    reproduce  mutastic run --only=m63f5f45e samples/suggestions
+    or ignore  mutastic ignore m63f5f45e --reason="<why>" samples/suggestions
+
+ About this mutant ───────────────────────────────────────────────
+    = bytecode  IF_ICMPGT → IF_ICMPGE
+                IF_ICMPGT: jump if the first int is greater than the second
+                IF_ICMPGE: jump if the first int is greater than or equal to the second
+                javac compiles `50 <= count` to IF_ICMPGT, a jump past the body when `50 > count`:
+                the opposite of the source. With IF_ICMPGE it jumps when `50 >= count`, so the body
+                runs only when `50 < count`
+    = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
+                edge of a range, which tests that only check values far from the edge never notice.
+    = id        m63f5f45e: `m` and the first 8 hex digits of its fingerprint, 63f5f45ecf7fd975, a
+                SHA-256 of the class, method, site and change
+                no line number goes in, so the id stays the same when code above it moves
+    = site      instruction site 1 of bulk(I)I, counting from 1 (arithmetic, branches and returns
+                are counted in bytecode order; calls apart)
+    = last run  missed: every covering test still passed
+
+$ mutastic explain m2b0d1651
+
+ [✗ MISSED] no test needs 50 <= count to be false in bulk()
+    ┌─ src/main/java/com/example/rates/Discounts.java:15
+    │
+ 14 │   public static int bulk(int count) {
+ 15 │     return BULK_FROM <= count ? 5 : 0;
+    │                      ^^ now always true
+ 16 │   }
+    │
+    = mutant  - return BULK_FROM <= count ? 5 : 0;
+              + return true ? 5 : 0;
+    = note: inputs seen: count = 80
+            covered by DiscountsTest#bulkOrdersGetADiscount (its 1 covering test still passes)
+    = help: add a test where 50 <= count is false, and assert what bulk() does then
+
+            // in DiscountsTest
+            @Test
+            void bulkWithCount49() {
+              assertThat(Discounts.bulk(49)).isEqualTo(0); // today 0 · with this mutant 5
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m2b0d1651 samples/suggestions passes
+    reproduce  mutastic run --only=m2b0d1651 samples/suggestions
+    or ignore  mutastic ignore m2b0d1651 --reason="<why>" samples/suggestions
+
+ About this mutant ───────────────────────────────────────────────
+    = bytecode  IF_ICMPGT → never jump
+                IF_ICMPGT: jump if the first int is greater than the second
+                never jump: never jump: the code the jump would skip always runs
+                javac compiles an `if` to a jump past its body when the condition is false, so the
+                jump tests the opposite of the source
+    = operator  mutastic/remove-conditional: A condition stops deciding: the code it guards always
+                runs, or never does. It goes unnoticed when no test needs the condition to be true
+                one time and false another.
+    = id        m2b0d1651: `m` and the first 8 hex digits of its fingerprint, 2b0d1651c498cd17, a
+                SHA-256 of the class, method, site and change, and the operator
+                no line number goes in, so the id stays the same when code above it moves
+    = site      instruction site 1 of bulk(I)I, counting from 1 (arithmetic, branches and returns
+                are counted in bytecode order; calls apart)
+    = last run  missed: every covering test still passed
+
+$ mutastic explain m49a00b3f
+
+ [✗ MISSED] no test checks columns() at chosen == 3
+    ┌─ src/main/java/com/example/rates/Discounts.java:20
+    │
+ 19 │   public static int columns(Integer chosen) {
+ 20 │     return chosen > 3 ? 2 : 1;
+    │                   ^ > changed to >=
+ 21 │   }
+    │
+    = mutant  - return chosen > 3 ? 2 : 1;
+              + return chosen >= 3 ? 2 : 1;
+    = note: covered by DiscountsTest#aBigChoiceHasTwoColumns (its 1 covering test still passes)
+    = help: test columns() with chosen = 3 and assert the result
+
+            // in DiscountsTest
+            @Test
+            void columnsWithChosen3() {
+              assertThat(Discounts.columns(3)).isEqualTo(1); // today 1 · with this mutant 2
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m49a00b3f samples/suggestions passes
+    reproduce  mutastic run --only=m49a00b3f samples/suggestions
+    or ignore  mutastic ignore m49a00b3f --reason="<why>" samples/suggestions
+
+ About this mutant ───────────────────────────────────────────────
+    = bytecode  IF_ICMPLE → IF_ICMPLT
+                IF_ICMPLE: jump if the first int is less than or equal to the second
+                IF_ICMPLT: jump if the first int is less than the second
+                javac compiles `chosen > 3` to IF_ICMPLE, a jump past the body when `chosen <= 3`:
+                the opposite of the source. With IF_ICMPLT it jumps when `chosen < 3`, so the body
+                runs only when `chosen >= 3`
+    = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
+                edge of a range, which tests that only check values far from the edge never notice.
+    = id        m49a00b3f: `m` and the first 8 hex digits of its fingerprint, 49a00b3fc3df557b, a
+                SHA-256 of the class, method, site and change
+                no line number goes in, so the id stays the same when code above it moves
+    = site      instruction site 1 of columns(Ljava/lang/Integer;)I, counting from 1 (arithmetic,
+                branches and returns are counted in bytecode order; calls apart)
+    = last run  missed: every covering test still passed
+
+$ mutastic explain m111a435d
+
+ [✗ MISSED] no test needs chosen > 3 to be false in columns()
+    ┌─ src/main/java/com/example/rates/Discounts.java:20
+    │
+ 19 │   public static int columns(Integer chosen) {
+ 20 │     return chosen > 3 ? 2 : 1;
+    │                   ^ now always true
+ 21 │   }
+    │
+    = mutant  - return chosen > 3 ? 2 : 1;
+              + return true ? 2 : 1;
+    = note: covered by DiscountsTest#aBigChoiceHasTwoColumns (its 1 covering test still passes)
+    = help: add a test where chosen > 3 is false, and assert what columns() does then
+
+            // in DiscountsTest
+            @Test
+            void columnsWithChosen3() {
+              assertThat(Discounts.columns(3)).isEqualTo(1); // today 1 · with this mutant 2
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m111a435d samples/suggestions passes
+    reproduce  mutastic run --only=m111a435d samples/suggestions
+    or ignore  mutastic ignore m111a435d --reason="<why>" samples/suggestions
+
+ About this mutant ───────────────────────────────────────────────
+    = bytecode  IF_ICMPLE → never jump
+                IF_ICMPLE: jump if the first int is less than or equal to the second
+                never jump: never jump: the code the jump would skip always runs
+                javac compiles an `if` to a jump past its body when the condition is false, so the
+                jump tests the opposite of the source
+    = operator  mutastic/remove-conditional: A condition stops deciding: the code it guards always
+                runs, or never does. It goes unnoticed when no test needs the condition to be true
+                one time and false another.
+    = id        m111a435d: `m` and the first 8 hex digits of its fingerprint, 111a435d7d8594cc, a
+                SHA-256 of the class, method, site and change, and the operator
+                no line number goes in, so the id stays the same when code above it moves
+    = site      instruction site 1 of columns(Ljava/lang/Integer;)I, counting from 1 (arithmetic,
+                branches and returns are counted in bytecode order; calls apart)
+    = last run  missed: every covering test still passed
+
 $ mutastic explain m2e491c40
 
  [✗ MISSED] no test checks lateFee() at daysLate == 7
@@ -5,7 +393,7 @@ $ mutastic explain m2e491c40
     │
   9 │   public static long lateFee(long daysLate) {
  10 │     if (daysLate <= 7) {
-    │                  ^^ changed to <
+    │                  ^^ <= changed to <
  11 │       return 0;
     │
     = mutant  - if (daysLate <= 7) {
@@ -40,390 +428,6 @@ $ mutastic explain m2e491c40
                 SHA-256 of the class, method, site and change
                 no line number goes in, so the id stays the same when code above it moves
     = site      instruction site 2 of lateFee(J)J, counting from 1 (arithmetic, branches and returns
-                are counted in bytecode order; calls apart)
-    = last run  missed: every covering test still passed
-
-$ mutastic explain md4db94d8
-
- [✗ MISSED] no test checks inCredit() at balance == 0
-    ┌─ src/main/java/com/example/rates/Rates.java:18
-    │
- 17 │   public static boolean inCredit(int balance) {
- 18 │     return balance > 0;
-    │                    ^ changed to >=
- 19 │   }
-    │
-    = mutant  - return balance > 0;
-              + return balance >= 0;
-    = note: every test calls inCredit() away from the boundary
-            inputs seen: 50 (none is 0)
-            covered by RatesTest#aPositiveBalanceIsInCredit (its 1 covering test still passes)
-    = help: test inCredit() with balance = 0 and assert the result
-
-            // in RatesTest
-            @Test
-            void inCreditWithBalance0() {
-              assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
-            }
-            check today's value is the one you intend: the test pins what the code does now
-
-    done when  mutastic verify md4db94d8 samples/suggestions passes
-    reproduce  mutastic run --only=md4db94d8 samples/suggestions
-    or ignore  mutastic ignore md4db94d8 --reason="<why>" samples/suggestions
-
- About this mutant ───────────────────────────────────────────────
-    = bytecode  IFLE → IFLT
-                IFLE: jump if the int (or the comparison's result, or a boolean) is less than or
-                equal to zero
-                IFLT: jump if the int (or the comparison's result, or a boolean) is less than zero
-                javac compiles an `if` to a jump past its body when the condition is false, so the
-                jump tests the opposite of the source
-    = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
-                edge of a range, which tests that only check values far from the edge never notice.
-    = id        md4db94d8: `m` and the first 8 hex digits of its fingerprint, d4db94d8d1d6dcc8, a
-                SHA-256 of the class, method, site and change
-                no line number goes in, so the id stays the same when code above it moves
-    = site      instruction site 1 of inCredit(I)Z, counting from 1 (arithmetic, branches and
-                returns are counted in bytecode order; calls apart)
-    = last run  missed: every covering test still passed
-
-$ mutastic explain m05382fc9
-
- [✗ MISSED] no test needs balance > 0 to be false in inCredit()
-    ┌─ src/main/java/com/example/rates/Rates.java:18
-    │
- 17 │   public static boolean inCredit(int balance) {
- 18 │     return balance > 0;
-    │                    ^ now always true
- 19 │   }
-    │
-    = mutant  - return balance > 0;
-              + return true;
-    = note: inputs seen: balance = 50
-            covered by RatesTest#aPositiveBalanceIsInCredit (its 1 covering test still passes)
-    = help: add a test where balance > 0 is false, and assert what inCredit() does then
-
-            // in RatesTest
-            @Test
-            void inCreditWithBalance0() {
-              assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
-            }
-            check today's value is the one you intend: the test pins what the code does now
-
-    done when  mutastic verify m05382fc9 samples/suggestions passes
-    reproduce  mutastic run --only=m05382fc9 samples/suggestions
-    or ignore  mutastic ignore m05382fc9 --reason="<why>" samples/suggestions
-
- About this mutant ───────────────────────────────────────────────
-    = bytecode  IFLE → never jump
-                IFLE: jump if the int (or the comparison's result, or a boolean) is less than or
-                equal to zero
-                never jump: never jump: the code the jump would skip always runs
-                javac compiles an `if` to a jump past its body when the condition is false, so the
-                jump tests the opposite of the source
-    = operator  mutastic/remove-conditional: A condition stops deciding: the code it guards always
-                runs, or never does. It goes unnoticed when no test needs the condition to be true
-                one time and false another.
-    = id        m05382fc9: `m` and the first 8 hex digits of its fingerprint, 05382fc9a4eec386, a
-                SHA-256 of the class, method, site and change, and the operator
-                no line number goes in, so the id stays the same when code above it moves
-    = site      instruction site 1 of inCredit(I)Z, counting from 1 (arithmetic, branches and
-                returns are counted in bytecode order; calls apart)
-    = last run  missed: every covering test still passed
-
-$ mutastic explain m193b6dcc
-
- [✗ MISSED] no test checks inCredit() returning false here
-    ┌─ src/main/java/com/example/rates/Rates.java:18
-    │
- 17 │   public static boolean inCredit(int balance) {
- 18 │     return balance > 0;
-    │     ^^^^^^^^^^^^^^^^^^^ now returns true
- 19 │   }
-    │
-    = mutant  - return balance > 0;
-              + return true;
-    = note: tests reach this return, but none fails when it returns true
-            inputs seen: balance = 50
-            covered by RatesTest#aPositiveBalanceIsInCredit (its 1 covering test still passes)
-    = help: add a test where inCredit() returns false here, and assert it
-
-            // in RatesTest
-            @Test
-            void inCreditWithBalance0() {
-              assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
-            }
-            check today's value is the one you intend: the test pins what the code does now
-
-    done when  mutastic verify m193b6dcc samples/suggestions passes
-    reproduce  mutastic run --only=m193b6dcc samples/suggestions
-    or ignore  mutastic ignore m193b6dcc --reason="<why>" samples/suggestions
-
- About this mutant ───────────────────────────────────────────────
-    = bytecode  IRETURN → return true
-                IRETURN: return the value on the stack (one of the ints)
-                return true: return true instead
-    = operator  mutastic/return-value: A method returns the value its kind of method most plausibly
-                gets wrong: a `boolean` the other one, a number `0` (`1` where it returns `0`), an
-                `Optional`, string, collection or stream an empty one, anything else `null`. It goes
-                unnoticed when tests call the method but never look at what it returns.
-    = id        m193b6dcc: `m` and the first 8 hex digits of its fingerprint, 193b6dcc716697d5, a
-                SHA-256 of the class, method, site and change, and the operator
-                no line number goes in, so the id stays the same when code above it moves
-    = site      instruction site 3 of inCredit(I)Z, counting from 1 (arithmetic, branches and
-                returns are counted in bytecode order; calls apart)
-    = last run  missed: every covering test still passed
-
-$ mutastic explain m90db0c4e
-
- [✗ MISSED] no test needs start == null to be false in openOn()
-   ┌─ src/main/java/com/example/rates/Window.java:6
-   │
- 5 │   public boolean openOn(int day) {
- 6 │     return (start == null || start <= day) && day < end;
-   │                   ^^ now always true
- 7 │   }
-   │
-   = mutant  - return (start == null || start <= day) && day < end;
-             + return (true || start <= day) && day < end;
-   = note: inputs seen: day = 5
-           covered by WindowTest#openInTheMiddle (its 1 covering test still passes)
-   = help: add a test where start == null is false, and assert what openOn() does then
-
-           // in WindowTest
-           @Test
-           void openOnWithDay0ForWindow5And5() {
-             assertThat(new Window(5, 5L).openOn(0)).isFalse(); // today false · with this mutant true
-           }
-           check today's value is the one you intend: the test pins what the code does now
-
-   done when  mutastic verify m90db0c4e samples/suggestions passes
-   reproduce  mutastic run --only=m90db0c4e samples/suggestions
-   or ignore  mutastic ignore m90db0c4e --reason="<why>" samples/suggestions
-
- About this mutant ───────────────────────────────────────────────
-    = bytecode  IFNULL → always jump
-                IFNULL: jump if it's null
-                always jump: jump whatever the condition: the code it skips never runs
-                here the jump is taken when the condition holds, as the first test of an `||` is, so
-                it reads as the source does
-    = operator  mutastic/remove-conditional: A condition stops deciding: the code it guards always
-                runs, or never does. It goes unnoticed when no test needs the condition to be true
-                one time and false another.
-    = id        m90db0c4e: `m` and the first 8 hex digits of its fingerprint, 90db0c4e55c7cce8, a
-                SHA-256 of the class, method, site and change, and the operator
-                no line number goes in, so the id stays the same when code above it moves
-    = site      instruction site 1 of openOn(I)Z, counting from 1 (arithmetic, branches and returns
-                are counted in bytecode order; calls apart)
-    = last run  missed: every covering test still passed
-
-$ mutastic explain mc1631e8f
-
- [✗ MISSED] no test needs start == null to be true in openOn()
-   ┌─ src/main/java/com/example/rates/Window.java:6
-   │
- 5 │   public boolean openOn(int day) {
- 6 │     return (start == null || start <= day) && day < end;
-   │                   ^^ now always false
- 7 │   }
-   │
-   = mutant  - return (start == null || start <= day) && day < end;
-             + return (false || start <= day) && day < end;
-   = note: inputs seen: day = 5
-           covered by WindowTest#openInTheMiddle (its 1 covering test still passes)
-   = help: add a test where start == null is true, and assert what openOn() does then
-
-   done when  mutastic verify mc1631e8f samples/suggestions passes
-   reproduce  mutastic run --only=mc1631e8f samples/suggestions
-   or ignore  mutastic ignore mc1631e8f --reason="<why>" samples/suggestions
-
- About this mutant ───────────────────────────────────────────────
-    = bytecode  IFNULL → never jump
-                IFNULL: jump if it's null
-                never jump: never jump: the code the jump would skip always runs
-                here the jump is taken when the condition holds, as the first test of an `||` is, so
-                it reads as the source does
-    = operator  mutastic/remove-conditional: A condition stops deciding: the code it guards always
-                runs, or never does. It goes unnoticed when no test needs the condition to be true
-                one time and false another.
-    = id        mc1631e8f: `m` and the first 8 hex digits of its fingerprint, c1631e8f159f9817, a
-                SHA-256 of the class, method, site and change, and the operator
-                no line number goes in, so the id stays the same when code above it moves
-    = site      instruction site 1 of openOn(I)Z, counting from 1 (arithmetic, branches and returns
-                are counted in bytecode order; calls apart)
-    = last run  missed: every covering test still passed
-
-$ mutastic explain m6cb7282e
-
- [✗ MISSED] no test checks openOn() at start == day
-   ┌─ src/main/java/com/example/rates/Window.java:6
-   │
- 5 │   public boolean openOn(int day) {
- 6 │     return (start == null || start <= day) && day < end;
-   │                                    ^^ changed to <
- 7 │   }
-   │
-   = mutant  - return (start == null || start <= day) && day < end;
-             + return (start == null || start < day) && day < end;
-   = note: inputs seen: day = 5
-           covered by WindowTest#openInTheMiddle (its 1 covering test still passes)
-   = help: test openOn() with start = day and assert the result
-
-           // in WindowTest
-           @Test
-           void openOnWithDay5ForWindow5And10() {
-             assertThat(new Window(5, 10L).openOn(5)).isTrue(); // today true · with this mutant false
-           }
-           check today's value is the one you intend: the test pins what the code does now
-
-   done when  mutastic verify m6cb7282e samples/suggestions passes
-   reproduce  mutastic run --only=m6cb7282e samples/suggestions
-   or ignore  mutastic ignore m6cb7282e --reason="<why>" samples/suggestions
-
- About this mutant ───────────────────────────────────────────────
-    = bytecode  IF_ICMPGT → IF_ICMPGE
-                IF_ICMPGT: jump if the first int is greater than the second
-                IF_ICMPGE: jump if the first int is greater than or equal to the second
-                javac compiles `start <= day` to IF_ICMPGT, a jump past the body when `start > day`:
-                the opposite of the source. With IF_ICMPGE it jumps when `start >= day`, so the body
-                runs only when `start < day`
-    = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
-                edge of a range, which tests that only check values far from the edge never notice.
-    = id        m6cb7282e: `m` and the first 8 hex digits of its fingerprint, 6cb7282e1b285e63, a
-                SHA-256 of the class, method, site and change
-                no line number goes in, so the id stays the same when code above it moves
-    = site      instruction site 2 of openOn(I)Z, counting from 1 (arithmetic, branches and returns
-                are counted in bytecode order; calls apart)
-    = last run  missed: every covering test still passed
-
-$ mutastic explain m00c02bf2
-
- [✗ MISSED] no test needs start <= day to be false in openOn()
-   ┌─ src/main/java/com/example/rates/Window.java:6
-   │
- 5 │   public boolean openOn(int day) {
- 6 │     return (start == null || start <= day) && day < end;
-   │                                    ^^ now always true
- 7 │   }
-   │
-   = mutant  - return (start == null || start <= day) && day < end;
-             + return (start == null || true) && day < end;
-   = note: inputs seen: day = 5
-           covered by WindowTest#openInTheMiddle (its 1 covering test still passes)
-   = help: add a test where start <= day is false, and assert what openOn() does then
-
-           // in WindowTest
-           @Test
-           void openOnWithDay0ForWindow5And5() {
-             assertThat(new Window(5, 5L).openOn(0)).isFalse(); // today false · with this mutant true
-           }
-           check today's value is the one you intend: the test pins what the code does now
-
-   done when  mutastic verify m00c02bf2 samples/suggestions passes
-   reproduce  mutastic run --only=m00c02bf2 samples/suggestions
-   or ignore  mutastic ignore m00c02bf2 --reason="<why>" samples/suggestions
-
- About this mutant ───────────────────────────────────────────────
-    = bytecode  IF_ICMPGT → never jump
-                IF_ICMPGT: jump if the first int is greater than the second
-                never jump: never jump: the code the jump would skip always runs
-                javac compiles an `if` to a jump past its body when the condition is false, so the
-                jump tests the opposite of the source
-    = operator  mutastic/remove-conditional: A condition stops deciding: the code it guards always
-                runs, or never does. It goes unnoticed when no test needs the condition to be true
-                one time and false another.
-    = id        m00c02bf2: `m` and the first 8 hex digits of its fingerprint, 00c02bf2217da357, a
-                SHA-256 of the class, method, site and change, and the operator
-                no line number goes in, so the id stays the same when code above it moves
-    = site      instruction site 2 of openOn(I)Z, counting from 1 (arithmetic, branches and returns
-                are counted in bytecode order; calls apart)
-    = last run  missed: every covering test still passed
-
-$ mutastic explain madf99876
-
- [✗ MISSED] no test checks openOn() at day == end
-   ┌─ src/main/java/com/example/rates/Window.java:6
-   │
- 5 │   public boolean openOn(int day) {
- 6 │     return (start == null || start <= day) && day < end;
-   │                                                   ^ changed to <=
- 7 │   }
-   │
-   = mutant  - return (start == null || start <= day) && day < end;
-             + return (start == null || start <= day) && day <= end;
-   = note: inputs seen: day = 5
-           covered by WindowTest#openInTheMiddle (its 1 covering test still passes)
-   = help: test openOn() with day = end and assert the result
-
-           // in WindowTest
-           @Test
-           void openOnWithDay5ForWindow5And5() {
-             assertThat(new Window(5, 5L).openOn(5)).isFalse(); // today false · with this mutant true
-           }
-           check today's value is the one you intend: the test pins what the code does now
-
-   done when  mutastic verify madf99876 samples/suggestions passes
-   reproduce  mutastic run --only=madf99876 samples/suggestions
-   or ignore  mutastic ignore madf99876 --reason="<why>" samples/suggestions
-
- About this mutant ───────────────────────────────────────────────
-    = bytecode  IFGE → IFGT
-                IFGE: jump if the int (or the comparison's result, or a boolean) is greater than or
-                equal to zero
-                IFGT: jump if the int (or the comparison's result, or a boolean) is greater than
-                zero
-                javac compiles an `if` to a jump past its body when the condition is false, so the
-                jump tests the opposite of the source
-    = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
-                edge of a range, which tests that only check values far from the edge never notice.
-    = id        madf99876: `m` and the first 8 hex digits of its fingerprint, adf99876bb3a1c43, a
-                SHA-256 of the class, method, site and change
-                no line number goes in, so the id stays the same when code above it moves
-    = site      instruction site 4 of openOn(I)Z, counting from 1 (arithmetic, branches and returns
-                are counted in bytecode order; calls apart)
-    = last run  missed: every covering test still passed
-
-$ mutastic explain m45713261
-
- [✗ MISSED] no test needs day < end to be false in openOn()
-   ┌─ src/main/java/com/example/rates/Window.java:6
-   │
- 5 │   public boolean openOn(int day) {
- 6 │     return (start == null || start <= day) && day < end;
-   │                                                   ^ now always true
- 7 │   }
-   │
-   = mutant  - return (start == null || start <= day) && day < end;
-             + return (start == null || start <= day) && true;
-   = note: inputs seen: day = 5
-           covered by WindowTest#openInTheMiddle (its 1 covering test still passes)
-   = help: add a test where day < end is false, and assert what openOn() does then
-
-           // in WindowTest
-           @Test
-           void openOnWithDay5ForWindow5And5() {
-             assertThat(new Window(5, 5L).openOn(5)).isFalse(); // today false · with this mutant true
-           }
-           check today's value is the one you intend: the test pins what the code does now
-
-   done when  mutastic verify m45713261 samples/suggestions passes
-   reproduce  mutastic run --only=m45713261 samples/suggestions
-   or ignore  mutastic ignore m45713261 --reason="<why>" samples/suggestions
-
- About this mutant ───────────────────────────────────────────────
-    = bytecode  IFGE → never jump
-                IFGE: jump if the int (or the comparison's result, or a boolean) is greater than or
-                equal to zero
-                never jump: never jump: the code the jump would skip always runs
-                javac compiles an `if` to a jump past its body when the condition is false, so the
-                jump tests the opposite of the source
-    = operator  mutastic/remove-conditional: A condition stops deciding: the code it guards always
-                runs, or never does. It goes unnoticed when no test needs the condition to be true
-                one time and false another.
-    = id        m45713261: `m` and the first 8 hex digits of its fingerprint, 45713261f2b94797, a
-                SHA-256 of the class, method, site and change, and the operator
-                no line number goes in, so the id stays the same when code above it moves
-    = site      instruction site 4 of openOn(I)Z, counting from 1 (arithmetic, branches and returns
                 are counted in bytecode order; calls apart)
     = last run  missed: every covering test still passed
 

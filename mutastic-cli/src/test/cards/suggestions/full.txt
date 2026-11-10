@@ -1,6 +1,237 @@
 
  Missed ────────────────────────────────────────────────────────────
 
+ ❯ src/main/java/com/example/rates/Delivery.java  3 missed in 1 method
+
+ [✗ MISSED] no test checks isFree() at total == freeFrom
+    ┌─ src/main/java/com/example/rates/Delivery.java:12
+    │
+ 11 │   public boolean isFree(int total) {
+ 12 │     return total >= freeFrom;
+    │                  ^^ >= changed to >
+ 13 │   }
+    │
+    = mutant  - return total >= freeFrom;
+              + return total > freeFrom;
+    = note: inputs seen: total = 50
+            covered by DeliveryTest#bigOrdersGoFree (its 1 covering test still passes)
+    = help: test isFree() with total = freeFrom and assert the result
+
+            // in DeliveryTest
+            @Test
+            void isFreeAtFreeFrom() {
+              int freeFrom = 50;
+              assertThat(new Delivery(freeFrom).isFree(freeFrom)).isTrue(); // today true · with this mutant false
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m86ee3ce6 samples/suggestions passes
+    reproduce  mutastic run --only=m86ee3ce6 samples/suggestions
+    or ignore  mutastic ignore m86ee3ce6 --reason="<why>" samples/suggestions
+
+ [✗ MISSED] no test needs total >= freeFrom to be false in isFree()
+    ┌─ src/main/java/com/example/rates/Delivery.java:12
+    │
+ 11 │   public boolean isFree(int total) {
+ 12 │     return total >= freeFrom;
+    │                  ^^ now always true
+ 13 │   }
+    │
+    = mutant  - return total >= freeFrom;
+              + return true;
+    = note: inputs seen: total = 50
+            covered by DeliveryTest#bigOrdersGoFree (its 1 covering test still passes)
+    = help: add a test where total >= freeFrom is false, and assert what isFree() does then
+
+            // in DeliveryTest
+            @Test
+            void isFreeWithTotal0ForFreeFrom50() {
+              assertThat(new Delivery(50).isFree(0)).isFalse(); // today false · with this mutant true
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m43173676 samples/suggestions passes
+    reproduce  mutastic run --only=m43173676 samples/suggestions
+    or ignore  mutastic ignore m43173676 --reason="<why>" samples/suggestions
+
+ [✗ MISSED] no test checks isFree() returning false here
+    ┌─ src/main/java/com/example/rates/Delivery.java:12
+    │
+ 11 │   public boolean isFree(int total) {
+ 12 │     return total >= freeFrom;
+    │     ^^^^^^^^^^^^^^^^^^^^^^^^^ now returns true
+ 13 │   }
+    │
+    = mutant  - return total >= freeFrom;
+              + return true;
+    = note: tests reach this return, but none fails when it returns true
+            inputs seen: total = 50
+            covered by DeliveryTest#bigOrdersGoFree (its 1 covering test still passes)
+    = help: add a test where isFree() returns false here, and assert it
+
+            // in DeliveryTest
+            @Test
+            void isFreeWithTotalMinus1ForFreeFrom0() {
+              assertThat(new Delivery(0).isFree(-1)).isFalse(); // today false · with this mutant true
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m2e5ded43 samples/suggestions passes
+    reproduce  mutastic run --only=m2e5ded43 samples/suggestions
+    or ignore  mutastic ignore m2e5ded43 --reason="<why>" samples/suggestions
+
+ ❯ src/main/java/com/example/rates/Discounts.java  6 missed in 3 methods
+
+ [✗ MISSED] no test checks discount() at total == 100
+    ┌─ src/main/java/com/example/rates/Discounts.java:11
+    │
+ 10 │   public static int discount(int total) {
+ 11 │     return total >= FREE_FROM ? 10 : 0;
+    │                  ^^ >= changed to >
+ 12 │   }
+    │
+    = mutant  - return total >= FREE_FROM ? 10 : 0;
+              + return total > FREE_FROM ? 10 : 0;
+    = note: every test calls discount() away from the boundary
+            inputs seen: 250 (none is 100)
+            covered by DiscountsTest#bigTotalsGetADiscount (its 1 covering test still passes)
+    = help: test discount() with total = 100 and assert the result
+
+            // in DiscountsTest
+            @Test
+            void discountAtFreeFrom() {
+              assertThat(Discounts.discount(Discounts.FREE_FROM)).isEqualTo(10); // FREE_FROM = 100 · today 10 · with this mutant 0
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m56784e43 samples/suggestions passes
+    reproduce  mutastic run --only=m56784e43 samples/suggestions
+    or ignore  mutastic ignore m56784e43 --reason="<why>" samples/suggestions
+
+ [✗ MISSED] no test needs total >= 100 to be false in discount()
+    ┌─ src/main/java/com/example/rates/Discounts.java:11
+    │
+ 10 │   public static int discount(int total) {
+ 11 │     return total >= FREE_FROM ? 10 : 0;
+    │                  ^^ now always true
+ 12 │   }
+    │
+    = mutant  - return total >= FREE_FROM ? 10 : 0;
+              + return true ? 10 : 0;
+    = note: inputs seen: total = 250
+            covered by DiscountsTest#bigTotalsGetADiscount (its 1 covering test still passes)
+    = help: add a test where total >= 100 is false, and assert what discount() does then
+
+            // in DiscountsTest
+            @Test
+            void discountWithTotal99() {
+              assertThat(Discounts.discount(99)).isEqualTo(0); // today 0 · with this mutant 10
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m209a60d0 samples/suggestions passes
+    reproduce  mutastic run --only=m209a60d0 samples/suggestions
+    or ignore  mutastic ignore m209a60d0 --reason="<why>" samples/suggestions
+
+ [✗ MISSED] no test checks bulk() at count == 50
+    ┌─ src/main/java/com/example/rates/Discounts.java:15
+    │
+ 14 │   public static int bulk(int count) {
+ 15 │     return BULK_FROM <= count ? 5 : 0;
+    │                      ^^ <= changed to <
+ 16 │   }
+    │
+    = mutant  - return BULK_FROM <= count ? 5 : 0;
+              + return BULK_FROM < count ? 5 : 0;
+    = note: every test calls bulk() away from the boundary
+            inputs seen: 80 (none is 50)
+            covered by DiscountsTest#bulkOrdersGetADiscount (its 1 covering test still passes)
+    = help: test bulk() with count = 50 and assert the result
+
+            // in DiscountsTest
+            @Test
+            void bulkAtBulkFrom() {
+              assertThat(Discounts.bulk(50)).isEqualTo(5); // 50 is Discounts's BULK_FROM · today 5 · with this mutant 0
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m63f5f45e samples/suggestions passes
+    reproduce  mutastic run --only=m63f5f45e samples/suggestions
+    or ignore  mutastic ignore m63f5f45e --reason="<why>" samples/suggestions
+
+ [✗ MISSED] no test needs 50 <= count to be false in bulk()
+    ┌─ src/main/java/com/example/rates/Discounts.java:15
+    │
+ 14 │   public static int bulk(int count) {
+ 15 │     return BULK_FROM <= count ? 5 : 0;
+    │                      ^^ now always true
+ 16 │   }
+    │
+    = mutant  - return BULK_FROM <= count ? 5 : 0;
+              + return true ? 5 : 0;
+    = note: inputs seen: count = 80
+            covered by DiscountsTest#bulkOrdersGetADiscount (its 1 covering test still passes)
+    = help: add a test where 50 <= count is false, and assert what bulk() does then
+
+            // in DiscountsTest
+            @Test
+            void bulkWithCount49() {
+              assertThat(Discounts.bulk(49)).isEqualTo(0); // today 0 · with this mutant 5
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m2b0d1651 samples/suggestions passes
+    reproduce  mutastic run --only=m2b0d1651 samples/suggestions
+    or ignore  mutastic ignore m2b0d1651 --reason="<why>" samples/suggestions
+
+ [✗ MISSED] no test checks columns() at chosen == 3
+    ┌─ src/main/java/com/example/rates/Discounts.java:20
+    │
+ 19 │   public static int columns(Integer chosen) {
+ 20 │     return chosen > 3 ? 2 : 1;
+    │                   ^ > changed to >=
+ 21 │   }
+    │
+    = mutant  - return chosen > 3 ? 2 : 1;
+              + return chosen >= 3 ? 2 : 1;
+    = note: covered by DiscountsTest#aBigChoiceHasTwoColumns (its 1 covering test still passes)
+    = help: test columns() with chosen = 3 and assert the result
+
+            // in DiscountsTest
+            @Test
+            void columnsWithChosen3() {
+              assertThat(Discounts.columns(3)).isEqualTo(1); // today 1 · with this mutant 2
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m49a00b3f samples/suggestions passes
+    reproduce  mutastic run --only=m49a00b3f samples/suggestions
+    or ignore  mutastic ignore m49a00b3f --reason="<why>" samples/suggestions
+
+ [✗ MISSED] no test needs chosen > 3 to be false in columns()
+    ┌─ src/main/java/com/example/rates/Discounts.java:20
+    │
+ 19 │   public static int columns(Integer chosen) {
+ 20 │     return chosen > 3 ? 2 : 1;
+    │                   ^ now always true
+ 21 │   }
+    │
+    = mutant  - return chosen > 3 ? 2 : 1;
+              + return true ? 2 : 1;
+    = note: covered by DiscountsTest#aBigChoiceHasTwoColumns (its 1 covering test still passes)
+    = help: add a test where chosen > 3 is false, and assert what columns() does then
+
+            // in DiscountsTest
+            @Test
+            void columnsWithChosen3() {
+              assertThat(Discounts.columns(3)).isEqualTo(1); // today 1 · with this mutant 2
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m111a435d samples/suggestions passes
+    reproduce  mutastic run --only=m111a435d samples/suggestions
+    or ignore  mutastic ignore m111a435d --reason="<why>" samples/suggestions
+
  ❯ src/main/java/com/example/rates/Rates.java  5 missed in 3 methods
 
  [✗ MISSED] no test checks inCredit() at balance == 0
@@ -8,7 +239,7 @@
     │
  17 │   public static boolean inCredit(int balance) {
  18 │     return balance > 0;
-    │                    ^ changed to >=
+    │                    ^ > changed to >=
  19 │   }
     │
     = mutant  - return balance > 0;
@@ -85,7 +316,7 @@
     │
   9 │   public static long lateFee(long daysLate) {
  10 │     if (daysLate <= 7) {
-    │                  ^^ changed to <
+    │                  ^^ <= changed to <
  11 │       return 0;
     │
     = mutant  - if (daysLate <= 7) {
@@ -111,7 +342,7 @@
     │
  22 │   public static int jitter(int price) {
  23 │     return price + new Random().nextInt(5);
-    │                  ^ changed to -
+    │                  ^ + changed to -
  24 │   }
     │
     = mutant  - return price + new Random().nextInt(5);
@@ -142,7 +373,7 @@
 
            // in WindowTest
            @Test
-           void openOnWithDay0ForWindow5And5() {
+           void openOnWithDay0ForStart5AndEnd5() {
              assertThat(new Window(5, 5L).openOn(0)).isFalse(); // today false · with this mutant true
            }
            check today's value is the one you intend: the test pins what the code does now
@@ -174,7 +405,7 @@
    │
  5 │   public boolean openOn(int day) {
  6 │     return (start == null || start <= day) && day < end;
-   │                                    ^^ changed to <
+   │                                    ^^ <= changed to <
  7 │   }
    │
    = mutant  - return (start == null || start <= day) && day < end;
@@ -185,8 +416,9 @@
 
            // in WindowTest
            @Test
-           void openOnWithDay5ForWindow5And10() {
-             assertThat(new Window(5, 10L).openOn(5)).isTrue(); // today true · with this mutant false
+           void openOnAtStart() {
+             int start = 5;
+             assertThat(new Window(start, 10L).openOn(start)).isTrue(); // today true · with this mutant false
            }
            check today's value is the one you intend: the test pins what the code does now
 
@@ -210,7 +442,7 @@
 
            // in WindowTest
            @Test
-           void openOnWithDay0ForWindow5And5() {
+           void openOnWithDay0ForStart5AndEnd5() {
              assertThat(new Window(5, 5L).openOn(0)).isFalse(); // today false · with this mutant true
            }
            check today's value is the one you intend: the test pins what the code does now
@@ -224,7 +456,7 @@
    │
  5 │   public boolean openOn(int day) {
  6 │     return (start == null || start <= day) && day < end;
-   │                                                   ^ changed to <=
+   │                                                   ^ < changed to <=
  7 │   }
    │
    = mutant  - return (start == null || start <= day) && day < end;
@@ -235,8 +467,9 @@
 
            // in WindowTest
            @Test
-           void openOnWithDay5ForWindow5And5() {
-             assertThat(new Window(5, 5L).openOn(5)).isFalse(); // today false · with this mutant true
+           void openOnAtEnd() {
+             int end = 5;
+             assertThat(new Window(5, end).openOn(end)).isFalse(); // today false · with this mutant true
            }
            check today's value is the one you intend: the test pins what the code does now
 
@@ -260,8 +493,9 @@
 
            // in WindowTest
            @Test
-           void openOnWithDay5ForWindow5And5() {
-             assertThat(new Window(5, 5L).openOn(5)).isFalse(); // today false · with this mutant true
+           void openOnAtEnd() {
+             int end = 5;
+             assertThat(new Window(5, end).openOn(end)).isFalse(); // today false · with this mutant true
            }
            check today's value is the one you intend: the test pins what the code does now
 
@@ -286,7 +520,7 @@
 
            // in WindowTest
            @Test
-           void openOnWithDay0ForWindow0And0() {
+           void openOnWithDay0ForStart0AndEnd0() {
              assertThat(new Window(0, 0L).openOn(0)).isFalse(); // today false · with this mutant true
            }
            check today's value is the one you intend: the test pins what the code does now
@@ -295,14 +529,14 @@
    reproduce  mutastic run --only=m1339c5fd samples/suggestions
    or ignore  mutastic ignore m1339c5fd --reason="<why>" samples/suggestions
 
-   Classes  0 clean | 2 with misses (2)
-   Mutants  ✓ 13 caught · ✗ 12 missed · 2 skipped (2 arid) (27)
-  Worst at  Window.openOn() 7 ✗ · Rates.inCredit() 3 ✗ · Rates.lateFee() 1 ✗
- Test runs  25 (100 without coverage selection)
+   Classes  0 clean | 4 with misses (4)
+   Mutants  ✓ 21 caught · ✗ 21 missed · 2 skipped (2 arid) (44)
+  Worst at  Window.openOn() 7 ✗ · Delivery.isFree() 3 ✗ · Rates.inCredit() 3 ✗
+ Test runs  42 (336 without coverage selection)
   Start at  …
   Duration  … (setup …, coverage …, mutants …)
-     Tests  4 on JDK 17 · … workers
-     Score  52.0%  = vs last run (same code)  threshold 80
+     Tests  8 on JDK 17 · … workers
+     Score  50.0%  = vs last run (same code)  threshold 80
 
- [FAIL] Score below 80: 12 missed, 0 not covered.
+ [FAIL] Score below 80: 21 missed, 0 not covered.
  Next: mutastic verify <id> samples/suggestions · mutastic run --only=<id> samples/suggestions · mutastic explain <id> samples/suggestions

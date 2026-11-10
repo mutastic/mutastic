@@ -31,7 +31,7 @@
   owners: reactor.core.publisher.Flux, io.reactivex.rxjava3.core.Flowable, io.reactivex.rxjava3.core.Observable
   methods: any, all
   rewrite: rename any->all, all->any
-  changed: changed to {to}
+  changed: "{name} changed to {to}"
   headline: no test tells `{name}` from `{to}` in {method}
   help: add a test where some items match and some don't, and assert the result
 
@@ -42,6 +42,6 @@
   methods: flatMap, concatMap
   descriptors: (Ljava/util/function/Function;)Lreactor/core/publisher/Flux;, (Lio/reactivex/rxjava3/functions/Function;)Lio/reactivex/rxjava3/core/Flowable;, (Lio/reactivex/rxjava3/functions/Function;)Lio/reactivex/rxjava3/core/Observable;
   rewrite: rename flatMap->concatMap, concatMap->flatMap
-  changed: changed to {to}
+  changed: "{name} changed to {to}"
   headline: no test tells `{name}` from `{to}` in {method}
   help: add a test whose inner streams overlap in time, and assert the order the items come in

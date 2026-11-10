@@ -3,9 +3,11 @@
    [2m│[0m
  [2m4[0m [2m│[0m   public static String extension(String file) {
  [2m5[0m [2m│[0m     return file.substring(file.indexOf('.') + 1);
-   [2m│[0m                                [1;31m^^^^^^^ changed to lastIndexOf[0m
+   [2m│[0m                                [1;31m^^^^^^^ indexOf changed to lastIndexOf[0m
  [2m6[0m [2m│[0m   }
    [2m│[0m
+   [2m=[0m mutant  [1;31m- [0mreturn file.substring(file.indexOf('.') + 1);
+             [32m+ [0mreturn file.substring(file.lastIndexOf('.') + 1);
    [2m=[0m [1;34m[1mnote[0m[0m: covered by FilesTest#aTextFile (its 1 covering test still passes)
    [2m=[0m [32m[1mhelp[0m[0m: use text with what's searched for in it twice, and assert which one is found
 

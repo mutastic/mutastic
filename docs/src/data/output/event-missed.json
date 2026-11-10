@@ -39,7 +39,8 @@
     "arguments" : [ 100 ],
     "receiver" : [ {
       "type" : "Pricing",
-      "arguments" : [ ]
+      "arguments" : [ ],
+      "parameters" : [ ]
     } ],
     "today" : "10",
     "withMutant" : "0"

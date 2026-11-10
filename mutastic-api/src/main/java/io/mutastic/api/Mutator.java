@@ -54,8 +54,19 @@ public non-sealed interface Mutator extends Operator {
 
   /// A missed mutant's card, in words.
   ///
-  /// @param changed what the source line now does: `stage removed`, `changed to allMatch`
+  /// @param changed what the source line now does: `stage removed`, `anyMatch changed to allMatch`
   /// @param headline the gap it shows: ``no test needs `.filter(…)` in total()``
   /// @param help the test that would catch it
-  record Words(String changed, String headline, String help) {}
+  /// @param written for a change to a call, the call as the source would be written with the change
+  ///   made, so the card can show the line as the mutant has it: a template on the call's parts as
+  ///   the source writes them. `{receiver}` is what it's called on, `{args}` its arguments and
+  ///   `{arg1}`, `{arg2}` each one: `{receiver}.allMatch({args})`, `{receiver}` for a call left
+  ///   out, `{arg1} + {arg2}`. Empty when the change isn't one the call's source can show, and the
+  ///   card says it in words.
+  record Words(String changed, String headline, String help, Optional<String> written) {
+    /// Words for a change the source can't show.
+    public Words(String changed, String headline, String help) {
+      this(changed, headline, help, Optional.empty());
+    }
+  }
 }

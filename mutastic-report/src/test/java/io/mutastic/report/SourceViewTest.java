@@ -146,10 +146,8 @@ class SourceViewTest {
     assertThat(sources.place(first))
         .isEqualTo(new SourceView.Place(26, 5, 32)); // `<` occurs twice: the statement
     // The operands say which `<` each is, so each line is rewritten where its own comparison is.
-    assertThat(sources.mutatedLine(first, sources.advice(first)))
-        .hasValue("if (c0 <= 0 || length < 2) {");
-    assertThat(sources.mutatedLine(second, sources.advice(second)))
-        .hasValue("if (c0 < 0 || length <= 2) {");
+    assertThat(mutatedLine(first)).hasValue("if (c0 <= 0 || length < 2) {");
+    assertThat(mutatedLine(second)).hasValue("if (c0 < 0 || length <= 2) {");
   }
 
   private static Mutant boundary(String method, int line, String original, String replacement) {
@@ -182,8 +180,10 @@ class SourceViewTest {
         Optional.empty());
   }
 
+  /// The lines a card shows as the mutant has them, if it shows them.
   private Optional<String> mutatedLine(Mutant mutant) {
-    return sources.mutatedLine(mutant, sources.advice(mutant));
+    var diff = sources.diff(mutant, sources.advice(mutant));
+    return diff.shown() ? Optional.of(String.join("\n", diff.shownAfter())) : Optional.empty();
   }
 
   @Test

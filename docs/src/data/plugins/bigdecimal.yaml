@@ -8,7 +8,7 @@
   methods: add, subtract, min, max
   descriptors: (Ljava/math/BigDecimal;)Ljava/math/BigDecimal;, (Ljava/math/BigInteger;)Ljava/math/BigInteger;
   rewrite: rename add->subtract, subtract->add, min->max, max->min
-  changed: changed to {to}
+  changed: "{name} changed to {to}"
   headline: no test tells `{name}` from `{to}` in {method}
   help: add a test where `{name}` and `{to}` give different results, and assert the result
 
@@ -19,7 +19,7 @@
   methods: multiply, divide
   descriptors: (Ljava/math/BigDecimal;)Ljava/math/BigDecimal;, (Ljava/math/BigInteger;)Ljava/math/BigInteger;
   rewrite: rename multiply->divide, divide->multiply
-  changed: changed to {to}
+  changed: "{name} changed to {to}"
   headline: no test tells `{name}` from `{to}` in {method}
   help: add a test with an operand other than one, and assert the result
 

@@ -6,6 +6,8 @@
     [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no longer catches it[0m
  [2m17[0m [2m│[0m       return cached;
     [2m│[0m
+    [2m=[0m mutant  [1;31m- [0m} catch (IOException | TimeoutException e) {
+              [32m+ [0m} catch (IOException e) {
     [2m=[0m [1;34m[1mnote[0m[0m: covered by ReaderTest#aFailedReadFallsBackToTheCache (its 1 covering test still passes)
     [2m=[0m [32m[1mhelp[0m[0m: add a test where the [1mtry[0m throws [1mTimeoutException[0m, and assert what the [1mcatch[0m does
 

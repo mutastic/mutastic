@@ -143,6 +143,9 @@ class DocsOperatorsTest {
         Samples.mutastic(TERMINAL, "run", project.toString(), "--operators=all", "--workers=4");
 
     assertThat(run.exit()).as(run.err()).isIn(Main.PASSED, Main.FAILED);
+    assertThat(PlusLines.describedInBrackets(run.out()))
+        .as("+ lines that describe, not show")
+        .isEmpty();
     var missed = missed(project.resolve("build/mutastic/mutation.json"));
     for (Example example : EXAMPLES) {
       var ids = missed.getOrDefault(example.file() + " " + example.mutator(), List.of());

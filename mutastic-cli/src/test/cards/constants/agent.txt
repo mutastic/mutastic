@@ -5,7 +5,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
 1. missed m187e7e27: no test needs `message.equals(Protocol.EXIT_CODE)` to be true in `beforeExit()`
    at src/main/java/com/example/protocol/Messages.java:10
    - while ((message = messages.poll()) != null && !message.equals(Protocol.EXIT_CODE)) {
-   + while ((message = messages.poll()) != null && !false) {
+   + while ((message = messages.poll()) != null && true) {
    covered by: MessagesTest#countsEveryMessage; all still pass with the change
    fix: add a test where `message.equals(Protocol.EXIT_CODE)` is true, and assert what `beforeExit()` does then
    done when: mutastic verify m187e7e27 samples/constants passes

@@ -30,4 +30,20 @@ final class UncheckedArithmetic {
       default -> throw new IllegalArgumentException("no plain form of " + name + shape);
     }
   }
+
+  /// The plain operation as the source would write it, on the call's arguments: `{arg1} + {arg2}`
+  /// for `addExact`. See [io.mutastic.api.Mutator.Words#written].
+  static String written(String name, String descriptor) {
+    var one = descriptor.endsWith(")J") ? "1L" : "1";
+    return switch (name) {
+      case "addExact" -> "{arg1} + {arg2}";
+      case "subtractExact" -> "{arg1} - {arg2}";
+      case "multiplyExact" -> "{arg1} * {arg2}";
+      case "incrementExact" -> "{arg1} + " + one;
+      case "decrementExact" -> "{arg1} - " + one;
+      case "negateExact" -> "-{arg1}";
+      case "toIntExact" -> "(int) {arg1}";
+      default -> throw new IllegalArgumentException("no plain form of " + name);
+    };
+  }
 }

@@ -10,7 +10,7 @@
   methods: startsWith, endsWith, toUpperCase, toLowerCase, stripLeading, stripTrailing
   descriptors: (Ljava/lang/String;)Z, ()Ljava/lang/String;, (Ljava/util/Locale;)Ljava/lang/String;
   rewrite: rename startsWith->endsWith, endsWith->startsWith, toUpperCase->toLowerCase, toLowerCase->toUpperCase, stripLeading->stripTrailing, stripTrailing->stripLeading
-  changed: changed to {to}
+  changed: "{name} changed to {to}"
   headline: no test tells `{name}` from `{to}` in {method}
   help: use text where they differ, and assert the result
   help.startsWith: use text with it at one end and not the other, and assert the result
@@ -29,7 +29,7 @@
   methods: indexOf, lastIndexOf
   descriptors: (I)I, (Ljava/lang/String;)I
   rewrite: rename indexOf->lastIndexOf, lastIndexOf->indexOf
-  changed: changed to {to}
+  changed: "{name} changed to {to}"
   headline: no test tells `{name}` from `{to}` in {method}
   help: use text with what's searched for in it twice, and assert which one is found
 
@@ -38,7 +38,7 @@
   owners: java.lang.Math
   methods: min, max, floor, ceil
   rewrite: rename min->max, max->min, floor->ceil, ceil->floor
-  changed: changed to {to}
+  changed: "{name} changed to {to}"
   headline: no test tells `{name}` from `{to}` in {method}
   help: use values where they differ, and assert the result
   help.min: use two different values, and assert which comes back

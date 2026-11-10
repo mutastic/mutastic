@@ -360,7 +360,8 @@ class ArithmeticTruthTest {
             .orElseThrow();
     var advice = sources.advice(letter);
     assertThat(advice.change()).isEqualTo("the constant `'b'` becomes `'c'`");
-    assertThat(sources.mutatedLine(letter, advice)).contains("return (char) a == 'c';");
+    assertThat(sources.diff(letter, advice).after())
+        .contains(List.of("    return (char) a == 'c';"));
   }
 
   /// `LIMIT` in the source has nothing to rewrite, and the number where it's written does.
@@ -369,11 +370,11 @@ class ArithmeticTruthTest {
     var sources = sources();
     for (var mutant : constants.running()) {
       if (mutant.replacement().equals("constant 100 to 101")) {
-        var line = sources.mutatedLine(mutant, sources.advice(mutant));
+        var shown = sources.diff(mutant, sources.advice(mutant));
         if (ClaimFixture.sourceMethod(mutant).equals("threshold")) {
-          assertThat(line).contains("return a >= 101 ? \"over\" : \"under\";");
+          assertThat(shown.shownAfter()).containsExactly("return a >= 101 ? \"over\" : \"under\";");
         } else {
-          assertThat(line).as(ClaimFixture.describe(mutant)).isEmpty();
+          assertThat(shown.shown()).as(ClaimFixture.describe(mutant)).isFalse();
         }
       }
     }

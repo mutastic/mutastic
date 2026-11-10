@@ -11,6 +11,7 @@
     │             ^^^^^^^^^^^^^^^^^^ call removed
  36 │   }
     │
+    = mutant  - changes.firePropertyChange("email", old, email);
     = note: covered by PersonTest#anEmailIsKept (its 1 covering test still passes)
     = help: assert what firePropertyChange() does: the state it changes or the call it makes
 

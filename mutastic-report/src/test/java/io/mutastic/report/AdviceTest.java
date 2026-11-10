@@ -220,7 +220,7 @@ class AdviceTest {
     assertThat(advice.before()).contains("100");
     assertThat(advice.after()).contains("101");
     assertThat(advice.change()).isEqualTo("the constant `100` becomes `101`");
-    assertThat(advice.changedTo()).isEqualTo("changed to 101");
+    assertThat(advice.changedTo()).isEqualTo("100 changed to 101");
     assertThat(advice.headline()).isEqualTo("no test tells `100` from `101` in `discount()`");
     assertThat(advice.fix())
         .isEqualTo(

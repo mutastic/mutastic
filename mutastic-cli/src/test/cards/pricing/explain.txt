@@ -5,7 +5,7 @@ $ mutastic explain m855c8e3c
     │
  16 │   public int discount(int total) {
  17 │     if (total >= 100) {
-    │               ^^ changed to >
+    │               ^^ >= changed to >
  18 │       return total / 10;
     │
     = mutant  - if (total >= 100) {

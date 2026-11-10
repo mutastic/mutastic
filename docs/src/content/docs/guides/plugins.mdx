@@ -51,7 +51,7 @@ Each rule is a list item with these fields:
 | `rewrite` | required | What the call becomes: [see below](#rewrites) |
 | `headline` | required | A missed mutant's headline, the gap in the tests |
 | `help` | required | The test to write |
-| `changed` | | What the line now does, in a code frame: `stage removed` |
+| `changed` | | The change in words, under the code it marks: `stage removed`, `{name} changed to {to}` |
 | `source` | | How a `call` rewrite reads in the source, for its label: `first(Long.MAX_VALUE)` |
 | `tier` | | `defaults` (unless it says), `stronger` or `extended` |
 
@@ -139,6 +139,10 @@ public class ConstantPlusOne implements Mutator {
 - **`write`** puts the changed instruction in its place. Afterwards the stack must hold what the
   original left; a change that doesn't verify is skipped as `unviable:`, never run.
 - **`words`** is what a missed mutant's card says: the change, the headline and the test to write.
+  For a change to a call, give it the call as the source would be written with the change made,
+  on the call's parts, and the card shows the line as the mutant has it: `{receiver}.allMatch({args})`,
+  `{receiver}` for a call left out, `{arg1} + {arg2}`. Without one, the card says the change in
+  words beside the line. A rules file's rewrites do this for you.
 - **`onCalls`** says which sites the operator counts: calls, as mutastic's call operators count
   them, or every instruction in the method. **`tier`** defaults to `defaults`; return
   `Tier.STRONGER` or `Tier.EXTENDED` to leave an operator out unless asked for.

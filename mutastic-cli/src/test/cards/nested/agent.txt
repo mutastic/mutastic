@@ -5,7 +5,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
 1. missed m87a4dced: no test checks what `cheapestFirst()` returns here
    at src/main/java/com/example/nested/Shipping.java:53
    - return new Comparator<>() {
-   + (returns `null` instead)
+   change: returns `null` instead (not shown in the source)
    covered by: ShippingTest#cheapestComesFirstSomehow; all still pass with the change
    evidence: tests reach this return, but none fails when it returns `null`
    fix: assert the value `cheapestFirst()` returns on this path
@@ -42,7 +42,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    fix: test `heavy()` with `weight = heavyFrom` and assert the result
    test to add in ShippingTest.Parcels:
      @Test
-     void heavyResultForParcel0InShipping0() {
+     void heavyResultForWeight0InHeavyFrom0() {
        assertTrue(new Shipping(0).new Parcel(0).heavy()); // today true · with this mutant false
      }
      // check today's value is the one you intend: the test pins what the code does now
@@ -58,7 +58,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    fix: test `surcharge()` with `distance = 100` and assert the result
    test to add in ShippingTest.Zones:
      @Test
-     void surchargeResultForZone100() {
+     void surchargeResultForDistance100() {
        assertEquals(3, new Shipping.Zone(100).surcharge()); // today 3 · with this mutant 0
      }
      // check today's value is the one you intend: the test pins what the code does now

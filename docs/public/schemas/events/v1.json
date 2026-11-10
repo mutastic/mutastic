@@ -322,12 +322,23 @@
                 "required": ["type", "arguments"],
                 "properties": {
                   "type": { "type": "string", "description": "The class's simple name: `Pricing`." },
-                  "arguments": { "type": "array", "items": { "type": "integer" }, "description": "Its constructor's arguments." }
+                  "arguments": { "type": "array", "items": { "type": "integer" }, "description": "Its constructor's arguments." },
+                  "parameters": { "type": "array", "items": { "type": "string" }, "description": "The constructor's names for its arguments, in order; empty when they aren't known. Written from 1.0.0." }
                 }
               }
             },
             "today": { "type": "string", "description": "What the call gives today, as `suggestedTest` has it." },
-            "withMutant": { "type": "string", "description": "What it gives with the mutant in, as `suggestedTest` has it." }
+            "withMutant": { "type": "string", "description": "What it gives with the mutant in, as `suggestedTest` has it." },
+            "named": {
+              "type": "object",
+              "description": "The value the call is at the edge of, when the source names it, which the test is named after. Only then. Written from 1.0.0.",
+              "required": ["name", "note"],
+              "properties": {
+                "name": { "type": "string", "description": "A constant's or a field's name, as the source has it: `FREE_FROM`, `freeFrom`." },
+                "note": { "type": "string", "description": "What the test's comment says of it: `FREE_FROM = 100`, or `100 is Pricing's FREE_FROM` for a constant the test can't use; empty if nothing." },
+                "local": { "type": "string", "description": "The line the test declares the value in, when it passes it twice: `int freeFrom = 20;`." }
+              }
+            }
           }
         },
         "testsRun": {

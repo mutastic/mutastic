@@ -3,7 +3,7 @@
    [2m│[0m
  [2m4[0m [2m│[0m   public static int seats(int adults, int children) {
  [2m5[0m [2m│[0m     return adults + children;
-   [2m│[0m                   [1;31m^ changed to *[0m
+   [2m│[0m                   [1;31m^ + changed to *[0m
  [2m6[0m [2m│[0m   }
    [2m│[0m
    [2m=[0m mutant  [1;31m- [0mreturn adults + children;

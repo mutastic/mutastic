@@ -6,13 +6,14 @@
     [2m│[0m       [1;31m^^^^^^^^^^^^^^ arm removed[0m
  [2m19[0m [2m│[0m       default -> abroad;
     [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mcase 2 -> far;
     [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: zone = 1, 2, 3
             [2mcovered by ZonesTest#everyZoneWithinAWeek (its 1 covering test still passes)[0m
     [2m=[0m [32m[1mhelp[0m[0m: add a test with a value that reaches [1mcase 2[0m, and assert what it does
 
             [2m// in ZonesTest[0m
             @Test
-            void daysWithZone2ForZones1And1And2() {
+            void daysWithZone2ForNear1AndFar1AndAbroad2() {
             [32m  assertEquals(1, new Zones(1, 1, 2).days(2)); // today 1 · with this mutant 2[0m
             }
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m

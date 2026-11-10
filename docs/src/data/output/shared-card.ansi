@@ -3,7 +3,7 @@
     [2m│[0m
  [2m17[0m [2m│[0m   public static boolean inCredit(int balance) {
  [2m18[0m [2m│[0m     return balance > 0;
-    [2m│[0m                    [1;31m^ changed to >=[0m
+    [2m│[0m                    [1;31m^ > changed to >=[0m
  [2m19[0m [2m│[0m   }
     [2m│[0m
     [2m=[0m mutant  [1;31m- [0mreturn balance > 0;

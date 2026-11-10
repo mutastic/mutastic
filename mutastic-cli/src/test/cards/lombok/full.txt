@@ -8,7 +8,7 @@
     │
  14 │   public String tier() {
  15 │     if (loyaltyPoints >= 1000) {
-    │                       ^^ changed to >
+    │                       ^^ >= changed to >
  16 │       return "gold";
     │
     = mutant  - if (loyaltyPoints >= 1000) {
@@ -48,7 +48,7 @@
  16 │       throw new IllegalArgumentException(currency + " and " + other.currency);
     │
     = mutant  - if (!currency.equals(other.currency)) {
-              + if (!true) {
+              + if (false) {
     = note: covered by MoneyTest#amountsInOneCurrencyAdd (its 1 covering test still passes)
     = help: add a test where currency.equals(other.currency) is false, and assert what plus() does then
 
@@ -63,7 +63,7 @@
     │
  32 │     var total = total();
  33 │     if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
-    │                                     ^^ changed to >
+    │                                     ^^ >= changed to >
  34 │       return total.withCents(total.getCents() * 9 / 10);
     │
     = mutant  - if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
@@ -97,7 +97,7 @@
     │
  32 │     var total = total();
  33 │     if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
-    │                                             ^^ changed to ||
+    │                                             ^^ && changed to ||
  34 │       return total.withCents(total.getCents() * 9 / 10);
     │
     = mutant  - if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
@@ -114,7 +114,7 @@
     │
  32 │     var total = total();
  33 │     if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
-    │                                                                 ^ changed to >=
+    │                                                                 ^ > changed to >=
  34 │       return total.withCents(total.getCents() * 9 / 10);
     │
     = mutant  - if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
@@ -134,6 +134,7 @@
     │                                                                 ^ now always true
  34 │       return total.withCents(total.getCents() * 9 / 10);
     │
+    = change  total.getCents() > 10000 is always true (not shown in the source)
     = note: covered by OrderTest#goldCustomersGetTenPercentOffBigOrders (its 1 covering test still passes)
     = help: add a test where total.getCents() > 10000 is false, and assert what discounted() does then
 
@@ -151,6 +152,7 @@
     │   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now always false
  16 │ 
     │
+    = change  giftMessage == null is always false (not shown in the source)
     = note: covered by OrderTest#theTotalAddsEveryLine (its 1 covering test still passes)
     = help: add a test where giftMessage == null is true, and assert what setGiftMessage() does then
 
@@ -168,6 +170,7 @@
     │   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now always false
  18 │     @Cleanup Writer out = Files.newBufferedWriter(file);
     │
+    = change  order == null is always false (not shown in the source)
     = note: covered by ReceiptsTest#aReceiptKeepsTheTotal(java.nio.file.Path) (its 1 covering test still passes)
     = help: add a test where order == null is true, and assert what write() does then
 

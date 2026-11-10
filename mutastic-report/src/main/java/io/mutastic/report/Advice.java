@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 /// @param before the source token the mutant changes, `>=`, when the bytecode says which
 /// @param after what it becomes, `>`
 /// @param change the change in words, for when the line can't be rewritten
-/// @param changedTo the change as the label under it in a code frame: `changed to >`
+/// @param changedTo the change as the label under it in a code frame: `>= changed to >`
 /// @param headline the gap in the tests, for a missed mutant
 /// @param notes the evidence: what the tests did
 /// @param fix the test to write
@@ -182,7 +182,7 @@ public record Advice(
         Optional.of(known.connector()),
         Optional.of(known.other()),
         "`%s` becomes `%s`".formatted(known.connector(), known.other()),
-        "changed to " + known.other(),
+        known.connector() + " changed to " + known.other(),
         "no test checks %s with %s true and the other false".formatted(method, sides),
         inputsSeen(seen),
         "add a test where %s is true and the other false, and assert what %s does then"
@@ -289,7 +289,7 @@ public record Advice(
         Optional.of(change.before()),
         Optional.of(change.after()),
         "`%s` becomes `%s`".formatted(change.before(), change.after()),
-        "changed to " + change.after(),
+        change.before() + " changed to " + change.after(),
         headline,
         sidedNotes(method, operands, change.differ(), seen),
         fix);
@@ -381,7 +381,7 @@ public record Advice(
         Optional.of(before),
         Optional.of(after),
         "`%s` becomes `%s`".formatted(before, after),
-        "changed to " + after,
+        before + " changed to " + after,
         boundaryHeadline(method, comparison, before),
         boundaryNotes(method, comparison, seen),
         boundaryFix(method, comparison, before, after));
@@ -437,7 +437,7 @@ public record Advice(
         before.isPresent()
             ? "`%s` becomes `%s`".formatted(before.get(), after.get())
             : "the condition is reversed",
-        before.map(token -> "changed to " + after.get()).orElse("reversed"),
+        before.map(token -> token + " changed to " + after.get()).orElse("reversed"),
         "%s behaves the same with %s reversed".formatted(capitalised(method), condition),
         inputsSeen(seen),
         "assert the result on both sides of " + condition);
@@ -459,7 +459,7 @@ public record Advice(
         Optional.of(before),
         Optional.of(after),
         "`%s` becomes `%s`".formatted(before, after),
-        "changed to " + after,
+        before + " changed to " + after,
         "tests pass even when `%s` becomes `%s` in %s".formatted(before, after, method),
         inputsSeen(seen),
         "use inputs where %s and %s differ, and assert the result".formatted(original, swapped));
@@ -632,7 +632,7 @@ public record Advice(
         Optional.of(today),
         Optional.of(mutated),
         "the constant `%s` becomes `%s`".formatted(today, mutated),
-        "changed to " + mutated,
+        today + " changed to " + mutated,
         "no test tells `%s` from `%s` in %s".formatted(today, mutated, method(mutant)),
         inputsSeen(seen),
         "add a test near where `%s` takes effect, whose result would differ with `%s`, and assert"
@@ -733,7 +733,7 @@ public record Advice(
         Optional.empty(),
         Optional.empty(),
         "the string `%s` becomes `%s`".formatted(today, mutated),
-        "changed to " + mutated,
+        today + " changed to " + mutated,
         "no test tells `%s` from `%s` in %s".formatted(today, mutated, method(mutant)),
         inputsSeen(seen),
         "add a test whose result depends on `%s`, and assert it".formatted(today));
@@ -758,7 +758,7 @@ public record Advice(
         Optional.empty(),
         Optional.empty(),
         "the regular expression `%s` becomes `%s`".formatted(today, mutated),
-        "changed to " + mutated,
+        today + " changed to " + mutated,
         "no test tells `%s` from `%s` in %s".formatted(today, mutated, where),
         inputsSeen(seen),
         "add a test with text only one of `%s` and `%s` matches, and assert it"
@@ -908,7 +908,7 @@ public record Advice(
   }
 
   /// `+` for `IADD` or `DADD`: the arithmetic operators only change these.
-  private static String arithmetic(String opcode) {
+  static String arithmetic(String opcode) {
     return requireNonNull(ARITHMETIC.get(opcode.substring(1)), opcode);
   }
 

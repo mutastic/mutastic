@@ -6,6 +6,8 @@
    [2m│[0m                  [1;31m^^^^^ call left out[0m
  [2m6[0m [2m│[0m   }
    [2m│[0m
+   [2m=[0m mutant  [1;31m- [0mreturn input.strip().toLowerCase();
+             [32m+ [0mreturn input.toLowerCase();
    [2m=[0m [1;34m[1mnote[0m[0m: covered by UsersTest#usernamesAreLowerCase (its 1 covering test still passes)
    [2m=[0m [32m[1mhelp[0m[0m: add a test with a value [1mstrip()[0m changes, and assert the result
 

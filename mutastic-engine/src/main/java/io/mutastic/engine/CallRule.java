@@ -305,7 +305,45 @@ public record CallRule(
     return new Words(
         fill(changed, name, mutant.replacement(), method),
         fill(template("headline", name), name, mutant.replacement(), method),
-        fill(template("help", name), name, mutant.replacement(), method));
+        fill(template("help", name), name, mutant.replacement(), method),
+        Optional.of(written(mutant, name)));
+  }
+
+  /// The call as the source would be written with the change made, on the call's parts: see
+  /// [Words#written].
+  private String written(Mutant mutant, String name) {
+    var parameters =
+        MethodTypeDesc.ofDescriptor(mutant.original().substring(mutant.original().indexOf('(')))
+            .parameterCount();
+    if (rewrite.startsWith("rename ")) {
+      return "{receiver}.%s({args})".formatted(mutant.replacement());
+    }
+    return switch (rewrite) {
+      case "remove" -> "{receiver}";
+      case KEEP_ARGUMENT -> "{arg1}";
+      case UNCHECKED -> UncheckedArithmetic.written(name, mutant.original());
+      case OMIT_LAST ->
+          "{receiver}.%s(%s)"
+              .formatted(
+                  name,
+                  String.join(
+                      ", ",
+                      java.util.stream.IntStream.range(1, parameters)
+                          .mapToObj(each -> "{arg" + each + "}")
+                          .toList()));
+      default -> "{receiver}." + calledInstead();
+    };
+  }
+
+  /// `first(Long.MAX_VALUE)` for `call first(J)V with Long.MAX_VALUE`, or the rule's own `source`.
+  private String calledInstead() {
+    if (!source.isEmpty()) {
+      return source;
+    }
+    var spec = rewrite.substring("call ".length());
+    var with = spec.substring(spec.indexOf(')') + 1).strip();
+    var arguments = with.isEmpty() ? "" : with.substring("with ".length()).strip();
+    return spec.substring(0, spec.indexOf('(')) + "(" + arguments.replaceAll(",\\s*", ", ") + ")";
   }
 
   private String template(String key, String name) {

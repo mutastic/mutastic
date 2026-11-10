@@ -6,6 +6,8 @@
     [2m│[0m                            [1;31m^^^^^^ stage removed[0m
  [2m11[0m [2m│[0m   }
     [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mreturn orders.stream().filter(Order::paid).mapToInt(Order::total).sum();
+              [32m+ [0mreturn orders.stream().mapToInt(Order::total).sum();
     [2m=[0m [1;34m[1mnote[0m[0m: covered by OrdersTest#aPaidOrder (its 1 covering test still passes)
     [2m=[0m [32m[1mhelp[0m[0m: add a test with an element the filter must drop, and assert it's gone
 

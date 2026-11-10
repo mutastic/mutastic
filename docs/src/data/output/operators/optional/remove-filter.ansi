@@ -6,6 +6,8 @@
     [2m│[0m                  [1;31m^^^^^^ filter removed[0m
  [2m16[0m [2m│[0m   }
     [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mreturn asked.filter(allowed);
+              [32m+ [0mreturn asked;
     [2m=[0m [1;34m[1mnote[0m[0m: covered by NicknamesTest#anAllowedNickname (its 1 covering test still passes)
     [2m=[0m [32m[1mhelp[0m[0m: add a test with a value the filter rejects, and assert the [1mOptional[0m comes out empty
 

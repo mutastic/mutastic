@@ -116,14 +116,14 @@ class CardTruthTest {
               });
       headline(withValues, mutant, advice)
           .ifPresent(source -> claims.add(claimOf(mutant, advice, source, "its headline")));
-      var shown = sources.mutatedLine(mutant, advice);
-      if (shown.isPresent()) {
+      var shown = sources.diff(mutant, advice);
+      if (shown.shown()) {
         claims.add(
             claimOf(
                 mutant,
                 advice,
-                withLine(text, mutant.line(), shown.get()),
-                "its changed line, `" + shown.get() + "`"));
+                withLines(text, shown),
+                "its changed lines, `" + String.join("\n", shown.shownAfter()) + "`"));
       }
     }
 
@@ -159,7 +159,7 @@ class CardTruthTest {
     // A constant the source names still gets its changed line, quoted as the source has it.
     assertThat(claims)
         .extracting(Claim::what)
-        .contains("its changed line, `if (b < 0 || a >= EDGE) {`");
+        .contains("its changed lines, `if (b < 0 || a >= EDGE) {`");
     assertThat(failures).as("cards that say something their mutant doesn't do").isEmpty();
     // A string javac wrote in, and a class literal, are claimed as the source writes them.
     assertThat(claims.stream().map(claim -> claim.mutant().methodName()))
@@ -558,14 +558,15 @@ class CardTruthTest {
   /// The source with line `number` (from 1) replaced by `shown`, kept at its indentation. Its
   /// `true` and `false` are written `Boolean.TRUE` and `Boolean.FALSE`, the same values: javac
   /// won't take a constant as a `case` guard, and folds `while (true)` into a loop with no end.
-  private static String withLine(String text, int number, String shown) {
-    var lines = new ArrayList<>(text.lines().toList());
-    var old = lines.get(number - 1);
-    var boxed =
-        LITERAL
-            .matcher(shown)
-            .replaceAll(found -> "Boolean." + found.group().toUpperCase(java.util.Locale.ROOT));
-    lines.set(number - 1, old.substring(0, old.length() - old.stripLeading().length()) + boxed);
+  private static String withLines(String text, io.mutastic.report.Diff shown) {
+    var lines =
+        shown.appliedTo(
+            text.lines().toList(),
+            line ->
+                LITERAL
+                    .matcher(line)
+                    .replaceAll(
+                        found -> "Boolean." + found.group().toUpperCase(java.util.Locale.ROOT)));
     return String.join("\n", lines) + "\n";
   }
 

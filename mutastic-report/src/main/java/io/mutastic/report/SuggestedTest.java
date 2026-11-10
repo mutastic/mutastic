@@ -33,17 +33,24 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
     var source = sources.testSource(testClass);
     var style = Style.of(source.orElse(""));
     var name = freeName(name(result.mutant().methodName(), suggestion), source.orElse(""));
-    var lines = new ArrayList<String>();
-    lines.add("@Test");
-    lines.add((style == Style.TESTNG ? "public void %s() {" : "void %s() {").formatted(name));
-    lines.add("  " + assertion(suggestion, style) + " // " + outcomes(suggestion));
-    lines.add("}");
     return Optional.of(
         new SuggestedTest(
             testClass.substring(testClass.lastIndexOf('.') + 1),
             name,
-            lines,
+            lines(suggestion, style, name),
             outcomes(suggestion)));
+  }
+
+  /// The test method, a line each: with the local a value the source names is declared in, if it
+  /// has one.
+  private static List<String> lines(Suggestion suggestion, Style style, String name) {
+    var lines = new ArrayList<String>();
+    lines.add("@Test");
+    lines.add((style == Style.TESTNG ? "public void %s() {" : "void %s() {").formatted(name));
+    suggestion.named().flatMap(Suggestion.Named::local).ifPresent(local -> lines.add("  " + local));
+    lines.add("  " + assertion(suggestion, style) + " // " + comment(suggestion));
+    lines.add("}");
+    return lines;
   }
 
   /// The test in Kotlin, for what kotlinc compiled. A call written in Kotlin can't be pasted into a
@@ -178,11 +185,24 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
     return "today %s · with this mutant %s".formatted(suggestion.today(), suggestion.mutated());
   }
 
+  /// The test's comment: what the value it's named after is, if it says, then the outcomes.
+  static String comment(Suggestion suggestion) {
+    return suggestion
+        .named()
+        .map(Suggestion.Named::note)
+        .filter(note -> !note.isEmpty())
+        .map(note -> note + " · " + outcomes(suggestion))
+        .orElseGet(() -> outcomes(suggestion));
+  }
+
   /// `discountWithTotal100`, `feeWithAmountMinus1`; `sizeResult` with no arguments; and the
   /// receiver's arguments too when it has some, `openOnWithDay5ForWindow5And10`, or an inner
   /// class's outer instance's, `heavyResultForParcel30InShipping10`. Every argument is in the name,
   /// so two different calls never share one, and the same call (for two mutants) is the same test.
   static String name(String method, Suggestion suggestion) {
+    if (suggestion.named().isPresent()) {
+      return method + "At" + pascal(suggestion.named().get().name());
+    }
     var name = new StringBuilder(method);
     if (suggestion.inputs().isEmpty()) {
       name.append("Result");
@@ -205,16 +225,46 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
     return name.toString();
   }
 
-  /// `For` the receiver's type and its arguments, `ForWindow5And10`, then `In` each instance it's
-  /// made in that takes arguments, innermost first: `ForParcel30InShipping10`.
+  /// `FreeFrom` for `FREE_FROM` or `freeFrom`.
+  static String pascal(String name) {
+    if (!name.equals(name.toUpperCase(java.util.Locale.ROOT))) {
+      return Character.toUpperCase(name.charAt(0)) + name.substring(1);
+    }
+    var out = new StringBuilder();
+    for (var word : name.toLowerCase(java.util.Locale.ROOT).split("_", -1)) {
+      if (!word.isEmpty()) {
+        out.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+      }
+    }
+    return out.toString();
+  }
+
+  /// `For` the receiver's arguments by the constructor's names for them, `ForStart5AndEnd10`, or
+  /// its type and arguments when the names aren't known, `ForWindow5And10`; then `In` each instance
+  /// it's made in that takes arguments, innermost first: `ForWeight30InRate10`.
   private static void appendReceiver(StringBuilder name, List<Suggestion.Instance> receiver) {
     for (int index = receiver.size() - 1; index >= 0; index--) {
       var instance = receiver.get(index);
       boolean innermost = index == receiver.size() - 1;
       if (innermost || !instance.arguments().isEmpty()) {
-        name.append(innermost ? "For" : "In").append(instance.type());
-        appendArguments(name, instance.arguments());
+        name.append(innermost ? "For" : "In");
+        if (instance.parameters().size() == instance.arguments().size()
+            && !instance.arguments().isEmpty()) {
+          appendNamed(name, instance.parameters(), instance.arguments());
+        } else {
+          name.append(instance.type());
+          appendArguments(name, instance.arguments());
+        }
       }
+    }
+  }
+
+  /// `Start5AndEnd10`.
+  private static void appendNamed(StringBuilder name, List<String> parameters, List<Long> values) {
+    for (int index = 0; index < values.size(); index++) {
+      name.append(index == 0 ? "" : "And")
+          .append(pascal(parameters.get(index)))
+          .append(number(values.get(index)));
     }
   }
 

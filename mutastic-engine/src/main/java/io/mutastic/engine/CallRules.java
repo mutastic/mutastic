@@ -26,7 +26,7 @@ import org.jspecify.annotations.Nullable;
 ///   owners: java.util.stream.Stream, java.util.stream.IntStream
 ///   methods: anyMatch, allMatch, noneMatch
 ///   rewrite: rename anyMatch->allMatch, allMatch->anyMatch, noneMatch->anyMatch
-///   changed: changed to {to}
+///   changed: "{name} changed to {to}"
 ///   headline: no test tells `{name}` from `{to}` in {method}
 ///   help: use input where some but not all elements match, and assert the result
 /// ```

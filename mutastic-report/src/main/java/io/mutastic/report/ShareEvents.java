@@ -212,10 +212,19 @@ public final class ShareEvents {
             .map(
                 instance ->
                     new Suggestion.Instance(
-                        text(instance, "type").orElse(""), numbers(instance.get("arguments"))))
+                        text(instance, "type").orElse(""),
+                        numbers(instance.get("arguments")),
+                        strings(instance, "parameters")))
             .toList(),
         text(fields, "today").orElse(""),
-        text(fields, "withMutant").orElse(""));
+        text(fields, "withMutant").orElse(""),
+        object(fields, "named")
+            .map(
+                named ->
+                    new Suggestion.Named(
+                        text(named, "name").orElse(""),
+                        text(named, "note").orElse(""),
+                        text(named, "local"))));
   }
 
   private static Map<String, List<Long>> inputs(Map<String, Object> fields) {

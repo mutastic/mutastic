@@ -64,7 +64,7 @@ class HumanTextTest {
            │
          4 │   public int discount(int total) {
          5 │     if (total >= 100) {
-           │               ^^ changed to >
+           │               ^^ >= changed to >
          6 │       return total / 10;
            │
            = mutant  - if (total >= 100) {
@@ -110,7 +110,7 @@ class HumanTextTest {
     assertThat(card)
         .contains(
             " 5 │     if (total >= 100) {",
-            "^^ changed to >",
+            "^^ >= changed to >",
             "= note: every test calls discount() away",
             "inputs seen: 50 (none is 100)",
             "= id: " + boundary().id());

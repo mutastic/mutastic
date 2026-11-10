@@ -6,6 +6,8 @@
     [2m│[0m       [1;31m^^^^^^^^^^^^^^^^^^^ reversed[0m
  [2m14[0m [2m│[0m         ship.add(order);
     [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mif (order.paid()) {
+              [32m+ [0mif (!order.paid()) {
     [2m=[0m [1;34m[1mnote[0m[0m: covered by WarehouseTest#oneOrderOfTwoShips (its 1 covering test still passes)
     [2m=[0m [32m[1mhelp[0m[0m: assert the result on both sides of [1morder.paid()[0m
 

@@ -196,6 +196,115 @@ final class ClaimFixture {
     return failures;
   }
 
+  /// The mutants whose card shows changed lines that aren't theirs: the card's `+` lines, written
+  /// into the method in place of its statement, must give the claim's code, which [#claimsThatLie]
+  /// holds to what the mutant does; or, where the claim is written another way, compiled, they must
+  /// do what the mutant does on every input. Each is added to `shown`, to count what was checked.
+  /// Every variant is compiled in one call.
+  List<String> shownChangesThatAreNotTheMutants(List<String> shown)
+      throws IOException, ReflectiveOperationException {
+    var sources = new io.mutastic.report.SourceView(ROOT, List.of(ROOT));
+    var lines = java.nio.file.Files.readAllLines(ROOT.resolve(file));
+    var failures = new ArrayList<String>();
+    var variants = new java.util.LinkedHashMap<Mutant, Javac.Source>();
+    for (var mutant : running()) {
+      var diff = sources.diff(mutant, sources.advice(mutant));
+      if (!diff.shown() || !mutant.descriptor().startsWith(inputs.descriptor())) {
+        continue;
+      }
+      shown.add(describe(mutant) + ": " + String.join(" / ", diff.shownAfter()));
+      var applied = diff.appliedTo(lines, line -> line);
+      if (!normalised(body(applied, sourceMethod(mutant)), mutant)
+          .equals(normalised(body(lines, claimOf(mutant)), mutant))) {
+        variants.put(mutant, variant(String.join("\n", applied)));
+      }
+    }
+    var compiled =
+        variants.isEmpty()
+            ? Map.<String, byte[]>of()
+            : Javac.compile(List.copyOf(variants.values()), List.of(), "-g");
+    for (var each : variants.entrySet()) {
+      var mutant = each.getKey();
+      var method = sourceMethod(mutant);
+      var said = variantOutcomes(compiled, each.getValue().className(), method);
+      if (!withoutIdentities(said)
+          .equals(withoutIdentities(outcomes(mutatedBytes(mutant), method)))) {
+        failures.add(
+            "%s: shows lines that don't do what it does, as `%s`"
+                .formatted(describe(mutant), each.getValue().className()));
+      }
+    }
+    return failures;
+  }
+
+  /// Outcomes without what differs between two equal objects: an object's identity, as a stream
+  /// prints it, `ReferencePipeline$Head@1b6d3586`.
+  private static List<String> withoutIdentities(List<String> outcomes) {
+    return outcomes.stream().map(outcome -> outcome.replaceAll("@[0-9a-f]+\\b", "")).toList();
+  }
+
+  /// A method's code as compared with its claim's: without type witnesses (`Optional.<String>`),
+  /// which only the compiler needs, and a value claim's `value` as the mutant's.
+  private static String normalised(String body, Mutant mutant) {
+    var label = mutant.replacement();
+    return body.replaceAll("\\.<[^<>()]*>", ".")
+        .replaceAll("\\bvalue\\b", label.substring(label.lastIndexOf(' ') + 1));
+  }
+
+  /// The fixture's source with a card's lines in, as a class of its own name.
+  private Javac.Source variant(String text) {
+    var simple = className.substring(className.lastIndexOf('.') + 1);
+    var name = Javac.nameFor(simple, text);
+    var renamed = text.replaceAll("\\b" + simple + "\\b", name);
+    return new Javac.Source(className.substring(0, className.lastIndexOf('.') + 1) + name, renamed);
+  }
+
+  private List<String> variantOutcomes(Map<String, byte[]> classes, String variant, String method)
+      throws ReflectiveOperationException {
+    var bytes = Objects.requireNonNull(classes.get(variant), variant);
+    return Kept.outcomes(
+        keyFor(bytes, method, "variant"),
+        () -> {
+          var outcomes = new ArrayList<String>();
+          var called =
+              Javac.loader(classes)
+                  .loadClass(variant)
+                  .getDeclaredMethod(method, inputs.type(), inputs.type());
+          called.setAccessible(true);
+          for (Object a : inputs.values()) {
+            for (Object b : inputs.values()) {
+              outcomes.add(a + "," + b + ": " + outcome(called, a, b));
+            }
+          }
+          return outcomes;
+        });
+  }
+
+  /// A method's body as code, without comments or spacing: what's between its braces.
+  private static String body(List<String> lines, String method) {
+    var declaration =
+        java.util.regex.Pattern.compile("^\\s+(?:[\\w<>\\[\\],.?]+\\s+)+" + method + "\\(");
+    int at = 0;
+    while (at < lines.size() && !declaration.matcher(lines.get(at)).find()) {
+      at++;
+    }
+    var text = new StringBuilder();
+    int depth = 0;
+    boolean opened = false;
+    for (; at < lines.size() && !(opened && depth == 0); at++) {
+      var code = lines.get(at).replaceAll("//.*$", "");
+      for (int index = 0; index < code.length(); index++) {
+        char each = code.charAt(index);
+        depth += each == '{' ? 1 : each == '}' ? -1 : 0;
+        opened |= each == '{';
+        if (opened) {
+          text.append(each);
+        }
+      }
+    }
+    return text.toString().replaceAll("\\s+", "");
+  }
+
   /// [#claimsThatLie], for a fixture whose claims take the value the mutant's label ends in as a
   /// third parameter: `int atClaim(int a, int b, int limit)`. So one claim is every value's.
   List<String> valueClaimsThatLie() throws ReflectiveOperationException {

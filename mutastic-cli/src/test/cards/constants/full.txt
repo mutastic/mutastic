@@ -98,7 +98,7 @@
  11 │       count++;
     │
     = mutant  - while ((message = messages.poll()) != null && !message.equals(Protocol.EXIT_CODE)) {
-              + while ((message = messages.poll()) != null && !false) {
+              + while ((message = messages.poll()) != null && true) {
     = note: covered by MessagesTest#countsEveryMessage (its 1 covering test still passes)
     = help: add a test where message.equals(Protocol.EXIT_CODE) is true, and assert what beforeExit() does then
 

@@ -9,6 +9,7 @@
    [2m=[0m mutant  [1;31m- [0mif (text.isEmpty()) throw new IllegalArgumentException("no quantity given");
              [32m+ [0mif (false) throw new IllegalArgumentException("no quantity given");
    [2m=[0m also    [1;31m✗[0m no test needs [1mparse()[0m to throw [1mIllegalArgumentException[0m here [2m· mf69bfac0[0m
+   [2m=[0m change  the [1mthrow[0m of [1mIllegalArgumentException[0m is removed, so the code carries on (not shown in the source)
    [2m=[0m [1;34m[1mnote[0m[0m: covered by QuantitiesTest#aQuantity, QuantitiesTest#noQuantityIsAnError (all 2 covering tests still pass)
    [2m=[0m [32m[1mhelp[0m[0m: add a test where [1mtext.isEmpty()[0m is true, and assert what [1mparse()[0m does then
 

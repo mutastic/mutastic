@@ -6,6 +6,8 @@
    [2m│[0m                                   [1;31m^^^^^^ last value left out[0m
  [2m9[0m [2m│[0m   }
    [2m│[0m
+   [2m=[0m mutant  [1;31m- [0mreturn Collections.max(Arrays.asList(first, second, third));
+             [32m+ [0mreturn Collections.max(Arrays.asList(first, second));
    [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: first = 9; second = 2; third = 1
            [2mcovered by ScoresTest#theBestComesFirst (its 1 covering test still passes)[0m
    [2m=[0m [32m[1mhelp[0m[0m: add a test whose result depends on the last value given to [1masList()[0m, and assert it

@@ -13,7 +13,7 @@
   methods: isPresent, isEmpty
   descriptors: ()Z
   rewrite: rename isPresent->isEmpty, isEmpty->isPresent
-  changed: changed to {to}
+  changed: "{name} changed to {to}"
   headline: no test tells `{name}` from `{to}` in {method}
   help: add a test with an empty `Optional` and one with a value, and assert the result of each
 

@@ -56,8 +56,12 @@ class CardsTest {
   void everyCardOnTheSample(String sample) throws Exception {
     var project = Samples.copy(SAMPLES.resolve(sample), work.resolve(sample));
     var agent = run(project, "--format=agent");
+    var full = run(project, "--format=full");
+    assertThat(PlusLines.describedInBrackets(agent + full))
+        .as("+ lines that describe, not show")
+        .isEmpty();
     kept(sample, "agent.txt", project, agent);
-    kept(sample, "full.txt", project, run(project, "--format=full"));
+    kept(sample, "full.txt", project, full);
     if (EXPLAINED.contains(sample)) {
       var explained = new StringBuilder();
       var missed = MISSED.matcher(agent);

@@ -4,7 +4,7 @@
     [2m│[0m
  [2m16[0m [2m│[0m   public int discount(int total) {
  [2m17[0m [2m│[0m     if (total >= 100) {
-    [2m│[0m               [1;31m^^ changed to >[0m
+    [2m│[0m               [1;31m^^ >= changed to >[0m
  [2m18[0m [2m│[0m       return total / 10;
     [2m│[0m
     [2m=[0m mutant  [1;31m- [0mif (total >= 100) {

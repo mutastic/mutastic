@@ -3,7 +3,7 @@
    [2m│[0m
  [2m5[0m [2m│[0m   public static boolean isHeavy(int grams) {
  [2m6[0m [2m│[0m     return grams > 500;
-   [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^ changed to 501[0m
+   [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^ 500 changed to 501[0m
  [2m7[0m [2m│[0m   }
    [2m│[0m
    [2m=[0m mutant  [1;31m- [0mreturn grams > 500;

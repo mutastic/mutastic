@@ -116,6 +116,58 @@ class SuggestedTestTest {
         .isEqualTo("heavyResultForParcel30");
   }
 
+  @Test
+  void aValueTheSourceNamesNamesTheTestAndIsSaidInIt() throws Exception {
+    testSource(
+        "import static org.junit.jupiter.api.Assertions.assertEquals;\nclass PricingTest {}\n");
+    var constant =
+        new Suggestion(
+            "new Pricing().discount(Pricing.FREE_FROM)",
+            List.of("total"),
+            List.of(100L),
+            List.of(),
+            "10",
+            "0",
+            Optional.of(new Suggestion.Named("FREE_FROM", "FREE_FROM = 100", Optional.empty())));
+    var field =
+        new Suggestion(
+            "new Delivery(freeFrom).isFree(freeFrom)",
+            List.of("total"),
+            List.of(20L),
+            List.of(new Suggestion.Instance("Delivery", List.of(20L), List.of("freeFrom"))),
+            "true",
+            "false",
+            Optional.of(new Suggestion.Named("freeFrom", "", Optional.of("int freeFrom = 20;"))));
+
+    assertThat(SuggestedTest.of(missed(constant), sources()).orElseThrow().lines())
+        .containsExactly(
+            "@Test",
+            "void discountAtFreeFrom() {",
+            "  assertEquals(10, new Pricing().discount(Pricing.FREE_FROM)); // FREE_FROM = 100 ·"
+                + " today 10 · with this mutant 0",
+            "}");
+    assertThat(SuggestedTest.of(missed(field), sources()).orElseThrow().lines())
+        .containsExactly(
+            "@Test",
+            "void discountAtFreeFrom() {",
+            "  int freeFrom = 20;",
+            "  assertTrue(new Delivery(freeFrom).isFree(freeFrom)); // today true · with this"
+                + " mutant false",
+            "}");
+    // Without a value the source names, a constructor's arguments are named by its parameters.
+    var plain =
+        new Suggestion(
+            "new Delivery(50).isFree(0)",
+            List.of("total"),
+            List.of(0L),
+            List.of(new Suggestion.Instance("Delivery", List.of(50L), List.of("freeFrom"))),
+            "false",
+            "true");
+    assertThat(SuggestedTest.name("isFree", plain)).isEqualTo("isFreeWithTotal0ForFreeFrom50");
+    assertThat(SuggestedTest.pascal("FREE_FROM")).isEqualTo("FreeFrom");
+    assertThat(SuggestedTest.pascal("freeFrom")).isEqualTo("FreeFrom");
+  }
+
   /// `heavy()` on an inner class `Parcel`, made in a `Shipping`.
   private static Suggestion inner(List<Long> shipping, List<Long> parcel) {
     return new Suggestion(

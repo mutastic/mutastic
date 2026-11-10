@@ -170,13 +170,23 @@ public final class JsonEvents {
     suggestion.put("receiver", found.receiver().stream().map(JsonEvents::instance).toList());
     suggestion.put("today", found.today());
     suggestion.put("withMutant", found.mutated());
+    found.named().ifPresent(named -> suggestion.put("named", namedValue(named)));
     return suggestion;
+  }
+
+  private static Map<String, Object> namedValue(io.mutastic.api.Suggestion.Named named) {
+    var fields = new LinkedHashMap<String, Object>();
+    fields.put("name", named.name());
+    fields.put("note", named.note());
+    named.local().ifPresent(local -> fields.put("local", local));
+    return fields;
   }
 
   private static Map<String, Object> instance(io.mutastic.api.Suggestion.Instance instance) {
     var fields = new LinkedHashMap<String, Object>();
     fields.put("type", instance.type());
     fields.put("arguments", instance.arguments());
+    fields.put("parameters", instance.parameters());
     return fields;
   }
 

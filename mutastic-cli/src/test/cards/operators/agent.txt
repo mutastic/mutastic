@@ -36,7 +36,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
 4. missed me98ceb51: no test needs `.filter(…)` in large()
    at src/main/java/com/example/orders/Orders.java:8
    - return totals.stream().filter(total -> total >= 100).count();
-   + (stage removed)
+   + return totals.stream().count();
    covered by: OrdersTest#countsLargeOrders; all still pass with the change
    fix: add a test with an element the filter must drop, and assert it's gone
    done when: mutastic verify me98ceb51 samples/operators passes

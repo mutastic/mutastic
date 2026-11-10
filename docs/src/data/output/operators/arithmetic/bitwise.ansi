@@ -3,7 +3,7 @@
    [2m│[0m
  [2m5[0m [2m│[0m   public static int grant(int held, int granted) {
  [2m6[0m [2m│[0m     return held | granted;
-   [2m│[0m                 [1;31m^ changed to ^[0m
+   [2m│[0m                 [1;31m^ | changed to ^[0m
  [2m7[0m [2m│[0m   }
    [2m│[0m
    [2m=[0m mutant  [1;31m- [0mreturn held | granted;

@@ -8,7 +8,7 @@
    │
  5 │   public int fee(int amount) {
  6 │     if (amount < 10) {
-   │                ^ changed to <=
+   │                ^ < changed to <=
  7 │       return 0;
    │
    = mutant  - if (amount < 10) {

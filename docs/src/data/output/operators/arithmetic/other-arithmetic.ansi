@@ -3,7 +3,7 @@
    [2m│[0m
  [2m5[0m [2m│[0m   public static int perPerson(int total, int people) {
  [2m6[0m [2m│[0m     return total / people;
-   [2m│[0m                  [1;31m^ changed to %[0m
+   [2m│[0m                  [1;31m^ / changed to %[0m
  [2m7[0m [2m│[0m   }
    [2m│[0m
    [2m=[0m mutant  [1;31m- [0mreturn total / people;

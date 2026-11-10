@@ -803,7 +803,10 @@ public final class Engine {
       if (suggestions && isOnAnInstruction(mutant) && tested.run().status() == Status.MISSED) {
         var receiver = receiverFor(mutant, result.coveredBy().getFirst());
         if (receiver.isPresent()) {
-          result = result.withSuggestion(suggest(receiver.get(), trial, inputs));
+          result =
+              result.withSuggestion(
+                  suggest(
+                      receiver.get(), trial, inputs, testClassOf(result.coveredBy().getFirst())));
         }
       }
       return new Outcome(result, tested.run().portClash());
@@ -925,7 +928,13 @@ public final class Engine {
         return Optional.empty();
       }
       var trial = new Trial(worker, mutant, verifiedMutation(mutant), coverage);
-      return suggest(receiver.get(), trial, Map.of());
+      return suggest(receiver.get(), trial, Map.of(), mutant.binaryName() + "Test");
+    }
+
+    /// `com.example.PricingTest` for `com.example.PricingTest#bigOrders`.
+    private static String testClassOf(String test) {
+      int hash = test.indexOf('#');
+      return hash < 0 ? test : test.substring(0, hash);
     }
 
     /// How the test class a suggestion would go into, the first covering test's as the result lists
@@ -941,7 +950,7 @@ public final class Engine {
 
     /// Each candidate is the receiver's constructor arguments, if any, then the method's.
     private Optional<Suggestion> suggest(
-        String receiver, Trial trial, Map<String, List<Long>> inputs) {
+        String receiver, Trial trial, Map<String, List<Long>> inputs, String testClass) {
       var mutant = trial.mutant();
       var shape = CallShape.of(mutant, receiver);
       if (!shape.takesWholeNumbers()) {
@@ -957,7 +966,7 @@ public final class Engine {
       return trial
           .worker()
           .suggest(mutant, receiver, trial.bytes(), candidates)
-          .map(found -> suggestion(shape, found, kotlin));
+          .map(found -> suggestion(shape, found, kotlin, testClass));
     }
 
     /// Whether kotlinc compiled the mutant's class, so a test of it is written in Kotlin.
@@ -990,25 +999,73 @@ public final class Engine {
 
     /// The suggestion from the worker's `found`: the arguments, then what the method returns today
     /// and with the mutant.
-    private Suggestion suggestion(CallShape shape, String[] found, Optional<KotlinCall> kotlin) {
+    private Suggestion suggestion(
+        CallShape shape, String[] found, Optional<KotlinCall> kotlin, String testClass) {
       var all = found[0].equals("-") ? List.<Long>of() : wholeNumbers(found[0]);
       int receiverCount = shape.receiverArity();
       var receiverArguments = all.subList(0, receiverCount);
       var arguments = all.subList(receiverCount, all.size());
-      var mutant = shape.mutant();
-      var names = coverage.parameterNames(mutant);
-      if (names.size() != arguments.size()) {
-        names = placeholderNames(arguments.size());
-      }
+      var names = namesOf(shape.mutant(), arguments.size());
+      var naming =
+          kotlin.isPresent()
+              ? Optional.<NamedValues.Naming>empty()
+              : named(
+                  shape,
+                  new NamedValues.Call(
+                      names, arguments, Optional.empty(), receiverArguments, testClass));
       return new Suggestion(
           kotlin
               .map(call -> shape.kotlin(call, receiverArguments, arguments))
-              .orElseGet(() -> shape.call(receiverArguments, arguments)),
+              .orElseGet(() -> shape.call(receiverArguments, arguments, naming)),
           names,
           arguments,
-          shape.instances(receiverArguments),
+          shape.instances(receiverArguments, this::parameterNames),
           found[1],
-          found[2]);
+          found[2],
+          naming.map(NamedValues.Naming::named));
+    }
+
+    /// The mutant's method's parameter names, or `arg0`, `arg1`… if they aren't `count`.
+    private List<String> namesOf(Mutant mutant, int count) {
+      var names = parameterNames(mutant.className(), mutant.methodName(), mutant.descriptor());
+      return names.size() == count ? names : placeholderNames(count);
+    }
+
+    /// The value the call is at the edge of, if the source names it. `call` has the receiver's
+    /// arguments, all of them: its innermost constructor's are taken from them here.
+    private Optional<NamedValues.Naming> named(CallShape shape, NamedValues.Call call) {
+      var constructed = shape.innermostArguments(call.constructed());
+      synchronized (mutations) {
+        var constructor =
+            shape
+                .innermost()
+                .flatMap(made -> method(made.className(), "<init>", made.descriptor()));
+        return new NamedValues(models, sources)
+            .of(
+                shape.mutant(),
+                new NamedValues.Call(
+                    call.parameters(), call.inputs(), constructor, constructed, call.testClass()));
+      }
+    }
+
+    /// The names a method's class file gives its parameters: see [ParameterNames].
+    private List<String> parameterNames(String className, String name, String descriptor) {
+      synchronized (mutations) {
+        return method(className, name, descriptor).map(ParameterNames::of).orElse(List.of());
+      }
+    }
+
+    private Optional<java.lang.classfile.MethodModel> method(
+        String className, String name, String descriptor) {
+      var model = models.get(className.replace('/', '.'));
+      return model == null
+          ? Optional.empty()
+          : model.methods().stream()
+              .filter(
+                  method ->
+                      method.methodName().equalsString(name)
+                          && method.methodType().equalsString(descriptor))
+              .findFirst();
     }
 
     /// `1;2` as its numbers.
@@ -1046,10 +1103,16 @@ public final class Engine {
               .formatted(inner ? simpleName() : nested, literals(parameters(), arguments));
         }
 
-        String written(List<Long> arguments) {
+        String written(List<Long> arguments, Map<Integer, String> instead) {
           var nested = className.substring(className.lastIndexOf('/') + 1).replace('$', '.');
           return (inner ? ".new %s(%s)" : "new %s(%s)")
-              .formatted(inner ? simpleName() : nested, literals(parameters(), arguments));
+              .formatted(
+                  inner ? simpleName() : nested,
+                  String.join(", ", withInstead(literalList(parameters(), arguments), instead)));
+        }
+
+        String descriptor() {
+          return constructor.descriptorString();
         }
       }
 
@@ -1080,13 +1143,33 @@ public final class Engine {
             .allMatch(parameter -> Access.WHOLE_NUMBERS.contains(parameter.descriptorString()));
       }
 
-      /// The instances the call makes, with their arguments.
-      List<Suggestion.Instance> instances(List<Long> receiverArguments) {
+      /// The instances the call makes, with their arguments and the constructors' names for them.
+      List<Suggestion.Instance> instances(List<Long> receiverArguments, ParameterNamer named) {
         var each = eachArguments(receiverArguments);
         return java.util.stream.IntStream.range(0, receiver.size())
             .mapToObj(
-                index -> new Suggestion.Instance(receiver.get(index).simpleName(), each.get(index)))
+                index -> {
+                  var made = receiver.get(index);
+                  var names = named.of(made.className(), "<init>", made.descriptor());
+                  var own =
+                      made.inner() && !names.isEmpty() ? names.subList(1, names.size()) : names;
+                  return new Suggestion.Instance(
+                      made.simpleName(),
+                      each.get(index),
+                      own.size() == each.get(index).size() ? own : List.of());
+                })
             .toList();
+      }
+
+      /// The instance the method is called on, if the call makes one.
+      Optional<Made> innermost() {
+        return receiver.isEmpty() ? Optional.empty() : Optional.of(receiver.getLast());
+      }
+
+      /// The arguments that instance is made with.
+      List<Long> innermostArguments(List<Long> receiverArguments) {
+        var each = eachArguments(receiverArguments);
+        return each.isEmpty() ? List.of() : each.getLast();
       }
 
       /// `receiverArguments` split into each constructor's.
@@ -1129,7 +1212,8 @@ public final class Engine {
       /// `Pricing.discount(100)` for a static method, `new Pricing().discount(100)`, `new
       /// GoldenScorer.Score(1, 1).hitAt(1)` when the receiver needs arguments, or `new
       /// Shipping(10).new Parcel(30).heavy()` for an inner class.
-      String call(List<Long> receiverArguments, List<Long> arguments) {
+      String call(
+          List<Long> receiverArguments, List<Long> arguments, Optional<NamedValues.Naming> naming) {
         var on = new StringBuilder();
         if (receiver.isEmpty()) {
           var className = mutant.className();
@@ -1137,11 +1221,31 @@ public final class Engine {
         }
         var each = eachArguments(receiverArguments);
         for (int index = 0; index < receiver.size(); index++) {
-          on.append(receiver.get(index).written(each.get(index)));
+          var instead =
+              index == receiver.size() - 1
+                  ? naming.map(NamedValues.Naming::constructed).orElse(Map.of())
+                  : Map.<Integer, String>of();
+          on.append(receiver.get(index).written(each.get(index), instead));
         }
-        return "%s.%s(%s)"
-            .formatted(on, mutant.methodName(), literals(type.parameterList(), arguments));
+        var written =
+            withInstead(
+                literalList(type.parameterList(), arguments),
+                naming.map(NamedValues.Naming::arguments).orElse(Map.of()));
+        return "%s.%s(%s)".formatted(on, mutant.methodName(), String.join(", ", written));
       }
+    }
+
+    /// Names a method's parameters: see [ParameterNames].
+    @FunctionalInterface
+    private interface ParameterNamer {
+      List<String> of(String className, String name, String descriptor);
+    }
+
+    /// `written` with the values `instead` names written that way.
+    private static List<String> withInstead(List<String> written, Map<Integer, String> instead) {
+      var all = new ArrayList<>(written);
+      instead.forEach(all::set);
+      return all;
     }
 
     /// `1, 2L`: each value as Java source for its parameter (`long` and `Long` take an `L`).

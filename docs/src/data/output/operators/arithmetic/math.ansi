@@ -3,12 +3,13 @@
    [2m│[0m
  [2m4[0m [2m│[0m   public static int total(int subtotal, int shipping) {
  [2m5[0m [2m│[0m     return subtotal + shipping;
-   [2m│[0m                     [1;31m^ changed to -[0m
+   [2m│[0m                     [1;31m^ + changed to -[0m
  [2m6[0m [2m│[0m   }
    [2m│[0m
    [2m=[0m mutant  [1;31m- [0mreturn subtotal + shipping;
              [32m+ [0mreturn subtotal - shipping;
    [2m=[0m also    [1;31m✗[0m no test needs [1mshipping[0m in [1msubtotal + shipping[0m in [1mtotal()[0m [2m· m46de907a[0m
+             [32m+ [0mreturn subtotal;
    [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: subtotal = 30; shipping = 0
            [2mcovered by CheckoutTest#freeShipping (its 1 covering test still passes)[0m
    [2m=[0m [32m[1mhelp[0m[0m: use inputs where [1msubtotal + shipping[0m and [1msubtotal - shipping[0m differ, and assert the result

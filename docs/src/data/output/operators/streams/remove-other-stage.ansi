@@ -6,6 +6,8 @@
    [2m│[0m                            [1;31m^^^^ stage removed[0m
  [2m9[0m [2m│[0m   }
    [2m│[0m
+   [2m=[0m mutant  [1;31m- [0mreturn values.stream().peek(log::add).mapToInt(Integer::intValue).sum();
+             [32m+ [0mreturn values.stream().mapToInt(Integer::intValue).sum();
    [2m=[0m [1;34m[1mnote[0m[0m: covered by TotalsTest#totalsAddUp (its 1 covering test still passes)
    [2m=[0m [32m[1mhelp[0m[0m: add a test that asserts what [1m.peek(…)[0m does to each element
 

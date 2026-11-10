@@ -1,5 +1,6 @@
 // A JDK 17 project for mutastic's suggested tests: tests in AssertJ style, a static method,
-// long arguments, and a method whose answer is random, which must get no suggestion.
+// long arguments, constants and a field the tests should name, a boxed parameter, and a method
+// whose answer is random, which must get no suggestion.
 plugins {
     java
 }

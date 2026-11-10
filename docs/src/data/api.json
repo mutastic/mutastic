@@ -1712,13 +1712,13 @@
           "name": "Mutator.Words",
           "slug": "mutator-words",
           "kind": "record",
-          "signature": "record Words(String changed, String headline, String help)",
+          "signature": "record Words(\n    String changed,\n    String headline,\n    String help,\n    Optional<String> written)",
           "summary": "A missed mutant's card, in words.",
           "doc": "A missed mutant's card, in words.",
           "params": [
             {
               "name": "changed",
-              "doc": "what the source line now does: `stage removed`, `changed to allMatch`"
+              "doc": "what the source line now does: `stage removed`, `anyMatch changed to allMatch`"
             },
             {
               "name": "headline",
@@ -1727,9 +1727,24 @@
             {
               "name": "help",
               "doc": "the test that would catch it"
+            },
+            {
+              "name": "written",
+              "doc": "for a change to a call, the call as the source would be written with the change made, so the card can show the line as the mutant has it: a template on the call's parts as the source writes them. `{receiver}` is what it's called on, `{args}` its arguments and `{arg1}`, `{arg2}` each one: `{receiver}.allMatch({args})`, `{receiver}` for a call left out, `{arg1} + {arg2}`. Empty when the change isn't one the call's source can show, and the card says it in words."
             }
           ],
-          "members": []
+          "members": [
+            {
+              "kind": "constructor",
+              "name": "Words",
+              "anchor": "words",
+              "signature": "Words(String changed, String headline, String help)",
+              "doc": "Words for a change the source can't show.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
         },
         {
           "name": "Operator",
@@ -2434,7 +2449,7 @@
           "name": "Suggestion",
           "slug": "suggestion",
           "kind": "record",
-          "signature": "@Internal record Suggestion(\n    String call,\n    List<String> parameters,\n    List<Long> inputs,\n    List<Suggestion.Instance> receiver,\n    String today,\n    String mutated)",
+          "signature": "@Internal record Suggestion(\n    String call,\n    List<String> parameters,\n    List<Long> inputs,\n    List<Suggestion.Instance> receiver,\n    String today,\n    String mutated,\n    Optional<Suggestion.Named> named)",
           "summary": "A call that tells a missed mutant from the code today, found by running both: the test to write is an assertion of today's value.",
           "doc": "A call that tells a missed mutant from the code today, found by running both: the test to write\nis an assertion of today's value. Today's value is what the code does, not necessarily what it\nshould, so the person checks it before keeping the test.",
           "params": [
@@ -2461,6 +2476,10 @@
             {
               "name": "mutated",
               "doc": "what it returns with the mutant in, the same way, or `doesn't return`"
+            },
+            {
+              "name": "named",
+              "doc": "the value the call is at the edge of, when the source names it: a constant, or a field the constructor sets from an argument"
             }
           ],
           "members": [
@@ -2468,6 +2487,16 @@
               "kind": "constructor",
               "name": "Suggestion",
               "anchor": "suggestion",
+              "signature": "Suggestion(String call, List<String> parameters, List<Long> inputs, List<Suggestion.Instance> receiver, String today, String mutated)",
+              "doc": "A call at no value the source names.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "Suggestion",
+              "anchor": "suggestion-2",
               "signature": "Suggestion(String call, List<String> parameters, List<Long> inputs, String today, String mutated)",
               "doc": "A call with no receiver arguments: a static method, or a no-argument constructor.",
               "params": [],
@@ -2500,10 +2529,44 @@
           "name": "Suggestion.Instance",
           "slug": "suggestion-instance",
           "kind": "record",
-          "signature": "record Instance(String type, List<Long> arguments)",
-          "summary": "An instance a suggestion makes: its class's simple name and constructor arguments, `Window` and `[5, 10]`.",
-          "doc": "An instance a suggestion makes: its class's simple name and constructor arguments, `Window`\nand `[5, 10]`.",
+          "signature": "record Instance(String type, List<Long> arguments, List<String> parameters)",
+          "summary": "An instance a suggestion makes: its class's simple name, its constructor arguments and the constructor's names for them, `Window`, `[5, 10]` and `[start, end]`.",
+          "doc": "An instance a suggestion makes: its class's simple name, its constructor arguments and the\nconstructor's names for them, `Window`, `[5, 10]` and `[start, end]`.",
           "params": [],
+          "members": [
+            {
+              "kind": "constructor",
+              "name": "Instance",
+              "anchor": "instance",
+              "signature": "Instance(String type, List<Long> arguments)",
+              "doc": "An instance whose constructor's names for its arguments aren't known.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Suggestion.Named",
+          "slug": "suggestion-named",
+          "kind": "record",
+          "signature": "record Named(String name, String note, Optional<String> local)",
+          "summary": "The value a suggested call is at the edge of, as the source names it, which the test is named after: a constant (`FREE_FROM`), or a field the constructor sets (`freeFrom`).",
+          "doc": "The value a suggested call is at the edge of, as the source names it, which the test is named\nafter: a constant (`FREE_FROM`), or a field the constructor sets (`freeFrom`).",
+          "params": [
+            {
+              "name": "name",
+              "doc": "the constant's or field's name, as the source has it"
+            },
+            {
+              "name": "note",
+              "doc": "what the test's comment says of it: `FREE_FROM = 100`, or `100 is Pricing's FREE_FROM` for a constant the test can't use; empty if it needs nothing"
+            },
+            {
+              "name": "local",
+              "doc": "the line a test declares the value in, when it's passed twice: `int freeFrom = 20;`"
+            }
+          ],
           "members": []
         },
         {

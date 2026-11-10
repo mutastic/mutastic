@@ -295,10 +295,6 @@ public final class SourceView {
   /// The longest statement searched for the changed operator.
   private static final int STATEMENT_LINES = 12;
 
-  /// A removed condition's change, `` `balance > 0` is always true ``: the condition and its value.
-  private static final java.util.regex.Pattern ALWAYS =
-      java.util.regex.Pattern.compile("`(?<condition>[^`]+)` is always (?<value>true|false)");
-
   /// Where the mutant's change is in the source.
   ///
   /// javac gives a whole statement the line it starts on, so `return !over && location < 9` split
@@ -378,93 +374,26 @@ public final class SourceView {
     return mangled > 0 ? name.substring(0, mangled) : name;
   }
 
-  /// The line with the change made, when it can be shown exactly: the changed operator appears on
-  /// the line once, or the line is a single `return`.
-  public Optional<String> mutatedLine(Mutant mutant, Advice advice) {
-    return line(mutant)
-        .flatMap(
-            text -> {
-              if (mutant.operator() == BuiltIn.CONSTANT_VALUE) {
-                return constantChanged(text, advice);
-              }
-              if (advice.before().isPresent() && advice.after().isPresent()) {
-                return operatorChanged(written(mutant), advice, text);
-              }
-              if (mutant.operator() == BuiltIn.REMOVE_CONDITIONAL) {
-                return conditionReplaced(text, advice);
-              }
-              boolean singleReturn =
-                  text.startsWith("return ")
-                      && text.endsWith(";")
-                      && text.indexOf("return ", 1) < 0;
-              return advice.after().filter(after -> singleReturn && after.startsWith("return "));
-            });
-  }
-
-  /// The line with the number changed, when it's on the line once and not in a string: one the
-  /// source names, `LIMIT`, isn't there to change.
-  private static Optional<String> constantChanged(String text, Advice advice) {
-    var before = advice.before().orElseThrow();
-    var after = advice.after().orElseThrow();
-    var outsideStrings = text.replaceAll("\"[^\"]*\"", "\"\"");
-    return replacedOnce(outsideStrings, before, after)
-        .flatMap(_ -> replacedOnce(text, before, after));
-  }
-
-  /// The line with the comparison changed: `b > 1` found once on it, from the operands, so a
-  /// condition split over lines changes where the mutant is, not whichever `>` javac's line has.
-  /// Otherwise (the operands unknown, or a constant the source names, `-SMALL_OVERDRAFT` for
-  /// `-1000`) only an operator the whole statement has once.
-  private Optional<String> operatorChanged(Mutant mutant, Advice advice, String text) {
-    var operands = mutant.operands();
-    var before = advice.before().orElseThrow();
-    var after = advice.after().orElseThrow();
-    var exact =
-        operands.size() == 2
-            ? replacedOnce(
-                text,
-                "%s %s %s".formatted(operands.get(0), before, operands.get(1)),
-                "%s %s %s".formatted(operands.get(0), after, operands.get(1)))
-            : Optional.<String>empty();
-    return exact.or(
-        () ->
-            replacedOnce(String.join("\n", statement(mutant)), " " + before + " ", "")
-                .flatMap(_ -> replacedOnce(text, " " + before + " ", " " + after + " ")));
-  }
-
-  private static boolean startsAWord(char c) {
-    return Character.isLetterOrDigit(c) || c == '_' || c == '.';
-  }
-
-  /// `text` with `found` replaced, when it's there exactly once as whole words: not run on into a
-  /// name, a literal's suffix or a member (`1` in `1L`, `day` in `days`, `a` in `a.b`).
-  private static Optional<String> replacedOnce(String text, String found, String replacement) {
-    // A boundary only where `found` itself starts or ends with part of a word: ` > ` is its own.
-    var whole =
-        java.util.regex.Pattern.compile(
-            (startsAWord(found.charAt(0)) ? "(?<![\\w.])" : "")
-                + java.util.regex.Pattern.quote(found)
-                + (startsAWord(found.charAt(found.length() - 1)) ? "(?![\\w.])" : ""));
-    var at = whole.matcher(text);
-    if (!at.find()) {
-      return Optional.empty();
+  /// What a card shows of the mutant's change: its statement's lines, as written and as the mutant
+  /// has them when the source shows the change exactly, and the change in words.
+  public Diff diff(Mutant mutant, Advice advice) {
+    var all = lines(mutant).orElse(List.of());
+    int line = mutant.line();
+    if (line < 1 || line > all.size() || all.get(line - 1).isBlank()) {
+      return new Diff(0, List.of(), Optional.empty(), advice.change());
     }
-    int start = at.start();
-    return at.find()
-        ? Optional.empty()
-        : Optional.of(
-            text.substring(0, start) + replacement + text.substring(start + found.length()));
-  }
-
-  /// `return balance > 0;` → `return true;`: the condition as the source writes it, once on the
-  /// line, replaced by the value it now always has. Nothing when the line doesn't write it so.
-  private static Optional<String> conditionReplaced(String text, Advice advice) {
-    var always = ALWAYS.matcher(advice.change());
-    if (!always.matches()) {
-      return Optional.empty();
-    }
-    // Whole words: `wide < 1` is in `wide < 1L`, and replacing it there would leave `falseL`.
-    return replacedOnce(text, always.group("condition"), always.group("value"));
+    boolean kotlin = isKotlin(mutant);
+    boolean ownLine = mutant.operator() == BuiltIn.REMOVE_SWITCH_ARM;
+    int first = ownLine ? line : Statements.start(all, line, kotlin);
+    int last = ownLine ? line : Statements.end(all, line, kotlin);
+    var before = all.subList(first - 1, last);
+    int from = before.subList(0, line - first).stream().mapToInt(text -> text.length() + 1).sum();
+    var changed =
+        new ChangedSource(String.join("\n", before), from, kotlin)
+            .changed(written(mutant), advice)
+            .map(text -> Statements.linesOf(text, before))
+            .filter(after -> !after.equals(before));
+    return new Diff(first, before, changed, advice.change());
   }
 
   /// Where the mutant's line is: for code copied in from another file, that file and no other, as

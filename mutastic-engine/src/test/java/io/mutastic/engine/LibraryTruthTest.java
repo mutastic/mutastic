@@ -91,7 +91,7 @@ class LibraryTruthTest {
     for (var mutant : running()) {
       var advice = sources.advice(mutant);
       var name = CallRule.calledName(mutant.original());
-      assertThat(advice.change()).isEqualTo("changed to " + mutant.replacement());
+      assertThat(advice.change()).isEqualTo(name + " changed to " + mutant.replacement());
       assertThat(advice.headline())
           .isEqualTo(
               "no test tells `%s` from `%s` in %s()"

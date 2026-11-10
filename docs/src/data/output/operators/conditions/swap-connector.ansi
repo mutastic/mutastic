@@ -3,9 +3,11 @@
    [2m│[0m
  [2m7[0m [2m│[0m   public static Predicate<String> held(Predicate<String> shouted, Predicate<String> isLong) {
  [2m8[0m [2m│[0m     return shouted.and(isLong);
-   [2m│[0m                    [1;31m^^^ changed to or[0m
+   [2m│[0m                    [1;31m^^^ and changed to or[0m
  [2m9[0m [2m│[0m   }
    [2m│[0m
+   [2m=[0m mutant  [1;31m- [0mreturn shouted.and(isLong);
+             [32m+ [0mreturn shouted.or(isLong);
    [2m=[0m [1;34m[1mnote[0m[0m: covered by ModerationTest#aLongShoutIsHeld (its 1 covering test still passes)
    [2m=[0m [32m[1mhelp[0m[0m: use a value one of the two predicates accepts and the other doesn't, and assert the result
 

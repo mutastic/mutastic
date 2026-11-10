@@ -83,6 +83,35 @@ test class, `PricingTest` for `Pricing`, if one of its tests does, or else the f
 assertion style (AssertJ, JUnit or TestNG, whose test methods it makes public and whose
 `assertEquals` it gives the actual value first), with a name it doesn't already use.
 
+The name is the method's and its arguments', by the names the source gives its parameters (from
+the class file, which keeps them when it's compiled with debug information, as Gradle and Maven
+compile by default), and the constructor's for an object it makes: `isFreeWithTotal0ForFreeFrom50`.
+When the input is at a value the source names, the test says it the source's way and is named for
+it. A constant the test can use goes in the call, its value in the comment; one it can't, being
+private, stays a number, and the comment says whose it is:
+
+```java
+@Test
+void discountAtFreeFrom() {
+  assertEquals(10, Discounts.discount(Discounts.FREE_FROM)); // FREE_FROM = 100 · today 10 · with this mutant 0
+}
+
+@Test
+void bulkAtBulkFrom() {
+  assertEquals(5, Discounts.bulk(50)); // 50 is Discounts's BULK_FROM · today 5 · with this mutant 0
+}
+```
+
+A field the constructor sets, compared with the method's argument, is one value passed to both:
+
+```java
+@Test
+void isFreeAtFreeFrom() {
+  int freeFrom = 50;
+  assertTrue(new Delivery(freeFrom).isFree(freeFrom)); // today true · with this mutant false
+}
+```
+
 A method no test reaches at all gets a starting point instead: under *Not covered*, `try:` and an
 assertion a test in the class's own package could make (`start with:` in the agent format), found
 the same way, so it also catches one of the method's mutants. It's written in the style of the

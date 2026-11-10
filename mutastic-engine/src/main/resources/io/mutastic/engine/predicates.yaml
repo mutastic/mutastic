@@ -7,7 +7,7 @@
   owners: java.util.function.Predicate, java.util.function.BiPredicate, java.util.function.IntPredicate, java.util.function.LongPredicate, java.util.function.DoublePredicate
   methods: and, or
   rewrite: rename and->or, or->and
-  changed: changed to {to}
+  changed: "{name} changed to {to}"
   headline: no test tells `{name}` from `{to}` between two predicates in {method}
   help: use a value one of the two predicates accepts and the other doesn't, and assert the result
 

@@ -25,7 +25,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
 3. missed mdfdd66e6: no test needs `currency.equals(other.currency)` to be false in `plus()`
    at src/main/java/com/example/orders/Money.java:15
    - if (!currency.equals(other.currency)) {
-   + if (!true) {
+   + if (false) {
    covered by: MoneyTest#amountsInOneCurrencyAdd; all still pass with the change
    fix: add a test where `currency.equals(other.currency)` is false, and assert what `plus()` does then
    done when: mutastic verify mdfdd66e6 samples/lombok passes
@@ -75,7 +75,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
 8. missed m2051408a: no test needs `total.getCents() > 10000` to be false in `discounted()`
    at src/main/java/com/example/orders/Order.java:33
    - if (customer.getLoyaltyPoints() >= 1000 && total.getCents() > 10_000) {
-   + (`total.getCents() > 10000` is always true)
+   change: `total.getCents() > 10000` is always true (not shown in the source)
    covered by: OrderTest#goldCustomersGetTenPercentOffBigOrders; all still pass with the change
    fix: add a test where `total.getCents() > 10000` is false, and assert what `discounted()` does then
    done when: mutastic verify m2051408a samples/lombok passes
@@ -85,7 +85,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
 9. missed m845ab3c5: no test needs `giftMessage == null` to be true in `setGiftMessage()`
    at src/main/java/com/example/orders/OrderLine.java:15
    - @Getter @Setter @NonNull private String giftMessage = "";
-   + (`giftMessage == null` is always false)
+   change: `giftMessage == null` is always false (not shown in the source)
    covered by: OrderTest#theTotalAddsEveryLine; all still pass with the change
    fix: add a test where `giftMessage == null` is true, and assert what `setGiftMessage()` does then
    done when: mutastic verify m845ab3c5 samples/lombok passes
@@ -95,7 +95,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
 10. missed m147ffecc: no test needs `order == null` to be true in `write()`
    at src/main/java/com/example/orders/Receipts.java:17
    - public static void write(@NonNull Order order, Path file) {
-   + (`order == null` is always false)
+   change: `order == null` is always false (not shown in the source)
    covered by: ReceiptsTest#aReceiptKeepsTheTotal(java.nio.file.Path); all still pass with the change
    fix: add a test where `order == null` is true, and assert what `write()` does then
    done when: mutastic verify m147ffecc samples/lombok passes

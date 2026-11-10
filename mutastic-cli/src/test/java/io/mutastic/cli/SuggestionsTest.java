@@ -10,7 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /// Suggested tests on `samples/suggestions`: AssertJ-style tests, a static method, `long`
-/// arguments, a record made with its own constructor, and a random method that must get none.
+/// arguments, a record made with its own constructor, a boxed parameter, constants and a field the
+/// source names, and a random method that must get none.
 class SuggestionsTest {
   private static final Path SAMPLE = Path.of(System.getProperty("mutastic.samples"), "suggestions");
 
@@ -64,13 +65,43 @@ class SuggestionsTest {
               }
             });
 
-    // Two mutants on a side of one condition share a test: one of each.
+    // Two mutants on a side of one condition share a test: one of each. A boxed parameter is
+    // named as the source names it (`chosen`), a constructor's arguments by its parameters, and
+    // a value the source names is said its way: a constant the test can use, one it can't, and
+    // a field the constructor sets, passed the same value as the argument it's compared with.
     assertThat(java.util.Set.copyOf(suggested.values()))
         .containsExactlyInAnyOrder(
             """
         @Test
+        void isFreeAtFreeFrom() {
+          int freeFrom = 50;
+          assertThat(new Delivery(freeFrom).isFree(freeFrom)).isTrue(); // today true · with this mutant false
+        }""",
+            """
+        @Test
         void lateFeeWithDaysLate7() {
           assertThat(Rates.lateFee(7L)).isEqualTo(0L); // today 0L · with this mutant 5L
+        }""",
+            """
+        @Test
+        void openOnAtStart() {
+          int start = 5;
+          assertThat(new Window(start, 10L).openOn(start)).isTrue(); // today true · with this mutant false
+        }""",
+            """
+        @Test
+        void bulkWithCount49() {
+          assertThat(Discounts.bulk(49)).isEqualTo(0); // today 0 · with this mutant 5
+        }""",
+            """
+        @Test
+        void discountWithTotal99() {
+          assertThat(Discounts.discount(99)).isEqualTo(0); // today 0 · with this mutant 10
+        }""",
+            """
+        @Test
+        void isFreeWithTotal0ForFreeFrom50() {
+          assertThat(new Delivery(50).isFree(0)).isFalse(); // today false · with this mutant true
         }""",
             """
         @Test
@@ -79,28 +110,49 @@ class SuggestionsTest {
         }""",
             """
         @Test
-        void openOnWithDay0ForWindow0And0() {
+        void openOnAtEnd() {
+          int end = 5;
+          assertThat(new Window(5, end).openOn(end)).isFalse(); // today false · with this mutant true
+        }""",
+            """
+        @Test
+        void columnsWithChosen3() {
+          assertThat(Discounts.columns(3)).isEqualTo(1); // today 1 · with this mutant 2
+        }""",
+            """
+        @Test
+        void openOnWithDay0ForStart0AndEnd0() {
           assertThat(new Window(0, 0L).openOn(0)).isFalse(); // today false · with this mutant true
         }""",
             """
         @Test
-        void openOnWithDay0ForWindow5And5() {
+        void bulkAtBulkFrom() {
+          assertThat(Discounts.bulk(50)).isEqualTo(5); // 50 is Discounts's BULK_FROM · today 5 · with this mutant 0
+        }""",
+            """
+        @Test
+        void isFreeWithTotalMinus1ForFreeFrom0() {
+          assertThat(new Delivery(0).isFree(-1)).isFalse(); // today false · with this mutant true
+        }""",
+            """
+        @Test
+        void discountAtFreeFrom() {
+          assertThat(Discounts.discount(Discounts.FREE_FROM)).isEqualTo(10); // FREE_FROM = 100 · today 10 · with this mutant 0
+        }""",
+            """
+        @Test
+        void openOnWithDay0ForStart5AndEnd5() {
           assertThat(new Window(5, 5L).openOn(0)).isFalse(); // today false · with this mutant true
-        }""",
-            """
-        @Test
-        void openOnWithDay5ForWindow5And5() {
-          assertThat(new Window(5, 5L).openOn(5)).isFalse(); // today false · with this mutant true
-        }""",
-            """
-        @Test
-        void openOnWithDay5ForWindow5And10() {
-          assertThat(new Window(5, 10L).openOn(5)).isTrue(); // today true · with this mutant false
         }""");
 
     // Each into the test class it was written for: RatesTest, or WindowTest for the record.
     for (var code : java.util.Set.copyOf(suggested.values())) {
-      var testClass = code.contains("new Window(") ? "WindowTest" : "RatesTest";
+      var testClass =
+          code.contains("new Window(")
+              ? "WindowTest"
+              : code.contains("new Delivery(")
+                  ? "DeliveryTest"
+                  : code.contains("Discounts.") ? "DiscountsTest" : "RatesTest";
       var test = project.resolve("src/test/java/com/example/rates/" + testClass + ".java");
       Files.writeString(
           test, Files.readString(test).replaceFirst("\\}\\s*$", "\n" + code.indent(2) + "}\n"));

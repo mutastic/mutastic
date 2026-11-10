@@ -362,8 +362,7 @@ public final class AgentText {
     var lines = new ArrayList<String>();
     lines.add(head(number, mutant, advice));
     lines.add("   at %s:%d".formatted(sources.file(mutant), sources.place(mutant).line()));
-    sources.line(mutant).ifPresent(line -> lines.add("   - " + line));
-    lines.add("   + " + mutated(result));
+    addChange(lines, sources.diff(mutant, advice));
     finding.others().forEach(other -> addOther(lines, other));
     lines.add(coveredBy(result));
     advice.notes().forEach(note -> lines.add("   evidence: " + note));
@@ -388,12 +387,24 @@ public final class AgentText {
     lines.add(
         "   also %s %s: %s"
             .formatted(words.undetected, other.mutant().id(), sources.advice(other).headline()));
-    lines.add("   + " + mutated(other));
+    var diff = sources.diff(other.mutant(), sources.advice(other));
+    if (diff.shown() && !diff.removed()) {
+      diff.shownAfter().forEach(line -> lines.add("   + " + line));
+    } else {
+      lines.add("   change: " + (diff.removed() ? diff.change() : diff.unshown()));
+    }
   }
 
-  private String mutated(MutantResult result) {
-    var advice = sources.advice(result);
-    return sources.mutatedLine(result.mutant(), advice).orElse("(" + advice.change() + ")");
+  /// `- the statement` and `+ the statement as the mutant has it`, or the change in words where the
+  /// source can't show it: never words where code goes. A statement the mutant takes out has no
+  /// `+`.
+  private static void addChange(List<String> lines, Diff diff) {
+    diff.shownBefore().forEach(line -> lines.add("   - " + line));
+    if (diff.shown()) {
+      diff.shownAfter().forEach(line -> lines.add("   + " + line));
+    } else {
+      lines.add("   change: " + diff.unshown());
+    }
   }
 
   private static String coveredBy(MutantResult result) {
