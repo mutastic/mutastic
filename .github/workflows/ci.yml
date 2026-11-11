@@ -74,11 +74,12 @@ jobs:
       #
       # What is left is counted rather than told apart, because a worker the samples left looks
       # exactly like one this build forked for mutastic's own JDK 17 modules, and the daemons that
-      # own them can stand in for each other. The counts are far apart: a shard of these tests left
-      # one worker with the samples' daemon bounded and about thirty without, so eight is clear of
-      # both. A daemon takes a moment to go and the samples' waits for its timeout, so the state is
-      # given a minute to settle first. The pattern is written `Mai[n]`, and the processes filtered
-      # to those running a JVM, so this step's own command line isn't counted as one of them.
+      # own them can stand in for each other. The counts are far apart: a shard forks up to eight
+      # workers of its own, building mutastic from a fresh checkout, where one whose samples leaked
+      # would leave about thirty on top of those, so sixteen is clear of both and the step says
+      # what it counted. A daemon takes a moment to go and the samples' waits for its timeout, so
+      # the state is given a minute to settle first. The pattern is written `Mai[n]`, and the
+      # processes filtered to those running a JVM, so this step's own command line isn't counted.
       - name: the sample builds left nothing running
         if: always()
         run: |
@@ -86,11 +87,11 @@ jobs:
           for attempt in $(seq 1 13); do
             ps -eo pid=,ppid=,args= | grep 'bin/java' > processes.txt || true
             left=$(grep -c 'process\.internal\.worker\.GradleWorkerMai[n]' processes.txt || true)
-            if [ "$left" -le 8 ]; then break; fi
+            if [ "$left" -le 16 ]; then break; fi
             sleep 5
           done
           echo "Workers alive: $left. Daemons: $(grep -c 'launcher\.daemon\.bootstrap\.GradleDaemo[n]' processes.txt || true)."
-          if [ "$left" -gt 8 ]; then
+          if [ "$left" -gt 16 ]; then
             echo "The samples' builds left $left Gradle workers running a minute after the tests:"
             awk '/process\.internal\.worker\.GradleWorkerMai[n]/ { print "  " $1 " (daemon " $2 ")" }' processes.txt
             exit 1
