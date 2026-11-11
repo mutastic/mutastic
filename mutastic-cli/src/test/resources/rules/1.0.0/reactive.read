@@ -1,0 +1,47 @@
+changed=stage removed
+descriptors=[]
+explanation=A stage that narrows a stream is removed, so what it held back goes on. It goes unnoticed when no test has an item the stage must hold back.
+id=reactive/remove-stage
+methods=[distinct, distinctUntilChanged, filter, skip, take]
+owners=[io.reactivex.rxjava3.core.Flowable, io.reactivex.rxjava3.core.Maybe, io.reactivex.rxjava3.core.Observable, reactor.core.publisher.Flux, reactor.core.publisher.Mono]
+rewrite=remove
+since=0
+source=
+templates={headline=no test needs `.{name}(…)` in {method}, headline.distinct=no test has a duplicate for `.distinct()` to hold back in {method}, headline.distinctUntilChanged=no test has a repeated item for `.distinctUntilChanged()` to hold back in {method}, help=add a test with an item `.{name}(…)` must hold back, and assert it doesn't come through, help.distinct=add a test with a duplicate item, and assert it comes through once, help.distinctUntilChanged=add a test with an item repeated in a row, and assert it comes through once}
+tier=extended
+
+changed=recovery removed, so the failure propagates
+descriptors=[]
+explanation=A recovery from failure is removed, so the failure goes on downstream. It goes unnoticed when no test makes the upstream fail.
+id=reactive/remove-recovery
+methods=[onErrorComplete, onErrorResume, onErrorResumeNext, onErrorReturn, onErrorReturnItem]
+owners=[io.reactivex.rxjava3.core.Flowable, io.reactivex.rxjava3.core.Maybe, io.reactivex.rxjava3.core.Observable, io.reactivex.rxjava3.core.Single, reactor.core.publisher.Flux, reactor.core.publisher.Mono]
+rewrite=remove
+since=0
+source=
+templates={headline=no test makes {method} fail, so `.{name}(…)` is never needed, help=add a test where the upstream fails, and assert what {method} gives instead}
+tier=extended
+
+changed={name} changed to {to}
+descriptors=[]
+explanation=`any` and `all` swap. It goes unnoticed when no test has items where some match and some don't.
+id=reactive/swap-match
+methods=[all, any]
+owners=[io.reactivex.rxjava3.core.Flowable, io.reactivex.rxjava3.core.Observable, reactor.core.publisher.Flux]
+rewrite=rename any->all, all->any
+since=0
+source=
+templates={headline=no test tells `{name}` from `{to}` in {method}, help=add a test where some items match and some don't, and assert the result}
+tier=extended
+
+changed={name} changed to {to}
+descriptors=[(Lio/reactivex/rxjava3/functions/Function;)Lio/reactivex/rxjava3/core/Flowable;, (Lio/reactivex/rxjava3/functions/Function;)Lio/reactivex/rxjava3/core/Observable;, (Ljava/util/function/Function;)Lreactor/core/publisher/Flux;]
+explanation=`flatMap` becomes `concatMap`, or the other way round, which changes the order inner streams' items come in, and whether they run at once. It goes unnoticed when no test has inner streams that overlap.
+id=reactive/swap-order
+methods=[concatMap, flatMap]
+owners=[io.reactivex.rxjava3.core.Flowable, io.reactivex.rxjava3.core.Observable, reactor.core.publisher.Flux]
+rewrite=rename flatMap->concatMap, concatMap->flatMap
+since=0
+source=
+templates={headline=no test tells `{name}` from `{to}` in {method}, help=add a test whose inner streams overlap in time, and assert the order the items come in}
+tier=extended

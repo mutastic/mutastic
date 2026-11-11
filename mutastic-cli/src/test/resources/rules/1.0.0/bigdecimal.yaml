@@ -1,0 +1,40 @@
+# BigDecimal and BigInteger operators, as a plugin: only data. List this file under `plugins:` in
+# mutastic.yaml. Money and other exact arithmetic go through these methods rather than `+` and `*`,
+# so mutastic's own arithmetic operators never see it.
+- id: bigdecimal/swap-arithmetic
+  explanation: "`add` and `subtract` swap, and `min` and `max`. It goes unnoticed when no test checks the result of the sum or the comparison."
+  tier: extended
+  owners: java.math.BigDecimal, java.math.BigInteger
+  methods: add, subtract, min, max
+  descriptors: (Ljava/math/BigDecimal;)Ljava/math/BigDecimal;, (Ljava/math/BigInteger;)Ljava/math/BigInteger;
+  rewrite: rename add->subtract, subtract->add, min->max, max->min
+  changed: "{name} changed to {to}"
+  headline: no test tells `{name}` from `{to}` in {method}
+  help: add a test where `{name}` and `{to}` give different results, and assert the result
+
+- id: bigdecimal/swap-scaling
+  explanation: "`multiply` and `divide` swap. It goes unnoticed when no test checks the result, with a value other than one."
+  tier: extended
+  owners: java.math.BigDecimal, java.math.BigInteger
+  methods: multiply, divide
+  descriptors: (Ljava/math/BigDecimal;)Ljava/math/BigDecimal;, (Ljava/math/BigInteger;)Ljava/math/BigInteger;
+  rewrite: rename multiply->divide, divide->multiply
+  changed: "{name} changed to {to}"
+  headline: no test tells `{name}` from `{to}` in {method}
+  help: add a test with an operand other than one, and assert the result
+
+- id: bigdecimal/remove-step
+  explanation: A step that changes the value's sign, scale or precision is removed, and the value goes on as it was. It goes unnoticed when no test has a value the step changes.
+  tier: extended
+  owners: java.math.BigDecimal, java.math.BigInteger
+  methods: abs, negate, setScale, round, stripTrailingZeros
+  rewrite: remove
+  changed: step removed
+  headline: no test has a value `.{name}(…)` changes in {method}
+  help: add a test with a value `.{name}(…)` changes, and assert the result
+  headline.abs: no test has a negative value for `.abs()` to change in {method}
+  help.abs: add a test with a negative value, and assert the result
+  headline.negate: no test needs `.negate()` in {method}
+  help.negate: add a test with a value other than zero, and assert the result's sign
+  headline.stripTrailingZeros: no test has a value with zeros for `.stripTrailingZeros()` to remove in {method}
+  help.stripTrailingZeros: add a test with a value ending in zeros, and assert its scale

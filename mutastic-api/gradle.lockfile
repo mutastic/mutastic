@@ -26,7 +26,6 @@ commons-collections:commons-collections:3.2.2=checkstyle
 info.picocli:picocli:4.7.7=checkstyle
 io.github.eisop:dataflow-errorprone:3.41.0-eisop1=annotationProcessor,compatAnnotationProcessor,docletAnnotationProcessor,testAnnotationProcessor
 io.github.java-diff-utils:java-diff-utils:4.12=annotationProcessor,compatAnnotationProcessor,docletAnnotationProcessor,testAnnotationProcessor
-io.mutastic:mutastic-api:0.5.0=apiBaseline
 javax.inject:javax.inject:1=annotationProcessor,compatAnnotationProcessor,docletAnnotationProcessor,testAnnotationProcessor
 net.bytebuddy:byte-buddy:1.18.3=testCompileClasspath,testRuntimeClasspath
 net.sf.saxon:Saxon-HE:12.9=checkstyle

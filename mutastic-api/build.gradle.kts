@@ -81,16 +81,16 @@ tasks.check {
 // `lastStableRelease` (gradle.properties) names one.
 val lastRelease = providers.gradleProperty("lastStableRelease").orNull?.ifBlank { null }
 val compat by sourceSets.creating
-val apiBaseline by configurations.creating {
-    description = "The last 1.0+ release's mutastic-api jar, which this one must stay compatible with."
-    isCanBeConsumed = false
-    isTransitive = false
-}
-if (lastRelease != null) {
-    dependencies {
-        apiBaseline("io.mutastic:mutastic-api:$lastRelease")
+// The last 1.0+ release's mutastic-api jar, which this one must stay compatible with. Detached:
+// a configuration of this project asking for its own coordinates resolves to the project itself
+// whenever the project's version is the higher, so the check would compare the API with itself.
+val apiBaseline =
+    configurations.detachedConfiguration().apply {
+        isTransitive = false
+        if (lastRelease != null) {
+            dependencies.add(project.dependencies.create("io.mutastic:mutastic-api:$lastRelease"))
+        }
     }
-}
 val checkApiCompatibility by tasks.registering(JavaExec::class) {
     description = "Fails when the plugin API breaks what a plugin built against the last 1.0+ release relies on."
     classpath = compat.runtimeClasspath

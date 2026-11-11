@@ -1,0 +1,47 @@
+# Reactor and RxJava operators, as a plugin: only data. List this file under `plugins:` in
+# mutastic.yaml. A rule matches the type a call is on as the code declares it: Flux, Mono, Flowable,
+# Observable, Single and Maybe, not a subclass of theirs.
+- id: reactive/remove-stage
+  explanation: A stage that narrows a stream is removed, so what it held back goes on. It goes unnoticed when no test has an item the stage must hold back.
+  tier: extended
+  owners: reactor.core.publisher.Flux, reactor.core.publisher.Mono, io.reactivex.rxjava3.core.Flowable, io.reactivex.rxjava3.core.Observable, io.reactivex.rxjava3.core.Maybe
+  methods: filter, distinct, distinctUntilChanged, take, skip
+  rewrite: remove
+  changed: stage removed
+  headline: no test needs `.{name}(…)` in {method}
+  help: add a test with an item `.{name}(…)` must hold back, and assert it doesn't come through
+  headline.distinct: no test has a duplicate for `.distinct()` to hold back in {method}
+  help.distinct: add a test with a duplicate item, and assert it comes through once
+  headline.distinctUntilChanged: no test has a repeated item for `.distinctUntilChanged()` to hold back in {method}
+  help.distinctUntilChanged: add a test with an item repeated in a row, and assert it comes through once
+
+- id: reactive/remove-recovery
+  explanation: A recovery from failure is removed, so the failure goes on downstream. It goes unnoticed when no test makes the upstream fail.
+  tier: extended
+  owners: reactor.core.publisher.Flux, reactor.core.publisher.Mono, io.reactivex.rxjava3.core.Flowable, io.reactivex.rxjava3.core.Observable, io.reactivex.rxjava3.core.Single, io.reactivex.rxjava3.core.Maybe
+  methods: onErrorReturn, onErrorResume, onErrorReturnItem, onErrorResumeNext, onErrorComplete
+  rewrite: remove
+  changed: recovery removed, so the failure propagates
+  headline: no test makes {method} fail, so `.{name}(…)` is never needed
+  help: add a test where the upstream fails, and assert what {method} gives instead
+
+- id: reactive/swap-match
+  explanation: "`any` and `all` swap. It goes unnoticed when no test has items where some match and some don't."
+  tier: extended
+  owners: reactor.core.publisher.Flux, io.reactivex.rxjava3.core.Flowable, io.reactivex.rxjava3.core.Observable
+  methods: any, all
+  rewrite: rename any->all, all->any
+  changed: "{name} changed to {to}"
+  headline: no test tells `{name}` from `{to}` in {method}
+  help: add a test where some items match and some don't, and assert the result
+
+- id: reactive/swap-order
+  explanation: "`flatMap` becomes `concatMap`, or the other way round, which changes the order inner streams' items come in, and whether they run at once. It goes unnoticed when no test has inner streams that overlap."
+  tier: extended
+  owners: reactor.core.publisher.Flux, io.reactivex.rxjava3.core.Flowable, io.reactivex.rxjava3.core.Observable
+  methods: flatMap, concatMap
+  descriptors: (Ljava/util/function/Function;)Lreactor/core/publisher/Flux;, (Lio/reactivex/rxjava3/functions/Function;)Lio/reactivex/rxjava3/core/Flowable;, (Lio/reactivex/rxjava3/functions/Function;)Lio/reactivex/rxjava3/core/Observable;
+  rewrite: rename flatMap->concatMap, concatMap->flatMap
+  changed: "{name} changed to {to}"
+  headline: no test tells `{name}` from `{to}` in {method}
+  help: add a test whose inner streams overlap in time, and assert the order the items come in

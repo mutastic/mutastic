@@ -1,0 +1,46 @@
+# mutastic's stream pipeline operators: call rules, in the same shape as a plugin's rules file.
+# Each matches calls by owner and method name and says how to rewrite them; the engine does the
+# bytecode, and skips a rewrite that can't change the result.
+
+- id: stream/remove-stage
+  explanation: A stream stage is removed: `filter`, `distinct`, `sorted`, `limit`, `skip`, `dropWhile` or `takeWhile`, and the stream goes on without it. It goes unnoticed when no test has input the stage would change.
+  owners: java.util.stream.Stream, java.util.stream.IntStream, java.util.stream.LongStream, java.util.stream.DoubleStream
+  methods: filter, distinct, sorted, limit, skip, dropWhile, takeWhile
+  rewrite: remove
+  changed: stage removed
+  headline: no test needs `.{name}(…)` in {method}
+  headline.distinct: no test has duplicates for `.distinct()` in {method} to remove
+  headline.sorted: no test checks the order `.sorted()` gives in {method}
+  headline.limit: no test has more elements than `.limit(…)` in {method} lets through
+  headline.skip: no test has an element `.skip(…)` in {method} must leave out
+  help: add a test where `.{name}(…)` must leave elements out, and assert which
+  help.filter: add a test with an element the filter must drop, and assert it's gone
+  help.distinct: add a test with a repeated element, and assert it comes back once
+  help.sorted: add a test whose input is out of order, and assert the order of the result
+  help.limit: add a test with more elements than the limit, and assert only the first come back
+  help.skip: add a test with elements before the skip point, and assert they're left out
+
+- id: stream/swap-match
+  explanation: `anyMatch`, `allMatch` and `noneMatch` swap places. It goes unnoticed when no test has input where some elements match and some don't.
+  owners: java.util.stream.Stream, java.util.stream.IntStream, java.util.stream.LongStream, java.util.stream.DoubleStream
+  methods: anyMatch, allMatch, noneMatch
+  rewrite: rename anyMatch->allMatch, anyMatch->noneMatch, allMatch->anyMatch, noneMatch->anyMatch
+  changed: "{name} changed to {to}"
+  headline: no test tells `{name}` from `{to}` in {method}
+  help: use input where some but not all elements match, and assert the result
+
+# In extended: the stages that return the type they're given beyond `stream/remove-stage`'s. Only
+# `peek`, and `map` on a primitive stream: `Stream.map` can change what the stream holds, and what
+# came next would throw on the wrong type, which would look like a catch.
+- id: stream/remove-other-stage
+  explanation: `peek`, or `map` on an `IntStream`, `LongStream` or `DoubleStream`, is removed, and the stream goes on without it. It goes unnoticed when no test checks what the stage does.
+  tier: extended
+  owners: java.util.stream.Stream, java.util.stream.IntStream, java.util.stream.LongStream, java.util.stream.DoubleStream
+  methods: peek, map
+  descriptors: (Ljava/util/function/Consumer;)Ljava/util/stream/Stream;, (Ljava/util/function/IntConsumer;)Ljava/util/stream/IntStream;, (Ljava/util/function/LongConsumer;)Ljava/util/stream/LongStream;, (Ljava/util/function/DoubleConsumer;)Ljava/util/stream/DoubleStream;, (Ljava/util/function/IntUnaryOperator;)Ljava/util/stream/IntStream;, (Ljava/util/function/LongUnaryOperator;)Ljava/util/stream/LongStream;, (Ljava/util/function/DoubleUnaryOperator;)Ljava/util/stream/DoubleStream;
+  rewrite: remove
+  changed: stage removed
+  headline: no test needs `.{name}(…)` in {method}
+  headline.peek: no test checks what `.peek(…)` does in {method}
+  help: add a test with a value `.{name}(…)` changes, and assert the result
+  help.peek: add a test that asserts what `.peek(…)` does to each element

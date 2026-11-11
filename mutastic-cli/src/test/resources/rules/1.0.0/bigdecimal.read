@@ -1,0 +1,35 @@
+changed={name} changed to {to}
+descriptors=[(Ljava/math/BigDecimal;)Ljava/math/BigDecimal;, (Ljava/math/BigInteger;)Ljava/math/BigInteger;]
+explanation=`add` and `subtract` swap, and `min` and `max`. It goes unnoticed when no test checks the result of the sum or the comparison.
+id=bigdecimal/swap-arithmetic
+methods=[add, max, min, subtract]
+owners=[java.math.BigDecimal, java.math.BigInteger]
+rewrite=rename add->subtract, subtract->add, min->max, max->min
+since=0
+source=
+templates={headline=no test tells `{name}` from `{to}` in {method}, help=add a test where `{name}` and `{to}` give different results, and assert the result}
+tier=extended
+
+changed={name} changed to {to}
+descriptors=[(Ljava/math/BigDecimal;)Ljava/math/BigDecimal;, (Ljava/math/BigInteger;)Ljava/math/BigInteger;]
+explanation=`multiply` and `divide` swap. It goes unnoticed when no test checks the result, with a value other than one.
+id=bigdecimal/swap-scaling
+methods=[divide, multiply]
+owners=[java.math.BigDecimal, java.math.BigInteger]
+rewrite=rename multiply->divide, divide->multiply
+since=0
+source=
+templates={headline=no test tells `{name}` from `{to}` in {method}, help=add a test with an operand other than one, and assert the result}
+tier=extended
+
+changed=step removed
+descriptors=[]
+explanation=A step that changes the value's sign, scale or precision is removed, and the value goes on as it was. It goes unnoticed when no test has a value the step changes.
+id=bigdecimal/remove-step
+methods=[abs, negate, round, setScale, stripTrailingZeros]
+owners=[java.math.BigDecimal, java.math.BigInteger]
+rewrite=remove
+since=0
+source=
+templates={headline=no test has a value `.{name}(…)` changes in {method}, headline.abs=no test has a negative value for `.abs()` to change in {method}, headline.negate=no test needs `.negate()` in {method}, headline.stripTrailingZeros=no test has a value with zeros for `.stripTrailingZeros()` to remove in {method}, help=add a test with a value `.{name}(…)` changes, and assert the result, help.abs=add a test with a negative value, and assert the result, help.negate=add a test with a value other than zero, and assert the result's sign, help.stripTrailingZeros=add a test with a value ending in zeros, and assert its scale}
+tier=extended

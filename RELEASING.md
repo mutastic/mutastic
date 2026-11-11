@@ -137,6 +137,8 @@ version can never be changed or removed.
    git rm -rq $R; mkdir -p $R/$V
    cp mutastic-engine/src/main/resources/io/mutastic/engine/streams.yaml docs/src/data/plugins/*.yaml $R/$V/
    ./gradlew :mutastic-cli:exportIds   # writes each rules file's .read beside it
+   # The baseline jar is locked too: point the lock at the new release.
+   ./gradlew :mutastic-api:dependencies --configuration apiBaseline --update-locks io.mutastic:mutastic-api
    ```
    Commit them together. Until a release does, a field added since the last one can still change
    or go.
