@@ -57,46 +57,50 @@ class CardsTest {
     var project = Samples.copy(SAMPLES.resolve(sample), work.resolve(sample));
     var agent = run(project, "--format=agent");
     var full = run(project, "--format=full");
-    assertThat(PlusLines.describedInBrackets(agent + full))
+    assertThat(PlusLines.describedInBrackets(agent.out() + full.out()))
         .as("+ lines that describe, not show")
         .isEmpty();
-    kept(sample, "agent.txt", project, agent);
-    kept(sample, "full.txt", project, full);
+    kept(sample, "agent.txt", project, agent.out(), said(agent));
+    kept(sample, "full.txt", project, full.out(), said(full));
     if (EXPLAINED.contains(sample)) {
       var explained = new StringBuilder();
-      var missed = MISSED.matcher(agent);
+      var errors = new StringBuilder();
+      var missed = MISSED.matcher(agent.out());
       while (missed.find()) {
         var id = missed.group("id");
-        explained
-            .append("$ mutastic explain ")
-            .append(id)
-            .append('\n')
-            .append(
-                mutastic("explain", id, project.toString(), "--color=never", "--progress=none")
-                    .out())
-            .append('\n');
+        var explain =
+            mutastic("explain", id, project.toString(), "--color=never", "--progress=none");
+        explained.append("$ mutastic explain ").append(id).append('\n').append(explain.out());
+        explained.append('\n');
+        errors.append(said(explain));
       }
-      kept(sample, "explain.txt", project, explained.toString());
+      kept(sample, "explain.txt", project, explained.toString(), errors.toString());
     }
   }
 
+  /// What a run said besides its output: its exit code and anything on stderr. A run that fails
+  /// prints nothing on stdout, so a card that comes out empty is shown with why.
+  private static String said(Samples.Result run) {
+    return "%nexit %d%s"
+        .formatted(run.exit(), run.err().isEmpty() ? "" : ", stderr:\n" + run.err());
+  }
+
   /// The run's output, a card for every missed mutant.
-  private static String run(Path project, String format) {
+  private static Samples.Result run(Path project, String format) {
     return mutastic(
-            "run",
-            project.toString(),
-            format,
-            "--each-mutant",
-            "--workers=4",
-            "--color=never",
-            "--hyperlinks=never",
-            "--progress=none",
-            "--report=none")
-        .out();
+        "run",
+        project.toString(),
+        format,
+        "--each-mutant",
+        "--workers=4",
+        "--color=never",
+        "--hyperlinks=never",
+        "--progress=none",
+        "--report=none");
   }
 
   /// As run from the repository's root, timings left out: written when `WRITE`, else compared.
-  private static void kept(String sample, String name, Path project, String output)
+  private static void kept(String sample, String name, Path project, String output, String said)
       throws Exception {
     var text =
         WORKERS
@@ -112,7 +116,7 @@ class CardsTest {
     }
     var written = Files.exists(file) ? Files.readString(file, StandardCharsets.UTF_8) : "";
     assertThat(text)
-        .as("src/test/cards/%s/%s: ./gradlew :mutastic-cli:exportCards", sample, name)
+        .as("src/test/cards/%s/%s: ./gradlew :mutastic-cli:exportCards%s", sample, name, said)
         .isEqualTo(written);
   }
 }
