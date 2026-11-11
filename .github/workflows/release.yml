@@ -17,7 +17,8 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The whole build on one runner: over 30 minutes since 1.0.0 (CI splits it into shards).
+    timeout-minutes: 60
     environment: release
     permissions:
       contents: write # to attach the distribution to the release
