@@ -74,12 +74,16 @@ jobs:
       #
       # What is left is counted rather than told apart, because a worker the samples left looks
       # exactly like one this build forked for mutastic's own JDK 17 modules, and the daemons that
-      # own them can stand in for each other. The counts are far apart: a shard forks up to eight
-      # workers of its own, building mutastic from a fresh checkout, where one whose samples leaked
-      # would leave about thirty on top of those, so sixteen is clear of both and the step says
-      # what it counted. A daemon takes a moment to go and the samples' waits for its timeout, so
-      # the state is given a minute to settle first. The pattern is written `Mai[n]`, and the
-      # processes filtered to those running a JVM, so this step's own command line isn't counted.
+      # own them can stand in for each other. So they are counted, and the bound is set from what
+      # the shards actually leave: building mutastic from a fresh checkout they have left between
+      # 0 and 16, varying with how much of it each one had to compile, where eight of the
+      # sample-heavy classes with the samples' daemon unbounded leave 44. Twenty-eight is clear of
+      # both. That catches the regression this is here for, a run that leaves scores of them; it
+      # is not meant to notice a single test slipping out of the net.
+      #
+      # A daemon takes a moment to go and the samples' waits for its timeout, so the state is
+      # given a minute to settle first. The pattern is written `Mai[n]`, and the processes
+      # filtered to those running a JVM, so this step's own command line isn't counted.
       - name: the sample builds left nothing running
         if: always()
         run: |
@@ -87,11 +91,11 @@ jobs:
           for attempt in $(seq 1 13); do
             ps -eo pid=,ppid=,args= | grep 'bin/java' > processes.txt || true
             left=$(grep -c 'process\.internal\.worker\.GradleWorkerMai[n]' processes.txt || true)
-            if [ "$left" -le 16 ]; then break; fi
+            if [ "$left" -le 28 ]; then break; fi
             sleep 5
           done
           echo "Workers alive: $left. Daemons: $(grep -c 'launcher\.daemon\.bootstrap\.GradleDaemo[n]' processes.txt || true)."
-          if [ "$left" -gt 16 ]; then
+          if [ "$left" -gt 28 ]; then
             echo "The samples' builds left $left Gradle workers running a minute after the tests:"
             awk '/process\.internal\.worker\.GradleWorkerMai[n]/ { print "  " $1 " (daemon " $2 ")" }' processes.txt
             exit 1
