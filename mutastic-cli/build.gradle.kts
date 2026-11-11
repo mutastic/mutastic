@@ -144,6 +144,29 @@ tasks.test {
         systemProperty("mutastic.coverageAgent", measured("gradle"))
         environment("MAVEN_OPTS", measured("maven"))
     }
+    // How many Gradle workers were already running when the tests began. Everything these tests
+    // depend on has been built by then, so this is what the build forked to compile mutastic's own
+    // JDK 17 modules: the workers that are this build's and not the samples'. CI subtracts it from
+    // what is running afterwards, so the step that holds the samples to leaving nothing compares
+    // the tests' own leftovers rather than a count that rises and falls with how much each shard
+    // had to compile. It is written here, where the task begins, because that is the one moment
+    // every dependency has finished and no test has forked anything yet.
+    val workersBefore = layout.buildDirectory.file("gradle-workers-before.txt")
+    doFirst {
+        val running =
+            ProcessHandle
+                .allProcesses()
+                .filter {
+                    it
+                        .info()
+                        .commandLine()
+                        .orElse("")
+                        .contains("GradleWorkerMain")
+                }.count()
+        val file = workersBefore.get().asFile
+        file.parentFile.mkdirs()
+        file.writeText(running.toString())
+    }
     dependsOn(rootProject.subprojects.map { "${it.path}:publishAllPublicationsToSamplesRepository" })
 }
 

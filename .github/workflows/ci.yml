@@ -72,35 +72,40 @@ jobs:
       # samples' builds now share a daemon that goes twenty seconds after they stop using it
       # (mutastic-cli's build file), which takes its workers with it.
       #
-      # What is left is counted rather than told apart, because a worker the samples left looks
-      # exactly like one this build forked for mutastic's own JDK 17 modules, and the daemons that
-      # own them can stand in for each other. So they are counted, and the bound is set from what
-      # the shards actually leave: building mutastic from a fresh checkout they have left between
-      # 0 and 16, varying with how much of it each one had to compile, where eight of the
-      # sample-heavy classes with the samples' daemon unbounded leave 44. Twenty-eight is clear of
-      # both. That catches the regression this is here for, a run that leaves scores of them; it
-      # is not meant to notice a single test slipping out of the net.
+      # A worker the samples left looks exactly like one this build forked for mutastic's own JDK
+      # 17 modules, and the daemons that own them can stand in for each other, so neither the
+      # command line nor the parent says whose a worker is. What the tests left is the difference
+      # instead: the test task records how many were running as it began, with everything it
+      # depends on built and no test started, and the rest is what the tests themselves left. That
+      # is nothing once the samples' daemon has gone, whatever each shard had to compile, where
+      # unbounded it is scores of them. Four is slack for a worker forked late.
       #
-      # A daemon takes a moment to go and the samples' waits for its timeout, so the state is
-      # given a minute to settle first. The pattern is written `Mai[n]`, and the processes
-      # filtered to those running a JVM, so this step's own command line isn't counted.
+      # A daemon takes a moment to go and the samples' waits for its timeout, so the difference is
+      # given a minute to settle. The pattern is written `Mai[n]`, and the processes filtered to
+      # those running a JVM, so this step's own command line isn't counted as one of them.
       - name: the sample builds left nothing running
         if: always()
         run: |
-          left=99
+          before=mutastic-cli/build/gradle-workers-before.txt
+          if [ ! -f $before ]; then
+            echo "The tests never started, so there is no count to compare. Nothing to say here."
+            exit 0
+          fi
+          started=$(cat $before)
           for attempt in $(seq 1 13); do
             ps -eo pid=,ppid=,args= | grep 'bin/java' > processes.txt || true
-            left=$(grep -c 'process\.internal\.worker\.GradleWorkerMai[n]' processes.txt || true)
-            if [ "$left" -le 28 ]; then break; fi
+            running=$(grep -c 'process\.internal\.worker\.GradleWorkerMai[n]' processes.txt || true)
+            left=$((running - started))
+            if [ "$left" -le 4 ]; then break; fi
             sleep 5
           done
-          echo "Workers alive: $left. Daemons: $(grep -c 'launcher\.daemon\.bootstrap\.GradleDaemo[n]' processes.txt || true)."
-          if [ "$left" -gt 28 ]; then
-            echo "The samples' builds left $left Gradle workers running a minute after the tests:"
+          echo "Workers: $started when the tests began, $running now, so the tests left $left."
+          if [ "$left" -gt 4 ]; then
+            echo "The samples' builds left $left workers running a minute after the tests:"
             awk '/process\.internal\.worker\.GradleWorkerMai[n]/ { print "  " $1 " (daemon " $2 ")" }' processes.txt
             exit 1
           fi
-          echo "Nothing left but what this build forked for its own modules."
+          echo "The samples' builds left nothing running."
       # What the tests measured, in their JVM and outside it (the worker, Maven, Gradle).
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
