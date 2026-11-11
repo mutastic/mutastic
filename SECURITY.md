@@ -2,8 +2,8 @@
 
 ## Supported versions
 
-Fixes go into the latest release. mutastic is before 1.0, so older releases aren't patched: upgrade
-to the latest to get a fix.
+Fixes ship as a patch release of the latest minor version (1.0.x today), for both editions. Older
+minor versions aren't patched: upgrade to the latest to get a fix.
 
 ## Reporting a vulnerability
 
