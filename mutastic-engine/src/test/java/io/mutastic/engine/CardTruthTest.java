@@ -196,6 +196,7 @@ class CardTruthTest {
               input -> failures.add(mutant + " (" + mutant.skipped().get() + ") at " + input));
     }
 
+    assertThat(failures).as("mutants skipped as equivalent that aren't").isEmpty();
     assertThat(equivalent)
         .as("the `||` shapes whose first test the second covers")
         .filteredOn(mutant -> mutant.skipped().get().contains("`||`"))
@@ -219,7 +220,50 @@ class CardTruthTest {
         .filteredOn(mutant -> mutant.skipped().get().equals(Comparisons.NEVER_NEGATIVE))
         .extracting(Mutant::methodName)
         .contains("lengthNotZero", "sizeAboveZero");
-    assertThat(failures).as("mutants skipped as equivalent that aren't").isEmpty();
+    assertThat(equivalent)
+        .as("edges only reached where an `if` has ruled out their two sides being the same")
+        .filteredOn(mutant -> mutant.skipped().get().startsWith("equivalent: differs only when "))
+        .filteredOn(mutant -> mutant.skipped().get().contains(" the if "))
+        .extracting(Mutant::methodName)
+        .contains(
+            "guardedLess",
+            "guardedEarly",
+            "guardedElse",
+            "guardedTernary",
+            "guardedAnd",
+            "guardedLong",
+            "guardedThenCompared")
+        .doesNotContain(
+            "guardStoredBetween",
+            "guardIncrementedBetween",
+            "guardOfAnotherLocal",
+            "guardNotAround",
+            "guardSkippedByOr",
+            "guardOfFloats");
+    assertThat(mutations.find(model))
+        .as("the near misses' edges still run")
+        .filteredOn(mutant -> mutant.operator() == BuiltIn.BOUNDARY)
+        .filteredOn(mutant -> mutant.skipped().isEmpty())
+        .extracting(Mutant::methodName)
+        .contains(
+            "guardStoredBetween",
+            "guardIncrementedBetween",
+            "guardOfAnotherLocal",
+            "guardNotAround",
+            "guardSkippedByOr",
+            "guardOfFloats");
+    assertThat(equivalent)
+        .filteredOn(mutant -> mutant.methodName().equals("guardedLess"))
+        .extracting(mutant -> mutant.skipped().get())
+        .containsExactly(
+            "equivalent: differs only when a is b. That can't happen because the if a != b"
+                + " around it rules it out.");
+    assertThat(equivalent)
+        .filteredOn(mutant -> mutant.methodName().equals("guardedLong"))
+        .extracting(mutant -> mutant.skipped().get())
+        .containsExactly(
+            "equivalent: differs only when x is y. That can't happen because the if x != y"
+                + " around it rules it out.");
   }
 
   /// No jump gets the same change twice: two mutants of one condition that behave the same on every
@@ -524,8 +568,11 @@ class CardTruthTest {
       String text, Mutant mutant, String condition, String replacement) {
     var written = condition;
     var words = Pattern.compile("(?<!\\w)" + Pattern.quote(written) + "(?!\\w)");
-    var line = text.lines().toList().get(mutant.line() - 1);
-    int lineStart = text.indexOf(line + "\n");
+    var lines = text.lines().toList();
+    var line = lines.get(mutant.line() - 1);
+    // Where the mutant's own line starts: the same text can be on another method's line too.
+    int lineStart =
+        lines.subList(0, mutant.line() - 1).stream().mapToInt(each -> each.length() + 1).sum();
     var onLine = once(words, line);
     if (onLine.isPresent() && lineStart >= 0) {
       int at = lineStart + onLine.getAsInt();

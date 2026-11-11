@@ -713,13 +713,15 @@ final class Mutations {
           : filtered;
     }
 
-    /// Why a mutant shouldn't run, judged by the code around it: its own and an `||`'s.
+    /// Why a mutant shouldn't run, judged by the code around it: its own, an `||`'s, and an `if`
+    /// that its two sides differ.
     private Optional<String> atTheSite(Found found, int at) {
       return SiteSkips.reason(found.operator(), code, at)
           .or(
               () ->
                   ImpliedOr.reason(
-                      found.operator(), found.label(), new ImpliedOr.Site(model, code, at)));
+                      found.operator(), found.label(), new ImpliedOr.Site(model, code, at)))
+          .or(() -> GuardedEdge.reason(found.operator(), found.label(), code, at));
     }
 
     /// Why a mutant shouldn't run, if it shouldn't: the reason's first word is its kind.

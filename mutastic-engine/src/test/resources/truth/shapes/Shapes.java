@@ -353,6 +353,106 @@ public final class Shapes {
     return a > 2 ? 2 : a + b;
   }
 
+  static int guardedLess(int a, int b) {
+    if (a != b) {
+      return a < b ? 1 : 0;
+    }
+    return 2;
+  }
+
+  static int guardedEarly(int a, int b) {
+    if (a == b) {
+      return 0;
+    }
+    return a < b ? -1 : 1;
+  }
+
+  static int guardedElse(int a, int b) {
+    if (a == b) {
+      return 0;
+    } else {
+      return a >= b ? 1 : -1;
+    }
+  }
+
+  static int guardedTernary(int a, int b) {
+    return a != b ? (b > a ? 1 : 0) : 2;
+  }
+
+  static int guardedAnd(int a, int b) {
+    return a != b && a <= b ? 1 : 0;
+  }
+
+  static int guardedLong(int a, int b) {
+    long x = a;
+    long y = b;
+    if (x != y) {
+      return x > y ? 1 : 0;
+    }
+    return 2;
+  }
+
+  static int guardedThenCompared(int a, int b) {
+    int high = b + 1;
+    if (a != high) {
+      return a < high ? -1 : 1;
+    }
+    if (a != b) {
+      return a < b ? -1 : 1;
+    }
+    return 0;
+  }
+
+  static int guardStoredBetween(int a, int b) {
+    int x = a;
+    if (x != b) {
+      x = x * 2;
+      return x < b ? 1 : 0;
+    }
+    return 2;
+  }
+
+  static int guardIncrementedBetween(int a, int b) {
+    int x = a;
+    if (x != b) {
+      x++;
+      return x < b ? 1 : 0;
+    }
+    return 2;
+  }
+
+  static int guardOfAnotherLocal(int a, int b) {
+    int c = b + 1;
+    if (a != b) {
+      return a < c ? 1 : 0;
+    }
+    return 2;
+  }
+
+  static int guardNotAround(int a, int b) {
+    int r = 0;
+    if (a != b) {
+      r = 1;
+    }
+    return a < b ? r : r + 2;
+  }
+
+  static int guardSkippedByOr(int a, int b) {
+    if (b > 3 || a != b) {
+      return a < b ? 1 : 0;
+    }
+    return 2;
+  }
+
+  static int guardOfFloats(int a, int b) {
+    float x = a;
+    float y = b;
+    if (x != y) {
+      return x < y ? 1 : 0;
+    }
+    return 2;
+  }
+
   static int switchGuard(int a, int b) {
     Object boxed = a;
     return switch (boxed) {

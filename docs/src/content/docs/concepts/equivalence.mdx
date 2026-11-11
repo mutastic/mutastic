@@ -96,6 +96,22 @@ if (x < 2) x = 2;               // at x == 2, x is already 2
 This covers `int` and `long` values against each other or a constant. Not `float` or `double`:
 `-0.0 == 0.0`, but they're different values, and `1.0 / -0.0` shows it.
 
+**The `if` around it already ruled out the edge.** A boundary mutant only changes what happens when
+the two sides are equal. Inside an `if (a != b)`, or after an `if (a == b)` that returns, they
+never are:
+
+```java
+if (a != b) return a < b;              // a <= b only differs at a == b, which can't get here
+if (major == other) return 0;
+return major > other ? 1 : -1;         // the same: equal values returned already
+```
+
+The reason names both: `equivalent: differs only when a is b. That can't happen because the if a
+!= b around it rules it out.` It covers `int` and `long` locals and parameters, where every way to
+the comparison passes the `if` and nothing stores to either in between. A field can change between
+the two reads, so its comparisons run, and so do `float` and `double` ones, as `NaN` isn't equal to
+itself.
+
 **A size can't be negative.** `items.size() == 0` becoming `items.size() <= 0` changes only what
 happens for a negative size, and a collection's `size()`, a string's `length()` and an array's
 length never are. The same goes for `> 0` becoming `!= 0`.
