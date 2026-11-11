@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /// Running mutastic on copies of the sample projects.
@@ -51,15 +52,28 @@ final class Samples {
             && "jsonl".equals(env.get("MUTASTIC_FORMAT")));
   }
 
+  /// A module's build output as well as the whole sample's, so a sample copied from a machine where
+  /// it has been built is the same as one copied from a fresh checkout. Only the top level used to
+  /// be skipped, which left a multi-module sample's `app/build` in the copy: the tests that read a
+  /// module's output then saw a previous run's, and `GradlePluginTest` found test results it had
+  /// asserted could not be there.
+  private static boolean isOutput(Path within) {
+    for (Path name : within) {
+      if (OUTPUT.contains(name.toString())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// What a build writes: Gradle's `build` and `.gradle`, Maven's `target`.
+  private static final Set<String> OUTPUT = Set.of("build", ".gradle", "target");
+
   /// The sample without its build output, so each test builds its own.
   static Path copy(Path from, Path to) throws IOException {
     try (Stream<Path> files = Files.walk(from)) {
       files
-          .filter(
-              file -> {
-                var top = from.relativize(file).getName(0).toString();
-                return !top.equals("build") && !top.equals(".gradle");
-              })
+          .filter(file -> !isOutput(from.relativize(file)))
           .forEach(
               file -> {
                 try {
