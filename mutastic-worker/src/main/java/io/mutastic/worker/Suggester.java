@@ -28,9 +28,14 @@ import org.jspecify.annotations.Nullable;
 /// too, or none; for an inner class, its outer class's constructor first), returning a primitive, a
 /// `String` or a boxed primitive: values that can be written in a test as literals.
 final class Suggester {
-  /// How long one call may take, and all the calls for one mutant together.
-  private static final long CALL_MILLIS = 200;
+  /// How long one call may take before it's taken as one that doesn't return. A call that returns
+  /// at once can still take a few hundred milliseconds on a busy machine (a class just swapped in,
+  /// a pause to collect garbage): with a limit that tight, a card said a mutant "doesn't return"
+  /// when it returned, and which card a run gave depended on the machine. A call that really
+  /// doesn't return costs this once, as the worker is replaced after it.
+  private static final long CALL_MILLIS = 2_000;
 
+  /// How long the calls as the code is today may take together, for one mutant.
   private static final long BUDGET_MILLIS = 1000;
 
   /// What was found. `stuck` means a call on the mutant didn't return: its thread is still running,
