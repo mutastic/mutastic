@@ -13,3 +13,8 @@ docs/.astro/
 # The Rust edition's pages, read from mutastic-rs at build time (docs/scripts/rust-docs.mjs).
 docs/src/content/docs/rust/
 docs/src/data/rust/
+
+# Eclipse, and VS Code's Java extension, compile each module into its own bin/.
+/*/bin/
+# Claude Code's local settings and worktrees.
+.claude/
