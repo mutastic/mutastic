@@ -133,14 +133,16 @@ stock above the low mark.
 that's enough for a comparison: tests that catch the edge moved, the side changed and the condition
 always true or false catch every other way it could be written wrong. For `a < b` the three are
 `a <= b`, `a != b` and `false`, each one operator's, so no condition gets the same change twice. Nor
-does a size: for a value that's never negative, `items.size() > 0` becoming `items.size() >= 0` is
-the condition always true, so it's left to remove conditional, and of two changes that agree for
-every size only the first is made (boundary's, then comparison's, then other comparison's).
+does a length the JDK keeps from going negative ([which ones](/concepts/equivalence/#what-mutastic-skips-on-its-own)):
+`name.length() > 0` becoming `name.length() >= 0` is the condition always true, so it's left to
+remove conditional, and of two changes that agree for every length only the first is made
+(boundary's, then comparison's, then other comparison's).
 
 Only numbers have an order: `==` on two `boolean`s or references, and `== null`, get no mutant here.
 A comparison of `float`s or `double`s gets only changes that treat `NaN` as Java does, so `x < y`
-gets none (`x != y` would differ for `NaN` too). A change that differs only for a negative size or
-length, `items.size() == 0` to `items.size() <= 0`, is skipped as equivalent. It's in `stronger`
+gets none (`x != y` would differ for `NaN` too). A change that differs only for a negative length,
+`name.length() == 0` to `name.length() <= 0`, is skipped as equivalent where the JDK's own code
+gives the length. It's in `stronger`
 because, on mutastic's own code, most of what it missed was noise: a loop counter that counts up to
 its end (`i < n` and `i != n` stop at the same place), and a size compared with a value it never
 passes. The Rust edition makes the same changes, and `==` and `!=` get them only beside a number, a

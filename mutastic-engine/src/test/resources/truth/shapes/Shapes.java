@@ -536,12 +536,46 @@ public final class Shapes {
     return 2;
   }
 
-  static int sizeAboveZero(int a, int b) {
-    var copies = java.util.Collections.nCopies(Math.max(0, a), b);
-    if (copies.size() > 0) {
+  static int arrayAboveZero(int a, int b) {
+    int[] items = new int[Math.max(0, a)];
+    if (items.length > 0) {
       return 1;
     }
     return 2;
+  }
+
+  static int bufferLeft(int a, int b) {
+    var buffer = java.nio.ByteBuffer.allocate(Math.max(0, a));
+    if (buffer.remaining() == 0) {
+      return 1;
+    }
+    return 2 + b;
+  }
+
+  static int groupsNotZero(int a, int b) {
+    var groups = java.util.regex.Pattern.compile("(x)".repeat(Math.max(0, a))).matcher("");
+    if (groups.groupCount() != 0) {
+      return 1;
+    }
+    return 2;
+  }
+
+  /// A list of the project's own, whose size is -1 for a negative `a`: a `List` proves nothing.
+  static int userListSize(int a, int b) {
+    java.util.List<Integer> items = new Other.Sized(a);
+    if (items.size() > 0) {
+      return 1;
+    }
+    return 2;
+  }
+
+  /// A `CharSequence` of the project's own, whose length is -1 for a negative `a`.
+  static int userTextLength(int a, int b) {
+    CharSequence text = new Other.Measured(a);
+    if (text.length() != 0) {
+      return 1;
+    }
+    return 2 + b;
   }
 
   /// The same bytecode as `a > 0 && b > 0`, but with no connector in the source: a line of its

@@ -112,9 +112,20 @@ the comparison passes the `if` and nothing stores to either in between. A field 
 the two reads, so its comparisons run, and so do `float` and `double` ones, as `NaN` isn't equal to
 itself.
 
-**A size can't be negative.** `items.size() == 0` becoming `items.size() <= 0` changes only what
-happens for a negative size, and a collection's `size()`, a string's `length()` and an array's
-length never are. The same goes for `> 0` becoming `!= 0`.
+**A length can't be negative.** `name.length() == 0` becoming `name.length() <= 0` changes only
+what happens for a negative length. The same goes for `> 0` becoming `!= 0`. It's skipped only where
+the bytecode proves the value is the JDK's own, which no class of yours can override:
+
+- an array's `length`;
+- `length()` called on a `String`, `StringBuilder`, `StringBuffer` or `StringJoiner`, all final
+  classes;
+- `groupCount()` on a `Matcher` and `parameterCount()` on a `MethodType`, final classes too;
+- `remaining()` and `capacity()` on a `java.nio` buffer, final methods of `Buffer`;
+- `parameterCount()` on a `MethodTypeDesc`, an interface sealed to the JDK's own class.
+
+A collection's `size()` and a `CharSequence`'s `length()` run: `List` and `CharSequence` are
+interfaces, so a class of yours can return `-1` from them. So does `length()` on a `String` called
+as a `CharSequence`, as Kotlin's `isEmpty()` is, since the call doesn't show it's a `String`.
 
 **The next test of an `||` already covers its case.** Forcing the first test false changes nothing
 when everything it lets through, the second does too:
@@ -262,7 +273,7 @@ if (count == 0) return List.of();    // a mutant: count <= 0
 ```
 
 > Differs only when count is negative. That can't happen because `basket.count()` is
-> `items.size()`, and a size is never negative.
+> `items.size()`, and `items` is an `ArrayList`, whose size is never negative.
 
 </div>
 <div slot="rust">
@@ -374,10 +385,10 @@ fn a_withdrawal_past_the_overdraft_is_refused() {
 usually bigger." Usually isn't never: a test with a total of 100 catches it.
 
 mutastic writes its own skips this way where there's a case to name. In the Java edition:
-`equivalent: differs only when a size or length is negative. That can't happen because sizes and
-lengths count from 0.` In the Rust edition: ``equivalent: differs only when the formatter fails. That
-can't happen because inside `fmt` its error comes from the writer under it, which no test can make
-fail.``
+`equivalent: differs only when a length or count is negative. That can't happen because it's an
+array's length or a JDK count no other class can override, and those start at 0.` In the Rust
+edition: ``equivalent: differs only when the formatter fails. That can't happen because inside
+`fmt` its error comes from the writer under it, which no test can make fail.``
 
 ### Coding agents
 

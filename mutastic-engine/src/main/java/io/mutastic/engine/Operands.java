@@ -229,8 +229,7 @@ final class Operands {
       // `start <= day` with an `Integer start`: javac unboxes with `intValue()`. Still `start`.
       case InvokeInstruction call when isUnboxing(call) -> unboxed(before, end, call);
       case InvokeInstruction call -> call(before, end, call);
-      case OperatorInstruction operation when arithmetic(operation.opcode()) != null ->
-          operation(before, end, java.util.Objects.requireNonNull(arithmetic(operation.opcode())));
+      case OperatorInstruction operation -> operated(before, end, operation);
       // An empty varargs array (`Files.isRegularFile(git)` passes `new LinkOption[0]`): no
       // argument.
       case NewReferenceArrayInstruction _
@@ -240,6 +239,25 @@ final class Operands {
           new Operand("", end - 2, false);
       default -> null;
     };
+  }
+
+  /// `b + 1` or `items.length`; none for an operation the source can't be read back from.
+  private @Nullable Operand operated(
+      List<Instruction> before, int end, OperatorInstruction operation) {
+    var arithmetic = arithmetic(operation.opcode());
+    if (arithmetic != null) {
+      return operation(before, end, arithmetic);
+    }
+    return operation.opcode() == Opcode.ARRAYLENGTH ? arrayLength(before, end) : null;
+  }
+
+  /// `items.length`: an array's length, as the source writes it.
+  private @Nullable Operand arrayLength(List<Instruction> before, int end) {
+    var array = endingAt(before, end - 1);
+    if (array == null || array.start() < 0) {
+      return null;
+    }
+    return new Operand(array.text() + ".length", array.start(), false);
   }
 
   /// `end` for a field of `this`, as the source usually writes it; `window.end` for another's.

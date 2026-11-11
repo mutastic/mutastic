@@ -16,7 +16,9 @@ import java.lang.classfile.instruction.LocalVariable;
 import java.lang.classfile.instruction.OperatorInstruction;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -115,17 +117,19 @@ final class Comparisons {
 
   private static final Set<String> WHOLE_NUMBER_TYPES = Set.of("I", "S", "B", "C");
 
-  /// The classes whose `length()` is a count of characters.
-  private static final Set<String> LENGTHS =
-      Set.of(
-          "java/lang/String",
-          "java/lang/CharSequence",
-          "java/lang/StringBuilder",
-          "java/lang/StringBuffer");
+  /// The calls whose `int` the JDK documents as a length or count, by `owner.name`, with the only
+  /// instruction that proves no other code answers them. A `java.` class is always the JDK's, as
+  /// the JVM defines no other, but a call reaches whatever overrides it: so each is on a final
+  /// class (`String`), or final itself (a buffer's `remaining()`, final in `Buffer`), or on an
+  /// interface sealed to the JDK's own classes (`MethodTypeDesc`). A `java.util` collection's
+  /// `size()` and a `CharSequence`'s `length()` are none of these, and a class of the project's can
+  /// make either negative.
+  private static final Map<String, Opcode> NEVER_NEGATIVE_CALLS = neverNegativeCalls();
 
   static final String NEVER_NEGATIVE =
-      "equivalent: differs only when a size or length is negative. That can't happen because"
-          + " sizes and lengths count from 0.";
+      "equivalent: differs only when a length or count is negative. That can't happen because"
+          + " it's an array's length or a JDK count no other class can override, and those start"
+          + " at 0.";
 
   private Comparisons() {}
 
@@ -209,8 +213,8 @@ final class Comparisons {
     return one.holds(0) == other.holds(0) && one.holds(1) == other.holds(1);
   }
 
-  /// A value its type's contract keeps at zero or above: an array's length, a collection's
-  /// `size()`, a string's `length()`, a method type's `parameterCount()`.
+  /// A value proved to be zero or above: an array's length, or a call in [#NEVER_NEGATIVE_CALLS]
+  /// made with the instruction it's listed with.
   private static boolean neverNegative(Instruction instruction) {
     if (instruction.opcode() == Opcode.ARRAYLENGTH) {
       return true;
@@ -219,13 +223,31 @@ final class Comparisons {
         || !call.typeSymbol().descriptorString().equals("()I")) {
       return false;
     }
-    var owner = call.owner().asInternalName();
-    return switch (call.name().stringValue()) {
-      case "size" -> owner.startsWith("java/util/");
-      case "length" -> LENGTHS.contains(owner);
-      case "parameterCount" -> owner.equals("java/lang/constant/MethodTypeDesc");
-      default -> false;
-    };
+    var key = call.owner().asInternalName() + "." + call.name().stringValue();
+    return call.opcode() == NEVER_NEGATIVE_CALLS.get(key);
+  }
+
+  /// `String.length()`, `Matcher.groupCount()` and the rest, each on a final class; a buffer's
+  /// `remaining()` and `capacity()`, final in `Buffer`; and `MethodTypeDesc.parameterCount()`, on
+  /// an interface sealed to the JDK's one implementation.
+  private static Map<String, Opcode> neverNegativeCalls() {
+    var calls = new HashMap<String, Opcode>();
+    for (var owner :
+        List.of(
+            "java/lang/String",
+            "java/lang/StringBuilder",
+            "java/lang/StringBuffer",
+            "java/util/StringJoiner")) {
+      calls.put(owner + ".length", Opcode.INVOKEVIRTUAL);
+    }
+    calls.put("java/util/regex/Matcher.groupCount", Opcode.INVOKEVIRTUAL);
+    calls.put("java/lang/invoke/MethodType.parameterCount", Opcode.INVOKEVIRTUAL);
+    for (var kind : List.of("", "Byte", "Char", "Short", "Int", "Long", "Float", "Double")) {
+      calls.put("java/nio/" + kind + "Buffer.remaining", Opcode.INVOKEVIRTUAL);
+      calls.put("java/nio/" + kind + "Buffer.capacity", Opcode.INVOKEVIRTUAL);
+    }
+    calls.put("java/lang/constant/MethodTypeDesc.parameterCount", Opcode.INVOKEINTERFACE);
+    return Map.copyOf(calls);
   }
 
   /// Every relation but the jump's own and its two changes in the sufficient set, its opposite

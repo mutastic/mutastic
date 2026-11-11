@@ -219,7 +219,14 @@ class CardTruthTest {
         .as("comparisons of a size or length that differ only below zero")
         .filteredOn(mutant -> mutant.skipped().get().equals(Comparisons.NEVER_NEGATIVE))
         .extracting(Mutant::methodName)
-        .contains("lengthNotZero", "sizeAboveZero");
+        .contains("lengthNotZero", "arrayAboveZero", "bufferLeft", "groupsNotZero")
+        .doesNotContain("userListSize", "userTextLength");
+    // A list or text of the project's own can be negative: what differs only there runs.
+    for (var method : List.of("userListSize", "userTextLength")) {
+      assertThat(differingOnlyBelowZero(mutations, model, method, original))
+          .as("the mutants of %s that differ only for a negative size", method)
+          .isNotEmpty();
+    }
     assertThat(equivalent)
         .as("edges only reached where an `if` has ruled out their two sides being the same")
         .filteredOn(mutant -> mutant.skipped().get().startsWith("equivalent: differs only when "))
@@ -266,9 +273,33 @@ class CardTruthTest {
                 + " around it rules it out.");
   }
 
+  /// The mutants of `method` that run and differ from the code only where `a` is negative: the ones
+  /// a skip resting on a size's contract would hide.
+  private static List<Mutant> differingOnlyBelowZero(
+      Mutations mutations,
+      java.lang.classfile.ClassModel model,
+      String method,
+      Map<String, byte[]> original)
+      throws Exception {
+    var code = outcomes(method, original.get(CLASS), original);
+    int fromZero = -LOW * (HIGH - LOW + 1);
+    var found = new ArrayList<Mutant>();
+    for (var mutant : mutations.find(model)) {
+      if (!mutant.methodName().equals(method) || mutant.skipped().isPresent()) {
+        continue;
+      }
+      var did = outcomes(method, mutations.apply(model, mutant), original);
+      if (!did.equals(code)
+          && did.subList(fromZero, did.size()).equals(code.subList(fromZero, code.size()))) {
+        found.add(mutant);
+      }
+    }
+    return found;
+  }
+
   /// No jump gets the same change twice: two mutants of one condition that behave the same on every
-  /// input are one mutant counted twice. A size compared with zero is where it would happen
-  /// (`size() > 0` to `size() >= 0` is the condition always true). Only those shapes are checked:
+  /// input are one mutant counted twice. A length compared with zero is where it would happen
+  /// (`length > 0` to `length >= 0` is the condition always true). Only those shapes are checked:
   /// elsewhere two different changes can happen to agree on the few inputs tried.
   @Test
   void noConditionGetsTheSameChangeTwice() throws Exception {
@@ -282,7 +313,7 @@ class CardTruthTest {
     for (var mutant : mutations.find(model)) {
       if (mutant.skipped().isPresent()
           || !CONDITIONS.contains(mutant.operator())
-          || !Set.of("sizeAboveZero", "lengthNotZero").contains(mutant.methodName())) {
+          || !Set.of("arrayAboveZero", "lengthNotZero").contains(mutant.methodName())) {
         continue;
       }
       var mutated = new OneClass(CLASS, mutations.apply(model, mutant), original).loadClass(CLASS);
@@ -295,7 +326,9 @@ class CardTruthTest {
       seen.add(behaviour);
     }
 
-    assertThat(bySite).containsKeys("sizeAboveZero@0", "lengthNotZero@0");
+    assertThat(bySite.keySet())
+        .anyMatch(site -> site.startsWith("arrayAboveZero@"))
+        .anyMatch(site -> site.startsWith("lengthNotZero@"));
     assertThat(twice).as("changes made twice at one condition").isEmpty();
   }
 
@@ -404,7 +437,12 @@ class CardTruthTest {
                       .map(claim -> new Javac.Source("shapes." + claim.variant(), claim.source()))
                       .toList(),
                   List.of(other)));
-      classes.put("shapes.Other", original.get("shapes.Other"));
+      original.forEach(
+          (name, bytes) -> {
+            if (name.startsWith("shapes.Other")) {
+              classes.put(name, bytes);
+            }
+          });
       var loader = Javac.loader(classes);
       for (var claim : unseen.values()) {
         var outcomes =
