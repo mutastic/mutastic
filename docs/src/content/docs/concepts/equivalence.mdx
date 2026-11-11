@@ -142,6 +142,25 @@ The event stream gives the reason, and the kind as `skipKind`:
 
 <RustOutput name="operators/returns/unwrap-try-skipped" />
 
+**A zero check on a `NonZero*`.** A `NonZeroU32`, like each of std's `NonZero` types, can't hold
+0, so `parts.get() == 0` is never true. Making that check never true changes nothing, and nor does
+any other change to it that differs only at 0, such as `== 0` becoming `<= 0` on an unsigned type.
+
+```rust
+pub fn share(total: u32, parts: NonZeroU32) -> u32 {
+    if parts.get() == 0 {   // made never true: skipped
+        unreachable!("a NonZeroU32 is never 0");
+    }
+    total / parts.get()
+}
+```
+
+The reason names the value: `equivalent: differs only when parts.get() is 0. That can't happen
+because parts is a NonZeroU32, which can't hold 0.` The type has to be the one the source declares,
+for a parameter, a `let` with its type written, or a field. Where it's inferred, generic, imported
+from somewhere other than std, or a name passed to a macro, the mutants run. A signed one can be
+below 0, so `n.get() < 0` on a `NonZeroI32` made never true runs too.
+
 </div>
 </EditionTabs>
 
