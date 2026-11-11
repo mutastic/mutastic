@@ -14,7 +14,7 @@ body:
     attributes:
       label: mutastic version
       description: "`mutastic --version`, or the plugin's version"
-      placeholder: "0.3.0"
+      placeholder: "1.0.0"
     validations:
       required: true
   - type: dropdown
