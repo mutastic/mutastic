@@ -55,6 +55,14 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   could catch it. Proved from the bytecode, for `int` and `long` locals; fields, floats and doubles
   still run. Scores can go up; no id changes.
 
+### Fixes
+
+- **A Maven build's JaCoCo agent is left out of the tests, as Gradle's is.** mutastic leaves
+  JaCoCo out because it changes classes as they load, but it knew the agent only by Gradle's jar
+  name, `jacocoagent.jar`. Under Maven's `prepare-agent` (`org.jacoco.agent-…-runtime.jar`) the
+  agent stayed in, and on a Quarkus project every mutant was reported as not covered, with tests
+  that plainly reached them.
+
 ## 1.0.0 (11 Nov 2026)
 
 mutastic 1.0.0: the Java edition and the Rust edition, released together at the same version.
