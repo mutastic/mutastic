@@ -655,4 +655,40 @@ public final class Shapes {
     }
     return 2;
   }
+
+  /// An index compared with -1, which `indexOf` gives when it finds nothing: below -1 never comes.
+  static int indexMissing(int a, int b) {
+    String text = "x".repeat(Math.max(0, a));
+    if (text.indexOf('x') == -1) {
+      return 1;
+    }
+    return 2 + b;
+  }
+
+  /// The same from the end, and the other way round.
+  static int lastIndexFound(int a, int b) {
+    var text = new StringBuilder("y".repeat(Math.max(0, a)));
+    if (text.lastIndexOf("y") != -1) {
+      return 1;
+    }
+    return 2 + b;
+  }
+
+  /// A digit's value, or -1 for a character that isn't one.
+  static int notADigit(int a, int b) {
+    char shown = "0123456789:;".charAt(Math.floorMod(a, 12));
+    if (Character.digit(shown, 10) == -1) {
+      return 1;
+    }
+    return 2 + b;
+  }
+
+  /// An `indexOf` of the project's own, which can give anything: below -1 runs.
+  static int userIndex(int a, int b) {
+    var finder = new Other.Finder(a);
+    if (finder.indexOf('x') == -1) {
+      return 1;
+    }
+    return 2 + b;
+  }
 }

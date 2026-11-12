@@ -131,6 +131,13 @@ A collection's `size()` and a `CharSequence`'s `length()` run: `List` and `CharS
 interfaces, so a class of yours can return `-1` from them. So does `length()` on a `String` called
 as a `CharSequence`, as Kotlin's `isEmpty()` is, since the call doesn't show it's a `String`.
 
+**An index can't be below -1.** `name.indexOf('@') == -1` becoming `name.indexOf('@') <= -1`
+changes only what happens for an index below -1, which `indexOf` never gives: it's -1 or where it
+found it. It's skipped for `indexOf` and `lastIndexOf` on a `String`, `StringBuilder` or
+`StringBuffer`, and for `Character.digit`, which is -1 or a digit's value. A `List`'s `indexOf`
+runs, since a class of yours can implement it, and so does `-1 == name.indexOf('@')`, written the
+other way round.
+
 **A value your code says can't be negative.** The same change is skipped for a value annotated as
 never negative by an annotation a tool checks when the code compiles. This skip rests on your
 code's word, not on mutastic's proof, so the reason names the annotation: `equivalent: differs only
