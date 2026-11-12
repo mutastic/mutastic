@@ -12,9 +12,11 @@
 //   DOCS_VERSIONS  every release line published, newest first: `0.5,0.4,0.3`
 // Keep these four as they are: a release's docs are rebuilt from its tag with them for as long
 // as it's published.
+import { existsSync, readFileSync } from 'node:fs';
 import { unified } from '@astrojs/markdown-remark';
 import starlight from '@astrojs/starlight';
 import { defineConfig } from 'astro/config';
+import starlightLinksValidator from 'starlight-links-validator';
 import starlightLlmsTxt from 'starlight-llms-txt';
 import { checkEditions } from './scripts/check-editions.mjs';
 import { rustDocs } from './scripts/rust-docs.mjs';
@@ -36,6 +38,24 @@ const rust = loaded?.sidebar;
 if (loaded) await checkEditions(loaded.pages, loaded.unplaced, loaded.shared, loaded.dir);
 
 /** Root-relative links in the Markdown, `/concepts/results/`, under this build's base path. */
+/** The pages written from data, not content: each command's reference, in either edition, and the API's. */
+const generatedPages = new Set(
+  [
+    ['reference', './src/data/commands.json'],
+    ['rust/reference', './src/data/rust/commands.json'],
+  ].flatMap(([under, file]) =>
+    existsSync(file)
+      ? [...JSON.parse(readFileSync(file, 'utf8')).commands.map((command) => command.page), 'environment'].map(
+          (page) => `/${under}/${page}/`,
+        )
+      : [],
+  ),
+);
+generatedPages.add('/reference/api/');
+for (const pkg of JSON.parse(readFileSync('./src/data/api.json', 'utf8')).packages) {
+  for (const type of pkg.types) generatedPages.add(`/reference/api/${type.slug}/`);
+}
+
 function linksUnderBase() {
   const visit = (node) => {
     if (node.type === 'element' && node.tagName === 'a') {
@@ -101,7 +121,17 @@ export default defineConfig({
         PageTitle: './src/components/PageTitle.astro',
         Pagination: './src/components/Pagination.astro',
       },
-      plugins: [starlightLlmsTxt()],
+      // Every link between pages, and to a heading on one, goes somewhere: the build fails
+      // otherwise, where before links were checked by hand. The pages written from the CLI's and
+      // the API's own declarations aren't content it can read, so links to them are left out; a
+      // relative link is fine, as the home page's actions are, which work under any base.
+      plugins: [
+        starlightLinksValidator({
+          errorOnRelativeLinks: false,
+          exclude: ({ link }) => generatedPages.has(link.split('#')[0]),
+        }),
+        starlightLlmsTxt(),
+      ],
       // One edition's sidebar at a time: a `Java` group and a `Rust` group, each with the same
       // groups in the same order, then the groups both editions share. src/route-editions.ts
       // gives each page its own edition's; without the Rust pages, the Java group is opened out.
