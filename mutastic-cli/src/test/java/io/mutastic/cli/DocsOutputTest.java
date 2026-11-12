@@ -48,7 +48,7 @@ class DocsOutputTest {
   /// code the page adds to one.
   private static final Pattern MARKED =
       Pattern.compile(
-          "(?m)^\\{/\\* (?<kind>from|added to): (?<path>\\S+) \\*/}\\n```\\w+\\n(?<code>(?s:.*?))^```$");
+          "(?m)^\\{/\\* (?<kind>from|added to|changed in): (?<path>\\S+) \\*/}\\n```\\w+\\n(?<code>(?s:.*?))^```$");
 
   /// Colour and style codes, to find a line by its words.
   private static final Pattern ANSI = Pattern.compile("\u001B\\[[0-9;]*m");
@@ -59,10 +59,11 @@ class DocsOutputTest {
 
   /// What changes from run to run: when it started and how long it took, in words or in JSON, and
   /// how many covering tests ran before a mutant's result was known, as they run fastest first and
-  /// a test's time moves with the machine's load.
+  /// a test's time moves with the machine's load: in JSON, and in the summary's `Test runs` row.
   private static final Pattern TIMINGS =
       Pattern.compile(
-          "\\d+(\\.\\d+)?(ms|s)\\b|\\d\\d:\\d\\d:\\d\\d|Ms\" ?: ?\\d+|\"testsRun\" ?: ?\\d+");
+          "\\d+(\\.\\d+)?(ms|s)\\b|\\d\\d:\\d\\d:\\d\\d|Ms\" ?: ?\\d+|\"testsRun\" ?: ?\\d+"
+              + "|Test runs(?:\u001B\\[[0-9;]*m)*  \\d+");
 
   @TempDir Path work;
 
@@ -173,6 +174,76 @@ class DocsOutputTest {
 
     assertThat(result.exit()).isEqualTo(Main.FAILED);
     shown("shared-card.ansi", project, theCard(result, "no test checks inCredit()"));
+  }
+
+  /// The test-first guide's cycle, on the pricing sample in a repository of its own, from the
+  /// guide's own code: its failing test and stub stop a run, the code that passes it leaves the
+  /// cycle's edge untested, the card's tests make `verify` pass, and the cycle's run passes after.
+  @Test
+  void aTestFirstCycle() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+    git(project, "init", "-q");
+    git(project, "add", "-A");
+    git(project, "commit", "-q", "-m", "start");
+    var steps = marked(PAGES.resolve("guides/test-first.mdx"));
+    var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
+    var code = project.resolve("src/main/java/com/example/pricing/Pricing.java");
+    assertThat(steps)
+        .extracting(Marked::kind, Marked::path)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple(
+                "added to", "samples/pricing/" + project.relativize(test)),
+            org.assertj.core.groups.Tuple.tuple(
+                "added to", "samples/pricing/" + project.relativize(code)),
+            org.assertj.core.groups.Tuple.tuple(
+                "changed in", "samples/pricing/" + project.relativize(code)),
+            org.assertj.core.groups.Tuple.tuple(
+                "added to", "samples/pricing/" + project.relativize(test)));
+
+    added(test, steps.get(0));
+    added(code, steps.get(1));
+    var red = Samples.mutastic(TERMINAL, "run", project.toString());
+    assertThat(red.exit()).as(red.err()).isEqualTo(Main.TESTS_FAIL);
+    shown("test-first-red.ansi", project, itsMessage(red));
+
+    var stub = steps.get(1).code().indent(2).stripTrailing();
+    var source = Files.readString(code);
+    assertThat(source).contains(stub);
+    Files.writeString(code, source.replace(stub, steps.get(2).code().indent(2).stripTrailing()));
+    var run = Samples.mutastic(TERMINAL, "run", project.toString(), "--since=HEAD", "--workers=1");
+    assertThat(run.exit()).as(run.err()).isEqualTo(Main.FAILED);
+    shown("test-first-run.ansi", project, run);
+
+    added(test, steps.get(3));
+    shown(
+        "test-first-verify.ansi",
+        project,
+        mutastic("verify", "m809c9c9b,md0b32a4f", project.toString()));
+    var again =
+        Samples.mutastic(TERMINAL, "run", project.toString(), "--since=HEAD", "--workers=1");
+    assertThat(again.exit()).as(again.err()).isEqualTo(Main.PASSED);
+    shown("test-first-again.ansi", project, again);
+  }
+
+  /// `block`'s code, put at the end of the class in `file`, as a person adds it.
+  private static void added(Path file, Marked block) throws IOException {
+    var source = Files.readString(file).stripTrailing();
+    Files.writeString(
+        file,
+        source.substring(0, source.lastIndexOf('}')).stripTrailing()
+            + "\n\n"
+            + block.code().indent(2)
+            + "}\n");
+  }
+
+  private static void git(Path project, String... arguments) throws Exception {
+    var command =
+        new ArrayList<>(
+            List.of("git", "-c", "user.name=docs", "-c", "user.email=docs@example.com"));
+    command.addAll(List.of(arguments));
+    var exit =
+        new ProcessBuilder(command).directory(project.toFile()).inheritIO().start().waitFor();
+    assertThat(exit).as(String.join(" ", arguments)).isZero();
   }
 
   /// The configuration guide's example: the configured sample without its mutastic.yaml, where the

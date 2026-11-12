@@ -1,0 +1,133 @@
+---
+title: Working test-first
+description: "One test-first cycle on the pricing sample: a failing test, the code that passes it, mutastic on the cycle's lines, the card's tests proved with verify, and a commit."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import red from '../../../data/output/test-first-red.ansi?raw';
+import run from '../../../data/output/test-first-run.ansi?raw';
+import verify from '../../../data/output/test-first-verify.ansi?raw';
+import again from '../../../data/output/test-first-again.ansi?raw';
+
+One cycle, on the pricing sample, with every command and what it prints: a test from the spec,
+the least code that passes it, mutastic on the cycle's lines, the tests its cards ask for, and a
+commit. [Working test-first](/concepts/test-first/) says why mutastic comes where it does.
+
+The spec for this cycle: loyal customers get 5 off orders of 30 or more.
+
+## Before you start
+
+Start from a clean tree, and commit at the end of each cycle, not before: `--since=HEAD` runs the
+mutants on the lines changed since the last commit, so the commit marks where the cycle started.
+
+## Write one failing test
+
+{/* added to: samples/pricing/src/test/java/com/example/pricing/PricingTest.java */}
+```java
+// Loyal customers get 5 off orders of 30 or more.
+@Test
+void loyalCustomersGetFiveOff() {
+  assertEquals(5, new Pricing().loyaltyCredit(50));
+}
+```
+
+And just enough code for it to compile:
+
+{/* added to: samples/pricing/src/main/java/com/example/pricing/Pricing.java */}
+```java
+/// 5 off orders of 30 or more, for loyal customers.
+public int loyaltyCredit(int total) {
+  return 0;
+}
+```
+
+The test fails, so mutastic won't run yet: a test that fails with no mutant in would look as if it
+caught every mutant.
+
+```sh
+mutastic run samples/pricing
+```
+
+<Code code={red} lang="ansi" />
+
+## Make it pass with the least code
+
+{/* changed in: samples/pricing/src/main/java/com/example/pricing/Pricing.java */}
+```java
+/// 5 off orders of 30 or more, for loyal customers.
+public int loyaltyCredit(int total) {
+  if (total >= 30) {
+    return 5;
+  }
+  return 0;
+}
+```
+
+The whole suite passes.
+
+## Run mutastic on the cycle
+
+```sh
+mutastic run samples/pricing --since=HEAD
+```
+
+<Code code={run} lang="ansi" />
+
+The one test is at 50, so nothing checks the edge at 30, nothing checks an order below it, and no
+test reaches `return 0` at all: the code ran ahead of its tests. The card suggests a test for each.
+
+## Write the card's tests
+
+Check each value against the spec before you keep it: an order of exactly 30 gets 5 off, and one of
+29 gets nothing. Here both are what the spec asks for. Had one not been, the test would keep the
+spec's value and fail on today's code: that's a bug found, and the cycle goes back to green.
+
+{/* added to: samples/pricing/src/test/java/com/example/pricing/PricingTest.java */}
+```java
+@Test
+void loyaltyCreditWithTotal30() {
+  assertEquals(5, new Pricing().loyaltyCredit(30));
+}
+
+@Test
+void loyaltyCreditWithTotal29() {
+  assertEquals(0, new Pricing().loyaltyCredit(29));
+}
+```
+
+`verify` is the card's red and green: it fails until a test catches each mutant, and passes now.
+
+```sh
+mutastic verify m809c9c9b,md0b32a4f samples/pricing
+```
+
+<Code code={verify} lang="ansi" />
+
+## A mutant you can't catch
+
+A mutant no test could catch, because its case can't happen or no caller can see the change, is
+proposed for a person to ignore, with its reason (see [Equivalent mutants](/concepts/equivalence/)).
+Don't change the code so the mutant can't exist: that hides what it found.
+
+## Refactor, run again, commit
+
+Change the structure if it needs it, with the suite green, and run the cycle again:
+
+```sh
+mutastic run samples/pricing --since=HEAD
+```
+
+<Code code={again} lang="ansi" />
+
+Then commit. The commit is the next cycle's `HEAD`.
+
+## One card at a time
+
+`mutastic next --since=HEAD` gives the cycle's cards one at a time, the lines no test reaches first,
+in place of the whole run: see [Next mutant](/concepts/next/).
+
+## Agents
+
+A coding agent runs the same cycle through the [agent format](/concepts/output/#formats) and
+[the gate](/agents/gate/), whose one rule for it is the agent format's `rules:` line: add or change
+tests only, and never change production code to make a mutant go away.

@@ -1,0 +1,1 @@
+mutastic: the tests fail without any mutant: com.example.pricing.PricingTest#loyalCustomersGetFiveOff; their output is in samples/pricing/build/mutastic/worker.log
