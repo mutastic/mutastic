@@ -38,10 +38,12 @@ jobs:
           name: coverage-build
           path: "*/build/jacoco/test.exec"
       # The reports, kept when the build fails too: test results, Checkstyle, the SBOM.
+      # Test reports are named for the attempt: a rerun can't replace an artifact, and a rerun's
+      # reports are the ones wanted when it fails.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: reports
+          name: reports-${{ github.run_attempt }}
           path: |
             build/reports/
             */build/reports/
@@ -114,7 +116,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: reports-cli-${{ matrix.shard }}
+          name: reports-cli-${{ matrix.shard }}-${{ github.run_attempt }}
           path: mutastic-cli/build/reports/
 
   # Windows, on its own beside the others: the CLI's end-to-end tests on a few samples (the cards,
@@ -146,7 +148,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: reports-windows-${{ matrix.share }}
+          name: reports-windows-${{ matrix.share }}-${{ github.run_attempt }}
           path: mutastic-cli/build/reports/
 
   # The check branch protection names: passes when both Windows shares do.
@@ -194,5 +196,5 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: reports-coverage
+          name: reports-coverage-${{ github.run_attempt }}
           path: build/reports/
