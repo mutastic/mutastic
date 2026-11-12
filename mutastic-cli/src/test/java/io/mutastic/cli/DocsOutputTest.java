@@ -133,6 +133,21 @@ class DocsOutputTest {
   }
 
   /// The one missed mutant's event, laid out to be read, as Schemas and stability shows it.
+  /// The event for mutant `id`, laid out as the docs show it.
+  private static Samples.Result theEvent(Samples.Result result, String id) {
+    var mapper = JsonMapper.builder().build();
+    var event =
+        result
+            .out()
+            .lines()
+            .map(mapper::readTree)
+            .filter(line -> line.path("id").asString("").equals(id))
+            .findFirst()
+            .orElseThrow();
+    var laidOut = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(event) + "\n";
+    return new Samples.Result(result.exit(), laidOut, result.err());
+  }
+
   private static Samples.Result theMissedEvent(Samples.Result result) {
     var mapper = JsonMapper.builder().build();
     var missed =
@@ -266,7 +281,7 @@ class DocsOutputTest {
 
   /// The Equivalent mutants page's pair: a comparison's change that differs only below zero,
   /// skipped where the Checker Framework says the value is never negative, and run where only
-  /// Jakarta Validation does.
+  /// Jakarta Validation does; and the skipped one's event, with its reason and `skipKind`.
   @Test
   void aValueTheCodeSaysIsNeverNegative() throws Exception {
     var project = Samples.copy(STOCK, work.resolve("stock"));
@@ -276,6 +291,12 @@ class DocsOutputTest {
 
     assertThat(validated.out()).contains("left > 0");
     shown("validated-explain.ansi", project, validated);
+
+    var events =
+        mutastic("run", project.toString(), "--format=jsonl", "--workers=1", "--only=" + CLAIMED);
+    var skipped = theEvent(events, CLAIMED);
+    assertThat(skipped.out()).contains("\"skipKind\" : \"equivalent\"", "@NonNegative");
+    shown("claimed-event.json", project, skipped);
   }
 
   /// Troubleshooting's examples, one for each exit status a person meets: a score below the
