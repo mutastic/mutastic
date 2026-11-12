@@ -10,6 +10,7 @@ import java.lang.classfile.instruction.ConvertInstruction;
 import java.lang.classfile.instruction.FieldInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.LoadInstruction;
+import java.lang.classfile.instruction.NewObjectInstruction;
 import java.lang.classfile.instruction.NewReferenceArrayInstruction;
 import java.lang.classfile.instruction.OperatorInstruction;
 import java.util.ArrayList;
@@ -228,6 +229,8 @@ final class Operands {
           staticField(field, end - 1);
       // `start <= day` with an `Integer start`: javac unboxes with `intValue()`. Still `start`.
       case InvokeInstruction call when isUnboxing(call) -> unboxed(before, end, call);
+      case InvokeInstruction call when call.name().equalsString("<init>") ->
+          constructed(before, end, call);
       case InvokeInstruction call -> call(before, end, call);
       case OperatorInstruction operation -> operated(before, end, operation);
       // An empty varargs array (`Files.isRegularFile(git)` passes `new LinkOption[0]`): no
@@ -321,8 +324,10 @@ final class Operands {
   }
 
   /// `Files.isRegularFile(git)`, `head.startsWith("ref: ")`, or `startsWith(…)` when its arguments
-  /// or receiver are more than a load or a constant.
-  private Operand call(List<Instruction> before, int end, InvokeInstruction call) {
+  /// are more than a load or a constant. None when its receiver can't be named, as `new
+  /// Finder(a).indexOf('x')`'s can't: once, the call was named without it, and a card said
+  /// `indexOf('x') == -1` for a comparison the source doesn't have.
+  private @Nullable Operand call(List<Instruction> before, int end, InvokeInstruction call) {
     var type = call.typeSymbol();
     var returns = type.returnType().descriptorString();
     boolean predicate = returns.equals("Z");
@@ -338,10 +343,38 @@ final class Operands {
       return Operand.of(owned(call.owner()) + name + list, at, predicate, character);
     }
     var receiver = endingAt(before, at);
+    if (receiver == null || receiver.start() < 0) {
+      return null;
+    }
     // A local with no name is javac's own, like a for-each loop's iterator: leave it out.
-    return receiver == null || receiver.start() < 0 || receiver.text().startsWith("local")
+    return receiver.text().startsWith("local")
         ? Operand.of(name + list, -1, predicate, character)
         : Operand.of(receiver.text() + "." + name + list, receiver.start(), predicate, character);
+  }
+
+  /// `new Other.Measured(a)`: an object made where it's used, by `new`, `dup`, its arguments and
+  /// its constructor. None when one of those isn't there, or its class has no name the source can
+  /// write, as a local or anonymous class hasn't.
+  private @Nullable Operand constructed(List<Instruction> before, int end, InvokeInstruction init) {
+    var arguments = arguments(before, end, init);
+    if (arguments == null) {
+      return null;
+    }
+    int at = arguments.start();
+    boolean made =
+        at >= 2
+            && before.get(at - 1).opcode() == Opcode.DUP
+            && before.get(at - 2) instanceof NewObjectInstruction created
+            && created.className().asInternalName().equals(init.owner().asInternalName());
+    var name = init.owner().asSymbol().displayName();
+    boolean named =
+        java.util.Arrays.stream(name.split("\\$"))
+            .allMatch(part -> !part.isEmpty() && !Character.isDigit(part.charAt(0)));
+    if (!made || !named) {
+      return null;
+    }
+    var text = "new " + name.replace('$', '.') + "(" + String.join(", ", arguments.texts()) + ")";
+    return Operand.of(text, at - 2, false, false);
   }
 
   /// A call's arguments as the source writes them, and where the first starts.
