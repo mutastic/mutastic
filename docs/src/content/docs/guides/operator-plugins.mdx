@@ -9,7 +9,7 @@ directory of its distribution:
 
 | File | Adds |
 |---|---|
-| `mutastic-plugins.jar` | [Annotation removal](#annotation-removal), [Kotlin's empty returns](#kotlins-empty-returns), [proposed rewrites](#proposed-rewrites) |
+| `mutastic-plugins.jar` | [Annotation removal](#annotation-removal), [Kotlin's empty returns](#kotlins-empty-returns), [proposed rewrites](#proposed-rewrites) (experimental) |
 | `bigdecimal.yaml` | [BigDecimal and BigInteger swaps](#bigdecimal-and-biginteger) |
 | `reactive.yaml` | [Reactor and RxJava stages](#reactor-and-rxjava) |
 
@@ -191,6 +191,9 @@ call is skipped too, and it's a blind spot: what's copied into a test isn't chan
 whether the tests would notice.
 
 ## Proposed rewrites
+
+Proposed rewrites are experimental: the layout of `.mutastic/proposed/`, and the ids of its mutants,
+may change in a minor release (see [What's experimental](/reference/compatibility/#whats-experimental)).
 
 `proposed/rewrite` lets you write a bug yourself and find out whether your tests would notice. Built-in
 operators make mechanical changes, one place at a time. They can't write the bug a person would really
