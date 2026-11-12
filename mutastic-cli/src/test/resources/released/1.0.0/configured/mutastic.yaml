@@ -1,0 +1,3 @@
+rules:
+  - skip: com.example.configured.generated.**
+    reason: written by a code generator

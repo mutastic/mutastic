@@ -1,0 +1,1 @@
+rule: skip com.example.configured.generated.**, because written by a code generator

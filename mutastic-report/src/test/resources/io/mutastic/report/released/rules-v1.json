@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docs.mutastic.io/schemas/rules/v1.json",
+  "title": "mutastic rules file, v1",
+  "description": "A rules file: call operators as data, a plugin listed under `plugins:` in `mutastic.yaml`. Each list item is one operator. mutastic reads each value as text, a list as text separated by commas, and a field it doesn't know as an error. See https://docs.mutastic.io/guides/plugins/#rules-files.",
+  "type": "array",
+  "items": { "$ref": "#/$defs/rule" },
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "list": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A list, separated by commas, on one line."
+    },
+    "rule": {
+      "type": "object",
+      "description": "One call operator.",
+      "required": ["id", "explanation", "owners", "methods", "rewrite", "headline", "help"],
+      "additionalProperties": false,
+      "patternProperties": {
+        "^(headline|help)\\.[^.]+$": {
+          "$ref": "#/$defs/text",
+          "description": "`headline` or `help` for one of the methods: `headline.sorted`, used for that method instead."
+        }
+      },
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
+          "description": "`namespace/name`, lower case: how reports, `--operators` and ignores name it.",
+          "examples": ["bigdecimal/swap-arithmetic"]
+        },
+        "explanation": {
+          "$ref": "#/$defs/text",
+          "description": "What it changes, and when a test misses that: shown by `mutastic explain`."
+        },
+        "tier": {
+          "enum": ["defaults", "stronger", "extended"],
+          "description": "The set it's in: `defaults` (unless it says), `stronger` or `extended`."
+        },
+        "owners": {
+          "$ref": "#/$defs/list",
+          "description": "The types whose calls it matches, in full: `java.lang.String`."
+        },
+        "methods": {
+          "$ref": "#/$defs/list",
+          "description": "The method names it matches."
+        },
+        "descriptors": {
+          "$ref": "#/$defs/list",
+          "description": "The overloads it matches, as the JVM writes them: `(Ljava/lang/String;)Z`. Every overload if it's left out."
+        },
+        "since": {
+          "type": ["integer", "string"],
+          "pattern": "^[0-9]{1,3}$",
+          "minimum": 0,
+          "maximum": 999,
+          "description": "The Java release the rewrite needs: `11`. In a class file for an older one, its mutants are skipped as unviable."
+        },
+        "rewrite": {
+          "type": "string",
+          "pattern": "^(remove|omit last argument|unchecked arithmetic|keep argument|rename \\w+->\\w+(\\s*,\\s*\\w+->\\w+)*\\s*,?|call \\w+\\([^)]*\\)( with .+)?)$",
+          "description": "What the call becomes: `remove`, `rename a->b, c->d`, `omit last argument`, `unchecked arithmetic`, `keep argument`, or `call name(ARGS) with A, B`."
+        },
+        "source": {
+          "$ref": "#/$defs/text",
+          "description": "How a `call` rewrite reads in the source, for its label: `first(Long.MAX_VALUE)`."
+        },
+        "changed": {
+          "$ref": "#/$defs/text",
+          "description": "What the line now does, in a code frame: `stage removed`. `{to}` is what a rename calls instead."
+        },
+        "headline": {
+          "$ref": "#/$defs/text",
+          "description": "A missed mutant's headline, the gap in the tests. `{name}` is the method called, `{to}` what a rename calls instead, and `{method}` the method the call is in."
+        },
+        "help": {
+          "$ref": "#/$defs/text",
+          "description": "The test to write, with the same placeholders as `headline`."
+        }
+      }
+    }
+  }
+}

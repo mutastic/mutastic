@@ -123,20 +123,31 @@ version can never be changed or removed.
    ```
    Check the schemas are served at their `$id`s too:
    [/schemas/events/v1.json](https://docs.mutastic.io/schemas/events/v1.json).
-7. From 1.0.0 on, hold the next release to this one: its plugin API, events format and rules files.
+7. From 1.0.0 on, hold the next release to this one: its plugin API, events format, rules files,
+   `mutastic.yaml` and command line.
    Before 1.0.0 skip this step: anything may change, and the checks have nothing to compare with.
    Once the release is on Central, set `lastStableRelease` in `gradle.properties` to its version,
-   so `checkApiCompatibility` compares the plugin API with its jar, and keep its events schema and
-   rules files beside it, so `SchemaCompatibilityTest` and `RulesFileFormatTest` compare with them
+   so `checkApiCompatibility` compares the plugin API with its jar, and keep its schemas, rules
+   files, `mutastic.yaml` files and `commands.json` beside it, so `SchemaCompatibilityTest`,
+   `RulesFileFormatTest`, `ConfigurationFormatTest` and `CommandLineCompatibilityTest` compare
+   with them
    ([Schemas and stability](docs/src/content/docs/reference/schemas.mdx) says what counts as
    breaking):
    ```sh
    V=X.Y.Z
-   cp docs/public/schemas/events/v1.json mutastic-report/src/test/resources/io/mutastic/report/released/events-v1.json
+   S=mutastic-report/src/test/resources/io/mutastic/report/released
+   for schema in events mutastic-yaml rules; do cp docs/public/schemas/$schema/v1.json $S/$schema-v1.json; done
    R=mutastic-cli/src/test/resources/rules
    git rm -rq $R; mkdir -p $R/$V
    cp mutastic-engine/src/main/resources/io/mutastic/engine/streams.yaml docs/src/data/plugins/*.yaml $R/$V/
-   ./gradlew :mutastic-cli:exportIds   # writes each rules file's .read beside it
+   C=mutastic-cli/src/test/resources/released
+   mkdir -p $C/$V/configured $C/$V/every-key
+   cp docs/src/data/commands.json $C/$V/
+   cp samples/configured/mutastic.yaml $C/$V/configured/
+   # One with every key: the last release's, with any key this one added
+   cp $C/*/every-key/mutastic.yaml $C/$V/every-key/
+   git rm -rq $(ls -d $C/*/ | grep -v "/$V/$")
+   ./gradlew :mutastic-cli:exportIds   # writes each rules file's and mutastic.yaml's .read beside it
    # The baseline jar is locked too: point the lock at the new release.
    ./gradlew :mutastic-api:dependencies --configuration apiBaseline --update-locks io.mutastic:mutastic-api
    ```

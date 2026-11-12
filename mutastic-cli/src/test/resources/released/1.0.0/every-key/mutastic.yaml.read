@@ -1,0 +1,7 @@
+rule: skip com.acme.generated.**, because protobuf output
+rule: mutate com.acme.Money#toString, because shown to customers
+plugin: build/libs/acme-filters.jar
+plugin: mutiny.yaml
+filter: acme:no-metrics
+operator: defaults
+operator: -stream/swap-match

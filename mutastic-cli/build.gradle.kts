@@ -325,7 +325,7 @@ tasks.register<Test>("exportCards") {
 // Writes the kept ids again, after a new operator or a change meant to move ids: read the diff
 // before committing, since a moved id breaks the ignores and baselines that name it.
 tasks.register<Test>("exportIds") {
-    description = "Writes the kept ids (src/test/ids/ids.tsv) and how released rules files read."
+    description = "Writes the kept ids (src/test/ids/ids.tsv), and how released rules files and mutastic.yaml read."
     testClassesDirs =
         sourceSets.test
             .get()
@@ -335,6 +335,7 @@ tasks.register<Test>("exportIds") {
     filter {
         includeTestsMatching("io.mutastic.cli.StableIdsTest")
         includeTestsMatching("io.mutastic.cli.RulesFileFormatTest")
+        includeTestsMatching("io.mutastic.cli.ConfigurationFormatTest")
     }
     val pluginsJar = project(":mutastic-plugins").tasks.named<Jar>("jar").flatMap { it.archiveFile }
     inputs.file(pluginsJar).withPathSensitivity(PathSensitivity.NONE)

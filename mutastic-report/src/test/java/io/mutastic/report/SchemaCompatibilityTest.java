@@ -41,6 +41,54 @@ class SchemaCompatibilityTest {
     }
   }
 
+  /// The schemas of what mutastic reads, `mutastic.yaml` and rules files, are held the same way: a
+  /// file the last 1.0+ release took is still described as it was.
+  @Test
+  void theInputSchemasKeepTheLastStableReleasesPromises() throws IOException {
+    for (var schema : java.util.List.of("mutastic-yaml", "rules")) {
+      try (var released =
+          SchemaCompatibilityTest.class.getResourceAsStream("released/" + schema + "-v1.json")) {
+        if (LAST_STABLE.isEmpty()) {
+          assertThat(released).as("released/%s-v1.json, with no 1.0+ release", schema).isNull();
+          continue;
+        }
+        assertThat(released)
+            .as(
+                "lastStableRelease is %s: copy its %s schema to released/ (RELEASING.md)",
+                LAST_STABLE, schema)
+            .isNotNull();
+        var published = Schemas.read(Schemas.PUBLISHED.resolve(schema + "/v1.json"));
+        assertThat(SchemaCompatibility.breaks(Schemas.read(released), published, schema))
+            .as(
+                "docs/public/schemas/%s/v1.json against %s's: a file it took breaks",
+                schema, LAST_STABLE)
+            .isEmpty();
+      }
+    }
+  }
+
+  /// A key added to one of a rule's alternatives keeps them; a key taken away doesn't.
+  @Test
+  void anAlternativeGrowsButKeepsWhatItHad() {
+    var released = Schemas.read(Schemas.PUBLISHED.resolve("mutastic-yaml/v1.json"));
+    var grown = (ObjectNode) released.deepCopy();
+    var skip = (ObjectNode) grown.at("/$defs/rule/oneOf/0/properties");
+    skip.putObject("until").put("type", "string");
+    assertThat(SchemaCompatibility.breaks(released, grown, "mutastic.yaml")).isEmpty();
+
+    var shrunk = (ObjectNode) released.deepCopy();
+    ((ObjectNode) shrunk.at("/$defs/rule/oneOf/0/properties")).remove("reason");
+    assertThat(SchemaCompatibility.breaks(released, shrunk, "mutastic.yaml"))
+        .anyMatch(problem -> problem.endsWith("the field `reason` is gone"));
+
+    var fewer = (ObjectNode) released.deepCopy();
+    ((ArrayNode) fewer.at("/$defs/rule/oneOf")).remove(1);
+    assertThat(SchemaCompatibility.breaks(released, fewer, "mutastic.yaml"))
+        .singleElement()
+        .satisfies(
+            problem -> assertThat(problem).endsWith("`oneOf` had 2 alternatives, and has 1"));
+  }
+
   @Test
   void growingKeepsThem() {
     assertThat(breaks(schema -> fields(schema).putObject("caughtWhere").put("type", "string")))
