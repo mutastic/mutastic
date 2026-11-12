@@ -1,0 +1,134 @@
+---
+// The test-first cycle with mutastic in it, as a diagram: red, green, then mutastic's two steps
+// (mutate, and the card's test proved with `verify`), then refactor and commit, which starts the
+// next cycle. A card's test that fails on today's code has found a bug, and goes back to green.
+// Drawn in the theme's colours, so it reads in light and dark alike; the text says the same.
+---
+
+<figure class="tdd-loop">
+  <svg
+    viewBox="0 0 760 250"
+    role="img"
+    aria-labelledby="tdd-loop-title tdd-loop-desc"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <title id="tdd-loop-title">Working test-first with mutastic</title>
+    <desc id="tdd-loop-desc">
+      Red: a test from the spec fails. Green: the least code that passes it. Mutate: mutastic runs on
+      the cycle's lines. Triangulate: write each card's test and prove it with verify; one that
+      fails on today's code has found a bug, back to green. Refactor, then commit, which starts the
+      next cycle.
+    </desc>
+    <defs>
+      <marker id="tdd-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" class="ink" />
+      </marker>
+    </defs>
+
+    <g class="step red">
+      <rect x="10" y="40" width="105" height="58" rx="8" />
+      <text x="62" y="64">Red</text>
+      <text x="62" y="84" class="small">a test fails</text>
+    </g>
+    <g class="step green">
+      <rect x="135" y="40" width="105" height="58" rx="8" />
+      <text x="187" y="64">Green</text>
+      <text x="187" y="84" class="small">least code</text>
+    </g>
+    <g class="step mutastic">
+      <rect x="260" y="40" width="115" height="58" rx="8" />
+      <text x="317" y="64">Mutate</text>
+      <text x="317" y="84" class="small">run --since=HEAD</text>
+    </g>
+    <g class="step mutastic">
+      <rect x="395" y="40" width="125" height="58" rx="8" />
+      <text x="457" y="64">Triangulate</text>
+      <text x="457" y="84" class="small">card's test, verify</text>
+    </g>
+    <g class="step">
+      <rect x="540" y="40" width="95" height="58" rx="8" />
+      <text x="587" y="64">Refactor</text>
+      <text x="587" y="84" class="small">structure only</text>
+    </g>
+    <g class="step">
+      <rect x="655" y="40" width="95" height="58" rx="8" />
+      <text x="702" y="64">Commit</text>
+      <text x="702" y="84" class="small">ends the cycle</text>
+    </g>
+
+    <g class="arrows">
+      <line x1="115" y1="69" x2="133" y2="69" marker-end="url(#tdd-arrow)" />
+      <line x1="240" y1="69" x2="258" y2="69" marker-end="url(#tdd-arrow)" />
+      <line x1="375" y1="69" x2="393" y2="69" marker-end="url(#tdd-arrow)" />
+      <line x1="520" y1="69" x2="538" y2="69" marker-end="url(#tdd-arrow)" />
+      <line x1="635" y1="69" x2="653" y2="69" marker-end="url(#tdd-arrow)" />
+      <path d="M457,40 C457,8 187,8 187,38" class="back" marker-end="url(#tdd-arrow)" />
+      <path d="M702,98 C702,215 62,215 62,100" marker-end="url(#tdd-arrow)" />
+    </g>
+    <text x="322" y="18" class="note">red on today's code: a bug, back to green</text>
+    <text x="382" y="236" class="note">the next cycle starts from the commit</text>
+  </svg>
+  <figcaption>
+    mutastic comes after green: a red suite stops it. A card's test passes on today's code and
+    fails only with the mutant, so <code>verify</code> is its red and green.
+  </figcaption>
+</figure>
+
+<style>
+  .tdd-loop {
+    margin: 1.5rem 0;
+  }
+  .tdd-loop svg {
+    width: 100%;
+    height: auto;
+    max-width: 760px;
+  }
+  .tdd-loop figcaption {
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+    margin-top: 0.5rem;
+  }
+  .step rect {
+    fill: var(--sl-color-gray-6);
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.5;
+  }
+  .step text {
+    fill: var(--sl-color-white);
+    font-size: 15px;
+    font-weight: 600;
+    text-anchor: middle;
+  }
+  .step text.small {
+    font-size: 11.5px;
+    font-weight: 400;
+    fill: var(--sl-color-gray-2);
+  }
+  .step.red rect {
+    stroke: #d9534f;
+  }
+  .step.green rect {
+    stroke: #5cb85c;
+  }
+  .step.mutastic rect {
+    fill: var(--sl-color-accent-low);
+    stroke: var(--sl-color-accent);
+  }
+  .arrows line,
+  .arrows path {
+    stroke: var(--sl-color-gray-3);
+    stroke-width: 1.5;
+    fill: none;
+  }
+  .arrows .back {
+    stroke-dasharray: 5 4;
+  }
+  .ink {
+    fill: var(--sl-color-gray-3);
+  }
+  .note {
+    fill: var(--sl-color-gray-3);
+    font-size: 11.5px;
+    text-anchor: middle;
+  }
+</style>
