@@ -40,6 +40,14 @@ class CardTruthTest {
   /// Another class, whose static a condition reads.
   private static final Path OTHER = FIXTURE.resolve("shapes/Other.java");
 
+  /// The annotations the claimed shapes are said to be zero or above by, as stand-ins with the real
+  /// ones' names, retention and targets.
+  private static final List<String> ANNOTATIONS =
+      List.of(
+          "org.checkerframework.checker.index.qual.NonNegative",
+          "androidx.annotation.IntRange",
+          "jakarta.validation.constraints.PositiveOrZero");
+
   /// The start of each of the fixture's methods, which are written with two spaces before `static`
   /// and end at the first line that is two spaces and a `}`.
   private static final Pattern METHOD = Pattern.compile("  static .*?(?<name>\\w+)\\(.*\\{");
@@ -48,7 +56,8 @@ class CardTruthTest {
   private static final Map<String, String> METHOD_ON = new HashMap<>();
 
   /// The predicates the conditions call: not conditions of their own.
-  private static final Set<String> HELPERS = Set.of("even", "small", "atLeastOne", "isAbove");
+  private static final Set<String> HELPERS =
+      Set.of("even", "small", "atLeastOne", "isAbove", "counted");
 
   private static final Set<BuiltIn> CONDITIONS =
       Set.of(
@@ -75,6 +84,11 @@ class CardTruthTest {
 
   /// A comparison's headline: the inputs where its mutant differs, `with `a > b`` or `at `a == b``.
   private static final Pattern WHERE = Pattern.compile("(?:with|at) `(?<where>[^`]+)`$");
+
+  /// A skip that rests on what the code says of a value, `because a is @NonNegative.` or, unnamed,
+  /// `because it's @NonNegative.`, not on what mutastic proves.
+  private static final Pattern CLAIMED =
+      Pattern.compile("because (?:(?<value>.+) is|it's) @(?<annotation>\\w+).*\\.$");
 
   private static final int LOW = -4;
   private static final int HIGH = 5;
@@ -127,10 +141,11 @@ class CardTruthTest {
       }
     }
 
-    // The other class whose static a condition reads is there when they're compiled and run.
-    var other = Javac.Source.read(OTHER, "shapes.Other");
+    // The other class whose static a condition reads, and the annotations the claimed shapes have,
+    // are there when they're compiled; the class is there when they're run.
+    var alongside = alongside();
     // The claims about one mutant are all checked against what it does, found once.
-    var whatClaimsSay = whatClaimsSay(claims, other, original);
+    var whatClaimsSay = whatClaimsSay(claims, alongside, original);
     var whatMutantsDo = new HashMap<Mutant, List<String>>();
     for (var claim : claims) {
       var method = claim.mutant().methodName();
@@ -189,9 +204,11 @@ class CardTruthTest {
     var failures = new ArrayList<String>();
     for (var mutant : equivalent) {
       var method = mutant.methodName();
+      var code = outcomes(method, original.get(CLASS), original);
+      var did = outcomes(method, mutations.apply(model, mutant), original);
+      // A claimed skip takes the code at its word that `a` is zero or above: those are its inputs.
       firstDifference(
-              outcomes(method, original.get(CLASS), original),
-              outcomes(method, mutations.apply(model, mutant), original))
+              claimed(mutant) ? fromZero(code) : code, claimed(mutant) ? fromZero(did) : did)
           .ifPresent(
               input -> failures.add(mutant + " (" + mutant.skipped().get() + ") at " + input));
     }
@@ -227,6 +244,36 @@ class CardTruthTest {
           .as("the mutants of %s that differ only for a negative size", method)
           .isNotEmpty();
     }
+    assertThat(equivalent)
+        .as("comparisons that differ only below zero, of a value the code says is zero or above")
+        .filteredOn(CardTruthTest::claimed)
+        .extracting(Mutant::methodName)
+        .contains(
+            "claimedParameter", "claimedField", "claimedLocal", "claimedReturn", "claimedRange")
+        .doesNotContain("claimReassigned", "claimUnchecked");
+    assertThat(mutations.find(model))
+        .as("the near misses' changes that differ only below zero still run")
+        .filteredOn(mutant -> mutant.operator() == BuiltIn.COMPARISON)
+        .filteredOn(mutant -> mutant.replacement().equals("IFEQ"))
+        .filteredOn(mutant -> mutant.skipped().isEmpty())
+        .extracting(Mutant::methodName)
+        .contains("claimReassigned", "claimUnchecked");
+    assertThat(equivalent)
+        .filteredOn(CardTruthTest::claimed)
+        .extracting(Mutant::methodName, mutant -> mutant.skipped().get())
+        .contains(
+            org.assertj.core.groups.Tuple.tuple(
+                "claimedParameter",
+                "equivalent: differs only when a is negative. That can't happen because a is"
+                    + " @NonNegative."),
+            org.assertj.core.groups.Tuple.tuple(
+                "claimedReturn",
+                "equivalent: differs only when counted(a) is negative. That can't happen because"
+                    + " counted(a) is @NonNegative."),
+            org.assertj.core.groups.Tuple.tuple(
+                "claimedRange",
+                "equivalent: differs only when a is negative. That can't happen because a is"
+                    + " @IntRange(from = 0)."));
     assertThat(equivalent)
         .as("edges only reached where an `if` has ruled out their two sides being the same")
         .filteredOn(mutant -> mutant.skipped().get().startsWith("equivalent: differs only when "))
@@ -271,6 +318,22 @@ class CardTruthTest {
         .containsExactly(
             "equivalent: differs only when x is y. That can't happen because the if x != y"
                 + " around it rules it out.");
+  }
+
+  /// Whether the mutant's skip rests on what the code says of a value.
+  private static boolean claimed(Mutant mutant) {
+    return CLAIMED.matcher(mutant.skipped().orElse("")).find();
+  }
+
+  /// The outcomes for an `a` of zero and above, the rest left out: what a claim that `a` is never
+  /// negative covers.
+  private static List<String> fromZero(List<String> outcomes) {
+    int fromZero = -LOW * (HIGH - LOW + 1);
+    var kept = new ArrayList<String>(outcomes);
+    for (int at = 0; at < fromZero; at++) {
+      kept.set(at, "left out");
+    }
+    return kept;
   }
 
   /// The mutants of `method` that run and differ from the code only where `a` is negative: the ones
@@ -420,11 +483,12 @@ class CardTruthTest {
   /// before isn't compiled or loaded again. The rest are compiled in one call. A claim that won't
   /// compile is never kept, and fails each time.
   private static Map<String, List<String>> whatClaimsSay(
-      List<Claim> claims, Javac.Source other, Map<String, byte[]> original) throws Exception {
+      List<Claim> claims, List<Javac.Source> alongside, Map<String, byte[]> original)
+      throws Exception {
     var said = new HashMap<String, List<String>>();
     var unseen = new java.util.LinkedHashMap<String, Claim>();
     for (var claim : claims) {
-      Kept.find(saidKey(claim, other))
+      Kept.find(saidKey(claim, alongside))
           .ifPresentOrElse(
               outcomes -> said.put(claim.variant(), outcomes),
               () -> unseen.put(claim.variant(), claim));
@@ -436,7 +500,7 @@ class CardTruthTest {
                   unseen.values().stream()
                       .map(claim -> new Javac.Source("shapes." + claim.variant(), claim.source()))
                       .toList(),
-                  List.of(other)));
+                  alongside));
       original.forEach(
           (name, bytes) -> {
             if (name.startsWith("shapes.Other")) {
@@ -447,15 +511,17 @@ class CardTruthTest {
       for (var claim : unseen.values()) {
         var outcomes =
             outcomes(claim.mutant().methodName(), loader.loadClass("shapes." + claim.variant()));
-        Kept.keep(saidKey(claim, other), outcomes);
+        Kept.keep(saidKey(claim, alongside), outcomes);
         said.put(claim.variant(), outcomes);
       }
     }
     return said;
   }
 
-  private static List<String> saidKey(Claim claim, Javac.Source other) {
-    return List.of("said", claim.source(), claim.mutant().methodName(), other.text());
+  private static List<String> saidKey(Claim claim, List<Javac.Source> alongside) {
+    var key = new ArrayList<>(List.of("said", claim.source(), claim.mutant().methodName()));
+    alongside.forEach(source -> key.add(source.text()));
+    return key;
   }
 
   /// What a class of these bytes does, beside the fixture's other class: fixtures call nothing of
@@ -516,7 +582,23 @@ class CardTruthTest {
   private static Map<String, byte[]> original() throws IOException {
     return Javac.compile(
         List.of(Javac.Source.read(SOURCE, CLASS), Javac.Source.read(OTHER, "shapes.Other")),
-        List.of());
+        annotations());
+  }
+
+  /// The fixture's other class and the annotations, for a claim's source to compile beside.
+  private static List<Javac.Source> alongside() throws IOException {
+    var alongside = new ArrayList<>(List.of(Javac.Source.read(OTHER, "shapes.Other")));
+    alongside.addAll(annotations());
+    return alongside;
+  }
+
+  private static List<Javac.Source> annotations() throws IOException {
+    var sources = new ArrayList<Javac.Source>();
+    for (var annotation : ANNOTATIONS) {
+      sources.add(
+          Javac.Source.read(FIXTURE.resolve(annotation.replace('.', '/') + ".java"), annotation));
+    }
+    return sources;
   }
 
   /// The source with the card's claim written into the mutant's method.

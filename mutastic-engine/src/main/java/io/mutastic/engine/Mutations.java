@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
@@ -100,6 +101,10 @@ final class Mutations {
   private final Supertypes supertypes;
 
   private static final String NULL_PARAMETER = "null parameter";
+
+  /// What [Operands] calls a local the class file has no name for, `local1`, alone or in a longer
+  /// text: `local1.held`.
+  private static final Pattern UNNAMED_LOCAL = Pattern.compile("\\blocal(?<slot>\\d+)\\b");
 
   /// The operators this run uses on what's in a method, as the policy chooses.
   private final List<Operator> operators;
@@ -182,7 +187,8 @@ final class Mutations {
             filtered(model, method),
             here,
             new Wrappers(module),
-            supertypes)
+            supertypes,
+            module)
         .mutants();
   }
 
@@ -352,6 +358,10 @@ final class Mutations {
     private final List<Operator> operators;
     private final Wrappers wrappers;
     private final Supertypes supertypes;
+
+    /// The module's classes by internal name: empty until [Mutations#prepare] has seen them.
+    private final Map<String, ClassModel> module;
+
     private final Set<Integer> stringSwitchLines = new HashSet<>();
     private final List<Mutant> mutants = new ArrayList<>();
     private int line = -1;
@@ -367,8 +377,10 @@ final class Mutations {
         Optional<String> filtered,
         List<Operator> operators,
         Wrappers wrappers,
-        Supertypes supertypes) {
+        Supertypes supertypes,
+        Map<String, ClassModel> module) {
       this.model = model;
+      this.module = module;
       this.wrappers = wrappers;
       this.supertypes = supertypes;
       this.method = method;
@@ -673,7 +685,7 @@ final class Mutations {
 
     private Mutant mutant(Found found, Instruction instruction, int at, List<String> workedOn) {
       var operator = found.operator();
-      var skipped = skipped(found, instruction, at);
+      var skipped = skipped(found, instruction, at, workedOn);
       return new Mutant(
           model.thisClass().asInternalName(),
           method.methodName().stringValue(),
@@ -691,7 +703,8 @@ final class Mutations {
 
     /// Why a mutant shouldn't run, if it shouldn't: code the compiler or Lombok wrote, then what
     /// the code shows, then the filters'.
-    private Optional<String> skipped(Found found, Instruction instruction, int at) {
+    private Optional<String> skipped(
+        Found found, Instruction instruction, int at, List<String> workedOn) {
       if (tryWithResources.contains(instruction)) {
         return Optional.of("generated: closes a try-with-resources resource");
       }
@@ -701,7 +714,7 @@ final class Mutations {
       return machinery(found.operator(), at)
           .or(found::skippedByOperator)
           .or(() -> skipReason(instruction, at))
-          .or(() -> atTheSite(found, at))
+          .or(() -> atTheSite(found, at, workedOn))
           .or(() -> filteredHere(at));
     }
 
@@ -713,15 +726,31 @@ final class Mutations {
           : filtered;
     }
 
-    /// Why a mutant shouldn't run, judged by the code around it: its own, an `||`'s, and an `if`
-    /// that its two sides differ.
-    private Optional<String> atTheSite(Found found, int at) {
+    /// Why a mutant shouldn't run, judged by the code around it: its own, an `||`'s, an `if` that
+    /// its two sides differ, and what the code says of the value it compares.
+    private Optional<String> atTheSite(Found found, int at, List<String> workedOn) {
       return SiteSkips.reason(found.operator(), code, at)
           .or(
               () ->
                   ImpliedOr.reason(
                       found.operator(), found.label(), new ImpliedOr.Site(model, code, at)))
-          .or(() -> GuardedEdge.reason(found.operator(), found.label(), code, at));
+          .or(() -> GuardedEdge.reason(found.operator(), found.label(), code, at))
+          .or(() -> claimed(found, at, workedOn));
+    }
+
+    /// A comparison's change that differs only below zero, of a value the code says isn't.
+    private Optional<String> claimed(Found found, int at, List<String> workedOn) {
+      var site = new ClaimedNonNegative.Site(model, method, code, at, this::classNamed);
+      // What reads a local the class file has no name for is unnamed.
+      var value = workedOn.stream().findFirst().filter(name -> !UNNAMED_LOCAL.matcher(name).find());
+      return ClaimedNonNegative.reason(found.operator(), found.label(), site, value);
+    }
+
+    /// The class being scanned, or another of the module's, by internal name.
+    private Optional<ClassModel> classNamed(String name) {
+      return name.equals(model.thisClass().asInternalName())
+          ? Optional.of(model)
+          : Optional.ofNullable(module.get(name));
     }
 
     /// Why a mutant shouldn't run, if it shouldn't: the reason's first word is its kind.

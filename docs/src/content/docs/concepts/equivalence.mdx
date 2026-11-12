@@ -5,7 +5,10 @@ description: "What it means for a mutant to be equivalent, which ones mutastic s
 
 import EditionOnly from '../../../components/EditionOnly.astro';
 import EditionTabs from '../../../components/EditionTabs.astro';
+import { Code } from '@astrojs/starlight/components';
 import RustOutput from '../../../components/RustOutput.astro';
+import claimed from '../../../data/output/claimed-explain.ansi?raw';
+import validated from '../../../data/output/validated-explain.ansi?raw';
 
 A mutant is **equivalent** when no input can tell it apart from the original: the code changed, but
 what it does didn't. No test can catch it, because there's nothing to catch.
@@ -127,6 +130,51 @@ A collection's `size()` and a `CharSequence`'s `length()` run: `List` and `CharS
 interfaces, so a class of yours can return `-1` from them. So does `length()` on a `String` called
 as a `CharSequence`, as Kotlin's `isEmpty()` is, since the call doesn't show it's a `String`.
 
+**A value your code says can't be negative.** The same change is skipped for a value annotated as
+never negative by an annotation a tool checks when the code compiles. This skip rests on your
+code's word, not on mutastic's proof, so the reason names the annotation: `equivalent: differs only
+when left is negative. That can't happen because left is @NonNegative.` These count:
+
+- the Checker Framework's `@NonNegative`, `@Positive` and `@IndexFor`;
+- AndroidX's `@IntRange` with a `from` of 0 or more, which Android Lint checks.
+
+mutastic reads them from the class file, on a parameter, a field, a local and what a method returns.
+The value has to be the annotated one when it's compared: a parameter or local stored to first
+isn't. If you have the annotations but don't run the checker, nothing checks that word, and you
+should leave them off the values whose mutants you want to run.
+
+An annotation checked only at run time doesn't count. Jakarta Validation's `@PositiveOrZero`,
+`@Positive` and `@Min(0)` are checked only where something validates the value, such as a request
+body at a controller, so a direct call can still pass -1. JSR-305's `@Nonnegative` isn't checked by
+anything. The stock sample has the same method twice:
+
+{/* from: samples/stock/src/main/java/com/example/stock/Restock.java */}
+```java
+  /// `left` is checked at compile time: the Checker Framework rejects a call that could pass -1.
+  public static int toOrder(@NonNegative int left, int target) {
+    if (left > 0) {
+      return 0;
+    }
+    return target;
+  }
+
+  /// `left` is checked only where something validates it: a direct call can pass -1.
+  public static int toOrderValidated(@PositiveOrZero int left, int target) {
+    if (left > 0) {
+      return 0;
+    }
+    return target;
+  }
+```
+
+`left > 0` becoming `left != 0` is skipped in the first:
+
+<Code code={claimed} lang="ansi" />
+
+In the second it runs, and the test it suggests is the call that validation would never see:
+
+<Code code={validated} lang="ansi" />
+
 **The next test of an `||` already covers its case.** Forcing the first test false changes nothing
 when everything it lets through, the second does too:
 
@@ -200,10 +248,12 @@ says it can't. So:
 
 - **Only proof, never likelihood.** A shape is skipped when the bytecode shows it exactly: the same
   local, the same constant, the arms meeting. A near miss runs as usual: `a > 0 || a > 2` isn't
-  skipped, since `1` gets past the first and not the second.
+  skipped, since `1` gets past the first and not the second. The one proof that isn't mutastic's is
+  a checker's, for a value annotated as never negative, and the reason says it's your code's word.
 - **Every rule is checked by running it.** mutastic's own tests compile a fixture of these shapes and
   their near misses, run every mutant skipped as equivalent against the original on every input,
-  and fail if one behaves differently.
+  and fail if one behaves differently. A skip that takes the code's word is run on every input
+  that word allows.
 - **It can't be overridden by accident.** `@DoMutate` and `mutate:` rules bring back arid code, never
   equivalent mutants, since running them can't tell you anything.
 

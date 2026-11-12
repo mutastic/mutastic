@@ -1,5 +1,9 @@
 package shapes;
 
+import androidx.annotation.IntRange;
+import jakarta.validation.constraints.PositiveOrZero;
+import org.checkerframework.checker.index.qual.NonNegative;
+
 /// The ways javac compiles a condition, one to a method: each card a mutant here gets is checked
 /// against the source with its claim written in. Every method takes two ints and returns an int,
 /// and no condition's text repeats within its method, so a card's words point at one place. Each
@@ -573,6 +577,69 @@ public final class Shapes {
   static int userTextLength(int a, int b) {
     CharSequence text = new Other.Measured(a);
     if (text.length() != 0) {
+      return 1;
+    }
+    return 2 + b;
+  }
+
+  /// Said to be zero or above, which a checker proves and mutastic takes at its word: the claimed
+  /// shapes are checked only for an `a` of zero and above.
+  static @NonNegative int stock;
+
+  /// A count said to be zero or above, which only the checker's word makes so.
+  static @NonNegative int counted(int a) {
+    return a;
+  }
+
+  static int claimedParameter(@NonNegative int a, int b) {
+    if (a > 0) {
+      return 1;
+    }
+    return 2;
+  }
+
+  static int claimedField(int a, int b) {
+    stock = a;
+    if (stock != 0) {
+      return 1;
+    }
+    return 2 + b;
+  }
+
+  static int claimedLocal(int a, int b) {
+    @NonNegative int left = a;
+    if (left > 0) {
+      return 1;
+    }
+    return 2 + b;
+  }
+
+  static int claimedReturn(int a, int b) {
+    if (counted(a) != 0) {
+      return 1;
+    }
+    return 2;
+  }
+
+  static int claimedRange(@IntRange(from = 0) int a, int b) {
+    if (a > 0) {
+      return 1;
+    }
+    return 2 + b;
+  }
+
+  /// Said to be zero or above, then made something else: what the comparison reads is unclaimed.
+  static int claimReassigned(@NonNegative int a, int b) {
+    a = a - b;
+    if (a > 0) {
+      return 1;
+    }
+    return 2;
+  }
+
+  /// Said to be zero or above by an annotation checked only where something validates it.
+  static int claimUnchecked(@PositiveOrZero int a, int b) {
+    if (a > 0) {
       return 1;
     }
     return 2 + b;

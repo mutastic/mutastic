@@ -33,6 +33,13 @@ class DocsOutputTest {
   private static final Path CONFIGURED =
       Path.of(System.getProperty("mutastic.samples"), "configured");
   private static final Path PAGES = Path.of(System.getProperty("mutastic.docs"));
+  private static final Path STOCK = Path.of(System.getProperty("mutastic.samples"), "stock");
+
+  /// The stock sample's `left > 0` becoming `left != 0` where `left` is `@NonNegative`, skipped,
+  /// and where it's `@PositiveOrZero`, which runs.
+  private static final String CLAIMED = "m46ea303d";
+
+  private static final String VALIDATED = "mb1c584d6";
 
   /// A mutant of the configured sample's generated code, which its rule skips.
   private static final String GENERATED = "m6393711d";
@@ -153,6 +160,20 @@ class DocsOutputTest {
     shown("configured-without.ansi", project, without);
     shown("configured.ansi", project, with);
     shown("configured-explain.ansi", project, mutastic("explain", GENERATED, project.toString()));
+  }
+
+  /// The Equivalent mutants page's pair: a comparison's change that differs only below zero,
+  /// skipped where the Checker Framework says the value is never negative, and run where only
+  /// Jakarta Validation does.
+  @Test
+  void aValueTheCodeSaysIsNeverNegative() throws Exception {
+    var project = Samples.copy(STOCK, work.resolve("stock"));
+
+    shown("claimed-explain.ansi", project, mutastic("explain", CLAIMED, project.toString()));
+    var validated = Samples.mutastic(TERMINAL, "explain", VALIDATED, project.toString());
+
+    assertThat(validated.out()).contains("left > 0");
+    shown("validated-explain.ansi", project, validated);
   }
 
   /// Troubleshooting's examples, one for each exit status a person meets: a score below the

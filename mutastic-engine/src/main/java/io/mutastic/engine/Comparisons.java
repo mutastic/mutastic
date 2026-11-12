@@ -208,6 +208,19 @@ final class Comparisons {
     return compare != null && nanOrdered(compare) ? keepingNan(compare, relation, wanted) : wanted;
   }
 
+  /// Whether changing a comparison with zero, `jump`, to `replacement`, an opcode's name, changes
+  /// what it does only for a value below zero: `IFLE` to `IFEQ`.
+  static boolean onlyBelowZero(Opcode jump, String replacement) {
+    var original = Jump.of(jump);
+    if (original.family() != Family.WITH_ZERO) {
+      return false;
+    }
+    return Arrays.stream(Relation.values())
+        .filter(change -> Family.WITH_ZERO.opcode(change).name().equals(replacement))
+        .anyMatch(
+            change -> change != original.relation() && sameFromZero(original.relation(), change));
+  }
+
   /// Whether the two relations give the same answer for zero and every value above it.
   private static boolean sameFromZero(Relation one, Relation other) {
     return one.holds(0) == other.holds(0) && one.holds(1) == other.holds(1);

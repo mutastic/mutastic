@@ -1,0 +1,3 @@
+# The below-zero change of a comparison is one of the stronger set's.
+operators:
+  - stronger
