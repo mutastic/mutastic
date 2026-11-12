@@ -15,13 +15,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.SequencedSet;
 import java.util.ServiceLoader;
 import org.jspecify.annotations.Nullable;
 
 /// `mutastic.yaml`, in the project's directory: the project's own say over which mutants run.
 ///
 /// ```yaml
+/// extends: ../mutastic.yaml
 /// rules:
 ///   - skip: com.acme.generated.**
 ///     reason: protobuf output
@@ -41,6 +45,11 @@ import org.jspecify.annotations.Nullable;
 /// never a guess. A plugin is a jar, whose filters run only when `filters:` names them and whose
 /// operators run as `operators:` chooses, or a rules file (`.yaml`) of call operators. `operators:`
 /// chooses as `--operators` does, which replaces it.
+///
+/// A module uses the nearest `mutastic.yaml` at or above its directory, however it's run, so the
+/// same module gets the same rules from the build's top as from its own directory. A file adds
+/// another's only when it says so, with `extends:`: one file and the ones it names are all that
+/// apply, never a cascade nobody wrote down.
 record Configuration(
     List<Rule> rules, List<Path> plugins, List<String> filters, List<String> operators) {
   static final String FILE = "mutastic.yaml";
@@ -53,17 +62,99 @@ record Configuration(
     operators = List.copyOf(operators);
   }
 
-  /// The project's configuration, or none when it has no `mutastic.yaml`.
+  /// The project's configuration, or none when it has no `mutastic.yaml`: the file's own, then what
+  /// it `extends:`.
   static Configuration read(Path directory) {
-    var file = directory.resolve(FILE);
+    var file = directory.resolve(FILE).toAbsolutePath().normalize();
     if (!Files.isRegularFile(file)) {
       return NONE;
     }
+    var chain = new LinkedHashSet<Path>();
+    chain.add(file);
+    return read(file, chain);
+  }
+
+  /// Where a module's `mutastic.yaml` is: the nearest at or above the module's directory, no higher
+  /// than the top of its repository (or than the run's directory, outside one). Else the run's
+  /// directory, which may have none.
+  static Path nearest(Path module, Path run) {
+    var from = module.toAbsolutePath().normalize();
+    var top = repository(from).orElse(run.toAbsolutePath().normalize());
+    for (Path at = from; at != null && at.startsWith(top); at = at.getParent()) {
+      if (Files.isRegularFile(at.resolve(FILE))) {
+        return at;
+      }
+    }
+    return run;
+  }
+
+  /// The top of the git repository `directory` is in, if it's in one.
+  private static Optional<Path> repository(Path directory) {
+    for (Path at = directory; at != null; at = at.getParent()) {
+      if (Files.exists(at.resolve(".git"))) {
+        return Optional.of(at);
+      }
+    }
+    return Optional.empty();
+  }
+
+  /// One file, then the files its `extends:` names in turn; `chain` is those read so far, so a file
+  /// that comes back round is an error rather than a loop.
+  private static Configuration read(Path file, SequencedSet<Path> chain) {
+    var reader = new Reader(file, shown(chain, file));
+    Configuration own;
     try {
-      return new Reader(file).read();
+      own = reader.read();
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
+    var extended = reader.extended;
+    if (extended == null) {
+      return own;
+    }
+    if (!chain.add(extended)) {
+      var names = new ArrayList<String>();
+      chain.forEach(each -> names.add(shown(chain, each).toString()));
+      names.add(shown(chain, extended).toString());
+      throw new Main.UsageException(
+          "extends: goes round in a loop: " + String.join(" extends ", names));
+    }
+    return own.over(read(extended, chain).movedTo(directoryOf(extended), directoryOf(file)));
+  }
+
+  /// A file as its errors name it: from the directory of the first file read.
+  private static Path shown(SequencedSet<Path> chain, Path file) {
+    return directoryOf(chain.getFirst()).relativize(file);
+  }
+
+  /// The directory a file read by its absolute path is in.
+  private static Path directoryOf(Path file) {
+    return java.util.Objects.requireNonNull(file.getParent(), file::toString);
+  }
+
+  /// This file's say over `parent`'s: its rules first, so a module's own reason is the one shown,
+  /// then the parent's; the plugins and filters of both; and its operators, if it chooses any, in
+  /// place of the parent's, as `--operators` replaces them.
+  private Configuration over(Configuration parent) {
+    return new Configuration(
+        joined(rules, parent.rules),
+        joined(plugins, parent.plugins),
+        joined(filters, parent.filters),
+        operators.isEmpty() ? parent.operators : operators);
+  }
+
+  /// `first` then `then`, each once.
+  private static <T> List<T> joined(List<T> first, List<T> then) {
+    var both = new LinkedHashSet<T>(first);
+    both.addAll(then);
+    return List.copyOf(both);
+  }
+
+  /// The same configuration, its plugins' paths from `to` rather than `from`, the directory another
+  /// file read it from.
+  private Configuration movedTo(Path from, Path to) {
+    var moved = plugins.stream().map(plugin -> to.relativize(from.resolve(plugin))).toList();
+    return new Configuration(rules, moved, filters, operators);
   }
 
   /// The rules, the filters `filters:` names, found in the plugins, and the operators the plugins
@@ -144,17 +235,20 @@ record Configuration(
   /// Reads the file a line at a time, in the shape above.
   private static final class Reader {
     private final Path file;
+    private final Path shown;
     private final List<Rule> rules = new ArrayList<>();
     private final List<Path> plugins = new ArrayList<>();
     private final List<String> filters = new ArrayList<>();
     private final List<String> operators = new ArrayList<>();
+    private @Nullable Path extended;
     private String section = "";
     private @Nullable String pendingVerb;
     private @Nullable String pendingTarget;
     private int number;
 
-    Reader(Path file) {
+    Reader(Path file, Path shown) {
       this.file = file;
+      this.shown = shown;
     }
 
     Configuration read() throws IOException {
@@ -173,8 +267,10 @@ record Configuration(
       if (!line.startsWith(" ")) {
         requireReason();
         section = line.strip();
-        if (!List.of("rules:", "plugins:", "filters:", "operators:").contains(section)) {
-          throw error("expected rules:, plugins:, filters: or operators:");
+        if (section.startsWith("extends:")) {
+          extend(value(section.substring("extends:".length())));
+        } else if (!List.of("rules:", "plugins:", "filters:", "operators:").contains(section)) {
+          throw error("expected extends:, rules:, plugins:, filters: or operators:");
         }
         return;
       }
@@ -186,6 +282,21 @@ record Configuration(
         case "operators:" -> operators.add(listed(item));
         default -> throw error("a list item needs a section above it");
       }
+    }
+
+    /// `extends: <path>`, from this file's directory, to a file that's there; once.
+    private void extend(String path) {
+      if (extended != null) {
+        throw error("a file extends one other file, once");
+      }
+      if (path.isEmpty()) {
+        throw error("`extends:` needs a path, such as ../mutastic.yaml");
+      }
+      var named = file.resolveSibling(path).normalize();
+      if (!Files.isRegularFile(named)) {
+        throw error("extends %s, which isn't there".formatted(path));
+      }
+      extended = named;
     }
 
     private void rule(String item) {
@@ -246,7 +357,7 @@ record Configuration(
     }
 
     private Main.UsageException error(String what) {
-      return new Main.UsageException("%s line %d: %s".formatted(file.getFileName(), number, what));
+      return new Main.UsageException("%s line %d: %s".formatted(shown, number, what));
     }
   }
 }

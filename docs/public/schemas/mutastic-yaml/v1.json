@@ -2,10 +2,16 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://docs.mutastic.io/schemas/mutastic-yaml/v1.json",
   "title": "mutastic.yaml, v1",
-  "description": "A project's own say over which mutants run, in `mutastic.yaml` in its directory. mutastic reads it strictly: a key it doesn't know is an error, so this schema refuses one too. See https://docs.mutastic.io/guides/configuration/.",
+  "description": "A project's own say over which mutants run, in the nearest `mutastic.yaml` at or above a module's directory. mutastic reads it strictly: a key it doesn't know is an error, so this schema refuses one too. See https://docs.mutastic.io/guides/configuration/.",
   "type": ["object", "null"],
   "additionalProperties": false,
   "properties": {
+    "extends": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Another `mutastic.yaml` whose rules, plugins and filters this file adds to, by its path from this file's directory. Its operators apply only when this file chooses none.",
+      "examples": ["../mutastic.yaml"]
+    },
     "rules": {
       "type": ["array", "null"],
       "description": "Code to skip, or to mutate though mutastic would skip it as arid, each with its reason.",

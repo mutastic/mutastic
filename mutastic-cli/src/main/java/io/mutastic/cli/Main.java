@@ -152,7 +152,7 @@ public final class Main {
     var prepared = prepare(command, tool);
     showFileLines(command, output, humanText(command, output, prepared.sources()), prepared);
     var engine = new Engine(workerJar(), prepared.work().resolve("worker.log"));
-    var options = options(command, terminal, prepared.directory());
+    var options = options(command, terminal, prepared);
     var passes = new Passes(engine, options, progress, tool, shares);
     if (command.subcommand() != Subcommand.RUN) {
       return command.subcommand().gate()
@@ -299,7 +299,7 @@ public final class Main {
   private static String nextKey(Command command, Prepared prepared) {
     return NextRun.keyOf(
         RunRecord.classesOf(prepared.project()),
-        OperatorSet.active(policy(command, prepared.directory())).stream()
+        OperatorSet.active(policy(command, prepared)).stream()
             .map(io.mutastic.api.Operator::id)
             .sorted()
             .collect(java.util.stream.Collectors.joining(",")),
@@ -727,7 +727,7 @@ public final class Main {
   private static Report gateRun(Gated gated, String base) {
     var run = gated.command().runSince(base);
     var passes = gated.passes();
-    var options = options(run, gated.terminal(), gated.prepared().directory());
+    var options = options(run, gated.terminal(), gated.prepared());
     var report =
         new Passes(passes.engine(), options, passes.progress(), passes.tool(), Optional.empty())
             .run(run, gated.prepared(), passes.progress())
@@ -1112,7 +1112,8 @@ public final class Main {
   static final String GHOSTS = "ghosts";
 
   /// What the engine runs with: the command's choices, and the project's `mutastic.yaml`.
-  private static Engine.Options options(Command command, Terminal terminal, Path directory) {
+  private static Engine.Options options(Command command, Terminal terminal, Prepared prepared) {
+    var directory = prepared.directory();
     return new Engine.Options(
             command.only(),
             command.confirmCatches(),
@@ -1120,26 +1121,28 @@ public final class Main {
             command.suggestions() && !command.verify(),
             terminal.auditArid(),
             java.util.Set.of(),
-            policy(command, directory),
+            policy(command, prepared),
             command.since().map(since -> new Git(directory).changedSince(since)),
             command.experimental().contains(GHOSTS) || terminal.experimental().contains(GHOSTS))
         .withKillMatrix(command.killMatrix())
         .withShard(command.shard().orElse(Shard.WHOLE));
   }
 
-  /// The project's say, from `mutastic.yaml` and its ignores, with the operators to run: the
-  /// command's `--operators`, else `operators:`, else the defaults. One mutant, asked for by id, is
-  /// looked for among every operator (`all`), so a stronger or extended one's id is found as any
-  /// other's.
-  private static Policy policy(Command command, Path directory) {
-    var configuration = Configuration.read(directory);
+  /// The project's say, from the module's nearest `mutastic.yaml` and the run's ignores, with the
+  /// operators to run: the command's `--operators`, else `operators:`, else the defaults. One
+  /// mutant, asked for by id, is looked for among every operator (`all`), so a stronger or extended
+  /// one's id is found as any other's.
+  private static Policy policy(Command command, Prepared prepared) {
+    var directory = prepared.directory();
+    var configured = Configuration.nearest(prepared.project().workingDirectory(), directory);
+    var configuration = Configuration.read(configured);
     var chosen =
         !command.only().isEmpty()
             ? List.of("all")
             : command.operators().isEmpty() ? configuration.operators() : command.operators();
     var policy =
         configuration
-            .policy(directory)
+            .policy(configured)
             .withIgnores(Ignores.read(directory).stream().map(Ignores.Entry::ignore).toList());
     policy = policy.withOperators(chosen, policy.mutators());
     try {
@@ -1343,7 +1346,7 @@ public final class Main {
                 otherTests,
                 RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())),
                 report)
-            .under(OperatorSet.active(policy(command, prepared.directory())));
+            .under(OperatorSet.active(policy(command, prepared)));
     // Only an earlier run of the same project, in the same place, under the same operators, says
     // anything about this one.
     var comparison = records.comparableTo(record).map(record::against);
