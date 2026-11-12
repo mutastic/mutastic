@@ -3,7 +3,9 @@
   "edition" : "java",
   "reason" : "mutant-explained",
   "id" : "m855c8e3c",
-  "bytecode" : {
+  "applied" : {
+    "level" : "bytecode",
+    "text" : "IF_ICMPLT -> IF_ICMPLE",
     "original" : "IF_ICMPLT",
     "replacement" : "IF_ICMPLE",
     "meanings" : [ "IF_ICMPLT: jump if the first int is less than the second", "IF_ICMPLE: jump if the first int is less than or equal to the second" ],
