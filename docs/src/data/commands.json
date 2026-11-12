@@ -306,7 +306,7 @@
       "group": "Running",
       "value": "KIND[:PATH]",
       "choices": [],
-      "help": "A report file a full run writes: json, html or xml, or none; json and html unless set",
+      "help": "A report file a full run writes: json, html, xml or sarif, or none; json and html unless set",
       "commands": ["run"],
       "environment": "",
       "maven": { "property": "-Dmutastic.reports", "setting": "<reports>…</reports>" },

@@ -222,8 +222,8 @@ final class Options {
               Group.RUNNING,
               "KIND[:PATH]",
               List.of(),
-              "A report file a full run writes: json, html or xml, or none; json and html unless"
-                  + " set",
+              "A report file a full run writes: json, html, xml or sarif, or none; json and html"
+                  + " unless set",
               RUNS,
               "reports",
               true,

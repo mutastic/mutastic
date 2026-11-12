@@ -669,8 +669,10 @@ mutants:
 
 The [report files](/reference/reports/) of a module are in its own work directory
 (`build/mutastic/core/mutation.*`), and `build/mutastic/*/mutation.*` takes every module's. For
-build-server and code-quality plugins, `mutations.xml` is `--report=xml`; `--report` replaces the
-defaults, so name each file you want: `--report=json --report=html --report=xml`.
+build-server and code-quality plugins, `mutations.xml` is `--report=xml`, and for code scanning,
+`mutation.sarif` is `--report=sarif`, which GitHub shows as alerts on a pull request's lines (see
+[Code scanning](/reference/reports/#code-scanning)); `--report` replaces the defaults, so name each
+file you want: `--report=json --report=html --report=xml`.
 
 </div>
 <div slot="rust">

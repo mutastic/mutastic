@@ -1383,6 +1383,7 @@ public final class Main {
     return switch (kind) {
       case "json" -> "mutation.json";
       case "html" -> "mutation.html";
+      case "sarif" -> "mutation.sarif";
       default -> "mutations.xml";
     };
   }
