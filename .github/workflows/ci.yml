@@ -120,9 +120,19 @@ jobs:
   # Windows, on its own beside the others: the CLI's end-to-end tests on a few samples (the cards,
   # a Gradle build and a Maven build), run the way a Windows user runs them, with `gradlew.bat`.
   # The rest of the build is the same on every platform, so it runs on Linux only.
-  windows:
+  # Windows, in two shares to stay under 30 minutes each: the cards and both build tools' samples,
+  # then the Gradle plugin, the gate and a Quarkus build.
+  windows-share:
     runs-on: windows-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - share: 1
+            tests: --tests io.mutastic.cli.CardsTest --tests io.mutastic.cli.PricingSampleTest --tests io.mutastic.cli.MavenPluginTest
+          - share: 2
+            tests: --tests io.mutastic.cli.GradlePluginTest --tests io.mutastic.cli.GateTest --tests io.mutastic.cli.QuarkusTest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
@@ -132,12 +142,21 @@ jobs:
             17
             25
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-      - run: .\gradlew.bat :mutastic-cli:test --tests io.mutastic.cli.CardsTest --tests io.mutastic.cli.PricingSampleTest --tests io.mutastic.cli.MavenPluginTest --continue
+      - run: .\gradlew.bat :mutastic-cli:test ${{ matrix.tests }} --continue
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: reports-windows
+          name: reports-windows-${{ matrix.share }}
           path: mutastic-cli/build/reports/
+
+  # The check branch protection names: passes when both Windows shares do.
+  windows:
+    needs: windows-share
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: test "${{ needs.windows-share.result }}" = success
 
   # The coverage floor, over what every job measured.
   coverage:

@@ -137,13 +137,21 @@ public abstract class MutasticPlugin implements Plugin<Project> {
     return version;
   }
 
-  /// `./gradlew` as typed from `here` when the build has a wrapper, else `gradle`.
+  /// `./gradlew` as typed from `here` when the build has a wrapper, else `gradle`; on Windows
+  /// `.\gradlew.bat`, which cmd runs as PowerShell does, where `./gradlew` is a cmd error.
   static String gradle(File root, File here) {
-    var wrapper = new File(root, "gradlew");
+    return gradle(root, here, File.separatorChar == '\\');
+  }
+
+  static String gradle(File root, File here, boolean windows) {
+    var wrapper = new File(root, windows ? "gradlew.bat" : "gradlew");
     if (!wrapper.isFile()) {
       return "gradle";
     }
     var relative = here.toPath().relativize(wrapper.toPath()).toString();
-    return relative.startsWith("..") ? wrapper.getPath() : "./" + relative;
+    if (relative.startsWith("..")) {
+      return wrapper.getPath();
+    }
+    return (windows ? ".\\" : "./") + relative;
   }
 }

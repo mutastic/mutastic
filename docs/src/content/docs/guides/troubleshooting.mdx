@@ -99,3 +99,11 @@ anyway: they're known to be false.
 That's a bug in mutastic. Please [open an issue](https://github.com/mutastic/mutastic/issues) with
 the command, the message, and the worker log from the module's work directory
 (`build/mutastic/worker.log` or `target/mutastic/worker.log`).
+
+## `+` and `x` where `✓` and `✗` should be
+
+A Windows console on its legacy code page has no `✓`, `✗`, `○` or `…`, so mutastic writes `+`,
+`x`, `o` and `...` in their place, rather than the `?` Java would. Windows Terminal and the console
+show the real ones once the console is in UTF-8: run `chcp 65001` first, or turn on Windows'
+*Beta: Use Unicode UTF-8 for worldwide language support*. Output to a pipe or a file is UTF-8
+whatever the console's code page.
