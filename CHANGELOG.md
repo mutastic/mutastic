@@ -57,6 +57,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **Kover's agent is left out of the tests too.** A Gradle build that applies Kover adds its agent
+  to the tests, and its jar, which Kover writes in a task of its own before them, wasn't there
+  when mutastic ran them: the test worker didn't start, and the run stopped with an internal
+  error. Kover's agent and IntelliJ's, which it's built on, are left out as JaCoCo's is, and the
+  run is the same as without Kover.
 - **A Maven build's JaCoCo agent is left out of the tests, as Gradle's is.** mutastic leaves
   JaCoCo out because it changes classes as they load, but it knew the agent only by Gradle's jar
   name, `jacocoagent.jar`. Under Maven's `prepare-agent` (`org.jacoco.agent-…-runtime.jar`) the
