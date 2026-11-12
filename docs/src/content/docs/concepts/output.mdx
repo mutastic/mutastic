@@ -8,6 +8,7 @@ import EditionOnly from '../../../components/EditionOnly.astro';
 import EditionTabs from '../../../components/EditionTabs.astro';
 import RustOutput from '../../../components/RustOutput.astro';
 import explain from '../../../data/output/explain.ansi?raw';
+import explainedEvent from '../../../data/output/explained-event.json?raw';
 import agent from '../../../data/output/format-agent.ansi?raw';
 import brief from '../../../data/output/format-brief.ansi?raw';
 import concise from '../../../data/output/format-concise.ansi?raw';
@@ -167,6 +168,16 @@ Under **About this mutant**:
 - **id**: how the id is made, and why it stays the same when code above it moves.
 - **site**: which of the method's sites it is.
 - **last run**: how the last run of every mutant went (a `run`, or the `next` that first ran them all), or `none yet`.
+
+With `--format=jsonl` (the only other format it takes; `full` is the text above), it writes the
+events a run's [JSON Lines](/reference/schemas/#events) has for that one mutant, `run-started`, its
+`mutant-finished` and `run-finished`, and then `mutant-explained`, with each row of About this
+mutant as a field, in the same words: `bytecode` (the `original` and `replacement` opcodes, what
+each `meanings`, and the jump's `note`), `operator` (its `id` and `description`), the
+`fingerprint` with `idDescription` and `idNote`, `site` (its `ordinal`, `method` and
+`description`), and `lastRun` (its `status` and `description`), left out when there's none yet:
+
+<Code code={explainedEvent} lang="json" />
 
 </div>
 <div slot="rust">

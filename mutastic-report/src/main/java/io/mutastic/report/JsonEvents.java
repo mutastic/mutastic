@@ -2,6 +2,7 @@ package io.mutastic.report;
 
 import io.mutastic.api.ChangedLines;
 import io.mutastic.api.Comparison;
+import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
@@ -106,7 +107,7 @@ public final class JsonEvents {
     return fields;
   }
 
-  private Map<String, Object> location(io.mutastic.api.Mutant mutant) {
+  private Map<String, Object> location(Mutant mutant) {
     var location = new LinkedHashMap<String, Object>();
     location.put("file", sources.file(mutant));
     location.put("line", sources.place(mutant).line());
@@ -115,7 +116,7 @@ public final class JsonEvents {
     return location;
   }
 
-  private Map<String, Object> mutation(io.mutastic.api.Mutant mutant) {
+  private Map<String, Object> mutation(Mutant mutant) {
     var advice = sources.advice(mutant);
     var mutation = new LinkedHashMap<String, Object>();
     advice.before().ifPresent(before -> mutation.put("original", before));
@@ -218,6 +219,59 @@ public final class JsonEvents {
 
   public void runFinished(Report report) {
     runFinished(report, Optional.empty());
+  }
+
+  /// `mutastic explain`'s last event: what the text's About this mutant says, a field for each of
+  /// its rows, in the same words. After the run's own events for the mutant, so the card's facts
+  /// are its `mutant-finished`.
+  ///
+  /// @param lastRun how the last full run went for it; the field is left out when there was none
+  public void mutantExplained(Mutant mutant, Optional<Explanation.LastRun> lastRun) {
+    var fields = new LinkedHashMap<String, Object>();
+    fields.put("id", mutant.id());
+    fields.put("bytecode", bytecode(mutant));
+    var operator = new LinkedHashMap<String, Object>();
+    operator.put("id", mutant.operator().id());
+    operator.put("description", mutant.operator().explanation());
+    fields.put("operator", operator);
+    fields.put("fingerprint", mutant.fingerprint());
+    var id = Explanation.id(mutant);
+    fields.put("idDescription", id.getFirst());
+    fields.put("idNote", id.getLast());
+    fields.put("site", site(mutant));
+    lastRun.ifPresent(found -> fields.put("lastRun", lastRun(found)));
+    emit("mutant-explained", fields);
+  }
+
+  /// The opcodes before and after, what each does, and how the jump relates to the source.
+  private Map<String, Object> bytecode(Mutant mutant) {
+    var bytecode = new LinkedHashMap<String, Object>();
+    bytecode.put("original", mutant.original());
+    bytecode.put("replacement", mutant.replacement());
+    bytecode.put("meanings", Explanation.meanings(mutant));
+    new Explanation(sources, Style.PLAIN)
+        .jump(mutant)
+        .ifPresent(note -> bytecode.put("note", note));
+    return bytecode;
+  }
+
+  /// Which site of its method it is: counted from 1, but for a change to the class as a whole.
+  private static Map<String, Object> site(Mutant mutant) {
+    var site = new LinkedHashMap<String, Object>();
+    if (!(mutant.operator() instanceof io.mutastic.api.ClassMutator)) {
+      site.put("ordinal", mutant.ordinal() + 1);
+    }
+    site.put("method", mutant.methodName() + mutant.descriptor());
+    site.put("description", Explanation.site(mutant));
+    return site;
+  }
+
+  private static Map<String, Object> lastRun(Explanation.LastRun run) {
+    var fields = new LinkedHashMap<String, Object>();
+    fields.put("status", run.status().schemaName());
+    run.caughtBy().ifPresent(test -> fields.put("caughtBy", test));
+    fields.put("description", Explanation.described(run));
+    return fields;
   }
 
   /// `mutastic next`'s answer: a `next-item` for each item shown, its lead mutant as

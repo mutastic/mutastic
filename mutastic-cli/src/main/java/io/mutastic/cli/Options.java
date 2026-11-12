@@ -236,12 +236,12 @@ final class Options {
               "FORMAT",
               Main.FORMATS,
               "How the result is shown; full on a terminal, concise elsewhere, agent for coding"
-                  + " agents",
-              MODULE_RUNS,
+                  + " agents; explain takes full and jsonl",
+              SHOWN,
               "format",
               true,
               "MUTASTIC_FORMAT, MUTASTIC_AGENT",
-              "mutastic run --format=agent"),
+              "mutastic run --format=jsonl"),
           new Option(
               "--each-mutant",
               Kind.FLAG,

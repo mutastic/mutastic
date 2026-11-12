@@ -75,6 +75,8 @@ class DocsOutputTest {
 
     shown("run.ansi", project, mutastic("run", project.toString(), "--workers=4"));
     shown("explain.ansi", project, mutastic("explain", ID, project.toString()));
+    var events = mutastic("explain", ID, project.toString(), "--format=jsonl");
+    shown("explained-event.json", project, theExplainedEvent(events));
     addTheSuggestedTest(project);
     shown("verify.ansi", project, mutastic("verify", ID, project.toString()));
     shown("run-again.ansi", project, mutastic("run", project.toString(), "--workers=4"));
@@ -145,6 +147,14 @@ class DocsOutputTest {
             .findFirst()
             .orElseThrow();
     var laidOut = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(event) + "\n";
+    return new Samples.Result(result.exit(), laidOut, result.err());
+  }
+
+  /// `explain --format=jsonl`'s own event, the last, laid out as output.mdx shows it.
+  private static Samples.Result theExplainedEvent(Samples.Result result) {
+    var mapper = JsonMapper.builder().build();
+    var explained = mapper.readTree(result.out().lines().toList().getLast());
+    var laidOut = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(explained) + "\n";
     return new Samples.Result(result.exit(), laidOut, result.err());
   }
 

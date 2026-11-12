@@ -74,6 +74,9 @@ public final class Main {
   static final List<String> FORMATS =
       List.of("full", "brief", "concise", "grouped", "agent", "jsonl");
 
+  /// The formats `explain` takes: its text, or its events.
+  private static final List<String> EXPLAIN_FORMATS = List.of("full", "jsonl");
+
   /// The formats for people: they get each file's line as it finishes.
   private static final List<String> PEOPLE = List.of("full", "brief", "concise", "grouped");
 
@@ -143,11 +146,21 @@ public final class Main {
   }
 
   private static int run(Command command, PrintStream out, PrintStream err, Terminal terminal) {
+    var directory = command.directory().toAbsolutePath().normalize();
+    var tool = BuildTools.of(directory);
+    var lock = WorkLock.hold(tool.workDirectory(directory, command.module()), err);
+    try {
+      return held(command, output(command, out, err, terminal), tool, terminal);
+    } finally {
+      lock.close();
+    }
+  }
+
+  /// A run, holding its module's work directory: see [WorkLock].
+  private static int held(Command command, Output output, BuildTool tool, Terminal terminal) {
     // Shares that can't be put together are refused before the build is read.
     var shares = command.fromShards().map(directory -> Shares.read(directory, version()));
-    var output = output(command, out, err, terminal);
     var progress = output.progress();
-    var tool = BuildTools.of(command.directory().toAbsolutePath().normalize());
     progress.started(version(), tool.name());
     var prepared = prepare(command, tool);
     showFileLines(command, output, humanText(command, output, prepared.sources()), prepared);
@@ -798,6 +811,14 @@ public final class Main {
     var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
     var result = report.results().getFirst();
+    if (output.format().equals("jsonl")) {
+      var events = new JsonEvents(output.out(), prepared.sources(), command.threshold());
+      events.runStarted(prepared.project().name());
+      events.mutantFinished(result);
+      events.runFinished(report, Optional.empty(), List.of(), true);
+      events.mutantExplained(result.mutant(), lastRun);
+      return PASSED;
+    }
     output.out().print(humanText(command, output, prepared.sources()).explained(result));
     output
         .out()
@@ -2163,7 +2184,18 @@ public final class Main {
       /// The command, once nothing is left over.
       private Command built(Subcommand subcommand) {
         noStrayWords(subcommand);
+        explainsIn(subcommand);
         return assembled(subcommand, directory(), module());
+      }
+
+      /// `explain` shows its text, or the events a run's JSON Lines has for the mutant and then
+      /// what the text says of it: no other format has an explanation to give.
+      private void explainsIn(Subcommand subcommand) {
+        if (subcommand == Subcommand.EXPLAIN
+            && format.filter(chosen -> !EXPLAIN_FORMATS.contains(chosen)).isPresent()) {
+          throw new UsageException(
+              "explain takes --format=full or --format=jsonl, not --format=" + format.get());
+        }
       }
 
       private Command assembled(Subcommand subcommand, Path directory, String module) {
