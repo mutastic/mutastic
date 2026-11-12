@@ -123,8 +123,9 @@ Then commit. The commit is the next cycle's `HEAD`.
 
 ## One card at a time
 
-`mutastic next --since=HEAD` gives the cycle's cards one at a time, the lines no test reaches first,
-in place of the whole run: see [Next mutant](/concepts/next/).
+`mutastic next --since=HEAD` gives the cycle's missed mutants one at a time, the one most worth a
+test first, in place of the whole run: see [Working through misses](/concepts/next/). It leaves out
+the lines no test reaches, which `run` lists under `Not covered`.
 
 ## Agents
 

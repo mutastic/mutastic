@@ -71,8 +71,9 @@ cycle started. A commit at green would leave the cycle's own lines out of its ru
 
 <EditionOnly edition="java">
 
-`mutastic next --since=HEAD` gives the cycle's cards one at a time, its lines no test reaches first:
-see [Next mutant](/concepts/next/).
+`mutastic next --since=HEAD` gives the cycle's missed mutants one at a time, the one most worth a
+test first: see [Working through misses](/concepts/next/). It leaves out the lines no test reaches,
+which `run` lists under `Not covered`.
 
 </EditionOnly>
 
