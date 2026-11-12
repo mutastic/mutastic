@@ -64,7 +64,8 @@ in each:
 </EditionTabs>
 
 - **The agent format** puts the verdict first, so a truncated read still has it, and the rule that a
-  fix changes tests, never production code. It also says when not to write one: a mutant whose case
+  fix changes tests, and that production code is never changed to make a mutant go away: the agent
+  tells the person instead. It also says when not to write one: a mutant whose case
   can't happen in practice, or whose change no caller can see, is proposed for a person to ignore,
   with its kind and a reason in two sentences (the one case where it differs, and [why that can't
   happen](/concepts/equivalence/#how-to-argue-a-mutant-cant-be-caught)), not given a contrived test.

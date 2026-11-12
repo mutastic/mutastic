@@ -85,7 +85,7 @@ class AgentTextTest {
     var output = text.render(report(List.of(missed), List.of(), List.of()));
 
     assertThat(output)
-        .contains("rules: add or change tests only, never production code")
+        .contains("rules: " + MutantCommand.RULE)
         .contains("decline: if a mutant's case can't happen in practice")
         .contains("propose ignoring it, for a person to accept, as the kind it is")
         .contains(

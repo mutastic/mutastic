@@ -1,5 +1,5 @@
 mutastic: FAIL · score 55.8% (threshold 80; 70.6% where tests reach) · 10 missed, 9 not covered, 24 caught of 43 mutants (155 more skipped)
-rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/lombok` passes
+rules: add or change tests only; never change production code to make a mutant go away: tell the person; a fix counts when `mutastic verify <id> samples/lombok` passes
 decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: propose ignoring it, for a person to accept, as the kind it is (equivalent, unreachable, telemetry, deprecated or accepted-risk), with the reason in two sentences: the one case where it differs, and why that can't happen (`mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/lombok`)
 
 1. missed m48de65a9: no test checks `tier()` at `loyaltyPoints == 1000`

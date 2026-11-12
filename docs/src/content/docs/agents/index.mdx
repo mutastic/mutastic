@@ -29,7 +29,8 @@ does.
 ## Three parts
 
 - **The agent format.** `mutastic run --format=agent` writes the cards for an agent to act on: the
-  rules (tests only, never production code), each missed mutant's line as it changes, the test to
+  rules (tests only, and never production code changed to make a mutant go away), each missed
+  mutant's line as it changes, the test to
   add, and its `done when` command. See [the agent format](/concepts/output/#formats).
 - **The gate.** [`mutastic gate`](/agents/gate/) holds "done": it notes where a task starts, and
   when the agent says it's finished, checks the mutants on the lines it changed since. While one

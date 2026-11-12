@@ -172,10 +172,11 @@ class JsonEventsTest {
 
     assertThat(lines())
         .containsExactly(
-            "{\"schema\":\"mutastic.events/v1\",\"edition\":\"java\",\"reason\":\"run-started\","
-                + "\"project\":\"pricing\","
-                + "\"rule\":\"add or change tests only, never production code\","
-                + "\"decline\":\"%s\"}".formatted(MutantCommand.DECLINE));
+            ("{\"schema\":\"mutastic.events/v1\",\"edition\":\"java\",\"reason\":\"run-started\","
+                    + "\"project\":\"pricing\","
+                    + "\"rule\":\"%s\","
+                    + "\"decline\":\"%s\"}")
+                .formatted(MutantCommand.RULE, MutantCommand.DECLINE));
   }
 
   @Test

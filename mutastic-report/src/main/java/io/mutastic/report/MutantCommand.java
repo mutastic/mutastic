@@ -41,7 +41,14 @@ public enum MutantCommand {
   }
 
   /// The rule a fix follows, wherever an agent reads the commands.
-  public static final String RULE = "add or change tests only, never production code";
+  public static final String RULE =
+      "add or change tests only; never change production code to make a mutant go away: tell the"
+          + " person";
+
+  /// The same, said to an agent the gate holds: production code changed to pass a test the spec
+  /// asks for is the task, but code changed so a mutant can't exist hides what the mutant found.
+  public static final String NO_REWRITE =
+      "Never change production code to make a mutant go away: tell the person.";
 
   /// When not to write a test: a test for a case that can't happen pins code nobody needs pinned,
   /// and an agent told only to close gaps will contrive one.

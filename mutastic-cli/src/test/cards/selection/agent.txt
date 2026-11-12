@@ -1,5 +1,5 @@
 mutastic: PASS · score 81.8% (threshold 80) · 2 missed, 0 not covered, 9 caught of 11 mutants
-rules: add or change tests only, never production code; a fix counts when `mutastic verify <id> samples/selection` passes
+rules: add or change tests only; never change production code to make a mutant go away: tell the person; a fix counts when `mutastic verify <id> samples/selection` passes
 decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: propose ignoring it, for a person to accept, as the kind it is (equivalent, unreachable, telemetry, deprecated or accepted-risk), with the reason in two sentences: the one case where it differs, and why that can't happen (`mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/selection`)
 
 1. missed md5554dc3: no test checks `fee()` at `amount == 10`
