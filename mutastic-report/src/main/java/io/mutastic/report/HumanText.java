@@ -77,10 +77,11 @@ public final class HumanText {
   private final Detail detail;
   private final Vocabulary words;
   private final boolean eachMutant;
+  private final OperatorDocs docs;
 
   public HumanText(
       SourceView sources, int threshold, Style style, Detail detail, Vocabulary words) {
-    this(sources, threshold, style, detail, words, false);
+    this(sources, threshold, style, detail, words, false, OperatorDocs.LATEST);
   }
 
   private HumanText(
@@ -89,18 +90,26 @@ public final class HumanText {
       Style style,
       Detail detail,
       Vocabulary words,
-      boolean eachMutant) {
+      boolean eachMutant,
+      OperatorDocs docs) {
     this.sources = sources;
     this.threshold = threshold;
     this.style = style;
     this.detail = detail;
     this.words = words;
     this.eachMutant = eachMutant;
+    this.docs = docs;
   }
 
   /// The same, with a card for every missed mutant, not one for each line's (`--each-mutant`).
   public HumanText eachMutant(boolean each) {
-    return new HumanText(sources, threshold, style, detail, words, each);
+    return new HumanText(sources, threshold, style, detail, words, each, docs);
+  }
+
+  /// The same, with each change marked under its line linking to its operator in `docs`, when links
+  /// are on.
+  public HumanText withDocs(OperatorDocs docs) {
+    return new HumanText(sources, threshold, style, detail, words, eachMutant, docs);
   }
 
   public String render(Report report, Optional<Comparison> comparison, Run run) {
@@ -545,7 +554,7 @@ public final class HumanText {
         number++) {
       lines.add(" %s %s %s".formatted(style.dim(pad(number, width)), bar, source.get(number - 1)));
       if (number == place.line()) {
-        lines.add(caret(gutter, place, advice));
+        lines.add(caret(gutter, place, advice, docs.url(mutant.operator())));
       }
     }
     lines.add(" %s %s".formatted(gutter, bar));
@@ -554,12 +563,20 @@ public final class HumanText {
 
   /// `^^ changed to >`, under the change.
   private String caret(String gutter, SourceView.Place place, Advice advice) {
+    return caret(gutter, place, advice, Optional.empty());
+  }
+
+  /// `^^ changed to >`, under the change, linking to `operatorDocs` when links are on: the
+  /// operator's place in the docs, for what it changes and the bug it stands for.
+  private String caret(
+      String gutter, SourceView.Place place, Advice advice, Optional<String> operatorDocs) {
+    var marked = style.red("^".repeat(place.end() - place.start()) + " " + advice.changedTo());
     return " %s %s %s"
         .formatted(
             gutter,
             style.dim("│"),
             " ".repeat(place.start() - 1)
-                + style.red("^".repeat(place.end() - place.start()) + " " + advice.changedTo()));
+                + operatorDocs.map(url -> style.link(url, marked)).orElse(marked));
   }
 
   /// `= mutant - the statement` and `+ the statement mutated`, when the source shows the change

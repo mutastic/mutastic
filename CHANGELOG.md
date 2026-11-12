@@ -32,6 +32,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 - **The Gradle plugin runs a Kotlin Multiplatform module.** It configures on the multiplatform
   plugin as well as `java`, reading the JVM target's compilations, its `Test` task and its runtime
   configuration, as the `mutastic` command's init script already did.
+- **Links to each operator's docs.** `explain`'s About this mutant gives the operator's row on the
+  [operators page](https://docs.mutastic.io/concepts/operators/), `docs:
+  https://docs.mutastic.io/concepts/operators/#boundary`, in the docs of the release running. On a
+  terminal with links on (`--hyperlinks`), a card's `^^ changed to` mark links there too, and
+  `--format=jsonl`'s mutant events carry it as `docs`. A plugin's operator has no row, so no link.
 
 ### Scoring changes
 

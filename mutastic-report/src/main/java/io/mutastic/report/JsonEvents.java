@@ -28,6 +28,7 @@ public final class JsonEvents {
   private final AgentText text;
   private final int threshold;
   private final Optional<Share> share;
+  private final OperatorDocs docs;
 
   public JsonEvents(PrintStream out, SourceView sources, int threshold) {
     this(out, sources, threshold, Optional.empty());
@@ -36,11 +37,22 @@ public final class JsonEvents {
   /// The events of one share of a run split with `--shard`, when `share` is there: `run-started`
   /// says which, so the shares can be put back together as the whole run.
   public JsonEvents(PrintStream out, SourceView sources, int threshold, Optional<Share> share) {
+    this(out, sources, threshold, share, OperatorDocs.LATEST);
+  }
+
+  /// With each mutant's operator's place in `docs`, the docs of the mutastic running.
+  public JsonEvents(
+      PrintStream out,
+      SourceView sources,
+      int threshold,
+      Optional<Share> share,
+      OperatorDocs docs) {
     this.out = out;
     this.sources = sources;
     this.text = new AgentText(sources, threshold);
     this.threshold = threshold;
     this.share = share;
+    this.docs = docs;
   }
 
   /// Which share of a split run this is, and what it ran on: the shares of one run are of the same
@@ -89,6 +101,7 @@ public final class JsonEvents {
     fields.put("fingerprint", mutant.fingerprint());
     fields.put("status", result.status().schemaName());
     fields.put("operator", mutant.operator().id());
+    docs.url(mutant.operator()).ifPresent(url -> fields.put("docs", url));
     fields.put("location", location(mutant));
     fields.put("mutation", mutation(mutant));
     mutant.skipped().ifPresent(reason -> putSkipReason(fields, reason));

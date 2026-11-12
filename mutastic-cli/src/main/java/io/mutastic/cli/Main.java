@@ -22,6 +22,7 @@ import io.mutastic.report.Invocation;
 import io.mutastic.report.JsonEvents;
 import io.mutastic.report.MutantCommand;
 import io.mutastic.report.NextText;
+import io.mutastic.report.OperatorDocs;
 import io.mutastic.report.Queue;
 import io.mutastic.report.ReportFiles;
 import io.mutastic.report.SourceView;
@@ -257,7 +258,12 @@ public final class Main {
     var text = new NextText(prepared.sources(), human, output.style(), output.words());
     switch (output.format()) {
       case "jsonl" ->
-          new JsonEvents(output.out(), prepared.sources(), command.threshold())
+          new JsonEvents(
+                  output.out(),
+                  prepared.sources(),
+                  command.threshold(),
+                  Optional.empty(),
+                  operatorDocs())
               .next(shown, command.top());
       case "agent" -> output.out().print(text.agent(shown, project));
       default -> output.out().print(text.human(shown, project, command.top()));
@@ -802,7 +808,8 @@ public final class Main {
     output
         .out()
         .print(
-            new Explanation(prepared.sources(), output.style()).render(result.mutant(), lastRun));
+            new Explanation(prepared.sources(), output.style(), operatorDocs())
+                .render(result.mutant(), lastRun));
     return PASSED;
   }
 
@@ -1105,7 +1112,8 @@ public final class Main {
   private static HumanText humanText(Command command, Output output, SourceView sources) {
     return new HumanText(
             sources, command.threshold(), output.style(), detail(output.format()), output.words())
-        .eachMutant(command.eachMutant());
+        .eachMutant(command.eachMutant())
+        .withDocs(operatorDocs());
   }
 
   /// What `--experimental` and `MUTASTIC_EXPERIMENTAL` take to turn on ghosts.
@@ -1235,7 +1243,11 @@ public final class Main {
   private static Display jsonl(Command command, Prepared prepared, Output output) {
     var events =
         new JsonEvents(
-            output.out(), prepared.sources(), command.threshold(), shareOf(command, prepared));
+            output.out(),
+            prepared.sources(),
+            command.threshold(),
+            shareOf(command, prepared),
+            operatorDocs());
     events.runStarted(prepared.project().name());
     if (!command.testsFrom().isEmpty()) {
       // Each mutant's result is known only once every module's tests have run: all at the end.
@@ -1305,7 +1317,11 @@ public final class Main {
         out -> {
           var events =
               new JsonEvents(
-                  out, prepared.sources(), command.threshold(), shareOf(command, prepared));
+                  out,
+                  prepared.sources(),
+                  command.threshold(),
+                  shareOf(command, prepared),
+                  operatorDocs());
           events.runStarted(prepared.project().name());
           report.results().forEach(events::mutantFinished);
           events.runFinished(report, kept.comparison(), kept.written(), false);
@@ -1426,6 +1442,11 @@ public final class Main {
               ? Progress.Mode.NONE
               : terminal.interactive() ? Progress.Mode.BAR : Progress.Mode.COUNTER;
     };
+  }
+
+  /// Where each operator is described, in this mutastic's own docs.
+  private static OperatorDocs operatorDocs() {
+    return new OperatorDocs(Help.docs(version()));
   }
 
   private static String version() {

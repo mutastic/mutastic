@@ -322,6 +322,23 @@ class HumanTextTest {
                 + "\u001b\\src/main/java/com/example/Pricing.java:5\u001b]8;;\u001b\\");
   }
 
+  /// With links on, the change marked under its line opens its operator's row in the docs; with
+  /// them off the card is as it was.
+  @Test
+  void theChangeLinksToItsOperatorsDocsWhenAsked() {
+    var linked =
+        new HumanText(sources, 80, Style.PLAIN.withLinks(), HumanText.Detail.FULL, Vocabulary.PLAIN)
+            .withDocs(new OperatorDocs("https://docs.mutastic.io/v1.0/"))
+            .card(missed(boundary(), Map.of()));
+    var plain =
+        new HumanText(sources, 80, Style.PLAIN, HumanText.Detail.FULL, Vocabulary.PLAIN)
+            .card(missed(boundary(), Map.of()));
+
+    assertThat(linked)
+        .contains("\u001b]8;;https://docs.mutastic.io/v1.0/concepts/operators/#boundary\u001b\\^");
+    assertThat(plain).doesNotContain("\u001b").doesNotContain("docs.mutastic.io");
+  }
+
   @Test
   void cardsAreGroupedByFileWorstMethodFirst() {
     var once =
