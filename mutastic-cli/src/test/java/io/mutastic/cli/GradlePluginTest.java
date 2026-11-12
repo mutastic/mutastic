@@ -25,8 +25,12 @@ class GradlePluginTest {
       Path.of(System.getProperty("mutastic.samples"), "kotlin-multiplatform");
   private static final Path REPOSITORY = Path.of(System.getProperty("mutastic.samplesRepository"));
   private static final String VERSION = System.getProperty("mutastic.version");
+
+  /// The wrapper as the plugin prints it: `./gradlew`, or `.\gradlew.bat` on Windows, escaped in
+  /// JSON.
   private static final Pattern DONE_WHEN =
-      Pattern.compile("\"doneWhen\":\"\\./gradlew (?<task>[^\"]*) passes\"");
+      Pattern.compile(
+          "\"doneWhen\":\"(?<wrapper>\\./gradlew|\\.\\\\\\\\gradlew\\.bat) (?<task>[^\"]*) passes\"");
 
   @TempDir Path work;
 
