@@ -229,7 +229,7 @@ public final class JsonEvents {
   public void mutantExplained(Mutant mutant, Optional<Explanation.LastRun> lastRun) {
     var fields = new LinkedHashMap<String, Object>();
     fields.put("id", mutant.id());
-    fields.put("bytecode", bytecode(mutant));
+    fields.put("applied", applied(mutant));
     var operator = new LinkedHashMap<String, Object>();
     operator.put("id", mutant.operator().id());
     operator.put("description", mutant.operator().explanation());
@@ -243,16 +243,19 @@ public final class JsonEvents {
     emit("mutant-explained", fields);
   }
 
-  /// The opcodes before and after, what each does, and how the jump relates to the source.
-  private Map<String, Object> bytecode(Mutant mutant) {
-    var bytecode = new LinkedHashMap<String, Object>();
-    bytecode.put("original", mutant.original());
-    bytecode.put("replacement", mutant.replacement());
-    bytecode.put("meanings", Explanation.meanings(mutant));
-    new Explanation(sources, Style.PLAIN)
-        .jump(mutant)
-        .ifPresent(note -> bytecode.put("note", note));
-    return bytecode;
+  /// The opcodes before and after, what each does, and how the jump relates to the source. The
+  /// change as the engine makes it, as `mutant-finished`'s `applied` says it, `level` and `text`,
+  /// with the instruction before and after, what each does, and how a jump relates to the source:
+  /// the same shape as the Rust edition's, whose level is the source.
+  private Map<String, Object> applied(Mutant mutant) {
+    var applied = new LinkedHashMap<String, Object>();
+    applied.put("level", "bytecode");
+    applied.put("text", mutant.original() + " -> " + mutant.replacement());
+    applied.put("original", mutant.original());
+    applied.put("replacement", mutant.replacement());
+    applied.put("meanings", Explanation.meanings(mutant));
+    new Explanation(sources, Style.PLAIN).jump(mutant).ifPresent(note -> applied.put("note", note));
+    return applied;
   }
 
   /// Which site of its method it is: counted from 1, but for a change to the class as a whole.
