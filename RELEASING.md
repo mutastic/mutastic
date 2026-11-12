@@ -74,7 +74,7 @@ version can never be changed or removed.
 1. **Check the promises** ([Compatibility](docs/src/content/docs/reference/compatibility.mdx)).
    The build already fails on a moved mutant id, a break in the plugin API and a break in the
    events format; these are left to you:
-   - **Scores.** Read the release notes' *Scoring changes*. A patch release (`X.Y.Z+1`) has none:
+   - **Scores.** Read `CHANGELOG.md`'s *Scoring changes* under *Unreleased*. A patch release (`X.Y.Z+1`) has none:
      anything that moves a score (an operator into or out of the default set, a filter that skips
      more or less) waits for a minor release. A minor release's notes say which scores move, and
      how.
@@ -99,9 +99,12 @@ version can never be changed or removed.
    - **Files on Central.** Central counts every file against a monthly limit
      ([Usage](https://central.sonatype.com/publishing/usage)). `checkCentralFiles` keeps a release
      small enough for four a month; look at the usage before a second release in a month.
-2. With `main` green, create the release; its tag gives the version:
+2. In `CHANGELOG.md`, turn `## Unreleased` into `## X.Y.Z (D Mon YYYY)`, with a new empty
+   `## Unreleased` above it, and commit. With `main` green, create the release from that section;
+   its tag gives the version:
    ```sh
-   gh release create vX.Y.Z --target main --generate-notes
+   awk '/^## X\.Y\.Z /{on=1; next} /^## /{on=0} on' CHANGELOG.md > notes.md
+   gh release create vX.Y.Z --target main --notes-file notes.md
    ```
 3. Approve the `release` job when GitHub asks. It builds, uploads, and attaches the CLI.
 4. In the Central Portal, under *Deployments*, wait for the deployment to show *Validated*, look

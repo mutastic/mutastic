@@ -86,7 +86,7 @@ workers, suggested tests, flaky-test detection, a gate for coding agents, and ou
 coding agents and tools (JSON Lines, and JSON, HTML and XML reports). What stays the same from one
 release to the next, mutant ids, scores, the events format and the plugin API, is on the
 [Compatibility](https://docs.mutastic.io/reference/compatibility/) page. Each release's changes
-are in its [release notes](https://github.com/mutastic/mutastic/releases).
+are in the [changelog](CHANGELOG.md).
 
 ## Contributing
 
