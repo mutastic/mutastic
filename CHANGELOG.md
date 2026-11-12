@@ -12,7 +12,7 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 - **A card names an object made where it's used.** A comparison or sum whose side is a call on
   `new Something(…)` was named without its receiver: the card said `length() != 0` for
   `new Measured(a).length() != 0`, a condition the source doesn't have. The receiver is now read
-  back as `new Measured(a)`, or, where it can't be, the side isn't named at all.
+  back as `new Measured(a)`.
 - **Each suggested test says what it's for.** A card with a test for more than one of its mutants
   gave only the first mutant's fix, so the second test came with nothing saying why. Now `help:`
   says `one test for each mutant`, and each test follows its own mutant's fix and id; the agent

@@ -324,10 +324,9 @@ final class Operands {
   }
 
   /// `Files.isRegularFile(git)`, `head.startsWith("ref: ")`, or `startsWith(…)` when its arguments
-  /// are more than a load or a constant. None when its receiver can't be named, as `new
-  /// Finder(a).indexOf('x')`'s can't: once, the call was named without it, and a card said
-  /// `indexOf('x') == -1` for a comparison the source doesn't have.
-  private @Nullable Operand call(List<Instruction> before, int end, InvokeInstruction call) {
+  /// or receiver are more than a load or a constant. (A receiver kotlinc casts is one, and its
+  /// `length() == 0` is read back as the line's `isEmpty()`.)
+  private Operand call(List<Instruction> before, int end, InvokeInstruction call) {
     var type = call.typeSymbol();
     var returns = type.returnType().descriptorString();
     boolean predicate = returns.equals("Z");
@@ -343,18 +342,17 @@ final class Operands {
       return Operand.of(owned(call.owner()) + name + list, at, predicate, character);
     }
     var receiver = endingAt(before, at);
-    if (receiver == null || receiver.start() < 0) {
-      return null;
-    }
     // A local with no name is javac's own, like a for-each loop's iterator: leave it out.
-    return receiver.text().startsWith("local")
+    return receiver == null || receiver.start() < 0 || receiver.text().startsWith("local")
         ? Operand.of(name + list, -1, predicate, character)
         : Operand.of(receiver.text() + "." + name + list, receiver.start(), predicate, character);
   }
 
   /// `new Other.Measured(a)`: an object made where it's used, by `new`, `dup`, its arguments and
-  /// its constructor. None when one of those isn't there, or its class has no name the source can
-  /// write, as a local or anonymous class hasn't.
+  /// its constructor. Once, a call on one was named without it, and a card said `length() != 0` for
+  /// `new Measured(a).length() != 0`, a condition the source doesn't have. None when one of those
+  /// isn't there, or its class has no name the source can write, as a local or anonymous class
+  /// hasn't.
   private @Nullable Operand constructed(List<Instruction> before, int end, InvokeInstruction init) {
     var arguments = arguments(before, end, init);
     if (arguments == null) {
