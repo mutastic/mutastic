@@ -655,4 +655,13 @@ public final class Shapes {
     }
     return 2;
   }
+
+  /// A comparison whose left side is a call on an object made where it's compared: the card names
+  /// the whole call, or none of it.
+  static int newReceiver(int a, int b) {
+    if (new Other.Measured(a).length() != 0) {
+      return 1;
+    }
+    return 2 + b;
+  }
 }
