@@ -53,17 +53,24 @@ public final class Explanation {
   private List<String> bytecode(Mutant mutant) {
     var lines = new ArrayList<String>();
     lines.add(style.bold(mutant.original() + " → " + mutant.replacement()));
-    Opcodes.describe(mutant.original())
-        .ifPresent(words -> lines.add(mutant.original() + ": " + words));
-    Opcodes.describe(mutant.replacement())
-        .ifPresent(words -> lines.add(mutant.replacement() + ": " + words));
+    lines.addAll(meanings(mutant));
     jump(mutant).ifPresent(lines::add);
     return lines;
   }
 
+  /// `IF_ICMPLT: jump if the first int is less than the second`: what each opcode does, the
+  /// original's first, for each one there are words for.
+  static List<String> meanings(Mutant mutant) {
+    var meanings = new ArrayList<String>();
+    for (String opcode : List.of(mutant.original(), mutant.replacement())) {
+      Opcodes.describe(opcode).ifPresent(words -> meanings.add(opcode + ": " + words));
+    }
+    return meanings;
+  }
+
   /// A conditional jump usually tests the opposite of the source: javac jumps past an `if`'s body
   /// when its condition is false. Said in the mutant's own terms when its operands are known.
-  private Optional<String> jump(Mutant mutant) {
+  Optional<String> jump(Mutant mutant) {
     var operator = mutant.operator();
     if (!Advice.onJump(operator)) {
       return Optional.empty();
@@ -109,7 +116,8 @@ public final class Explanation {
     return all.stream().allMatch(Optional::isPresent);
   }
 
-  private static List<String> id(Mutant mutant) {
+  /// How the id is made, then why it stays the same.
+  static List<String> id(Mutant mutant) {
     boolean first = mutant.operator() instanceof BuiltIn builtIn && builtIn.first();
     return List.of(
         ("%s: `m` and the first 8 hex digits of its fingerprint, %s, a SHA-256 of the class,"
@@ -118,7 +126,8 @@ public final class Explanation {
         "no line number goes in, so the id stays the same when code above it moves");
   }
 
-  private static String site(Mutant mutant) {
+  /// Which site of its method it is, and how the sites are counted.
+  static String site(Mutant mutant) {
     if (mutant.operator() instanceof io.mutastic.api.ClassMutator) {
       return "a change to the class as a whole, on %s".formatted(mutant.methodName());
     }
@@ -166,7 +175,8 @@ public final class Explanation {
     return lines;
   }
 
-  private static String described(LastRun run) {
+  /// The last run's result, in words: `missed: every covering test still passed`.
+  static String described(LastRun run) {
     return switch (run.status()) {
       case CAUGHT ->
           "caught" + run.caughtBy().map(test -> " by " + AgentText.shortName(test)).orElse("");

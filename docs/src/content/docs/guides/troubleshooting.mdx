@@ -6,6 +6,7 @@ description: What mutastic's exit status means, and what to do about each.
 import { Code } from '@astrojs/starlight/components';
 import below from '../../../data/output/below-threshold.ansi?raw';
 import elsewhere from '../../../data/output/id-elsewhere.ansi?raw';
+import nothingCovered from '../../../data/output/nothing-covered.ansi?raw';
 import testsFail from '../../../data/output/tests-fail.ansi?raw';
 
 When a run doesn't pass, what to do depends on why: a gap in the tests is closed with a test, a
@@ -47,6 +48,33 @@ option, check `mutastic --help`: a value follows `=` or a space, except `--since
 (`--since=main`). For a build, mutastic must be run in, or pointed at, a Gradle or Maven build's
 directory, and a module named as the build names it: `:app` for Gradle, a directory as `-pl` takes
 it for Maven.
+
+### The tests pass, but coverage recorded nothing
+
+On the pricing sample, with its tests replaced by one that never calls the code:
+
+<Code code={nothingCovered} lang="ansi" />
+
+mutastic runs your tests once with every class that has a mutant instrumented, to find which tests
+reach which lines. When tests ran and passed but not one line of those classes was recorded, that
+pass measured nothing, and a score would read every mutant as one no test reaches: a 0% that says
+your tests miss the code when it's mutastic that didn't see them. So the run stops instead. The
+usual causes:
+
+- **Another agent in the tests' JVM arguments.** A coverage tool's agent rewrites classes as they
+  load. mutastic leaves out JaCoCo's agent itself; the message names any `-javaagent:` it left in.
+  Take it out of the test task's JVM arguments for mutastic's run.
+- **A framework that loads the code in a class loader of its own,** such as Quarkus's for
+  `@QuarkusTest`. mutastic reaches Quarkus's copies of the classes through its own agent, but not
+  when another agent has rewritten them first: with JaCoCo's in the JVM, a Quarkus project's run
+  once found no test reached anything.
+- **Tests that reach none of the code.** The build's test filters left in only tests that never
+  call it.
+
+A run of only some mutants (`--only`, `--since`, `--shard`), or one that leaves tests out with
+`--exclude-tests`, isn't stopped: there the tests that run may well reach none of the classes, and
+those mutants are reported as not covered. With no tests at all, a
+module's mutants are not covered too.
 
 ## 3: the tests fail without any mutant
 

@@ -91,4 +91,26 @@ final class Samples {
     }
     return to;
   }
+
+  /// A test in the pricing sample's package that passes without calling its code.
+  static void writeTestReachingNothing(Path project) throws IOException {
+    var test = project.resolve("src/test/java/com/example/pricing/ArithmeticTest.java");
+    Files.createDirectories(test.getParent());
+    Files.writeString(
+        test,
+        """
+        package com.example.pricing;
+
+        import static org.junit.jupiter.api.Assertions.assertEquals;
+
+        import org.junit.jupiter.api.Test;
+
+        class ArithmeticTest {
+          @Test
+          void addsUp() {
+            assertEquals(4, 2 + 2);
+          }
+        }
+        """);
+  }
 }

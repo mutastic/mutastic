@@ -9,6 +9,10 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Card changes
 
+- **A card names an object made where it's used.** A comparison or sum whose side is a call on
+  `new Something(…)` was named without its receiver: the card said `length() != 0` for
+  `new Measured(a).length() != 0`, a condition the source doesn't have. The receiver is now read
+  back as `new Measured(a)`.
 - **Each suggested test says what it's for.** A card with a test for more than one of its mutants
   gave only the first mutant's fix, so the second test came with nothing saying why. Now `help:`
   says `one test for each mutant`, and each test follows its own mutant's fix and id; the agent
@@ -21,6 +25,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`explain --format=jsonl`, for agents.** `mutastic explain ID --format=jsonl` writes the
+  events a run's JSON Lines has for that one mutant, then a new `mutant-explained` event with each
+  row of About this mutant as a field, in the same words: the bytecode change and what each opcode
+  does, the operator, how the id is made, the site and the last run. The events schema describes
+  it; a v1 reader that doesn't know it skips it. `explain` refuses the formats it has no
+  explanation in. See [One mutant, explained](https://docs.mutastic.io/concepts/output/#one-mutant-explained).
 - **`extends:` in `mutastic.yaml`.** A module's file adds another's rules, plugins and filters
   when it says `extends: ../mutastic.yaml`; its own `operators:`, if any, replace the other's. See
   [In a build of several modules](https://docs.mutastic.io/guides/configuration/#in-a-build-of-several-modules).
@@ -61,11 +71,26 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **Two runs on one module wait for each other.** Run at once (an agent's gate and a person's
+  run), they wrote each other's setup, staged classes and records in the module's work directory
+  in the middle of a run. The first now holds the directory until it ends, and a second says it's
+  waiting and runs after it. Runs inside one JVM, as a gate's are, don't wait on each other.
+- **Kover's agent is left out of the tests too.** A Gradle build that applies Kover adds its agent
+  to the tests, and its jar, which Kover writes in a task of its own before them, wasn't there
+  when mutastic ran them: the test worker didn't start, and the run stopped with an internal
+  error. Kover's agent and IntelliJ's, which it's built on, are left out as JaCoCo's is, and the
+  run is the same as without Kover.
 - **A Maven build's JaCoCo agent is left out of the tests, as Gradle's is.** mutastic leaves
   JaCoCo out because it changes classes as they load, but it knew the agent only by Gradle's jar
   name, `jacocoagent.jar`. Under Maven's `prepare-agent` (`org.jacoco.agent-…-runtime.jar`) the
   agent stayed in, and on a Quarkus project every mutant was reported as not covered, with tests
   that plainly reached them.
+- **Tests that pass but reach nothing stop the run, instead of scoring 0%.** When the tests ran
+  and passed but the coverage pass recorded no line of any class with a mutant, mutastic scored
+  every mutant as not covered: a confident wrong answer when the cause was an agent or a class
+  loader that kept its coverage out. Now the run exits with status 2 and says what happened, the
+  `-javaagent:` arguments it saw, and the likely causes. A run of only some mutants (`--only`,
+  `--since`, `--shard`), or with `--exclude-tests`, is scored as before.
 
 ## 1.0.0 (11 Nov 2026)
 

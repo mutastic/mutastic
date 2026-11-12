@@ -171,6 +171,13 @@ final class Coverage {
     return durations.size();
   }
 
+  /// Whether the classes have lines to record and no test recorded any: the tests ran, but the
+  /// probes never did. A class without line numbers (compiled with `-g:none`) has none to record,
+  /// so it shows nothing either way.
+  boolean recordedNothing() {
+    return !lineIds.isEmpty() && linesByTest.values().stream().allMatch(Set::isEmpty);
+  }
+
   /// The tests that reach the mutant's line, fastest first, so a catch is found soonest. For a line
   /// run only at class load, only the test that loaded the class reached it, but every test that
   /// uses the class depends on what loading it did: those are the tests that reach any of its
