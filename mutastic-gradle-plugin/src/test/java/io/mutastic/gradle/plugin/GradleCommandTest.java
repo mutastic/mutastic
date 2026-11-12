@@ -21,6 +21,18 @@ class GradleCommandTest {
         .isEqualTo(root.resolve("gradlew").toString());
   }
 
+  /// cmd reads `./gradlew` as a switch, so a person on Windows is shown the batch file, in the form
+  /// cmd and PowerShell both run.
+  @Test
+  void onWindowsTheWrapperIsItsBatchFile(@TempDir Path root) throws Exception {
+    Files.writeString(root.resolve("gradlew"), "#!/bin/sh\n");
+    Files.writeString(root.resolve("gradlew.bat"), "@rem\n");
+
+    assertThat(MutasticPlugin.gradle(root.toFile(), root.toFile(), true))
+        .isEqualTo(".\\gradlew.bat");
+    assertThat(MutasticPlugin.gradle(root.toFile(), root.toFile(), false)).isEqualTo("./gradlew");
+  }
+
   @Test
   void aBuildWithoutOneRunsGradle(@TempDir Path root) {
     assertThat(MutasticPlugin.gradle(root.toFile(), new File(root.toFile(), "core")))

@@ -97,10 +97,14 @@ public final class Main {
 
   /// Output for a pipe or a file in UTF-8 on every platform, as agents, JSON readers and the other
   /// edition write it. Windows would write it in its legacy code page, which has no `✓`. A terminal
-  /// keeps its own encoding, which is the one it shows.
+  /// keeps its own encoding, which is the one it shows, with an ASCII stand-in for what that can't
+  /// show: a Windows console not set to UTF-8 would otherwise show `?`.
   private static PrintStream utf8(PrintStream stream, Terminal terminal) {
-    return terminal.interactive() || stream.charset().equals(StandardCharsets.UTF_8)
-        ? stream
+    if (stream.charset().equals(StandardCharsets.UTF_8)) {
+      return stream;
+    }
+    return terminal.interactive()
+        ? StandIns.over(stream)
         : new PrintStream(stream, true, StandardCharsets.UTF_8);
   }
 
