@@ -8,6 +8,7 @@ import EditionTabs from '../../../components/EditionTabs.astro';
 import { Code } from '@astrojs/starlight/components';
 import RustOutput from '../../../components/RustOutput.astro';
 import claimed from '../../../data/output/claimed-explain.ansi?raw';
+import claimedEvent from '../../../data/output/claimed-event.json?raw';
 import validated from '../../../data/output/validated-explain.ansi?raw';
 
 A mutant is **equivalent** when no input can tell it apart from the original: the code changed, but
@@ -170,6 +171,10 @@ anything. The stock sample has the same method twice:
 `left > 0` becoming `left != 0` is skipped in the first:
 
 <Code code={claimed} lang="ansi" />
+
+The event stream gives the reason, and the kind as `skipKind`:
+
+<Code code={claimedEvent} lang="json" />
 
 In the second it runs, and the test it suggests is the call that validation would never see:
 

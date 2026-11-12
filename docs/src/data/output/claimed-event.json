@@ -1,0 +1,29 @@
+{
+  "schema" : "mutastic.events/v1",
+  "edition" : "java",
+  "reason" : "mutant-finished",
+  "id" : "m46ea303d",
+  "fingerprint" : "46ea303d5ca50669",
+  "status" : "Ignored",
+  "operator" : "mutastic/comparison",
+  "location" : {
+    "file" : "src/main/java/com/example/stock/Restock.java",
+    "line" : 12,
+    "class" : "com.example.stock.Restock",
+    "method" : "toOrder(II)I"
+  },
+  "mutation" : {
+    "original" : ">",
+    "replacement" : "!=",
+    "description" : "`>` becomes `!=`",
+    "applied" : {
+      "level" : "bytecode",
+      "text" : "IFLE -> IFEQ"
+    }
+  },
+  "statusReason" : "equivalent: differs only when left is negative. That can't happen because left is @NonNegative.",
+  "skipKind" : "equivalent",
+  "coveredBy" : [ ],
+  "testsRun" : 0,
+  "durationMs" : 0
+}
