@@ -143,11 +143,21 @@ public final class Main {
   }
 
   private static int run(Command command, PrintStream out, PrintStream err, Terminal terminal) {
+    var directory = command.directory().toAbsolutePath().normalize();
+    var tool = BuildTools.of(directory);
+    var lock = WorkLock.hold(tool.workDirectory(directory, command.module()), err);
+    try {
+      return held(command, output(command, out, err, terminal), tool, terminal);
+    } finally {
+      lock.close();
+    }
+  }
+
+  /// A run, holding its module's work directory: see [WorkLock].
+  private static int held(Command command, Output output, BuildTool tool, Terminal terminal) {
     // Shares that can't be put together are refused before the build is read.
     var shares = command.fromShards().map(directory -> Shares.read(directory, version()));
-    var output = output(command, out, err, terminal);
     var progress = output.progress();
-    var tool = BuildTools.of(command.directory().toAbsolutePath().normalize());
     progress.started(version(), tool.name());
     var prepared = prepare(command, tool);
     showFileLines(command, output, humanText(command, output, prepared.sources()), prepared);
