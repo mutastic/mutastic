@@ -21,6 +21,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`explain --format=jsonl`, for agents.** `mutastic explain ID --format=jsonl` writes the
+  events a run's JSON Lines has for that one mutant, then a new `mutant-explained` event with each
+  row of About this mutant as a field, in the same words: the bytecode change and what each opcode
+  does, the operator, how the id is made, the site and the last run. The events schema describes
+  it; a v1 reader that doesn't know it skips it. `explain` refuses the formats it has no
+  explanation in. See [One mutant, explained](https://docs.mutastic.io/concepts/output/#one-mutant-explained).
 - **`extends:` in `mutastic.yaml`.** A module's file adds another's rules, plugins and filters
   when it says `extends: ../mutastic.yaml`; its own `operators:`, if any, replace the other's. See
   [In a build of several modules](https://docs.mutastic.io/guides/configuration/#in-a-build-of-several-modules).
