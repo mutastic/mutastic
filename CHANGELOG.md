@@ -9,6 +9,10 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Card changes
 
+- **Each suggested test says what it's for.** A card with a test for more than one of its mutants
+  gave only the first mutant's fix, so the second test came with nothing saying why. Now `help:`
+  says `one test for each mutant`, and each test follows its own mutant's fix and id; the agent
+  format's `fix:` does the same, with a `fix for <id>:` line before each test.
 - **Never change production code to make a mutant go away.** The agent format's `rules:` line now
   says `add or change tests only; never change production code to make a mutant go away: tell the
   person`, and the gate's open and block messages say the same, as in the Rust edition. Production

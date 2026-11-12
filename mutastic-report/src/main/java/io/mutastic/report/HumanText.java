@@ -406,9 +406,7 @@ public final class HumanText {
     addBeforeAndAfter(lines, mutant, advice, gutter);
     finding.others().forEach(other -> addOther(lines, other, gutter));
     addNotes(lines, gutter, cardNotes(result, advice));
-    lines.add(annotation(gutter, style.green(style.bold("help")) + ": " + code(advice.fix())));
-    var indent = " " + gutter + "         ";
-    SuggestedTest.distinct(finding, sources).forEach(test -> addSuggestedTest(lines, test, indent));
+    addHelp(lines, finding, advice, gutter);
     lines.add("");
     addCommands(lines, finding, gutter, MutantCommand.withAMutant());
     return String.join("\n", lines) + "\n";
@@ -610,8 +608,36 @@ public final class HumanText {
     return " %s %s %s".formatted(gutter, style.dim("="), text);
   }
 
+  /// `= help: the fix`, then each test to add. When the card has a test for more than one of its
+  /// mutants, each test comes after its own mutant's fix and id, since the lead's fix describes
+  /// only the lead's test.
+  private void addHelp(List<String> lines, Finding finding, Advice advice, String gutter) {
+    var indent = " " + gutter + "         ";
+    var each = SuggestedTest.eachMutant(finding, sources);
+    if (!SuggestedTest.eachHasItsOwn(each)) {
+      lines.add(annotation(gutter, style.green(style.bold("help")) + ": " + code(advice.fix())));
+      SuggestedTest.distinct(finding, sources)
+          .forEach(test -> addSuggestedTest(lines, test, indent));
+      return;
+    }
+    lines.add(
+        annotation(gutter, style.green(style.bold("help")) + ": " + SuggestedTest.eachHelp(each)));
+    for (SuggestedTest.ForMutant one : each) {
+      lines.add("");
+      lines.add(
+          indent
+              + code(sources.advice(one.result()).fix())
+              + style.dim(" · " + one.result().mutant().id()));
+      one.test().ifPresent(test -> addTestLines(lines, test, indent));
+    }
+  }
+
   private void addSuggestedTest(List<String> lines, SuggestedTest test, String indent) {
     lines.add("");
+    addTestLines(lines, test, indent);
+  }
+
+  private void addTestLines(List<String> lines, SuggestedTest test, String indent) {
     lines.add(indent + style.dim("// in " + SourceNames.sourceName(test.testClass())));
     test.lines()
         .forEach(line -> lines.add(indent + (line.startsWith("  ") ? style.green(line) : line)));

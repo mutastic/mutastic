@@ -18,8 +18,9 @@
     [2m=[0m [1;34m[1mnote[0m[0m: every test calls [1mloyaltyCredit()[0m away from the boundary
             [2minputs seen: 50 (none is 30)[0m
             [2mcovered by PricingTest#loyalCustomersGetFiveOff (its 1 covering test still passes)[0m
-    [2m=[0m [32m[1mhelp[0m[0m: test [1mloyaltyCredit()[0m with [1mtotal = 30[0m and assert the result
+    [2m=[0m [32m[1mhelp[0m[0m: one test for each mutant
 
+            test [1mloyaltyCredit()[0m with [1mtotal = 30[0m and assert the result[2m · m809c9c9b[0m
             [2m// in PricingTest[0m
             @Test
             void loyaltyCreditWithTotal30() {
@@ -27,6 +28,7 @@
             }
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m
 
+            add a test where [1mtotal >= 30[0m is false, and assert what [1mloyaltyCredit()[0m does then[2m · md0b32a4f[0m
             [2m// in PricingTest[0m
             @Test
             void loyaltyCreditWithTotal29() {
@@ -47,8 +49,8 @@
  [2m  Changed[0m  8 lines in 1 file since HEAD
  [2m Worst at[0m  Pricing.loyaltyCredit() 2 ✗
  [2mTest runs[0m  4[2m (16 without coverage selection)[0m
- [2m Start at[0m  23:14:48
- [2m Duration[0m  2.0s [2m(setup 639ms, coverage 270ms, mutants 1.1s)[0m
+ [2m Start at[0m  13:53:37
+ [2m Duration[0m  1.8s [2m(setup 529ms, coverage 268ms, mutants 987ms)[0m
  [2m    Tests[0m  4 on JDK 17 · 1 worker
  [2m  Reports[0m  build/mutastic/mutation.json[2m · [0mbuild/mutastic/mutation.html
  [2m    Score[0m  [1;31m[1m40.0%[0m[0m[2m  threshold 80[0m[2m  · 50.0% where tests reach[0m

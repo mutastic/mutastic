@@ -117,14 +117,40 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
   /// The tests suggested for the mutants of `finding`, each call once: two mutants on one side of a
   /// condition get the same call, and pasting it twice wouldn't compile.
   static List<SuggestedTest> distinct(Finding finding, SourceView sources) {
-    var byName = new java.util.LinkedHashMap<String, SuggestedTest>();
+    return eachMutant(finding, sources).stream().flatMap(each -> each.test().stream()).toList();
+  }
+
+  /// One mutant of a finding, and the test suggested for it: none when there's no suggestion, or
+  /// when an earlier mutant's test is the same call.
+  record ForMutant(MutantResult result, Optional<SuggestedTest> test) {}
+
+  /// Each mutant of `finding` in order, with its test, each call once.
+  static List<ForMutant> eachMutant(Finding finding, SourceView sources) {
+    var names = new java.util.HashSet<String>();
     boolean shared = finding.mutants().size() > 1;
+    var each = new ArrayList<ForMutant>();
     for (MutantResult result : finding.mutants()) {
-      of(result, sources)
-          .map(test -> shared ? test.naming(result.mutant().id()) : test)
-          .ifPresent(test -> byName.putIfAbsent(test.testClass() + "#" + test.name(), test));
+      var test =
+          of(result, sources)
+              .map(found -> shared ? found.naming(result.mutant().id()) : found)
+              .filter(found -> names.add(found.testClass() + "#" + found.name()));
+      each.add(new ForMutant(result, test));
     }
-    return List.copyOf(byName.values());
+    return each;
+  }
+
+  /// Whether a card has a test for more than one of its mutants, so one fix can't describe them:
+  /// each test then comes after its own mutant's fix.
+  static boolean eachHasItsOwn(List<ForMutant> each) {
+    return each.stream().filter(one -> one.test().isPresent()).count() > 1;
+  }
+
+  /// The help a card gives before its tests, when each has its own: one test each, if every mutant
+  /// has one.
+  static String eachHelp(List<ForMutant> each) {
+    return each.stream().allMatch(one -> one.test().isPresent())
+        ? "one test for each mutant"
+        : "for each mutant";
   }
 
   /// The same test, its comment naming the mutant it was found for, `with md4db94d8 true`: on a
