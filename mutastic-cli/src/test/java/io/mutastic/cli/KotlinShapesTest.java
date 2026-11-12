@@ -38,7 +38,7 @@ class KotlinShapesTest {
     private static final Pattern EVENT =
         Pattern.compile(
             "\"id\":\"(?<id>[^\"]+)\".*\"status\":\"(?<status>\\w+)\","
-                + "\"operator\":\"(?<operator>[^\"]+)\","
+                + "\"operator\":\"(?<operator>[^\"]+)\",(\"docs\":\"(?<docs>[^\"]+)\",)?"
                 + "\"location\":\\{\"file\":\"(?<file>[^\"]+)\",\"line\":(?<line>\\d+),"
                 + ".*\"method\":\"(?<method>[^\"(]+)\\(.*?\\}"
                 + ".*?\"applied\":\\{\"level\":\"bytecode\",\"text\":\"(?<bytecode>.*?)\"\\}\\}"
