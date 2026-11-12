@@ -1,5 +1,7 @@
 # mutastic
 
+<img src=".github/pip.webp" alt="Pip, mutastic's watermelon mascot, smiling" width="150" align="right">
+
 *Find out whether your tests, or your agent's, actually check anything.*
 
 [![CI](https://github.com/mutastic/mutastic/actions/workflows/ci.yml/badge.svg)](https://github.com/mutastic/mutastic/actions/workflows/ci.yml)
