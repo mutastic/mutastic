@@ -132,8 +132,8 @@ class DocsOutputTest {
     return new Samples.Result(0, laidOut, "");
   }
 
-  /// The one missed mutant's event, laid out to be read, as Schemas and stability shows it.
-  /// The event for mutant `id`, laid out as the docs show it.
+  /// The one missed mutant's event, laid out to be read, as Schemas and stability shows it. The
+  /// event for mutant `id`, laid out as the docs show it.
   private static Samples.Result theEvent(Samples.Result result, String id) {
     var mapper = JsonMapper.builder().build();
     var event =
