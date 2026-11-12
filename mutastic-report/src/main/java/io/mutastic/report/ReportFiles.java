@@ -22,8 +22,9 @@ import java.util.TreeMap;
 ///   badges understand.
 /// - `html`: that JSON in the schema's own viewer, embedded, so it opens offline from disk.
 /// - `xml`: the `mutations.xml` format many build-server and code-quality plugins read.
+/// - `sarif`: SARIF 2.1.0, which code scanning reads ([Sarif]).
 public final class ReportFiles {
-  public static final List<String> KINDS = List.of("json", "html", "xml");
+  public static final List<String> KINDS = List.of("json", "html", "xml", "sarif");
 
   private final Path root;
   private final SourceView sources;
@@ -45,6 +46,7 @@ public final class ReportFiles {
           case "json" -> Json.write(json(report));
           case "html" -> html(report);
           case "xml" -> xml(report);
+          case "sarif" -> Json.write(new Sarif(root, sources, version).document(report));
           default -> throw new IllegalArgumentException("unknown report " + kind);
         };
     try {

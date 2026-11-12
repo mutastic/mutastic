@@ -67,6 +67,13 @@ public final class Schemas {
     return problems(report(), json);
   }
 
+  /// What the SARIF 2.1.0 schema finds wrong with `json`: its own copy, in test resources
+  /// (THIRD-PARTY.md says from where).
+  public static List<String> sarifProblems(String json) {
+    return problems(
+        schema(read(Schemas.class.getResourceAsStream("schema/sarif-2.1.0.json"))), json);
+  }
+
   static Schema report() {
     return schema(
         read(Schemas.class.getResourceAsStream("schema/mutation-testing-report-schema.json")));
