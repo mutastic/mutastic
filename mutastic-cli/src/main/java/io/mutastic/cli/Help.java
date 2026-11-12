@@ -85,6 +85,12 @@ final class Help {
               "Adds an Arid audit row to the summary: how many of those mutants ran, and how many"
                   + " the tests caught."),
           new Entry(
+              "MUTASTIC_GITHUB=off",
+              "No GitHub Actions annotations or job summary",
+              "On GitHub Actions (`GITHUB_ACTIONS=true`), a full run annotates the line of each of"
+                  + " its first ten misses and adds a summary to the job's page. `off` leaves them"
+                  + " out."),
+          new Entry(
               "NO_COLOR",
               "No colour",
               "Set to anything, it turns colour off, as it does for many tools."),

@@ -17,6 +17,7 @@ import io.mutastic.engine.RunRecords;
 import io.mutastic.engine.Shard;
 import io.mutastic.report.AgentText;
 import io.mutastic.report.Explanation;
+import io.mutastic.report.GitHubActions;
 import io.mutastic.report.HumanText;
 import io.mutastic.report.Invocation;
 import io.mutastic.report.JsonEvents;
@@ -185,8 +186,34 @@ public final class Main {
     passes.progress().finished();
     var kept = kept(command, prepared, tested);
     display.printer().print(tested.report(), kept.comparison(), kept.written());
+    toGitHub(command, prepared, output.github(), tested.report());
     baselineNote(command, prepared, tested.report(), output);
     return exitCode(command, tested.report());
+  }
+
+  /// On GitHub Actions, an annotation on each of the first misses and the job's summary: see
+  /// [GitHubActions].
+  private static void toGitHub(Command command, Prepared prepared, GitHubRun run, Report report) {
+    if (!run.on()) {
+      return;
+    }
+    var actions = new GitHubActions(prepared.directory(), prepared.sources());
+    actions.annotations(report).forEach(run.err()::println);
+    run.summary()
+        .ifPresent(file -> appendSummary(file, actions.summary(report, command.threshold())));
+  }
+
+  /// Adds to the job summary's file, which other steps write to as well.
+  private static void appendSummary(java.nio.file.Path file, String markdown) {
+    try {
+      Files.writeString(
+          file,
+          markdown + "\n",
+          java.nio.file.StandardOpenOption.CREATE,
+          java.nio.file.StandardOpenOption.APPEND);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   /// `baseline`: every mutant no test catches, written for the project to commit; or with
@@ -1020,7 +1047,28 @@ public final class Main {
   /// Where and how the result is shown: stdout and progress, the format, the words for results and
   /// the terminal's style.
   private record Output(
-      PrintStream out, Progress progress, String format, Vocabulary words, Style style) {}
+      PrintStream out,
+      Progress progress,
+      String format,
+      Vocabulary words,
+      Style style,
+      GitHubRun github) {}
+
+  /// A run on GitHub Actions (`GITHUB_ACTIONS=true`, unless `MUTASTIC_GITHUB=off`): where its
+  /// annotations go, stderr, so a format's own output stays as it is; and the job summary's file.
+  private record GitHubRun(
+      boolean on, PrintStream err, java.util.Optional<java.nio.file.Path> summary) {
+    static GitHubRun of(Terminal terminal, PrintStream err) {
+      var env = terminal.env();
+      boolean on =
+          "true".equals(env.get("GITHUB_ACTIONS")) && !"off".equals(env.get("MUTASTIC_GITHUB"));
+      var summary =
+          java.util.Optional.ofNullable(env.get("GITHUB_STEP_SUMMARY"))
+              .filter(file -> !file.isBlank())
+              .map(java.nio.file.Path::of);
+      return new GitHubRun(on, err, summary);
+    }
+  }
 
   private static Output output(
       Command command, PrintStream out, PrintStream err, Terminal terminal) {
@@ -1038,7 +1086,8 @@ public final class Main {
     }
     var words = Vocabulary.valueOf(vocabulary.toUpperCase(java.util.Locale.ROOT));
     var progress = new Progress(err, progressMode(command.progress(), format, terminal));
-    return new Output(out, progress, format, words, style(command, terminal));
+    return new Output(
+        out, progress, format, words, style(command, terminal), GitHubRun.of(terminal, err));
   }
 
   private static Style style(Command command, Terminal terminal) {

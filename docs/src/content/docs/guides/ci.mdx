@@ -108,6 +108,19 @@ each catching test again, and a catch that doesn't repeat doesn't count.
 
 </EditionOnly>
 
+<EditionOnly edition="java">
+
+## On GitHub Actions
+
+On GitHub Actions (where `GITHUB_ACTIONS=true`), a full run also annotates the line of each of its
+first ten misses, ranked as the [agent format](/concepts/output/#formats) ranks them, so the pull
+request's changed files show them, and adds a summary to the job's page: the verdict, the score,
+the counts, and the first misses with where they are. It needs no token or permission, and writes
+the annotations on stderr, so `--format=jsonl` stays as it is. `MUTASTIC_GITHUB=off` leaves both
+out.
+
+</EditionOnly>
+
 ## Only what a pull request changed
 
 `--since=REF` mutates only the lines changed since the branch left `REF`, so a pull request's run
