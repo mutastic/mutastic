@@ -766,6 +766,16 @@
             "note": { "type": "string", "description": "For a changed conditional jump, how it relates to the source: javac usually jumps past an `if`'s body when its condition is false, so the jump tests the opposite of the source. Only when the change is to a jump." }
           }
         },
+        "change": {
+          "type": "object",
+          "description": "The Rust edition's change in the source, where the Java edition gives the bytecode: the code before and after, as the switch puts it in place.",
+          "required": ["original", "replacement"],
+          "properties": {
+            "original": { "type": "string", "description": "The code the mutant replaces: `total >= 100`." },
+            "replacement": { "type": "string", "description": "What it's replaced with: `(total) > (100)`." },
+            "description": { "type": "string", "description": "What the replacement is, in the text's words." }
+          }
+        },
         "operator": {
           "type": "object",
           "description": "The operator that made it, and what it does.",
