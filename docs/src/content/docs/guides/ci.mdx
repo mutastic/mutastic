@@ -248,6 +248,86 @@ one: see [changed lines](/guides/scoping/#only-what-changed).
 The Rust edition doesn't compare a run with the last, so there's no record to carry from one CI run
 to the next: each run scores, fails and reports on its own.
 
+## Keep the build between runs
+
+mutastic builds a copy of the package in `target/mutastic/`, beside its own target directory, and
+rewrites a file in the copy only when its bytes change, so the copy stays warm from run to run:
+only what changed is built again. A CI job starts from a fresh checkout, where every run would build
+the package and all its dependencies from nothing, the biggest part of a run. Cache
+`target/mutastic/`, and the next run builds only what the change touched. A fresh checkout's newer
+file times don't matter, since the copy's files keep theirs.
+
+Key it on `Cargo.lock`, so new dependencies start a fresh entry, and save it even when the run fails.
+
+<Tabs syncKey="ci">
+<TabItem label="GitHub Actions">
+
+A cache entry can't be replaced, so each run saves its own and the next restores the newest:
+
+```yaml
+name: Mutants
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  whole-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: |
+          curl -fsSL https://mutastic.io/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/mutastic/
+          key: mutastic-${{ hashFiles('Cargo.lock') }}-${{ github.run_id }}
+          restore-keys: |
+            mutastic-${{ hashFiles('Cargo.lock') }}-
+            mutastic-
+      - run: mutastic run --threshold=70
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: always()
+        with:
+          path: target/mutastic/
+          key: mutastic-${{ hashFiles('Cargo.lock') }}-${{ github.run_id }}
+```
+
+</TabItem>
+<TabItem label="GitLab CI">
+
+A job's cache is restored before its script and saved after it, under the same key, so each run
+replaces the last; `when: always` saves it when the run fails too:
+
+```yaml
+mutants-whole-package:
+  image: rust:1.99.1
+  before_script:
+    - curl -fsSL https://mutastic.io/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - mutastic run --threshold=70
+  cache:
+    key:
+      files: [Cargo.lock]
+      prefix: mutastic
+    paths:
+      - target/mutastic/
+    when: always
+```
+
+</TabItem>
+</Tabs>
+
+The cache holds the package's build with every mutant in, and grows with its dependencies: tens of
+megabytes for a small crate, more for a big one. Cache `target/mutastic/` itself, even with a cache
+for `cargo build` or `cargo test` in place (such as `Swatinem/rust-cache`): mutastic's build is its
+own, in its own target directory and with its own profile, so it shares no dependency's build with
+yours. A different Rust toolchain builds everything again, cache or not.
+
 </EditionOnly>
 
 <EditionOnly edition="java">
