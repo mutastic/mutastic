@@ -1,0 +1,13 @@
+rules:
+  - skip: com.acme.generated.**      # ** any depth, * one name, Class#method one method
+    reason: protobuf output
+  - mutate: com.acme.Money#toString  # brings back what mutastic would skip as arid
+    reason: shown to customers
+plugins:
+  - build/libs/acme-filters.jar      # a jar: filters and operators of your own
+  - mutiny.yaml                      # a rules file: call operators, as data
+filters:
+  - acme:no-metrics                  # a plugin's filter runs only when named here
+operators:
+  - defaults                         # which operators run, as --operators chooses
+  - -stream/swap-match

@@ -28,16 +28,32 @@ final class SchemaCompatibility {
 
   private final JsonNode released;
   private final JsonNode current;
+
+  /// What the schema's root describes, to say where a break is: `the event`.
+  private final String root;
+
   private final List<String> breaks = new ArrayList<>();
 
-  private SchemaCompatibility(JsonNode released, JsonNode current) {
+  private SchemaCompatibility(JsonNode released, JsonNode current, String root) {
     this.released = released;
     this.current = current;
+    this.root = root;
   }
 
-  /// Each promise `current` breaks of `released`'s, in words, with where: empty when it keeps them.
+  /// Each promise the events schema `current` breaks of `released`'s, in words, with where: empty
+  /// when it keeps them.
   static List<String> breaks(JsonNode released, JsonNode current) {
-    var compatibility = new SchemaCompatibility(released, current);
+    return breaks(released, current, "the event");
+  }
+
+  /// The same for a schema whose root describes `root`: `mutastic.yaml`.
+  ///
+  /// For a file mutastic reads, what matters is the other way round: that a file the released
+  /// schema took is still taken. A field made optional, or a constraint loosened, keeps that
+  /// promise, and is still called a break here. Kept strict on purpose: such a change is rare, and
+  /// a release should decide it, not let it through unseen.
+  static List<String> breaks(JsonNode released, JsonNode current, String root) {
+    var compatibility = new SchemaCompatibility(released, current, root);
     compatibility.compare("", released, current);
     return compatibility.breaks;
   }
@@ -68,6 +84,7 @@ final class SchemaCompatibility {
       case "enum" -> values(at, then, later);
       case "required", "type" -> same(at, keyword, words(then), words(later));
       case "allOf" -> branches(at, then, later);
+      case "oneOf", "anyOf" -> alternatives(at, keyword, then, later);
       default -> {
         if (then.isObject() && later.isObject()) {
           compare(at + "/" + keyword, then, later);
@@ -102,6 +119,21 @@ final class SchemaCompatibility {
   private void same(String at, String keyword, Set<String> then, Set<String> later) {
     if (!then.equals(later)) {
       breaks.add("%s: `%s` changed from %s to %s".formatted(place(at), keyword, then, later));
+    }
+  }
+
+  /// The same alternatives, each still saying what it said: a rule that's `skip:` or `mutate:`. One
+  /// added or taken away changes which values are valid, and with `oneOf` a value two now match is
+  /// valid no longer.
+  private void alternatives(String at, String keyword, JsonNode then, JsonNode later) {
+    if (then.size() != later.size()) {
+      breaks.add(
+          "%s: `%s` had %d alternatives, and has %d"
+              .formatted(place(at), keyword, then.size(), later.size()));
+      return;
+    }
+    for (int index = 0; index < then.size(); index++) {
+      compare("%s/%s[%d]".formatted(at, keyword, index), then.get(index), later.get(index));
     }
   }
 
@@ -157,7 +189,7 @@ final class SchemaCompatibility {
     return words;
   }
 
-  private static String place(String at) {
-    return at.isEmpty() ? "the event" : at;
+  private String place(String at) {
+    return at.isEmpty() ? root : at;
   }
 }
