@@ -1,0 +1,99 @@
+---
+title: Working test-first
+description: "Where mutastic fits in red, green, refactor: after green, with verify as a card's red and green, and one commit per cycle."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import EditionOnly from '../../../components/EditionOnly.astro';
+import EditionTabs from '../../../components/EditionTabs.astro';
+import RustOutput from '../../../components/RustOutput.astro';
+import TddLoop from '../../../components/TddLoop.astro';
+import verify from '../../../data/output/verify.ansi?raw';
+
+A test written first can still miss. It runs the code you just wrote, and it can pass if that code
+is wrong: a boundary that's one off, a branch no test takes, a value nobody checks. Writing tests
+first changes when you write them, not what they check. mutastic checks what each cycle's tests
+check, while you're still in it.
+
+## mutastic comes after green
+
+mutastic runs your tests before it changes anything, and a test that fails with no mutant in stops
+the run: it would look as if it caught every mutant it met. So mutastic has no part in red, and
+none in green. It starts once the whole suite passes.
+
+<TddLoop />
+
+## A card's test passes on today's code
+
+A classic red test fails until you write the code. A card's test is different: it passes on today's
+code and fails only with the mutant in. It's the second case that makes the code you just wrote
+general, the step test-first work calls triangulation, and `verify` is its red and green: it fails
+until the test is written, and passes once the test catches the mutant.
+
+<EditionTabs>
+<div slot="java">
+
+<Code code={verify} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+<RustOutput name="getting-started/verify" />
+
+</div>
+</EditionTabs>
+
+One card's test does fail on today's code: one whose value is wrong for what the code should do.
+That's a bug found, not a test to fix. Keep the test with the value the spec asks for (see
+[Suggested tests](/concepts/suggested-tests/)), and go back to green.
+
+## Lines no test reaches
+
+A line the cycle added that no test reaches is the clearest thing mutastic can tell you in
+test-first work: the code ran ahead of its tests. mutastic lists those lines apart, under `Not
+covered`. Write the test that reaches each one, or take out the code nothing asked for.
+
+## One cycle
+
+| Step | What happens | mutastic's part |
+|---|---|---|
+| Red | One test from the spec fails, for the reason you expect | None: a failing suite stops a run |
+| Green | The least production code that makes it pass, with the whole suite green | None |
+| Mutate | `mutastic run --since=HEAD` on the cycle's lines | The lines no test reaches, then the missed mutants |
+| Triangulate | For each card, check its value against the spec, write its test, run `verify` | A card's test that fails on today's code has found a bug: back to green |
+| Decline | A mutant no test could catch is proposed for a person to ignore, with its reason | A person accepts it |
+| Refactor | Structure only, with the suite and the cycle's run green | Run `--since=HEAD` again |
+| Commit | Ends the cycle | The commit is the next cycle's `HEAD` |
+
+Commit at the end of the cycle, not at green. `--since=HEAD` runs the mutants on the lines changed
+since the last commit, uncommitted and new files included, so the last commit marks where the
+cycle started. A commit at green would leave the cycle's own lines out of its run.
+
+<EditionOnly edition="java">
+
+`mutastic next --since=HEAD` gives the cycle's cards one at a time, its lines no test reaches first:
+see [Next mutant](/concepts/next/).
+
+</EditionOnly>
+
+## Agents
+
+The [agent format](/concepts/output/#formats) and [the gate](/agents/gate/) carry one rule for this:
+production code changes to pass a test the spec asks for, never to make a mutant go away. A mutant
+on code just written that no correct test can catch is either code the spec doesn't ask for, or
+equivalent, and either way the agent tells the person or proposes the ignore, rather than changing
+the code so the mutant can't exist. That would hide what the mutant found. The gate's messages say
+so, as does the agent format's `rules:` line:
+
+```text
+rules: add or change tests only; never change production code to make a mutant go away: tell the person
+```
+
+A failing test an agent leaves for a person stays in place: the gate says to make it pass, unless
+the spec or plan is what's wrong, in which case to say so and stop.
+
+## What it can't tell you
+
+A mutant shows that a test doesn't check what the code does. It can't show that the code does what
+you meant: a test and the code can agree on the wrong answer. The spec is still yours to check. See
+[Equivalent mutants](/concepts/equivalence/) for a mutant no test could catch.

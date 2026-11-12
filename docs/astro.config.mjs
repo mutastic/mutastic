@@ -124,6 +124,7 @@ export default defineConfig({
                 'concepts/results',
                 'concepts/suggested-tests',
                 'concepts/next',
+                'concepts/test-first',
                 'concepts/equivalence',
                 'concepts/flaky-tests',
                 'concepts/output',

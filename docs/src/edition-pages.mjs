@@ -20,6 +20,7 @@ export const SHARED = [
   ['concepts/output', 'concepts/output'],
   ['concepts/how-a-run-works', 'concepts/how-a-run-works'],
   ['concepts/ids', 'concepts/ids'],
+  ['concepts/test-first', undefined],
   ['guides/ci', undefined],
 ];
 
