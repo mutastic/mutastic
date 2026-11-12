@@ -35,7 +35,8 @@ method and two for a file, so one method with many misses can't fill the list.
 ## For an agent
 
 With `--format=agent`, `next` gives exactly one task: the mutant and its line as it changes, why
-it's first, the test to write, the rules (tests only, never production code, and never delete,
+it's first, the test to write, the rules (tests only, never production code changed to make a
+mutant go away, and never delete,
 disable or loosen a test), its `done when`, how to decline it (proposing an ignore, for a person
 to accept), and to run `next` again after. The order is mutastic's: an agent works the head of
 the queue, or declines it. `--format=jsonl` writes a `next-item` event for each item shown, with a

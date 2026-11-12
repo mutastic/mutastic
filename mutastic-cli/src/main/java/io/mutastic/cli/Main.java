@@ -406,8 +406,11 @@ public final class Main {
         .out()
         .printf(
             "mutastic gate: this task is gated from %s: before you finish, check the lines it"
-                + " changes with `mutastic run --since=%s --format=agent`; %s\n",
-            base.substring(0, Math.min(7, base.length())), base, whenItsDone(gated));
+                + " changes with `mutastic run --since=%s --format=agent`; %s. %s\n",
+            base.substring(0, Math.min(7, base.length())),
+            base,
+            whenItsDone(gated),
+            MutantCommand.NO_REWRITE);
     return PASSED;
   }
 
@@ -654,7 +657,8 @@ public final class Main {
     return ("mutastic gate: %d mutant%s on the lines the task changed %s it, so it isn't done (%s).%s"
             + " For each card: write the test, and run its `done when` before you move on; for a"
             + " line no test reaches, write a test that reaches it; if a case can't happen,"
-            + " propose ignoring it, for a person to accept.")
+            + " propose ignoring it, for a person to accept. "
+            + MutantCommand.NO_REWRITE)
         .formatted(
             count,
             count == 1 ? "" : "s",
