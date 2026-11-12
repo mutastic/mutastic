@@ -149,7 +149,7 @@ class PricingSampleTest {
         .isEqualTo(
             """
         @Test
-        void discountWithTotal100() {
+        void discountAtTheTotalEdge() {
           assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0
         }""");
     var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
@@ -159,7 +159,7 @@ class PricingSampleTest {
     var verified = Samples.mutastic("verify", id, project.toString());
     assertThat(verified.exit()).as(verified.out() + verified.err()).isEqualTo(Main.PASSED);
     assertThat(verified.out())
-        .contains("is caught by com.example.pricing.PricingTest#discountWithTotal100");
+        .contains("is caught by com.example.pricing.PricingTest#discountAtTheTotalEdge");
   }
 
   @Test

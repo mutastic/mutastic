@@ -12,7 +12,7 @@ decline: if a mutant's case can't happen in practice, or the change is one no ca
    fix: test `fee()` with `amount = 10` and assert the result
    test to add in FeesTest:
      @Test
-     void feeWithAmount10() {
+     void feeAtTheAmountEdge() {
        assertEquals(2, new Fees().fee(10)); // today 2 · with this mutant 0
      }
      // check today's value is the one you intend: the test pins what the code does now

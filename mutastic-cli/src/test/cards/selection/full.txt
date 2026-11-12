@@ -20,7 +20,7 @@
 
            // in FeesTest
            @Test
-           void feeWithAmount10() {
+           void feeAtTheAmountEdge() {
              assertEquals(2, new Fees().fee(10)); // today 2 · with this mutant 0
            }
            check today's value is the one you intend: the test pins what the code does now

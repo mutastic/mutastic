@@ -9,6 +9,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Card changes
 
+- **A suggested test is named by where its input sits, not its value.** A number in a name goes
+  stale when the spec moves, and no guide or big suite names a test that way. A call of one
+  argument is named for zero or a negative input, `feeWhenAmountIsZero`, or for the edge of the
+  literal its condition compares with, `discountAtTheTotalEdge` and
+  `discountJustBelowTheTotalEdge`; a constant the source names is used as before,
+  `discountAtFreeFrom`; anything else keeps its values, `isFreeWithTotal0ForFreeFrom50`. The value
+  stays in the call.
 - **Each suggested test says what it's for.** A card with a test for more than one of its mutants
   gave only the first mutant's fix, so the second test came with nothing saying why. Now `help:`
   says `one test for each mutant`, and each test follows its own mutant's fix and id; the agent

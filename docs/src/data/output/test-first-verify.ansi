@@ -1,2 +1,2 @@
-mutastic: m809c9c9b is caught by com.example.pricing.PricingTest#loyaltyCreditWithTotal30
-mutastic: md0b32a4f is caught by com.example.pricing.PricingTest#loyaltyCreditWithTotal29
+mutastic: m809c9c9b is caught by com.example.pricing.PricingTest#loyaltyCreditAtTheTotalEdge
+mutastic: md0b32a4f is caught by com.example.pricing.PricingTest#loyaltyCreditJustBelowTheTotalEdge

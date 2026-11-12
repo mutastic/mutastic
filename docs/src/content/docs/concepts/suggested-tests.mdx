@@ -83,9 +83,15 @@ test class, `PricingTest` for `Pricing`, if one of its tests does, or else the f
 assertion style (AssertJ, JUnit or TestNG, whose test methods it makes public and whose
 `assertEquals` it gives the actual value first), with a name it doesn't already use.
 
-The name is the method's and its arguments', by the names the source gives its parameters (from
-the class file, which keeps them when it's compiled with debug information, as Gradle and Maven
-compile by default), and the constructor's for an object it makes: `isFreeWithTotal0ForFreeFrom50`.
+The name says where the input sits, not its value, which goes stale when the spec moves: the number
+stays in the call, where a change to the spec is made anyway. For a call of one argument, at the
+edge of the literal the condition compares it with, just below it or just above it, by the
+parameter's name in the source: `discountAtTheTotalEdge` for 100 in `total >= 100`,
+`discountJustBelowTheTotalEdge` for 99. Otherwise a zero or a negative input says so,
+`feeWhenAmountIsZero`. Anything else, and a call of more than one argument, is named by its
+arguments, by the names the source gives its parameters (from the class file, which keeps them when
+it's compiled with debug information, as Gradle and Maven compile by default), and the
+constructor's for an object it makes: `isFreeWithTotal0ForFreeFrom50`.
 When the input is at a value the source names, the test says it the source's way and is named for
 it. A constant the test can use goes in the call, its value in the comment; one it can't, being
 private, stays a number, and the comment says whose it is:

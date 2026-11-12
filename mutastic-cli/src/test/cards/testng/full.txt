@@ -20,7 +20,7 @@
 
            // in RatesTest
            @Test
-           public void lateFeeWithDays30() {
+           public void lateFeeAtTheDaysEdge() {
              assertEquals(new Rates().lateFee(30), 25); // today 25 · with this mutant 0
            }
            check today's value is the one you intend: the test pins what the code does now

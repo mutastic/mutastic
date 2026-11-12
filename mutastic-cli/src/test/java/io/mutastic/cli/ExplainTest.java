@@ -26,7 +26,7 @@ class ExplainTest {
     assertThat(before.exit()).isEqualTo(Main.PASSED);
     assertThat(before.out())
         .contains("[✗ MISSED] no test checks discount() at total == 100")
-        .contains("void discountWithTotal100()")
+        .contains("void discountAtTheTotalEdge()")
         .contains("About this mutant")
         .contains("= bytecode  IF_ICMPLT → IF_ICMPLE")
         .contains("IF_ICMPLT: jump if the first int is less than the second")

@@ -40,7 +40,7 @@ suggests the test that would catch it, and gives the command that proves the fix
 
             // in PricingTest
             @Test
-            void discountWithTotal100() {
+            void discountAtTheTotalEdge() {
               assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0
             }
             check today's value is the one you intend: the test pins what the code does now
@@ -58,7 +58,7 @@ Add the suggested test, then prove it:
 
 ```sh
 mutastic verify m855c8e3c samples/pricing
-# mutastic: m855c8e3c is caught by com.example.pricing.PricingTest#discountWithTotal100
+# mutastic: m855c8e3c is caught by com.example.pricing.PricingTest#discountAtTheTotalEdge
 ```
 
 ## Install
