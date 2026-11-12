@@ -87,23 +87,32 @@ public final class ProjectSetup {
     return value;
   }
 
-  /// The tests' JVM arguments, without a JaCoCo agent: JaCoCo adds members as classes load, and a
-  /// class whose shape changed can't have mutants swapped in.
+  /// The tests' JVM arguments, without a coverage tool's agent: it adds members as classes load,
+  /// and a class whose shape changed can't have mutants swapped in.
   private static List<String> jvmArgs(String lines) {
-    return lines.lines().map(String::strip).filter(arg -> !arg.isEmpty() && !jacoco(arg)).toList();
+    return lines
+        .lines()
+        .map(String::strip)
+        .filter(arg -> !arg.isEmpty() && !coverageAgent(arg))
+        .toList();
   }
 
-  /// A JaCoCo agent, by its jar's name: `jacocoagent.jar` from Gradle's JaCoCo plugin,
-  /// `org.jacoco.agent-0.8.12-runtime.jar` from Maven's `prepare-agent`. Once, only Gradle's was
-  /// seen, and under Maven a Quarkus project's run found no test reached anything.
-  static boolean jacoco(String arg) {
+  /// A coverage tool's agent, by its jar's name: JaCoCo's, `jacocoagent.jar` from Gradle's plugin
+  /// and `org.jacoco.agent-0.8.12-runtime.jar` from Maven's `prepare-agent`; Kover's,
+  /// `kover-jvm-agent-0.9.1.jar`, and IntelliJ's that it's built on. Once, only Gradle's JaCoCo was
+  /// known: under Maven a Quarkus project's run found no test reached anything, and Kover's jar,
+  /// which Kover writes in a task of its own before the tests, stopped the worker starting.
+  static boolean coverageAgent(String arg) {
     var agent = "-javaagent:";
     if (!arg.startsWith(agent)) {
       return false;
     }
     var jar = arg.substring(agent.length()).split("=", 2)[0];
     var name = jar.substring(Math.max(jar.lastIndexOf('/'), jar.lastIndexOf('\\')) + 1);
-    return name.startsWith("jacocoagent") || name.startsWith("org.jacoco.agent");
+    return name.startsWith("jacocoagent")
+        || name.startsWith("org.jacoco.agent")
+        || name.startsWith("kover-jvm-agent")
+        || name.startsWith("intellij-coverage-agent");
   }
 
   private static List<Path> paths(String joined) {
