@@ -1,0 +1,38 @@
+{
+  "$schema" : "https://raw.githubusercontent.com/stryker-mutator/mutation-testing-elements/master/packages/report-schema/src/mutation-testing-report-schema.json",
+  "schemaVersion" : "2",
+  "thresholds" : {
+    "high" : 80,
+    "low" : 60
+  },
+  "files" : {
+    "src/main/java/com/example/pricing/Pricing.java" : {
+      "language" : "java",
+      "source" : "…",
+      "mutants" : [ {
+        "id" : "m855c8e3c",
+        "mutatorName" : "boundary",
+        "replacement" : ">",
+        "description" : "`>=` becomes `>`",
+        "location" : {
+          "start" : {
+            "line" : 17,
+            "column" : 15
+          },
+          "end" : {
+            "line" : 17,
+            "column" : 17
+          }
+        },
+        "status" : "Survived",
+        "statusReason" : "no test checks `discount()` at `total == 100`",
+        "coveredBy" : [ "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff", "com.example.pricing.PricingTest#smallOrdersPayFullPrice" ],
+        "testsCompleted" : 2
+      } ]
+    }
+  },
+  "framework" : {
+    "name" : "mutastic",
+    "version" : "dev"
+  }
+}

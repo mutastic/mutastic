@@ -96,8 +96,39 @@ class DocsOutputTest {
       shown("format-" + format + ".ansi", project, result);
       if (format.equals("jsonl")) {
         shown("event-missed.json", project, theMissedEvent(result));
+        shown("mutation-json.json", project, theReport(project.resolve("build/mutastic")));
       }
     }
+  }
+
+  /// The run's `mutation.json`, as Report files shows it: its one missed mutant, with the file's
+  /// text, its absolute root and its timings left out, as they're long or change from machine to
+  /// machine.
+  private static Samples.Result theReport(Path work) throws IOException {
+    var mapper = JsonMapper.builder().build();
+    var report = mapper.readTree(work.resolve("mutation.json").toFile());
+    var files = report.path("files");
+    var path = files.propertyNames().iterator().next();
+    var file = files.path(path);
+    var missed =
+        (tools.jackson.databind.node.ObjectNode)
+            file.path("mutants").values().stream()
+                .filter(mutant -> mutant.path("status").asString("").equals("Survived"))
+                .findFirst()
+                .orElseThrow()
+                .deepCopy();
+    missed.remove("duration");
+    var trimmed = mapper.createObjectNode();
+    trimmed.set("$schema", report.path("$schema"));
+    trimmed.set("schemaVersion", report.path("schemaVersion"));
+    trimmed.set("thresholds", report.path("thresholds"));
+    var entry = trimmed.putObject("files").putObject(path);
+    entry.set("language", file.path("language"));
+    entry.put("source", "…");
+    entry.putArray("mutants").add(missed);
+    trimmed.set("framework", report.path("framework"));
+    var laidOut = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(trimmed) + "\n";
+    return new Samples.Result(0, laidOut, "");
   }
 
   /// The one missed mutant's event, laid out to be read, as Schemas and stability shows it.

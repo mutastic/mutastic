@@ -3,7 +3,8 @@ title: Report files
 description: "The report files a run writes: which formats, what reads each, where they go, and how to choose."
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Code, Tabs, TabItem } from '@astrojs/starlight/components';
+import mutationJson from '../../../data/output/mutation-json.json?raw';
 
 Besides what it prints, a run writes its results as files, for tools and for reading later: a
 report viewer, a dashboard, a badge, a code-quality plugin. Every run writes them except a run of
@@ -20,6 +21,16 @@ summary's `Reports` line lists the files it wrote.
 | `sarif` | `mutation.sarif` | SARIF 2.1.0, which code scanning reads: GitHub's alerts on a pull request's lines, Azure DevOps, and SARIF viewers in an editor. |
 
 `json` and `html` are written unless you choose otherwise.
+
+### What `mutation.json` holds
+
+The pricing sample's, trimmed to its one missed mutant, without the file's text (`source`), the
+other mutants, the tests, its absolute `projectRoot` or its timings:
+
+<Code code={mutationJson} lang="json" />
+
+`location` is 1-based, its end one past the change. `statusReason` is the card's headline, and
+`coveredBy` the tests that ran it and passed.
 
 ## Code scanning
 
