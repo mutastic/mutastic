@@ -57,6 +57,10 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **Two runs on one module wait for each other.** Run at once (an agent's gate and a person's
+  run), they wrote each other's setup, staged classes and records in the module's work directory
+  in the middle of a run. The first now holds the directory until it ends, and a second says it's
+  waiting and runs after it. Runs inside one JVM, as a gate's are, don't wait on each other.
 - **Kover's agent is left out of the tests too.** A Gradle build that applies Kover adds its agent
   to the tests, and its jar, which Kover writes in a task of its own before them, wasn't there
   when mutastic ran them: the test worker didn't start, and the run stopped with an internal
