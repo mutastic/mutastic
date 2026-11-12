@@ -17,10 +17,10 @@ import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.jvm.toolchain.JavaLanguageVersion;
 import org.gradle.jvm.toolchain.JavaToolchainService;
 
-/// `id("io.mutastic")`: in each Java project it's applied to, a task for each of mutastic's
-/// commands, `mutasticRun`, `mutasticVerify`, `mutasticExplain` and `mutasticIgnore`, set up by the
-/// `mutastic { }` extension and each task's own properties, with `-Pmutastic.<name>` over both for
-/// one run.
+/// `id("io.mutastic")`: in each Java or Kotlin Multiplatform project it's applied to (a
+/// multiplatform one's JVM target), a task for each of mutastic's commands, `mutasticRun`,
+/// `mutasticVerify`, `mutasticExplain` and `mutasticIgnore`, set up by the `mutastic { }` extension
+/// and each task's own properties, with `-Pmutastic.<name>` over both for one run.
 public abstract class MutasticPlugin implements Plugin<Project> {
   /// The JDK mutastic runs on, for the ClassFile API; a Gradle toolchain, so Gradle finds or
   /// fetches it. The tests still run on the JDK the `test` task uses.
@@ -32,6 +32,10 @@ public abstract class MutasticPlugin implements Plugin<Project> {
   public void apply(Project project) {
     var extension = project.getExtensions().create("mutastic", MutasticExtension.class);
     project.getPlugins().withType(JavaPlugin.class, java -> configure(project, extension));
+    // A multiplatform module never applies the java plugin: its JVM target is read instead.
+    project
+        .getPluginManager()
+        .withPlugin(KotlinTargets.PLUGIN, kotlin -> configure(project, extension));
   }
 
   private static void configure(Project project, MutasticExtension extension) {
@@ -79,6 +83,8 @@ public abstract class MutasticPlugin implements Plugin<Project> {
     extension.getConfirmCatches().convention(false);
     extension.getSuggestions().convention(true);
     extension.getToolVersion().convention(project.provider(MutasticPlugin::version));
+    // Gradle's toolchains, which the java plugin brings, and the multiplatform one may not.
+    project.getPluginManager().apply(org.gradle.api.plugins.JavaBasePlugin.class);
     var toolchains = project.getExtensions().getByType(JavaToolchainService.class);
     extension
         .getJavaLauncher()

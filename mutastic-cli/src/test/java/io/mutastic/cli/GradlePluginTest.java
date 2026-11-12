@@ -21,6 +21,8 @@ import org.junit.jupiter.api.io.TempDir;
 class GradlePluginTest {
   private static final Path SAMPLE = Path.of(System.getProperty("mutastic.samples"), "modules");
   private static final Path SUITES = Path.of(System.getProperty("mutastic.samples"), "suites");
+  private static final Path KOTLIN_MULTIPLATFORM =
+      Path.of(System.getProperty("mutastic.samples"), "kotlin-multiplatform");
   private static final Path REPOSITORY = Path.of(System.getProperty("mutastic.samplesRepository"));
   private static final String VERSION = System.getProperty("mutastic.version");
   private static final Pattern DONE_WHEN =
@@ -57,6 +59,40 @@ class GradlePluginTest {
     assertThat(verify.out()).as(verify.out()).contains("is still missed");
     assertThat(verify.exit()).isEqualTo(1);
     sameSetupAsTheCommand(project);
+  }
+
+  /// A Kotlin Multiplatform module never applies the java plugin: the plugin reads its one JVM
+  /// target instead, as the init script does, and the target's tests run on its code, its common
+  /// code included.
+  @Test
+  void aKotlinMultiplatformModuleGetsTheTasks() throws Exception {
+    var project = Samples.copy(KOTLIN_MULTIPLATFORM, work.resolve("kotlin-multiplatform"));
+    var repository = REPOSITORY.toUri().toString();
+    var settings = project.resolve("settings.gradle.kts");
+    Files.writeString(
+        settings,
+        "pluginManagement {\n    repositories {\n        maven(\"%s\")\n        gradlePluginPortal()\n    }\n}\n"
+                .formatted(repository)
+            + Files.readString(settings));
+    var build = project.resolve("build.gradle.kts");
+    Files.writeString(
+        build,
+        Files.readString(build)
+            .replace(
+                "    kotlin(\"multiplatform\") version \"2.2.21\"\n",
+                "    kotlin(\"multiplatform\") version \"2.2.21\"\n    id(\"io.mutastic\") version \"%s\"\n"
+                    .formatted(VERSION))
+            .replace(
+                "    mavenCentral()\n",
+                "    mavenCentral()\n    maven(\"%s\")\n".formatted(repository)));
+
+    var run = gradlew(project, "mutasticRun", "-Pmutastic.format=jsonl", "-Pmutastic.threshold=0");
+
+    assertThat(run.exit()).as(run.out() + run.err()).isZero();
+    assertThat(run.out())
+        .contains("\"reason\":\"run-finished\"")
+        .contains("\"file\":\"src/commonMain/kotlin/com/example/tally/Tally.common.kt\"")
+        .contains("com.example.tally.TallyTest#aHighScoreGetsTheBonus");
   }
 
   /// `suite` in the build file picks the Test task whose tests run, as `--suite` does, and the

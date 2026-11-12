@@ -104,24 +104,90 @@ public abstract class WriteSetup extends DefaultTask {
   /// Set up once [#getSuite] is set: it names the test task, whose classpath it builds first.
   static void configure(WriteSetup task) {
     var project = task.getProject();
+    if (!project.getPlugins().hasPlugin("java")) {
+      configureKotlin(task, project);
+      return;
+    }
     var sourceSets = project.getExtensions().getByType(SourceSetContainer.class);
     var main = sourceSets.getByName(SourceSet.MAIN_SOURCE_SET_NAME);
-    var testTask = project.getTasks().withType(Test.class).named(task.getSuite().get(), Test.class);
-    // The test task, read without depending on it: a value mapped from its TaskProvider makes
-    // this task depend on the test task, so the tests would run before the setup is written.
-    Provider<Test> suite = project.provider(testTask::get);
+    var suite = suite(project, task.getSuite().get());
     directories(task, project, main, suite.map(test -> testsOf(sourceSets, test)));
+    fromTheTestTask(task, project, suite, main.getClassesTaskName());
+  }
+
+  /// A Kotlin Multiplatform module's: the suite is a JVM target's Test task, `desktopTest` for
+  /// `jvm("desktop")`, and the code and its tests are the target's `main` and `test` compilations.
+  /// The `test` suite, which such a module hasn't got, is its one JVM target's.
+  private static void configureKotlin(WriteSetup task, Project project) {
+    var name = kotlinSuite(project, task.getSuite().get());
+    var target = targetOf(project, name);
+    var main = KotlinTargets.compilation(target, "main");
+    kotlinDirectories(task, project, target);
+    fromTheTestTask(task, project, suite(project, name), KotlinTargets.built(main));
+  }
+
+  /// The Test task `asked` names: the one JVM target's for `test`, which such a module hasn't got.
+  private static String kotlinSuite(Project project, String asked) {
+    var targets = KotlinTargets.jvm(project);
+    var tests = project.getTasks().withType(Test.class).getNames();
+    return asked.equals("test") && !tests.contains(asked) && targets.size() == 1
+        ? KotlinTargets.name(targets.get(0)) + "Test"
+        : asked;
+  }
+
+  /// The JVM target whose Test task is `suite`.
+  private static Object targetOf(Project project, String suite) {
+    return KotlinTargets.jvm(project).stream()
+        .filter(candidate -> (KotlinTargets.name(candidate) + "Test").equals(suite))
+        .findFirst()
+        .orElseThrow(
+            () ->
+                new GradleException(
+                    "mutastic: the test suite %s in %s isn't a JVM target's; its Test tasks are %s"
+                        .formatted(
+                            suite,
+                            project.getPath(),
+                            String.join(
+                                ", ", project.getTasks().withType(Test.class).getNames()))));
+  }
+
+  /// The target's own directories, its `main` compilation's and its `test` one's, and its jar.
+  private static void kotlinDirectories(WriteSetup task, Project project, Object target) {
+    var main = KotlinTargets.compilation(target, "main");
+    var test = KotlinTargets.compilation(target, "test");
+    task.getClasses().from(KotlinTargets.classesDirs(main));
+    task.getResources().from(project.provider(() -> KotlinTargets.resources(main)));
+    task.getSources().from(project.provider(() -> KotlinTargets.sources(main)));
+    task.getTestClasses().from(KotlinTargets.classesDirs(test));
+    task.getTestResources().from(project.provider(() -> KotlinTargets.resources(test)));
+    task.getTestSources().from(project.provider(() -> KotlinTargets.sources(test)));
+    task.getModules().from(modules(project, KotlinTargets.runtime(test)));
+    task.getModuleOutputs().from(task.getClasses(), task.getResources());
+    var jar = KotlinTargets.name(target) + "Jar";
+    if (project.getTasks().getNames().contains(jar)) {
+      task.getModuleOutputs()
+          .from(project.getTasks().named(jar, Jar.class).flatMap(Jar::getArchiveFile));
+    }
+  }
+
+  /// The test task named `name`, read without depending on it: a value mapped from its TaskProvider
+  /// makes this task depend on the test task, so the tests would run before the setup is written.
+  private static Provider<Test> suite(Project project, String name) {
+    var testTask = project.getTasks().withType(Test.class).named(name, Test.class);
+    return project.provider(testTask::get);
+  }
+
+  /// What the setup takes from the test task itself, and what it builds first: `built`, the
+  /// module's classes, and everything on the test task's classpath, as the test task would build it
+  /// (another module's jar, on a fresh checkout).
+  private static void fromTheTestTask(
+      WriteSetup task, Project project, Provider<Test> suite, String built) {
     task.getClasspath().from(suite.map(Test::getClasspath));
     task.getValues().putAll(suite.map(WriteSetup::values));
     task.getJvmArgs().set(suite.map(Test::getAllJvmArgs));
     task.getProjectPath().set(project.getPath());
     quarkus(task, project);
-    // Everything on the test task's classpath is built, as the test task would build it: another
-    // module's jar, on a fresh checkout, as well as this module's classes.
-    task.dependsOn(
-        main.getClassesTaskName(),
-        suite.map(Test::getTestClassesDirs),
-        suite.map(Test::getClasspath));
+    task.dependsOn(built, suite.map(Test::getTestClassesDirs), suite.map(Test::getClasspath));
     task.getSetup().set(project.getLayout().getBuildDirectory().file("mutastic/setup.properties"));
     task.setDescription("Writes what the test task would run the tests with, for mutastic");
     task.doNotTrackState("the test task's settings may change without its inputs changing");
@@ -233,9 +299,14 @@ public abstract class WriteSetup extends DefaultTask {
   /// them. The worker loads them with the module's own classes: one may look this module's classes
   /// up by name (`Class.forName`), as it can on the test task's one classpath.
   private static FileCollection modules(Project project, SourceSet tests) {
+    return modules(project, tests.getRuntimeClasspathConfigurationName());
+  }
+
+  /// The same, from the configuration the tests run with, by its name.
+  private static FileCollection modules(Project project, String runtime) {
     return project
         .getConfigurations()
-        .getByName(tests.getRuntimeClasspathConfigurationName())
+        .getByName(runtime)
         .getIncoming()
         .artifactView(view -> view.componentFilter(id -> id instanceof ProjectComponentIdentifier))
         .getFiles();
