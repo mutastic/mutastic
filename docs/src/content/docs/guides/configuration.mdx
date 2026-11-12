@@ -131,6 +131,23 @@ file's first line:
 
 See [Schemas and stability](/reference/schemas/).
 
+### In a build of several modules
+
+mutastic reads one `mutastic.yaml`, and `.mutastic/` beside it, from the directory a run is on;
+it never merges two. Which directory that is depends on how the run starts:
+
+| Run | Reads |
+|---|---|
+| `mutastic run :core` from the build's top, or `mutastic run path/to/build :core` | the top's `mutastic.yaml`, for every module |
+| `mutastic run` in a module's own directory (`core/`, with its own build file) | `core/mutastic.yaml` only, never the top's |
+| The Gradle plugin's task in any module | the top's, as Gradle passes the build's root |
+| The Maven plugin | the one where `mvn` runs: the top's for `mvn mutastic:run` there, a module's with `mvn -f core/pom.xml` |
+
+Keep one `mutastic.yaml` at the top of the build, with rules naming each module's classes, and run
+from there: then every way of running reads the same rules, and the same ignores. A module's own
+file is read only in place of the top's, not on top of it, so the same module run two ways can get
+two different scores.
+
 An annotation on the code comes first, then a rule, then mutastic's own filters. A `mutate:` rule, like `@DoMutate`, brings back only what mutastic would call arid, never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
 
 ## Ignoring one mutant
