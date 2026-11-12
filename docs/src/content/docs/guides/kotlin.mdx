@@ -17,6 +17,10 @@ mutates the target's code, common code included, and runs the target's tests (`j
 (`--suite=desktopTest`). A file named for where it runs, `Board.common.kt` or `Board.desktop.kt`, is
 shown as itself, though kotlinc names its class `Board_commonKt`.
 
+The Gradle plugin works the same way: `id("io.mutastic")` beside `kotlin("multiplatform")` gives the
+module `mutasticRun` and the other tasks, which run the JVM target's tests, and `suite = "desktopTest"`
+in `mutastic { }` names one where there are several.
+
 ## What kotlinc writes is left alone
 
 kotlinc writes code that isn't in your source. A mutant of it would ask for a test of code you didn't
