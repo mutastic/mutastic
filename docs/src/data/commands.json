@@ -530,6 +530,7 @@
     { "name": "MUTASTIC_VOCABULARY", "meaning": "plain or classic, when --vocabulary isn't given", "detail": "`classic` says killed and survived instead of caught and missed. The JSON report and the event stream always use the standard names." },
     { "name": "MUTASTIC_PILLS", "meaning": "Labels: square (the default), rounded (for a Nerd Font) or off", "detail": "How labels such as MISSED and PASS are drawn. `rounded` needs a terminal font with Nerd Font glyphs; `off` leaves out the coloured blocks and keeps the words." },
     { "name": "MUTASTIC_ARID=audit", "meaning": "Run the mutants the arid filters skip, and say what happened", "detail": "Adds an Arid audit row to the summary: how many of those mutants ran, and how many the tests caught." },
+    { "name": "MUTASTIC_GITHUB=off", "meaning": "No GitHub Actions annotations or job summary", "detail": "On GitHub Actions (`GITHUB_ACTIONS=true`), a full run annotates the line of each of its first ten misses and adds a summary to the job's page. `off` leaves them out." },
     { "name": "NO_COLOR", "meaning": "No colour", "detail": "Set to anything, it turns colour off, as it does for many tools." },
     { "name": "FORCE_COLOR", "meaning": "Colour even off a terminal", "detail": "Set to anything, it turns colour on where mutastic can't tell a person is reading, such as a CI log that shows colour." }
   ],

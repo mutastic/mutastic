@@ -25,6 +25,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **Annotations and a job summary on GitHub Actions.** Where `GITHUB_ACTIONS=true`, a full run
+  annotates the line of each of its first ten misses, as the agent format ranks them, and adds a
+  Markdown summary to the job's page (`$GITHUB_STEP_SUMMARY`): the verdict, the score, the counts
+  and the first misses. No token or permission; the annotations go on stderr, so a format's own
+  output is untouched. `MUTASTIC_GITHUB=off` turns both off. See
+  [Running in CI](https://docs.mutastic.io/guides/ci/#on-github-actions).
 - **`explain --format=jsonl`, for agents.** `mutastic explain ID --format=jsonl` writes the
   events a run's JSON Lines has for that one mutant, then a new `mutant-explained` event with each
   row of About this mutant as a field, in the same words: the bytecode change and what each opcode
