@@ -281,7 +281,9 @@ class GradlePluginTest {
 
   private Samples.Result gradlew(Path project, List<String> logging, String... arguments)
       throws IOException, InterruptedException {
-    var command = new ArrayList<>(List.of("./gradlew"));
+    // Windows starts a program by its file's name, the wrapper's batch file there.
+    var wrapper = java.io.File.separatorChar == '\\' ? "gradlew.bat" : "gradlew";
+    var command = new ArrayList<>(List.of(project.resolve(wrapper).toString()));
     command.addAll(logging);
     // The plugin runs in the sample's Gradle daemon: measured there, when the build measures it,
     // in a daemon for this build alone, whose coverage is written as it exits.
