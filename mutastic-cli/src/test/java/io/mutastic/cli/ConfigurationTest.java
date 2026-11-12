@@ -54,7 +54,8 @@ class ConfigurationTest {
 
     write("rule:\n  - skip: com.acme.**\n");
     assertThatThrownBy(() -> Configuration.read(project))
-        .hasMessage("mutastic.yaml line 1: expected rules:, plugins:, filters: or operators:");
+        .hasMessage(
+            "mutastic.yaml line 1: expected extends:, rules:, plugins:, filters: or operators:");
   }
 
   /// The published schema (`/schemas/mutastic-yaml/v1.json`) takes what mutastic reads, and refuses
@@ -107,6 +108,93 @@ class ConfigurationTest {
 
     assertThat(Configuration.read(project).operators()).contains("-stream/swap-match");
     assertThat(Schemas.yamlProblems("mutastic-yaml/v1.json", example)).isEmpty();
+  }
+
+  /// A module's file adds the top's only when it says so: its own rules first, the top's plugins
+  /// found from the module, and its own operators in place of the top's.
+  @Test
+  void aFileAddsWhatItExtends() throws Exception {
+    write(
+        """
+        rules:
+          - skip: com.acme.generated.**
+            reason: protobuf output
+        plugins:
+          - tools/acme.jar
+        filters:
+          - acme:no-metrics
+        operators:
+          - stronger
+        """);
+    var module = Files.createDirectories(project.resolve("core"));
+    var text =
+        """
+        extends: ../mutastic.yaml
+        rules:
+          - skip: com.acme.core.Legacy
+            reason: on its way out
+        filters:
+          - acme:no-metrics
+        """;
+    Files.writeString(module.resolve("mutastic.yaml"), text);
+
+    var configuration = Configuration.read(module);
+
+    assertThat(configuration.rules())
+        .containsExactly(
+            new Rule(false, "com.acme.core.Legacy", "on its way out"),
+            new Rule(false, "com.acme.generated.**", "protobuf output"));
+    assertThat(configuration.plugins()).containsExactly(Path.of("../tools/acme.jar"));
+    assertThat(configuration.filters()).containsExactly("acme:no-metrics");
+    assertThat(configuration.operators()).containsExactly("stronger");
+    assertThat(Schemas.yamlProblems("mutastic-yaml/v1.json", text)).isEmpty();
+
+    Files.writeString(module.resolve("mutastic.yaml"), text + "operators:\n  - defaults\n");
+    assertThat(Configuration.read(module).operators()).containsExactly("defaults");
+  }
+
+  /// A file that isn't there, or a loop, is named, never skipped.
+  @Test
+  void anExtendsThatCantBeFollowedIsNamed() throws Exception {
+    var module = Files.createDirectories(project.resolve("core"));
+    Files.writeString(module.resolve("mutastic.yaml"), "extends: ../top.yaml\n");
+    assertThatThrownBy(() -> Configuration.read(module))
+        .hasMessage("mutastic.yaml line 1: extends ../top.yaml, which isn't there");
+
+    write("extends: core/mutastic.yaml\n");
+    Files.writeString(module.resolve("mutastic.yaml"), "extends: ../mutastic.yaml\n");
+    assertThatThrownBy(() -> Configuration.read(module))
+        .hasMessage(
+            "extends: goes round in a loop: mutastic.yaml extends ../mutastic.yaml extends"
+                + " mutastic.yaml");
+  }
+
+  /// A module's rules are its nearest file's, whether the run is on the module or on the build's
+  /// top: found by walking up from the module, but never out of its repository.
+  @Test
+  void aModuleUsesItsNearestFile() throws Exception {
+    Files.createDirectories(project.resolve(".git"));
+    var core = Files.createDirectories(project.resolve("services/core"));
+    var api = Files.createDirectories(project.resolve("services/api"));
+    write("rules:\n");
+    Files.writeString(core.resolve("mutastic.yaml"), "rules:\n");
+
+    assertThat(Configuration.nearest(core, project)).isEqualTo(core);
+    assertThat(Configuration.nearest(core, core)).isEqualTo(core);
+    assertThat(Configuration.nearest(api, project)).isEqualTo(project);
+    assertThat(Configuration.nearest(api, api)).isEqualTo(project);
+  }
+
+  /// Outside a repository, no higher than the run's own directory: a stray file above the build is
+  /// never read.
+  @Test
+  void outsideARepositoryTheRunsDirectoryIsTheTop() throws Exception {
+    var build = Files.createDirectories(project.resolve("build-top"));
+    var core = Files.createDirectories(build.resolve("core"));
+    write("rules:\n");
+
+    assertThat(Configuration.nearest(core, core)).isEqualTo(core);
+    assertThat(Configuration.nearest(core, build)).isEqualTo(build);
   }
 
   private void write(String text) throws Exception {

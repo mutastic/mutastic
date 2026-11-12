@@ -133,20 +133,28 @@ See [Schemas and stability](/reference/schemas/).
 
 ### In a build of several modules
 
-mutastic reads one `mutastic.yaml`, and `.mutastic/` beside it, from the directory a run is on;
-it never merges two. Which directory that is depends on how the run starts:
+Each module uses the nearest `mutastic.yaml` at or above its own directory, however it's run:
+`mutastic run :core` from the build's top, `mutastic run` in `core/`, the Gradle plugin's task, and
+`mvn mutastic:run` all read `core/mutastic.yaml` for `core` when there is one, and the top's when
+there isn't. The search stops at the top of the git repository, or outside one at the directory the
+run is on, so a stray file above the build is never read.
 
-| Run | Reads |
-|---|---|
-| `mutastic run :core` from the build's top, or `mutastic run path/to/build :core` | the top's `mutastic.yaml`, for every module |
-| `mutastic run` in a module's own directory (`core/`, with its own build file) | `core/mutastic.yaml` only, never the top's |
-| The Gradle plugin's task in any module | the top's, as Gradle passes the build's root |
-| The Maven plugin | the one where `mvn` runs: the top's for `mvn mutastic:run` there, a module's with `mvn -f core/pom.xml` |
+One file applies, never a cascade: a module's file replaces the top's for that module. To add to
+the top's instead, say so with `extends:`, a path from the file's own directory:
 
-Keep one `mutastic.yaml` at the top of the build, with rules naming each module's classes, and run
-from there: then every way of running reads the same rules, and the same ignores. A module's own
-file is read only in place of the top's, not on top of it, so the same module run two ways can get
-two different scores.
+```yaml title="core/mutastic.yaml"
+extends: ../mutastic.yaml
+rules:
+  - skip: com.acme.core.legacy.**
+    reason: on its way out, replaced in 2.0
+```
+
+The module's rules come first, then the top's; the plugins and filters of both apply, each plugin
+found from the file that names it; and the module's `operators:`, if it has any, replace the top's.
+A file names one other, which may extend another in turn.
+
+Ignores are the run's: `.mutastic/` beside the directory the run is on, the top's for `mutastic run
+:core` there and `core/.mutastic/` for a run in `core/`.
 
 An annotation on the code comes first, then a rule, then mutastic's own filters. A `mutate:` rule, like `@DoMutate`, brings back only what mutastic would call arid, never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
 

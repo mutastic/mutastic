@@ -17,6 +17,9 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`extends:` in `mutastic.yaml`.** A module's file adds another's rules, plugins and filters
+  when it says `extends: ../mutastic.yaml`; its own `operators:`, if any, replace the other's. See
+  [In a build of several modules](https://docs.mutastic.io/guides/configuration/#in-a-build-of-several-modules).
 - **`--report=sarif`, for code scanning.** It writes `mutation.sarif`, SARIF 2.1.0: a result for
   each missed mutant (a warning) and each one no test reaches (a note), on its line, with the
   card's headline, keyed by the mutant's id in `partialFingerprints` so an alert follows its
@@ -28,6 +31,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Scoring changes
 
+- **A module uses its nearest `mutastic.yaml`, however it's run.** `mutastic run :core` from the
+  build's top, the Gradle plugin's task and `mvn mutastic:run` used to read only the top's file,
+  while a run in `core/` read only `core/mutastic.yaml`, so the same module could get two scores.
+  Now each reads `core/mutastic.yaml` for `core` when there is one, and the top's when there
+  isn't. A build that keeps rules in a module's file, and runs from the top, now has them applied.
 - **A never-negative claim the compiler checked is trusted.** A comparison's change that differs
   only below zero is skipped where the value compared is annotated `@NonNegative`, `@Positive` or
   `@IndexFor` (Checker Framework), or AndroidX `@IntRange` with `from >= 0`, on a parameter, field,
