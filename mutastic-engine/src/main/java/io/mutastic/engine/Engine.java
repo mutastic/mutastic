@@ -71,6 +71,56 @@ public final class Engine {
     }
   }
 
+  /// The tests ran and passed, but the coverage pass recorded no line of any class with a mutant:
+  /// it measured nothing, so no score can be given.
+  ///
+  /// Seen with JaCoCo's agent and `quarkus-junit5`: JaCoCo's transformer, registered when the JVM
+  /// starts, rewrites each class before the worker's, which framework mode registers later, sees
+  /// it. The worker then takes the class for one the framework rewrote and leaves it alone, so its
+  /// instrumented copy is never defined and no probe runs. Without the framework, the worker
+  /// defines that copy itself, and JaCoCo's probes only add to its own.
+  public static final class NothingCovered extends RuntimeException {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    NothingCovered(Project project, int tests, int classes, Path log) {
+      super(
+          ("%d test%s ran and passed in %s, but the coverage pass recorded no line of the %d"
+                  + " class%s with mutants, so a score would measure nothing: every mutant would"
+                  + " read as reached by no test. Most likely mutastic's coverage never reached"
+                  + " the code the tests ran: an agent in the tests' JVM arguments that rewrites"
+                  + " classes as they load, as another coverage tool's does (%s); a test"
+                  + " framework or class loader that loads the code outside mutastic's (%s); or"
+                  + " tests that reach none of this code (the build's test filters,"
+                  + " --exclude-tests). The worker's output is in %s")
+              .formatted(
+                  tests,
+                  tests == 1 ? "" : "s",
+                  project.name(),
+                  classes,
+                  classes == 1 ? "" : "es",
+                  agents(project.jvmArgs()),
+                  framework(project),
+                  log));
+    }
+
+    /// The agents mutastic left in the tests' JVM arguments: it leaves out the coverage agents it
+    /// knows, but another may rewrite classes as they load too.
+    private static String agents(List<String> jvmArgs) {
+      var agents = jvmArgs.stream().filter(arg -> arg.startsWith("-javaagent:")).toList();
+      return agents.isEmpty()
+          ? "here the tests' JVM arguments load none"
+          : "here: "
+              + String.join(" ", agents)
+              + "; take it out of the test task's JVM arguments for mutastic's run";
+    }
+
+    private static String framework(Project project) {
+      return TestFrameworks.loadsTheApp(project.dependencies())
+          ? "here: Quarkus, whose copies of the classes such an agent rewrites first"
+          : "none known here";
+    }
+  }
+
   /// The tests failed before any mutant: nothing a mutant does can be judged against them.
   public static final class BaselineFailed extends RuntimeException {
     @java.io.Serial private static final long serialVersionUID = 1L;
@@ -336,12 +386,15 @@ public final class Engine {
   /// @param instrumented each class with a mutant to run, instrumented for the coverage pass
   /// @param stale the project's ignores that no longer hold
   /// @param ghosts the ghosts to run after the mutants, with `--experimental=ghosts`
+  /// @param whole whether the run is the module's every mutant: not `--only`, `--since` or a share,
+  ///   where tests that reach none of the classes in it can be the honest answer
   private record Plan(
       List<Mutant> mutants,
       MutantRun mutantRun,
       Map<String, byte[]> instrumented,
       List<Ignore> stale,
-      List<Ghosts.Found> ghosts) {}
+      List<Ghosts.Found> ghosts,
+      boolean whole) {}
 
   /// A project's mutants as a run would have them, and the ignores that no longer hold.
   public record Mutants(List<Mutant> all, List<Ignore> stale) {}
@@ -417,7 +470,14 @@ public final class Engine {
             java.util.Collections.synchronizedList(new ArrayList<>()),
             project,
             options.killMatrix());
-    return new Plan(mutants, mutantRun, instrumented, found.stale(), ghosts);
+    return new Plan(mutants, mutantRun, instrumented, found.stale(), ghosts, whole(options));
+  }
+
+  private static boolean whole(Options options) {
+    return options.only().isEmpty()
+        && options.among().isEmpty()
+        && options.changed().isEmpty()
+        && options.shard().whole();
   }
 
   /// The ghosts in the module's classes that would load, in this run's share: one that doesn't
@@ -525,18 +585,31 @@ public final class Engine {
     var baseline = first.cover(plan.instrumented(), testClasses, coverage);
     var reruns = new Reruns(coverage, first, Duration.ofNanos(System.nanoTime() - coverageStart));
     var flaky = baseline.passed() ? List.<String>of() : flakyOrFail(baseline, reruns, project);
+    boolean recordedNothing = coverage.recordedNothing();
     // Before they're left out: what each flaky test reached is in what the pass recorded.
     var evidence =
         new FlakyEvidence(coverage, plan.mutantRun().models(), project)
             .about(flaky, baseline.failures());
     coverage.exclude(flaky);
     var coverageTook = Duration.ofNanos(System.nanoTime() - coverageStart);
-    if (coverage.testCount() == 0) {
+    measured(project, plan, recordedNothing);
+    return new CoveragePass(
+        first.jdk(), coverage.testCount(), coverageTook, plan.mutants().size(), flaky, evidence);
+  }
+
+  /// Stops a run whose coverage pass measured nothing: no test ran, or tests ran and passed and the
+  /// probes in the classes with mutants never did. Scored, that would be every mutant not covered:
+  /// a 0% that reads as tests that don't reach the code, when it's mutastic that didn't see them. A
+  /// run of only some mutants is let through, as tests may well reach none of their classes.
+  private void measured(Project project, Plan plan, boolean recordedNothing) {
+    int tests = plan.mutantRun().coverage().testCount();
+    if (tests == 0) {
       throw new IllegalStateException(
           "no tests ran in " + project.name() + "; mutastic runs JUnit Platform tests");
     }
-    return new CoveragePass(
-        first.jdk(), coverage.testCount(), coverageTook, plan.mutants().size(), flaky, evidence);
+    if (recordedNothing && plan.whole()) {
+      throw new NothingCovered(project, tests, plan.instrumented().size(), log);
+    }
   }
 
   /// Every mutant, on the workers side by side, in the order they were found. A catch that a port

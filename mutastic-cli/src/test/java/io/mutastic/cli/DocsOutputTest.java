@@ -325,6 +325,20 @@ class DocsOutputTest {
     shown("tests-fail.ansi", project, itsMessage(failing));
   }
 
+  /// Troubleshooting's example of tests that pass and reach nothing, which measure nothing: the
+  /// pricing sample, with its tests replaced by one that never calls its code.
+  @Test
+  void testsThatReachNothing() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+    Files.delete(project.resolve("src/test/java/com/example/pricing/PricingTest.java"));
+    Samples.writeTestReachingNothing(project);
+
+    var nothing = Samples.mutastic(TERMINAL, "run", project.toString());
+
+    assertThat(nothing.exit()).isEqualTo(Main.USAGE);
+    shown("nothing-covered.ansi", project, itsMessage(nothing));
+  }
+
   private static Samples.Result concise(Path project) {
     return Samples.mutastic(TERMINAL, "run", project.toString(), "--format=concise", "--workers=1");
   }

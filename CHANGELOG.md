@@ -62,6 +62,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   name, `jacocoagent.jar`. Under Maven's `prepare-agent` (`org.jacoco.agent-…-runtime.jar`) the
   agent stayed in, and on a Quarkus project every mutant was reported as not covered, with tests
   that plainly reached them.
+- **Tests that pass but reach nothing stop the run, instead of scoring 0%.** When the tests ran
+  and passed but the coverage pass recorded no line of any class with a mutant, mutastic scored
+  every mutant as not covered: a confident wrong answer when the cause was an agent or a class
+  loader that kept its coverage out. Now the run exits with status 2 and says what happened, the
+  `-javaagent:` arguments it saw, and the likely causes. A run of only some mutants (`--only`,
+  `--since`, `--shard`) is scored as before.
 
 ## 1.0.0 (11 Nov 2026)
 

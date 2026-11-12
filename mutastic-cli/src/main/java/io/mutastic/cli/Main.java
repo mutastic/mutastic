@@ -120,7 +120,10 @@ public final class Main {
       err.print("mutastic: " + e.getMessage() + "\n");
       err.print(Help.usage());
       return USAGE;
-    } catch (BuildTool.SetupFailed | Engine.UnknownMutant | Shares.Refused e) {
+    } catch (BuildTool.SetupFailed
+        | Engine.UnknownMutant
+        | Engine.NothingCovered
+        | Shares.Refused e) {
       err.print("mutastic: " + e.getMessage() + "\n");
       CodexSandbox.hint(e, terminal.env()).ifPresent(hint -> err.print(hint + "\n"));
       return USAGE;
