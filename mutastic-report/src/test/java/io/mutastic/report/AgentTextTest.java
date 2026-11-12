@@ -142,6 +142,53 @@ class AgentTextTest {
     assertThat(each).contains("1. missed " + always.id()).contains("2. missed " + boundary.id());
   }
 
+  /// Two mutants of one line with a test each: one fix can't describe both tests, so each comes
+  /// after its own mutant's fix. Once, the second test came with nothing saying why.
+  @Test
+  void eachTestComesAfterItsOwnMutantsFix() {
+    var boundary = boundary(0);
+    var always = removal(1, "always jump");
+    var missed =
+        List.of(
+            suggested(result(boundary, Status.MISSED), 100, "10", "0"),
+            suggested(result(always, Status.MISSED), 99, "0", "9"));
+    var finding = new Finding(missed);
+
+    var agent = text.entry(1, finding);
+    var human =
+        new HumanText(
+                new SourceView(project, List.of(project.resolve("src/main/java"))),
+                80,
+                Style.PLAIN,
+                HumanText.Detail.FULL,
+                Vocabulary.PLAIN)
+            .card(finding);
+
+    assertThat(agent)
+        .contains("   fix: one test for each mutant\n   fix for " + boundary.id() + ": test")
+        .containsSubsequence(
+            "fix for " + boundary.id(),
+            "discount(100)",
+            "fix for " + always.id() + ": add a test where",
+            "discount(99)");
+    assertThat(human)
+        .contains("help: one test for each mutant")
+        .containsSubsequence(
+            "· " + boundary.id(), "discount(100)", "· " + always.id(), "discount(99)");
+  }
+
+  private static MutantResult suggested(
+      MutantResult result, long total, String today, String mutated) {
+    return result.withSuggestion(
+        Optional.of(
+            new io.mutastic.api.Suggestion(
+                "new Pricing().discount(%d)".formatted(total),
+                List.of("total"),
+                List.of(total),
+                today,
+                mutated)));
+  }
+
   /// A condition or a removal no test checks comes before arithmetic: it changes what the code
   /// decides.
   @Test

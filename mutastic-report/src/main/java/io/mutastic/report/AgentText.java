@@ -391,8 +391,7 @@ public final class AgentText {
     finding.others().forEach(other -> addOther(lines, other));
     lines.add(coveredBy(result));
     advice.notes().forEach(note -> lines.add("   evidence: " + note));
-    lines.add("   fix: " + advice.fix());
-    SuggestedTest.distinct(finding, sources).forEach(test -> addSuggestedTest(lines, test));
+    addFix(lines, finding, advice);
     for (MutantCommand command : MutantCommand.toAnAgent()) {
       lines.add(
           "   %s: %s".formatted(command.label(), command.text(finding, sources.invocation())));
@@ -460,6 +459,24 @@ public final class AgentText {
   static boolean ranEveryTest(MutantResult result) {
     return result.mutant().operator() instanceof io.mutastic.api.ClassMutator mutator
         && mutator.reach() == io.mutastic.api.ClassMutator.Reach.EVERY_TEST;
+  }
+
+  /// `fix: the fix`, then each test to add; when the entry has a test for more than one of its
+  /// mutants, each after its own mutant's fix, `fix for m2e491c40: …`.
+  private void addFix(List<String> lines, Finding finding, Advice advice) {
+    var each = SuggestedTest.eachMutant(finding, sources);
+    if (!SuggestedTest.eachHasItsOwn(each)) {
+      lines.add("   fix: " + advice.fix());
+      SuggestedTest.distinct(finding, sources).forEach(test -> addSuggestedTest(lines, test));
+      return;
+    }
+    lines.add("   fix: " + SuggestedTest.eachHelp(each));
+    for (SuggestedTest.ForMutant one : each) {
+      lines.add(
+          "   fix for %s: %s"
+              .formatted(one.result().mutant().id(), sources.advice(one.result()).fix()));
+      one.test().ifPresent(test -> addSuggestedTest(lines, test));
+    }
   }
 
   private static void addSuggestedTest(List<String> lines, SuggestedTest test) {
