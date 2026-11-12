@@ -68,11 +68,12 @@ usual causes:
   `@QuarkusTest`. mutastic reaches Quarkus's copies of the classes through its own agent, but not
   when another agent has rewritten them first: with JaCoCo's in the JVM, a Quarkus project's run
   once found no test reached anything.
-- **Tests that reach none of the code.** The build's test filters, or
-  [`--exclude-tests`](/reference/run/#exclude-tests), left in only tests that never call it.
+- **Tests that reach none of the code.** The build's test filters left in only tests that never
+  call it.
 
-A run of only some mutants (`--only`, `--since`, `--shard`) isn't stopped: tests may well reach
-none of the classes in it, and those mutants are reported as not covered. With no tests at all, a
+A run of only some mutants (`--only`, `--since`, `--shard`), or one that leaves tests out with
+`--exclude-tests`, isn't stopped: there the tests that run may well reach none of the classes, and
+those mutants are reported as not covered. With no tests at all, a
 module's mutants are not covered too.
 
 ## 3: the tests fail without any mutant

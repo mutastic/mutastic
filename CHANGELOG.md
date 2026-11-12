@@ -67,7 +67,7 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   every mutant as not covered: a confident wrong answer when the cause was an agent or a class
   loader that kept its coverage out. Now the run exits with status 2 and says what happened, the
   `-javaagent:` arguments it saw, and the likely causes. A run of only some mutants (`--only`,
-  `--since`, `--shard`) is scored as before.
+  `--since`, `--shard`), or with `--exclude-tests`, is scored as before.
 
 ## 1.0.0 (11 Nov 2026)
 

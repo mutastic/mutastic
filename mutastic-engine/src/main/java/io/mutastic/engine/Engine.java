@@ -59,8 +59,18 @@ public final class Engine {
     return Math.clamp(Runtime.getRuntime().availableProcessors() / 2, 1, 4);
   }
 
+  /// The run can't go on as asked, for a reason in what it was asked or in the project's setup, not
+  /// in mutastic or the tests: a usage error, to the command line.
+  public abstract static class CantRun extends RuntimeException {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    CantRun(String message) {
+      super(message);
+    }
+  }
+
   /// `--only` named a mutant the project doesn't have.
-  public static final class UnknownMutant extends RuntimeException {
+  public static final class UnknownMutant extends CantRun {
     @java.io.Serial private static final long serialVersionUID = 1L;
 
     UnknownMutant(String id, String projectName) {
@@ -79,7 +89,7 @@ public final class Engine {
   /// it. The worker then takes the class for one the framework rewrote and leaves it alone, so its
   /// instrumented copy is never defined and no probe runs. Without the framework, the worker
   /// defines that copy itself, and JaCoCo's probes only add to its own.
-  public static final class NothingCovered extends RuntimeException {
+  public static final class NothingCovered extends CantRun {
     @java.io.Serial private static final long serialVersionUID = 1L;
 
     NothingCovered(Project project, int tests, int classes, Path log) {
@@ -90,8 +100,8 @@ public final class Engine {
                   + " the code the tests ran: an agent in the tests' JVM arguments that rewrites"
                   + " classes as they load, as another coverage tool's does (%s); a test"
                   + " framework or class loader that loads the code outside mutastic's (%s); or"
-                  + " tests that reach none of this code (the build's test filters,"
-                  + " --exclude-tests). The worker's output is in %s")
+                  + " tests that reach none of this code (the build's test filters). The"
+                  + " worker's output is in %s")
               .formatted(
                   tests,
                   tests == 1 ? "" : "s",
@@ -204,6 +214,8 @@ public final class Engine {
   /// @param ghosts find and run ghosts (experimental), reported apart and never in the score
   /// @param killMatrix run every covering test of a caught mutant, not only up to the first catch
   /// @param shard the share of the mutants that runs: every one unless the run is split
+  /// @param testsLeftOut whether the run leaves out tests the build runs (`--exclude-tests`): the
+  ///   lines only they reach count as not covered, even if that's every line
   public record Options(
       List<String> only,
       boolean confirmCatches,
@@ -215,7 +227,8 @@ public final class Engine {
       Optional<ChangedLines> changed,
       boolean ghosts,
       boolean killMatrix,
-      Shard shard) {
+      Shard shard,
+      boolean testsLeftOut) {
     /// Options that stop at a mutant's first catch.
     public Options(
         List<String> only,
@@ -238,7 +251,8 @@ public final class Engine {
           changed,
           ghosts,
           false,
-          Shard.WHOLE);
+          Shard.WHOLE,
+          false);
     }
 
     /// The same options, running every covering test of a caught mutant, to find each that catches
@@ -255,7 +269,8 @@ public final class Engine {
           changed,
           ghosts,
           every,
-          shard);
+          shard,
+          testsLeftOut);
     }
 
     /// The same options, for one share of the mutants (`--shard`).
@@ -271,7 +286,25 @@ public final class Engine {
           changed,
           ghosts,
           killMatrix,
-          share);
+          share,
+          testsLeftOut);
+    }
+
+    /// The same options, leaving out tests the build runs or not (`--exclude-tests`).
+    public Options withTestsLeftOut(boolean leftOut) {
+      return new Options(
+          only,
+          confirmCatches,
+          workers,
+          suggestions,
+          auditArid,
+          among,
+          policy,
+          changed,
+          ghosts,
+          killMatrix,
+          shard,
+          leftOut);
     }
 
     /// Options without ghosts.
@@ -300,7 +333,8 @@ public final class Engine {
           changed,
           ghosts,
           killMatrix,
-          shard);
+          shard,
+          testsLeftOut);
     }
 
     public Options {
@@ -386,8 +420,9 @@ public final class Engine {
   /// @param instrumented each class with a mutant to run, instrumented for the coverage pass
   /// @param stale the project's ignores that no longer hold
   /// @param ghosts the ghosts to run after the mutants, with `--experimental=ghosts`
-  /// @param whole whether the run is the module's every mutant: not `--only`, `--since` or a share,
-  ///   where tests that reach none of the classes in it can be the honest answer
+  /// @param whole whether the run is the module's every mutant, on every test the build runs: not
+  ///   `--only`, `--since`, a share or `--exclude-tests`, where tests that reach none of the
+  ///   classes in it can be the honest answer
   private record Plan(
       List<Mutant> mutants,
       MutantRun mutantRun,
@@ -477,7 +512,8 @@ public final class Engine {
     return options.only().isEmpty()
         && options.among().isEmpty()
         && options.changed().isEmpty()
-        && options.shard().whole();
+        && options.shard().whole()
+        && !options.testsLeftOut();
   }
 
   /// The ghosts in the module's classes that would load, in this run's share: one that doesn't
@@ -600,7 +636,8 @@ public final class Engine {
   /// Stops a run whose coverage pass measured nothing: no test ran, or tests ran and passed and the
   /// probes in the classes with mutants never did. Scored, that would be every mutant not covered:
   /// a 0% that reads as tests that don't reach the code, when it's mutastic that didn't see them. A
-  /// run of only some mutants is let through, as tests may well reach none of their classes.
+  /// run of only some mutants, or on only some tests, is let through, as there the tests may well
+  /// reach none of the classes.
   private void measured(Project project, Plan plan, boolean recordedNothing) {
     int tests = plan.mutantRun().coverage().testCount();
     if (tests == 0) {

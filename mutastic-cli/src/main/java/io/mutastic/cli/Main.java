@@ -120,10 +120,7 @@ public final class Main {
       err.print("mutastic: " + e.getMessage() + "\n");
       err.print(Help.usage());
       return USAGE;
-    } catch (BuildTool.SetupFailed
-        | Engine.UnknownMutant
-        | Engine.NothingCovered
-        | Shares.Refused e) {
+    } catch (BuildTool.SetupFailed | Engine.CantRun | Shares.Refused e) {
       err.print("mutastic: " + e.getMessage() + "\n");
       CodexSandbox.hint(e, terminal.env()).ifPresent(hint -> err.print(hint + "\n"));
       return USAGE;
@@ -1128,7 +1125,8 @@ public final class Main {
             command.since().map(since -> new Git(directory).changedSince(since)),
             command.experimental().contains(GHOSTS) || terminal.experimental().contains(GHOSTS))
         .withKillMatrix(command.killMatrix())
-        .withShard(command.shard().orElse(Shard.WHOLE));
+        .withShard(command.shard().orElse(Shard.WHOLE))
+        .withTestsLeftOut(!command.excludeTests().isEmpty());
   }
 
   /// The project's say, from the module's nearest `mutastic.yaml` and the run's ignores, with the
