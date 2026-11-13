@@ -77,6 +77,14 @@ which `run` lists under `Not covered`.
 
 </EditionOnly>
 
+<EditionOnly edition="rust">
+
+`mutastic next --since=HEAD` gives the cycle's missed mutants one at a time, the one most worth a
+test first, with why it's first and the command that says when it's done: see
+[Working through misses](/rust/concepts/next/).
+
+</EditionOnly>
+
 ## Agents
 
 The [agent format](/concepts/output/#formats) and [the gate](/agents/gate/) carry one rule for this:

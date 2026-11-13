@@ -1,14 +1,14 @@
 {
   "concepts/results": {
-    "commit": "0468b1ffd9c99107debd8672d66a204a8d7f06b4",
+    "commit": "24beb4f1727ab4117692621b1161d8cfaf72c66c",
     "sources": {
-      "concepts/results.md": "b2bcc290ae9a1568"
+      "concepts/results.md": "d02a8d6edb60868c"
     }
   },
   "concepts/suggested-tests": {
-    "commit": "f59a503cf7e7b10d189cc762694b77ead269eab8",
+    "commit": "24beb4f1727ab4117692621b1161d8cfaf72c66c",
     "sources": {
-      "concepts/suggested-tests.md": "6c5d19634fa1467c"
+      "concepts/suggested-tests.md": "9fac9873cf57420a"
     }
   },
   "concepts/equivalence": {
@@ -27,15 +27,15 @@
     }
   },
   "concepts/output": {
-    "commit": "f59a503cf7e7b10d189cc762694b77ead269eab8",
+    "commit": "24beb4f1727ab4117692621b1161d8cfaf72c66c",
     "sources": {
-      "concepts/output.md": "e58495c15319738b"
+      "concepts/output.md": "90a54fa01887c162"
     }
   },
   "concepts/how-a-run-works": {
-    "commit": "0468b1ffd9c99107debd8672d66a204a8d7f06b4",
+    "commit": "24beb4f1727ab4117692621b1161d8cfaf72c66c",
     "sources": {
-      "concepts/how-a-run-works.md": "3d027607de7d034e"
+      "concepts/how-a-run-works.md": "e042922b56d593ac"
     }
   },
   "concepts/ids": {
@@ -52,9 +52,9 @@
     }
   },
   "concepts/test-first": {
-    "commit": "ab0c930b034efbefb21e849009ce8c0cd2ceb036",
+    "commit": "24beb4f1727ab4117692621b1161d8cfaf72c66c",
     "sources": {
-      "getting-started.md": "de8ea89dbf7fce4a"
+      "getting-started.md": "5a808f11b8efbb28"
     }
   }
 }

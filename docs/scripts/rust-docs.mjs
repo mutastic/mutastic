@@ -195,6 +195,7 @@ const LAYOUT = [
     ['concepts/output', 'Output'],
     ['concepts/how-a-run-works', 'How a run works'],
     ['concepts/ids', 'Mutant ids'],
+    ['concepts/next', 'Working through misses'],
     ['concepts/unsafe', 'Unsafe code'],
     ['concepts/profiles', 'Profiles'],
   ]],
