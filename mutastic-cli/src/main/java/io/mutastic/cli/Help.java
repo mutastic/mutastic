@@ -45,12 +45,12 @@ final class Help {
       List.of(
           new Entry(
               "0",
-              "The score reaches the threshold; for verify, the mutant is caught or skipped; for"
-                  + " gate check, the task is done"),
+              "The score reaches the threshold, or with --fail-on-new no miss is new; for verify,"
+                  + " the mutant is caught or skipped; for gate check, the task is done"),
           new Entry(
               "1",
-              "The score is below the threshold; for verify, the mutant is still missed; for gate"
-                  + " check, the task isn't done"),
+              "The score is below the threshold, or with --fail-on-new a miss is new; for verify,"
+                  + " the mutant is still missed; for gate check, the task isn't done"),
           new Entry("2", "A usage error, or a build mutastic couldn't read"),
           new Entry(
               "3",

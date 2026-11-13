@@ -17,6 +17,7 @@ import io.mutastic.engine.RunRecords;
 import io.mutastic.engine.Shard;
 import io.mutastic.report.AgentText;
 import io.mutastic.report.Explanation;
+import io.mutastic.report.FailOnNew;
 import io.mutastic.report.GitHubActions;
 import io.mutastic.report.HumanText;
 import io.mutastic.report.Invocation;
@@ -52,10 +53,12 @@ import org.jspecify.annotations.Nullable;
 /// full run compares against them: with the code unchanged, a mutant that changed result names a
 /// flaky test.
 public final class Main {
-  /// The score reaches the threshold; for `verify`, the mutant is caught.
+  /// The score reaches the threshold, or with `--fail-on-new` no miss is new; for `verify`, the
+  /// mutant is caught.
   static final int PASSED = 0;
 
-  /// The score is below the threshold; for `verify`, the mutant isn't caught.
+  /// The score is below the threshold, or with `--fail-on-new` a miss is new; for `verify`, the
+  /// mutant isn't caught.
   static final int FAILED = 1;
 
   /// A usage error, or a build mutastic couldn't read.
@@ -149,12 +152,24 @@ public final class Main {
 
   private static int run(Command command, PrintStream out, PrintStream err, Terminal terminal) {
     var directory = command.directory().toAbsolutePath().normalize();
+    noBaselineToFailOn(command, directory);
     var tool = BuildTools.of(directory);
     var lock = WorkLock.hold(tool.workDirectory(directory, command.module()), err);
     try {
       return held(command, output(command, out, err, terminal), tool, terminal);
     } finally {
       lock.close();
+    }
+  }
+
+  /// `--fail-on-new` with no baseline to tell new misses from: every miss would be new, or none,
+  /// and either would be a guess. Said before the build is read.
+  private static void noBaselineToFailOn(Command command, Path directory) {
+    if (command.failOnNew() && !Baseline.exists(directory)) {
+      throw new UsageException(
+          ("--fail-on-new needs a baseline to tell new misses from, and %s has no %s:"
+                  + " `mutastic baseline` writes one, to commit")
+              .formatted(directory, Baseline.FILE));
     }
   }
 
@@ -180,8 +195,8 @@ public final class Main {
   /// `run`: every mutant, or with `--shard` a share of them, or with `--from-shards` the shares'
   /// results put together; then the result, its record and its reports.
   private static int fullRun(Command command, Prepared prepared, Passes passes, Output output) {
-    var display =
-        display(command, prepared, output, humanText(command, output, prepared.sources()));
+    var judged = judgedOnNew(command, prepared);
+    var display = display(command, prepared, output, judged);
     command.shard().ifPresent(shard -> Shares.forget(shareEvents(prepared, shard)));
     var tested = passes.run(command, prepared, display.listener());
     passes.progress().finished();
@@ -189,7 +204,16 @@ public final class Main {
     display.printer().print(tested.report(), kept.comparison(), kept.written());
     toGitHub(command, prepared, output.github(), tested.report());
     baselineNote(command, prepared, tested.report(), output);
-    return exitCode(command, tested.report());
+    return exitCode(command, tested.report(), judged);
+  }
+
+  /// With `--fail-on-new`, the run judged on the misses the project's baseline doesn't hold. A
+  /// share's are judged against it as the whole run's are, and a run made of shares judges the
+  /// whole.
+  private static Optional<FailOnNew> judgedOnNew(Command command, Prepared prepared) {
+    return command.failOnNew()
+        ? Optional.of(new FailOnNew(Baseline.ids(prepared.directory())))
+        : Optional.empty();
   }
 
   /// On GitHub Actions, an annotation on each of the first misses and the job's summary: see
@@ -200,8 +224,10 @@ public final class Main {
     }
     var actions = new GitHubActions(prepared.directory(), prepared.sources());
     actions.annotations(report).forEach(run.err()::println);
+    var judged = judgedOnNew(command, prepared);
     run.summary()
-        .ifPresent(file -> appendSummary(file, actions.summary(report, command.threshold())));
+        .ifPresent(
+            file -> appendSummary(file, actions.summary(report, command.threshold(), judged)));
   }
 
   /// Adds to the job summary's file, which other steps write to as well.
@@ -883,6 +909,13 @@ public final class Main {
   /// and every covering test run, not only up to the first catch (`--kill-matrix`).
   record Catches(boolean confirm, boolean every) {}
 
+  /// What a run must clear to pass: its score reaching `threshold`, or with `failOnNew`
+  /// (`--fail-on-new`), no miss that the project's baseline doesn't hold, whatever the score.
+  record Bar(int threshold, boolean failOnNew) {
+    /// Any score passes: the gate's run, which judges its mutants itself.
+    static final Bar ANY_SCORE = new Bar(0, false);
+  }
+
   /// A run split across machines: the share this one runs (`--shard`), or the directory of the
   /// shares it's made of (`--from-shards`).
   record Sharing(Optional<Shard> shard, Optional<Path> from) {
@@ -1275,27 +1308,37 @@ public final class Main {
   private record Display(Listener listener, Printer printer) {}
 
   private static Display display(
-      Command command, Prepared prepared, Output output, HumanText human) {
+      Command command, Prepared prepared, Output output, Optional<FailOnNew> judged) {
     var oneMutant = !command.only().isEmpty();
     return switch (output.format()) {
-      case "jsonl" -> jsonl(command, prepared, output);
+      case "jsonl" -> jsonl(command, prepared, output, judged);
       case "agent" -> {
-        var agent =
-            new AgentText(prepared.sources(), command.threshold(), output.words())
-                .eachMutant(command.eachMutant());
+        var agent = agentText(command, prepared, output, judged);
         yield new Display(
             output.progress(),
             (report, comparison, written) ->
                 output.out().print(agent.render(report, comparison, oneMutant)));
       }
-      default ->
-          new Display(
-              output.progress(),
-              (report, comparison, written) ->
-                  output
-                      .out()
-                      .print(human.render(report, comparison, run(command, prepared, written))));
+      default -> {
+        var plain = humanText(command, output, prepared.sources());
+        var human = judged.map(plain::failingOnNew).orElse(plain);
+        yield new Display(
+            output.progress(),
+            (report, comparison, written) ->
+                output
+                    .out()
+                    .print(human.render(report, comparison, run(command, prepared, written))));
+      }
     };
+  }
+
+  /// The agent format, judged on new misses with `--fail-on-new`.
+  private static AgentText agentText(
+      Command command, Prepared prepared, Output output, Optional<FailOnNew> judged) {
+    var plain =
+        new AgentText(prepared.sources(), command.threshold(), output.words())
+            .eachMutant(command.eachMutant());
+    return judged.map(plain::failingOnNew).orElse(plain);
   }
 
   /// What the summary says of the run beyond its result: when and how long, the reports it wrote,
@@ -1310,14 +1353,16 @@ public final class Main {
   }
 
   /// JSON Lines: the run's start now, each mutant as it finishes, and the result at the end.
-  private static Display jsonl(Command command, Prepared prepared, Output output) {
-    var events =
+  private static Display jsonl(
+      Command command, Prepared prepared, Output output, Optional<FailOnNew> judged) {
+    var shown =
         new JsonEvents(
             output.out(),
             prepared.sources(),
             command.threshold(),
             shareOf(command, prepared),
             operatorDocs());
+    var events = judged.map(shown::failingOnNew).orElse(shown);
     events.runStarted(prepared.project().name());
     if (!command.testsFrom().isEmpty()) {
       // Each mutant's result is known only once every module's tests have run: all at the end.
@@ -1464,16 +1509,18 @@ public final class Main {
     return written;
   }
 
-  private static int exitCode(Command command, Report report) {
+  private static int exitCode(Command command, Report report, Optional<FailOnNew> judged) {
     if (!report.failingAlone().isEmpty()) {
       return TESTS_FAIL; // a test fails on the unmutated code, as before any mutant
     }
     // One mutant asked for by id passes when it's caught or skipped, as `verify` does; a whole
-    // run, on its score.
+    // run, on its score, or with `--fail-on-new` on its new misses.
     if (!command.only().isEmpty()) {
       return report.results().stream().allMatch(Main::settled) ? PASSED : FAILED;
     }
-    return report.passes(command.threshold()) ? PASSED : FAILED;
+    var passed =
+        judged.map(found -> found.passes(report)).orElse(report.passes(command.threshold()));
+    return passed ? PASSED : FAILED;
   }
 
   /// Where a report goes unless told: beside the run record.
@@ -1552,9 +1599,11 @@ public final class Main {
         "Mutate the code and run its tests against each mutant",
         "DIR is the build, here unless given, and :MODULE one of its modules: as Gradle names it"
             + " (:app), or as Maven's -pl takes it (:services/api). The run passes when the score"
-            + " reaches the threshold. A full run writes report files, keeps a record the next run"
+            + " reaches the threshold, or with --fail-on-new when every mutant no test catches is"
+            + " in the baseline. A full run writes report files, keeps a record the next run"
             + " compares with, and offers the commands to work on each missed mutant.",
-        "0 when the score reaches the threshold, 1 when it doesn't.",
+        "0 when the score reaches the threshold, 1 when it doesn't; with --fail-on-new, 0 when"
+            + " every mutant no test catches is in the baseline, 1 when one isn't.",
         List.of(
             "mutastic run",
             "mutastic run samples/pricing --threshold=70",
@@ -1763,7 +1812,7 @@ public final class Main {
       Path directory,
       String module,
       Shown shown,
-      int threshold,
+      Bar bar,
       List<String> only,
       Catches catches,
       Optional<Integer> workers,
@@ -1783,6 +1832,16 @@ public final class Main {
       Sharing sharing) {
     Optional<String> format() {
       return shown.format();
+    }
+
+    /// The score a run must reach, unless `--fail-on-new` judges it.
+    int threshold() {
+      return bar.threshold();
+    }
+
+    /// `--fail-on-new`: the run passes on the misses the baseline doesn't hold, not its score.
+    boolean failOnNew() {
+      return bar.failOnNew();
     }
 
     /// With `--shard`, the share of the mutants this run runs.
@@ -1838,7 +1897,7 @@ public final class Main {
           directory,
           module,
           shown,
-          threshold,
+          bar,
           only,
           catches,
           workers,
@@ -1866,7 +1925,7 @@ public final class Main {
           directory,
           module,
           shown,
-          0,
+          Bar.ANY_SCORE,
           List.of(),
           catches,
           workers,
@@ -1913,6 +1972,7 @@ public final class Main {
       private final List<String> positional = new ArrayList<>();
       private Optional<String> format = Optional.empty();
       private int threshold = DEFAULT_THRESHOLD;
+      private boolean failOnNew = false;
       private List<String> only = List.of();
       private boolean confirmCatches = false;
       private boolean eachMutant = false;
@@ -1992,6 +2052,7 @@ public final class Main {
         var given = value == null ? "" : value;
         switch (option.name()) {
           case "--threshold" -> threshold = number(option, given, 0, 100);
+          case "--fail-on-new" -> failOnNew = true;
           case "--since" -> since(value);
           case "--only" -> only = onlyIds(given);
           case "--tests-from" -> testsFrom.add(module(given));
@@ -2274,7 +2335,7 @@ public final class Main {
             directory,
             module,
             new Shown(format, colour, links, progress, vocabulary, eachMutant),
-            threshold,
+            bar(subcommand),
             only,
             new Catches(confirmCatches, killMatrix),
             workers,
@@ -2292,6 +2353,18 @@ public final class Main {
             java.util.Set.copyOf(experimental),
             top,
             sharing(subcommand));
+      }
+
+      /// What the run must clear. `--fail-on-new` judges a run of the module, not mutants asked for
+      /// by id, each of which passes when it's caught; another command takes no notice of it, as a
+      /// build plugin may pass it to each.
+      private Bar bar(Subcommand subcommand) {
+        if (subcommand == Subcommand.RUN && failOnNew && !only.isEmpty()) {
+          throw new UsageException(
+              "--fail-on-new judges a run of the module on its new misses: not with --only, whose"
+                  + " mutants each pass when they're caught");
+        }
+        return new Bar(threshold, failOnNew && subcommand == Subcommand.RUN);
       }
 
       /// A run is a share or made of them, not both; made of them, it runs no mutants itself, so

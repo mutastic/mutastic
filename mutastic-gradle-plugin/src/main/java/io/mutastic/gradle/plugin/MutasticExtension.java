@@ -30,6 +30,10 @@ public abstract class MutasticExtension {
   /// output isn't a terminal.
   public abstract Property<String> getFormat();
 
+  /// Pass a run when every mutant no test catches is in `.mutastic/baseline.yaml`, and fail it on
+  /// one that isn't, whatever the score: the threshold isn't applied. Off unless set.
+  public abstract Property<Boolean> getFailOnNew();
+
   /// Mutate only the lines changed since this ref; empty for the default branch.
   public abstract Property<String> getSince();
 

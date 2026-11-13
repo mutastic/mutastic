@@ -6,6 +6,7 @@ import io.mutastic.api.Status;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /// What a run tells GitHub Actions when it runs there, with no token or permission: a warning
 /// annotation on the line of each of the first misses, ranked as the agent format ranks them, which
@@ -41,14 +42,21 @@ public final class GitHubActions {
 
   /// The job summary: the verdict and score, the counts, and the first misses with where they are.
   public String summary(Report report, int threshold) {
+    return summary(report, threshold, Optional.empty());
+  }
+
+  /// The same, with `--fail-on-new` judging the run on its new misses, not its score.
+  public String summary(Report report, int threshold, Optional<FailOnNew> judged) {
     var lines = new ArrayList<String>();
     var score = report.score();
     lines.add(
-        "### mutastic: %s · score %s (threshold %d)"
+        "### mutastic: %s · score %s (%s)"
             .formatted(
-                report.passes(threshold) ? "PASS" : "FAIL",
+                judged
+                    .map(found -> found.verdict(report))
+                    .orElseGet(() -> report.passes(threshold) ? "PASS" : "FAIL"),
                 score.isPresent() ? "%.1f%%".formatted(score.getAsDouble()) : "none",
-                threshold));
+                judged.isPresent() ? "threshold not applied" : "threshold " + threshold));
     lines.add("");
     lines.add("| Caught | Missed | Not covered | Timed out |");
     lines.add("|---|---|---|---|");

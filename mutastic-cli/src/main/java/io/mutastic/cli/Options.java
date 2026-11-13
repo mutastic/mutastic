@@ -53,6 +53,20 @@ final class Options {
               "",
               "mutastic run --threshold=70"),
           new Option(
+              "--fail-on-new",
+              Kind.FLAG,
+              Group.RUNNING,
+              "",
+              List.of(),
+              "Pass when every mutant no test catches is in .mutastic/baseline.yaml, and fail on"
+                  + " one that isn't, whatever the score: the threshold isn't applied. For a project"
+                  + " whose score can't reach it yet; mutastic baseline writes the file",
+              RUNS,
+              "failOnNew",
+              true,
+              "",
+              "mutastic run --fail-on-new"),
+          new Option(
               "--since",
               Kind.OPTIONAL_VALUE,
               Group.RUNNING,

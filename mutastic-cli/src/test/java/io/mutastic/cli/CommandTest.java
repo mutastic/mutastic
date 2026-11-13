@@ -20,7 +20,7 @@ class CommandTest {
                 Path.of("."),
                 ":",
                 new Main.Shown(Optional.empty(), "auto", "auto", "auto", Optional.empty(), false),
-                80,
+                new Main.Bar(80, false),
                 List.of(),
                 new Main.Catches(false, false),
                 Optional.empty(),
@@ -54,7 +54,7 @@ class CommandTest {
                 ":api",
                 new Main.Shown(
                     Optional.of("jsonl"), "auto", "auto", "auto", Optional.empty(), false),
-                60,
+                new Main.Bar(60, false),
                 List.of(),
                 new Main.Catches(false, false),
                 Optional.empty(),
@@ -112,6 +112,20 @@ class CommandTest {
     assertThat(command.confirmCatches()).isFalse();
     assertThat(command.since()).contains("");
     assertThat(Main.Command.parse(new String[] {"run", "-Dmutastic.reports="}).reports()).isEmpty();
+  }
+
+  /// `--fail-on-new` is run's, as the flag or a build plugin's property: a build file that sets it
+  /// for every task passes it to `verify` too, which takes no notice. A run of mutants asked for by
+  /// id passes on each one's fate, so it isn't judged on new misses.
+  @Test
+  void failOnNewIsRunsAlone() {
+    assertThat(parse("run", "--fail-on-new").failOnNew()).isTrue();
+    assertThat(parse("run", "-Pmutastic.failOnNew=true").failOnNew()).isTrue();
+    assertThat(parse("run", "-Dmutastic.failOnNew=false").failOnNew()).isFalse();
+    assertThat(parse("run").failOnNew()).isFalse();
+    assertThat(parse("verify", "m855c8e3c", "-Dmutastic.failOnNew=true").failOnNew()).isFalse();
+    assertThatThrownBy(() -> parse("run", "--fail-on-new", "--only=m855c8e3c"))
+        .hasMessageStartingWith("--fail-on-new judges a run of the module on its new misses");
   }
 
   @Test

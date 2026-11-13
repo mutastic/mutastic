@@ -64,6 +64,10 @@ id, to commit. From then on, a miss that isn't in the baseline is new:
 - **`run`** says how many of the baseline's mutants are caught now, and `mutastic baseline --prune`
   drops them, so the file shrinks as tests are written. It's never rewritten to take in new
   misses: that would hide them.
+- **`run --fail-on-new`** passes while every mutant no test catches is in the baseline and fails
+  on one that isn't, whatever the score: CI for a project whose score can't reach the threshold
+  yet. [Brownfield: fail only on new misses](/guides/ci/#brownfield-fail-only-on-new-misses) sets
+  it up.
 
 A mutant's id comes from its class, method, position and change, so the baseline holds while code
 around a mutant moves. A mutant whose change is different is a different mutant, and new.
