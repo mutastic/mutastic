@@ -220,6 +220,7 @@ class GateTest {
     assertThat(added.exit()).isEqualTo(Main.FAILED);
     assertThat(added.out())
         .contains("PricingTest#hugeOrders")
+        .doesNotContain("..")
         .contains(
             "Make them pass first, unless the spec or plan is what's wrong, in which case say so"
                 + " and stop. Either way, leave a failing test in place")

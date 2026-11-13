@@ -149,9 +149,29 @@ public final class Main {
     var lock = WorkLock.hold(tool.workDirectory(directory, command.module()), err);
     try (var output = output(command, out, err, terminal)) {
       return held(command, output, tool, terminal);
+    } catch (Engine.BaselineFailed e) {
+      throw rerun(e, command, tool, directory);
     } finally {
       lock.close();
     }
+  }
+
+  /// The tests failing with no mutant in, ending in the build's command that runs the first alone.
+  private static Engine.BaselineFailed rerun(
+      Engine.BaselineFailed failed, Command command, BuildTool tool, Path directory) {
+    if (failed.failing().isEmpty()) {
+      return failed;
+    }
+    var request =
+        new BuildTool.Request(
+            directory,
+            command.module(),
+            tool.workDirectory(directory, command.module()),
+            typed(directory),
+            command.suite());
+    return tool.testCommand(request, failed.failing().getFirst())
+        .map(failed::endingIn)
+        .orElse(failed);
   }
 
   /// `--fail-on-new` with no baseline to tell new misses from: every miss would be new, or none,
@@ -790,11 +810,12 @@ public final class Main {
   /// told to find out which is wrong, and to ask. One the task added usually needs its code
   /// written, but it may be what shows the spec is wrong, and making it pass would bury that.
   private static String red(Gated gated, Gate.State state, Engine.BaselineFailed failed) {
+    var said = String.valueOf(failed.getMessage()).replaceFirst("\\.$", ""); // what follows goes on
     var before =
         failed.failing().stream().filter(test -> wasThere(gated, state.base(), test)).toList();
     if (before.isEmpty()) {
       return "mutastic gate: "
-          + failed.getMessage()
+          + said
           + ". Make them pass first, unless the spec or plan is what's wrong, in which case say so"
           + " and stop. Either way, leave a failing test in place: the gate doesn't pass a task"
           + " by taking it away";
@@ -804,7 +825,7 @@ public final class Main {
             + " what a test expects, or take it away, to make it pass unless the task asked for"
             + " that behaviour, and if you're not sure, ask")
         .formatted(
-            failed.getMessage(),
+            said,
             String.join(", ", before),
             before.size() == 1 ? "was" : "were",
             before.size() == 1 ? "it" : "they",

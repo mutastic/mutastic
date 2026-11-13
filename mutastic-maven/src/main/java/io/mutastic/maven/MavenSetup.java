@@ -1,5 +1,6 @@
 package io.mutastic.maven;
 
+import io.mutastic.api.BuildErrors;
 import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
 import io.mutastic.api.Modules;
@@ -74,8 +75,45 @@ final class MavenSetup {
     if (output.stream().anyMatch(line -> line.contains(NOT_IN_REACTOR))) {
       return new SetupFailed(Modules.missing(module, javaModules(directory), typed));
     }
+    var rest = new ArrayList<>(List.of("test-compile"));
+    if (!module.equals(":")) {
+      rest.addAll(List.of("-pl", module.substring(1), "-am"));
+    }
+    var built = BuildErrors.command(mvn(directory), directory, "-f", rest);
     return SetupFailed.noSuite(output.stream())
-        .orElseGet(() -> new SetupFailed("the Maven build failed; its output is in " + log));
+        .orElseGet(
+            () ->
+                new SetupFailed(
+                    BuildErrors.failed(
+                        new BuildErrors.Build("Maven", name(directory, module), log, built),
+                        output)));
+  }
+
+  /// `mvn test -Dtest='PricingTest#bigOrders'`, or Failsafe's `verify -Dit.test=` for its suite;
+  /// with `-pl` for a module, whose build makes what it uses first, and lets those have no such
+  /// test. Surefire names a test by its class's simple name and its method.
+  static String testCommand(BuildTool.Request request, String test) {
+    var directory = request.directory();
+    var module = request.module();
+    boolean failsafe = !request.suite().equals(BuildTool.DEFAULT_SUITE);
+    var named = test.replaceFirst("\\(.*$", "");
+    int hash = named.indexOf('#');
+    var className = hash < 0 ? named : named.substring(0, hash);
+    var simple =
+        className.substring(className.lastIndexOf('.') + 1) + named.substring(className.length());
+    var rest = new ArrayList<>(List.of(failsafe ? "verify" : "test"));
+    if (!module.equals(":")) {
+      rest.addAll(
+          List.of(
+              "-pl",
+              module.substring(1),
+              "-am",
+              failsafe
+                  ? "-Dfailsafe.failIfNoSpecifiedTests=false"
+                  : "-Dsurefire.failIfNoSpecifiedTests=false"));
+    }
+    rest.add((failsafe ? "-Dit.test=" : "-Dtest=") + "'" + simple + "'");
+    return BuildErrors.command(mvn(directory), directory, "-f", rest);
   }
 
   /// What Maven says when `-pl` names a module its reactor hasn't got.

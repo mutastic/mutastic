@@ -1,5 +1,6 @@
 package io.mutastic.gradle;
 
+import io.mutastic.api.BuildErrors;
 import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
 import io.mutastic.api.Modules;
@@ -72,14 +73,14 @@ final class GradleSetup {
     int exit =
         gradle(build, out, log(workDirectory), task(build.directory(), module, "mutasticSetup"));
     if (exit != 0 || !Files.exists(out)) {
-      throw failed(build, request, exit);
+      throw failed(build, request);
     }
     return ProjectSetup.read(name(build.directory(), module), out);
   }
 
   /// Why the build failed, from its log: a module with no Java code, a module the build hasn't got,
   /// a suite the module hasn't, else Gradle's own output.
-  private static SetupFailed failed(Build build, BuildTool.Request request, int exit)
+  private static SetupFailed failed(Build build, BuildTool.Request request)
       throws IOException, InterruptedException {
     var module = request.module();
     var workDirectory = request.workDirectory();
@@ -95,8 +96,32 @@ final class GradleSetup {
         .orElseGet(
             () ->
                 new SetupFailed(
-                    "Gradle couldn't build %s for mutastic (exit %d):\n%s"
-                        .formatted(build.directory(), exit, output)));
+                    BuildErrors.failed(
+                        new BuildErrors.Build(
+                            "Gradle",
+                            name(build.directory(), module),
+                            log(workDirectory),
+                            built(build.directory(), request)),
+                        output.lines().toList())));
+  }
+
+  /// `./gradlew :core:test --tests 'com.example.PricingTest.bigOrders'`: the suite's task, filtered
+  /// to the test, which Gradle names by its class and method, without parameters.
+  static String testCommand(BuildTool.Request request, String test) {
+    var directory = request.directory();
+    var program = gradle(directory, Objects.requireNonNullElse(System.getenv("PATH"), ""));
+    var module = request.module().equals(":") ? "" : request.module() + ":";
+    var filter = test.replaceFirst("\\(.*$", "").replace('#', '.');
+    return BuildErrors.command(
+        program, directory, "-p", List.of(module + request.suite(), "--tests", "'" + filter + "'"));
+  }
+
+  /// The command that builds what mutastic built, as the person would type it: `./gradlew
+  /// :core:testClasses`.
+  private static String built(Path directory, BuildTool.Request request) {
+    var program = gradle(directory, Objects.requireNonNullElse(System.getenv("PATH"), ""));
+    var task = building(request).task().substring("gradle ".length());
+    return BuildErrors.command(program, directory, "-p", List.of(task));
   }
 
   /// What Gradle said beyond its progress: the log as `-q` would have kept it, without the tasks it

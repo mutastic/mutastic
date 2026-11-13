@@ -32,7 +32,7 @@ class LibraryResourcesTest {
   /// `Settings`, which can't be initialised, doesn't stop the run.
   @Test
   void aLibraryFindsTheModulesResources() {
-    assertThat(app.err()).doesNotContain("the tests fail without any mutant");
+    assertThat(app.err()).doesNotContain("without any mutant");
     assertThat(app.out())
         .contains("\"reason\":\"run-finished\"")
         .containsPattern("\"status\":\"Killed\"[^\\n]*com\\.example\\.app\\.GreetingTest#");

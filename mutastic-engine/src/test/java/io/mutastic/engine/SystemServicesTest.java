@@ -29,13 +29,14 @@ class SystemServicesTest {
     var failed =
         new Engine.BaselineFailed(
             List.of("com.example.LoggingTest#warns", "com.example.LoggingTest#quiet"),
-            java.util.Map.of(),
+            new TestWorker.Baseline(false, List.of(), java.util.Map.of(), java.util.Map.of()),
             Path.of("worker.log"),
             provided);
     assertThat(failed.getMessage())
         .contains("the project provides java.lang.System$LoggerFinder in META-INF/services")
         .contains("mutastic loads the project in class loaders of its own")
-        .endsWith("To run without those tests: --exclude-tests=LoggingTest");
+        .contains("To run without those tests: --exclude-tests=LoggingTest\n")
+        .endsWith("Their output is in worker.log.");
   }
 
   @Test
@@ -43,9 +44,22 @@ class SystemServicesTest {
     assertThat(SystemServices.providedBy(withTestResources(project))).isEmpty();
     assertThat(
             new Engine.BaselineFailed(
-                    List.of("a.BTest#c"), java.util.Map.of(), Path.of("worker.log"), List.of())
+                    List.of("a.BTest#c"),
+                    new TestWorker.Baseline(
+                        false,
+                        List.of("a.BTest#c"),
+                        java.util.Map.of(),
+                        java.util.Map.of("a.BTest#c", "expected: <24> but was: <25>")),
+                    Path.of("worker.log"),
+                    List.of())
+                .endingIn("./gradlew test --tests 'a.BTest.c'")
                 .getMessage())
-        .isEqualTo("the tests fail without any mutant: a.BTest#c; their output is in worker.log");
+        .isEqualTo(
+            """
+            a.BTest#c fails without any mutant, so mutastic can't judge one.
+            It failed: expected: <24> but was: <25>
+            Its output is in worker.log. To run it alone:
+              ./gradlew test --tests 'a.BTest.c'""");
   }
 
   private static Project withTestResources(Path testResources) {

@@ -29,7 +29,7 @@ class TestSelectionRunsTest {
   private static void assertTheBoundaryIsMissed(Path project) {
     var run = Samples.mutastic("run", project.toString(), "--format=jsonl", "--report=none");
 
-    assertThat(run.err()).doesNotContain("fail without any mutant");
+    assertThat(run.err()).doesNotContain("without any mutant");
     assertThat(run.out())
         .contains("\"tests\":1,")
         .containsPattern("\"status\":\"Survived\",\"operator\":\"mutastic/boundary\"");

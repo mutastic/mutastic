@@ -53,6 +53,79 @@
       "doc": "",
       "types": [
         {
+          "name": "BuildErrors",
+          "slug": "builderrors",
+          "kind": "class",
+          "signature": "@Internal class BuildErrors",
+          "summary": "What a build tool said when the project didn't build, before any mutant was in it: the compiler's first errors, each at the person's own file and line, or else what the tool says went wrong, without the advice it gives about itself (`--stacktrace`, `--scan`, `-e`, its wiki).",
+          "doc": "What a build tool said when the project didn't build, before any mutant was in it: the\ncompiler's first errors, each at the person's own file and line, or else what the tool says went\nwrong, without the advice it gives about itself (`--stacktrace`, `--scan`, `-e`, its wiki).\nGradle and Maven say it in the same words, and end in the command that builds it as mutastic\ndid.",
+          "params": [],
+          "members": [
+            {
+              "kind": "field",
+              "name": "MOST",
+              "anchor": "most",
+              "signature": "static final int MOST",
+              "doc": "The most errors a message quotes; the log has the rest.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "failed",
+              "anchor": "failed",
+              "signature": "static String failed(BuildErrors.Build build, List<String> log)",
+              "doc": "The message: the project doesn't build; its first errors, or what the tool says went wrong;\nwhere its output is; and the command that builds it as mutastic did. In the Rust edition's\nwords.",
+              "params": [
+                {
+                  "name": "log",
+                  "doc": "what the build said, a line at a time"
+                }
+              ],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "command",
+              "anchor": "command",
+              "signature": "static String command(String tool, Path build, String flag, List<String> rest)",
+              "doc": "A build tool's command as the person would type it from `here`: the tool, `./gradlew` from\nwhere it is or the one on the PATH; the build's directory, after `flag` (`-p`, `-f`), unless\nit's `here`; then `rest`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "BuildErrors.Build",
+          "slug": "builderrors-build",
+          "kind": "record",
+          "signature": "record Build(\n    String tool,\n    String project,\n    Path log,\n    String command)",
+          "summary": "A build that failed.",
+          "doc": "A build that failed.",
+          "params": [
+            {
+              "name": "tool",
+              "doc": "`Gradle` or `Maven`"
+            },
+            {
+              "name": "project",
+              "doc": "the project as runs name it, `pricing` or `modules/core`"
+            },
+            {
+              "name": "log",
+              "doc": "the file its output went to"
+            },
+            {
+              "name": "command",
+              "doc": "the command that builds what mutastic built, as the person would type it"
+            }
+          ],
+          "members": []
+        },
+        {
           "name": "BuildTool",
           "slug": "buildtool",
           "kind": "interface",
@@ -134,6 +207,21 @@
                   "doc": "when `module` isn't one of the build's, saying which modules are"
                 }
               ]
+            },
+            {
+              "kind": "method",
+              "name": "testCommand",
+              "anchor": "testcommand",
+              "signature": "default Optional<String> testCommand(BuildTool.Request request, String test)",
+              "doc": "The command that runs one test of the request's suite in its build, as the person would type\nit from where they are, to see it fail there: empty when the tool can't name one test.",
+              "params": [
+                {
+                  "name": "test",
+                  "doc": "the test as mutastic names it: `com.example.PricingTest#bigOrders`, or a class"
+                }
+              ],
+              "returns": "",
+              "throws": []
             },
             {
               "kind": "method",
