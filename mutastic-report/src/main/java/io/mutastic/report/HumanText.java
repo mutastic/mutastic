@@ -222,21 +222,30 @@ public final class HumanText {
   /// One file's results, as they finish: `✓` and a count when nothing was missed; `❯` with each
   /// miss and each line no test reaches otherwise.
   public String fileFinished(String project, List<MutantResult> results) {
+    return fileFinished(
+        project,
+        results,
+        results.stream().map(MutantResult::took).reduce(Duration.ZERO, Duration::plus));
+  }
+
+  /// [#fileFinished(String, List)], saying the file took `took`: from its first mutant's start to
+  /// its last one's end, where that's known, rather than its mutants' times added up across the
+  /// workers.
+  public String fileFinished(String project, List<MutantResult> results, Duration took) {
     var missed = results.stream().filter(result -> result.status() == Status.MISSED).toList();
     var uncovered =
         results.stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
-    var lines = new ArrayList<String>(List.of(" " + fileHead(project, results, missed, uncovered)));
+    var lines = new ArrayList<String>(List.of(" " + fileHead(project, results, took)));
     missed.forEach(result -> lines.add(missedLine(result)));
     uncoveredByLine(uncovered).forEach((where, count) -> lines.add(uncoveredLine(where, count)));
     return String.join("\n", lines) + "\n";
   }
 
   /// `✓ project src/…/Pricing.java (12 mutants) 1.2s`: the file, its counts and how long it took.
-  private String fileHead(
-      String project,
-      List<MutantResult> results,
-      List<MutantResult> missed,
-      List<MutantResult> uncovered) {
+  private String fileHead(String project, List<MutantResult> results, Duration took) {
+    var missed = results.stream().filter(result -> result.status() == Status.MISSED).toList();
+    var uncovered =
+        results.stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
     var counts =
         new ArrayList<String>(
             List.of(
@@ -248,7 +257,6 @@ public final class HumanText {
     if (!uncovered.isEmpty()) {
       counts.add(style.amber("%d %s".formatted(uncovered.size(), words.notCovered)));
     }
-    var took = results.stream().map(MutantResult::took).reduce(Duration.ZERO, Duration::plus);
     return "%s %s %s %s %s"
         .formatted(
             missed.isEmpty() && uncovered.isEmpty() ? style.green("✓") : style.red("❯"),

@@ -15,6 +15,9 @@ final class Workload {
   /// A test in the coverage pass is slow after a minute: there's nothing yet to measure it by.
   static final Duration SLOW_TEST = Duration.ofMinutes(1);
 
+  /// Nothing is SLOW before two seconds.
+  static final Duration SLOW_FLOOR = Duration.ofSeconds(2);
+
   /// What's left is said once this many mutants have run, and [#SETTLED] has passed.
   static final int RAN_ENOUGH = 3;
 
@@ -34,7 +37,13 @@ final class Workload {
     Snapshot.Worker at(long now) {
       var elapsed = Duration.ofNanos(now - started);
       return new Snapshot.Worker(
-          id, doing, elapsed, cost.expected(), elapsed.compareTo(cost.slow()) > 0, cost.tests());
+          id, doing, elapsed, cost.expected(), elapsed.compareTo(slowAfter()) > 0, cost.tests());
+    }
+
+    /// What its cost says, and never before [#SLOW_FLOOR]: a mutant whose tests take milliseconds
+    /// would otherwise be marked for being a little slower than that, on every line.
+    private Duration slowAfter() {
+      return cost.slow().compareTo(SLOW_FLOOR) > 0 ? cost.slow() : SLOW_FLOOR;
     }
   }
 
