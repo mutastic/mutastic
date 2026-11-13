@@ -2,7 +2,10 @@ package io.mutastic.cli;
 
 import io.mutastic.api.CoveragePass;
 import io.mutastic.api.Listener;
+import io.mutastic.api.Mutant;
+import io.mutastic.api.MutantCost;
 import io.mutastic.api.MutantResult;
+import java.time.Duration;
 import java.util.List;
 
 /// Tells another listener all it hears. Something that hears more overrides a method and calls this
@@ -25,8 +28,28 @@ class ForwardingListener implements Listener {
   }
 
   @Override
+  public void testStarted(String test) {
+    to.testStarted(test);
+  }
+
+  @Override
   public void coverageFinished(CoveragePass pass) {
     to.coverageFinished(pass);
+  }
+
+  @Override
+  public void mutantsPlanned(int workers, Duration expected) {
+    to.mutantsPlanned(workers, expected);
+  }
+
+  @Override
+  public void mutantStarted(int worker, Mutant mutant, MutantCost cost) {
+    to.mutantStarted(worker, mutant, cost);
+  }
+
+  @Override
+  public void workerIdle(int worker) {
+    to.workerIdle(worker);
   }
 
   @Override

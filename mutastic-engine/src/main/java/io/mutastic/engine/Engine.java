@@ -10,6 +10,7 @@ import io.mutastic.api.Ghost;
 import io.mutastic.api.Ignore;
 import io.mutastic.api.Listener;
 import io.mutastic.api.Mutant;
+import io.mutastic.api.MutantCost;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Policy;
 import io.mutastic.api.Project;
@@ -679,6 +680,9 @@ public final class Engine {
     private final java.util.concurrent.BlockingQueue<TestWorker> idle;
     private final Object report = new Object();
 
+    /// What each mutant should take, in the order found.
+    private final List<MutantCost> costs;
+
     SideBySide(
         List<Mutant> mutants, MutantRun mutantRun, List<TestWorker> workers, Listener listener) {
       this.mutants = mutants;
@@ -688,9 +692,13 @@ public final class Engine {
       this.results = new MutantResult[mutants.size()];
       this.files = new SourceFiles(mutants);
       this.idle = new java.util.concurrent.LinkedBlockingQueue<>(workers);
+      this.costs = mutants.stream().map(mutantRun::cost).toList();
     }
 
     List<MutantResult> runAll() {
+      listener.mutantsPlanned(
+          workers.size(),
+          costs.stream().map(MutantCost::expected).reduce(Duration.ZERO, Duration::plus));
       try (var executor =
           java.util.concurrent.Executors.newFixedThreadPool(
               workers.size(), Thread.ofPlatform().name("mutastic-", 1).daemon().factory())) {
@@ -711,8 +719,9 @@ public final class Engine {
 
     private void runOnIdleWorker(int at) {
       var worker = take(idle);
+      int number = workers.indexOf(worker);
       try {
-        var result = mutantRun.run(mutants.get(at), worker);
+        var result = started(at, number, worker);
         if (workers.size() > 1 && mayBeContention(result)) {
           again.add(at);
           return;
@@ -723,8 +732,19 @@ public final class Engine {
           files.finished(at, results, listener);
         }
       } finally {
+        listener.workerIdle(number);
         idle.add(worker);
       }
+    }
+
+    /// Mutant `at` run on `worker`, worker `number`, once progress has heard it's started: unless
+    /// it costs nothing, as one no test reaches, which is done at once.
+    private MutantRun.Outcome started(int at, int number, TestWorker worker) {
+      var cost = costs.get(at);
+      if (cost.expected().isPositive()) {
+        listener.mutantStarted(number, mutants.get(at), cost);
+      }
+      return mutantRun.run(mutants.get(at), worker);
     }
 
     /// A port in use may be another worker's test holding it. A timeout may be the workers
@@ -738,8 +758,9 @@ public final class Engine {
     private void runAgainAlone() {
       workers.stream().skip(1).forEach(TestWorker::close); // nothing else competes now
       for (int at : again.stream().sorted().toList()) {
-        results[at] = mutantRun.run(mutants.get(at), workers.getFirst()).result();
+        results[at] = started(at, 0, workers.getFirst()).result();
         listener.mutantFinished(results[at]);
+        listener.workerIdle(0);
         files.finished(at, results, listener);
       }
     }
@@ -919,6 +940,26 @@ public final class Engine {
         return new Outcome(uncovered(mutant, worker), false);
       }
       return tested(mutant, worker, covering);
+    }
+
+    /// What `mutant` should take: the time its covering tests took in the coverage pass, every
+    /// test's for a mutant of the whole class, as its timeout is reckoned. It's slow at three times
+    /// that or half its timeout, whichever comes first. One that's skipped or no test reaches costs
+    /// nothing.
+    MutantCost cost(Mutant mutant) {
+      var covering =
+          mutant.skipped().isPresent() ? List.<String>of() : coverage.coveringTests(mutant);
+      if (covering.isEmpty()) {
+        return MutantCost.NONE;
+      }
+      var expected =
+          mutant.operator() instanceof ClassMutator
+              ? coverage.timeOfEveryTest()
+              : coverage.timeOf(covering);
+      var slow = expected.multipliedBy(3);
+      var halfTimeout = timeoutFor(expected).dividedBy(2);
+      return new MutantCost(
+          expected, slow.compareTo(halfTimeout) < 0 ? slow : halfTimeout, covering.size());
     }
 
     /// The mutant run against the tests that reach it.

@@ -21,6 +21,21 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   coding agent get counter lines instead.
 - **`--format=agent` and `--format=jsonl` show progress on stderr,** as counter lines, so an agent's
   harness doesn't stop a quiet run; `--progress=none` or `MUTASTIC_PROGRESS=none` silences it.
+- **The live block has a bar, and says what's left.** The coverage pass's bar counts its tests; the
+  mutants' is weighted, each mutant counting for what its covering tests took in the coverage pass,
+  so it moves with the time passed rather than the count. `~21m left` shows once three mutants and
+  ten seconds have run. Heartbeat lines carry the percent and what's left too.
+- **A line for each worker,** with its own `[HH:MM:SS]` timer and what it runs: the test in the
+  coverage pass, or a mutant as `Pricing.java:17 discount() >= becomes >`. `SLOW` marks a mutant at
+  three times what its tests took or half its timeout, and a test after a minute. Up to eight show
+  (four below 100 columns), then `… and 3 more running`.
+- **`t` says what's running,** above the live block: each worker's mutant, its id, its timer against
+  what it should take, and the tests that cover it. `kill -USR1`, and Ctrl-T on macOS and the BSDs,
+  do the same anywhere, piped or not. Ctrl-C and Ctrl-Z still work, and every way out leaves the
+  terminal as it was.
+- **Every line of the live block fits the terminal:** the bar shrinks first, then the counts lose
+  their words, then a line is cut with `…`, and wrapping is off while it's drawn. The start script
+  passes the width in `MUTASTIC_COLUMNS`; without it, `COLUMNS`, or 100.
 
 ### Fixes
 

@@ -1,5 +1,6 @@
 package io.mutastic.api;
 
+import java.time.Duration;
 import java.util.List;
 
 /// Hears about a run as it happens, for progress and streamed output.
@@ -13,8 +14,22 @@ public interface Listener {
   /// tests are known.
   default void coverageProgress(int done, int planned) {}
 
+  /// The coverage pass starts `test`, by its id.
+  default void testStarted(String test) {}
+
   /// The coverage pass is done, and the mutants are about to run.
   default void coverageFinished(CoveragePass pass) {}
+
+  /// The mutants will run on `workers` side by side, and should take `expected` between them: each
+  /// what its covering tests took in the coverage pass. Comes after `coverageFinished`.
+  default void mutantsPlanned(int workers, Duration expected) {}
+
+  /// Worker `worker`, counted from 0, starts `mutant`, which should take what `cost` says. A mutant
+  /// no test reaches isn't said to start.
+  default void mutantStarted(int worker, Mutant mutant, MutantCost cost) {}
+
+  /// Worker `worker` has finished what it was running, with a result or to run it again later.
+  default void workerIdle(int worker) {}
 
   /// One mutant's result, as soon as it's known.
   void mutantFinished(MutantResult result);

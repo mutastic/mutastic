@@ -45,7 +45,8 @@ application {
 }
 
 // Progress goes to stderr, and Java can only ask whether stdin and stdout are a terminal: the
-// start script asks of stderr, and says, unless whatever started it (the native launcher) has.
+// start script asks of stderr, and says, unless whatever started it (the native launcher) has. Nor
+// can Java ask a terminal's width, so the script says that too, for the live block to fit.
 tasks.startScripts {
     val exec = "exec \"\$JAVACMD\" \"\$@\""
     val stderr =
@@ -53,6 +54,10 @@ tasks.startScripts {
         if [ -z "${'$'}{MUTASTIC_STDERR_TTY+set}" ]; then
             if [ -t 2 ]; then MUTASTIC_STDERR_TTY=1; else MUTASTIC_STDERR_TTY=0; fi
             export MUTASTIC_STDERR_TTY
+        fi
+        if [ -z "${'$'}{MUTASTIC_COLUMNS+set}" ] && [ "${'$'}MUTASTIC_STDERR_TTY" = 1 ]; then
+            MUTASTIC_COLUMNS=${'$'}(stty size < /dev/tty 2> /dev/null | cut -d ' ' -f 2)
+            export MUTASTIC_COLUMNS
         fi
 
         """.trimIndent()

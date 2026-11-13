@@ -1380,10 +1380,50 @@
             },
             {
               "kind": "method",
+              "name": "testStarted",
+              "anchor": "teststarted",
+              "signature": "default void testStarted(String test)",
+              "doc": "The coverage pass starts `test`, by its id.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
               "name": "coverageFinished",
               "anchor": "coveragefinished",
               "signature": "default void coverageFinished(CoveragePass pass)",
               "doc": "The coverage pass is done, and the mutants are about to run.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "mutantsPlanned",
+              "anchor": "mutantsplanned",
+              "signature": "default void mutantsPlanned(int workers, Duration expected)",
+              "doc": "The mutants will run on `workers` side by side, and should take `expected` between them: each\nwhat its covering tests took in the coverage pass. Comes after `coverageFinished`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "mutantStarted",
+              "anchor": "mutantstarted",
+              "signature": "default void mutantStarted(int worker, Mutant mutant, MutantCost cost)",
+              "doc": "Worker `worker`, counted from 0, starts `mutant`, which should take what `cost` says. A mutant\nno test reaches isn't said to start.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "workerIdle",
+              "anchor": "workeridle",
+              "signature": "default void workerIdle(int worker)",
+              "doc": "Worker `worker` has finished what it was running, with a result or to run it again later.",
               "params": [],
               "returns": "",
               "throws": []
@@ -1624,6 +1664,40 @@
               "anchor": "binaryname",
               "signature": "String binaryName()",
               "doc": "`com.example.Pricing`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "MutantCost",
+          "slug": "mutantcost",
+          "kind": "record",
+          "signature": "@Internal record MutantCost(Duration expected, Duration slow, int tests)",
+          "summary": "What a mutant should take to run: the time its covering tests took in the coverage pass.",
+          "doc": "What a mutant should take to run: the time its covering tests took in the coverage pass. Past\n`slow` it's slow: three times that, or half its timeout, whichever comes first.",
+          "params": [
+            {
+              "name": "expected",
+              "doc": "what its covering tests took in the coverage pass; zero for one no test reaches"
+            },
+            {
+              "name": "slow",
+              "doc": "how long it runs before progress calls it slow"
+            },
+            {
+              "name": "tests",
+              "doc": "how many tests cover it"
+            }
+          ],
+          "members": [
+            {
+              "kind": "field",
+              "name": "NONE",
+              "anchor": "none",
+              "signature": "static final MutantCost NONE",
+              "doc": "A mutant no test reaches, or that isn't run: it costs nothing.",
               "params": [],
               "returns": "",
               "throws": []

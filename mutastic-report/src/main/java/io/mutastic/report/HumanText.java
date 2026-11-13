@@ -246,6 +246,18 @@ public final class HumanText {
             style.dim(HumanText.seconds(took)));
   }
 
+  /// `Pricing.java:17 discount() >= becomes >`: a mutant as progress shows a worker running it, its
+  /// change in the words a miss line uses.
+  public String running(Mutant mutant) {
+    var file = sources.file(mutant);
+    return "%s:%d %s %s"
+        .formatted(
+            file.substring(Math.max(file.lastIndexOf('/'), file.lastIndexOf('\\')) + 1),
+            sources.place(mutant).line(),
+            plain(Advice.method(mutant)),
+            code(sources.advice(mutant).change()));
+  }
+
   private String missedLine(MutantResult result) {
     return "   %s %s %s %s"
         .formatted(
