@@ -1,17 +1,33 @@
 ---
 title: Working test-first
-description: "One test-first cycle on the pricing sample: a failing test, the code that passes it, mutastic on the cycle's lines, the card's tests proved with verify, and a commit."
+description: "A test written first can pass on code that's wrong. One cycle on the pricing sample shows mutastic finding what the test left unchecked, with every command and what it prints."
 ---
 
 import { Code } from '@astrojs/starlight/components';
+import EditionOnly from '../../../components/EditionOnly.astro';
+import EditionTabs from '../../../components/EditionTabs.astro';
+import RustAwaiting from '../../../components/RustAwaiting.astro';
+import RustOutput from '../../../components/RustOutput.astro';
 import red from '../../../data/output/test-first-red.ansi?raw';
 import run from '../../../data/output/test-first-run.ansi?raw';
 import verify from '../../../data/output/test-first-verify.ansi?raw';
 import again from '../../../data/output/test-first-again.ansi?raw';
 
-One cycle, on the pricing sample, with every command and what it prints: a test from the spec,
-the least code that passes it, mutastic on the cycle's lines, the tests its cards ask for, and a
-commit. [Working test-first](/concepts/test-first/) says why mutastic comes where it does.
+A test written first can pass on code that's wrong. In this cycle the test asks for 5 off an
+order of 50, and the code passes it, but nothing checks the edge at 30: `>=` could be `>` and every
+test would still pass. Red and green can't show you that. mutastic can, while you're still in the
+cycle.
+
+Here's that cycle on the pricing sample, with every command and what it prints: a test from the
+spec, the least code that passes it, mutastic on the cycle's lines, the tests its cards ask for, and
+a commit. [Working test-first](/concepts/test-first/) says why mutastic comes where it does, and
+[why tests written first still need checking](/concepts/test-first/#why-tests-written-first-still-need-checking).
+
+<RustAwaiting>
+This guide's Rust cycle comes with mutastic for Rust's next release. Until then, these are the Java
+edition's steps: on a crate they're the same, with `mutastic run` and `mutastic verify` as
+[the quickstart](/rust/getting-started/) runs them.
+</RustAwaiting>
 
 The spec for this cycle: loyal customers get 5 off orders of 30 or more.
 
@@ -21,6 +37,9 @@ Start from a clean tree, and commit at the end of each cycle, not before: `--sin
 mutants on the lines changed since the last commit, so the commit marks where the cycle started.
 
 ## Write one failing test
+
+<EditionTabs>
+<div slot="java">
 
 {/* added to: samples/pricing/src/test/java/com/example/pricing/PricingTest.java */}
 ```java
@@ -41,8 +60,38 @@ public int loyaltyCredit(int total) {
 }
 ```
 
+</div>
+<div slot="rust">
+
+From the root of a clone of mutastic for Rust's repository, as in
+[the quickstart](/rust/getting-started/), in the `tests` module at the end of
+`fixtures/pricing/src/lib.rs`:
+
+```rust
+// Loyal customers get 5 off orders of 30 or more.
+#[test]
+fn loyal_customers_get_five_off() {
+    assert_eq!(Pricing::new().loyalty_credit(50), 5);
+}
+```
+
+And just enough code for it to compile, at the end of `impl Pricing`:
+
+```rust
+/// 5 off orders of 30 or more, for loyal customers.
+pub fn loyalty_credit(&self, total: u32) -> u32 {
+    0
+}
+```
+
+</div>
+</EditionTabs>
+
 The test fails, so mutastic won't run yet: a test that fails with no mutant in would look as if it
 caught every mutant.
+
+<EditionTabs>
+<div slot="java">
 
 ```sh
 mutastic run samples/pricing
@@ -50,7 +99,22 @@ mutastic run samples/pricing
 
 <Code code={red} lang="ansi" />
 
+</div>
+<div slot="rust">
+
+```sh
+mutastic run fixtures/pricing
+```
+
+<RustOutput name="test-first/red" />
+
+</div>
+</EditionTabs>
+
 ## Make it pass with the least code
+
+<EditionTabs>
+<div slot="java">
 
 {/* changed in: samples/pricing/src/main/java/com/example/pricing/Pricing.java */}
 ```java
@@ -63,9 +127,28 @@ public int loyaltyCredit(int total) {
 }
 ```
 
+</div>
+<div slot="rust">
+
+```rust
+/// 5 off orders of 30 or more, for loyal customers.
+pub fn loyalty_credit(&self, total: u32) -> u32 {
+    if total >= 30 {
+        return 5;
+    }
+    0
+}
+```
+
+</div>
+</EditionTabs>
+
 The whole suite passes.
 
 ## Run mutastic on the cycle
+
+<EditionTabs>
+<div slot="java">
 
 ```sh
 mutastic run samples/pricing --since=HEAD
@@ -73,14 +156,30 @@ mutastic run samples/pricing --since=HEAD
 
 <Code code={run} lang="ansi" />
 
+</div>
+<div slot="rust">
+
+```sh
+mutastic run fixtures/pricing --since=HEAD
+```
+
+<RustOutput name="test-first/run" />
+
+</div>
+</EditionTabs>
+
 The one test is at 50, so nothing checks the edge at 30, nothing checks an order below it, and no
-test reaches `return 0` at all: the code ran ahead of its tests. The card suggests a test for each.
+test reaches the code for an order below 30 at all: the code ran ahead of its tests. The card
+suggests a test for each.
 
 ## Write the card's tests
 
 Check each value against the spec before you keep it: an order of exactly 30 gets 5 off, and one of
 29 gets nothing. Here both are what the spec asks for. Had one not been, the test would keep the
 spec's value and fail on today's code: that's a bug found, and the cycle goes back to green.
+
+<EditionTabs>
+<div slot="java">
 
 {/* added to: samples/pricing/src/test/java/com/example/pricing/PricingTest.java */}
 ```java
@@ -95,13 +194,46 @@ void loyaltyCreditJustBelowTheTotalEdge() {
 }
 ```
 
+</div>
+<div slot="rust">
+
+```rust
+#[test]
+fn loyalty_credit_at_the_total_edge() {
+    assert_eq!(Pricing::new().loyalty_credit(30), 5);
+}
+
+#[test]
+fn loyalty_credit_just_below_the_total_edge() {
+    assert_eq!(Pricing::new().loyalty_credit(29), 0);
+}
+```
+
+</div>
+</EditionTabs>
+
 `verify` is the card's red and green: it fails until a test catches each mutant, and passes now.
+
+<EditionTabs>
+<div slot="java">
 
 ```sh
 mutastic verify m809c9c9b,md0b32a4f samples/pricing
 ```
 
 <Code code={verify} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```sh
+mutastic verify m525ce1d2,m076d6006 fixtures/pricing
+```
+
+<RustOutput name="test-first/verify" />
+
+</div>
+</EditionTabs>
 
 ## A mutant you can't catch
 
@@ -111,7 +243,13 @@ Don't change the code so the mutant can't exist: that hides what it found.
 
 ## Refactor, run again, commit
 
-Change the structure if it needs it, with the suite green, and run the cycle again:
+Change the structure if it needs it, with the suite green, and run the cycle again. This cycle's
+code is one `if`, with nothing to refactor, so here the run only confirms the cycle:
+[Working test-first: the refactor](/guides/test-first-refactor/) carries on to a refactor the code does
+need.
+
+<EditionTabs>
+<div slot="java">
 
 ```sh
 mutastic run samples/pricing --since=HEAD
@@ -119,13 +257,36 @@ mutastic run samples/pricing --since=HEAD
 
 <Code code={again} lang="ansi" />
 
+</div>
+<div slot="rust">
+
+```sh
+mutastic run fixtures/pricing --since=HEAD
+```
+
+<RustOutput name="test-first/again" />
+
+</div>
+</EditionTabs>
+
 Then commit. The commit is the next cycle's `HEAD`.
 
 ## One card at a time
 
+<EditionOnly edition="java">
+
 `mutastic next --since=HEAD` gives the cycle's missed mutants one at a time, the one most worth a
 test first, in place of the whole run: see [Working through misses](/concepts/next/). It leaves out
 the lines no test reaches, which `run` lists under `Not covered`.
+
+</EditionOnly>
+
+<EditionOnly edition="rust">
+
+`mutastic next --since=HEAD` gives the cycle's missed mutants one at a time, the one most worth a
+test first, in place of the whole run: see [Working through misses](/rust/concepts/next/).
+
+</EditionOnly>
 
 ## Agents
 

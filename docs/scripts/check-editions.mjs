@@ -1,22 +1,27 @@
 // Fails the build when the two editions' pages don't line up: a page the edition switch would open
 // (src/edition-pages.mjs) that doesn't exist, a shared concept that doesn't exist or stands for a
-// mutastic-rs page that doesn't, or a Rust page with no place in the Rust sidebar (LAYOUT in
-// scripts/rust-docs.mjs). Either would otherwise pass unnoticed: the switch would fall
-// back to an overview, and the page would sit under "More". It also fails when a mutastic-rs page
+// mutastic-rs page that doesn't, a Rust page with no place in the Rust sidebar (LAYOUT in
+// scripts/rust-docs.mjs), or a shared page the Rust sidebar doesn't list. Each would otherwise pass
+// unnoticed: the switch would fall back to an overview, a Rust page would sit under "More", and a
+// shared page would be in the Java sidebar only. It also fails when a mutastic-rs page
 // a shared concept's Rust side was written from has changed since (src/shared-sources.json, see
-// scripts/shared-sources.mjs), since the shared page may no longer say what it does. A release or
-// CI build (DOCS_VERSION set) stops; a local one says what's wrong and carries on, so a page being
-// written can be read.
+// scripts/shared-sources.mjs), since the shared page may no longer say what it does. A shared page
+// still waiting for its Rust side (AWAITING_RUST in src/edition-pages.mjs) is spared that, and the
+// mutastic-rs page it stands for, while the pin is the release it names, and fails once it isn't.
+// A release or CI build (DOCS_VERSION set) stops; a local one says what's wrong and carries on, so
+// a page being written can be read.
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  AWAITING_RUST,
   JAVA_ONLY_WAY,
   JAVA_OPERATORS,
   PAIRS,
   RUST_ONLY_WAY,
   SHARED,
 } from '../src/edition-pages.mjs';
+import { pinnedRef } from './rust-docs.mjs';
 import { readManifest, staleSources } from './shared-sources.mjs';
 
 const content = fileURLToPath(new URL('../src/content/docs/', import.meta.url));
@@ -48,8 +53,17 @@ async function javaPages() {
  * @param {string[]} unplaced    Rust pages the Rust sidebar's layout doesn't list
  * @param {string[]} gone        mutastic-rs pages a shared page stands for that it doesn't have
  * @param {string} [dir]         the mutastic-rs docs folder the Rust pages were read from
+ * @param {string[]} [unlisted]  shared pages the Rust sidebar's layout doesn't list
+ * @param {string[]} [awaiting]  shared pages still waiting for their Rust side (AWAITING_RUST)
  */
-export async function checkEditions(rust, unplaced, gone = [], dir = undefined) {
+export async function checkEditions(
+  rust,
+  unplaced,
+  gone = [],
+  dir = undefined,
+  unlisted = [],
+  awaiting = [],
+) {
   const java = await javaPages();
   const problems = [];
   const need = (pages, path, edition, why) => {
@@ -76,7 +90,15 @@ export async function checkEditions(rust, unplaced, gone = [], dir = undefined) 
   for (const page of unplaced) {
     problems.push(`the Rust page '/${page}' has no place in the Rust sidebar: add it to LAYOUT in scripts/rust-docs.mjs`);
   }
-  problems.push(...sharedSources(dir));
+  for (const page of unlisted) {
+    problems.push(`the shared page '/${page}' isn't in the Rust sidebar: add '/${page}' to LAYOUT in scripts/rust-docs.mjs, where the Java sidebar has it`);
+  }
+  for (const [page, ref] of AWAITING_RUST) {
+    if (ref !== pinnedRef()) {
+      problems.push(`'${page}' waits in AWAITING_RUST (src/edition-pages.mjs) for the Rust release after ${ref}, and the pin is ${pinnedRef()} now: take it out`);
+    }
+  }
+  problems.push(...sharedSources(dir, awaiting));
   if (problems.length === 0) return;
   const message = `The Java and Rust editions don't line up:\n  - ${problems.join('\n  - ')}`;
   if (process.env.DOCS_VERSION) throw new Error(message);
@@ -84,7 +106,7 @@ export async function checkEditions(rust, unplaced, gone = [], dir = undefined) 
 }
 
 /** Each shared page whose Rust sources changed since it was written, or that has none recorded. */
-function sharedSources(dir) {
+function sharedSources(dir, awaiting = []) {
   const manifest = readManifest();
   const shared = new Set(SHARED.map(([page]) => page));
   const problems = [];
@@ -95,7 +117,8 @@ function sharedSources(dir) {
     if (!shared.has(page)) problems.push(`'${page}' in src/shared-sources.json isn't a shared page (SHARED in src/edition-pages.mjs)`);
   }
   if (dir === undefined) return problems;
-  const stale = staleSources(dir).filter(({ page }) => shared.has(page));
+  // A page waiting for its Rust side has none in these docs yet: its sources are the next release's.
+  const stale = staleSources(dir).filter(({ page, gone }) => shared.has(page) && !(gone && awaiting.includes(page)));
   for (const { page, source, commit, gone } of stale) {
     const file = `docs/${source.split('#')[0]}`;
     const what = source.includes('#') ? `the section '#${source.split('#')[1]}' of ${file}` : file;
