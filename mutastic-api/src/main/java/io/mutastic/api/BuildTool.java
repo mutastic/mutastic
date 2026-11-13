@@ -27,6 +27,23 @@ public interface BuildTool {
     return List.of();
   }
 
+  /// Says, before mutastic makes anything for it, that `module` isn't one of the build's, when
+  /// that's known without building: so a mistyped name leaves no directory behind.
+  ///
+  /// @param module `:` for the build in `directory`, else the module as the tool names it
+  /// @param typed the directory as the person would type it, for the commands a failure suggests
+  /// @throws SetupFailed when `module` isn't one of the build's, saying which modules are
+  default void checkModule(Path directory, String module, String typed) {}
+
+  /// How `mutastic run` names `directory`, a directory one of its builds is in: by default the
+  /// build in it, as a build that runs from any of its directories is named.
+  default Address address(Path directory) {
+    return new Address(directory, ":");
+  }
+
+  /// A build's directory, and a module of it: `:` for the build in the directory itself.
+  record Address(Path directory, String module) {}
+
   /// The module's code and tests, and how its build runs them.
   ///
   /// @param module `:` for the build in `directory`, else the module as the tool names it

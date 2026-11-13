@@ -18,7 +18,8 @@ import org.jspecify.annotations.Nullable;
 /// the directory `-Dmutastic.out` names: `setup.properties` for the module the build ran in,
 /// `<path>/setup.properties` for one below it. With `-Dmutastic.dependents=<file>` and
 /// `-Dmutastic.module=<path>`, writes instead the modules that depend on that one, from the
-/// reactor's own graph. Does nothing without either.
+/// reactor's own graph. With `-Dmutastic.modules=<file>`, writes the modules with Java code. Does
+/// nothing without any of them.
 @Named
 @Singleton
 public class MutasticSetup extends AbstractMavenLifecycleParticipant {
@@ -39,6 +40,10 @@ public class MutasticSetup extends AbstractMavenLifecycleParticipant {
     var dependents = session.getUserProperties().getProperty("mutastic.dependents");
     if (dependents != null) {
       Dependents.write(session, Path.of(dependents));
+    }
+    var modules = session.getUserProperties().getProperty("mutastic.modules");
+    if (modules != null) {
+      JavaModules.write(session, Path.of(modules));
     }
     var out = session.getUserProperties().getProperty("mutastic.out");
     if (out == null) {

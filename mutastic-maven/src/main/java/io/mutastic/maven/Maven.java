@@ -32,6 +32,23 @@ public final class Maven implements BuildTool {
   }
 
   @Override
+  public void checkModule(Path directory, String module, String typed) {
+    MavenSetup.checkModule(directory, module, typed);
+  }
+
+  /// A module's directory is named from the top of its build, the last directory up with a
+  /// `pom.xml`, as `-pl` names it: a module's own build doesn't build the modules it uses.
+  @Override
+  public Address address(Path directory) {
+    var top = directory;
+    while (top.getParent() != null && recognises(top.getParent())) {
+      top = top.getParent();
+    }
+    var below = top.relativize(directory).toString().replace(java.io.File.separatorChar, '/');
+    return new Address(top, below.isEmpty() ? ":" : ":" + below);
+  }
+
+  @Override
   public List<String> dependents(Path directory, String module, Path workDirectory) {
     return MavenSetup.dependents(directory, module, workDirectory);
   }

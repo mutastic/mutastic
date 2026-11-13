@@ -1,0 +1,4 @@
+mutastic: the build has no module :nope.
+Its modules with Java code are :app and :core. To test one:
+  mutastic run samples/maven-modules :app
+  mutastic run samples/maven-modules :core

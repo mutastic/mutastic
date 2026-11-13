@@ -7,6 +7,22 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ## Unreleased
 
+### Fixes
+
+- **A build of modules names them as commands, for Maven as for Gradle.** At the top of a Maven
+  build with no Java code of its own, mutastic said `name a module with some: mutastic run
+  :<module>` and named none. Now both tools say `<directory> is a build's root, with no Java code
+  of its own.`, name its modules with Java code, and end in `mutastic run :app` for each, up to five.
+- **A module the build hasn't got is said to be missing.** `mutastic run :nope` answered with
+  `the Maven build failed` and a log, after making `nope/target/mutastic`, or with Gradle's whole
+  failure. Now it says `the build has no module :nope.`, names the modules there are, and makes
+  nothing. A close name, `:cor`, gets `There's one called :core.` and its command. Gradle, which
+  took `:cor` for `:core` and ran it, now says so too.
+- **A directory inside a build names the build.** Run in a build's `src`, mutastic said it isn't a
+  Gradle or Maven build, with commands to fill in. Now it says which build it's inside and ends in
+  the command that tests it: `mutastic run ..`, or `mutastic run ../.. :app` for a Maven module,
+  which is tested from the top of its build.
+
 ## 1.1.0 (12 Nov 2026)
 
 ### Card changes

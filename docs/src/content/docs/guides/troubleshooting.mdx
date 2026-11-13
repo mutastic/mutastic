@@ -6,6 +6,8 @@ description: What mutastic's exit status means, and what to do about each.
 import { Code } from '@astrojs/starlight/components';
 import below from '../../../data/output/below-threshold.ansi?raw';
 import elsewhere from '../../../data/output/id-elsewhere.ansi?raw';
+import moduleMissing from '../../../data/output/module-missing.ansi?raw';
+import moduleRoot from '../../../data/output/module-root.ansi?raw';
 import nothingCovered from '../../../data/output/nothing-covered.ansi?raw';
 import testsFail from '../../../data/output/tests-fail.ansi?raw';
 
@@ -48,6 +50,34 @@ option, check `mutastic --help`: a value follows `=` or a space, except `--since
 (`--since=main`). For a build, mutastic must be run in, or pointed at, a Gradle or Maven build's
 directory, and a module named as the build names it: `:app` for Gradle, a directory as `-pl` takes
 it for Maven.
+
+### A build of modules
+
+mutastic tests one module at a time. Run at the top of a build whose Java code is all in its
+modules, it names the modules that have some, as the commands that test them. On the Maven sample
+of two modules:
+
+```sh
+mutastic run samples/maven-modules
+```
+
+<Code code={moduleRoot} lang="ansi" />
+
+A module the build hasn't got gets the same list, and leaves nothing behind for it:
+
+```sh
+mutastic run samples/maven-modules :nope
+```
+
+<Code code={moduleMissing} lang="ansi" />
+
+When the name is close to a module's, `:cor` for `:core`, mutastic says `There's one called :core.`
+and gives that module's command. It never runs it in place of the one you named. Gradle builds say
+the same.
+
+Run in a directory inside a build, such as its `src`, mutastic names the build it's in, and the
+command that tests it from where you are. A Maven module is named from the top of its build, which
+builds the modules it uses: `mutastic run ../.. :app`.
 
 ### The tests pass, but coverage recorded nothing
 
