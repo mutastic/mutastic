@@ -274,7 +274,7 @@ public final class HumanText {
         .formatted(
             file.substring(Math.max(file.lastIndexOf('/'), file.lastIndexOf('\\')) + 1),
             sources.place(mutant).line(),
-            plain(Advice.method(mutant)),
+            style.bold(plain(Advice.method(mutant))),
             code(sources.advice(mutant).change()));
   }
 
