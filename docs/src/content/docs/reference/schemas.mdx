@@ -30,6 +30,9 @@ Each line says which format it is, and its major version, in `schema`: `mutastic
 | `mutant-finished` | For each mutant, as it finishes |
 | `mutant-revised` | Once every mutant has its result, for each mutant a test reached that then failed on its own with no mutant in: its result again, without that test, which replaces the first |
 | `run-finished` | Last: the totals, the score and the verdict |
+| `phase-started` | As each phase of `run` starts, among the others (`phase`: `reading`, `building`, `coverage`, `mutants`, `checking`); the phases before `run-started` come before it |
+| `phase-finished` | As each phase ends, with `durationMs` |
+| `progress` | Every 30 seconds (`MUTASTIC_HEARTBEAT`) while a phase runs, whatever stderr shows: `elapsedMs`, `done` and `total` where there's a count, and for the mutants `weighted`, `leftMs`, the four fates and the busy workers (`running`) |
 | `mutant-explained` | Only from `mutastic explain ID --format=jsonl`, after the other three for its one mutant: what the text's About this mutant says, a field for each row ([One mutant, explained](/concepts/output/#one-mutant-explained)) |
 
 ### A missed mutant

@@ -10,6 +10,7 @@ import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantCost;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Status;
+import io.mutastic.report.LiveEvents;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -269,6 +270,99 @@ class ProgressTest {
 
     assertThat(err())
         .endsWith("running   1 test at 2s · 1 of 3 done\n   1 com.example.ATest#b  [00:00:02]\n");
+  }
+
+  @Test
+  void withEventsEachPhaseStartsAndEndsAndSaysHowFarItIsWhateverStderrShows() {
+    var events = new ByteArrayOutputStream();
+    var progress = progress(Progress.Mode.NONE);
+    progress.sendEvents(new LiveEvents(new PrintStream(events, true, StandardCharsets.UTF_8)));
+
+    progress.started("1.1.0", "Gradle");
+    after(Duration.ofSeconds(2));
+    progress.findingMutants();
+    progress.mutantsFound(2);
+    progress.coverageFinished(new CoveragePass(17, 3, Duration.ofMillis(5), 2, List.of()));
+    progress.mutantsPlanned(1, Duration.ofSeconds(4));
+    var caught = result("m1", Status.CAUGHT);
+    progress.mutantStarted(
+        0, caught.mutant(), new MutantCost(Duration.ofSeconds(1), Duration.ofSeconds(3), 1));
+    progress.mutantFinished(caught);
+    progress.workerIdle(0);
+    after(Duration.ofSeconds(30));
+    progress.tick();
+    progress.checking("step", 0, 0);
+    progress.finished();
+
+    assertThat(err()).isEmpty();
+    var written = events.toString(StandardCharsets.UTF_8);
+    assertThat(written.lines().map(line -> line.substring(line.indexOf("\"reason\""))))
+        .containsExactly(
+            "\"reason\":\"phase-started\",\"phase\":\"reading\"}",
+            "\"reason\":\"phase-finished\",\"phase\":\"reading\",\"durationMs\":2000}",
+            "\"reason\":\"phase-started\",\"phase\":\"building\"}",
+            "\"reason\":\"phase-finished\",\"phase\":\"building\",\"durationMs\":0}",
+            "\"reason\":\"phase-started\",\"phase\":\"coverage\"}",
+            "\"reason\":\"phase-finished\",\"phase\":\"coverage\",\"durationMs\":0}",
+            "\"reason\":\"phase-started\",\"phase\":\"mutants\"}",
+            "\"reason\":\"progress\",\"phase\":\"mutants\",\"elapsedMs\":30000,\"done\":1,"
+                + "\"total\":2,\"weighted\":0.25,\"caught\":1,\"missed\":0,\"notCovered\":0,"
+                + "\"timedOut\":0,\"running\":0}",
+            "\"reason\":\"phase-finished\",\"phase\":\"mutants\",\"durationMs\":30000}",
+            "\"reason\":\"phase-started\",\"phase\":\"checking\"}",
+            "\"reason\":\"phase-finished\",\"phase\":\"checking\",\"durationMs\":0}");
+  }
+
+  @Test
+  void aProgressEventSaysWhatThePhaseKnows() {
+    var mutants =
+        new Snapshot(
+            Phase.MUTANTS,
+            "",
+            Optional.empty(),
+            2871,
+            5525,
+            Map.of(
+                Status.CAUGHT,
+                2610,
+                Status.MISSED,
+                41,
+                Status.NOT_COVERED,
+                214,
+                Status.TIMED_OUT,
+                6),
+            Duration.ofSeconds(1450),
+            new Snapshot.Estimate(Optional.of(0.52), Optional.of(Duration.ofMinutes(21))),
+            java.util.Collections.nCopies(
+                8,
+                Optional.of(new Snapshot.Worker("m", "x", Duration.ZERO, Duration.ZERO, false, 1))),
+            false);
+    var reading =
+        new Snapshot(
+            Phase.READING,
+            "the Gradle build",
+            Optional.empty(),
+            0,
+            0,
+            Map.of(),
+            Duration.ofSeconds(30),
+            Snapshot.Estimate.NONE,
+            List.of(),
+            false);
+
+    assertThat(ProgressFields.of(mutants))
+        .containsExactly(
+            Map.entry("elapsedMs", 1_450_000L),
+            Map.entry("done", 2871),
+            Map.entry("total", 5525),
+            Map.entry("weighted", 0.52),
+            Map.entry("leftMs", 1_260_000L),
+            Map.entry("caught", 2610),
+            Map.entry("missed", 41),
+            Map.entry("notCovered", 214),
+            Map.entry("timedOut", 6),
+            Map.entry("running", 8L));
+    assertThat(ProgressFields.of(reading)).containsExactly(Map.entry("elapsedMs", 30_000L));
   }
 
   @Test

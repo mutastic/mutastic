@@ -41,6 +41,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   missed, 0 not covered.`), so the row no longer says `threshold 80` apart. `Next:` moves above the
   rows, under the misses it's about, and the Duration row names the build and the checking after
   the mutants beside setup, coverage and mutants.
+- **`--format=jsonl` says how the run is going, as it goes.** Three events join
+  `mutastic.events/v1`: `phase-started` and `phase-finished` (with `durationMs`) as each phase starts
+  and ends, and `progress` on the heartbeat's cadence, with the phase's clock, its count, and for the
+  mutants the weighted fraction, what's left, the fates and the busy workers. They're additive: a
+  reader that ignores reasons it doesn't know reads the stream as before.
 
 ### Fixes
 
