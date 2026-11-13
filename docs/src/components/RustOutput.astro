@@ -3,8 +3,11 @@
 // (`concepts/format-concise`), in the colour mutastic printed it. mutastic-rs's docs test keeps
 // each one true to what mutastic prints; scripts/rust-docs.mjs copies them to
 // src/data/rust/captures/, so a page here shows that output, never a copy of its text. Without
-// the Rust edition's pages it shows nothing, as the Rust side of a page isn't shown then.
+// the Rust edition's pages it shows nothing, as the Rust side of a page isn't shown then, nor on a
+// page still waiting for its Rust side (AWAITING_RUST in src/edition-pages.mjs), whose output the
+// pinned release hasn't got yet.
 import { Code } from '@astrojs/starlight/components';
+import { awaitsRust } from '../lib/awaiting-rust';
 import type { EditionPanes } from '../route-editions';
 
 interface Props {
@@ -20,7 +23,7 @@ const captures = import.meta.glob<string>('../data/rust/captures/**/*.{ansi,txt}
 const rust = (Astro.locals as { editionPanes?: EditionPanes }).editionPanes !== undefined;
 const at = (kind: string) => captures[`../data/rust/captures/${name}.${kind}`];
 const text = at('ansi') ?? at('txt');
-if (rust && text === undefined) {
+if (rust && text === undefined && !awaitsRust(Astro.locals)) {
   throw new Error(`No Rust output named '${name}': mutastic-rs's docs/output/${name}.ansi isn't there`);
 }
 ---

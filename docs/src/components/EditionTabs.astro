@@ -9,9 +9,13 @@
 //     <div slot="rust">…</div>
 //   </EditionTabs>
 import { TabItem, Tabs } from '@astrojs/starlight/components';
+import { awaitsRust } from '../lib/awaiting-rust';
 import type { EditionPanes } from '../route-editions';
 
-const rust = (Astro.locals as { editionPanes?: EditionPanes }).editionPanes !== undefined;
+// A page still waiting for its Rust side shows its Java side to both, as it does without the Rust
+// edition's pages: see components/RustAwaiting.astro.
+const rust =
+  (Astro.locals as { editionPanes?: EditionPanes }).editionPanes !== undefined && !awaitsRust(Astro.locals);
 ---
 
 {

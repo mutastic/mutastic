@@ -15,6 +15,39 @@ is wrong: a boundary that's one off, a branch no test takes, a value nobody chec
 first changes when you write them, not what they check. mutastic checks what each cycle's tests
 check, while you're still in it.
 
+## Why tests written first still need checking
+
+Test-first gives you a test for every case you thought of. It can't give you one for the case you
+didn't, and that's where bugs wait.
+
+- **Your tests can pass on code that's wrong.** A test of `total >= 100` passes just as well against
+  `total > 100`, unless one of its examples is exactly 100. Test-first's "fake it, then generalise"
+  needs a second test to force the general code. When that test never comes, the code is general
+  and unchecked.
+- **Tests drift as the code grows.** Cycles get longer under pressure, a refactor adds a branch, an
+  assertion is loosened to get back to green. Nothing in red, green, refactor tells you. A run
+  scoped to the cycle does, in the cycle it happened.
+- **Discipline alone doesn't close the gap.** In an industrial experiment, 24 professionals wrote
+  code test-first. Their tests' median mutation score was 84%, and none was above 93%
+  ([Tosun et al., ICSSP 2018](https://bura.brunel.ac.uk/bitstream/2438/16116/1/FullText.pdf)).
+  Robert Martin puts survivors down to the times "TDD discipline got a little lax", and code was
+  added "without a corresponding test" ([Mutation Testing, 2016](https://blog.cleancoder.com/uncle-bob/2016/06/10/MutationTesting.html)).
+- **Mutants stand in for real bugs.** In a study of 357 real faults in five open-source Java
+  projects, 73% were coupled to the mutants common operators make: a test that caught those mutants
+  caught the fault too. Tests that caught more mutants caught more real faults, even with their
+  coverage held the same ([Just et al., FSE 2014](https://homes.cs.washington.edu/~rjust/publ/mutants_real_faults_fse_2014.pdf)).
+- **It changes how people test.** At Google, which shows mutants in code review, the more mutants
+  developers had been shown on a file, the more tests they wrote for it, and the fewer of its later
+  mutants survived, across almost 15 million mutants
+  ([Petrović et al., ICSE 2021](https://arxiv.org/abs/2103.07189)).
+- **Agents make it matter more.** A coding agent writes the code and its tests together, and a
+  test that runs the code without checking it is as green as one that does. mutastic measures what
+  the tests check, so a green suite has to earn it.
+
+On a team that works test-first well, a run scoped to each cycle is quick and mostly quiet. That
+quiet is the point: it's evidence, not hope, that each cycle left its code checked. When someone
+gets lax, or an agent does, mutastic is the step that notices.
+
 ## mutastic comes after green
 
 mutastic runs your tests before it changes anything, and a test that fails with no mutant in stops
