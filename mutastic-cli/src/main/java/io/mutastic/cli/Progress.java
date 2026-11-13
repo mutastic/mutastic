@@ -7,6 +7,7 @@ import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantCost;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Status;
+import io.mutastic.report.LiveEvents;
 import java.io.PrintStream;
 import java.time.Duration;
 import java.util.EnumMap;
@@ -102,6 +103,12 @@ final class Progress implements Listener, AutoCloseable {
   private @Nullable Ticker ticker;
   private @Nullable Keys keys;
 
+  /// With `--format=jsonl`, where each phase's start and end and its progress go, as they happen.
+  private @Nullable LiveEvents events;
+
+  /// When the last `progress` event was written.
+  private long lastEvent;
+
   /// Set when someone asks what's running: `t`, Ctrl-T or SIGUSR1. The ticker takes it.
   private final AtomicBoolean asked = new AtomicBoolean();
 
@@ -129,6 +136,15 @@ final class Progress implements Listener, AutoCloseable {
     this.fileLines = lines;
   }
 
+  /// From now on, each phase's start and end to `live`, and how far it is on the heartbeat's
+  /// cadence, whatever stderr shows: before the run starts, so its first phase is there.
+  void sendEvents(LiveEvents live) {
+    synchronized (lock) {
+      this.events = live;
+      lastEvent = now();
+    }
+  }
+
   /// From now on, a mutant a worker runs named as `names` says: once the sources are known.
   void nameMutants(Function<Mutant, String> names) {
     this.naming = names;
@@ -140,7 +156,7 @@ final class Progress implements Listener, AutoCloseable {
     synchronized (lock) {
       say("mutastic %s · reading the %s build…\n".formatted(version, buildTool));
       enter(Phase.READING, "the " + buildTool + " build");
-      if (mode != Mode.NONE && settings.ticking() && ticker == null) {
+      if ((mode != Mode.NONE || events != null) && settings.ticking() && ticker == null) {
         listen();
         ticker = Ticker.every(TICK, this::tick);
       }
@@ -364,6 +380,17 @@ final class Progress implements Listener, AutoCloseable {
       } else if (mode == Mode.COUNTER && stream.heartbeatDue()) {
         stream.line(Frames.heartbeat(snapshot()), List.of());
       }
+      sendProgress();
+    }
+  }
+
+  /// A `progress` event, when there are events and the last is as old as a heartbeat.
+  private void sendProgress() {
+    var live = events;
+    var current = phase;
+    if (live != null && current != null && now() - lastEvent >= settings.heartbeat().toNanos()) {
+      live.progress(current.word(), ProgressFields.of(snapshot()));
+      lastEvent = now();
     }
   }
 
@@ -386,6 +413,9 @@ final class Progress implements Listener, AutoCloseable {
     leave();
     phase = next;
     phaseStarted = now();
+    if (events != null) {
+      events.phaseStarted(next.word());
+    }
     doing = what;
     log = null;
     done = 0;
@@ -403,6 +433,10 @@ final class Progress implements Listener, AutoCloseable {
           case CHECKING -> missed > 0 ? Frames.checked(missed, suggested(), elapsed()) : "";
           case null, default -> "";
         };
+    var ending = phase;
+    if (events != null && ending != null) {
+      events.phaseFinished(ending.word(), elapsed());
+    }
     phase = null;
     if (!ended.isEmpty()) {
       say(ended);

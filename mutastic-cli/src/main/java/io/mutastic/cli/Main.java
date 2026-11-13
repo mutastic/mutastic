@@ -1137,6 +1137,9 @@ public final class Main {
             err,
             ProgressChoice.mode(command.progress(), format, terminal),
             Progress.Settings.of(terminal.env(), progressColour(command, terminal)));
+    if (format.equals("jsonl") && command.subcommand() == Subcommand.RUN) {
+      progress.sendEvents(new io.mutastic.report.LiveEvents(out));
+    }
     return new Output(
         out, progress, format, words, style(command, terminal), GitHubRun.of(terminal, err));
   }
