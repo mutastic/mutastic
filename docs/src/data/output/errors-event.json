@@ -1,0 +1,17 @@
+{
+  "schema" : "mutastic.events/v1",
+  "edition" : "java",
+  "reason" : "run-failed",
+  "code" : "unknown-option",
+  "message" : "run has no option --formt. There's one called --format.",
+  "where" : {
+    "directory" : "samples/pricing",
+    "path" : "/home/you/mutastic/samples/pricing"
+  },
+  "help" : [ {
+    "applicability" : "maybe",
+    "command" : "mutastic run samples/pricing --format=jsonl"
+  } ],
+  "exitCode" : 2,
+  "rendered" : "mutastic: run has no option --formt. There's one called --format.\n  mutastic run samples/pricing --format=jsonl\n"
+}

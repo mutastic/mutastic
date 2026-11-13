@@ -56,7 +56,7 @@ final class MavenSetup {
       var setup =
           out.resolve(module.equals(":") ? "" : module.substring(1)).resolve("setup.properties");
       if (!Files.isRegularFile(setup)) {
-        throw new SetupFailed(noJava(directory, module, request.typed()));
+        throw new SetupFailed("module-without-java", noJava(directory, module, request.typed()));
       }
       return written(directory, module, setup);
     } catch (IOException e) {
@@ -73,7 +73,8 @@ final class MavenSetup {
       throws IOException, InterruptedException {
     var output = Files.readAllLines(log);
     if (output.stream().anyMatch(line -> line.contains(NOT_IN_REACTOR))) {
-      return new SetupFailed(Modules.missing(module, javaModules(directory), typed));
+      return new SetupFailed(
+          "module-missing", Modules.missing(module, javaModules(directory), typed));
     }
     var rest = new ArrayList<>(List.of("test-compile"));
     if (!module.equals(":")) {
@@ -84,6 +85,7 @@ final class MavenSetup {
         .orElseGet(
             () ->
                 new SetupFailed(
+                    "build-failed",
                     BuildErrors.failed(
                         new BuildErrors.Build("Maven", name(directory, module), log, built),
                         output)));
@@ -130,7 +132,7 @@ final class MavenSetup {
     try {
       var modules = javaModules(directory);
       if (!modules.contains(module)) {
-        throw new SetupFailed(Modules.missing(module, modules, typed));
+        throw new SetupFailed("module-missing", Modules.missing(module, modules, typed));
       }
     } catch (IOException e) {
       throw new UncheckedIOException(e);
@@ -183,6 +185,7 @@ final class MavenSetup {
       var command = dependentsCommand(directory, module, listed);
       if (mvn(directory, command, log) != 0 || !Files.exists(listed)) {
         throw new SetupFailed(
+            "build-failed",
             "Maven couldn't list the modules that depend on %s; its output is in %s"
                 .formatted(module, log));
       }
@@ -254,6 +257,7 @@ final class MavenSetup {
         .orElseThrow(
             () ->
                 new SetupFailed(
+                    "no-build-tool",
                     "%s has no Maven wrapper (mvnw), and there's no `mvn` to run instead"
                         .formatted(directory)));
   }

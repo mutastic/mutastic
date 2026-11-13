@@ -200,6 +200,7 @@ export default defineConfig({
                 { label: 'mutastic gate check', link: `${base}reference/gate-check/` },
                 { label: 'mutastic gate close', link: `${base}reference/gate-close/` },
                 { label: 'Environment and exit codes', link: `${base}reference/environment/` },
+                'reference/errors',
                 'reference/reports',
                 'reference/compatibility',
                 'reference/schemas',

@@ -87,6 +87,7 @@ public interface BuildTool {
   default Project read(Request request) {
     if (!request.suite().equals(DEFAULT_SUITE)) {
       throw new SetupFailed(
+          SetupFailed.UNKNOWN_SUITE,
           "%s builds have one test suite, test, not %s".formatted(name(), request.suite()));
     }
     return read(request.directory(), request.module(), request.workDirectory(), request.typed());
@@ -109,7 +110,8 @@ public interface BuildTool {
           .findFirst()
           .map(
               line ->
-                  new SetupFailed(line.substring(line.indexOf(marker) + "mutastic: ".length())));
+                  new SetupFailed(
+                      UNKNOWN_SUITE, line.substring(line.indexOf(marker) + "mutastic: ".length())));
     }
 
     /// For someone who ran a command that names a mutant from somewhere else.
@@ -118,8 +120,24 @@ public interface BuildTool {
             + "another project, run the command that run printed: it names the project's directory"
             + " and module.";
 
+    /// What the `run-failed` event calls a suite the build hasn't got.
+    public static final String UNKNOWN_SUITE = "unknown-suite";
+
+    /// What went wrong, as the `run-failed` event names it: `build-fails`, `module-missing`.
+    private final String code;
+
     public SetupFailed(String message) {
+      this("setup", message);
+    }
+
+    /// @param code what went wrong, as the `run-failed` event names it, in lower case and dashes
+    public SetupFailed(String code, String message) {
       super(message);
+      this.code = code;
+    }
+
+    public String code() {
+      return code;
     }
   }
 }

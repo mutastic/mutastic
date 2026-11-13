@@ -78,7 +78,7 @@ final class Progress implements Listener, AutoCloseable {
         // said below
       }
       throw new Main.ConfigException(
-          "MUTASTIC_HEARTBEAT is a number of seconds above 0, not " + given);
+          "environment", "MUTASTIC_HEARTBEAT is a number of seconds above 0, not " + given);
     }
 
     /// The width the launcher passes in `MUTASTIC_COLUMNS`, as Java can't ask the terminal; else

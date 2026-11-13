@@ -33,6 +33,7 @@ Each line says which format it is, and its major version, in `schema`: `mutastic
 | `phase-started` | As each phase of `run` starts, among the others (`phase`: `reading`, `building`, `coverage`, `mutants`, `checking`); the phases before `run-started` come before it |
 | `phase-finished` | As each phase ends, with `durationMs` |
 | `progress` | Every 30 seconds (`MUTASTIC_HEARTBEAT`) while a phase runs, whatever stderr shows: `elapsedMs`, `done` and `total` where there's a count, and for the mutants `weighted`, `leftMs`, the four fates and the busy workers (`running`) |
+| `run-failed` | When mutastic can't run, last, in place of `run-finished`, in the agent format too: the error's `code`, its words, the commands it ends in and the exit status ([Errors](/reference/errors/#the-run-failed-event)) |
 | `mutant-explained` | Only from `mutastic explain ID --format=jsonl`, after the other three for its one mutant: what the text's About this mutant says, a field for each row ([One mutant, explained](/concepts/output/#one-mutant-explained)) |
 
 ### A missed mutant

@@ -1,0 +1,3 @@
+mutastic: the tests' JVM stopped during the coverage pass, with no mutant in, while com.example.pricing.HaltsTest#halts ran.
+A test that calls System.exit, or crashes the JVM, stops it. The end of its output says which:
+  tail -n 40 samples/pricing/build/mutastic/worker.log

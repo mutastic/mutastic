@@ -1,0 +1,232 @@
+---
+title: Errors
+description: "Every error mutastic can stop with, by its code: what it says, why, what to do, and the run-failed event an agent reads."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import unknownOption from '../../../data/output/errors-unknown-option.ansi?raw';
+import optionValue from '../../../data/output/errors-option-value.ansi?raw';
+import unknownCommand from '../../../data/output/errors-unknown-command.ansi?raw';
+import noDirectory from '../../../data/output/errors-no-directory.ansi?raw';
+import unknownId from '../../../data/output/errors-unknown-id.ansi?raw';
+import config from '../../../data/output/errors-config.ansi?raw';
+import buildFailed from '../../../data/output/errors-build-failed.ansi?raw';
+import testsStopped from '../../../data/output/errors-tests-stopped.ansi?raw';
+import moduleMissing from '../../../data/output/module-missing.ansi?raw';
+import moduleRoot from '../../../data/output/module-root.ansi?raw';
+import testsFail from '../../../data/output/tests-fail.ansi?raw';
+import nothingCovered from '../../../data/output/nothing-covered.ansi?raw';
+import event from '../../../data/output/errors-event.json?raw';
+
+When mutastic can't do what you asked, it says what went wrong and ends with the command to run
+next. A script, a CI step or a coding agent needs more than the words: which kind of failure it
+was, so it can act on that kind. This page lists every kind by its code, with what mutastic says on
+a sample, why, and what to do. Search it for the words of an error you've met.
+
+The codes never appear in what a person reads. They're in the exit status's family, below, and in
+the `run-failed` event.
+
+## Exit statuses
+
+| Status | Means | Codes |
+|---|---|---|
+| 0 | The run passed | |
+| 1 | The score is below the threshold, or a mutant is still missed | |
+| 2 | A mistake in the command, a file or the environment, or a build mutastic couldn't read | all but those below |
+| 3 | The tests fail without any mutant | `red-baseline`, `tests-stopped`, `tests-timed-out` |
+| 4 | mutastic itself went wrong: [open an issue](https://github.com/mutastic/mutastic/issues) | `internal` |
+
+The Rust edition exits with 2 for every error, its red baseline included, and has no 3 or 4. The
+editions will share these statuses from 2.0, which can change them; until then, a script that
+wraps both should treat any status above 1 as "didn't run", and read the event's `code` for which.
+
+## The `run-failed` event
+
+With `--format=agent` or `--format=jsonl` (or `MUTASTIC_AGENT=1`), the error is also the last line
+on stdout, a `run-failed` event in [`mutastic.events/v1`](/reference/schemas/), the same in both
+editions. Whatever came before it on stdout, a run that fails part way has no `run-finished`. Here
+it is for `mutastic run samples/pricing --formt=jsonl`:
+
+<Code code={event} lang="json" />
+
+- `code` is the heading of its entry below; a code you don't know is to be treated as `other`.
+- `message` is the error's first line; `rendered` is all of it, as stderr has it.
+- `where` is the directory the command was run on, as typed, and its whole path (`null` when there
+  is no such directory).
+- `help` holds the commands the error ends in. `exact` runs as it is; `placeholders` has a part in
+  `<…>` to fill in; `maybe` is a close name, a guess at what you meant, to check before running it.
+  mutastic never runs a guess itself.
+- `exitCode` is the status it exits with.
+
+A `--hook` run answers as its agent's hooks do, and writes no event.
+
+## Mistakes in the command line
+
+These exit with 2. When nothing is close to what you typed, one line of the command's usage
+follows; `mutastic <command> --help` says the rest.
+
+### `unknown-command`
+
+The first word isn't a command, or `gate` has no action after it.
+
+<Code code={unknownCommand} lang="ansi" />
+
+### `unknown-option`
+
+An option the command doesn't have. A single dash is never an option: they're all long ones.
+
+<Code code={unknownOption} lang="ansi" />
+
+### `option-value`
+
+An option's value mutastic can't use: one of a list it isn't, a number out of range, a missing
+value. The corrected command writes the value after an `=`, as help does; a space works too, but for
+`--since`.
+
+<Code code={optionValue} lang="ansi" />
+
+### `needs-id`
+
+`verify`, `explain` and `ignore` take a mutant's id first, as a run prints it, and `ignore` a
+reason. The message says what was in the id's place: a directory, a module, or something else.
+
+### `extra-words`
+
+A word the command doesn't take, such as a second directory, or another command's words after a
+run's.
+
+### `no-baseline`
+
+`--fail-on-new` with no `.mutastic/baseline.yaml` to tell new misses from. `mutastic baseline`
+writes one, to commit.
+
+### `shards`
+
+`--from-shards` named a directory without every share's results, shares of different runs, or one
+that didn't finish; or it was given with an option a share decides.
+
+### `unknown-id`
+
+No mutant of the project has that id. An id belongs to the project its run was on, so run the
+command as that run printed it. One a slip away from an id of the project is named:
+
+<Code code={unknownId} lang="ansi" />
+
+## Mistakes in a file or the environment
+
+These exit with 2, and print no usage: the command line wasn't the problem.
+
+### `config`
+
+`mutastic.yaml`, a rules file it names, or `.mutastic/ignores.yaml` says something mutastic can't
+use. The message names the file and line, and what's valid there.
+
+<Code code={config} lang="ansi" />
+
+### `environment`
+
+`MUTASTIC_FORMAT`, `MUTASTIC_VOCABULARY`, `MUTASTIC_PILLS`, `MUTASTIC_PROGRESS` or
+`MUTASTIC_HEARTBEAT` has a value mutastic doesn't take. See [Environment](/reference/environment/).
+
+### `git`
+
+`--since` or the gate needs a git repository, with a commit, and the commit named must be one git
+knows.
+
+## The project
+
+These exit with 2: mutastic couldn't read the build, so it ran nothing.
+
+### `no-directory`
+
+The directory named isn't there.
+
+<Code code={noDirectory} lang="ansi" />
+
+### `no-project`
+
+The directory isn't a Gradle or Maven build: it has no `settings.gradle(.kts)`, `build.gradle(.kts)`
+or `pom.xml`. Inside a build, mutastic names it and the command that tests it.
+
+### `module-missing`
+
+The build has no module of that name. The message lists the modules with Java code, as commands, or
+names the close one:
+
+<Code code={moduleMissing} lang="ansi" />
+
+### `module-without-java`
+
+The module named, or the build's root, has no Java code. mutastic tests one module at a time, and
+names those that have some:
+
+<Code code={moduleRoot} lang="ansi" />
+
+### `no-build-tool`
+
+The build has no wrapper (`gradlew`, `mvnw`), and there's no `gradle` or `mvn` on the `PATH`.
+
+### `unknown-suite`
+
+`--suite` named a test suite the build hasn't got. The message lists the ones it has.
+
+### `build-failed`
+
+The project doesn't build, before any mutant is in it. mutastic quotes the compiler's first errors
+at your files' lines, or what the build tool says went wrong, and ends in the command that builds
+it as mutastic did. Fix the build first.
+
+<Code code={buildFailed} lang="ansi" />
+
+## The tests
+
+### `red-baseline`
+
+A test fails with no mutant in, so no mutant can be judged by it. The message says what the test
+said, and ends in the build's command that runs it alone. Exits with 3.
+
+<Code code={testsFail} lang="ansi" />
+
+### `tests-stopped`
+
+A test ended the tests' JVM in the coverage pass, with `System.exit` or a crash. The message names
+the test that was running. Exits with 3.
+
+<Code code={testsStopped} lang="ansi" />
+
+### `tests-timed-out`
+
+The coverage pass ran past its 10 minutes: a test waits for something that never comes, or never
+stops. The message names the test that was running. Exits with 3.
+
+### `no-tests`
+
+The module has test classes, but none ran on the JUnit Platform: a runner mutastic doesn't run, or
+filters that leave out every test. A module with no tests at all isn't an error: its mutants are
+not covered. Exits with 2.
+
+### `nothing-covered`
+
+The tests ran and passed, but reached none of the code with mutants: another agent in the tests'
+JVM, a framework's class loader, or filters that leave only tests that never call it. See
+[Troubleshooting](/guides/troubleshooting/#the-tests-pass-but-coverage-recorded-nothing). Exits
+with 2.
+
+<Code code={nothingCovered} lang="ansi" />
+
+## The machine
+
+### `disk`
+
+A file mutastic reads or writes couldn't be: a full disk, a directory that isn't writable, or a file
+where it keeps a directory. The message names the file and the system's reason. Exits with 2.
+
+### `other`
+
+An error with no code of its own yet. The message says what went wrong. Exits with 2.
+
+### `internal`
+
+mutastic itself went wrong: a bug. Please [open an
+issue](https://github.com/mutastic/mutastic/issues) with the command, the message, and the worker
+log from the module's work directory. Exits with 4.

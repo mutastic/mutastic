@@ -186,12 +186,22 @@ public final class Engine {
     ///   likely reason tests that pass in the build fail here
     BaselineFailed(
         List<String> failing, TestWorker.Baseline baseline, Path log, List<String> services) {
-      this(said(failing, baseline, log, services), failing);
+      this("red-baseline", said(failing, baseline, log, services), failing);
     }
 
-    private BaselineFailed(String message, List<String> failing) {
+    /// What went wrong, as the `run-failed` event names it.
+    private final String code;
+
+    private BaselineFailed(String code, String message, List<String> failing) {
       super(message);
+      this.code = code;
       this.failing = List.copyOf(failing);
+    }
+
+    /// `red-baseline`; `tests-stopped` when a test ended their JVM; `tests-timed-out` when they ran
+    /// past the coverage pass's limit.
+    public String code() {
+      return code;
     }
 
     /// The tests' JVM stopped, or ran past its limit, in the coverage pass: with no mutant in, so a
@@ -201,6 +211,7 @@ public final class Engine {
       var during = running.map(", while %s ran"::formatted).orElse("");
       if (stopped.exited()) {
         return new BaselineFailed(
+            "tests-stopped",
             ("the tests' JVM stopped during the coverage pass, with no mutant in%s.\n"
                     + "A test that calls System.exit, or crashes the JVM, stops it. The end of its"
                     + " output says which:\n  tail -n 40 %s")
@@ -208,6 +219,7 @@ public final class Engine {
             List.of());
       }
       return new BaselineFailed(
+          "tests-timed-out",
           ("the tests didn't finish within %d minutes, with no mutant in%s.\nA test that waits"
                   + " for what never comes, or never stops, keeps them going. Their output is in"
                   + " %s.")
@@ -218,6 +230,7 @@ public final class Engine {
     /// The same, ending in the command that runs the first failing test alone in its build.
     public BaselineFailed endingIn(String command) {
       return new BaselineFailed(
+          code,
           "%s To run %s alone:\n  %s"
               .formatted(getMessage(), failing.size() == 1 ? "it" : "the first", command),
           failing);

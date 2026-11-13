@@ -63,6 +63,7 @@ public final class Maven implements BuildTool {
   public Project read(Request request) {
     if (!MavenSetup.SUITES.contains(request.suite())) {
       throw new SetupFailed(
+          SetupFailed.UNKNOWN_SUITE,
           "Maven builds have two test suites, test (Surefire) and integration-test (Failsafe), not "
               + request.suite());
     }

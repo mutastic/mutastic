@@ -87,15 +87,17 @@ final class GradleSetup {
     var typed = request.typed();
     var output = said(Files.readString(log(workDirectory)));
     if (output.contains("'mutasticSetup' not found")) {
-      return new SetupFailed(noJava(build, module, workDirectory, typed));
+      return new SetupFailed("module-without-java", noJava(build, module, workDirectory, typed));
     }
     if (NOT_FOUND.matcher(output).find() || output.contains("mutastic: no project ")) {
-      return new SetupFailed(Modules.missing(module, javaModules(build, workDirectory), typed));
+      return new SetupFailed(
+          "module-missing", Modules.missing(module, javaModules(build, workDirectory), typed));
     }
     return SetupFailed.noSuite(output.lines())
         .orElseGet(
             () ->
                 new SetupFailed(
+                    "build-failed",
                     BuildErrors.failed(
                         new BuildErrors.Build(
                             "Gradle",
@@ -191,6 +193,7 @@ final class GradleSetup {
       var task = task(directory, module, "mutasticDependents");
       if (gradle(build, listed, workDirectory.resolve("gradle-dependents.log"), task) != 0) {
         throw new SetupFailed(
+            "build-failed",
             "Gradle couldn't list the modules that depend on %s; its output is in %s"
                 .formatted(module, workDirectory.resolve("gradle-dependents.log")));
       }
@@ -264,6 +267,7 @@ final class GradleSetup {
         .orElseThrow(
             () ->
                 new SetupFailed(
+                    "no-build-tool",
                     "%s has no Gradle wrapper (gradlew), and there's no `gradle` to run instead"
                         .formatted(directory)));
   }

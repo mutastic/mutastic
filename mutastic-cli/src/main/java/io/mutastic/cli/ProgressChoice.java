@@ -98,6 +98,7 @@ final class ProgressChoice {
         .ifPresent(
             choice -> {
               throw new Main.ConfigException(
+                  "environment",
                   "unknown progress %s in MUTASTIC_PROGRESS (one of %s)"
                       .formatted(choice, String.join(", ", CHOICES)));
             });
