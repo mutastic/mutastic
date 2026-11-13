@@ -32,6 +32,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **Annotations and a job summary on GitHub Actions.** Where `GITHUB_ACTIONS=true`, a full run
+  annotates the line of each of its first ten misses, as the agent format ranks them, and adds a
+  Markdown summary to the job's page (`$GITHUB_STEP_SUMMARY`): the verdict, the score, the counts
+  and the first misses. No token or permission; the annotations go on stderr, so a format's own
+  output is untouched. `MUTASTIC_GITHUB=off` turns both off. See
+  [Running in CI](https://docs.mutastic.io/guides/ci/#on-github-actions).
 - **`explain --format=jsonl`, for agents.** `mutastic explain ID --format=jsonl` writes the
   events a run's JSON Lines has for that one mutant, then a new `mutant-explained` event with each
   row of About this mutant as a field, in the same words: the bytecode change and what each opcode
@@ -49,9 +55,18 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 - **The Gradle plugin runs a Kotlin Multiplatform module.** It configures on the multiplatform
   plugin as well as `java`, reading the JVM target's compilations, its `Test` task and its runtime
   configuration, as the `mutastic` command's init script already did.
+- **Links to each operator's docs.** `explain`'s About this mutant gives the operator's row on the
+  [operators page](https://docs.mutastic.io/concepts/operators/), `docs:
+  https://docs.mutastic.io/concepts/operators/#boundary`, in the docs of the release running. On a
+  terminal with links on (`--hyperlinks`), a card's `^^ changed to` mark links there too, and
+  `--format=jsonl`'s mutant events carry it as `docs`. A plugin's operator has no row, so no link.
 
 ### Scoring changes
 
+- **An index compared with -1 skips what differs only below -1.** `s.indexOf(c) == -1` made
+  `<= -1`, and the like, can't be told apart, since `indexOf` gives -1 or an index: skipped as
+  equivalent for `indexOf` and `lastIndexOf` on `String`, `StringBuilder` and `StringBuffer`, and
+  `Character.digit`. A `List`'s runs. Scores can go up; no id changes.
 - **A module uses its nearest `mutastic.yaml`, however it's run.** `mutastic run :core` from the
   build's top, the Gradle plugin's task and `mvn mutastic:run` used to read only the top's file,
   while a run in `core/` read only `core/mutastic.yaml`, so the same module could get two scores.

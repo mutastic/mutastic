@@ -35,6 +35,7 @@ $ mutastic explain m855c8e3c
                 runs only when `total > 100`
     = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
                 edge of a range, which tests that only check values far from the edge never notice.
+                docs: https://docs.mutastic.io/concepts/operators/#boundary
     = id        m855c8e3c: `m` and the first 8 hex digits of its fingerprint, 855c8e3ca8a39847, a
                 SHA-256 of the class, method, site and change
                 no line number goes in, so the id stays the same when code above it moves

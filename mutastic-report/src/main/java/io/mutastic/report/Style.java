@@ -79,7 +79,12 @@ public final class Style {
   /// `text` linking to `file`, when links are on. The line number stays in the text: whether
   /// terminals honour one in a `file:` URI varies.
   String link(java.nio.file.Path file, String text) {
-    return links ? "\u001b]8;;" + file.toUri() + "\u001b\\" + text + "\u001b]8;;\u001b\\" : text;
+    return link(file.toUri().toString(), text);
+  }
+
+  /// `text` linking to `url`, when links are on.
+  String link(String url, String text) {
+    return links ? "\u001b]8;;" + url + "\u001b\\" + text + "\u001b]8;;\u001b\\" : text;
   }
 
   String red(String text) {

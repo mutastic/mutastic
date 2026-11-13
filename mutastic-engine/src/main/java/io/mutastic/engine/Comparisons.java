@@ -131,6 +131,15 @@ final class Comparisons {
           + " it's an array's length or a JDK count no other class can override, and those start"
           + " at 0.";
 
+  /// The calls whose `int` the JDK documents as -1 or an index, by `owner.name`, each on a final
+  /// class or static, so no other code answers them: `String.indexOf` and the rest, whatever they
+  /// search for, and `Character.digit`, -1 or a digit's value.
+  private static final Map<String, Opcode> INDEX_CALLS = indexCalls();
+
+  static final String NEVER_BELOW_MINUS_ONE =
+      "equivalent: differs only when an index is below -1. That can't happen because it's from"
+          + " the JDK's indexOf, lastIndexOf or Character.digit, which give -1 or an index.";
+
   private Comparisons() {}
 
   /// Whether `operator` is one of the three that change a comparison.
@@ -149,13 +158,13 @@ final class Comparisons {
     var jump = Jump.of(branch.opcode());
     var before = ImpliedOr.instructionsBefore(code, at, 4);
     var site = new Site(jump, before, code);
-    boolean neverNegative =
-        jump.family() == Family.WITH_ZERO && !before.isEmpty() && neverNegative(before.getLast());
+    var reason = noLowerThanItsEdge(jump, before);
+    boolean neverNegative = reason.isPresent();
     var changes = new ArrayList<Mutator.Change>();
     for (Relation change : relations(operator, site)) {
       var label = jump.family().opcode(change).name();
       if (neverNegative && sameFromZero(jump.relation(), change)) {
-        changes.add(new Mutator.Change(label, Optional.of(NEVER_NEGATIVE)));
+        changes.add(new Mutator.Change(label, reason));
       } else if (!neverNegative || madeHere(operator, site, change)) {
         changes.add(Mutator.Change.of(label));
       }
@@ -224,6 +233,45 @@ final class Comparisons {
   /// Whether the two relations give the same answer for zero and every value above it.
   private static boolean sameFromZero(Relation one, Relation other) {
     return one.holds(0) == other.holds(0) && one.holds(1) == other.holds(1);
+  }
+
+  /// Why what the jump compares can't be below where it's compared: a length or count against 0
+  /// ([#NEVER_NEGATIVE]), or an index against -1 ([#NEVER_BELOW_MINUS_ONE]), `s.indexOf(c) == -1`,
+  /// whose `a - b` is then zero or above. None for anything else, `-1 == s.indexOf(c)` among them.
+  private static Optional<String> noLowerThanItsEdge(Jump jump, List<Instruction> before) {
+    if (jump.family() == Family.WITH_ZERO && !before.isEmpty() && neverNegative(before.getLast())) {
+      return Optional.of(NEVER_NEGATIVE);
+    }
+    boolean againstMinusOne =
+        jump.family() == Family.TWO_INTS
+            && before.size() >= 2
+            && before.getLast().opcode() == Opcode.ICONST_M1
+            && indexCall(before.get(before.size() - 2));
+    return againstMinusOne ? Optional.of(NEVER_BELOW_MINUS_ONE) : Optional.empty();
+  }
+
+  /// A call in [#INDEX_CALLS], made with the instruction it's listed with, giving an `int`.
+  private static boolean indexCall(Instruction instruction) {
+    if (!(instruction instanceof InvokeInstruction call)
+        || !call.typeSymbol().returnType().descriptorString().equals("I")) {
+      return false;
+    }
+    var key = call.owner().asInternalName() + "." + call.name().stringValue();
+    return call.opcode() == INDEX_CALLS.get(key);
+  }
+
+  /// `indexOf` and `lastIndexOf` on `String`, `StringBuilder` and `StringBuffer`, each final, and
+  /// `Character.digit`, static. A `List`'s `indexOf` is an interface's, which a class of the
+  /// project's can answer with anything.
+  private static Map<String, Opcode> indexCalls() {
+    var calls = new HashMap<String, Opcode>();
+    for (var owner :
+        List.of("java/lang/String", "java/lang/StringBuilder", "java/lang/StringBuffer")) {
+      calls.put(owner + ".indexOf", Opcode.INVOKEVIRTUAL);
+      calls.put(owner + ".lastIndexOf", Opcode.INVOKEVIRTUAL);
+    }
+    calls.put("java/lang/Character.digit", Opcode.INVOKESTATIC);
+    return Map.copyOf(calls);
   }
 
   /// A value proved to be zero or above: an array's length, or a call in [#NEVER_NEGATIVE_CALLS]

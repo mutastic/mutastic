@@ -144,7 +144,22 @@ jobs:
             17
             25
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-      - run: .\gradlew.bat :mutastic-cli:test ${{ matrix.tests }} --continue
+      # The tests start Gradle daemons (TestKit's) and apps (Quarkus) that can outlive them. When a
+      # test failed, the steps after this one, the reports' upload and every post step, failed at
+      # once with nothing said, and Java processes were still running: so this stops them before
+      # it ends, whatever the tests did, and keeps their exit code. The free space before and after
+      # says whether a full disk is what fails them.
+      - shell: pwsh
+        run: |
+          # A failing native command mustn't end the script: what follows has to run.
+          $PSNativeCommandUseErrorActionPreference = $false
+          Get-PSDrive C, D | Format-Table Name, @{n='FreeGB'; e={[math]::Round($_.Free / 1GB, 1)}}
+          .\gradlew.bat :mutastic-cli:test ${{ matrix.tests }} --continue
+          $tests = $LASTEXITCODE
+          Get-PSDrive C, D | Format-Table Name, @{n='FreeGB'; e={[math]::Round($_.Free / 1GB, 1)}}
+          .\gradlew.bat --stop
+          Get-Process java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          exit $tests
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:

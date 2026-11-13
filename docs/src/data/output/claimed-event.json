@@ -6,6 +6,7 @@
   "fingerprint" : "46ea303d5ca50669",
   "status" : "Ignored",
   "operator" : "mutastic/comparison",
+  "docs" : "https://docs.mutastic.io/concepts/operators/#comparison",
   "location" : {
     "file" : "src/main/java/com/example/stock/Restock.java",
     "line" : 12,

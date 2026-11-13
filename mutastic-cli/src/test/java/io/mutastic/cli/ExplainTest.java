@@ -70,7 +70,8 @@ class ExplainTest {
     assertThat(read.get(1).path("id").asString()).isEqualTo(ID);
     var explained = read.getLast();
     var about = flattened(text.out().substring(text.out().indexOf("About this mutant")));
-    var bytecode = explained.path("bytecode");
+    var bytecode = explained.path("applied");
+    assertThat(bytecode.path("level").asString()).isEqualTo("bytecode");
     assertThat(explained.path("id").asString()).isEqualTo(ID);
     assertThat(about)
         .contains(
@@ -111,8 +112,8 @@ class ExplainTest {
   /// id's rows.
   private static String[] proseOf(JsonNode explained) {
     var prose = new java.util.ArrayList<String>();
-    explained.path("bytecode").path("meanings").forEach(meaning -> prose.add(meaning.asString()));
-    prose.add(explained.path("bytecode").path("note").asString());
+    explained.path("applied").path("meanings").forEach(meaning -> prose.add(meaning.asString()));
+    prose.add(explained.path("applied").path("note").asString());
     var operator = explained.path("operator");
     prose.add(
         "operator %s: %s"

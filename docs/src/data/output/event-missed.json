@@ -6,6 +6,7 @@
   "fingerprint" : "855c8e3ca8a39847",
   "status" : "Survived",
   "operator" : "mutastic/boundary",
+  "docs" : "https://docs.mutastic.io/concepts/operators/#boundary",
   "location" : {
     "file" : "src/main/java/com/example/pricing/Pricing.java",
     "line" : 17,
@@ -46,7 +47,7 @@
     "withMutant" : "0"
   },
   "testsRun" : 2,
-  "durationMs" : 19,
+  "durationMs" : 16,
   "doneWhen" : "mutastic verify m855c8e3c samples/pricing passes",
   "reproduce" : "mutastic run --only=m855c8e3c samples/pricing",
   "ignore" : "mutastic ignore m855c8e3c --reason=\"<why>\" samples/pricing",

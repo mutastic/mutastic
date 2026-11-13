@@ -34,6 +34,7 @@
                 [2mruns only when `total > 100`[0m
     [2m=[0m [1;34m[1moperator[0m[0m  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
                 edge of a range, which tests that only check values far from the edge never notice.
+                [2mdocs: https://docs.mutastic.io/concepts/operators/#boundary[0m
     [2m=[0m [1;34m[1mid      [0m[0m  m855c8e3c: `m` and the first 8 hex digits of its fingerprint, 855c8e3ca8a39847, a
                 SHA-256 of the class, method, site and change
                 [2mno line number goes in, so the id stays the same when code above it moves[0m

@@ -5,7 +5,6 @@ import io.mutastic.api.MutantResult;
 import io.mutastic.api.Operator;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -143,22 +142,11 @@ final class Sarif {
   /// `src/main/java/…`, relative to the project, as it's relative to the base: the repository's
   /// root, where the project may be a folder down.
   private String fromBase(String fromProject) {
-    var project = root.toAbsolutePath().normalize();
-    return repository()
-        .map(repository -> repository.relativize(project.resolve(fromProject)).toString())
-        .orElse(fromProject)
-        .replace('\\', '/');
+    return RepositoryPaths.fromRoot(root, fromProject);
   }
 
-  /// The git repository the project is in: the nearest directory, from the project up, with a
-  /// `.git` in it.
   private Optional<Path> repository() {
-    for (var at = root.toAbsolutePath().normalize(); at != null; at = at.getParent()) {
-      if (Files.exists(at.resolve(".git"))) {
-        return Optional.of(at);
-      }
-    }
-    return Optional.empty();
+    return RepositoryPaths.repository(root);
   }
 
   /// The text up to the first full stop that ends a sentence: a rule's one-line description.

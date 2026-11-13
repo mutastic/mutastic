@@ -29,6 +29,7 @@ public final class JsonEvents {
   private final AgentText text;
   private final int threshold;
   private final Optional<Share> share;
+  private final OperatorDocs docs;
 
   public JsonEvents(PrintStream out, SourceView sources, int threshold) {
     this(out, sources, threshold, Optional.empty());
@@ -37,11 +38,22 @@ public final class JsonEvents {
   /// The events of one share of a run split with `--shard`, when `share` is there: `run-started`
   /// says which, so the shares can be put back together as the whole run.
   public JsonEvents(PrintStream out, SourceView sources, int threshold, Optional<Share> share) {
+    this(out, sources, threshold, share, OperatorDocs.LATEST);
+  }
+
+  /// With each mutant's operator's place in `docs`, the docs of the mutastic running.
+  public JsonEvents(
+      PrintStream out,
+      SourceView sources,
+      int threshold,
+      Optional<Share> share,
+      OperatorDocs docs) {
     this.out = out;
     this.sources = sources;
     this.text = new AgentText(sources, threshold);
     this.threshold = threshold;
     this.share = share;
+    this.docs = docs;
   }
 
   /// Which share of a split run this is, and what it ran on: the shares of one run are of the same
@@ -90,6 +102,7 @@ public final class JsonEvents {
     fields.put("fingerprint", mutant.fingerprint());
     fields.put("status", result.status().schemaName());
     fields.put("operator", mutant.operator().id());
+    docs.url(mutant.operator()).ifPresent(url -> fields.put("docs", url));
     fields.put("location", location(mutant));
     fields.put("mutation", mutation(mutant));
     mutant.skipped().ifPresent(reason -> putSkipReason(fields, reason));
@@ -229,7 +242,7 @@ public final class JsonEvents {
   public void mutantExplained(Mutant mutant, Optional<Explanation.LastRun> lastRun) {
     var fields = new LinkedHashMap<String, Object>();
     fields.put("id", mutant.id());
-    fields.put("bytecode", bytecode(mutant));
+    fields.put("applied", applied(mutant));
     var operator = new LinkedHashMap<String, Object>();
     operator.put("id", mutant.operator().id());
     operator.put("description", mutant.operator().explanation());
@@ -243,16 +256,19 @@ public final class JsonEvents {
     emit("mutant-explained", fields);
   }
 
-  /// The opcodes before and after, what each does, and how the jump relates to the source.
-  private Map<String, Object> bytecode(Mutant mutant) {
-    var bytecode = new LinkedHashMap<String, Object>();
-    bytecode.put("original", mutant.original());
-    bytecode.put("replacement", mutant.replacement());
-    bytecode.put("meanings", Explanation.meanings(mutant));
-    new Explanation(sources, Style.PLAIN)
-        .jump(mutant)
-        .ifPresent(note -> bytecode.put("note", note));
-    return bytecode;
+  /// The opcodes before and after, what each does, and how the jump relates to the source. The
+  /// change as the engine makes it, as `mutant-finished`'s `applied` says it, `level` and `text`,
+  /// with the instruction before and after, what each does, and how a jump relates to the source:
+  /// the same shape as the Rust edition's, whose level is the source.
+  private Map<String, Object> applied(Mutant mutant) {
+    var applied = new LinkedHashMap<String, Object>();
+    applied.put("level", "bytecode");
+    applied.put("text", mutant.original() + " -> " + mutant.replacement());
+    applied.put("original", mutant.original());
+    applied.put("replacement", mutant.replacement());
+    applied.put("meanings", Explanation.meanings(mutant));
+    new Explanation(sources, Style.PLAIN).jump(mutant).ifPresent(note -> applied.put("note", note));
+    return applied;
   }
 
   /// Which site of its method it is: counted from 1, but for a change to the class as a whole.

@@ -19,10 +19,17 @@ public final class Explanation {
 
   private final SourceView sources;
   private final Style style;
+  private final OperatorDocs docs;
 
   public Explanation(SourceView sources, Style style) {
+    this(sources, style, OperatorDocs.LATEST);
+  }
+
+  /// With each operator's place in `docs`: the docs of the mutastic running.
+  public Explanation(SourceView sources, Style style, OperatorDocs docs) {
     this.sources = sources;
     this.style = style;
+    this.docs = docs;
   }
 
   /// How the last full run went for it: its status, and the test that caught it if one did.
@@ -32,8 +39,7 @@ public final class Explanation {
     var rows = new ArrayList<String>();
     rows.add(heading());
     addRow(rows, "bytecode", bytecode(mutant));
-    addRow(
-        rows, "operator", List.of(mutant.operator().id() + ": " + mutant.operator().explanation()));
+    addRow(rows, "operator", operator(mutant));
     addRow(rows, "id", id(mutant));
     addRow(rows, "site", List.of(site(mutant)));
     addRow(
@@ -42,6 +48,16 @@ public final class Explanation {
         List.of(
             lastRun.map(Explanation::described).orElse("none yet: `run` or `next` records one")));
     return String.join("\n", rows) + "\n";
+  }
+
+  /// `mutastic/boundary: what it does`, then where the docs say more, as text to copy in any
+  /// terminal; a plugin's operator has no place there.
+  private List<String> operator(Mutant mutant) {
+    var operator = mutant.operator();
+    var lines = new ArrayList<String>();
+    lines.add(operator.id() + ": " + operator.explanation());
+    docs.url(operator).ifPresent(url -> lines.add("docs: " + url));
+    return lines;
   }
 
   private String heading() {
