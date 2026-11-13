@@ -100,8 +100,8 @@ class ProgressTest {
             """
             mutastic 1.1.0 · reading the Gradle build…
             building  gradle testClasses · 30s
-            built     2 mutants in 32s
-            coverage  0/3 tests · 30s
+            built     2 mutants in 32.0s
+            coverage  [0/3 tests] · 30s
             coverage  3 tests on JDK 17 in 789ms · 2 mutants
             ran       2 mutants in 4.0s · ✓ 1 caught · ✗ 1 missed · ○ 0 not covered · ⏱ 0 timed out
             checked   1 missed mutant in 0ms · no test found to suggest

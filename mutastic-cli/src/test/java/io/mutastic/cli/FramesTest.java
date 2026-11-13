@@ -62,7 +62,7 @@ class FramesTest {
     assertThat(Frames.live(of(Phase.COVERAGE, "", 72, 181), Duration.ofSeconds(242), 6, false))
         .isEqualTo("⠦ coverage  72/181 tests · 4m02s");
     assertThat(Frames.live(of(Phase.COVERAGE, "", 0, 0), Duration.ofSeconds(2), 6, false))
-        .isEqualTo("⠦ coverage  running the tests · 2s");
+        .isEqualTo("⠦ coverage  listing the tests · 2s");
     assertThat(Frames.live(of(Phase.MUTANTS, "", 2871, 5525), Duration.ofSeconds(1450), 9, false))
         .isEqualTo(
             "⠏ mutants   [2871/5525] ✓ 2610 caught · ✗ 41 missed · ○ 214 not covered"
@@ -85,13 +85,26 @@ class FramesTest {
   }
 
   @Test
-  void aHeartbeatIsTheLiveLinePlain() {
+  void aHeartbeatIsTheLiveLinePlainInItsShortForm() {
     var building =
         new Snapshot(
             Phase.BUILDING, "gradle testClasses", Optional.of("> Task :test"), 0, 0, Map.of());
 
     assertThat(Frames.heartbeat(building, Duration.ofSeconds(30)))
         .isEqualTo("building  gradle testClasses · 30s\n");
+    assertThat(Frames.heartbeat(of(Phase.COVERAGE, "", 18, 181), Duration.ofSeconds(60)))
+        .isEqualTo("coverage  [18/181 tests] · 1m00s\n");
+    assertThat(Frames.heartbeat(of(Phase.COVERAGE, "", 0, 0), Duration.ofSeconds(1)))
+        .isEqualTo("coverage  listing the tests · 1s\n");
+    assertThat(
+            Frames.heartbeat(
+                of(Phase.CHECKING, "running each catching test on the unmutated code", 18, 52),
+                Duration.ofSeconds(30)))
+        .isEqualTo("checking  41 missed · 18/52 · 30s\n");
+    assertThat(
+            Frames.heartbeat(
+                of(Phase.CHECKING, "writing the record and reports", 0, 0), Duration.ofSeconds(3)))
+        .isEqualTo("checking  41 missed · 3s\n");
     assertThat(Frames.heartbeat(of(Phase.MUTANTS, "", 312, 5525), Duration.ofSeconds(270)))
         .isEqualTo(
             "mutants   [312/5525] ✓ 2610 caught · ✗ 41 missed · ○ 214 not covered"
@@ -108,7 +121,7 @@ class FramesTest {
             "ran       5525 mutants in 34m12s · ✓ 2610 caught · ✗ 41 missed · ○ 214 not covered"
                 + " · ⏱ 6 timed out\n");
     assertThat(Frames.checked(52, 41, Duration.ofSeconds(51)))
-        .isEqualTo("checked   52 missed mutants in 51s · a test to write for 41\n");
+        .isEqualTo("checked   52 missed mutants in 51.0s · a test to write for 41\n");
     assertThat(Frames.checked(1, 0, Duration.ofMillis(3500)))
         .isEqualTo("checked   1 missed mutant in 3.5s · no test found to suggest\n");
   }
@@ -117,9 +130,9 @@ class FramesTest {
   void durationsAndClocksTakeTheSummarysForm() {
     assertThat(Frames.duration(Duration.ofMillis(840))).isEqualTo("840ms");
     assertThat(Frames.duration(Duration.ofMillis(3500))).isEqualTo("3.5s");
-    assertThat(Frames.duration(Duration.ofSeconds(51))).isEqualTo("51s");
+    assertThat(Frames.duration(Duration.ofSeconds(51))).isEqualTo("51.0s");
     assertThat(Frames.duration(Duration.ofSeconds(581))).isEqualTo("9m41s");
-    assertThat(Frames.duration(Duration.ofMinutes(62))).isEqualTo("1h02m");
+    assertThat(Frames.duration(Duration.ofSeconds(3725))).isEqualTo("62m05s");
     assertThat(Frames.clock(Duration.ofMillis(38_900))).isEqualTo("38s");
     assertThat(Frames.clock(Duration.ofSeconds(192))).isEqualTo("3m12s");
     assertThat(Frames.clock(Duration.ofMinutes(62))).isEqualTo("1h02m");

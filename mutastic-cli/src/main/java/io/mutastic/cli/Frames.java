@@ -1,8 +1,8 @@
 package io.mutastic.cli;
 
 import io.mutastic.api.Status;
+import io.mutastic.report.HumanText;
 import java.time.Duration;
-import java.util.Locale;
 
 /// The words progress prints, as text: a pure function of what a phase has done, how long it has
 /// taken and, on a terminal, the spinner's frame. `PROGRESS.md` is the contract, shared with the
@@ -39,9 +39,25 @@ final class Frames {
         .orElse(line);
   }
 
-  /// The same, where nothing is drawn in place: the live line's fields, plain, with a newline.
+  /// The same, where nothing is drawn in place: the live line's fields in their short form, plain,
+  /// with a newline. A count with a total is in brackets, and checking's has no step's words.
   static String heartbeat(Snapshot snapshot, Duration elapsed) {
-    return snapshot.phase().padded() + fields(snapshot) + " · " + clock(elapsed) + "\n";
+    return snapshot.phase().padded() + shortFields(snapshot) + " · " + clock(elapsed) + "\n";
+  }
+
+  /// The live line's fields, short: `[18/181 tests]`, `52 missed · 18/52`.
+  private static String shortFields(Snapshot snapshot) {
+    return switch (snapshot.phase()) {
+      case COVERAGE ->
+          snapshot.total() == 0
+              ? "listing the tests"
+              : "[" + snapshot.done() + "/" + snapshot.total() + " tests]";
+      case CHECKING ->
+          snapshot.count(Status.MISSED)
+              + " missed"
+              + (snapshot.total() == 0 ? "" : " · " + snapshot.done() + "/" + snapshot.total());
+      case READING, BUILDING, MUTANTS -> fields(snapshot);
+    };
   }
 
   /// What a phase is doing and how far it is, without its clock.
@@ -50,7 +66,7 @@ final class Frames {
       case READING, BUILDING -> snapshot.doing();
       case COVERAGE ->
           snapshot.total() == 0
-              ? "running the tests"
+              ? "listing the tests"
               : snapshot.done() + "/" + snapshot.total() + " tests";
       case MUTANTS -> "[%d/%d] %s".formatted(snapshot.done(), snapshot.total(), counts(snapshot));
       case CHECKING ->
@@ -110,13 +126,9 @@ final class Frames {
         : "%dh%02dm".formatted(seconds / 3600, (seconds / 60) % 60);
   }
 
-  /// How long a phase took: `840ms`, `3.5s`, `51s`, `9m41s`, `1h02m`.
+  /// How long a phase took, as the summary says it: `840ms`, `3.5s`, `51.0s`, `9m41s`, `62m05s`.
   static String duration(Duration took) {
-    long millis = took.toMillis();
-    if (millis < 1000) {
-      return millis + "ms";
-    }
-    return millis < 10_000 ? String.format(Locale.ROOT, "%.1fs", millis / 1000.0) : clock(took);
+    return HumanText.seconds(took);
   }
 
   private static String mutants(int count) {
