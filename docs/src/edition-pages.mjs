@@ -23,6 +23,7 @@ export const SHARED = [
   ['concepts/test-first', undefined],
   ['guides/ci', undefined],
   ['guides/test-first', 'test-first'],
+  ['guides/test-first-refactor', 'test-first-refactor'],
 ];
 
 /**
@@ -33,7 +34,10 @@ export const SHARED = [
  * build doesn't ask for that page or its sources. Once the pin moves on, the page and its captures
  * must be there, and the build says to take the entry out.
  */
-export const AWAITING_RUST = [['guides/test-first', 'v1.1.0']];
+export const AWAITING_RUST = [
+  ['guides/test-first', 'v1.1.0'],
+  ['guides/test-first-refactor', 'v1.1.0'],
+];
 
 /** The same topic in both editions. Each pair works both ways. */
 export const PAIRS = [

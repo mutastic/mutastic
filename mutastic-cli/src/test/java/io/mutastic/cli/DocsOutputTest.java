@@ -50,6 +50,10 @@ class DocsOutputTest {
       Pattern.compile(
           "(?m)^\\{/\\* (?<kind>from|added to|changed in): (?<path>\\S+) \\*/}\\n```\\w+\\n(?<code>(?s:.*?))^```$");
 
+  /// A card's last line but two, `done when mutastic verify <ids> <dir> passes`.
+  private static final Pattern DONE_WHEN =
+      Pattern.compile("done when\\s+mutastic verify (?<ids>\\S+)");
+
   /// Colour and style codes, to find a line by its words.
   private static final Pattern ANSI = Pattern.compile("\u001B\\[[0-9;]*m");
 
@@ -248,6 +252,103 @@ class DocsOutputTest {
         Samples.mutastic(TERMINAL, "run", project.toString(), "--since=HEAD", "--workers=1");
     assertThat(again.exit()).as(again.err()).isEqualTo(Main.PASSED);
     shown("test-first-again.ansi", project, again);
+  }
+
+  /// The refactor guide's cycles, from where the test-first guide's ends, committed: for each tier
+  /// its failing test, the `if` that passes it, the run that misses its edge, and the card's test
+  /// with `verify`; then, before the last commit, the run that starts the refactor, the refactor,
+  /// and the run after it, which catches every mutant of the new shape.
+  @Test
+  void aRefactor() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+    var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
+    var code = project.resolve("src/main/java/com/example/pricing/Pricing.java");
+    var first = marked(PAGES.resolve("guides/test-first.mdx"));
+    added(test, first.get(0));
+    added(code, first.get(1));
+    changed(code, first.get(2));
+    added(test, first.get(3));
+    git(project, "init", "-q");
+    git(project, "add", "-A");
+    git(project, "commit", "-q", "-m", "start");
+    var page = PAGES.resolve("guides/test-first-refactor.mdx");
+    var steps = marked(page);
+    var testPath = "samples/pricing/" + project.relativize(test);
+    var codePath = "samples/pricing/" + project.relativize(code);
+    assertThat(steps)
+        .extracting(Marked::kind, Marked::path)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple("added to", testPath),
+            org.assertj.core.groups.Tuple.tuple("changed in", codePath),
+            org.assertj.core.groups.Tuple.tuple("added to", testPath),
+            org.assertj.core.groups.Tuple.tuple("added to", testPath),
+            org.assertj.core.groups.Tuple.tuple("changed in", codePath),
+            org.assertj.core.groups.Tuple.tuple("added to", testPath),
+            org.assertj.core.groups.Tuple.tuple("changed in", codePath));
+
+    aTier(project, page, "100", steps.subList(0, 3));
+    var cycle =
+        Samples.mutastic(TERMINAL, "run", project.toString(), "--since=HEAD", "--workers=1");
+    assertThat(cycle.exit()).as(cycle.out()).isEqualTo(Main.PASSED);
+    git(project, "commit", "-q", "-a", "-m", "10 off from 100");
+    aTier(project, page, "250", steps.subList(3, 6));
+
+    var before =
+        Samples.mutastic(TERMINAL, "run", project.toString(), "--since=HEAD", "--workers=1");
+    assertThat(before.exit()).as(before.out()).isEqualTo(Main.PASSED);
+    shown("test-first-refactor-before.ansi", project, before);
+    changed(code, steps.get(6));
+    var imported = "import java.util.List;";
+    assertThat(Files.readString(page)).contains("`" + imported + "` at the top of the file");
+    Files.writeString(
+        code,
+        Files.readString(code).replaceFirst("(?m)^(package .*;\\n)", "$1\n" + imported + "\n"));
+    var after =
+        Samples.mutastic(TERMINAL, "run", project.toString(), "--since=HEAD", "--workers=1");
+    assertThat(after.exit()).as(after.out()).isEqualTo(Main.PASSED);
+    shown("test-first-refactor-after.ansi", project, after);
+  }
+
+  /// One tier's cycle on the refactor guide, up to its commit: its failing test, the `if` that
+  /// passes it, the run that misses its edge, which `verify` on the page names, and the card's test
+  /// with `verify`.
+  private static void aTier(Path project, Path page, String tier, List<Marked> steps)
+      throws Exception {
+    var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
+    var code = project.resolve("src/main/java/com/example/pricing/Pricing.java");
+    added(test, steps.get(0));
+    var red = Samples.mutastic(TERMINAL, "run", project.toString());
+    assertThat(red.exit()).as(red.err()).isEqualTo(Main.TESTS_FAIL);
+    assertThat(red.err()).contains("From" + tier);
+    shown("test-first-refactor-red-" + tier + ".ansi", project, itsMessage(red));
+
+    changed(code, steps.get(1));
+    var run = Samples.mutastic(TERMINAL, "run", project.toString(), "--since=HEAD", "--workers=1");
+    assertThat(run.exit()).as(run.err()).isEqualTo(Main.FAILED);
+    shown("test-first-refactor-run-" + tier + ".ansi", project, run);
+    var done = DONE_WHEN.matcher(ANSI.matcher(run.out()).replaceAll(""));
+    assertThat(done.find()).as(run.out()).isTrue();
+    var ids = done.group("ids");
+    assertThat(Files.readString(page)).contains("mutastic verify " + ids + " samples/pricing\n");
+
+    added(test, steps.get(2));
+    shown(
+        "test-first-refactor-verify-" + tier + ".ansi",
+        project,
+        mutastic("verify", ids, project.toString()));
+  }
+
+  /// `block`'s code in place of the method in `file` it declares, with that method's comment.
+  private static void changed(Path file, Marked block) throws IOException {
+    var signature =
+        block.code().lines().filter(line -> line.startsWith("public ")).findFirst().orElseThrow();
+    var source = Files.readString(file);
+    var at = source.indexOf("  " + signature + "\n");
+    assertThat(at).as("%s in %s", signature, file).isNotNegative();
+    var start = source.lastIndexOf("\n\n", at) + 2;
+    var end = source.indexOf("\n  }\n", at) + "\n  }\n".length();
+    Files.writeString(
+        file, source.substring(0, start) + block.code().indent(2) + source.substring(end));
   }
 
   /// `block`'s code, put at the end of the class in `file`, as a person adds it.

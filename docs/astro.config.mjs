@@ -212,6 +212,7 @@ export default defineConfig({
                 'guides/build-plugins',
                 'guides/scoping',
                 'guides/test-first',
+                'guides/test-first-refactor',
                 'guides/ci',
                 'guides/configuration',
                 'guides/plugins',
