@@ -133,6 +133,31 @@ class ExplanationTest {
     assertThat(lastRun(math, Status.SKIPPED)).contains(", and the operator");
   }
 
+  /// The operator's row in the docs, as text any terminal can copy; in the running release's docs.
+  @Test
+  void theOperatorLinksToItsDocs() {
+    assertThat(explanation.render(jump(List.of()), Optional.empty()))
+        .contains("docs: https://docs.mutastic.io/concepts/operators/#boundary\n");
+
+    var release =
+        new Explanation(
+            new SourceView(project, List.of(project.resolve("src/main/java"))),
+            Style.PLAIN,
+            new OperatorDocs("https://docs.mutastic.io/v1.0/"));
+    assertThat(release.render(jump(List.of()), Optional.empty()))
+        .contains("docs: https://docs.mutastic.io/v1.0/concepts/operators/#boundary\n");
+  }
+
+  /// A plugin's operator has no row in the docs to link to.
+  @Test
+  void aPluginsOperatorHasNoDocs() {
+    var mutant =
+        new WholeClassStub(ClassMutator.Reach.EVERY_TEST)
+            .mutant(ClassMutator.Member.ofField("code", "I"), 3);
+
+    assertThat(explanation.render(mutant, Optional.empty())).doesNotContain("docs:");
+  }
+
   /// The first test of an `||` jumps into the body when it holds: it reads as the source does.
   @Test
   void theFirstTestOfAnOrReadsAsWritten() {

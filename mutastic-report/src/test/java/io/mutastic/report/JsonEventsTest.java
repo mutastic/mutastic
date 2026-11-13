@@ -188,7 +188,9 @@ class JsonEventsTest {
         .startsWith(
             "{\"schema\":\"mutastic.events/v1\",\"edition\":\"java\",\"reason\":\"mutant-finished\",\"id\":\"%s\","
                 .formatted(id))
-        .contains("\"status\":\"Survived\",\"operator\":\"mutastic/boundary\"")
+        .contains(
+            "\"status\":\"Survived\",\"operator\":\"mutastic/boundary\","
+                + "\"docs\":\"https://docs.mutastic.io/concepts/operators/#boundary\"")
         .contains(
             "\"location\":{\"file\":\"src/main/java/com/example/Pricing.java\",\"line\":5,"
                 + "\"class\":\"com.example.Pricing\",\"method\":\"discount(I)I\"}")

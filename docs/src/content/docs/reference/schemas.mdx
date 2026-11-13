@@ -43,6 +43,8 @@ The one mutant the tests missed, laid out:
 - **`id`** names it to `verify`, `explain` and `ignore`, and stays the same while code around it
   moves. **`location`** is where it is: the file and line, the class, and the method with its JVM
   descriptor.
+- **`operator`** is the kind of change, and **`docs`** where the docs describe it; a plugin's
+  operator has no `docs`.
 - **`mutation`** is the change: in words in `description`, and in `applied` as the engine made it,
   here to the compiled instruction.
 - **`coveredBy`** and **`inputs`** are the evidence: the tests that reach the line, which all still

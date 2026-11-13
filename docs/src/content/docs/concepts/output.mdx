@@ -164,7 +164,9 @@ Under **About this mutant**:
 - **bytecode**: the change, opcode by opcode (`IF_ICMPLT → IF_ICMPLE`), and how the jump relates to
   the source. javac compiles `if (total >= 100)` to a jump taken when `total < 100`, the opposite
   of what the source says, which is why a boundary mutant can look backwards in the bytecode.
-- **operator**: what its operator does, as on [Operators](/concepts/operators/).
+- **operator**: what its operator does, and `docs:`, the link to its row on
+  [Operators](/concepts/operators/), in the docs of the release you run. A plugin's operator has
+  none. On a terminal with links on, the card's `^^ changed to` mark opens the same page.
 - **id**: how the id is made, and why it stays the same when code above it moves.
 - **site**: which of the method's sites it is.
 - **last run**: how the last run of every mutant went (a `run`, or the `next` that first ran them all), or `none yet`.
