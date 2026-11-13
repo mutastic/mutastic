@@ -24,6 +24,7 @@ export const SHARED = [
   ['guides/ci', undefined],
   ['guides/test-first', 'test-first'],
   ['guides/test-first-refactor', 'test-first-refactor'],
+  ['guides/test-first-agent', 'test-first-agent'],
 ];
 
 /**
@@ -37,6 +38,7 @@ export const SHARED = [
 export const AWAITING_RUST = [
   ['guides/test-first', 'v1.1.0'],
   ['guides/test-first-refactor', 'v1.1.0'],
+  ['guides/test-first-agent', 'v1.1.0'],
 ];
 
 /** The same topic in both editions. Each pair works both ways. */

@@ -1,0 +1,315 @@
+{
+  "recorded": "2026-11-13",
+  "agent": "Claude Code 2.1.236",
+  "model": "claude-opus-5[1m]",
+  "mutastic": "1.1.0",
+  "plugin": "tasticlabs/plugins at 4a56b30, loaded with --plugin-dir",
+  "harness": "mutastic-evals' runner: claude -p, --permission-mode acceptEdits, mutastic, ./gradlew and git (status, log, diff, add, commit) allowed",
+  "costUsd": 1.06,
+  "turns": 24,
+  "seconds": 99,
+  "steps": [
+    {
+      "kind": "prompt",
+      "text": "Loyal customers get 5 off orders of 30 or more. Add it to Pricing as loyaltyCredit(int total), which returns the credit."
+    },
+    {
+      "kind": "hook",
+      "event": "UserPromptSubmit",
+      "text": "mutastic gate: this task is gated from 432a1b0: before you finish, check the lines it changes with `mutastic run --since=432a1b03970ac912ad6b148acc22294c422c8f0c --format=agent`; the gate checks them when you finish, so you needn't run `mutastic gate check` yourself. Never change production code to make a mutant go away: tell the person."
+    },
+    {
+      "kind": "say",
+      "text": "I'll start by exploring the project structure."
+    },
+    {
+      "kind": "run",
+      "id": "toolu_01G3u4VzSk9aVPuebtKSfcJn",
+      "command": "find . -type f -not -path \"*/.git/*\" | head -50"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01G3u4VzSk9aVPuebtKSfcJn",
+      "text": "gradlew\n.gitignore\nbuild.gradle.kts\nsettings.gradle.kts\ngradlew.bat\nCLAUDE.md\n.gradle/file-system.probe\ngradle/wrapper/gradle-wrapper.jar\ngradle/wrapper/gradle-wrapper.properties\n.gradle/9.2.1/gc.properties\n.gradle/vcs-1/gc.properties\n.gradle/buildOutputCleanup/cache.properties\n.gradle/buildOutputCleanup/outputFiles.bin\n.gradle/buildOutputCleanup/buildOutputCleanup.lock\nbuild/mutastic/gradle.log\nbuild/mutastic/lock\nbuild/mutastic/mutastic.init.gradle.kts\nbuild/mutastic/setup.properties\nbuild/mutastic/gate.properties\nbuild/tmp/compileJava/previous-compilation-data.bin\nbuild/tmp/compileTestJava/previous-compilation-data.bin\nbuild/resources/test/orders.properties\n.gradle/9.2.1/executionHistory/executionHistory.lock\n.gradle/9.2.1/executionHistory/executionHistory.bin\n.gradle/9.2.1/fileChanges/last-build.bin\n.gradle/9.2.1/checksums/checksums.lock\n.gradle/9.2.1/fileHashes/fileHashes.lock\n.gradle/9.2.1/fileHashes/fileHashes.bin\n.gradle/9.2.1/fileHashes/resourceHashesCache.bin\nsrc/test/resources/orders.properties\nbuild/classes/java/main/com/example/pricing/Pricing.class\nsrc/test/java/com/example/testing/Orders.java\nsrc/test/java/com/example/pricing/PricingTest.java\nsrc/main/java/com/example/pricing/Pricing.java\nbuild/classes/java/test/com/example/testing/Orders.class\nbuild/classes/java/test/com/example/pricing/PricingTest.class",
+      "error": false
+    },
+    {
+      "kind": "read",
+      "id": "toolu_019oEhNbQza2omzaLJEBdJWL",
+      "file": "src/main/java/com/example/pricing/Pricing.java"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_019oEhNbQza2omzaLJEBdJWL",
+      "text": "1\tpackage com.example.pricing;\n2\t\n3\tpublic class Pricing {\n4\t  private final int freeShippingFrom;\n5\t\n6\t  public Pricing() {\n7\t    this(50);\n8\t  }\n9\t\n10\t  /// A test seam: tests set the free-shipping threshold.\n11\t  Pricing(int freeShippingFrom) {\n12\t    this.freeShippingFrom = freeShippingFrom;\n13\t  }\n14\t\n15\t  /// 10% off orders of 100 or more.\n16\t  public int discount(int total) {\n17\t    if (total >= 100) {\n18\t      return total / 10;\n19\t    }\n20\t    return 0;\n21\t  }\n22\t\n23\t  /// Free from the threshold up.\n24\t  public int shipping(int total) {\n25\t    if (total < freeShippingFrom) {\n26\t      return 5;\n27\t    }\n28\t    return 0;\n29\t  }\n30\t}\n31\t",
+      "error": false
+    },
+    {
+      "kind": "read",
+      "id": "toolu_01CgQk4jTnnVUA8ottDF5PTn",
+      "file": "src/test/java/com/example/pricing/PricingTest.java"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01CgQk4jTnnVUA8ottDF5PTn",
+      "text": "1\tpackage com.example.pricing;\n2\t\n3\timport static org.junit.jupiter.api.Assertions.assertEquals;\n4\t\n5\timport com.example.testing.Orders;\n6\timport java.util.Properties;\n7\timport org.junit.jupiter.api.Test;\n8\t\n9\tclass PricingTest {\n10\t  // Only far from the edge: `>=` turning into `>` goes unnoticed.\n11\t  // A helper from another test package, and a test resource: mutastic must find both, as\n12\t  // Gradle's one test classpath does.\n13\t  @Test\n14\t  void bigOrdersGetTenPercentOff() {\n15\t    assertEquals(25, new Pricing().discount(Orders.large()));\n16\t  }\n17\t\n18\t  @Test\n19\t  void smallOrdersPayFullPrice() throws Exception {\n20\t    var orders = new Properties();\n21\t    try (var in = getClass().getResourceAsStream(\"/orders.properties\")) {\n22\t      orders.load(in);\n23\t    }\n24\t    assertEquals(0, new Pricing().discount(Integer.parseInt(orders.getProperty(\"small\"))));\n25\t  }\n26\t\n27\t  // Through the package-private seam, and right at the edge.\n28\t  @Test\n29\t  void shippingIsFreeFromTheThreshold() {\n30\t    var pricing = new Pricing(40);\n31\t    assertEquals(0, pricing.shipping(40));\n32\t    assertEquals(5, pricing.shipping(39));\n33\t  }\n34\t}\n35\t",
+      "error": false
+    },
+    {
+      "kind": "read",
+      "id": "toolu_017ibz4hU146wNxDQzeutxwn",
+      "file": "src/test/java/com/example/testing/Orders.java"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_017ibz4hU146wNxDQzeutxwn",
+      "text": "1\tpackage com.example.testing;\n2\t\n3\t/// Test data in a package of its own, as test helpers often are.\n4\tpublic final class Orders {\n5\t  private Orders() {}\n6\t\n7\t  public static int large() {\n8\t    return 250;\n9\t  }\n10\t}\n11\t",
+      "error": false
+    },
+    {
+      "kind": "read",
+      "id": "toolu_01BAT16NuDUC7xXVESxhZJLt",
+      "file": "src/test/resources/orders.properties"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01BAT16NuDUC7xXVESxhZJLt",
+      "text": "1\tsmall=50\n2\t",
+      "error": false
+    },
+    {
+      "kind": "read",
+      "id": "toolu_011JLNDqGauqp6PGJFQi8w8P",
+      "file": "build.gradle.kts"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_011JLNDqGauqp6PGJFQi8w8P",
+      "text": "1\t// A small JDK 17 project for mutastic's end-to-end tests: its tests run on 17 while the engine\n2\t// runs on 25.\n3\tplugins {\n4\t    java\n5\t}\n6\t\n7\trepositories {\n8\t    mavenCentral()\n9\t}\n10\t\n11\tjava {\n12\t    toolchain {\n13\t        languageVersion = JavaLanguageVersion.of(17)\n14\t    }\n15\t}\n16\t\n17\tdependencies {\n18\t    testImplementation(platform(\"org.junit:junit-bom:5.12.2\"))\n19\t    testImplementation(\"org.junit.jupiter:junit-jupiter\")\n20\t    testRuntimeOnly(\"org.junit.platform:junit-platform-launcher\")\n21\t}\n22\t\n23\ttasks.test {\n24\t    useJUnitPlatform()\n25\t}\n26\t",
+      "error": false
+    },
+    {
+      "kind": "say",
+      "text": "Now the first cycle: a stub so it compiles, plus one test from the spec."
+    },
+    {
+      "kind": "edit",
+      "id": "toolu_014ATs5cVbHnzdfjZZeWy1xq",
+      "file": "src/main/java/com/example/pricing/Pricing.java",
+      "old": "  /// Free from the threshold up.\n  public int shipping(int total) {\n    if (total < freeShippingFrom) {\n      return 5;\n    }\n    return 0;\n  }\n}",
+      "new": "  /// Free from the threshold up.\n  public int shipping(int total) {\n    if (total < freeShippingFrom) {\n      return 5;\n    }\n    return 0;\n  }\n\n  /// 5 off orders of 30 or more, for loyal customers.\n  public int loyaltyCredit(int total) {\n    return 0;\n  }\n}"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_014ATs5cVbHnzdfjZZeWy1xq",
+      "text": "The file src/main/java/com/example/pricing/Pricing.java has been updated successfully. (file state is current in your context — no need to Read it back)",
+      "error": false
+    },
+    {
+      "kind": "edit",
+      "id": "toolu_01WMuYEG9RTTugxZusnByVTX",
+      "file": "src/test/java/com/example/pricing/PricingTest.java",
+      "old": "  // Through the package-private seam, and right at the edge.\n  @Test\n  void shippingIsFreeFromTheThreshold() {",
+      "new": "  @Test\n  void loyalCustomersGetFiveOffOrdersOfThirtyOrMore() {\n    assertEquals(5, new Pricing().loyaltyCredit(30));\n  }\n\n  // Through the package-private seam, and right at the edge.\n  @Test\n  void shippingIsFreeFromTheThreshold() {"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01WMuYEG9RTTugxZusnByVTX",
+      "text": "The file src/test/java/com/example/pricing/PricingTest.java has been updated successfully. (file state is current in your context — no need to Read it back)",
+      "error": false
+    },
+    {
+      "kind": "run",
+      "id": "toolu_01UeaBtSAueegqgyEoKqWxEj",
+      "command": "./gradlew test 2>&1 | tail -25"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01UeaBtSAueegqgyEoKqWxEj",
+      "text": "> Task :compileJava\n> Task :processResources NO-SOURCE\n> Task :classes\n> Task :compileTestJava\n> Task :processTestResources UP-TO-DATE\n> Task :testClasses\n\n> Task :test FAILED\n\nPricingTest > loyalCustomersGetFiveOffOrdersOfThirtyOrMore() FAILED\n    org.opentest4j.AssertionFailedError at PricingTest.java:29\n\n4 tests completed, 1 failed\n\nFAILURE: Build failed with an exception.\n\n* What went wrong:\nExecution failed for task ':test'.\n> There were failing tests. See the report at: file://build/reports/tests/test/index.html\n\n* Try:\n> Run with --scan to generate a Build Scan (powered by Develocity).\n\nBUILD FAILED in 1s\n4 actionable tasks: 3 executed, 1 up-to-date",
+      "error": false
+    },
+    {
+      "kind": "say",
+      "text": "Red, as required. Now the least production code to pass it:"
+    },
+    {
+      "kind": "edit",
+      "id": "toolu_01WKwTzvv9qh73XUDpcppFx8",
+      "file": "src/main/java/com/example/pricing/Pricing.java",
+      "old": "  public int loyaltyCredit(int total) {\n    return 0;\n  }",
+      "new": "  public int loyaltyCredit(int total) {\n    return 5;\n  }"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01WKwTzvv9qh73XUDpcppFx8",
+      "text": "The file src/main/java/com/example/pricing/Pricing.java has been updated successfully. (file state is current in your context — no need to Read it back)",
+      "error": false
+    },
+    {
+      "kind": "run",
+      "id": "toolu_01Ad4bMGuTMHqvHWJEf2Z5jT",
+      "command": "./gradlew test 2>&1 | tail -8"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01Ad4bMGuTMHqvHWJEf2Z5jT",
+      "text": "> Task :compileTestJava UP-TO-DATE\n> Task :processTestResources UP-TO-DATE\n> Task :testClasses UP-TO-DATE\n> Task :test\n\nBUILD SUCCESSFUL in 644ms\n4 actionable tasks: 2 executed, 2 up-to-date\nConsider enabling configuration cache to speed up this build: https://docs.gradle.org/9.2.1/userguide/configuration_cache_enabling.html",
+      "error": false
+    },
+    {
+      "kind": "say",
+      "text": "Green. Now the mutastic check on this cycle's lines:"
+    },
+    {
+      "kind": "skill",
+      "id": "toolu_015t2Bp52Aq2s2cTTo7PwUmy",
+      "skill": "mutastic:mutastic"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_015t2Bp52Aq2s2cTTo7PwUmy",
+      "text": "Launching skill: mutastic:mutastic",
+      "error": false
+    },
+    {
+      "kind": "run",
+      "id": "toolu_01CwGCsabywNBEoiMoBaezY5",
+      "command": "mutastic run --since=HEAD --format=agent 2>&1 | tail -40"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01CwGCsabywNBEoiMoBaezY5",
+      "text": "mutastic: PASS · score 100.0% (threshold 80) · 0 missed, 0 not covered, 1 caught of 1 mutants",
+      "error": false
+    },
+    {
+      "kind": "say",
+      "text": "Cycle 1 is clean. Committing, then starting cycle 2."
+    },
+    {
+      "kind": "run",
+      "id": "toolu_01TdThcq42V19c4qfpPUq2YH",
+      "command": "git add -A && git commit -q -m \"$(cat <<'EOF'\nLoyalty credit of 5 on orders of 30 or more\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\nEOF\n)\" && git log --oneline -1"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01TdThcq42V19c4qfpPUq2YH",
+      "text": "2a8cbf7 Loyalty credit of 5 on orders of 30 or more",
+      "error": false
+    },
+    {
+      "kind": "say",
+      "text": "Cycle 2 — the other half of the spec: below 30, no credit."
+    },
+    {
+      "kind": "edit",
+      "id": "toolu_01SaSAA4qFtGEXx6v31dnnHF",
+      "file": "src/test/java/com/example/pricing/PricingTest.java",
+      "old": "  // Through the package-private seam, and right at the edge.",
+      "new": "  @Test\n  void ordersUnderThirtyEarnNoCredit() {\n    assertEquals(0, new Pricing().loyaltyCredit(29));\n  }\n\n  // Through the package-private seam, and right at the edge."
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01SaSAA4qFtGEXx6v31dnnHF",
+      "text": "The file src/test/java/com/example/pricing/PricingTest.java has been updated successfully. (file state is current in your context — no need to Read it back)",
+      "error": false
+    },
+    {
+      "kind": "run",
+      "id": "toolu_01WxXkktKWLgiBDx2EhGVGPh",
+      "command": "./gradlew test 2>&1 | tail -12"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01WxXkktKWLgiBDx2EhGVGPh",
+      "text": "FAILURE: Build failed with an exception.\n\n* What went wrong:\nExecution failed for task ':test'.\n> There were failing tests. See the report at: file://build/reports/tests/test/index.html\n\n* Try:\n> Run with --scan to generate a Build Scan (powered by Develocity).\n\nBUILD FAILED in 717ms\n4 actionable tasks: 2 executed, 2 up-to-date",
+      "error": false
+    },
+    {
+      "kind": "run",
+      "id": "toolu_01JJgsGkmKUkGp37YoN43t1S",
+      "command": "./gradlew test 2>&1 | grep -A2 FAILED | head -10"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01JJgsGkmKUkGp37YoN43t1S",
+      "text": "> Task :test FAILED\n\nPricingTest > ordersUnderThirtyEarnNoCredit() FAILED\n    org.opentest4j.AssertionFailedError at PricingTest.java:34\n\n--\nBUILD FAILED in 598ms\n4 actionable tasks: 1 executed, 3 up-to-date",
+      "error": false
+    },
+    {
+      "kind": "say",
+      "text": "Red for the right reason. The least code that passes:"
+    },
+    {
+      "kind": "edit",
+      "id": "toolu_01J714KcCrbCsHYfaWhu2iTk",
+      "file": "src/main/java/com/example/pricing/Pricing.java",
+      "old": "  public int loyaltyCredit(int total) {\n    return 5;\n  }",
+      "new": "  public int loyaltyCredit(int total) {\n    if (total >= 30) {\n      return 5;\n    }\n    return 0;\n  }"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01J714KcCrbCsHYfaWhu2iTk",
+      "text": "The file src/main/java/com/example/pricing/Pricing.java has been updated successfully. (file state is current in your context — no need to Read it back)",
+      "error": false
+    },
+    {
+      "kind": "run",
+      "id": "toolu_01EhqVL9ao7ZaT2gTii162Ru",
+      "command": "./gradlew test 2>&1 | tail -5"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01EhqVL9ao7ZaT2gTii162Ru",
+      "text": "> Task :test\n\nBUILD SUCCESSFUL in 647ms\n4 actionable tasks: 2 executed, 2 up-to-date\nConsider enabling configuration cache to speed up this build: https://docs.gradle.org/9.2.1/userguide/configuration_cache_enabling.html",
+      "error": false
+    },
+    {
+      "kind": "run",
+      "id": "toolu_01KoHkrvYUcc6JcrUv6VRRvg",
+      "command": "mutastic run --since=HEAD --format=agent 2>&1 | tail -40"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01KoHkrvYUcc6JcrUv6VRRvg",
+      "text": "mutastic: PASS · score 100.0% (threshold 80) · 0 missed, 0 not covered, 5 caught of 5 mutants",
+      "error": false
+    },
+    {
+      "kind": "run",
+      "id": "toolu_01RV7WGwSXb4afnpM61PNMFK",
+      "command": "mutastic run --since=432a1b03970ac912ad6b148acc22294c422c8f0c --format=agent 2>&1 | tail -40"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_01RV7WGwSXb4afnpM61PNMFK",
+      "text": "mutastic: PASS · score 100.0% (threshold 80) · 0 missed, 0 not covered, 5 caught of 5 mutants",
+      "error": false
+    },
+    {
+      "kind": "say",
+      "text": "The code reads the same as its neighbours — no refactor needed. Committing cycle 2:"
+    },
+    {
+      "kind": "run",
+      "id": "toolu_012txnfkhrJTtcNDzeHz7XpB",
+      "command": "git add -A && git commit -q -m \"$(cat <<'EOF'\nNo loyalty credit below 30\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\nEOF\n)\" && git log --oneline -3"
+    },
+    {
+      "kind": "result",
+      "id": "toolu_012txnfkhrJTtcNDzeHz7XpB",
+      "text": "a3a11cb No loyalty credit below 30\n2a8cbf7 Loyalty credit of 5 on orders of 30 or more\n432a1b0 start",
+      "error": false
+    },
+    {
+      "kind": "say",
+      "text": "Done, in two test-first cycles.\n\n**`Pricing.loyaltyCredit`** (`src/main/java/com/example/pricing/Pricing.java:31`):\n\n```java\n/// 5 off orders of 30 or more, for loyal customers.\npublic int loyaltyCredit(int total) {\n  if (total >= 30) {\n    return 5;\n  }\n  return 0;\n}\n```\n\n**Cycle 1** — `loyalCustomersGetFiveOffOrdersOfThirtyOrMore`: 30 → 5. Failed first against a `return 0` stub, passed with `return 5`. mutastic: 1/1 caught.\n\n**Cycle 2** — `ordersUnderThirtyEarnNoCredit`: 29 → 0. Failed against the flat `return 5`, passed with the `>= 30` guard. mutastic: 5/5 caught, including the `>=` → `>` boundary mutant, since the two tests sit either side of the edge at 30/29.\n\nBoth cycles ran `mutastic run --since=HEAD --format=agent` with no cards; the whole change from `432a1b0` also comes back clean at 5/5. One commit per cycle.\n\nTwo notes on choices I made where the spec left room:\n\n- **\"Loyal customers\"** isn't represented in the signature you asked for — `loyaltyCredit(int total)` takes only the total, so it returns the credit a loyal customer *would* get and the caller decides who's loyal. If you'd rather the method itself gate on loyalty, that needs a second parameter or a constructor seam like the existing `freeShippingFrom` one.\n- **The 30 threshold is a literal**, matching `discount`'s hardcoded 100 rather than `shipping`'s injected threshold. Say the word if you want it behind a test seam too."
+    },
+    {
+      "kind": "hook",
+      "event": "Stop",
+      "text": "{\"systemMessage\": \"mutastic gate: passed: the tests catch 5 of the 5 mutants on the lines the task changed\"}"
+    }
+  ]
+}

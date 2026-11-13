@@ -208,7 +208,7 @@ val secondsOnCi =
         "PluginOperatorsTest" to 94,
         "GateTest" to 59,
         "ParallelTest" to 50,
-        "DocsOutputTest" to 55,
+        "DocsOutputTest" to 60,
         "DocsOperatorsTest" to 25,
         "PricingSampleTest" to 44,
         "MavenPluginTest" to 41,

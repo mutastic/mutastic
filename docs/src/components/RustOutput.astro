@@ -12,8 +12,10 @@ import type { EditionPanes } from '../route-editions';
 
 interface Props {
   name: string;
+  /** Wrap long lines, as the agent format's are, rather than scroll them. */
+  wrap?: boolean;
 }
-const { name } = Astro.props;
+const { name, wrap = false } = Astro.props;
 
 const captures = import.meta.glob<string>('../data/rust/captures/**/*.{ansi,txt}', {
   query: '?raw',
@@ -28,4 +30,4 @@ if (rust && text === undefined && !awaitsRust(Astro.locals)) {
 }
 ---
 
-{text !== undefined && <Code code={text.replace(/\n$/, '')} lang="ansi" />}
+{text !== undefined && <Code code={text.replace(/\n$/, '')} lang="ansi" wrap={wrap} />}
