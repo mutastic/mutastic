@@ -8,6 +8,7 @@ import EditionOnly from '../../../components/EditionOnly.astro';
 import EditionTabs from '../../../components/EditionTabs.astro';
 import RustAwaiting from '../../../components/RustAwaiting.astro';
 import RustOutput from '../../../components/RustOutput.astro';
+import TddLoop from '../../../components/TddLoop.astro';
 import red from '../../../data/output/test-first-red.ansi?raw';
 import run from '../../../data/output/test-first-run.ansi?raw';
 import verify from '../../../data/output/test-first-verify.ansi?raw';
@@ -37,6 +38,8 @@ Start from a clean tree, and commit at the end of each cycle, not before: `--sin
 mutants on the lines changed since the last commit, so the commit marks where the cycle started.
 
 ## Write one failing test
+
+<TddLoop current="Red" />
 
 <EditionTabs>
 <div slot="java">
@@ -113,6 +116,8 @@ mutastic run fixtures/pricing
 
 ## Make it pass with the least code
 
+<TddLoop current="Green" />
+
 <EditionTabs>
 <div slot="java">
 
@@ -147,6 +152,8 @@ The whole suite passes.
 
 ## Run mutastic on the cycle
 
+<TddLoop current="Mutate" />
+
 <EditionTabs>
 <div slot="java">
 
@@ -173,6 +180,8 @@ test reaches the code for an order below 30 at all: the code ran ahead of its te
 suggests a test for each.
 
 ## Write the card's tests
+
+<TddLoop current="Triangulate" />
 
 Check each value against the spec before you keep it: an order of exactly 30 gets 5 off, and one of
 29 gets nothing. Here both are what the spec asks for. Had one not been, the test would keep the
@@ -243,6 +252,8 @@ Don't change the code so the mutant can't exist: that hides what it found.
 
 ## Refactor, run again, commit
 
+<TddLoop current="Refactor" />
+
 Change the structure if it needs it, with the suite green, and run the cycle again. This cycle's
 code is one `if`, with nothing to refactor, so here the run only confirms the cycle:
 [Working test-first: the refactor](/guides/test-first-refactor/) carries on to a refactor the code does
@@ -268,6 +279,8 @@ mutastic run fixtures/pricing --since=HEAD
 
 </div>
 </EditionTabs>
+
+<TddLoop current="Commit" />
 
 Then commit. The commit is the next cycle's `HEAD`.
 

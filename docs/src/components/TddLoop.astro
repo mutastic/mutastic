@@ -8,6 +8,22 @@
 // where it's narrow, as on a phone, where the row would shrink its text past reading. The figure's
 // own width picks one (a container query), and each has its own arrowhead, since a marker in a
 // drawing that isn't shown isn't drawn in the other.
+//
+// With `current`, it's the guides' "you are here": that step stands out and the rest are dimmed,
+// smaller, with no caption. Where it's narrow, a line of the steps' names takes the place of the
+// column, which would otherwise stand six times down a phone's page.
+//
+//   <TddLoop />                     the whole cycle, with its caption (the concept page)
+//   <TddLoop current="Mutate" />    the step a guide's section is at
+//
+// A page can hold several, so each takes its ids (arrowheads, title, desc) from a count kept on the
+// page's render.
+interface Props {
+  current?: 'Red' | 'Green' | 'Mutate' | 'Triangulate' | 'Refactor' | 'Commit';
+}
+const { current } = Astro.props;
+const compact = current !== undefined;
+
 const steps = [
   { name: 'Red', note: 'a test fails', kind: 'red' },
   { name: 'Green', note: 'least code', kind: 'green' },
@@ -16,8 +32,23 @@ const steps = [
   { name: 'Refactor', note: 'structure only', kind: '' },
   { name: 'Commit', note: 'ends the cycle', kind: '' },
 ];
+if (compact && !steps.some((step) => step.name === current)) {
+  throw new Error(`TddLoop: no step named ${current}`);
+}
 const description =
   "Red: a test from the spec fails. Green: the least code that passes it. Mutate: mutastic runs on the cycle's lines. Triangulate: write each card's test and prove it with verify; one that fails on today's code has found a bug, back to green. Refactor, then commit, which starts the next cycle.";
+const title = compact
+  ? `Working test-first with mutastic: you are at ${current}`
+  : 'Working test-first with mutastic';
+const stepClass = (step: (typeof steps)[number]) => [
+  'step',
+  step.kind,
+  compact && (step.name === current ? 'current' : 'dim'),
+];
+
+const locals = Astro.locals as { tddLoops?: number };
+locals.tddLoops = (locals.tddLoops ?? 0) + 1;
+const id = (part: string) => `tdd-loop-${locals.tddLoops}-${part}`;
 
 // The row: each box's left edge and width, all 58 high from y 50.
 const row = [
@@ -34,24 +65,24 @@ const rowMid = (i: number) => row[i][0] + row[i][1] / 2;
 const colTop = (i: number) => 10 + i * 68;
 ---
 
-<figure class="tdd-loop">
+<figure class:list={['tdd-loop', { compact }]}>
   <svg
     class="wide"
     viewBox="0 0 760 166"
     role="img"
-    aria-labelledby="tdd-loop-wide-title tdd-loop-wide-desc"
+    aria-labelledby={`${id('wide-title')} ${id('wide-desc')}`}
     xmlns="http://www.w3.org/2000/svg"
   >
-    <title id="tdd-loop-wide-title">Working test-first with mutastic</title>
-    <desc id="tdd-loop-wide-desc">{description}</desc>
+    <title id={id('wide-title')}>{title}</title>
+    <desc id={id('wide-desc')}>{description}</desc>
     <defs>
-      <marker id="tdd-arrow-wide" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <marker id={id('arrow-wide')} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
         <path d="M0,0 L10,5 L0,10 z" class="ink" />
       </marker>
     </defs>
     {
       steps.map((step, i) => (
-        <g class:list={['step', step.kind]}>
+        <g class:list={stepClass(step)}>
           <rect x={row[i][0]} y="50" width={row[i][1]} height="58" rx="8" />
           <text x={rowMid(i)} y="74">{step.name}</text>
           <text x={rowMid(i)} y="94" class="small">{step.note}</text>
@@ -61,56 +92,68 @@ const colTop = (i: number) => 10 + i * 68;
     <g class="arrows">
       {
         row.slice(0, -1).map(([x, w], i) => (
-          <line x1={x + w} y1="79" x2={row[i + 1][0] - 2} y2="79" marker-end="url(#tdd-arrow-wide)" />
+          <line x1={x + w} y1="79" x2={row[i + 1][0] - 2} y2="79" marker-end={`url(#${id('arrow-wide')})`} />
         ))
       }
-      <path d="M457,50 V32 Q457,26 451,26 H193 Q187,26 187,32 V48" class="back" marker-end="url(#tdd-arrow-wide)" />
-      <path d="M702,108 V130 Q702,136 696,136 H68 Q62,136 62,130 V110" marker-end="url(#tdd-arrow-wide)" />
+      <path d="M457,50 V32 Q457,26 451,26 H193 Q187,26 187,32 V48" class="back" marker-end={`url(#${id('arrow-wide')})`} />
+      <path d="M702,108 V130 Q702,136 696,136 H68 Q62,136 62,130 V110" marker-end={`url(#${id('arrow-wide')})`} />
     </g>
     <text x="322" y="16" class="note">red on today's code: a bug, back to green</text>
     <text x="382" y="156" class="note">the next cycle starts from the commit</text>
   </svg>
 
-  <svg
-    class="narrow"
-    viewBox="0 0 400 452"
-    role="img"
-    aria-labelledby="tdd-loop-narrow-title tdd-loop-narrow-desc"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <title id="tdd-loop-narrow-title">Working test-first with mutastic</title>
-    <desc id="tdd-loop-narrow-desc">{description}</desc>
-    <defs>
-      <marker id="tdd-arrow-narrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-        <path d="M0,0 L10,5 L0,10 z" class="ink" />
-      </marker>
-    </defs>
-    {
-      steps.map((step, i) => (
-        <g class:list={['step', step.kind]}>
-          <rect x="40" y={colTop(i)} width="170" height="46" rx="8" />
-          <text x="125" y={colTop(i) + 20}>{step.name}</text>
-          <text x="125" y={colTop(i) + 37} class="small">{step.note}</text>
+  {
+    compact ? (
+      <ol class="stepper" aria-label={title}>
+        {steps.map((step) => (
+          <li class:list={[step.kind, { current: step.name === current }]} aria-current={step.name === current ? 'step' : undefined}>
+            {step.name}
+          </li>
+        ))}
+      </ol>
+    ) : (
+      <svg
+        class="narrow"
+        viewBox="0 0 400 452"
+        role="img"
+        aria-labelledby={`${id('narrow-title')} ${id('narrow-desc')}`}
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <title id={id('narrow-title')}>{title}</title>
+        <desc id={id('narrow-desc')}>{description}</desc>
+        <defs>
+          <marker id={id('arrow-narrow')} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" class="ink" />
+          </marker>
+        </defs>
+        {steps.map((step, i) => (
+          <g class:list={stepClass(step)}>
+            <rect x="40" y={colTop(i)} width="170" height="46" rx="8" />
+            <text x="125" y={colTop(i) + 20}>{step.name}</text>
+            <text x="125" y={colTop(i) + 37} class="small">{step.note}</text>
+          </g>
+        ))}
+        <g class="arrows">
+          {steps.slice(0, -1).map((_, i) => (
+            <line x1="125" y1={colTop(i) + 46} x2="125" y2={colTop(i + 1) - 2} marker-end={`url(#${id('arrow-narrow')})`} />
+          ))}
+          <path d="M210,237 H234 Q240,237 240,231 V107 Q240,101 234,101 H212" class="back" marker-end={`url(#${id('arrow-narrow')})`} />
+          <path d="M125,396 V412 Q125,418 119,418 H24 Q18,418 18,412 V39 Q18,33 24,33 H38" marker-end={`url(#${id('arrow-narrow')})`} />
         </g>
-      ))
-    }
-    <g class="arrows">
-      {
-        steps.slice(0, -1).map((_, i) => (
-          <line x1="125" y1={colTop(i) + 46} x2="125" y2={colTop(i + 1) - 2} marker-end="url(#tdd-arrow-narrow)" />
-        ))
-      }
-      <path d="M210,237 H234 Q240,237 240,231 V107 Q240,101 234,101 H212" class="back" marker-end="url(#tdd-arrow-narrow)" />
-      <path d="M125,396 V412 Q125,418 119,418 H24 Q18,418 18,412 V39 Q18,33 24,33 H38" marker-end="url(#tdd-arrow-narrow)" />
-    </g>
-    <text x="252" y="163" class="note start">red on today's code:</text>
-    <text x="252" y="179" class="note start">a bug, back to green</text>
-    <text x="125" y="440" class="note">the next cycle starts from the commit</text>
-  </svg>
-  <figcaption>
-    mutastic comes after green: a red suite stops it. A card's test passes on today's code and
-    fails only with the mutant, so <code>verify</code> is its red and green.
-  </figcaption>
+        <text x="252" y="163" class="note start">red on today's code:</text>
+        <text x="252" y="179" class="note start">a bug, back to green</text>
+        <text x="125" y="440" class="note">the next cycle starts from the commit</text>
+      </svg>
+    )
+  }
+  {
+    !compact && (
+      <figcaption>
+        mutastic comes after green: a red suite stops it. A card's test passes on today's code and
+        fails only with the mutant, so <code>verify</code> is its red and green.
+      </figcaption>
+    )
+  }
 </figure>
 
 <style>
@@ -188,5 +231,83 @@ const colTop = (i: number) => 10 + i * 68;
   }
   .note.start {
     text-anchor: start;
+  }
+
+  /* The guides' "you are here": smaller, the current step outlined, the rest dimmed. */
+  .tdd-loop.compact {
+    margin: 0.75rem 0 1rem;
+  }
+  .tdd-loop.compact svg.wide {
+    max-width: 640px;
+  }
+  .step.dim {
+    opacity: 0.45;
+  }
+  .step.current rect {
+    stroke-width: 3.5;
+    stroke: var(--sl-color-white);
+  }
+  .step.current.red rect {
+    fill: color-mix(in srgb, #d9534f 18%, var(--sl-color-gray-6));
+    stroke: #d9534f;
+  }
+  .step.current.green rect {
+    fill: color-mix(in srgb, #5cb85c 18%, var(--sl-color-gray-6));
+    stroke: #5cb85c;
+  }
+  .step.current.mutastic rect {
+    stroke: var(--sl-color-accent);
+  }
+  .compact .note {
+    opacity: 0.7;
+  }
+  .stepper {
+    display: none;
+  }
+  /* Where the row would be too small to read, the steps' names in a line, the current one marked. */
+  @container (max-width: 560px) {
+    .tdd-loop.compact .stepper {
+      display: flex;
+    }
+  }
+  .tdd-loop .stepper {
+    flex-wrap: wrap;
+    gap: 0.15rem 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+  .tdd-loop .stepper li {
+    margin: 0;
+    padding: 0;
+  }
+  /* After the name, so a line that wraps ends on the arrow and starts on a step. */
+  .tdd-loop .stepper li:not(:last-child)::after {
+    content: '›' / '';
+    padding: 0 0.4em;
+    color: var(--sl-color-gray-4);
+    font-weight: 400;
+  }
+  .tdd-loop .stepper li.current {
+    color: var(--sl-color-white);
+    font-weight: 700;
+  }
+  /* The outlines' red and green, a shade darker or lighter, to read as text on either theme. */
+  .tdd-loop .stepper li.current.red {
+    color: #e8706c;
+  }
+  .tdd-loop .stepper li.current.green {
+    color: #6cc96c;
+  }
+  :global([data-theme='light']) .tdd-loop .stepper li.current.red {
+    color: #b52b27;
+  }
+  :global([data-theme='light']) .tdd-loop .stepper li.current.green {
+    color: #2e7d32;
+  }
+  .tdd-loop .stepper li.current.mutastic {
+    color: var(--sl-color-text-accent);
   }
 </style>
