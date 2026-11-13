@@ -77,7 +77,7 @@ final class Progress implements Listener, AutoCloseable {
       } catch (NumberFormatException e) {
         // said below
       }
-      throw new Main.UsageException(
+      throw new Main.ConfigException(
           "MUTASTIC_HEARTBEAT is a number of seconds above 0, not " + given);
     }
 

@@ -10,16 +10,6 @@ class ModulesTest {
   private static final List<String> MODULES = List.of(":app", ":core");
 
   @Test
-  void aTranspositionIsOneEdit() {
-    assertThat(Modules.distance("tset", "test")).isEqualTo(1);
-    assertThat(Modules.distance("tset", "set")).isEqualTo(1);
-    assertThat(Modules.distance("cor", "core")).isEqualTo(1);
-    assertThat(Modules.distance("nope", "core")).isEqualTo(2);
-    assertThat(Modules.distance("", "app")).isEqualTo(3);
-    assertThat(Modules.distance("APP", "app")).isZero();
-  }
-
-  @Test
   void theOneClosestModuleIsOfferedWithinAThirdOfTheName() {
     assertThat(Modules.closest(":cor", MODULES)).hasValue(":core");
     assertThat(Modules.closest(":ocre", MODULES)).hasValue(":core");

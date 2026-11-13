@@ -46,8 +46,17 @@ mutastic verify m6393711d samples/pricing
 <Code code={elsewhere} lang="ansi" />
 
 A mutant's id belongs to the project its run was on, so run the command the run printed. For an
-option, check `mutastic --help`: a value follows `=` or a space, except `--since`, which needs `=`
-(`--since=main`). For a build, mutastic must be run in, or pointed at, a Gradle or Maven build's
+option, check `mutastic <command> --help`: a value follows `=` or a space, except `--since`, which
+needs `=` (`--since=main`). When what you typed is close to a name mutastic has, it says so and gives
+your command with that one word changed, to run if it's what you meant:
+
+```
+mutastic: run has no option --formt. There's one called --format.
+  mutastic run --format=agent
+```
+
+mutastic never runs the close name in place of yours. A mistake in `mutastic.yaml`, a rules file or
+`.mutastic/ignores.yaml` names the file and the line. For a build, mutastic must be run in, or pointed at, a Gradle or Maven build's
 directory, and a module named as the build names it: `:app` for Gradle, a directory as `-pl` takes
 it for Maven.
 

@@ -66,6 +66,8 @@ class CallRulesTest {
         .hasMessage("a.yaml:1: expected a rule, `- id: …`");
     assertThatThrownBy(() -> CallRules.parse("- id: acme/x\n  colour: red\n", "a.yaml"))
         .hasMessageStartingWith("a.yaml:2: expected one of");
+    assertThatThrownBy(() -> CallRules.parse("- id: acme/x\n  ownres: a.B\n", "a.yaml"))
+        .hasMessage("a.yaml:2: ownres isn't a key. There's one called owners.");
     assertThatThrownBy(() -> CallRules.parse("- id: acme/x\n  id: acme/y\n", "a.yaml"))
         .hasMessage("a.yaml:2: id is given twice");
     assertThatThrownBy(() -> CallRules.parse("- id: acme/x\n", "a.yaml"))

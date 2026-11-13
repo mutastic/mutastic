@@ -1,5 +1,6 @@
 package io.mutastic.engine;
 
+import io.mutastic.api.Nearest;
 import io.mutastic.api.Operator.Tier;
 import java.io.IOException;
 import java.io.InputStream;
@@ -124,9 +125,14 @@ public final class CallRules {
       int colon = line.indexOf(':');
       var key = colon < 0 ? "" : line.substring(0, colon);
       if (!known(key)) {
+        var keys = KEYS.stream().sorted().toList();
         throw error(
-            "expected one of %s, or headline and help"
-                .formatted(String.join(", ", KEYS.stream().sorted().toList())));
+            Nearest.name(key, keys)
+                .map(close -> "%s isn't a key. There's one called %s.".formatted(key, close))
+                .orElseGet(
+                    () ->
+                        "expected one of %s, or headline and help"
+                            .formatted(String.join(", ", keys))));
       }
       if (fields.putIfAbsent(key, unquoted(line.substring(colon + 1).strip())) != null) {
         throw error(key + " is given twice");
@@ -229,8 +235,11 @@ public final class CallRules {
     try {
       return Tier.valueOf(word.toUpperCase(Locale.ROOT));
     } catch (IllegalArgumentException e) {
+      var close = Nearest.name(word, List.of("defaults", "stronger", "extended"));
       throw new IllegalArgumentException(
-          "%s:%d: a tier is defaults, stronger or extended, not %s".formatted(where, line, word),
+          "%s:%d: a tier is defaults, stronger or extended, not %s%s"
+              .formatted(
+                  where, line, word, close.map(". There's one called %s."::formatted).orElse("")),
           e);
     }
   }

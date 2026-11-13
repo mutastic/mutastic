@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /// `.mutastic/ignores.yaml`: the mutants a project has decided not to test, written by `mutastic
 /// ignore` and committed, so each decision is a diff someone reviews. Machine-written, apart from
@@ -116,7 +117,9 @@ final class Ignores {
   private static List<Entry> parse(List<String> lines, Path name) {
     var entries = new ArrayList<Entry>();
     Map<String, String> fields = new LinkedHashMap<>();
-    for (String raw : lines) {
+    int start = 0;
+    for (int number = 1; number <= lines.size(); number++) {
+      var raw = lines.get(number - 1);
       var line = raw.strip();
       if (line.isEmpty()
           || line.startsWith("#")
@@ -125,28 +128,47 @@ final class Ignores {
         continue;
       }
       if (line.startsWith("- ")) {
-        add(entries, fields, name);
+        add(entries, fields, "%s line %d".formatted(name, start));
         fields = new LinkedHashMap<>();
         line = line.substring(2);
+        start = number;
       }
       int colon = line.indexOf(':');
       if (colon < 0) {
-        throw new Main.UsageException("%s: can't read the line `%s`".formatted(name, raw));
+        throw new Main.ConfigException(
+            "%s line %d: can't read `%s`; each line is a `key: value`, as `reason: only logs`"
+                .formatted(name, number, raw.strip()));
       }
       fields.put(line.substring(0, colon), unquoted(line.substring(colon + 1).strip()));
     }
-    add(entries, fields, name);
+    add(entries, fields, "%s line %d".formatted(name, start));
     return entries;
   }
 
-  private static void add(List<Entry> entries, Map<String, String> fields, Path name) {
+  /// The keys an entry has.
+  private static final List<String> KEYS = List.of("id", "code", "reason", "kind", "at", "change");
+
+  private static void add(List<Entry> entries, Map<String, String> fields, String place) {
     if (fields.isEmpty()) {
       return;
     }
     var id = fields.get("id");
     var reason = fields.get("reason");
     if (id == null || reason == null) {
-      throw new Main.UsageException("%s: every entry needs an id and a reason".formatted(name));
+      var missing = id == null ? "id" : "reason";
+      var close =
+          fields.keySet().stream()
+              .filter(key -> !KEYS.contains(key))
+              .filter(key -> io.mutastic.api.Nearest.name(key, KEYS).equals(Optional.of(missing)))
+              .findFirst();
+      throw new Main.ConfigException(
+          "%s: every entry needs an id and a reason, and this one has no %s%s"
+              .formatted(
+                  place,
+                  missing,
+                  close
+                      .map(key -> ". It has %s:, close to %s:.".formatted(key, missing))
+                      .orElse("")));
     }
     entries.add(
         new Entry(

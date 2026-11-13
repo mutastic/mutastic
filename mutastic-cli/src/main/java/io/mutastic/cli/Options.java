@@ -458,10 +458,23 @@ final class Options {
 
   /// The option called `name`, `--threshold`.
   static Option named(String name) {
-    return ALL.stream()
-        .filter(option -> option.name().equals(name))
-        .findFirst()
-        .orElseThrow(() -> new Main.UsageException("unknown option " + name));
+    return find(name).orElseThrow(() -> new Main.UsageException("there's no option " + name));
+  }
+
+  /// The option called `name`, if there's one.
+  static Optional<Option> find(String name) {
+    return ALL.stream().filter(option -> option.name().equals(name)).findFirst();
+  }
+
+  /// `a, b or c`: the names, the last two joined by `last`.
+  static String listed(List<String> names, String last) {
+    return names.size() < 2
+        ? String.join("", names)
+        : String.join(", ", names.subList(0, names.size() - 1))
+            + " "
+            + last
+            + " "
+            + names.getLast();
   }
 
   /// The options help shows for `command`.
@@ -496,8 +509,19 @@ final class Options {
         ALL.stream()
             .filter(each -> each.property().equals(name))
             .findFirst()
-            .orElseThrow(() -> new Main.UsageException("unknown property mutastic." + name));
+            .orElseThrow(() -> unknownProperty(name));
     return Optional.of(arguments(option, value));
+  }
+
+  /// A `mutastic.` property no option has: with the close one, said only, as the property is set in
+  /// the build's own command line.
+  private static Main.UsageException unknownProperty(String name) {
+    var properties =
+        ALL.stream().map(Option::property).filter(property -> !property.isEmpty()).toList();
+    var close = io.mutastic.api.Nearest.name(name, properties);
+    return new Main.UsageException(
+        "there's no property mutastic.%s.%s"
+            .formatted(name, close.map(" There's one called mutastic.%s."::formatted).orElse("")));
   }
 
   private static List<String> arguments(Option option, String value) {

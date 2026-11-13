@@ -176,7 +176,7 @@ class IgnoreTest {
     assertThat(run.out()).contains("1 ignored as unreachable");
     assertThat(removed.out()).contains("'--reason=totals come in tens' --as=unreachable");
     assertThat(unknown.exit()).isEqualTo(Main.USAGE);
-    assertThat(unknown.err()).contains("unknown as boring (one of equivalent, unreachable");
+    assertThat(unknown.err()).contains("--as takes equivalent, unreachable, telemetry,");
   }
 
   @Test

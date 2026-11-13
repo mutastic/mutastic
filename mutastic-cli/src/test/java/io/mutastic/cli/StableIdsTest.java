@@ -115,7 +115,9 @@ class StableIdsTest {
     Stream.of("bigdecimal.yaml", "reactive.yaml", "mutiny.yaml")
         .map(RULES::resolve)
         .forEach(plugins::add);
-    Policy policy = new Configuration(List.of(), plugins, List.of(), List.of("all")).policy(work);
+    Policy policy =
+        new Configuration(List.of(), plugins, List.of(), List.of("all"), java.util.Map.of())
+            .policy(work);
     return new Engine.Options(
         List.of(), false, 1, false, false, Set.of(), policy, Optional.empty());
   }

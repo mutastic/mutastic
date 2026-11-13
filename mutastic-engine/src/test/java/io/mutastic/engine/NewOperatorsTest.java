@@ -165,8 +165,7 @@ class NewOperatorsTest {
         .doesNotContain("stream/swap-match");
     assertThat(ids(List.of("mutastic/boundary"))).containsExactly("mutastic/boundary");
     assertThatThrownBy(() -> ids(List.of("streams")))
-        .hasMessageStartingWith(
-            "no operator or set is called streams; there are defaults, stronger, extended, all,");
+        .hasMessage("no operator or set is called streams. There's one called stream.");
   }
 
   private static List<String> ids(List<String> chosen) {

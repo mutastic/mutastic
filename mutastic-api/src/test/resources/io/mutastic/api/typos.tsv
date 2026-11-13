@@ -1,0 +1,23 @@
+# The "did you mean" rule's cases, the same in both editions: what was typed, the names it could
+# be, and the one said (- for none). Tab-separated; names split by commas.
+tset	test,set,list	test
+lsit	list,edit,last	list
+rnu	run,verify,explain,ignore,next,baseline,gate	run
+verfiy	run,verify,explain,ignore,next,baseline,gate	verify
+nxet	run,verify,explain,ignore,next,baseline,gate	next
+frobnicate	run,verify,explain,ignore,next,baseline,gate	-
+RUN	run,verify,explain,ignore,next,baseline,gate	run
+formt	format,threshold,workers,report	format
+treshold	format,threshold,workers,report	threshold
+fast	format,threshold,workers,report	-
+agnt	full,brief,concise,grouped,agent,jsonl	agent
+jsn	full,brief,concise,grouped,agent,jsonl	-
+josn	json,html,xml,sarif,none	json
+pdf	json,html,xml,sarif,none	-
+oprators	extends,rules,plugins,filters,operators	operators
+rule	extends,rules,plugins,filters,operators	rules
+cor	app,core	core
+ocre	app,core	core
+nope	app,core	-
+ab	abc,abd	-
+App	app,APP	-
