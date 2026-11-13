@@ -1971,6 +1971,67 @@
           ]
         },
         {
+          "name": "Nearest",
+          "slug": "nearest",
+          "kind": "class",
+          "signature": "@Internal class Nearest",
+          "summary": "The one name close to a mistyped one, for an error to say \"There's one called …\": a command, an option, a value, a key in a file, a module or an id.",
+          "doc": "The one name close to a mistyped one, for an error to say \"There's one called …\": a command, an\noption, a value, a key in a file, a module or an id. Said, never acted on: the person or agent\nruns it, so a guess must be likely.\n\nThe rule, the same in both editions (mutastic-rs's `similar::closest`): the fewest edits, where\nan edit inserts, deletes or changes a character or swaps two next to each other, compared\nwithout case, and at most `max(length, 3) / 3` of them. Of two as close, the one nearer the\ntyped length wins, then the first: a swap keeps the length, so `tset` is `test`, not `set`. Both\neditions' tests read the same table of typos (`typos.tsv`).",
+          "params": [],
+          "members": [
+            {
+              "kind": "method",
+              "name": "name",
+              "anchor": "name",
+              "signature": "static Optional<String> name(String typed, Collection<String> names)",
+              "doc": "The name in `names` that `typed` is closest to, by the rule above.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "name",
+              "anchor": "name-2",
+              "signature": "static Optional<String> name(String typed, Collection<String> names, Function<String, String> key)",
+              "doc": "The name in `names` that `typed` is closest to, comparing what `key` makes of each: the words\nwithout their `--` or `:`, so the punctuation counts for no edits.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "bare",
+              "anchor": "bare",
+              "signature": "static String bare(String name)",
+              "doc": "A name without the punctuation around it, for [`name(String, Collection, Function)`](#name): an\noption's `--` or a single `-`, a module's `:`, a key's `:` after it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "id",
+              "anchor": "id",
+              "signature": "static Optional<String> id(String typed, Collection<String> ids)",
+              "doc": "The id in `ids` that `typed` is one edit from: an id is random, so among thousands one is\noften a few edits from any other, and only a slip of one key is likely.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "distance",
+              "anchor": "distance",
+              "signature": "static int distance(String from, String to)",
+              "doc": "The edits from `from` to `to`: a character inserted, deleted, changed, or two next to each\nother swapped (optimal string alignment), compared without case.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
           "name": "Operator",
           "slug": "operator",
           "kind": "interface",

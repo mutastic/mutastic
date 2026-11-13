@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.SequencedSet;
 import java.util.ServiceLoader;
@@ -50,16 +51,35 @@ import org.jspecify.annotations.Nullable;
 /// same module gets the same rules from the build's top as from its own directory. A file adds
 /// another's only when it says so, with `extends:`: one file and the ones it names are all that
 /// apply, never a cascade nobody wrote down.
+///
+/// @param places where each plugin, filter and operator is listed, `mutastic.yaml line 7`, for an
+///   error about it to say: by [#place]'s key
 record Configuration(
-    List<Rule> rules, List<Path> plugins, List<String> filters, List<String> operators) {
+    List<Rule> rules,
+    List<Path> plugins,
+    List<String> filters,
+    List<String> operators,
+    Map<String, String> places) {
   static final String FILE = "mutastic.yaml";
-  static final Configuration NONE = new Configuration(List.of(), List.of(), List.of(), List.of());
+  static final Configuration NONE =
+      new Configuration(List.of(), List.of(), List.of(), List.of(), Map.of());
+
+  /// The sections a file has, each at most once.
+  private static final List<String> SECTIONS =
+      List.of("extends:", "rules:", "plugins:", "filters:", "operators:");
 
   Configuration {
     rules = List.copyOf(rules);
     plugins = List.copyOf(plugins);
     filters = List.copyOf(filters);
     operators = List.copyOf(operators);
+    places = Map.copyOf(places);
+  }
+
+  /// Where `item` of `section` (`operators:`) is listed, `mutastic.yaml line 7`; just the file if
+  /// it isn't, as an item a plugin adds.
+  String place(String section, String item) {
+    return places.getOrDefault(section + " " + item, FILE);
   }
 
   /// The project's configuration, or none when it has no `mutastic.yaml`: the file's own, then what
@@ -116,7 +136,7 @@ record Configuration(
       var names = new ArrayList<String>();
       chain.forEach(each -> names.add(shown(chain, each).toString()));
       names.add(shown(chain, extended).toString());
-      throw new Main.UsageException(
+      throw new Main.ConfigException(
           "extends: goes round in a loop: " + String.join(" extends ", names));
     }
     return own.over(read(extended, chain).movedTo(directoryOf(extended), directoryOf(file)));
@@ -136,11 +156,14 @@ record Configuration(
   /// then the parent's; the plugins and filters of both; and its operators, if it chooses any, in
   /// place of the parent's, as `--operators` replaces them.
   private Configuration over(Configuration parent) {
+    var placed = new java.util.HashMap<>(parent.places);
+    placed.putAll(places);
     return new Configuration(
         joined(rules, parent.rules),
         joined(plugins, parent.plugins),
         joined(filters, parent.filters),
-        operators.isEmpty() ? parent.operators : operators);
+        operators.isEmpty() ? parent.operators : operators,
+        placed);
   }
 
   /// `first` then `then`, each once.
@@ -154,7 +177,11 @@ record Configuration(
   /// file read it from.
   private Configuration movedTo(Path from, Path to) {
     var moved = plugins.stream().map(plugin -> to.relativize(from.resolve(plugin))).toList();
-    return new Configuration(rules, moved, filters, operators);
+    var placed = new java.util.HashMap<>(places);
+    for (int i = 0; i < plugins.size(); i++) {
+      placed.put("plugins: " + moved.get(i), place("plugins:", plugins.get(i).toString()));
+    }
+    return new Configuration(rules, moved, filters, operators, placed);
   }
 
   /// The rules, the filters `filters:` names, found in the plugins, and the operators the plugins
@@ -168,7 +195,7 @@ record Configuration(
         try {
           mutators.addAll(CallRules.read(directory.resolve(plugin)));
         } catch (IllegalArgumentException e) {
-          throw new Main.UsageException(String.valueOf(e.getMessage()));
+          throw new Main.ConfigException(String.valueOf(e.getMessage()));
         }
       }
     }
@@ -191,18 +218,24 @@ record Configuration(
     for (String id : filters) {
       var filter = found.get(id);
       if (filter == null) {
-        throw new Main.UsageException(
-            "%s names the filter %s, which no plugin has%s"
-                .formatted(
-                    FILE,
-                    id,
-                    found.isEmpty()
-                        ? ""
-                        : " (they have " + String.join(", ", found.keySet()) + ")"));
+        throw noSuchFilter(id, List.copyOf(found.keySet()));
       }
       named.add(filter);
     }
     return named;
+  }
+
+  /// `filters:` names `id`, which no plugin has: with the close one, else the ones there are.
+  private Main.ConfigException noSuchFilter(String id, List<String> found) {
+    var close = io.mutastic.api.Nearest.name(id, found);
+    var said = "%s: no plugin has the filter %s".formatted(place("filters:", id), id);
+    if (close.isPresent()) {
+      return new Main.ConfigException("%s. There's one called %s.".formatted(said, close.get()));
+    }
+    return new Main.ConfigException(
+        found.isEmpty()
+            ? said + "; the plugins have none"
+            : "%s; they have %s".formatted(said, Options.listed(found, "and")));
   }
 
   /// A rules file rather than a jar.
@@ -217,8 +250,9 @@ record Configuration(
     for (Path plugin : plugins) {
       var jar = directory.resolve(plugin);
       if (!Files.isRegularFile(jar)) {
-        throw new Main.UsageException(
-            "%s names the plugin %s, which isn't there".formatted(FILE, plugin));
+        throw new Main.ConfigException(
+            "%s: there's no plugin %s, from %s"
+                .formatted(place("plugins:", plugin.toString()), plugin, directory));
       }
       if (isRules(plugin)) {
         continue;
@@ -240,6 +274,7 @@ record Configuration(
     private final List<Path> plugins = new ArrayList<>();
     private final List<String> filters = new ArrayList<>();
     private final List<String> operators = new ArrayList<>();
+    private final Map<String, String> places = new java.util.HashMap<>();
     private @Nullable Path extended;
     private String section = "";
     private @Nullable String pendingVerb;
@@ -260,7 +295,7 @@ record Configuration(
         }
       }
       requireReason();
-      return new Configuration(rules, plugins, filters, operators);
+      return new Configuration(rules, plugins, filters, operators, places);
     }
 
     private void read(String line) {
@@ -269,19 +304,46 @@ record Configuration(
         section = line.strip();
         if (section.startsWith("extends:")) {
           extend(value(section.substring("extends:".length())));
-        } else if (!List.of("rules:", "plugins:", "filters:", "operators:").contains(section)) {
-          throw error("expected extends:, rules:, plugins:, filters: or operators:");
+        } else if (!SECTIONS.contains(section)) {
+          throw notASection(section);
         }
         return;
       }
       var item = line.strip();
       switch (section) {
         case "rules:" -> rule(item);
-        case "plugins:" -> plugins.add(Path.of(listed(item)));
-        case "filters:" -> filters.add(listed(item));
-        case "operators:" -> operators.add(listed(item));
+        case "plugins:" -> plugins.add(Path.of(placed(item)));
+        case "filters:" -> filters.add(placed(item));
+        case "operators:" -> operators.add(placed(item));
         default -> throw error("a list item needs a section above it");
       }
+    }
+
+    /// A list item, kept with the line it's on.
+    private String placed(String item) {
+      var listed = listed(item);
+      places.put(section + " " + listed, "%s line %d".formatted(shown, number));
+      return listed;
+    }
+
+    /// A line at the left that isn't a section: a list on the section's line, which this reader
+    /// doesn't take, a close name, or neither.
+    private Main.ConfigException notASection(String line) {
+      int colon = line.indexOf(':');
+      var key = colon < 0 ? line : line.substring(0, colon + 1);
+      if (SECTIONS.contains(key)) {
+        return error(
+            "%s takes a list, an item a line under it:\n  %s\n    - %s"
+                .formatted(
+                    key, key, line.substring(colon + 1).strip().replaceAll("^\\[|\\]$", "")));
+      }
+      var close = io.mutastic.api.Nearest.name(key, SECTIONS, io.mutastic.api.Nearest::bare);
+      if (close.isPresent()) {
+        return error("%s isn't a section. There's one called %s.".formatted(key, close.get()));
+      }
+      return error(
+          "%s isn't a section; the sections are %s"
+              .formatted(key, Options.listed(SECTIONS, "and")));
     }
 
     /// `extends: <path>`, from this file's directory, to a file that's there; once.
@@ -313,7 +375,12 @@ record Configuration(
       int colon = listed.indexOf(':');
       var verb = colon < 0 ? "" : listed.substring(0, colon);
       if (!verb.equals("skip") && !verb.equals("mutate")) {
-        throw error("a rule is `- skip: <pattern>` or `- mutate: <pattern>`, then `reason: …`");
+        var close = io.mutastic.api.Nearest.name(verb, List.of("skip", "mutate"));
+        throw error(
+            close
+                .map(rule -> "%s: isn't a rule. There's one called %s:.".formatted(verb, rule))
+                .orElse(
+                    "a rule is `- skip: <pattern>` or `- mutate: <pattern>`, then `reason: …`"));
       }
       requireReason();
       pendingVerb = verb;
@@ -356,8 +423,8 @@ record Configuration(
       return line;
     }
 
-    private Main.UsageException error(String what) {
-      return new Main.UsageException("%s line %d: %s".formatted(shown, number, what));
+    private Main.ConfigException error(String what) {
+      return new Main.ConfigException("%s line %d: %s".formatted(shown, number, what));
     }
   }
 }

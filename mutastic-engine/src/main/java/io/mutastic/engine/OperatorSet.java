@@ -1,6 +1,7 @@
 package io.mutastic.engine;
 
 import io.mutastic.api.BuiltIn;
+import io.mutastic.api.Nearest;
 import io.mutastic.api.Operator;
 import io.mutastic.api.Operator.Tier;
 import io.mutastic.api.Policy;
@@ -39,9 +40,41 @@ public final class OperatorSet {
     return List.copyOf(all);
   }
 
+  /// A word in a choice of operators that names no set, operator or namespace.
+  public static final class Unknown extends IllegalArgumentException {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    private final String name;
+    private final transient List<String> known;
+
+    Unknown(String name, List<String> known) {
+      super(said(name, known));
+      this.name = name;
+      this.known = known;
+    }
+
+    /// The close one, else every one there is.
+    private static String said(String name, List<String> known) {
+      var unknown = "no operator or set is called " + name;
+      return Nearest.name(name, known)
+          .map(close -> "%s. There's one called %s.".formatted(unknown, close))
+          .orElseGet(() -> "%s; there are %s".formatted(unknown, String.join(", ", known)));
+    }
+
+    /// The word, without a `-` in front.
+    public String name() {
+      return name;
+    }
+
+    /// The set, operator or namespace close to it, if there's one.
+    public java.util.Optional<String> closest() {
+      return Nearest.name(name, known);
+    }
+  }
+
   /// The operators the policy chooses.
   ///
-  /// @throws IllegalArgumentException for a word that names nothing, saying what there is
+  /// @throws Unknown for a word that names nothing, saying what there is
   public static List<Operator> active(Policy policy) {
     var all = available(added(policy));
     var words = policy.operators().isEmpty() ? List.of("defaults") : policy.operators();
@@ -54,9 +87,7 @@ public final class OperatorSet {
       var name = without ? word.substring(1) : word;
       var named = named(name, all);
       if (named.isEmpty()) {
-        throw new IllegalArgumentException(
-            "no operator or set is called %s; there are %s"
-                .formatted(name, String.join(", ", known(all))));
+        throw new Unknown(name, List.copyOf(known(all)));
       }
       if (without) {
         named.forEach(chosen::remove);

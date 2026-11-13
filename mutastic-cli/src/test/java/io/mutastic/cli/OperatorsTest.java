@@ -142,13 +142,20 @@ class OperatorsTest {
   void anOperatorNothingHasIsAUsageErrorThatSaysWhatThereIs() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("operators"));
 
-    var run = Samples.mutastic("run", project.toString(), "--operators=streams");
+    var run = Samples.mutastic("run", project.toString(), "--operators=everything");
+    var close = Samples.mutastic("run", project.toString(), "--operators=defaults,-streams");
 
     assertThat(run.exit()).isEqualTo(Main.USAGE);
     assertThat(run.err())
         .contains(
-            "--operators: no operator or set is called streams; there are defaults, stronger,"
+            "--operators: no operator or set is called everything; there are defaults, stronger,"
                 + " extended, all,")
         .contains("stream/remove-stage");
+    assertThat(close.err())
+        .contains(
+            "--operators: no operator or set is called streams. There's one called stream.\n"
+                + "  mutastic run "
+                + project
+                + " --operators=defaults,-stream\n");
   }
 }

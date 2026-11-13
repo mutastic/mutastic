@@ -51,7 +51,7 @@ final class Git {
             directory.resolve(real), index, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         var scratch = Map.of("GIT_INDEX_FILE", index.toString());
         if (run(List.of("add", "--all"), scratch).isEmpty()) {
-          throw new Main.UsageException("git couldn't read the working tree");
+          throw new Main.ConfigException("git couldn't read the working tree");
         }
         return run(List.of("write-tree"), scratch).orElse("").strip();
       } finally {
@@ -162,7 +162,7 @@ final class Git {
         return candidate;
       }
     }
-    throw new Main.UsageException(
+    throw new Main.ConfigException(
         "--since without a commit means the default branch, and this repository has no origin/HEAD,"
             + " main or master: name one, as --since=develop");
   }
@@ -173,7 +173,7 @@ final class Git {
 
   private String output(List<String> args, String failure) {
     return run(args)
-        .orElseThrow(() -> new Main.UsageException(failure + " (in " + directory + ")"));
+        .orElseThrow(() -> new Main.ConfigException(failure + " (in " + directory + ")"));
   }
 
   /// What git printed, or none if it failed (or isn't there).

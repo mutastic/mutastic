@@ -72,6 +72,21 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   Gradle or Maven build, with commands to fill in. Now it says which build it's inside and ends in
   the command that tests it: `mutastic run ..`, or `mutastic run ../.. :app` for a Maven module,
   which is tested from the top of its build.
+- **A close name is said, with the command corrected.** A mistyped command, option, value,
+  `mutastic.` property, `mutastic.yaml` section or rule, rules-file key, operator, filter or mutant
+  id now gets the one name close to it, as a statement, never run in its place:
+  `run has no option --formt. There's one called --format.`, then the command line as typed with
+  only that word changed, `mutastic run --format=agent`, its value after an `=`. Close means the
+  same but for case, else within a third of the name's length in edits, two letters swapped
+  counting as one; an id must be one slip away.
+- **A usage error prints one line of usage,** the command's own, `usage: mutastic run [DIR]
+  [:MODULE] [OPTIONS]`, not every command's. A mistake in `mutastic.yaml`, a rules file,
+  `.mutastic/ignores.yaml`, an environment variable or the git repository prints none: it isn't
+  the command line's.
+- **Config errors name the line,** for an operator, filter or plugin in `mutastic.yaml` and an entry
+  in `.mutastic/ignores.yaml`, and list what's valid when nothing is close. `operators: [stronger]`,
+  which mutastic doesn't read, is shown written an item a line, rather than as an unknown section.
+- **`--report`'s error lists `sarif`,** which it has taken since 1.0.0.
 
 ## 1.1.0 (12 Nov 2026)
 

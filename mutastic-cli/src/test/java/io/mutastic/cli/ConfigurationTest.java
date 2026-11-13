@@ -54,8 +54,49 @@ class ConfigurationTest {
 
     write("rule:\n  - skip: com.acme.**\n");
     assertThatThrownBy(() -> Configuration.read(project))
+        .hasMessage("mutastic.yaml line 1: rule: isn't a section. There's one called rules:.");
+
+    write("garbage\n");
+    assertThatThrownBy(() -> Configuration.read(project))
         .hasMessage(
-            "mutastic.yaml line 1: expected extends:, rules:, plugins:, filters: or operators:");
+            "mutastic.yaml line 1: garbage isn't a section; the sections are extends:, rules:,"
+                + " plugins:, filters: and operators:");
+  }
+
+  /// A list on its section's line is read by YAML but not by mutastic, which says how to write it.
+  @Test
+  void aListOnItsSectionsLineIsShownAsOneItemALine() throws Exception {
+    write("operators: [stronger]\n");
+
+    assertThatThrownBy(() -> Configuration.read(project))
+        .hasMessage(
+            "mutastic.yaml line 1: operators: takes a list, an item a line under it:%n"
+                + "  operators:%n"
+                + "    - stronger",
+            "");
+  }
+
+  /// A rule with a close verb, a filter no plugin has and a plugin that isn't there are each named
+  /// with their line.
+  @Test
+  void eachItemsErrorNamesItsLine() throws Exception {
+    write("rules:\n  - skp: com.acme.**\n    reason: generated\n");
+    assertThatThrownBy(() -> Configuration.read(project))
+        .hasMessage("mutastic.yaml line 2: skp: isn't a rule. There's one called skip:.");
+
+    write("# filters\nfilters:\n  - acme:no-metrics\n");
+    var filters = Configuration.read(project);
+    assertThatThrownBy(() -> filters.policy(project))
+        .isInstanceOf(Main.ConfigException.class)
+        .hasMessage(
+            "mutastic.yaml line 3: no plugin has the filter acme:no-metrics; the plugins have"
+                + " none");
+
+    write("plugins:\n  - build/libs/acme.jar\n");
+    var plugins = Configuration.read(project);
+    assertThatThrownBy(() -> plugins.policy(project))
+        .hasMessage("mutastic.yaml line 2: there's no plugin build/libs/acme.jar, from " + project);
+    assertThat(plugins.place("operators:", "stronger")).isEqualTo(Configuration.FILE);
   }
 
   /// The published schema (`/schemas/mutastic-yaml/v1.json`) takes what mutastic reads, and refuses
@@ -90,7 +131,7 @@ class ConfigurationTest {
       write(refused);
       assertThatThrownBy(() -> Configuration.read(project))
           .as(refused)
-          .isInstanceOf(Main.UsageException.class);
+          .isInstanceOf(Main.ConfigException.class);
       assertThat(Schemas.yamlProblems("mutastic-yaml/v1.json", refused)).as(refused).isNotEmpty();
     }
   }

@@ -2,7 +2,6 @@ package io.mutastic.api;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -88,70 +87,8 @@ public final class Modules {
     return words.toString();
   }
 
-  /// The one module whose name is closest to `module`'s: the same but for case, else within
-  /// `max(length, 3) / 3` edits, a transposition counting as one. None when two are as close.
+  /// The one module whose name is closest to `module`'s, by [Nearest]'s rule.
   static Optional<String> closest(String module, List<String> modules) {
-    var wanted = module.substring(module.startsWith(":") ? 1 : 0);
-    var sameButCase =
-        modules.stream().filter(found -> name(found).equalsIgnoreCase(wanted)).toList();
-    if (!sameButCase.isEmpty()) {
-      return sameButCase.size() == 1 ? Optional.of(sameButCase.getFirst()) : Optional.empty();
-    }
-    int most = Math.max(wanted.length(), 3) / 3;
-    var best = modules.stream().mapToInt(found -> distance(wanted, name(found))).min();
-    if (best.isEmpty() || best.getAsInt() > most) {
-      return Optional.empty();
-    }
-    var nearest =
-        modules.stream().filter(found -> distance(wanted, name(found)) == best.getAsInt()).toList();
-    return nearest.size() == 1 ? Optional.of(nearest.getFirst()) : Optional.empty();
-  }
-
-  private static String name(String module) {
-    return module.substring(module.startsWith(":") ? 1 : 0);
-  }
-
-  /// The edits from `from` to `to`: a character inserted, deleted, changed, or two next to each
-  /// other swapped (optimal string alignment), compared without case.
-  static int distance(String from, String to) {
-    return new Edits(from.toLowerCase(Locale.ROOT), to.toLowerCase(Locale.ROOT)).all();
-  }
-
-  /// The fewest edits from each start of one name to each start of another, filled in order.
-  private static final class Edits {
-    private final String from;
-    private final String to;
-    private final int[][] fewest;
-
-    Edits(String from, String to) {
-      this.from = from;
-      this.to = to;
-      this.fewest = new int[from.length() + 1][to.length() + 1];
-    }
-
-    /// The edits from all of `from` to all of `to`.
-    int all() {
-      for (int i = 0; i <= from.length(); i++) {
-        for (int j = 0; j <= to.length(); j++) {
-          fewest[i][j] = i == 0 || j == 0 ? i + j : fewest(i, j);
-        }
-      }
-      return fewest[from.length()][to.length()];
-    }
-
-    /// The fewest edits to `from`'s first `i` characters to make `to`'s first `j`, from the ones
-    /// before.
-    private int fewest(int i, int j) {
-      int changed = from.charAt(i - 1) == to.charAt(j - 1) ? 0 : 1;
-      int least =
-          Math.min(
-              Math.min(fewest[i - 1][j] + 1, fewest[i][j - 1] + 1), fewest[i - 1][j - 1] + changed);
-      boolean swapped =
-          i > 1
-              && j > 1
-              && from.charAt(i - 1) == to.charAt(j - 2)
-              && from.charAt(i - 2) == to.charAt(j - 1);
-      return swapped ? Math.min(least, fewest[i - 2][j - 2] + 1) : least;
-    }
+    return Nearest.name(module, modules, Nearest::bare);
   }
 }

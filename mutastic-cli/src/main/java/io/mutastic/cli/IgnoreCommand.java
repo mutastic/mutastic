@@ -67,9 +67,7 @@ final class IgnoreCommand {
             .filter(entry -> entry.ignore().id().equals(id))
             .findFirst();
     if (proposal.isEmpty()) {
-      out.printf(
-          "mutastic: %s isn't proposed in %s: nothing to accept\n", id, where.shownProposals());
-      return Main.FAILED;
+      return notProposed(id, where, out);
     }
     var entries = without(id, where);
     entries.add(proposal.get());
@@ -83,6 +81,27 @@ final class IgnoreCommand {
         where.shownFile(),
         where.command(List.of("--remove", id)));
     return Main.PASSED;
+  }
+
+  /// `id` isn't proposed: with the proposal a slip away from it, if there's one.
+  private static int notProposed(String id, Where where, PrintStream out) {
+    out.printf(
+        "mutastic: %s isn't proposed in %s: nothing to accept%s\n",
+        id,
+        where.shownProposals(),
+        close(id, Ignores.proposed(where.directory()), "--accept", where));
+    return Main.FAILED;
+  }
+
+  /// The one id in `entries` a slip away from `id`, said with its command: never acted on.
+  private static String close(String id, List<Ignores.Entry> entries, String action, Where where) {
+    var ids = entries.stream().map(entry -> entry.ignore().id()).toList();
+    return io.mutastic.api.Nearest.id(id, ids)
+        .map(
+            close ->
+                ". There's one called %s:\n  %s"
+                    .formatted(close, where.command(List.of(action, close))))
+        .orElse("");
   }
 
   private static List<Ignores.Entry> withoutProposal(String id, Where where) {
@@ -125,7 +144,9 @@ final class IgnoreCommand {
       return Main.PASSED;
     }
     if (removed.isEmpty()) {
-      out.printf("mutastic: %s isn't ignored in %s: nothing to remove\n", id, where.shownFile());
+      out.printf(
+          "mutastic: %s isn't ignored in %s: nothing to remove%s\n",
+          id, where.shownFile(), close(id, Ignores.read(where.directory()), "--remove", where));
       return Main.PASSED;
     }
     Ignores.write(where.directory(), without(id, where));

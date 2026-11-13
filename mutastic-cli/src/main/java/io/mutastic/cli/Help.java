@@ -160,14 +160,15 @@ final class Help {
     return String.join("\n", out) + "\n";
   }
 
-  /// After a usage error: each command's usage, and where to read more.
-  static String usage() {
-    var out = new ArrayList<String>();
-    for (Main.Subcommand command : Main.Subcommand.values()) {
-      out.add((out.isEmpty() ? "usage: " : "       ") + "mutastic " + command.synopsis);
-    }
-    out.add("mutastic --help lists every option.");
-    return String.join("\n", out) + "\n";
+  /// After a usage error: one line, the usage of the command typed and where to read more; the
+  /// message above it says what's wrong.
+  static String usage(List<String> args) {
+    return Main.Subcommand.at(args)
+        .map(
+            command ->
+                "usage: mutastic %s  (mutastic %s --help says more)\n"
+                    .formatted(command.synopsis, command.word()))
+        .orElse("usage: mutastic COMMAND [DIR] [:MODULE] [OPTIONS]  (mutastic --help says more)\n");
   }
 
   /// ` --threshold=N The score…`, wrapped under its description, with the values it takes and the

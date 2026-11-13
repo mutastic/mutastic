@@ -125,20 +125,10 @@ public final class Main {
     try {
       var command = Command.parse(args);
       return nothingToGate(command) ? PASSED : run(command, out, err, terminal);
-    } catch (UsageException e) {
-      err.print("mutastic: " + e.getMessage() + "\n");
-      err.print(Help.usage());
-      return USAGE;
-    } catch (BuildTool.SetupFailed | Engine.CantRun | Shares.Refused e) {
-      err.print("mutastic: " + e.getMessage() + "\n");
-      CodexSandbox.hint(e, terminal.env()).ifPresent(hint -> err.print(hint + "\n"));
-      return USAGE;
-    } catch (Engine.BaselineFailed e) {
-      err.print("mutastic: " + e.getMessage() + "\n");
-      return TESTS_FAIL;
     } catch (RuntimeException e) {
-      err.print("mutastic: internal error: " + e + "\n");
-      return INTERNAL;
+      var failure = Failure.of(e, List.of(args), terminal.env());
+      err.print(failure.said());
+      return failure.exit();
     }
   }
 
@@ -1157,13 +1147,13 @@ public final class Main {
       Command command, PrintStream out, PrintStream err, Terminal terminal) {
     var format = command.format().orElse(terminal.defaultFormat());
     if (!FORMATS.contains(format)) {
-      throw new UsageException(
+      throw new ConfigException(
           "unknown format %s in MUTASTIC_FORMAT (one of %s)"
               .formatted(format, String.join(", ", FORMATS)));
     }
     var vocabulary = command.vocabulary().orElse(terminal.defaultVocabulary());
     if (!VOCABULARIES.contains(vocabulary)) {
-      throw new UsageException(
+      throw new ConfigException(
           "unknown vocabulary %s in MUTASTIC_VOCABULARY (one of plain, classic)"
               .formatted(vocabulary));
     }
@@ -1189,7 +1179,7 @@ public final class Main {
       case "rounded" -> Style.Labels.ROUNDED;
       case "off" -> Style.Labels.OFF;
       default ->
-          throw new UsageException(
+          throw new ConfigException(
               "unknown labels %s in MUTASTIC_PILLS (one of square, rounded, off)"
                   .formatted(chosen));
     };
@@ -1324,12 +1314,29 @@ public final class Main {
     policy = policy.withOperators(chosen, policy.mutators());
     try {
       OperatorSet.active(policy);
-    } catch (IllegalArgumentException e) {
-      var source =
-          command.operators().isEmpty() ? "operators: in " + Configuration.FILE : "--operators";
-      throw new UsageException(source + ": " + e.getMessage());
+    } catch (OperatorSet.Unknown e) {
+      throw unknownOperator(e, command, configuration);
     }
     return policy;
+  }
+
+  /// An operator nothing has: in `mutastic.yaml`, at its line; else in `--operators`, with the
+  /// command corrected when one is close.
+  private static RuntimeException unknownOperator(
+      OperatorSet.Unknown unknown, Command command, Configuration configuration) {
+    if (command.operators().isEmpty()) {
+      var place = configuration.place("operators:", unknown.name());
+      return new ConfigException(
+          "%s: %s"
+              .formatted(
+                  place.equals(Configuration.FILE)
+                      ? configuration.place("operators:", "-" + unknown.name())
+                      : place,
+                  unknown.getMessage()));
+    }
+    return new UsageException(
+        "--operators: " + unknown.getMessage(),
+        unknown.closest().map(close -> Correction.of(unknown.name(), close)).orElse(null));
   }
 
   /// What `verify` says of each of its mutants, and whether every one passed.
@@ -1826,10 +1833,34 @@ public final class Main {
     }
   }
 
+  /// The command line asks for something mutastic can't do: said with the command's usage, or with
+  /// the command corrected when a close name says what was meant.
   static final class UsageException extends RuntimeException {
     @java.io.Serial private static final long serialVersionUID = 1L;
 
+    private final transient @Nullable Correction correction;
+
     UsageException(String message) {
+      this(message, null);
+    }
+
+    UsageException(String message, @Nullable Correction correction) {
+      super(message);
+      this.correction = correction;
+    }
+
+    Optional<Correction> correction() {
+      return Optional.ofNullable(correction);
+    }
+  }
+
+  /// A file mutastic reads (`mutastic.yaml`, a rules file, `.mutastic/ignores.yaml`), an
+  /// environment variable or the git repository says something mutastic can't use. The fault isn't
+  /// in the command line, so no usage follows: the message says where it is, the file and line.
+  static final class ConfigException extends RuntimeException {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    ConfigException(String message) {
       super(message);
     }
   }
@@ -2002,21 +2033,45 @@ public final class Main {
 
     static Command parse(String[] args) {
       var words = List.of(args);
-      if (words.isEmpty() || Subcommand.at(words).isEmpty()) {
-        throw new UsageException(
-            words.isEmpty()
-                ? "no command"
-                : words.getFirst().equals("gate")
-                    ? "gate needs what to do: open, check or close"
-                    : "unknown command " + words.getFirst());
+      if (words.isEmpty()) {
+        throw new UsageException("no command");
+      }
+      if (Subcommand.at(words).isEmpty()) {
+        throw unknownCommand(words);
       }
       var subcommand = Subcommand.at(words).orElseThrow();
-      var parser = new Parser();
+      var parser = new Parser(subcommand);
       var rest = new java.util.ArrayDeque<>(words.subList(Subcommand.length(words), args.length));
       while (!rest.isEmpty()) {
         parser.read(rest.removeFirst(), rest);
       }
       return parser.command(subcommand);
+    }
+
+    /// A first word that isn't a command, or `gate` without what to do: with the one close to it,
+    /// if there's one.
+    private static UsageException unknownCommand(List<String> words) {
+      boolean gate = words.getFirst().equals("gate");
+      if (gate && words.size() == 1) {
+        return new UsageException("gate needs what to do: open, check or close");
+      }
+      var typed = words.get(gate ? 1 : 0);
+      var commands =
+          java.util.Arrays.stream(Subcommand.values())
+              .filter(command -> !gate || command.gate())
+              .map(command -> command.word().split(" ", -1)[gate ? 1 : 0])
+              .distinct()
+              .toList();
+      var owner = gate ? "gate" : "mutastic";
+      var close = io.mutastic.api.Nearest.name(typed, commands);
+      if (close.isPresent()) {
+        return new UsageException(
+            "%s has no command %s. There's one called %s.".formatted(owner, typed, close.get()),
+            Correction.of(typed, close.get()));
+      }
+      return new UsageException(
+          "%s has no command %s; its commands are %s"
+              .formatted(owner, typed, Options.listed(commands, "and")));
     }
 
     /// The arguments after the subcommand, read one at a time.
@@ -2059,6 +2114,15 @@ public final class Main {
       private Optional<Path> setup = Optional.empty();
       private String commands = "mutastic";
 
+      private final Subcommand subcommand;
+
+      /// The arguments the option being read was given in: itself, or itself and its value.
+      private List<String> typed = List.of();
+
+      Parser(Subcommand subcommand) {
+        this.subcommand = subcommand;
+      }
+
       /// Whether the argument before was `--since` without a value, which it may go without: the
       /// word after it is then the directory, so one that isn't a directory was its value.
       private boolean afterBareSince = false;
@@ -2074,11 +2138,57 @@ public final class Main {
           properties.get().forEach(each -> read(each, new java.util.ArrayDeque<>()));
         } else if (arg.startsWith("--")) {
           int equals = arg.indexOf('=');
-          var option = Options.named(equals < 0 ? arg : arg.substring(0, equals));
-          set(option, value(option, arg, equals, rest));
+          var option = option(arg, equals);
+          var rested = rest.size();
+          var value = value(option, arg, equals, rest);
+          typed = rest.size() < rested ? List.of(arg, String.valueOf(value)) : List.of(arg);
+          set(option, value);
         } else {
           positional(arg, sinceBefore);
         }
+      }
+
+      /// `value`, if it's one of the option's choices.
+      private String choice(Option option, String value) {
+        if (!option.choices().contains(value)) {
+          throw notOneOf(option.name(), value, option.choices(), "");
+        }
+        return value;
+      }
+
+      /// `option` doesn't take `value`: with the close one, as the option is written with `=`,
+      /// whether it was given so or after a space; else what it takes.
+      ///
+      /// @param after what follows the value in the argument, `:build/report.json` for a report
+      private UsageException notOneOf(
+          String option, String value, List<String> choices, String after) {
+        var close = io.mutastic.api.Nearest.name(value, choices);
+        if (close.isEmpty()) {
+          return new UsageException(
+              "%s takes %s, not %s".formatted(option, Options.listed(choices, "or"), value));
+        }
+        return new UsageException(
+            "%s has no value %s. There's one called %s.".formatted(option, value, close.get()),
+            new Correction(typed, option + "=" + close.get() + after));
+      }
+
+      /// The option `arg` names, before any `=`.
+      private Option option(String arg, int equals) {
+        var name = equals < 0 ? arg : arg.substring(0, equals);
+        return Options.find(name).orElseThrow(() -> unknownOption(arg, name));
+      }
+
+      /// An option no command has: with the one of this command's that's close to it, if any.
+      private UsageException unknownOption(String arg, String name) {
+        var names = Options.shownFor(subcommand).stream().map(Option::name).toList();
+        var close = io.mutastic.api.Nearest.name(name, names, io.mutastic.api.Nearest::bare);
+        var unknown = "%s has no option %s".formatted(subcommand.word(), name);
+        if (close.isEmpty()) {
+          return new UsageException(unknown);
+        }
+        return new UsageException(
+            "%s. There's one called %s.".formatted(unknown, close.get()),
+            Correction.of(arg, close.get() + arg.substring(name.length())));
       }
 
       /// The value after `=`, or the next argument for an option that always takes one; null for a
@@ -2203,9 +2313,10 @@ public final class Main {
       private void report(String value) {
         int colon = value.indexOf(':');
         var kind = colon < 0 ? value : value.substring(0, colon);
-        if (!kind.equals("none") && !ReportFiles.KINDS.contains(kind)) {
-          throw new UsageException(
-              "unknown report %s (one of json, html, xml, none)".formatted(kind));
+        var kinds = new ArrayList<>(ReportFiles.KINDS);
+        kinds.add("none");
+        if (!kinds.contains(kind)) {
+          throw notOneOf("--report", kind, kinds, value.substring(kind.length()));
         }
         if (reports == null) {
           reports = new ArrayList<>(); // the first --report replaces the defaults
@@ -2244,7 +2355,8 @@ public final class Main {
       /// directory called main.
       private void positional(String arg, boolean sinceBefore) {
         if (arg.startsWith("-") && arg.length() > 1) {
-          throw new UsageException("unknown option " + arg);
+          int equals = arg.indexOf('=');
+          throw unknownOption(arg, equals < 0 ? arg : arg.substring(0, equals));
         }
         if (sinceBefore && !arg.startsWith(":") && !Files.isDirectory(Path.of(arg))) {
           throw new UsageException(
@@ -2489,16 +2601,6 @@ public final class Main {
                 : "%s is from %d to %d, not %d".formatted(option.name(), min, max, number));
       }
       return number;
-    }
-
-    /// `value`, if it's one of the option's choices.
-    private static String choice(Option option, String value) {
-      if (!option.choices().contains(value)) {
-        throw new UsageException(
-            "unknown %s %s (one of %s)"
-                .formatted(option.name().substring(2), value, String.join(", ", option.choices())));
-      }
-      return value;
     }
   }
 }

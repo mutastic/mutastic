@@ -12,6 +12,7 @@ import io.mutastic.api.Listener;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantCost;
 import io.mutastic.api.MutantResult;
+import io.mutastic.api.Nearest;
 import io.mutastic.api.Policy;
 import io.mutastic.api.Project;
 import io.mutastic.api.Report;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.jspecify.annotations.Nullable;
 
 /// One mutation-testing run of one project: find every mutant, run the tests once with coverage,
 /// then run each mutant against only the tests that reach it, fastest first, on several worker JVMs
@@ -74,11 +76,34 @@ public final class Engine {
   public static final class UnknownMutant extends CantRun {
     @java.io.Serial private static final long serialVersionUID = 1L;
 
-    UnknownMutant(String id, String projectName) {
+    private final String id;
+    private final @Nullable String closest;
+
+    UnknownMutant(String id, String projectName, Optional<String> closest) {
       super(
-          ("no mutant %s in %s. A mutant's id belongs to the project its run was on: "
-                  + "run the command as that run printed it, with the project's directory and module")
-              .formatted(id, projectName));
+          closest
+              .map(
+                  close ->
+                      "no mutant %s in %s. There's one called %s."
+                          .formatted(id, projectName, close))
+              .orElseGet(
+                  () ->
+                      ("no mutant %s in %s. A mutant's id belongs to the project its run was on: "
+                              + "run the command as that run printed it, with the project's"
+                              + " directory and module")
+                          .formatted(id, projectName)));
+      this.id = id;
+      this.closest = closest.orElse(null);
+    }
+
+    /// The id as it was asked for.
+    public String id() {
+      return id;
+    }
+
+    /// The project's one id a slip away from it, if there's one: said, never run in its place.
+    public Optional<String> closest() {
+      return Optional.ofNullable(closest);
     }
   }
 
@@ -583,20 +608,19 @@ public final class Engine {
   /// Every mutant in the classes, or only those with the ids `only`, which must all be there.
   private static List<Mutant> mutantsIn(
       Map<String, ClassModel> models, Mutations mutations, List<String> only, String projectName) {
-    var mutants =
-        models.values().stream()
-            .flatMap(model -> mutations.find(model).stream())
-            .filter(mutant -> only.isEmpty() || only.contains(mutant.id()))
-            .toList();
-    var found = mutants.stream().map(Mutant::id).collect(Collectors.toSet());
+    var every = models.values().stream().flatMap(model -> mutations.find(model).stream()).toList();
+    if (only.isEmpty()) {
+      return every;
+    }
+    var found = every.stream().map(Mutant::id).collect(Collectors.toSet());
     only.stream()
         .filter(id -> !found.contains(id))
         .findFirst()
         .ifPresent(
             id -> {
-              throw new UnknownMutant(id, projectName);
+              throw new UnknownMutant(id, projectName, Nearest.id(id, found));
             });
-    return mutants;
+    return every.stream().filter(mutant -> only.contains(mutant.id())).toList();
   }
 
   private static Map<String, byte[]> instrumentMutated(

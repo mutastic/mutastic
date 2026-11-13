@@ -255,7 +255,10 @@ class CommandTest {
     assertThatThrownBy(() -> parse("run", "-Dmutastic.confirmCatches=maybe"))
         .hasMessage("mutastic.confirmCatches is true or false, not maybe");
     assertThatThrownBy(() -> parse("run", "-Dmutastic.fast=true"))
-        .hasMessage("unknown property mutastic.fast");
+        .hasMessage("there's no property mutastic.fast.");
+    assertThatThrownBy(() -> parse("run", "-Dmutastic.treshold=70"))
+        .hasMessage(
+            "there's no property mutastic.treshold. There's one called mutastic.threshold.");
   }
 
   private static Main.Command parse(String... args) {
@@ -265,9 +268,9 @@ class CommandTest {
   @Test
   void rejectsWhatItDoesntKnow() {
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--fast"}))
-        .hasMessage("unknown option --fast");
+        .hasMessage("run has no option --fast");
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--format=xml"}))
-        .hasMessage("unknown format xml (one of full, brief, concise, grouped, agent, jsonl)");
+        .hasMessage("--format takes full, brief, concise, grouped, agent or jsonl, not xml");
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"verify"}))
         .hasMessageStartingWith("verify needs a mutant id first")
         .hasMessageEndingWith("mutastic verify m855c8e3c <directory>");
@@ -321,7 +324,9 @@ class CommandTest {
             new Main.RequestedReport("json", Optional.of(Path.of("out/m.json"))));
     assertThat(Main.Command.parse(new String[] {"run", "--report=none"}).reports()).isEmpty();
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--report=pdf"}))
-        .hasMessage("unknown report pdf (one of json, html, xml, none)");
+        .hasMessage("--report takes json, html, xml, sarif or none, not pdf");
+    assertThat(Main.Command.parse(new String[] {"run", "--report=sarif"}).reports())
+        .containsExactly(new Main.RequestedReport("sarif", Optional.empty()));
   }
 
   @Test
