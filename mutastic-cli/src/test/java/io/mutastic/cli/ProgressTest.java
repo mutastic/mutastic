@@ -7,6 +7,7 @@ import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuiltIn;
 import io.mutastic.api.CoveragePass;
 import io.mutastic.api.Mutant;
+import io.mutastic.api.MutantCost;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Status;
 import java.io.ByteArrayOutputStream;
@@ -32,7 +33,7 @@ class ProgressTest {
   @TempDir Path work;
 
   private Progress progress(Progress.Mode mode) {
-    var settings = new Progress.Settings(false, Duration.ofSeconds(30), now::get, false);
+    var settings = new Progress.Settings(false, Duration.ofSeconds(30), now::get, false, 120);
     return new Progress(new PrintStream(bytes, true, StandardCharsets.UTF_8), mode, settings);
   }
 
@@ -149,10 +150,10 @@ class ProgressTest {
     assertThat(err())
         .isEqualTo(
             "mutastic 1.1.0 · reading the Gradle build…\n"
-                + "⠋ reading   the Gradle build · 0s"
-                + "\r\u001b[2K⠙ reading   the Gradle build · 1s"
+                + "\u001b[?7l⠋ reading   the Gradle build · 0s\u001b[?7h"
+                + "\r\u001b[2K\u001b[?7l⠙ reading   the Gradle build · 1s\u001b[?7h"
                 + "\r\u001b[2Ka note\n"
-                + "⠹ reading   the Gradle build · 1s"
+                + "\u001b[?7l⠹ reading   the Gradle build · 1s\u001b[?7h"
                 + "\r\u001b[2K");
   }
 
@@ -167,7 +168,7 @@ class ProgressTest {
 
     assertThat(err())
         .endsWith(
-            "⠋ building  mvn test-compile · 0s\n   └ [INFO] Building pricing"
+            "\u001b[?7l⠋ building  mvn test-compile · 0s\n   └ [INFO] Building pricing\u001b[?7h"
                 + "\r\u001b[2K\u001b[1A\u001b[2K");
   }
 
@@ -180,6 +181,106 @@ class ProgressTest {
     progress.finished();
 
     assertThat(err()).isEmpty();
+  }
+
+  @Test
+  void theMutantsAreWeightedByWhatEachShouldTakeAndSayWhatsLeft() {
+    var progress = progress(Progress.Mode.COUNTER);
+    progress.started("1.1.0", "Gradle");
+    progress.mutantsFound(4);
+    progress.coverageFinished(new CoveragePass(17, 3, Duration.ofMillis(5), 4, List.of()));
+    progress.mutantsPlanned(2, Duration.ofSeconds(10));
+    var cheap = new MutantCost(Duration.ofSeconds(1), Duration.ofSeconds(3), 1);
+    for (var finished :
+        List.of(
+            result("m1", Status.CAUGHT),
+            result("m2", Status.CAUGHT),
+            result("m3", Status.MISSED))) {
+      progress.mutantStarted(0, finished.mutant(), cheap);
+      progress.mutantFinished(finished);
+      progress.workerIdle(0);
+    }
+    progress.mutantStarted(
+        1,
+        result("m4", Status.CAUGHT).mutant(),
+        new MutantCost(Duration.ofSeconds(7), Duration.ofSeconds(21), 2));
+    after(Duration.ofSeconds(30));
+    progress.tick();
+
+    assertThat(err())
+        .endsWith(
+            "mutants   [3/4] 30% · ✓ 2 caught · ✗ 1 missed · ○ 0 not covered · ⏱ 0 timed out"
+                + " · 30s · ~1m10s left\n");
+  }
+
+  @Test
+  void onATerminalEachWorkerHasALineAndAMutantPastItsTimeIsSlow() {
+    var progress = progress(Progress.Mode.BAR);
+    progress.nameMutants(Mutant::methodName);
+    progress.started("1.1.0", "Gradle");
+    progress.mutantsFound(2);
+    progress.coverageFinished(new CoveragePass(17, 3, Duration.ofMillis(5), 2, List.of()));
+    progress.mutantsPlanned(2, Duration.ofSeconds(2));
+    progress.mutantStarted(
+        1,
+        result("discount", Status.CAUGHT).mutant(),
+        new MutantCost(Duration.ofSeconds(1), Duration.ofSeconds(3), 4));
+    after(Duration.ofSeconds(4));
+    progress.tick();
+
+    assertThat(err()).contains("\n   1 idle\n   2 [00:00:04] SLOW  discount\u001b[?7h");
+
+    progress.ask();
+    progress.tick();
+
+    assertThat(err())
+        .contains(
+            "running   1 worker at 4s\n"
+                + "   1 idle\n"
+                + "   2 "
+                + result("discount", Status.CAUGHT).mutant().id()
+                + "  discount  [00:00:04] SLOW (expected 1s)\n"
+                + "               covered by 4 tests\n");
+  }
+
+  @Test
+  void theCoveragePassShowsItsTestAndCallsItSlowAfterAMinute() {
+    var progress = progress(Progress.Mode.BAR);
+    progress.started("1.1.0", "Gradle");
+    progress.mutantsFound(2);
+    progress.coverageProgress(0, 3);
+    progress.testStarted("com.example.ATest#a");
+    after(Duration.ofSeconds(61));
+    progress.tick();
+
+    assertThat(err()).contains("\n   1 [00:01:01] SLOW  com.example.ATest#a\u001b[?7h");
+  }
+
+  @Test
+  void offATerminalWhatsRunningIsSaidWhenAsked() {
+    var progress = progress(Progress.Mode.COUNTER);
+    progress.started("1.1.0", "Gradle");
+    progress.mutantsFound(2);
+    progress.coverageProgress(1, 3);
+    progress.testStarted("com.example.ATest#b");
+    after(Duration.ofSeconds(2));
+    progress.ask();
+    progress.tick();
+
+    assertThat(err())
+        .endsWith("running   1 test at 2s · 1 of 3 done\n   1 com.example.ATest#b  [00:00:02]\n");
+  }
+
+  @Test
+  void theWidthComesFromTheLauncherOrTheShell() {
+    assertThat(Progress.Settings.of(Map.of(), false).columns()).isEqualTo(100);
+    assertThat(Progress.Settings.of(Map.of("COLUMNS", "80"), false).columns()).isEqualTo(80);
+    assertThat(
+            Progress.Settings.of(Map.of("MUTASTIC_COLUMNS", "160", "COLUMNS", "80"), false)
+                .columns())
+        .isEqualTo(160);
+    assertThat(Progress.Settings.of(Map.of("MUTASTIC_COLUMNS", "wide"), false).columns())
+        .isEqualTo(100);
   }
 
   @Test

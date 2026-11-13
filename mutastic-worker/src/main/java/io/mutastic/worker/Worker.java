@@ -350,7 +350,8 @@ public final class Worker {
     failures.clear();
     var scopes = new TestScopes(Worker::id, framework == null);
     var planned = new PlannedTests(Worker::id, count -> protocol.println("TESTS\t" + count));
-    var failing = execute(tests, production(), planned, timingTests(), scopes);
+    var starting = new TestsStarting(Worker::id, test -> protocol.println("STARTED\t" + test));
+    var failing = execute(tests, production(), planned, starting, timingTests(), scopes);
     Probes.flush();
     scopes.credit();
     reportLines();

@@ -180,7 +180,9 @@ public final class Main {
     var progress = output.progress();
     progress.started(version(), tool.name());
     var prepared = prepare(command, tool, progress);
-    showFileLines(command, output, humanText(command, output, prepared.sources()), prepared);
+    var human = humanText(command, output, prepared.sources());
+    showFileLines(command, output, human, prepared);
+    progress.nameMutants(human::running);
     var engine = new Engine(workerJar(), prepared.work().resolve("worker.log"));
     var options = options(command, terminal, prepared);
     var passes = new Passes(engine, options, progress, tool, shares);

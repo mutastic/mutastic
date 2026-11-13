@@ -99,8 +99,7 @@ final class TestWorker implements AutoCloseable {
       var answer = coverageAnswer();
       var parts = answer.split("\t", -1);
       switch (parts[0]) {
-        case "TESTS" -> counted.planned(Integer.parseInt(parts[1]));
-        case "TEST" -> counted.ran(parts[1], Duration.ofNanos(Long.parseLong(parts[2])));
+        case "TESTS", "STARTED", "TEST" -> counted.heard(parts);
         case "LINE" -> coverage.recordLines(parts[1], commaSeparated(parts[2], Integer::valueOf));
         case "LOADING" -> coverage.recordOnlyAtLoad(commaSeparated(parts[1], Integer::valueOf));
         case "VALUE" ->
@@ -116,8 +115,8 @@ final class TestWorker implements AutoCloseable {
     }
   }
 
-  /// The coverage pass's tests as they run, recorded, and counted to a listener: a test the plan
-  /// didn't list (one made as the tests run) adds to those planned.
+  /// The coverage pass's tests as they run, recorded, and counted to a listener as each starts and
+  /// finishes: a test the plan didn't list (one made as the tests run) adds to those planned.
   private static final class TestsCounted {
     private final Coverage coverage;
     private final io.mutastic.api.Listener listener;
@@ -127,6 +126,15 @@ final class TestWorker implements AutoCloseable {
     TestsCounted(Coverage coverage, io.mutastic.api.Listener listener) {
       this.coverage = coverage;
       this.listener = listener;
+    }
+
+    /// `TESTS` and how many, `STARTED` and a test, or `TEST`, a test and its nanoseconds.
+    void heard(String[] parts) {
+      switch (parts[0]) {
+        case "TESTS" -> planned(Integer.parseInt(parts[1]));
+        case "STARTED" -> listener.testStarted(parts[1]);
+        default -> ran(parts[1], Duration.ofNanos(Long.parseLong(parts[2])));
+      }
     }
 
     void planned(int count) {
