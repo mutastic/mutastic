@@ -1,0 +1,18 @@
+---
+// On a shared page still waiting for its Rust side (AWAITING_RUST in src/edition-pages.mjs), a
+// note for the Rust reader: the page shows the Java edition's steps until the next Rust release.
+// Once the page has its Rust side, it shows nothing.
+import { Aside } from '@astrojs/starlight/components';
+import { awaitsRust } from '../lib/awaiting-rust';
+import EditionOnly from './EditionOnly.astro';
+---
+
+{
+  awaitsRust(Astro.locals) && (
+    <EditionOnly edition="rust">
+      <Aside>
+        <slot />
+      </Aside>
+    </EditionOnly>
+  )
+}
