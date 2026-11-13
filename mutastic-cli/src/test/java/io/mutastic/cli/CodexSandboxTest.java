@@ -40,7 +40,7 @@ class CodexSandboxTest {
     assertThat(run.exit()).isEqualTo(Main.USAGE);
     assertThat(run.err())
         .contains(
-            "Gradle couldn't build",
+            "doesn't build, before any mutant is in it",
             "(Operation not permitted)",
             "mutastic: this ran in Codex's sandbox, which refused the build",
             "prefix_rule(pattern = [\"mutastic\"], decision = \"allow\")");
@@ -52,7 +52,9 @@ class CodexSandboxTest {
 
     var run = Samples.mutastic("run", project.toString());
 
-    assertThat(run.err()).contains("Gradle couldn't build").doesNotContain("Codex");
+    assertThat(run.err())
+        .contains("doesn't build, before any mutant is in it")
+        .doesNotContain("Codex");
   }
 
   @Test
@@ -61,6 +63,8 @@ class CodexSandboxTest {
 
     var run = Samples.mutastic(SANDBOXED, "run", project.toString());
 
-    assertThat(run.err()).contains("Gradle couldn't build").doesNotContain("Codex");
+    assertThat(run.err())
+        .contains("doesn't build, before any mutant is in it")
+        .doesNotContain("Codex");
   }
 }

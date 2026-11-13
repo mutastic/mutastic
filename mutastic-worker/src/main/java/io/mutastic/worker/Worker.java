@@ -96,6 +96,10 @@ public final class Worker {
   /// passed was flaky.
   private final Map<String, String> failures = new java.util.LinkedHashMap<>();
 
+  /// Each failing test's message, its first line: what the assertion said, for a test that fails
+  /// with no mutant in.
+  private final Map<String, String> messages = new java.util.LinkedHashMap<>();
+
   /// The JUnit tags the build's test task runs by: every run here is filtered the same way.
   record Tags(List<String> include, List<String> exclude) {
     static Tags of(String[] args) {
@@ -348,6 +352,7 @@ public final class Worker {
   private void cover(List<String> tests) {
     Probes.reset();
     failures.clear();
+    messages.clear();
     var scopes = new TestScopes(Worker::id, framework == null);
     var planned = new PlannedTests(Worker::id, count -> protocol.println("TESTS\t" + count));
     var starting = new TestsStarting(Worker::id, test -> protocol.println("STARTED\t" + test));
@@ -358,7 +363,10 @@ public final class Worker {
     reportOnlyAtLoad();
     reportValues();
     reportLoaded();
-    failures.forEach((test, chain) -> protocol.println("FAILURE\t" + test + "\t" + chain));
+    failures.forEach(
+        (test, chain) ->
+            protocol.println(
+                "FAILURE\t" + test + "\t" + chain + "\t" + messages.getOrDefault(test, "")));
     protocol.println(
         "DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
   }
@@ -543,6 +551,7 @@ public final class Worker {
           lastPortClash = false;
           result.getThrowable().ifPresent(Worker.this::remember);
           result.getThrowable().ifPresent(thrown -> failures.put(id(test), causes(thrown)));
+          result.getThrowable().ifPresent(thrown -> messages.put(id(test), message(thrown)));
           System.err.println("FAILED\t" + id(test));
           result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
         }
@@ -556,6 +565,18 @@ public final class Worker {
     lastOrigin = origin(thrown);
     lastPortClash = portClash(thrown);
   }
+
+  /// What a failure says, on one line: the first line of its message, else its class's name.
+  static String message(Throwable thrown) {
+    var said = thrown.getMessage() == null ? "" : thrown.getMessage();
+    var first =
+        said.lines().map(String::strip).filter(line -> !line.isEmpty()).findFirst().orElse("");
+    var line = first.isEmpty() ? thrown.getClass().getName() : first;
+    return line.replace('\t', ' ').substring(0, Math.min(line.length(), MESSAGE));
+  }
+
+  /// The most of a failure's message the protocol carries.
+  private static final int MESSAGE = 300;
 
   /// The exception and its causes, outermost first, by class: each once, so a chain that loops back
   /// on itself still ends.

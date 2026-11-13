@@ -56,9 +56,16 @@ mutastic: run has no option --formt. There's one called --format.
 ```
 
 mutastic never runs the close name in place of yours. A mistake in `mutastic.yaml`, a rules file or
-`.mutastic/ignores.yaml` names the file and the line. For a build, mutastic must be run in, or pointed at, a Gradle or Maven build's
-directory, and a module named as the build names it: `:app` for Gradle, a directory as `-pl` takes
-it for Maven.
+`.mutastic/ignores.yaml` names the file and the line.
+
+When the project doesn't build, mutastic quotes the compiler's first errors at your files' lines, or
+what the build tool says went wrong, and ends in the build's command that builds it as mutastic did:
+run it to see the whole output. A file mutastic can't read or write, such as a build directory
+that's read-only, a file where it keeps a directory, or a full disk, is named with the system's
+reason.
+
+For a build, mutastic must be run in, or pointed at, a Gradle or Maven build's directory, and a
+module named as the build names it: `:app` for Gradle, a directory as `-pl` takes it for Maven.
 
 ### A build of modules
 
@@ -122,8 +129,14 @@ On the pricing sample, with one of its tests changed to expect 24 where the code
 <Code code={testsFail} lang="ansi" />
 
 mutastic runs your tests once before it changes anything. They have to pass first, as a mutant is
-only caught when a test that passed fails. Run the build's own tests and fix what fails. A test
-that passes when run again is reported as flaky, and doesn't stop a run.
+only caught when a test that passed fails. The message names the test and what it said, and ends in
+the build's own command that runs it alone (`./gradlew test --tests '…'`, or `mvn test -Dtest='…'`):
+run it, and fix what fails. A test that passes when run again is reported as flaky, and doesn't stop
+a run.
+
+A test that ends the tests' JVM, with `System.exit` or a crash, stops the run the same way, and the
+message names the test that was running. So does a coverage pass that runs past its 10 minutes:
+a test is waiting for something that never comes.
 
 When the message names a class "as a whole", its tests never got to fail: what the class runs
 around them did, in a `@BeforeAll`, `@AfterAll`, `@BeforeClass`, a class rule or a static
@@ -163,9 +176,9 @@ anyway: they're known to be false.
 
 ## 4: mutastic itself went wrong
 
-That's a bug in mutastic. Please [open an issue](https://github.com/mutastic/mutastic/issues) with
-the command, the message, and the worker log from the module's work directory
-(`build/mutastic/worker.log` or `target/mutastic/worker.log`).
+That's a bug in mutastic: what your tests, your build or the disk do exits with 2 or 3. Please [open
+an issue](https://github.com/mutastic/mutastic/issues) with the command, the message, and the worker
+log from the module's work directory (`build/mutastic/worker.log` or `target/mutastic/worker.log`).
 
 ## `+` and `x` where `✓` and `✗` should be
 

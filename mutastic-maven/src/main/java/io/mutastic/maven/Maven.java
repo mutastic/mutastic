@@ -70,6 +70,11 @@ public final class Maven implements BuildTool {
   }
 
   @Override
+  public java.util.Optional<String> testCommand(Request request, String test) {
+    return java.util.Optional.of(MavenSetup.testCommand(request, test));
+  }
+
+  @Override
   public java.util.Optional<Building> building(Request request) {
     return java.util.Optional.of(MavenSetup.building(request));
   }

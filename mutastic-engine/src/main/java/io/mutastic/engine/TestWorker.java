@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
@@ -38,7 +39,7 @@ import org.jspecify.annotations.Nullable;
 /// what its tests started goes with it.
 final class TestWorker implements AutoCloseable {
   private static final Duration STARTUP = Duration.ofSeconds(30);
-  private static final Duration COVERAGE_LIMIT = Duration.ofMinutes(10);
+  static final Duration COVERAGE_LIMIT = Duration.ofMinutes(10);
 
   /// Put on a worker's answers when its process exits: no answer is coming, so nothing waits for
   /// one. Not a line a worker can write.
@@ -83,7 +84,37 @@ final class TestWorker implements AutoCloseable {
   /// The tests' result with every class in `instrumented` swapped for its instrumented copy.
   ///
   /// @param failures each failing test's exception and its causes, `a.B>c.D`
-  record Baseline(boolean passed, List<String> failing, Map<String, String> failures) {}
+  /// @param messages each failing test's message, its first line: what its assertion said
+  record Baseline(
+      boolean passed,
+      List<String> failing,
+      Map<String, String> failures,
+      Map<String, String> messages) {}
+
+  /// The tests' JVM stopped, or didn't finish, in the coverage pass, with no mutant in: the cause
+  /// is in the tests, not in mutastic.
+  static final class Stopped extends RuntimeException {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    private final boolean exited;
+    private final @Nullable String running;
+
+    Stopped(boolean exited, Optional<String> running) {
+      super(exited ? "the tests' JVM stopped" : "the tests ran past the coverage pass's limit");
+      this.exited = exited;
+      this.running = running.orElse(null);
+    }
+
+    /// Whether the JVM ended, rather than ran on past the limit.
+    boolean exited() {
+      return exited;
+    }
+
+    /// The test that was running when it stopped, if one was.
+    Optional<String> running() {
+      return Optional.ofNullable(running);
+    }
+  }
 
   /// @param listener hears how many tests have run of how many there are, as they run
   Baseline cover(
@@ -93,10 +124,10 @@ final class TestWorker implements AutoCloseable {
       io.mutastic.api.Listener listener) {
     instrumented.forEach(this::stage);
     send("COVER\t" + String.join("\t", testClasses));
-    var failures = new java.util.LinkedHashMap<String, String>();
+    var failed = new Failed();
     var counted = new TestsCounted(coverage, listener);
     while (true) {
-      var answer = coverageAnswer();
+      var answer = coverageAnswer(counted::running);
       var parts = answer.split("\t", -1);
       switch (parts[0]) {
         case "TESTS", "STARTED", "TEST" -> counted.heard(parts);
@@ -105,10 +136,10 @@ final class TestWorker implements AutoCloseable {
         case "VALUE" ->
             coverage.recordValues(
                 parts[1], Integer.parseInt(parts[2]), commaSeparated(parts[3], Long::valueOf));
-        case "FAILURE" -> failures.put(parts[1], parts[2]);
+        case "FAILURE" -> failed.heard(parts);
         case "LOADED" -> toWarm.coverageLoaded(Arrays.asList(parts).subList(1, parts.length));
         case "DONE" -> {
-          return baseline(parts, failures);
+          return failed.baseline(parts);
         }
         default -> throw new IllegalStateException("the worker said: " + answer);
       }
@@ -122,6 +153,7 @@ final class TestWorker implements AutoCloseable {
     private final io.mutastic.api.Listener listener;
     private int planned;
     private int done;
+    private final java.util.Set<String> started = new java.util.LinkedHashSet<>();
 
     TestsCounted(Coverage coverage, io.mutastic.api.Listener listener) {
       this.coverage = coverage;
@@ -132,9 +164,20 @@ final class TestWorker implements AutoCloseable {
     void heard(String[] parts) {
       switch (parts[0]) {
         case "TESTS" -> planned(Integer.parseInt(parts[1]));
-        case "STARTED" -> listener.testStarted(parts[1]);
-        default -> ran(parts[1], Duration.ofNanos(Long.parseLong(parts[2])));
+        case "STARTED" -> {
+          started.add(parts[1]);
+          listener.testStarted(parts[1]);
+        }
+        default -> {
+          started.remove(parts[1]);
+          ran(parts[1], Duration.ofNanos(Long.parseLong(parts[2])));
+        }
       }
+    }
+
+    /// The test started last that hasn't finished, if any.
+    Optional<String> running() {
+      return started.stream().reduce((earlier, later) -> later);
     }
 
     void planned(int count) {
@@ -149,29 +192,37 @@ final class TestWorker implements AutoCloseable {
     }
   }
 
-  /// `DONE PASSED`, or `DONE FAILED` and the tests that failed.
-  private static Baseline baseline(String[] done, Map<String, String> failures) {
-    return new Baseline(
-        done[1].equals("PASSED"),
-        Arrays.asList(done).subList(Math.min(2, done.length), done.length),
-        failures);
+  /// What the coverage pass's failing tests failed with, as the worker says it.
+  private static final class Failed {
+    private final Map<String, String> failures = new java.util.LinkedHashMap<>();
+    private final Map<String, String> messages = new java.util.LinkedHashMap<>();
+
+    /// `FAILURE`, the test, its exception's chain and, from this release's worker, its message.
+    void heard(String[] parts) {
+      failures.put(parts[1], parts[2]);
+      messages.put(parts[1], parts.length > 3 ? parts[3] : "");
+    }
+
+    /// `DONE PASSED`, or `DONE FAILED` and the tests that failed.
+    Baseline baseline(String[] done) {
+      return new Baseline(
+          done[1].equals("PASSED"),
+          Arrays.asList(done).subList(Math.min(2, done.length), done.length),
+          failures,
+          messages);
+    }
   }
 
   /// The worker's next answer in the coverage pass. A pass that outlasts its limit kills the
   /// worker.
-  private String coverageAnswer() {
+  private String coverageAnswer(Supplier<Optional<String>> test) {
     return await(COVERAGE_LIMIT)
         .orElseThrow(
             () -> {
               var current = running;
               boolean stopped = current != null && current.stopped().get();
               kill();
-              return new IllegalStateException(
-                  stopped
-                      ? "the test worker stopped during the coverage pass; its output is in " + log
-                      : "the tests didn't finish within "
-                          + COVERAGE_LIMIT.toMinutes()
-                          + " minutes");
+              return new Stopped(stopped, test.get());
             });
   }
 

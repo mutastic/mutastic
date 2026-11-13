@@ -30,6 +30,8 @@ record Failure(int exit, String said) {
       case Engine.CantRun cantRun -> withHint(headline, cantRun, env);
       case Shares.Refused refused -> withHint(headline, refused, env);
       case Engine.BaselineFailed red -> new Failure(Main.TESTS_FAIL, headline);
+      case java.io.UncheckedIOException disk ->
+          withHint("mutastic: " + Disk.said(disk) + "\n", disk, env);
       default -> new Failure(Main.INTERNAL, "mutastic: internal error: " + failure + "\n");
     };
   }

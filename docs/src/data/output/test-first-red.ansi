@@ -1,1 +1,4 @@
-mutastic: the tests fail without any mutant: com.example.pricing.PricingTest#loyalCustomersGetFiveOff; their output is in samples/pricing/build/mutastic/worker.log
+mutastic: com.example.pricing.PricingTest#loyalCustomersGetFiveOff fails without any mutant, so mutastic can't judge one.
+It failed: expected: <5> but was: <0>
+Its output is in samples/pricing/build/mutastic/worker.log. To run it alone:
+  samples/pricing/gradlew -p samples/pricing test --tests 'com.example.pricing.PricingTest.loyalCustomersGetFiveOff'

@@ -71,7 +71,8 @@ class NothingRunsTest {
 
   /// A test that ends its JVM (`System.exit`, a native crash) takes the worker with it: the run
   /// says so at once. Before, it waited out the coverage pass's 10-minute limit and then called it
-  /// a timeout, so the message alone shows which happened.
+  /// a timeout, so the message alone shows which happened. The cause is a test, not mutastic: it
+  /// names the test, and exits as tests failing with no mutant in do.
   @Test
   void aWorkerThatStopsIsReportedAtOnce() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("pricing"));
@@ -92,8 +93,14 @@ class NothingRunsTest {
 
     var run = Samples.mutastic("run", project.toString(), "--format=brief", "--report=none");
 
-    assertThat(run.exit()).isEqualTo(Main.INTERNAL);
-    assertThat(run.err()).contains("the test worker stopped during the coverage pass");
+    assertThat(run.exit()).isEqualTo(Main.TESTS_FAIL);
+    assertThat(run.err())
+        .contains(
+            "mutastic: the tests' JVM stopped during the coverage pass, with no mutant in, while"
+                + " com.example.pricing.HaltsTest#halts ran.\n"
+                + "A test that calls System.exit, or crashes the JVM, stops it. The end of its"
+                + " output says which:\n  tail -n 40 ")
+        .doesNotContain("internal error");
   }
 
   private static void delete(Path directory) throws IOException {

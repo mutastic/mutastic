@@ -149,9 +149,29 @@ public final class Main {
     var lock = WorkLock.hold(tool.workDirectory(directory, command.module()), err);
     try (var output = output(command, out, err, terminal)) {
       return held(command, output, tool, terminal);
+    } catch (Engine.BaselineFailed e) {
+      throw rerun(e, command, tool, directory);
     } finally {
       lock.close();
     }
+  }
+
+  /// The tests failing with no mutant in, ending in the build's command that runs the first alone.
+  private static Engine.BaselineFailed rerun(
+      Engine.BaselineFailed failed, Command command, BuildTool tool, Path directory) {
+    if (failed.failing().isEmpty()) {
+      return failed;
+    }
+    var request =
+        new BuildTool.Request(
+            directory,
+            command.module(),
+            tool.workDirectory(directory, command.module()),
+            typed(directory),
+            command.suite());
+    return tool.testCommand(request, failed.failing().getFirst())
+        .map(failed::endingIn)
+        .orElse(failed);
   }
 
   /// `--fail-on-new` with no baseline to tell new misses from: every miss would be new, or none,
