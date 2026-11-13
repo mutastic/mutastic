@@ -68,6 +68,24 @@ final class ProgressChoice {
         || CI.stream().anyMatch(env::containsKey);
   }
 
+  /// Whether the terminal draws progress in its tab or taskbar (OSC 9;4), from what it says of
+  /// itself: Windows Terminal, ConEmu, Ghostty and WezTerm do. Others ignore the sequence, but some
+  /// take `ESC ] 9` for a notification, so it's sent only where it's known.
+  /// `MUTASTIC_TERM_PROGRESS` (or Cargo's `CARGO_TERM_PROGRESS_TERM_INTEGRATION`), `true` or
+  /// `false`, decides instead.
+  static boolean tab(Map<String, String> env) {
+    var asked =
+        Optional.ofNullable(env.get("MUTASTIC_TERM_PROGRESS"))
+            .or(() -> Optional.ofNullable(env.get("CARGO_TERM_PROGRESS_TERM_INTEGRATION")));
+    if (asked.isPresent()) {
+      return List.of("true", "1", "always").contains(asked.get());
+    }
+    return env.containsKey("WT_SESSION")
+        || "ON".equals(env.get("ConEmuANSI"))
+        || "xterm-ghostty".equals(env.get("TERM"))
+        || List.of("ghostty", "WezTerm").contains(env.getOrDefault("TERM_PROGRAM", ""));
+  }
+
   /// `MUTASTIC_AGENT=1`, or a coding agent's own variable.
   static boolean agent(Map<String, String> env) {
     return "1".equals(env.get("MUTASTIC_AGENT")) || AGENTS.stream().anyMatch(env::containsKey);

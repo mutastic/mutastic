@@ -21,6 +21,7 @@ import io.mutastic.report.GitHubActions;
 import io.mutastic.report.HumanText;
 import io.mutastic.report.Invocation;
 import io.mutastic.report.JsonEvents;
+import io.mutastic.report.LiveEvents;
 import io.mutastic.report.MutantCommand;
 import io.mutastic.report.NextText;
 import io.mutastic.report.OperatorDocs;
@@ -36,6 +37,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -178,7 +180,11 @@ public final class Main {
     // Shares that can't be put together are refused before the build is read.
     var shares = command.fromShards().map(directory -> Shares.read(directory, version()));
     var progress = output.progress();
+    sendEvents(command, output, terminal.env());
     progress.started(version(), tool.name());
+    if (!command.failOnNew()) {
+      progress.redBelow(command.threshold());
+    }
     var prepared = prepare(command, tool, progress);
     var human = humanText(command, output, prepared.sources());
     showFileLines(command, output, human, prepared);
@@ -192,6 +198,35 @@ public final class Main {
           : single(command, prepared, passes, output);
     }
     return fullRun(command, prepared, passes, output);
+  }
+
+  /// Where `run`'s live events go as it runs: stdout with `--format=jsonl`, a `progress` event on
+  /// the heartbeat's cadence; and the file `MUTASTIC_EVENTS` names, one every second, which the
+  /// Gradle plugin reads to show the run in its own progress line. A file that can't be written to
+  /// is left out, as the plugin falls back to the heartbeat's lines.
+  private static void sendEvents(Command command, Output output, Map<String, String> env) {
+    if (command.subcommand() != Subcommand.RUN) {
+      return;
+    }
+    if (output.format().equals("jsonl")) {
+      output.progress().sendEvents(new LiveEvents(output.out()));
+    }
+    var file = env.getOrDefault("MUTASTIC_EVENTS", "");
+    if (file.isBlank()) {
+      return;
+    }
+    try {
+      var appending =
+          Files.newOutputStream(
+              Path.of(file), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+      output
+          .progress()
+          .sendEvents(
+              new LiveEvents(new PrintStream(appending, true, StandardCharsets.UTF_8)),
+              Duration.ofSeconds(1));
+    } catch (IOException e) {
+      // no file to write to: the plugin shows the heartbeat's lines instead
+    }
   }
 
   /// `run`: every mutant, or with `--shard` a share of them, or with `--from-shards` the shares'
@@ -1137,9 +1172,6 @@ public final class Main {
             err,
             ProgressChoice.mode(command.progress(), format, terminal),
             Progress.Settings.of(terminal.env(), progressColour(command, terminal)));
-    if (format.equals("jsonl") && command.subcommand() == Subcommand.RUN) {
-      progress.sendEvents(new io.mutastic.report.LiveEvents(out));
-    }
     return new Output(
         out, progress, format, words, style(command, terminal), GitHubRun.of(terminal, err));
   }

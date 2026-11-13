@@ -1,6 +1,9 @@
 package io.mutastic.gradle.plugin;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +14,7 @@ import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.MapProperty;
 import org.gradle.api.provider.Property;
@@ -26,6 +30,7 @@ import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.UntrackedTask;
 import org.gradle.jvm.toolchain.JavaLauncher;
 import org.gradle.process.ExecOperations;
+import org.gradle.process.JavaExecSpec;
 
 /// One of mutastic's commands, run on the module's setup by the `mutastic` command's own main, on
 /// JDK 25, in a process of its own. The command prints its own output, with the commands it offers
@@ -136,23 +141,12 @@ public abstract class MutasticTask extends DefaultTask {
         "Runs `mutastic %s` on this module's code and tests".formatted(task.getCommand().get()));
   }
 
+  @Inject
+  protected abstract ObjectFactory getObjects();
+
   @TaskAction
   public void run() {
-    var result =
-        getExec()
-            .javaexec(
-                spec -> {
-                  spec.setExecutable(getJavaLauncher().get().getExecutablePath().getAsFile());
-                  spec.classpath(getCommandJars());
-                  spec.getMainClass().set("io.mutastic.cli.Main");
-                  spec.args(arguments());
-                  spec.setWorkingDir(new File(getHere().get()));
-                  spec.setIgnoreExitValue(true);
-                  // Gradle reads the command's stderr through a pipe and prints it line by line:
-                  // progress is a line at least every 30s there, never a line redrawn in place.
-                  spec.environment("MUTASTIC_STDERR_TTY", "0");
-                });
-    int exit = result.getExitValue();
+    int exit = exitOfCommand();
     var command = getCommand().get();
     if (exit == 1) {
       throw new GradleException(failure(command));
@@ -161,6 +155,37 @@ public abstract class MutasticTask extends DefaultTask {
       throw new GradleException(
           "mutastic %s stopped (exit %d): what went wrong is above".formatted(command, exit));
     }
+  }
+
+  /// The command run, Gradle's progress line following it, and how it exited.
+  private int exitOfCommand() {
+    var events = new File(getTemporaryDir(), "events.jsonl");
+    try {
+      Files.deleteIfExists(events.toPath());
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    var footer = Footer.show(getObjects(), events.toPath());
+    try {
+      return getExec().javaexec(spec -> command(spec, events)).getExitValue();
+    } finally {
+      footer.close();
+    }
+  }
+
+  private void command(JavaExecSpec spec, File events) {
+    spec.setExecutable(getJavaLauncher().get().getExecutablePath().getAsFile());
+    spec.classpath(getCommandJars());
+    spec.getMainClass().set("io.mutastic.cli.Main");
+    spec.args(arguments());
+    spec.setWorkingDir(new File(getHere().get()));
+    spec.setIgnoreExitValue(true);
+    // Gradle reads the command's stderr through a pipe and prints it line by line: progress is a
+    // line at least every 30s there, never a line redrawn in place.
+    spec.environment("MUTASTIC_STDERR_TTY", "0");
+    // Where the command writes its phases and how far each is, every second, for the progress
+    // line to follow.
+    spec.environment("MUTASTIC_EVENTS", events.getAbsolutePath());
   }
 
   /// Why the build fails when what the command checks doesn't hold: for a run with `failOnNew`, a

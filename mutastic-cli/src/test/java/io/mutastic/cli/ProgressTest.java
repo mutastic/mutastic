@@ -34,8 +34,18 @@ class ProgressTest {
   @TempDir Path work;
 
   private Progress progress(Progress.Mode mode) {
-    var settings = new Progress.Settings(false, Duration.ofSeconds(30), now::get, false, 120);
+    return progress(mode, false);
+  }
+
+  /// With `tab`, on a terminal that draws progress in its tab.
+  private Progress progress(Progress.Mode mode, boolean tab) {
+    var settings = new Progress.Settings(false, Duration.ofSeconds(30), now::get, false, 120, tab);
     return new Progress(new PrintStream(bytes, true, StandardCharsets.UTF_8), mode, settings);
+  }
+
+  /// One write on a terminal: synchronized output around it.
+  private static String frame(String written) {
+    return "\u001b[?2026h" + written + "\u001b[?2026l";
   }
 
   private String err() {
@@ -150,12 +160,11 @@ class ProgressTest {
 
     assertThat(err())
         .isEqualTo(
-            "mutastic 1.1.0 · reading the Gradle build…\n"
-                + "\u001b[?7l⠋ reading   the Gradle build · 0s\u001b[?7h"
-                + "\r\u001b[2K\u001b[?7l⠙ reading   the Gradle build · 1s\u001b[?7h"
-                + "\r\u001b[2Ka note\n"
-                + "\u001b[?7l⠹ reading   the Gradle build · 1s\u001b[?7h"
-                + "\r\u001b[2K");
+            frame("mutastic 1.1.0 · reading the Gradle build…\n")
+                + frame("\u001b[?7l⠋ reading   the Gradle build · 0s\u001b[?7h")
+                + frame("\r\u001b[2K\u001b[?7l⠙ reading   the Gradle build · 1s\u001b[?7h")
+                + frame("\r\u001b[2Ka note\n\u001b[?7l⠹ reading   the Gradle build · 1s\u001b[?7h")
+                + frame("\r\u001b[2K"));
   }
 
   @Test
@@ -169,8 +178,104 @@ class ProgressTest {
 
     assertThat(err())
         .endsWith(
-            "\u001b[?7l⠋ building  mvn test-compile · 0s\n   └ [INFO] Building pricing\u001b[?7h"
-                + "\r\u001b[2K\u001b[1A\u001b[2K");
+            frame(
+                    "\u001b[?7l⠋ building  mvn test-compile · 0s\n"
+                        + "   └ [INFO] Building pricing\u001b[?7h")
+                + frame("\r\u001b[2K\u001b[1A\u001b[2K"));
+  }
+
+  @Test
+  void theTabIsBusyThenShowsTheWeightedPercentThenIsCleared() {
+    var progress = progress(Progress.Mode.BAR, true);
+    progress.started("1.1.0", "Gradle");
+    progress.tick();
+    progress.mutantsFound(2);
+    progress.coverageFinished(new CoveragePass(17, 3, Duration.ofMillis(5), 2, List.of()));
+    progress.mutantsPlanned(1, Duration.ofSeconds(4));
+    var caught = result("m1", Status.CAUGHT);
+    progress.mutantStarted(0, caught.mutant(), cost(1));
+    progress.mutantFinished(caught);
+    progress.tick();
+    progress.finished();
+
+    assertThat(err())
+        .contains("\u001b[?2026h\u001b]9;4;3;0\u001b\\\u001b[?7l⠋ reading")
+        .contains("\u001b[?2026h\r\u001b[2K\u001b]9;4;1;25\u001b\\\u001b[?7l")
+        .endsWith("\u001b]9;4;0\u001b\\\u001b[?2026l");
+  }
+
+  @Test
+  void theTabTurnsRedOnceTwentyHaveAScoreBelowTheThresholdAndStaysRed() {
+    var progress = progress(Progress.Mode.BAR, true);
+    progress.redBelow(80);
+    progress.started("1.1.0", "Gradle");
+    progress.mutantsFound(40);
+    progress.coverageFinished(new CoveragePass(17, 3, Duration.ofMillis(5), 40, List.of()));
+    progress.mutantsPlanned(1, Duration.ofSeconds(40));
+    for (int at = 0; at < 19; at++) {
+      progress.mutantFinished(result("missed" + at, Status.MISSED));
+    }
+    progress.tick();
+    assertThat(err()).doesNotContain("\u001b]9;4;2;");
+
+    progress.mutantFinished(result("missed19", Status.MISSED));
+    progress.tick();
+    assertThat(err()).contains("\u001b]9;4;2;0\u001b\\");
+
+    for (int at = 0; at < 20; at++) {
+      progress.mutantFinished(result("caught" + at, Status.CAUGHT));
+    }
+    bytes.reset();
+    progress.tick();
+    assertThat(err()).contains("\u001b]9;4;2;").doesNotContain("\u001b]9;4;1;");
+  }
+
+  @Test
+  void withoutAThresholdAMissNeverTurnsTheTabRed() {
+    var progress = progress(Progress.Mode.BAR, true);
+    progress.started("1.1.0", "Gradle");
+    progress.mutantsFound(20);
+    progress.coverageFinished(new CoveragePass(17, 3, Duration.ofMillis(5), 20, List.of()));
+    for (int at = 0; at < 20; at++) {
+      progress.mutantFinished(result("missed" + at, Status.MISSED));
+    }
+    progress.tick();
+
+    assertThat(err()).contains("\u001b]9;4;1;0\u001b\\").doesNotContain("\u001b]9;4;2;");
+  }
+
+  @Test
+  void offATerminalTheTabIsLeftAlone() {
+    var progress = progress(Progress.Mode.COUNTER, true);
+    progress.started("1.1.0", "Gradle");
+    after(Duration.ofSeconds(30));
+    progress.tick();
+    progress.finished();
+
+    assertThat(err()).doesNotContain("\u001b]9;4").doesNotContain("\u001b[?2026");
+  }
+
+  @Test
+  void theTerminalSaysWhetherItDrawsTheTab() {
+    assertThat(ProgressChoice.tab(Map.of("WT_SESSION", "f00"))).isTrue();
+    assertThat(ProgressChoice.tab(Map.of("TERM_PROGRAM", "ghostty"))).isTrue();
+    assertThat(ProgressChoice.tab(Map.of("TERM_PROGRAM", "WezTerm"))).isTrue();
+    assertThat(ProgressChoice.tab(Map.of("TERM", "xterm-ghostty"))).isTrue();
+    assertThat(ProgressChoice.tab(Map.of("ConEmuANSI", "ON"))).isTrue();
+    // iTerm2 takes `ESC ] 9` for a notification: nothing unless asked.
+    assertThat(ProgressChoice.tab(Map.of("TERM_PROGRAM", "iTerm.app"))).isFalse();
+    assertThat(
+            ProgressChoice.tab(
+                Map.of("TERM_PROGRAM", "iTerm.app", "MUTASTIC_TERM_PROGRESS", "true")))
+        .isTrue();
+    assertThat(ProgressChoice.tab(Map.of("WT_SESSION", "f00", "MUTASTIC_TERM_PROGRESS", "false")))
+        .isFalse();
+    assertThat(ProgressChoice.tab(Map.of("CARGO_TERM_PROGRESS_TERM_INTEGRATION", "true"))).isTrue();
+    assertThat(ProgressChoice.tab(Map.of())).isFalse();
+  }
+
+  private static MutantCost cost(long seconds) {
+    return new MutantCost(Duration.ofSeconds(seconds), Duration.ofSeconds(3 * seconds), 1);
   }
 
   @Test
