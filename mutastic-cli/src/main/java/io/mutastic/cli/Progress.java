@@ -419,6 +419,13 @@ final class Progress implements Listener, AutoCloseable {
       if (sink.due(at)) {
         sink.events().progress(current.word(), ProgressFields.of(snapshot()));
       }
+      if (mode == Mode.BAR) {
+        stream.draw(block());
+        frame++;
+      } else if (mode == Mode.COUNTER && stream.heartbeatDue()) {
+        stream.line(Frames.heartbeat(snapshot()), List.of());
+      }
+      sendProgress();
     }
   }
 

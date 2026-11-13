@@ -22,6 +22,21 @@ export const SHARED = [
   ['concepts/ids', 'concepts/ids'],
   ['concepts/test-first', undefined],
   ['guides/ci', undefined],
+  ['guides/test-first', 'test-first'],
+  ['guides/test-first-refactor', 'test-first-refactor'],
+];
+
+/**
+ * Shared pages whose Rust side comes with a Rust release newer than the one docs/rust-edition.json
+ * pins, each with that pin: `[page, pin]`. While the pin is still that release and the Rust docs
+ * being built don't have the mutastic-rs page the shared page stands for, the page shows its Java
+ * side to both editions, with a note for the Rust reader (components/RustAwaiting.astro), and the
+ * build doesn't ask for that page or its sources. Once the pin moves on, the page and its captures
+ * must be there, and the build says to take the entry out.
+ */
+export const AWAITING_RUST = [
+  ['guides/test-first', 'v1.1.0'],
+  ['guides/test-first-refactor', 'v1.1.0'],
 ];
 
 /** The same topic in both editions. Each pair works both ways. */

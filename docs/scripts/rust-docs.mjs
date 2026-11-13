@@ -36,7 +36,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { homedir } from 'node:os';
 import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SHARED } from '../src/edition-pages.mjs';
+import { AWAITING_RUST, SHARED } from '../src/edition-pages.mjs';
 
 const target = fileURLToPath(new URL('../src/content/docs/rust/', import.meta.url));
 /** Where the commands' data goes: commands.json, and each command's output in output/. */
@@ -50,6 +50,22 @@ const SHARED_PAGES = new Map(SHARED.filter(([, rust]) => rust).map(([site, rust]
 
 const pinFile = fileURLToPath(new URL('../rust-edition.json', import.meta.url));
 const cache = fileURLToPath(new URL('../node_modules/.cache/mutastic-rs/', import.meta.url));
+
+/** The release docs/rust-edition.json pins, `v1.1.0`, or undefined when there's no pin. */
+export function pinnedRef() {
+  return existsSync(pinFile) ? JSON.parse(readFileSync(pinFile, 'utf8')).ref : undefined;
+}
+
+/**
+ * The shared pages still waiting for their Rust side (AWAITING_RUST in src/edition-pages.mjs): the
+ * pin is still the release named, and the Rust docs being built don't have the page it stands for.
+ */
+function awaitingRust(known) {
+  const rustPage = new Map(SHARED.map(([site, rust]) => [site, rust && `${rust}.md`]));
+  return AWAITING_RUST.filter(([page, ref]) => ref === pinnedRef() && !known.has(rustPage.get(page))).map(
+    ([page]) => page,
+  );
+}
 
 /** The pinned release's docs/ folder, fetched by its tag the first time it's needed. */
 function pinned() {
@@ -186,7 +202,8 @@ function convert(text, page, dir, known, commands) {
 const LAYOUT = [
   ['Getting started', [['', 'Overview'], ['install', 'Install'], ['getting-started', 'Quickstart'], ['editions', 'Java and Rust together']]],
   // A page both editions share is listed by its mutastic-rs page, which it stands for, or by its
-  // own path from the site's root when mutastic-rs has none: '/concepts/flaky-tests'.
+  // own path from the site's root when mutastic-rs has none, or the pinned release has none yet
+  // (AWAITING_RUST in src/edition-pages.mjs): '/concepts/flaky-tests'.
   ['Concepts', [
     ['concepts/results', 'Results and the score'],
     ['concepts/suggested-tests', 'Suggested tests'],
@@ -196,6 +213,7 @@ const LAYOUT = [
     ['concepts/how-a-run-works', 'How a run works'],
     ['concepts/ids', 'Mutant ids'],
     ['concepts/next', 'Working through misses'],
+    ['/concepts/test-first', 'Working test-first'],
     ['concepts/unsafe', 'Unsafe code'],
     ['concepts/profiles', 'Profiles'],
   ]],
@@ -214,7 +232,7 @@ const LAYOUT = [
   // A page for each command from commands.json comes first, then Environment and exit codes: see
   // reference() below.
   ['Reference', [['reference/reports', 'Report files'], ['reference/events', 'Events'], ['reference/configuration', 'Configuration'], ['reference/compatibility', 'Compatibility']]],
-  ['Guides', [['/guides/ci', 'Running in CI']]],
+  ['Guides', [['/guides/test-first', 'Working test-first'], ['/guides/test-first-refactor', 'Working test-first: the refactor'], ['/guides/ci', 'Running in CI']]],
   ['Help', [['troubleshooting', 'Troubleshooting'], ['differences-from-java', 'Differences from Java']]],
 ];
 
@@ -236,6 +254,27 @@ function commandPages(commands) {
   return [...commands.commands.map((command) => command.page), 'environment'].map(
     (page) => `${SECTION}/reference/${page}`,
   );
+}
+
+/** The shared pages LAYOUT lists, by their path on the site: `concepts/results`. */
+function sharedListed() {
+  const listed = new Set();
+  for (const [, items] of LAYOUT) {
+    for (const [path] of items) {
+      if (path.startsWith('/')) listed.add(path.slice(1));
+      else if (SHARED_PAGES.has(`${path}.md`)) listed.add(SHARED_PAGES.get(`${path}.md`));
+    }
+  }
+  return listed;
+}
+
+/**
+ * The shared pages (SHARED in src/edition-pages.mjs) the Rust sidebar doesn't list. A shared page
+ * is the site's own, so nothing puts it under "More" when LAYOUT leaves it out: it's only missing.
+ */
+export function sharedUnlisted() {
+  const listed = sharedListed();
+  return SHARED.map(([page]) => page).filter((page) => !listed.has(page));
 }
 
 function sidebar(known, commands, base) {
@@ -305,7 +344,7 @@ function copyCommands(dir) {
  * Writes the Rust pages under src/content/docs/rust/, and its commands' data and captured output
  * under src/data/rust/, when there are any to read, and removes what an earlier build wrote when
  * there aren't. Returns the section's sidebar group, its pages' paths, any page the sidebar doesn't
- * place, the redirects from the Rust pages a shared page stands for, and any of those mutastic-rs
+ * place, any shared page it doesn't list, any shared page still waiting for its Rust side, the redirects from the Rust pages a shared page stands for, and any of those mutastic-rs
  * doesn't have, and the folder they were read from; or undefined when there are no Rust pages. `base` is the site's, which the
  * commands' links start with.
  */
@@ -321,6 +360,9 @@ export function rustDocs(base = '/') {
     writeFileSync(join(data, MARKER), `Written from ${dir} by scripts/rust-docs.mjs; ignored by git.\n`);
   }
   copyCaptures(dir);
+  // Read by components/RustAwaiting.astro and EditionTabs.astro.
+  const awaiting = awaitingRust(known);
+  writeFileSync(join(data, 'awaiting.json'), JSON.stringify(awaiting));
   const written = [...known].filter((page) => !SHARED_PAGES.has(page));
   for (const page of written) {
     const into = join(target, page.replace(/(^|\/)README\.md$/, '$1index.md'));
@@ -338,8 +380,12 @@ export function rustDocs(base = '/') {
     sidebar: group,
     pages: new Set([...written.map(slug), ...commandPages(commands)]),
     unplaced,
+    unlisted: sharedUnlisted(),
     redirects,
-    shared: [...SHARED_PAGES.keys()].filter((page) => !known.has(page)),
+    shared: [...SHARED_PAGES]
+      .filter(([page, site]) => !known.has(page) && !awaiting.includes(site))
+      .map(([page]) => page),
+    awaiting,
     dir,
   };
 }

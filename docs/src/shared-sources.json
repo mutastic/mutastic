@@ -57,5 +57,17 @@
     "sources": {
       "getting-started.md": "5a808f11b8efbb28"
     }
+  },
+  "guides/test-first": {
+    "commit": "077fc71baa4fed1dd32515bdd1df4be10b47a338",
+    "sources": {
+      "test-first.md": "11e527dbd7fc3762"
+    }
+  },
+  "guides/test-first-refactor": {
+    "commit": "077fc71baa4fed1dd32515bdd1df4be10b47a338",
+    "sources": {
+      "test-first-refactor.md": "a6ce3ad45c3c801a"
+    }
   }
 }

@@ -1,0 +1,560 @@
+---
+title: "Working test-first: the refactor"
+description: "After a refactor, a green suite says the tests ran the new code, not that they check it. Two more cycles grow a rule until it repeats, then the refactor, with mutastic before and after."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import EditionTabs from '../../../components/EditionTabs.astro';
+import RustAwaiting from '../../../components/RustAwaiting.astro';
+import RustOutput from '../../../components/RustOutput.astro';
+import TddLoop from '../../../components/TddLoop.astro';
+import red100 from '../../../data/output/test-first-refactor-red-100.ansi?raw';
+import run100 from '../../../data/output/test-first-refactor-run-100.ansi?raw';
+import verify100 from '../../../data/output/test-first-refactor-verify-100.ansi?raw';
+import red250 from '../../../data/output/test-first-refactor-red-250.ansi?raw';
+import run250 from '../../../data/output/test-first-refactor-run-250.ansi?raw';
+import verify250 from '../../../data/output/test-first-refactor-verify-250.ansi?raw';
+import before from '../../../data/output/test-first-refactor-before.ansi?raw';
+import after from '../../../data/output/test-first-refactor-after.ansi?raw';
+
+A refactor is the step where a green suite tells you least. The code takes a new shape and the
+tests still pass, but passing says they ran the new code, not that they check it. Most test-first
+guides name the step and move on. This one does it.
+
+Two more cycles grow the rule from [Working test-first](/guides/test-first/) until the code says
+the same thing three times. Then the refactor, with mutastic before it and after it, so you know
+the tests still pin every behaviour of the new shape, not only that they pass.
+[Working test-first](/concepts/test-first/), under Concepts, says why mutastic comes where it
+does.
+
+<RustAwaiting>
+This guide's Rust cycles come with mutastic for Rust's next release. Until then, these are the Java
+edition's steps: on a crate they're the same, with `mutastic run` and `mutastic verify` as
+[the quickstart](/rust/getting-started/) runs them.
+</RustAwaiting>
+
+The spec, a tier at a time: loyal customers get 5 off orders of 30 or more, 10 off orders of 100 or
+more, and 20 off orders of 250 or more.
+
+## Before you start
+
+Start where [Working test-first](/guides/test-first/) ends: `loyaltyCredit` in the pricing sample,
+with its three tests, and that cycle committed. Each cycle here ends with a commit too:
+`--since=HEAD` runs the mutants on the lines changed since the last one.
+
+## 10 off from 100
+
+<TddLoop current="Red" />
+
+A test for the new tier:
+
+<EditionTabs>
+<div slot="java">
+
+{/* added to: samples/pricing/src/test/java/com/example/pricing/PricingTest.java */}
+```java
+// 10 off orders of 100 or more.
+@Test
+void loyalCustomersGetTenOffFrom100() {
+  assertEquals(10, new Pricing().loyaltyCredit(150));
+}
+```
+
+</div>
+<div slot="rust">
+
+At the end of the `tests` module:
+
+```rust
+// 10 off orders of 100 or more.
+#[test]
+fn loyal_customers_get_ten_off_from_100() {
+    assert_eq!(Pricing::new().loyalty_credit(150), 10);
+}
+```
+
+</div>
+</EditionTabs>
+
+It fails, as it should: the code gives 5.
+
+<EditionTabs>
+<div slot="java">
+
+```sh
+mutastic run samples/pricing
+```
+
+<Code code={red100} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```sh
+mutastic run fixtures/pricing
+```
+
+<RustOutput name="test-first-refactor/red-100" />
+
+</div>
+</EditionTabs>
+
+<TddLoop current="Green" />
+
+The least code that passes is a second `if`, above the first, as the higher tier wins. In place of
+the method:
+
+<EditionTabs>
+<div slot="java">
+
+{/* changed in: samples/pricing/src/main/java/com/example/pricing/Pricing.java */}
+```java
+/// For loyal customers: 5 off orders of 30 or more, and 10 off from 100.
+public int loyaltyCredit(int total) {
+  if (total >= 100) {
+    return 10;
+  }
+  if (total >= 30) {
+    return 5;
+  }
+  return 0;
+}
+```
+
+</div>
+<div slot="rust">
+
+```rust
+/// For loyal customers: 5 off orders of 30 or more, and 10 off from 100.
+pub fn loyalty_credit(&self, total: u32) -> u32 {
+    if total >= 100 {
+        return 10;
+    }
+    if total >= 30 {
+        return 5;
+    }
+    0
+}
+```
+
+</div>
+</EditionTabs>
+
+The whole suite passes.
+
+<TddLoop current="Mutate" />
+
+mutastic on the cycle's lines:
+
+<EditionTabs>
+<div slot="java">
+
+```sh
+mutastic run samples/pricing --since=HEAD
+```
+
+<Code code={run100} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```sh
+mutastic run fixtures/pricing --since=HEAD
+```
+
+<RustOutput name="test-first-refactor/run-100" />
+
+</div>
+</EditionTabs>
+
+The new test is at 150, so nothing checks the edge at 100. The new lines' other mutants are caught
+by the tests there are: the one at 50 wants 5, not 10, and the new one wants 10, not 5 or 0.
+
+<TddLoop current="Triangulate" />
+
+The card's test, with its value checked against the spec: an order of exactly 100 gets 10 off. The
+card's name for it ends in `2`, as the edge at 30 has the first name, so name it for its edge:
+
+<EditionTabs>
+<div slot="java">
+
+{/* added to: samples/pricing/src/test/java/com/example/pricing/PricingTest.java */}
+```java
+@Test
+void loyaltyCreditAtThe100Edge() {
+  assertEquals(10, new Pricing().loyaltyCredit(100));
+}
+```
+
+```sh
+mutastic verify m809c9c9b samples/pricing
+```
+
+<Code code={verify100} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```rust
+#[test]
+fn loyalty_credit_at_the_100_edge() {
+    assert_eq!(Pricing::new().loyalty_credit(100), 10);
+}
+```
+
+```sh
+mutastic verify m0d64ba6c fixtures/pricing
+```
+
+<RustOutput name="test-first-refactor/verify-100" />
+
+</div>
+</EditionTabs>
+
+<TddLoop current="Commit" />
+
+Two `if`s are not yet a pattern, so there's nothing to refactor. Commit.
+
+## 20 off from 250
+
+<TddLoop current="Red" />
+
+The same cycle, a tier up. The test:
+
+<EditionTabs>
+<div slot="java">
+
+{/* added to: samples/pricing/src/test/java/com/example/pricing/PricingTest.java */}
+```java
+// 20 off orders of 250 or more.
+@Test
+void loyalCustomersGetTwentyOffFrom250() {
+  assertEquals(20, new Pricing().loyaltyCredit(300));
+}
+```
+
+```sh
+mutastic run samples/pricing
+```
+
+<Code code={red250} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```rust
+// 20 off orders of 250 or more.
+#[test]
+fn loyal_customers_get_twenty_off_from_250() {
+    assert_eq!(Pricing::new().loyalty_credit(300), 20);
+}
+```
+
+```sh
+mutastic run fixtures/pricing
+```
+
+<RustOutput name="test-first-refactor/red-250" />
+
+</div>
+</EditionTabs>
+
+<TddLoop current="Green" />
+
+A third `if`, above the others:
+
+<EditionTabs>
+<div slot="java">
+
+{/* changed in: samples/pricing/src/main/java/com/example/pricing/Pricing.java */}
+```java
+/// For loyal customers: 5 off orders of 30 or more, 10 off from 100, and 20 off from 250.
+public int loyaltyCredit(int total) {
+  if (total >= 250) {
+    return 20;
+  }
+  if (total >= 100) {
+    return 10;
+  }
+  if (total >= 30) {
+    return 5;
+  }
+  return 0;
+}
+```
+
+</div>
+<div slot="rust">
+
+```rust
+/// For loyal customers: 5 off orders of 30 or more, 10 off from 100, and 20 off from 250.
+pub fn loyalty_credit(&self, total: u32) -> u32 {
+    if total >= 250 {
+        return 20;
+    }
+    if total >= 100 {
+        return 10;
+    }
+    if total >= 30 {
+        return 5;
+    }
+    0
+}
+```
+
+</div>
+</EditionTabs>
+
+The whole suite passes.
+
+<TddLoop current="Mutate" />
+
+<EditionTabs>
+<div slot="java">
+
+```sh
+mutastic run samples/pricing --since=HEAD
+```
+
+<Code code={run250} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```sh
+mutastic run fixtures/pricing --since=HEAD
+```
+
+<RustOutput name="test-first-refactor/run-250" />
+
+</div>
+</EditionTabs>
+
+<TddLoop current="Triangulate" />
+
+The same gap, at the new edge. An order of exactly 250 gets 20 off:
+
+<EditionTabs>
+<div slot="java">
+
+{/* added to: samples/pricing/src/test/java/com/example/pricing/PricingTest.java */}
+```java
+@Test
+void loyaltyCreditAtThe250Edge() {
+  assertEquals(20, new Pricing().loyaltyCredit(250));
+}
+```
+
+```sh
+mutastic verify m809c9c9b samples/pricing
+```
+
+<Code code={verify250} lang="ansi" />
+
+The id is the last cycle's: a Java id counts a mutant's place in its method, and the first `>=` is
+at 250 now. It names the mutant there; the one at 100 is another id. See
+[Mutant ids](/concepts/ids/).
+
+</div>
+<div slot="rust">
+
+```rust
+#[test]
+fn loyalty_credit_at_the_250_edge() {
+    assert_eq!(Pricing::new().loyalty_credit(250), 20);
+}
+```
+
+```sh
+mutastic verify m97fbc9b1 fixtures/pricing
+```
+
+<RustOutput name="test-first-refactor/verify-250" />
+
+</div>
+</EditionTabs>
+
+Don't commit yet: this cycle has a refactor in it.
+
+## Refactor
+
+<TddLoop current="Refactor" />
+
+The three `if`s say one thing three times: from this total up, this credit, the highest tier first.
+A fourth tier would be a fourth copy. The tiers are data, so the refactor is to hold them as data, a
+table, read by one loop.
+
+### Start from green
+
+A refactor starts where the cycle is done: the suite passes, and every mutant on the cycle's lines
+is caught.
+
+<EditionTabs>
+<div slot="java">
+
+```sh
+mutastic run samples/pricing --since=HEAD
+```
+
+<Code code={before} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```sh
+mutastic run fixtures/pricing --since=HEAD
+```
+
+<RustOutput name="test-first-refactor/before" />
+
+</div>
+</EditionTabs>
+
+The four are the new tier's: its `>=` changed to `>`, its condition always true and always false,
+and its `20` returned as `0`.
+
+### Change the structure
+
+In place of the method, the table and the loop:
+
+<EditionTabs>
+<div slot="java">
+
+{/* changed in: samples/pricing/src/main/java/com/example/pricing/Pricing.java */}
+```java
+/// A loyalty tier: from this total up, this credit.
+private record Tier(int from, int credit) {}
+
+/// The loyalty tiers, highest first.
+private static final List<Tier> LOYALTY_TIERS =
+    List.of(new Tier(250, 20), new Tier(100, 10), new Tier(30, 5));
+
+/// For loyal customers: 5 off orders of 30 or more, 10 off from 100, and 20 off from 250.
+public int loyaltyCredit(int total) {
+  for (Tier tier : LOYALTY_TIERS) {
+    if (total >= tier.from()) {
+      return tier.credit();
+    }
+  }
+  return 0;
+}
+```
+
+And `import java.util.List;` at the top of the file.
+
+</div>
+<div slot="rust">
+
+```rust
+/// The loyalty tiers, highest first: from this total up, this credit.
+const LOYALTY_TIERS: [(u32, u32); 3] = [(250, 20), (100, 10), (30, 5)];
+
+/// For loyal customers: 5 off orders of 30 or more, 10 off from 100, and 20 off from 250.
+pub fn loyalty_credit(&self, total: u32) -> u32 {
+    for (from, credit) in Self::LOYALTY_TIERS {
+        if total >= from {
+            return credit;
+        }
+    }
+    0
+}
+```
+
+</div>
+</EditionTabs>
+
+No test changes: a refactor changes structure only, and the tests are what say it kept the
+behaviour. The whole suite passes.
+
+### Run mutastic again
+
+<EditionTabs>
+<div slot="java">
+
+```sh
+mutastic run samples/pricing --since=HEAD
+```
+
+<Code code={after} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```sh
+mutastic run fixtures/pricing --since=HEAD
+```
+
+<RustOutput name="test-first-refactor/after" />
+
+</div>
+</EditionTabs>
+
+The table and the loop are new since `HEAD`, so these are the new shape's mutants. The report,
+`mutation.html`, shows each on its line:
+
+<EditionTabs>
+<div slot="java">
+
+- The loop's `hasNext()` always false, so no tier is read, and always true, so it reads past the
+  last.
+- `total >= tier.from()` changed to `total > tier.from()`: one mutant for the edge of every tier,
+  where the `if`s had one each.
+- `total >= tier.from()` always true, and always false.
+- `tier.credit()` returned as `0`.
+
+The two skipped are the record's `from()` and `credit()`, each returned as `0`: code with nothing
+to decide, which mutastic leaves out as [arid](/concepts/results/).
+
+</div>
+<div slot="rust">
+
+- `total >= from` changed to `total > from`: one mutant for the edge of every tier, where the `if`s
+  had one each.
+- `total >= from` always true, and always false.
+- `credit` returned as `0`.
+
+The loop itself gives none.
+
+</div>
+</EditionTabs>
+
+The table's numbers have no mutants, as the numbers in the `if`s had none: the tests at each tier
+and its edge are what check them. The loop depends on the table's order, highest first, as the
+`if`s did on theirs, and the tests pin that too: with the lowest tier first, an order of 150 would
+get 5, and the test that wants 10 fails.
+
+Every one is caught. The tests still pin every behaviour of the new shape, with none of them
+changed: the refactor is safe.
+
+<EditionTabs>
+<div slot="java">
+
+The ids aren't a guide to what changed. Some are the ones before the refactor, on different
+mutants: `md0b32a4f` was the `if` at 250 always true, and is the loop's `hasNext()` always true now,
+as a Java id counts a mutant's place in its method (see [Mutant ids](/concepts/ids/)). Compare
+what's caught, not ids.
+
+</div>
+<div slot="rust">
+
+The ids aren't the ones before the refactor. An id is a hash of what its mutant is, and every
+mutant here is on code that's new (see [Mutant ids](/concepts/ids/)). Compare what's caught, not
+ids.
+
+</div>
+</EditionTabs>
+
+<TddLoop current="Commit" />
+
+Then commit. The commit is the next cycle's `HEAD`.
+
+## Had a mutant been missed
+
+Before the refactor, the tests caught every mutant on the cycle's lines. A mutant missed after it
+means one of two things. The refactor wasn't only structure: it added behaviour no test asks for,
+such as a default for a case the `if`s never had. Or the tests stopped pinning something: a test
+was changed or taken out with the refactor, which a refactor never needs.
+
+Either way, don't write a test for the miss there and then. Undo that part of the change. If the
+behaviour is one you want, add it test first, in a cycle of its own, where its test fails until the
+code does it.
