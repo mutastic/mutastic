@@ -21,6 +21,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`run --fail-on-new`, for a project whose score can't reach the threshold yet.** The run
+  passes while every mutant no test catches is in `.mutastic/baseline.yaml`, and fails, exit 1, on
+  one that isn't, whatever the score: the threshold isn't applied. The summary says `No new misses:
+  12 in the baseline.` or names the new ones, as does the agent format's first line, whose entries
+  put the new misses first; `run-finished` gains `failOnNew`, `newMisses` and `inBaseline`. Without
+  a baseline it's a usage error, exit 2, saying `mutastic baseline` writes one. The build plugins
+  take it as `failOnNew`. See [Brownfield: fail only on new misses](https://docs.mutastic.io/guides/ci/#brownfield-fail-only-on-new-misses).
 - **`explain --format=jsonl`, for agents.** `mutastic explain ID --format=jsonl` writes the
   events a run's JSON Lines has for that one mutant, then a new `mutant-explained` event with each
   row of About this mutant as a field, in the same words: the bytecode change and what each opcode

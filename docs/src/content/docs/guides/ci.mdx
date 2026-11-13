@@ -108,6 +108,76 @@ each catching test again, and a catch that doesn't repeat doesn't count.
 
 </EditionOnly>
 
+<EditionOnly edition="java">
+
+## Brownfield: fail only on new misses
+
+A project that comes to mutastic with years of code may have a score far below any threshold worth
+holding, and a job that fails on every run is soon ignored. `--fail-on-new` fails the run only on
+misses that are new: it passes while every mutant no test catches, missed or reached by none, is in
+the project's [baseline](/concepts/next/#a-baseline-for-older-misses), and fails on any that isn't,
+whatever the score. The threshold isn't applied; the score is still shown.
+
+Take the baseline once, from `main`, and commit it:
+
+```sh
+mutastic baseline
+git add .mutastic/baseline.yaml
+git commit -m "chore: take a mutastic baseline"
+```
+
+Then CI runs with `--fail-on-new`:
+
+```sh
+mutastic run --fail-on-new
+```
+
+<Tabs syncKey="runner">
+<TabItem label="Gradle">
+
+```sh
+./gradlew mutasticRun -Pmutastic.failOnNew=true
+```
+
+```kotlin title="build.gradle.kts"
+mutastic {
+    failOnNew = true
+}
+```
+
+</TabItem>
+<TabItem label="Maven">
+
+```sh
+mvn mutastic:run -Dmutastic.failOnNew=true
+```
+
+```xml title="pom.xml"
+<configuration>
+  <failOnNew>true</failOnNew>
+</configuration>
+```
+
+</TabItem>
+</Tabs>
+
+A failed run names each new miss by id: `FAIL  2 new misses, not in the baseline (12 in it): …` in
+the summary, the same on the first line of `--format=agent`, whose entries put the new misses first,
+and `failOnNew`, `newMisses` and `inBaseline` in `--format=jsonl`'s `run-finished`. Write the test,
+or for a case that can't happen, [ignore](/reference/ignore/) the mutant: the baseline is never
+rewritten to take in a new miss, which would hide it. Without a baseline, `--fail-on-new` stops with
+exit code 2 and says `mutastic baseline` writes one, rather than guess which misses are new.
+
+As tests catch the baseline's mutants, a full run says how many, and `mutastic baseline --prune`
+drops them, so the file shrinks and a mutant caught once can't be missed again unnoticed. Commit
+the pruned file as you would any other change.
+
+With `--since`, a run is judged on the new misses on the lines a pull request changed. A share of a
+[split run](#one-run-across-ci-jobs) is judged on its own mutants, and `--from-shards`, given
+`--fail-on-new`, judges the whole.
+
+</EditionOnly>
+
 ## Only what a pull request changed
 
 `--since=REF` mutates only the lines changed since the branch left `REF`, so a pull request's run

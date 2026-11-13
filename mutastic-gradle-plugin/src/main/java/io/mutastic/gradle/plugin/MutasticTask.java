@@ -87,6 +87,10 @@ public abstract class MutasticTask extends DefaultTask {
 
   @Input
   @Optional
+  public abstract Property<Boolean> getFailOnNew();
+
+  @Input
+  @Optional
   public abstract Property<Boolean> getSuggestions();
 
   @Input
@@ -148,12 +152,22 @@ public abstract class MutasticTask extends DefaultTask {
     int exit = result.getExitValue();
     var command = getCommand().get();
     if (exit == 1) {
-      throw new GradleException(FAILURES.getOrDefault(command, "mutastic " + command + " failed"));
+      throw new GradleException(failure(command));
     }
     if (exit != 0) {
       throw new GradleException(
           "mutastic %s stopped (exit %d): what went wrong is above".formatted(command, exit));
     }
+  }
+
+  /// Why the build fails when what the command checks doesn't hold: for a run with `failOnNew`, a
+  /// new miss, not its score.
+  private String failure(String command) {
+    var failOnNew = settings(configured(), getCommandLine().get()).get("failOnNew");
+    if (command.equals("run") && failOnNew != null && !failOnNew.equals("false")) {
+      return "a mutant no test catches isn't in .mutastic/baseline.yaml";
+    }
+    return FAILURES.getOrDefault(command, "mutastic " + command + " failed");
   }
 
   /// Each property's convention is the extension's.
@@ -166,6 +180,7 @@ public abstract class MutasticTask extends DefaultTask {
     getFormat().convention(extension.getFormat());
     getSince().convention(extension.getSince());
     getConfirmCatches().convention(extension.getConfirmCatches());
+    getFailOnNew().convention(extension.getFailOnNew());
     getSuggestions().convention(extension.getSuggestions());
     getEachMutant().convention(extension.getEachMutant());
     getJavaLauncher().convention(extension.getJavaLauncher());
@@ -180,6 +195,7 @@ public abstract class MutasticTask extends DefaultTask {
     put(configured, "since", getSince());
     put(configured, "suite", getSuite());
     put(configured, "confirmCatches", getConfirmCatches());
+    put(configured, "failOnNew", getFailOnNew());
     put(configured, "suggestions", getSuggestions());
     put(configured, "eachMutant", getEachMutant());
     configured.put("testsFrom", String.join(",", getTestsFrom().get()));

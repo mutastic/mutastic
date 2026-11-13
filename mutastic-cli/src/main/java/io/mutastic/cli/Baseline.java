@@ -2,7 +2,7 @@ package io.mutastic.cli;
 
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
-import io.mutastic.api.Status;
+import io.mutastic.report.FailOnNew;
 import io.mutastic.report.SourceView;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -76,9 +76,10 @@ final class Baseline {
     return Files.isRegularFile(directory.resolve(FILE));
   }
 
-  /// A mutant no test catches, missed or reached by none: what a baseline holds.
+  /// A mutant no test catches, missed or reached by none: what a baseline holds, and what `run
+  /// --fail-on-new` counts as a new miss when the baseline doesn't hold it.
   static boolean uncaught(MutantResult result) {
-    return result.status() == Status.MISSED || result.status() == Status.NOT_COVERED;
+    return FailOnNew.uncaught(result);
   }
 
   /// An entry for each mutant no test catches, in the file's order.

@@ -29,6 +29,7 @@ public final class JsonEvents {
   private final AgentText text;
   private final int threshold;
   private final Optional<Share> share;
+  private final Optional<FailOnNew> failOnNew;
 
   public JsonEvents(PrintStream out, SourceView sources, int threshold) {
     this(out, sources, threshold, Optional.empty());
@@ -37,11 +38,27 @@ public final class JsonEvents {
   /// The events of one share of a run split with `--shard`, when `share` is there: `run-started`
   /// says which, so the shares can be put back together as the whole run.
   public JsonEvents(PrintStream out, SourceView sources, int threshold, Optional<Share> share) {
+    this(out, sources, threshold, share, Optional.empty());
+  }
+
+  private JsonEvents(
+      PrintStream out,
+      SourceView sources,
+      int threshold,
+      Optional<Share> share,
+      Optional<FailOnNew> failOnNew) {
     this.out = out;
     this.sources = sources;
     this.text = new AgentText(sources, threshold);
     this.threshold = threshold;
     this.share = share;
+    this.failOnNew = failOnNew;
+  }
+
+  /// The same, passing a run on its misses the baseline doesn't hold, not on its score
+  /// (`--fail-on-new`): `run-finished` says so, with the new misses by id.
+  public JsonEvents failingOnNew(FailOnNew judged) {
+    return new JsonEvents(out, sources, threshold, share, Optional.of(judged));
   }
 
   /// Which share of a split run this is, and what it ran on: the shares of one run are of the same
@@ -464,21 +481,30 @@ public final class JsonEvents {
     }
   }
 
-  /// The score, the threshold, and whether the run passed.
+  /// The score, the threshold, and whether the run passed: with `--fail-on-new`, on its new misses,
+  /// which it names, with how many the baseline holds.
   private void putVerdict(Map<String, Object> fields, Report report, boolean oneMutant) {
     fields.put("score", rounded(report.score()));
     fields.put("threshold", threshold);
-    fields.put(
-        "passed",
-        oneMutant
-            ? report.results().stream().allMatch(result -> result.status().detected())
-            : report.passes(threshold));
+    fields.put("passed", passed(report, oneMutant));
+    if (failOnNew.isPresent() && !oneMutant) {
+      fields.put("failOnNew", true);
+      fields.put("newMisses", failOnNew.get().newMisses(report));
+      fields.put("inBaseline", failOnNew.get().inBaseline(report));
+    }
     if (oneMutant) {
       fields.put(
           "only", report.results().isEmpty() ? null : report.results().getFirst().mutant().id());
     }
     // The score of the code some test reaches: how well the tests check what they run.
     fields.put("coveredScore", rounded(report.coveredScore()));
+  }
+
+  private boolean passed(Report report, boolean oneMutant) {
+    if (oneMutant) {
+      return report.results().stream().allMatch(result -> result.status().detected());
+    }
+    return failOnNew.map(judged -> judged.passes(report)).orElseGet(() -> report.passes(threshold));
   }
 
   /// To one decimal place; null when there was nothing to score.

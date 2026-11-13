@@ -7,11 +7,11 @@
       "page": "run",
       "synopsis": "mutastic run [DIR] [:MODULE] [OPTIONS]",
       "summary": "Mutate the code and run its tests against each mutant",
-      "detail": "DIR is the build, here unless given, and :MODULE one of its modules: as Gradle names it (:app), or as Maven's -pl takes it (:services/api). The run passes when the score reaches the threshold. A full run writes report files, keeps a record the next run compares with, and offers the commands to work on each missed mutant.",
-      "exits": "0 when the score reaches the threshold, 1 when it doesn't.",
+      "detail": "DIR is the build, here unless given, and :MODULE one of its modules: as Gradle names it (:app), or as Maven's -pl takes it (:services/api). The run passes when the score reaches the threshold, or with --fail-on-new when every mutant no test catches is in the baseline. A full run writes report files, keeps a record the next run compares with, and offers the commands to work on each missed mutant.",
+      "exits": "0 when the score reaches the threshold, 1 when it doesn't; with --fail-on-new, 0 when every mutant no test catches is in the baseline, 1 when one isn't.",
       "takesMutantId": false,
       "examples": [{ "gradle": "./gradlew mutasticRun", "maven": "mvn mutastic:run", "commandLine": "mutastic run" }, { "gradle": "./gradlew mutasticRun -Pmutastic.threshold=70 -p samples/pricing", "maven": "mvn mutastic:run -Dmutastic.threshold=70 -f samples/pricing", "commandLine": "mutastic run samples/pricing --threshold=70" }, { "gradle": "./gradlew mutasticRun -Pmutastic.since=main", "maven": "mvn mutastic:run -Dmutastic.since=main", "commandLine": "mutastic run --since=main" }, { "gradle": "./gradlew :core:mutasticRun -Pmutastic.testsFrom=dependents", "maven": "mvn mutastic:run -Dmutastic.testsFrom=dependents -pl core", "commandLine": "mutastic run . :core --tests-from=dependents" }],
-      "options": ["--threshold", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--kill-matrix", "--shard", "--from-shards", "--no-suggestions", "--exclude-tests", "--suite", "--operators", "--experimental", "--report", "--format", "--each-mutant", "--vocabulary", "--color", "--hyperlinks", "--progress"]
+      "options": ["--threshold", "--fail-on-new", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--kill-matrix", "--shard", "--from-shards", "--no-suggestions", "--exclude-tests", "--suite", "--operators", "--experimental", "--report", "--format", "--each-mutant", "--vocabulary", "--color", "--hyperlinks", "--progress"]
     },
     {
       "name": "verify",
@@ -116,6 +116,20 @@
       "maven": { "property": "-Dmutastic.threshold", "setting": "<threshold>…</threshold>" },
       "gradle": { "property": "-Pmutastic.threshold", "setting": "threshold = …" },
       "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.threshold=70", "maven": "mvn mutastic:run -Dmutastic.threshold=70", "commandLine": "mutastic run --threshold=70", "gradleBuild": "mutastic {\n    threshold = 70\n}", "mavenBuild": "<configuration>\n  <threshold>70</threshold>\n</configuration>" } }
+    },
+    {
+      "name": "--fail-on-new",
+      "synopsis": "--fail-on-new",
+      "kind": "flag",
+      "group": "Running",
+      "value": "",
+      "choices": [],
+      "help": "Pass when every mutant no test catches is in .mutastic/baseline.yaml, and fail on one that isn't, whatever the score: the threshold isn't applied. For a project whose score can't reach it yet; mutastic baseline writes the file",
+      "commands": ["run"],
+      "environment": "",
+      "maven": { "property": "-Dmutastic.failOnNew", "setting": "<failOnNew>true</failOnNew>" },
+      "gradle": { "property": "-Pmutastic.failOnNew", "setting": "failOnNew = true" },
+      "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.failOnNew", "maven": "mvn mutastic:run -Dmutastic.failOnNew", "commandLine": "mutastic run --fail-on-new", "gradleBuild": "mutastic {\n    failOnNew = true\n}", "mavenBuild": "<configuration>\n  <failOnNew>true</failOnNew>\n</configuration>" } }
     },
     {
       "name": "--since",
@@ -534,8 +548,8 @@
     { "name": "FORCE_COLOR", "meaning": "Colour even off a terminal", "detail": "Set to anything, it turns colour on where mutastic can't tell a person is reading, such as a CI log that shows colour." }
   ],
   "exitCodes": [
-    { "name": "0", "meaning": "The score reaches the threshold; for verify, the mutant is caught or skipped; for gate check, the task is done", "detail": "" },
-    { "name": "1", "meaning": "The score is below the threshold; for verify, the mutant is still missed; for gate check, the task isn't done", "detail": "" },
+    { "name": "0", "meaning": "The score reaches the threshold, or with --fail-on-new no miss is new; for verify, the mutant is caught or skipped; for gate check, the task is done", "detail": "" },
+    { "name": "1", "meaning": "The score is below the threshold, or with --fail-on-new a miss is new; for verify, the mutant is still missed; for gate check, the task isn't done", "detail": "" },
     { "name": "2", "meaning": "A usage error, or a build mutastic couldn't read", "detail": "" },
     { "name": "3", "meaning": "The tests fail without any mutant: before the mutants run, or, for a test that caught one, when run again on its own after them", "detail": "" },
     { "name": "4", "meaning": "mutastic itself went wrong", "detail": "" }

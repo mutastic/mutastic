@@ -90,6 +90,11 @@ abstract class MutasticMojo extends AbstractMojo {
   @Parameter(property = "mutastic.confirmCatches", defaultValue = "false")
   private boolean confirmCatches;
 
+  /// Pass a run when every mutant no test catches is in `.mutastic/baseline.yaml`, and fail it on
+  /// one that isn't, whatever the score: the threshold isn't applied.
+  @Parameter(property = "mutastic.failOnNew")
+  private @Nullable Boolean failOnNew;
+
   /// Suggest a test for each missed mutant.
   @Parameter(property = "mutastic.suggestions", defaultValue = "true")
   private boolean suggestions;
@@ -111,6 +116,11 @@ abstract class MutasticMojo extends AbstractMojo {
   /// Why the build fails when the command finds what it checks for doesn't hold.
   abstract String failure();
 
+  /// The same, for a run under `settings`, which may change what it checks.
+  String failure(Map<String, String> settings) {
+    return failure();
+  }
+
   @Override
   public void execute() throws MojoExecutionException, MojoFailureException {
     if (skip || project.getPackaging().equals("pom")) {
@@ -125,7 +135,7 @@ abstract class MutasticMojo extends AbstractMojo {
     }
     int exit = run(command(setup));
     if (exit == 1) {
-      throw new MojoFailureException(failure());
+      throw new MojoFailureException(failure(Settings.of(configured(), commandLine())));
     }
     if (exit != 0) {
       throw new MojoExecutionException(
@@ -160,15 +170,20 @@ abstract class MutasticMojo extends AbstractMojo {
 
   /// `-Dmutastic.threshold=60`: what the POM sets, with the command line's over it.
   private List<String> properties() {
+    return Settings.of(configured(), commandLine()).entrySet().stream()
+        .map(setting -> "-Dmutastic." + setting.getKey() + "=" + setting.getValue())
+        .toList();
+  }
+
+  /// The command line's `mutastic.` properties but the goal's own, by property.
+  private Map<String, String> commandLine() {
     var commandLine = new TreeMap<String, String>();
     for (String name : session.getUserProperties().stringPropertyNames()) {
       if (name.startsWith("mutastic.") && !OWN.contains(name)) {
         commandLine.put(name, session.getUserProperties().getProperty(name));
       }
     }
-    return Settings.of(configured(), commandLine).entrySet().stream()
-        .map(setting -> "-Dmutastic." + setting.getKey() + "=" + setting.getValue())
-        .toList();
+    return commandLine;
   }
 
   /// What the POM sets, or the plugin's defaults, by name: lists joined by commas.
@@ -182,19 +197,20 @@ abstract class MutasticMojo extends AbstractMojo {
     if (reports != null) {
       configured.put("reports", String.join(",", reports));
     }
-    if (workers != null) {
-      configured.put("workers", String.valueOf(workers));
-    }
-    if (eachMutant != null) {
-      configured.put("eachMutant", String.valueOf(eachMutant));
-    }
-    if (format != null) {
-      configured.put("format", format);
-    }
-    if (since != null) {
-      configured.put("since", since);
-    }
+    putWhenSet(configured, "workers", workers);
+    putWhenSet(configured, "eachMutant", eachMutant);
+    putWhenSet(configured, "failOnNew", failOnNew);
+    putWhenSet(configured, "format", format);
+    putWhenSet(configured, "since", since);
     return configured;
+  }
+
+  /// A setting the POM may leave unset, which the command then decides.
+  private static void putWhenSet(
+      Map<String, String> configured, String name, @Nullable Object value) {
+    if (value != null) {
+      configured.put(name, String.valueOf(value));
+    }
   }
 
   /// `maven` when the goals can be named by the plugin's prefix (`mutastic:verify`): the build

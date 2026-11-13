@@ -31,6 +31,7 @@ How a run happens can be set in the plugin's configuration:
 | Option | Default | |
 |---|---|---|
 | `threshold` | 80 | The score a run must reach |
+| `failOnNew` | `false` | Fail a run only on misses that aren't in `.mutastic/baseline.yaml`, whatever the score |
 | `testsFrom` | none | Other modules whose tests run over the mutants this one's miss: `:app`, or `dependents` |
 | `workers` | by the machine | How many workers run side by side |
 | `reports` | `json,html` | The report files a full run writes, each with `:path` if it isn't the default; empty for none |

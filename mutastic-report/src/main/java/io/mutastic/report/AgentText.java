@@ -24,25 +24,38 @@ public final class AgentText {
   private final int threshold;
   private final Vocabulary words;
   private final boolean eachMutant;
+  private final Optional<FailOnNew> failOnNew;
 
   public AgentText(SourceView sources, int threshold) {
     this(sources, threshold, Vocabulary.PLAIN);
   }
 
   public AgentText(SourceView sources, int threshold, Vocabulary words) {
-    this(sources, threshold, words, false);
+    this(sources, threshold, words, false, Optional.empty());
   }
 
-  private AgentText(SourceView sources, int threshold, Vocabulary words, boolean eachMutant) {
+  private AgentText(
+      SourceView sources,
+      int threshold,
+      Vocabulary words,
+      boolean eachMutant,
+      Optional<FailOnNew> failOnNew) {
     this.sources = sources;
     this.threshold = threshold;
     this.words = words;
     this.eachMutant = eachMutant;
+    this.failOnNew = failOnNew;
   }
 
   /// The same, with an entry for every missed mutant, not one for each line's (`--each-mutant`).
   public AgentText eachMutant(boolean each) {
-    return new AgentText(sources, threshold, words, each);
+    return new AgentText(sources, threshold, words, each, failOnNew);
+  }
+
+  /// The same, passing a run on its misses the baseline doesn't hold, not on its score
+  /// (`--fail-on-new`): the verdict line says so, and the new misses' entries come first.
+  public AgentText failingOnNew(FailOnNew judged) {
+    return new AgentText(sources, threshold, words, eachMutant, Optional.of(judged));
   }
 
   public String render(Report report) {
@@ -157,11 +170,11 @@ public final class AgentText {
   private void appendVerdict(StringBuilder out, Report report, int missed, int notCovered) {
     var skipped = report.count(Status.SKIPPED);
     out.append(
-        "mutastic: %s · score %s (threshold %d%s) · %d %s, %d %s, %d %s of %d mutants%s\n"
+        "mutastic: %s · score %s (%s%s) · %d %s, %d %s, %d %s of %d mutants%s\n"
             .formatted(
                 verdict(report),
                 report.score().isPresent() ? percent(report.score()) : "none (no mutants to score)",
-                threshold,
+                failOnNew.isPresent() ? "threshold not applied" : "threshold " + threshold,
                 notCovered == 0 || report.coveredScore().isEmpty()
                     ? ""
                     : "; %s where tests reach".formatted(percent(report.coveredScore())),
@@ -175,14 +188,29 @@ public final class AgentText {
                 skipped == 0 ? "" : " (%d more skipped)".formatted(skipped)));
   }
 
-  /// `PASS`, `FAIL`, or why it failed when the score isn't why.
+  /// `PASS`, `FAIL`, or why it failed when the score isn't why; with `--fail-on-new`, the new
+  /// misses that decided it.
   private String verdict(Report report) {
-    if (report.passes(threshold)) {
-      return "PASS";
+    if (!report.failingAlone().isEmpty()) {
+      return "FAIL (a test that caught mutants fails on its own, with no mutant in)";
     }
-    return report.failingAlone().isEmpty()
-        ? "FAIL"
-        : "FAIL (a test that caught mutants fails on its own, with no mutant in)";
+    if (failOnNew.isPresent()) {
+      return onNewMisses(report, failOnNew.get());
+    }
+    return report.passes(threshold) ? "PASS" : "FAIL";
+  }
+
+  /// `PASS · no new misses, 12 in the baseline`, or `FAIL · 2 new misses, not in the baseline (12
+  /// in it): m1, m2`.
+  private static String onNewMisses(Report report, FailOnNew judged) {
+    var added = judged.newMisses(report);
+    int known = judged.inBaseline(report);
+    if (added.isEmpty()) {
+      return "PASS · no new misses, %d in the baseline".formatted(known);
+    }
+    return "FAIL · %d new %s, not in the baseline (%d in it): %s"
+        .formatted(
+            added.size(), added.size() == 1 ? "miss" : "misses", known, String.join(", ", added));
   }
 
   /// A line for each test that caught mutants and fails on its own, saying what to do: for `verify`
@@ -314,7 +342,7 @@ public final class AgentText {
 
   /// The first [#LIMIT] findings' entries, and how many more missed mutants there are.
   private void appendMissed(StringBuilder out, List<MutantResult> missed) {
-    var findings = Finding.ranked(Finding.of(missed, eachMutant));
+    var findings = newFirst(Finding.ranked(Finding.of(missed, eachMutant)));
     int number = 0;
     for (Finding finding : findings.stream().limit(LIMIT).toList()) {
       out.append('\n').append(entry(++number, finding));
@@ -325,6 +353,19 @@ public final class AgentText {
               .formatted(
                   Finding.mutantsIn(findings.subList(LIMIT, findings.size())), words.undetected));
     }
+  }
+
+  /// With `--fail-on-new`, the findings with a new miss first and the baseline's after, each in the
+  /// run's order, as `next` queues them; else as they are.
+  private List<Finding> newFirst(List<Finding> ranked) {
+    if (failOnNew.isEmpty()) {
+      return ranked;
+    }
+    var baseline = failOnNew.get().baseline();
+    var ordered = new ArrayList<Finding>();
+    ranked.stream().filter(finding -> !Queue.isLegacy(finding, baseline)).forEach(ordered::add);
+    ranked.stream().filter(finding -> Queue.isLegacy(finding, baseline)).forEach(ordered::add);
+    return ordered;
   }
 
   private void appendNotCovered(

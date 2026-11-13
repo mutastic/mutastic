@@ -77,10 +77,11 @@ public final class HumanText {
   private final Detail detail;
   private final Vocabulary words;
   private final boolean eachMutant;
+  private final Optional<FailOnNew> failOnNew;
 
   public HumanText(
       SourceView sources, int threshold, Style style, Detail detail, Vocabulary words) {
-    this(sources, threshold, style, detail, words, false);
+    this(sources, threshold, style, detail, words, false, Optional.empty());
   }
 
   private HumanText(
@@ -89,18 +90,31 @@ public final class HumanText {
       Style style,
       Detail detail,
       Vocabulary words,
-      boolean eachMutant) {
+      boolean eachMutant,
+      Optional<FailOnNew> failOnNew) {
     this.sources = sources;
     this.threshold = threshold;
     this.style = style;
     this.detail = detail;
     this.words = words;
     this.eachMutant = eachMutant;
+    this.failOnNew = failOnNew;
   }
 
   /// The same, with a card for every missed mutant, not one for each line's (`--each-mutant`).
   public HumanText eachMutant(boolean each) {
-    return new HumanText(sources, threshold, style, detail, words, each);
+    return new HumanText(sources, threshold, style, detail, words, each, failOnNew);
+  }
+
+  /// The same, passing a run on its misses the baseline doesn't hold, not on its score
+  /// (`--fail-on-new`).
+  public HumanText failingOnNew(FailOnNew judged) {
+    return new HumanText(sources, threshold, style, detail, words, eachMutant, Optional.of(judged));
+  }
+
+  /// Whether a run passes: on its new misses with `--fail-on-new`, else on its score.
+  private boolean passes(Report report) {
+    return failOnNew.map(judged -> judged.passes(report)).orElseGet(() -> report.passes(threshold));
   }
 
   public String render(Report report, Optional<Comparison> comparison, Run run) {
@@ -1040,11 +1054,12 @@ public final class HumanText {
       return style.bold("none") + style.dim(" (no mutants to score)  threshold " + threshold);
     }
     var score = "%.1f%%".formatted(report.score().getAsDouble());
-    return (report.passes(threshold)
-            ? style.green(style.bold(score))
-            : style.red(style.bold(score)))
+    return (passes(report) ? style.green(style.bold(score)) : style.red(style.bold(score)))
         + delta(report, comparison)
-        + style.dim("  threshold " + threshold)
+        + style.dim(
+            failOnNew.isPresent()
+                ? "  threshold not applied (new misses decide)"
+                : "  threshold " + threshold)
         + coveredScore(report);
   }
 
@@ -1072,6 +1087,14 @@ public final class HumanText {
     if (!report.failingAlone().isEmpty()) {
       return failedAlone();
     }
+    if (failOnNew.isPresent()) {
+      return onNewMisses(report, failOnNew.get());
+    }
+    return onScore(report, missed);
+  }
+
+  /// PASS when the score reaches the threshold, else FAIL with why.
+  private String onScore(Report report, long missed) {
     if (report.passes(threshold)) {
       return " %s %s\n"
           .formatted(
@@ -1082,6 +1105,29 @@ public final class HumanText {
                       : "%d %s, above the threshold.".formatted(missed, words.undetected)));
     }
     return failed(missed, report.count(Status.NOT_COVERED));
+  }
+
+  /// With `--fail-on-new`: PASS while every mutant no test catches is in the baseline, else FAIL
+  /// with the new ones by id.
+  private String onNewMisses(Report report, FailOnNew judged) {
+    var added = judged.newMisses(report);
+    int known = judged.inBaseline(report);
+    if (added.isEmpty()) {
+      return " %s %s\n"
+          .formatted(
+              style.label("PASS", Style.GREEN),
+              style.green("No new misses: %d in the baseline.".formatted(known)));
+    }
+    return " %s %s\n"
+        .formatted(
+            style.label("FAIL", Style.RED),
+            style.red(
+                "%d new %s, not in the baseline (%d in it): %s."
+                    .formatted(
+                        added.size(),
+                        added.size() == 1 ? "miss" : "misses",
+                        known,
+                        String.join(", ", added))));
   }
 
   /// Each mutant's fate, one a line, when they were asked for by id.
