@@ -128,6 +128,19 @@ class FailOnNewTest {
     assertThat(firstEntry(judged)).isEqualTo(other);
   }
 
+  /// On GitHub Actions, the job summary's heading is the same verdict, not the score's.
+  @Test
+  void theJobSummaryLeadsWithTheVerdictOnNewMisses() {
+    var actions = new GitHubActions(project, sources);
+
+    assertThat(actions.summary(report, 80, Optional.of(new FailOnNew(Set.of(known, added)))))
+        .startsWith(
+            "### mutastic: PASS · no new misses, 2 in the baseline · score 33.3% (threshold not"
+                + " applied)\n");
+    assertThat(actions.summary(report, 80, Optional.of(new FailOnNew(Set.of(known)))))
+        .startsWith("### mutastic: FAIL · 1 new miss, not in the baseline (1 in it): " + added);
+  }
+
   @Test
   void runFinishedSaysTheRunWasJudgedOnNewMisses() {
     var bytes = new ByteArrayOutputStream();

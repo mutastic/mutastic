@@ -195,22 +195,9 @@ public final class AgentText {
       return "FAIL (a test that caught mutants fails on its own, with no mutant in)";
     }
     if (failOnNew.isPresent()) {
-      return onNewMisses(report, failOnNew.get());
+      return failOnNew.get().verdict(report);
     }
     return report.passes(threshold) ? "PASS" : "FAIL";
-  }
-
-  /// `PASS · no new misses, 12 in the baseline`, or `FAIL · 2 new misses, not in the baseline (12
-  /// in it): m1, m2`.
-  private static String onNewMisses(Report report, FailOnNew judged) {
-    var added = judged.newMisses(report);
-    int known = judged.inBaseline(report);
-    if (added.isEmpty()) {
-      return "PASS · no new misses, %d in the baseline".formatted(known);
-    }
-    return "FAIL · %d new %s, not in the baseline (%d in it): %s"
-        .formatted(
-            added.size(), added.size() == 1 ? "miss" : "misses", known, String.join(", ", added));
   }
 
   /// A line for each test that caught mutants and fails on its own, saying what to do: for `verify`

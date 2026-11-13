@@ -18,11 +18,13 @@ import io.mutastic.engine.Shard;
 import io.mutastic.report.AgentText;
 import io.mutastic.report.Explanation;
 import io.mutastic.report.FailOnNew;
+import io.mutastic.report.GitHubActions;
 import io.mutastic.report.HumanText;
 import io.mutastic.report.Invocation;
 import io.mutastic.report.JsonEvents;
 import io.mutastic.report.MutantCommand;
 import io.mutastic.report.NextText;
+import io.mutastic.report.OperatorDocs;
 import io.mutastic.report.Queue;
 import io.mutastic.report.ReportFiles;
 import io.mutastic.report.SourceView;
@@ -200,6 +202,7 @@ public final class Main {
     passes.progress().finished();
     var kept = kept(command, prepared, tested);
     display.printer().print(tested.report(), kept.comparison(), kept.written());
+    toGitHub(command, prepared, output.github(), tested.report());
     baselineNote(command, prepared, tested.report(), output);
     return exitCode(command, tested.report(), judged);
   }
@@ -211,6 +214,33 @@ public final class Main {
     return command.failOnNew()
         ? Optional.of(new FailOnNew(Baseline.ids(prepared.directory())))
         : Optional.empty();
+  }
+
+  /// On GitHub Actions, an annotation on each of the first misses and the job's summary: see
+  /// [GitHubActions].
+  private static void toGitHub(Command command, Prepared prepared, GitHubRun run, Report report) {
+    if (!run.on()) {
+      return;
+    }
+    var actions = new GitHubActions(prepared.directory(), prepared.sources());
+    actions.annotations(report).forEach(run.err()::println);
+    var judged = judgedOnNew(command, prepared);
+    run.summary()
+        .ifPresent(
+            file -> appendSummary(file, actions.summary(report, command.threshold(), judged)));
+  }
+
+  /// Adds to the job summary's file, which other steps write to as well.
+  private static void appendSummary(java.nio.file.Path file, String markdown) {
+    try {
+      Files.writeString(
+          file,
+          markdown + "\n",
+          java.nio.file.StandardOpenOption.CREATE,
+          java.nio.file.StandardOpenOption.APPEND);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   /// `baseline`: every mutant no test catches, written for the project to commit; or with
@@ -294,7 +324,12 @@ public final class Main {
     var text = new NextText(prepared.sources(), human, output.style(), output.words());
     switch (output.format()) {
       case "jsonl" ->
-          new JsonEvents(output.out(), prepared.sources(), command.threshold())
+          new JsonEvents(
+                  output.out(),
+                  prepared.sources(),
+                  command.threshold(),
+                  Optional.empty(),
+                  operatorDocs())
               .next(shown, command.top());
       case "agent" -> output.out().print(text.agent(shown, project));
       default -> output.out().print(text.human(shown, project, command.top()));
@@ -847,7 +882,8 @@ public final class Main {
     output
         .out()
         .print(
-            new Explanation(prepared.sources(), output.style()).render(result.mutant(), lastRun));
+            new Explanation(prepared.sources(), output.style(), operatorDocs())
+                .render(result.mutant(), lastRun));
     return PASSED;
   }
 
@@ -1051,7 +1087,28 @@ public final class Main {
   /// Where and how the result is shown: stdout and progress, the format, the words for results and
   /// the terminal's style.
   private record Output(
-      PrintStream out, Progress progress, String format, Vocabulary words, Style style) {}
+      PrintStream out,
+      Progress progress,
+      String format,
+      Vocabulary words,
+      Style style,
+      GitHubRun github) {}
+
+  /// A run on GitHub Actions (`GITHUB_ACTIONS=true`, unless `MUTASTIC_GITHUB=off`): where its
+  /// annotations go, stderr, so a format's own output stays as it is; and the job summary's file.
+  private record GitHubRun(
+      boolean on, PrintStream err, java.util.Optional<java.nio.file.Path> summary) {
+    static GitHubRun of(Terminal terminal, PrintStream err) {
+      var env = terminal.env();
+      boolean on =
+          "true".equals(env.get("GITHUB_ACTIONS")) && !"off".equals(env.get("MUTASTIC_GITHUB"));
+      var summary =
+          java.util.Optional.ofNullable(env.get("GITHUB_STEP_SUMMARY"))
+              .filter(file -> !file.isBlank())
+              .map(java.nio.file.Path::of);
+      return new GitHubRun(on, err, summary);
+    }
+  }
 
   private static Output output(
       Command command, PrintStream out, PrintStream err, Terminal terminal) {
@@ -1069,7 +1126,8 @@ public final class Main {
     }
     var words = Vocabulary.valueOf(vocabulary.toUpperCase(java.util.Locale.ROOT));
     var progress = new Progress(err, progressMode(command.progress(), format, terminal));
-    return new Output(out, progress, format, words, style(command, terminal));
+    return new Output(
+        out, progress, format, words, style(command, terminal), GitHubRun.of(terminal, err));
   }
 
   private static Style style(Command command, Terminal terminal) {
@@ -1157,7 +1215,8 @@ public final class Main {
   private static HumanText humanText(Command command, Output output, SourceView sources) {
     return new HumanText(
             sources, command.threshold(), output.style(), detail(output.format()), output.words())
-        .eachMutant(command.eachMutant());
+        .eachMutant(command.eachMutant())
+        .withDocs(operatorDocs());
   }
 
   /// What `--experimental` and `MUTASTIC_EXPERIMENTAL` take to turn on ghosts.
@@ -1298,7 +1357,11 @@ public final class Main {
       Command command, Prepared prepared, Output output, Optional<FailOnNew> judged) {
     var shown =
         new JsonEvents(
-            output.out(), prepared.sources(), command.threshold(), shareOf(command, prepared));
+            output.out(),
+            prepared.sources(),
+            command.threshold(),
+            shareOf(command, prepared),
+            operatorDocs());
     var events = judged.map(shown::failingOnNew).orElse(shown);
     events.runStarted(prepared.project().name());
     if (!command.testsFrom().isEmpty()) {
@@ -1369,7 +1432,11 @@ public final class Main {
         out -> {
           var events =
               new JsonEvents(
-                  out, prepared.sources(), command.threshold(), shareOf(command, prepared));
+                  out,
+                  prepared.sources(),
+                  command.threshold(),
+                  shareOf(command, prepared),
+                  operatorDocs());
           events.runStarted(prepared.project().name());
           report.results().forEach(events::mutantFinished);
           events.runFinished(report, kept.comparison(), kept.written(), false);
@@ -1492,6 +1559,11 @@ public final class Main {
               ? Progress.Mode.NONE
               : terminal.interactive() ? Progress.Mode.BAR : Progress.Mode.COUNTER;
     };
+  }
+
+  /// Where each operator is described, in this mutastic's own docs.
+  private static OperatorDocs operatorDocs() {
+    return new OperatorDocs(Help.docs(version()));
   }
 
   private static String version() {

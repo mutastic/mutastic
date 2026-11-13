@@ -9,6 +9,10 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Card changes
 
+- **A card names an object made where it's used.** A comparison or sum whose side is a call on
+  `new Something(…)` was named without its receiver: the card said `length() != 0` for
+  `new Measured(a).length() != 0`, a condition the source doesn't have. The receiver is now read
+  back as `new Measured(a)`.
 - **Each suggested test says what it's for.** A card with a test for more than one of its mutants
   gave only the first mutant's fix, so the second test came with nothing saying why. Now `help:`
   says `one test for each mutant`, and each test follows its own mutant's fix and id; the agent
@@ -25,9 +29,15 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   passes while every mutant no test catches is in `.mutastic/baseline.yaml`, and fails, exit 1, on
   one that isn't, whatever the score: the threshold isn't applied. The summary says `No new misses:
   12 in the baseline.` or names the new ones, as does the agent format's first line, whose entries
-  put the new misses first; `run-finished` gains `failOnNew`, `newMisses` and `inBaseline`. Without
+  put the new misses first, and the GitHub Actions job summary; `run-finished` gains `failOnNew`, `newMisses` and `inBaseline`. Without
   a baseline it's a usage error, exit 2, saying `mutastic baseline` writes one. The build plugins
   take it as `failOnNew`. See [Brownfield: fail only on new misses](https://docs.mutastic.io/guides/ci/#brownfield-fail-only-on-new-misses).
+- **Annotations and a job summary on GitHub Actions.** Where `GITHUB_ACTIONS=true`, a full run
+  annotates the line of each of its first ten misses, as the agent format ranks them, and adds a
+  Markdown summary to the job's page (`$GITHUB_STEP_SUMMARY`): the verdict, the score, the counts
+  and the first misses. No token or permission; the annotations go on stderr, so a format's own
+  output is untouched. `MUTASTIC_GITHUB=off` turns both off. See
+  [Running in CI](https://docs.mutastic.io/guides/ci/#on-github-actions).
 - **`explain --format=jsonl`, for agents.** `mutastic explain ID --format=jsonl` writes the
   events a run's JSON Lines has for that one mutant, then a new `mutant-explained` event with each
   row of About this mutant as a field, in the same words: the bytecode change and what each opcode
@@ -45,6 +55,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 - **The Gradle plugin runs a Kotlin Multiplatform module.** It configures on the multiplatform
   plugin as well as `java`, reading the JVM target's compilations, its `Test` task and its runtime
   configuration, as the `mutastic` command's init script already did.
+- **Links to each operator's docs.** `explain`'s About this mutant gives the operator's row on the
+  [operators page](https://docs.mutastic.io/concepts/operators/), `docs:
+  https://docs.mutastic.io/concepts/operators/#boundary`, in the docs of the release running. On a
+  terminal with links on (`--hyperlinks`), a card's `^^ changed to` mark links there too, and
+  `--format=jsonl`'s mutant events carry it as `docs`. A plugin's operator has no row, so no link.
 
 ### Scoring changes
 

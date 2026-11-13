@@ -78,10 +78,11 @@ public final class HumanText {
   private final Vocabulary words;
   private final boolean eachMutant;
   private final Optional<FailOnNew> failOnNew;
+  private final OperatorDocs docs;
 
   public HumanText(
       SourceView sources, int threshold, Style style, Detail detail, Vocabulary words) {
-    this(sources, threshold, style, detail, words, false, Optional.empty());
+    this(sources, threshold, style, detail, words, false, OperatorDocs.LATEST, Optional.empty());
   }
 
   private HumanText(
@@ -91,6 +92,7 @@ public final class HumanText {
       Detail detail,
       Vocabulary words,
       boolean eachMutant,
+      OperatorDocs docs,
       Optional<FailOnNew> failOnNew) {
     this.sources = sources;
     this.threshold = threshold;
@@ -98,18 +100,26 @@ public final class HumanText {
     this.detail = detail;
     this.words = words;
     this.eachMutant = eachMutant;
+    this.docs = docs;
     this.failOnNew = failOnNew;
   }
 
   /// The same, with a card for every missed mutant, not one for each line's (`--each-mutant`).
   public HumanText eachMutant(boolean each) {
-    return new HumanText(sources, threshold, style, detail, words, each, failOnNew);
+    return new HumanText(sources, threshold, style, detail, words, each, docs, failOnNew);
+  }
+
+  /// The same, with each change marked under its line linking to its operator in `docs`, when links
+  /// are on.
+  public HumanText withDocs(OperatorDocs docs) {
+    return new HumanText(sources, threshold, style, detail, words, eachMutant, docs, failOnNew);
   }
 
   /// The same, passing a run on its misses the baseline doesn't hold, not on its score
   /// (`--fail-on-new`).
   public HumanText failingOnNew(FailOnNew judged) {
-    return new HumanText(sources, threshold, style, detail, words, eachMutant, Optional.of(judged));
+    return new HumanText(
+        sources, threshold, style, detail, words, eachMutant, docs, Optional.of(judged));
   }
 
   /// Whether a run passes: on its new misses with `--fail-on-new`, else on its score.
@@ -559,7 +569,7 @@ public final class HumanText {
         number++) {
       lines.add(" %s %s %s".formatted(style.dim(pad(number, width)), bar, source.get(number - 1)));
       if (number == place.line()) {
-        lines.add(caret(gutter, place, advice));
+        lines.add(caret(gutter, place, advice, docs.url(mutant.operator())));
       }
     }
     lines.add(" %s %s".formatted(gutter, bar));
@@ -568,12 +578,20 @@ public final class HumanText {
 
   /// `^^ changed to >`, under the change.
   private String caret(String gutter, SourceView.Place place, Advice advice) {
+    return caret(gutter, place, advice, Optional.empty());
+  }
+
+  /// `^^ changed to >`, under the change, linking to `operatorDocs` when links are on: the
+  /// operator's place in the docs, for what it changes and the bug it stands for.
+  private String caret(
+      String gutter, SourceView.Place place, Advice advice, Optional<String> operatorDocs) {
+    var marked = style.red("^".repeat(place.end() - place.start()) + " " + advice.changedTo());
     return " %s %s %s"
         .formatted(
             gutter,
             style.dim("│"),
             " ".repeat(place.start() - 1)
-                + style.red("^".repeat(place.end() - place.start()) + " " + advice.changedTo()));
+                + operatorDocs.map(url -> style.link(url, marked)).orElse(marked));
   }
 
   /// `= mutant - the statement` and `+ the statement mutated`, when the source shows the change

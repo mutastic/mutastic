@@ -41,6 +41,23 @@ public record FailOnNew(Set<String> baseline) {
             .count();
   }
 
+  /// `PASS · no new misses, 12 in the baseline`, or `FAIL · 2 new misses, not in the baseline (12
+  /// in it): m1, m2`: the verdict as a line that leads with it says it. A test that caught mutants
+  /// and fails on its own fails it first.
+  public String verdict(Report report) {
+    if (!report.failingAlone().isEmpty()) {
+      return "FAIL (a test that caught mutants fails on its own, with no mutant in)";
+    }
+    var added = newMisses(report);
+    int known = inBaseline(report);
+    if (added.isEmpty()) {
+      return "PASS · no new misses, %d in the baseline".formatted(known);
+    }
+    return "FAIL · %d new %s, not in the baseline (%d in it): %s"
+        .formatted(
+            added.size(), added.size() == 1 ? "miss" : "misses", known, String.join(", ", added));
+  }
+
   /// No new miss, and no test that caught mutants failing on its own.
   public boolean passes(Report report) {
     return report.failingAlone().isEmpty() && newMisses(report).isEmpty();

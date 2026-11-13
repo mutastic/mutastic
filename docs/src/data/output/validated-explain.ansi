@@ -36,6 +36,7 @@
                 of its edge: `<` becomes `!=`, `<=` becomes `==`, `==` becomes `<=` and `>=`, `!=`
                 becomes `<` and `>`, and the same for `>` and `>=`. It goes unnoticed when no test
                 checks the side of the comparison where the two disagree.
+                [2mdocs: https://docs.mutastic.io/concepts/operators/#comparison[0m
     [2m=[0m [1;34m[1mid      [0m[0m  mb1c584d6: `m` and the first 8 hex digits of its fingerprint, b1c584d66c43f9fa, a
                 SHA-256 of the class, method, site and change, and the operator
                 [2mno line number goes in, so the id stays the same when code above it moves[0m

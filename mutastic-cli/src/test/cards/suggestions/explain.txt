@@ -36,6 +36,7 @@ $ mutastic explain m86ee3ce6
                 freeFrom`, so the body runs only when `total > freeFrom`
     = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
                 edge of a range, which tests that only check values far from the edge never notice.
+                docs: https://docs.mutastic.io/concepts/operators/#boundary
     = id        m86ee3ce6: `m` and the first 8 hex digits of its fingerprint, 86ee3ce6145111cf, a
                 SHA-256 of the class, method, site and change
                 no line number goes in, so the id stays the same when code above it moves
@@ -80,6 +81,7 @@ $ mutastic explain m43173676
     = operator  mutastic/remove-conditional: A condition stops deciding: the code it guards always
                 runs, or never does. It goes unnoticed when no test needs the condition to be true
                 one time and false another.
+                docs: https://docs.mutastic.io/concepts/operators/#remove-conditional
     = id        m43173676: `m` and the first 8 hex digits of its fingerprint, 431736768e0e6a02, a
                 SHA-256 of the class, method, site and change, and the operator
                 no line number goes in, so the id stays the same when code above it moves
@@ -124,6 +126,7 @@ $ mutastic explain m2e5ded43
                 gets wrong: a `boolean` the other one, a number `0` (`1` where it returns `0`), an
                 `Optional`, string, collection or stream an empty one, anything else `null`. It goes
                 unnoticed when tests call the method but never look at what it returns.
+                docs: https://docs.mutastic.io/concepts/operators/#return-value
     = id        m2e5ded43: `m` and the first 8 hex digits of its fingerprint, 2e5ded43d0f5f36f, a
                 SHA-256 of the class, method, site and change, and the operator
                 no line number goes in, so the id stays the same when code above it moves
@@ -169,6 +172,7 @@ $ mutastic explain m56784e43
                 runs only when `total > 100`
     = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
                 edge of a range, which tests that only check values far from the edge never notice.
+                docs: https://docs.mutastic.io/concepts/operators/#boundary
     = id        m56784e43: `m` and the first 8 hex digits of its fingerprint, 56784e43908a6d05, a
                 SHA-256 of the class, method, site and change
                 no line number goes in, so the id stays the same when code above it moves
@@ -212,6 +216,7 @@ $ mutastic explain m209a60d0
     = operator  mutastic/remove-conditional: A condition stops deciding: the code it guards always
                 runs, or never does. It goes unnoticed when no test needs the condition to be true
                 one time and false another.
+                docs: https://docs.mutastic.io/concepts/operators/#remove-conditional
     = id        m209a60d0: `m` and the first 8 hex digits of its fingerprint, 209a60d0632fbbbd, a
                 SHA-256 of the class, method, site and change, and the operator
                 no line number goes in, so the id stays the same when code above it moves
@@ -257,6 +262,7 @@ $ mutastic explain m63f5f45e
                 runs only when `50 < count`
     = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
                 edge of a range, which tests that only check values far from the edge never notice.
+                docs: https://docs.mutastic.io/concepts/operators/#boundary
     = id        m63f5f45e: `m` and the first 8 hex digits of its fingerprint, 63f5f45ecf7fd975, a
                 SHA-256 of the class, method, site and change
                 no line number goes in, so the id stays the same when code above it moves
@@ -300,6 +306,7 @@ $ mutastic explain m2b0d1651
     = operator  mutastic/remove-conditional: A condition stops deciding: the code it guards always
                 runs, or never does. It goes unnoticed when no test needs the condition to be true
                 one time and false another.
+                docs: https://docs.mutastic.io/concepts/operators/#remove-conditional
     = id        m2b0d1651: `m` and the first 8 hex digits of its fingerprint, 2b0d1651c498cd17, a
                 SHA-256 of the class, method, site and change, and the operator
                 no line number goes in, so the id stays the same when code above it moves
@@ -342,6 +349,7 @@ $ mutastic explain m49a00b3f
                 runs only when `chosen >= 3`
     = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
                 edge of a range, which tests that only check values far from the edge never notice.
+                docs: https://docs.mutastic.io/concepts/operators/#boundary
     = id        m49a00b3f: `m` and the first 8 hex digits of its fingerprint, 49a00b3fc3df557b, a
                 SHA-256 of the class, method, site and change
                 no line number goes in, so the id stays the same when code above it moves
@@ -384,6 +392,7 @@ $ mutastic explain m111a435d
     = operator  mutastic/remove-conditional: A condition stops deciding: the code it guards always
                 runs, or never does. It goes unnoticed when no test needs the condition to be true
                 one time and false another.
+                docs: https://docs.mutastic.io/concepts/operators/#remove-conditional
     = id        m111a435d: `m` and the first 8 hex digits of its fingerprint, 111a435d7d8594cc, a
                 SHA-256 of the class, method, site and change, and the operator
                 no line number goes in, so the id stays the same when code above it moves
@@ -429,6 +438,7 @@ $ mutastic explain m2e491c40
                 jump tests the opposite of the source
     = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
                 edge of a range, which tests that only check values far from the edge never notice.
+                docs: https://docs.mutastic.io/concepts/operators/#boundary
     = id        m2e491c40: `m` and the first 8 hex digits of its fingerprint, 2e491c40cda18c31, a
                 SHA-256 of the class, method, site and change
                 no line number goes in, so the id stays the same when code above it moves
