@@ -46,6 +46,16 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   and ends, and `progress` on the heartbeat's cadence, with the phase's clock, its count, and for the
   mutants the weighted fraction, what's left, the fates and the busy workers. They're additive: a
   reader that ignores reasons it doesn't know reads the stream as before.
+- **The terminal's tab shows the run** where the terminal draws progress there (Windows Terminal,
+  ConEmu, Ghostty, WezTerm; `MUTASTIC_TERM_PROGRESS=true|false` decides elsewhere): busy while
+  building and checking, the mutants' weighted percent while they run, red once the score of twenty
+  or more falls below the threshold (never with `--fail-on-new`), and cleared on every way out,
+  Ctrl-C, kills and Ctrl-Z included.
+- **Each frame is painted at once:** on a terminal, the live block's redraw is one write wrapped in
+  synchronized output, which terminals that know it paint without flicker.
+- **Gradle's progress line follows the run:** `> :mutasticRun > mutants 2871/5525 · 52% · ✗ 41
+  missed · ~21m left`, from the run's live events. It's Gradle's internal API, so a Gradle without
+  it shows the heartbeat's lines alone.
 
 ### Fixes
 

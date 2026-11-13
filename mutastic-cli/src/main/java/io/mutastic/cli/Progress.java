@@ -48,11 +48,19 @@ final class Progress implements Listener, AutoCloseable {
   /// @param ticking whether a ticker redraws and beats, and keys and signals are heard; tests call
   ///   [#tick] and [#ask] themselves
   /// @param columns the terminal's width, which every line of the live block fits
+  /// @param tab whether the terminal draws progress in its tab (OSC 9;4), where the block is drawn
   record Settings(
-      boolean colour, Duration heartbeat, LongSupplier nanos, boolean ticking, int columns) {
-    /// From `MUTASTIC_HEARTBEAT`, in seconds, and `MUTASTIC_COLUMNS` or `COLUMNS`.
+      boolean colour,
+      Duration heartbeat,
+      LongSupplier nanos,
+      boolean ticking,
+      int columns,
+      boolean tab) {
+    /// From `MUTASTIC_HEARTBEAT`, in seconds, `MUTASTIC_COLUMNS` or `COLUMNS`, and what the
+    /// terminal says of itself.
     static Settings of(Map<String, String> env, boolean colour) {
-      return new Settings(colour, heartbeat(env), System::nanoTime, true, columns(env));
+      return new Settings(
+          colour, heartbeat(env), System::nanoTime, true, columns(env), ProgressChoice.tab(env));
     }
 
     private static Duration heartbeat(Map<String, String> env) {
@@ -103,11 +111,15 @@ final class Progress implements Listener, AutoCloseable {
   private @Nullable Ticker ticker;
   private @Nullable Keys keys;
 
-  /// With `--format=jsonl`, where each phase's start and end and its progress go, as they happen.
-  private @Nullable LiveEvents events;
+  /// The run's progress in the terminal's tab, where it draws it.
+  private final Tab tab = new Tab();
 
-  /// When the last `progress` event was written.
-  private long lastEvent;
+  /// Forgets what a way out must undo, once progress has undone it itself.
+  private @Nullable Runnable forgetTab;
+
+  /// Where each phase's start and end and its progress go, as they happen: stdout with
+  /// `--format=jsonl`, and the Gradle plugin's file.
+  private final List<EventSink> sinks = new java.util.ArrayList<>();
 
   /// Set when someone asks what's running: `t`, Ctrl-T or SIGUSR1. The ticker takes it.
   private final AtomicBoolean asked = new AtomicBoolean();
@@ -128,7 +140,7 @@ final class Progress implements Listener, AutoCloseable {
   Progress(PrintStream err, Mode mode, Settings settings) {
     this.mode = mode;
     this.settings = settings;
-    this.stream = new ProgressStream(err, settings.nanos(), settings.heartbeat());
+    this.stream = new ProgressStream(err, settings.nanos(), settings.heartbeat(), mode == Mode.BAR);
   }
 
   /// From now on, each source file's line as it finishes: once the sources are known.
@@ -139,9 +151,13 @@ final class Progress implements Listener, AutoCloseable {
   /// From now on, each phase's start and end to `live`, and how far it is on the heartbeat's
   /// cadence, whatever stderr shows: before the run starts, so its first phase is there.
   void sendEvents(LiveEvents live) {
+    sendEvents(live, settings.heartbeat());
+  }
+
+  /// The same, with a `progress` event `every` so often.
+  void sendEvents(LiveEvents live, Duration every) {
     synchronized (lock) {
-      this.events = live;
-      lastEvent = now();
+      sinks.add(new EventSink(live, every, now()));
     }
   }
 
@@ -156,8 +172,11 @@ final class Progress implements Listener, AutoCloseable {
     synchronized (lock) {
       say("mutastic %s · reading the %s build…\n".formatted(version, buildTool));
       enter(Phase.READING, "the " + buildTool + " build");
-      if ((mode != Mode.NONE || events != null) && settings.ticking() && ticker == null) {
+      if ((mode != Mode.NONE || !sinks.isEmpty()) && settings.ticking() && ticker == null) {
         listen();
+        if (tabbed()) {
+          forgetTab = WaysOut.add(() -> stream.leaving(tab.cleared()), () -> {});
+        }
         ticker = Ticker.every(TICK, this::tick);
       }
     }
@@ -340,7 +359,7 @@ final class Progress implements Listener, AutoCloseable {
   void finished() {
     synchronized (lock) {
       leave();
-      stream.clear();
+      stream.clear(tab.cleared());
     }
   }
 
@@ -360,7 +379,12 @@ final class Progress implements Listener, AutoCloseable {
     }
     synchronized (lock) {
       phase = null;
-      stream.clear();
+      stream.clear(tab.cleared());
+    }
+    var forget = forgetTab;
+    if (forget != null) {
+      forget.run();
+      forgetTab = null;
     }
   }
 
@@ -375,30 +399,52 @@ final class Progress implements Listener, AutoCloseable {
         say(String.join("\n", Frames.dump(snapshot(), colour())) + "\n");
       }
       if (mode == Mode.BAR) {
-        stream.draw(block());
+        stream.draw(tabNow(), block());
         frame++;
       } else if (mode == Mode.COUNTER && stream.heartbeatDue()) {
-        stream.line(Frames.heartbeat(snapshot()), List.of());
+        stream.line(Frames.heartbeat(snapshot()), "", List.of());
       }
       sendProgress();
     }
   }
 
-  /// A `progress` event, when there are events and the last is as old as a heartbeat.
+  /// A `progress` event to each sink whose last is as old as its cadence.
   private void sendProgress() {
-    var live = events;
     var current = phase;
-    if (live != null && current != null && now() - lastEvent >= settings.heartbeat().toNanos()) {
-      live.progress(current.word(), ProgressFields.of(snapshot()));
-      lastEvent = now();
+    if (current == null) {
+      return;
+    }
+    long at = now();
+    for (var sink : sinks) {
+      if (sink.due(at)) {
+        sink.events().progress(current.word(), ProgressFields.of(snapshot()));
+      }
     }
   }
 
   /// A permanent line, with the live block drawn again under it, in one write.
   private void say(String text) {
     if (mode != Mode.NONE) {
-      stream.line(text, block());
+      stream.line(text, tabNow(), block());
     }
+  }
+
+  /// From now on, the tab turns red when the score falls below `threshold`: not with
+  /// `--fail-on-new`, where the score doesn't decide.
+  void redBelow(int threshold) {
+    synchronized (lock) {
+      tab.redBelow(threshold);
+    }
+  }
+
+  /// Whether the tab shows the run's progress: on a terminal that says it draws it.
+  private boolean tabbed() {
+    return mode == Mode.BAR && settings.tab();
+  }
+
+  /// What the tab shows now, while a phase runs, where it's drawn.
+  private String tabNow() {
+    return tabbed() && phase != null ? tab.now(snapshot()) : "";
   }
 
   /// The live block, on a terminal, while a phase runs.
@@ -413,9 +459,7 @@ final class Progress implements Listener, AutoCloseable {
     leave();
     phase = next;
     phaseStarted = now();
-    if (events != null) {
-      events.phaseStarted(next.word());
-    }
+    sinks.forEach(sink -> sink.events().phaseStarted(next.word()));
     doing = what;
     log = null;
     done = 0;
@@ -434,8 +478,9 @@ final class Progress implements Listener, AutoCloseable {
           case null, default -> "";
         };
     var ending = phase;
-    if (events != null && ending != null) {
-      events.phaseFinished(ending.word(), elapsed());
+    if (ending != null) {
+      var took = elapsed();
+      sinks.forEach(sink -> sink.events().phaseFinished(ending.word(), took));
     }
     phase = null;
     if (!ended.isEmpty()) {
