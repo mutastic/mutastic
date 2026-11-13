@@ -1,6 +1,6 @@
 ---
 title: Test-first with a refactor
-description: "Two more test-first cycles on one rule, until the code repeats itself, then the refactor it calls for, with mutastic on the cycle's lines before it and on the lines it changed."
+description: "After a refactor, a green suite says the tests ran the new code, not that they check it. Two more cycles grow a rule until it repeats, then the refactor, with mutastic before and after."
 ---
 
 import { Code } from '@astrojs/starlight/components';
@@ -16,9 +16,13 @@ import verify250 from '../../../data/output/test-first-refactor-verify-250.ansi?
 import before from '../../../data/output/test-first-refactor-before.ansi?raw';
 import after from '../../../data/output/test-first-refactor-after.ansi?raw';
 
-Two more cycles on the rule [Working test-first](/guides/test-first/) started, each adding a tier,
-until the code says the same thing three times. Then the refactor, done: mutastic on the cycle's
-lines first, the change with the suite green, and mutastic on the lines it changed.
+A refactor is the step where a green suite tells you least. The code takes a new shape and the
+tests still pass, but passing says they ran the new code, not that they check it. Most test-first
+guides name the step and move on. This one does it.
+
+Two more cycles grow the rule from [Working test-first](/guides/test-first/) until the code says
+the same thing three times. Then the refactor, with mutastic before it and after it, so you know
+the tests still pin every behaviour of the new shape, not only that they pass.
 [Working test-first](/concepts/test-first/), under Concepts, says why mutastic comes where it
 does.
 
