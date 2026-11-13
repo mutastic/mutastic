@@ -36,4 +36,14 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
     changed, and the gate holds "done" until they're closed. [Coding agents](/agents/) has the
     Claude Code, Codex and opencode plugins.
   </Card>
+  <Card title="Test-first, then proved">
+    A test written first covers the cases you thought of. mutastic finds the ones you didn't, on
+    the lines each cycle changed, while you're still in it. [Working test-first](/concepts/test-first/)
+    shows where it fits in red, green, refactor.
+  </Card>
+  <Card title="On every pull request">
+    `--since=origin/main` mutates only the lines a change touched, so a run fits in CI and judges
+    the change, not the backlog. [Running in CI](/guides/ci/) has the jobs for GitHub Actions and
+    GitLab.
+  </Card>
 </CardGrid>
