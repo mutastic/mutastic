@@ -67,12 +67,7 @@ final class IgnoreCommand {
             .filter(entry -> entry.ignore().id().equals(id))
             .findFirst();
     if (proposal.isEmpty()) {
-      out.printf(
-          "mutastic: %s isn't proposed in %s: nothing to accept%s\n",
-          id,
-          where.shownProposals(),
-          close(id, Ignores.proposed(where.directory()), "--accept", where));
-      return Main.FAILED;
+      return notProposed(id, where, out);
     }
     var entries = without(id, where);
     entries.add(proposal.get());
@@ -86,6 +81,16 @@ final class IgnoreCommand {
         where.shownFile(),
         where.command(List.of("--remove", id)));
     return Main.PASSED;
+  }
+
+  /// `id` isn't proposed: with the proposal a slip away from it, if there's one.
+  private static int notProposed(String id, Where where, PrintStream out) {
+    out.printf(
+        "mutastic: %s isn't proposed in %s: nothing to accept%s\n",
+        id,
+        where.shownProposals(),
+        close(id, Ignores.proposed(where.directory()), "--accept", where));
+    return Main.FAILED;
   }
 
   /// The one id in `entries` a slip away from `id`, said with its command: never acted on.

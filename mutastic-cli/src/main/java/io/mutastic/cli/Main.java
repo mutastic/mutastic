@@ -125,41 +125,11 @@ public final class Main {
     try {
       var command = Command.parse(args);
       return nothingToGate(command) ? PASSED : run(command, out, err, terminal);
-    } catch (UsageException e) {
-      err.print("mutastic: " + e.getMessage() + "\n");
-      err.print(corrected(e.correction(), args).orElseGet(() -> Help.usage(List.of(args))));
-      return USAGE;
-    } catch (ConfigException e) {
-      err.print("mutastic: " + e.getMessage() + "\n");
-      return USAGE;
-    } catch (Engine.UnknownMutant e) {
-      err.print("mutastic: " + e.getMessage() + "\n");
-      e.closest()
-          .map(id -> Correction.of(e.id(), id))
-          .flatMap(correction -> corrected(Optional.of(correction), args))
-          .ifPresent(err::print);
-      return USAGE;
-    } catch (BuildTool.SetupFailed | Engine.CantRun | Shares.Refused e) {
-      err.print("mutastic: " + e.getMessage() + "\n");
-      CodexSandbox.hint(e, terminal.env()).ifPresent(hint -> err.print(hint + "\n"));
-      return USAGE;
-    } catch (Engine.BaselineFailed e) {
-      err.print("mutastic: " + e.getMessage() + "\n");
-      return TESTS_FAIL;
     } catch (RuntimeException e) {
-      err.print("mutastic: internal error: " + e + "\n");
-      return INTERNAL;
+      var failure = Failure.of(e, List.of(args), terminal.env());
+      err.print(failure.said());
+      return failure.exit();
     }
-  }
-
-  /// The command line with the correction made, to copy: none when a build plugin passed the
-  /// arguments, which the person wrote in its own form.
-  private static Optional<String> corrected(Optional<Correction> correction, String[] args) {
-    var line = List.of(args);
-    if (line.stream().anyMatch(arg -> arg.startsWith("--setup"))) {
-      return Optional.empty();
-    }
-    return correction.flatMap(each -> each.in(line)).map(fixed -> "  mutastic " + fixed + "\n");
   }
 
   /// A hook runs in whatever project the agent is in. Where mutastic reads no build, there's
@@ -1345,21 +1315,28 @@ public final class Main {
     try {
       OperatorSet.active(policy);
     } catch (OperatorSet.Unknown e) {
-      if (command.operators().isEmpty()) {
-        var place = configuration.place("operators:", e.name());
-        throw new ConfigException(
-            "%s: %s"
-                .formatted(
-                    place.equals(Configuration.FILE)
-                        ? configuration.place("operators:", "-" + e.name())
-                        : place,
-                    e.getMessage()));
-      }
-      throw new UsageException(
-          "--operators: " + e.getMessage(),
-          e.closest().map(close -> Correction.of(e.name(), close)).orElse(null));
+      throw unknownOperator(e, command, configuration);
     }
     return policy;
+  }
+
+  /// An operator nothing has: in `mutastic.yaml`, at its line; else in `--operators`, with the
+  /// command corrected when one is close.
+  private static RuntimeException unknownOperator(
+      OperatorSet.Unknown unknown, Command command, Configuration configuration) {
+    if (command.operators().isEmpty()) {
+      var place = configuration.place("operators:", unknown.name());
+      return new ConfigException(
+          "%s: %s"
+              .formatted(
+                  place.equals(Configuration.FILE)
+                      ? configuration.place("operators:", "-" + unknown.name())
+                      : place,
+                  unknown.getMessage()));
+    }
+    return new UsageException(
+        "--operators: " + unknown.getMessage(),
+        unknown.closest().map(close -> Correction.of(unknown.name(), close)).orElse(null));
   }
 
   /// What `verify` says of each of its mutants, and whether every one passed.

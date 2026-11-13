@@ -21,7 +21,8 @@ class NearestTest {
     assertThat(Nearest.distance("APP", "app")).isZero();
   }
 
-  /// The table both editions' tests read, so a typo gets the same answer from either.
+  /// The table both editions' tests read, mutastic-rs's `crates/mutastic/tests/typos.tsv` as it is,
+  /// so a typo gets the same answer from either.
   @Test
   void everyTypoInTheSharedTableGetsItsAnswer() throws IOException {
     for (String line : table()) {

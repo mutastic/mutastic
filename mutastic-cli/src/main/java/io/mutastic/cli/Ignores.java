@@ -121,10 +121,7 @@ final class Ignores {
     for (int number = 1; number <= lines.size(); number++) {
       var raw = lines.get(number - 1);
       var line = raw.strip();
-      if (line.isEmpty()
-          || line.startsWith("#")
-          || line.equals("ignores:")
-          || line.equals("proposals:")) {
+      if (unread(line)) {
         continue;
       }
       if (line.startsWith("- ")) {
@@ -133,16 +130,29 @@ final class Ignores {
         line = line.substring(2);
         start = number;
       }
-      int colon = line.indexOf(':');
-      if (colon < 0) {
-        throw new Main.ConfigException(
-            "%s line %d: can't read `%s`; each line is a `key: value`, as `reason: only logs`"
-                .formatted(name, number, raw.strip()));
-      }
-      fields.put(line.substring(0, colon), unquoted(line.substring(colon + 1).strip()));
+      field(fields, line, "%s line %d".formatted(name, number));
     }
     add(entries, fields, "%s line %d".formatted(name, start));
     return entries;
+  }
+
+  /// `key: value`, into `fields`.
+  private static void field(Map<String, String> fields, String line, String place) {
+    int colon = line.indexOf(':');
+    if (colon < 0) {
+      throw new Main.ConfigException(
+          "%s: can't read `%s`; each line is a `key: value`, as `reason: only logs`"
+              .formatted(place, line));
+    }
+    fields.put(line.substring(0, colon), unquoted(line.substring(colon + 1).strip()));
+  }
+
+  /// A line that holds no field: blank, a comment, or the list's heading.
+  private static boolean unread(String line) {
+    return line.isEmpty()
+        || line.startsWith("#")
+        || line.equals("ignores:")
+        || line.equals("proposals:");
   }
 
   /// The keys an entry has.
@@ -155,20 +165,7 @@ final class Ignores {
     var id = fields.get("id");
     var reason = fields.get("reason");
     if (id == null || reason == null) {
-      var missing = id == null ? "id" : "reason";
-      var close =
-          fields.keySet().stream()
-              .filter(key -> !KEYS.contains(key))
-              .filter(key -> io.mutastic.api.Nearest.name(key, KEYS).equals(Optional.of(missing)))
-              .findFirst();
-      throw new Main.ConfigException(
-          "%s: every entry needs an id and a reason, and this one has no %s%s"
-              .formatted(
-                  place,
-                  missing,
-                  close
-                      .map(key -> ". It has %s:, close to %s:.".formatted(key, missing))
-                      .orElse("")));
+      throw incomplete(fields, place, id == null ? "id" : "reason");
     }
     entries.add(
         new Entry(
@@ -176,6 +173,24 @@ final class Ignores {
                 id, fields.getOrDefault("code", ""), reason, fields.getOrDefault("kind", "")),
             fields.getOrDefault("at", ""),
             fields.getOrDefault("change", "")));
+  }
+
+  /// An entry without its id or reason: with a key of it close to the one missing, if there's one.
+  private static Main.ConfigException incomplete(
+      Map<String, String> fields, String place, String missing) {
+    var close =
+        fields.keySet().stream()
+            .filter(key -> !KEYS.contains(key))
+            .filter(key -> io.mutastic.api.Nearest.name(key, KEYS).equals(Optional.of(missing)))
+            .findFirst();
+    return new Main.ConfigException(
+        "%s: every entry needs an id and a reason, and this one has no %s%s"
+            .formatted(
+                place,
+                missing,
+                close
+                    .map(key -> ". It has %s:, close to %s:.".formatted(key, missing))
+                    .orElse("")));
   }
 
   /// In single quotes, as YAML has them: a quote inside is doubled.

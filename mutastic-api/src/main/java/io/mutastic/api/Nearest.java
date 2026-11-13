@@ -1,19 +1,20 @@
 package io.mutastic.api;
 
 import java.util.Collection;
-import java.util.List;
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 
 /// The one name close to a mistyped one, for an error to say "There's one called …": a command, an
 /// option, a value, a key in a file, a module or an id. Said, never acted on: the person or agent
-/// runs it, so a guess must be likely, and two as close are no guess at all.
+/// runs it, so a guess must be likely.
 ///
-/// The rule, the same in both editions: the same name but for case; else the closest within
-/// `max(length, 3) / 3` edits, where an edit inserts, deletes or changes a character or swaps two
-/// next to each other. Of two as close, the one with the same letters is the likelier slip, so
-/// `tset` is `test`, not `set`; otherwise two as close are neither.
+/// The rule, the same in both editions (mutastic-rs's `similar::closest`): the fewest edits, where
+/// an edit inserts, deletes or changes a character or swaps two next to each other, compared
+/// without case, and at most `max(length, 3) / 3` of them. Of two as close, the one nearer the
+/// typed length wins, then the first: a swap keeps the length, so `tset` is `test`, not `set`. Both
+/// editions' tests read the same table of typos (`typos.tsv`).
 @Internal
 public final class Nearest {
   private Nearest() {}
@@ -45,36 +46,11 @@ public final class Nearest {
   private static Optional<String> name(
       String typed, Collection<String> names, Function<String, String> key, int most) {
     var wanted = key.apply(typed);
-    var sameButCase =
-        names.stream().filter(name -> key.apply(name).equalsIgnoreCase(wanted)).toList();
-    if (!sameButCase.isEmpty()) {
-      return only(sameButCase);
-    }
-    var best = names.stream().mapToInt(name -> distance(wanted, key.apply(name))).min();
-    if (best.isEmpty() || best.getAsInt() > most) {
-      return Optional.empty();
-    }
-    var closest =
-        names.stream()
-            .filter(name -> distance(wanted, key.apply(name)) == best.getAsInt())
-            .toList();
-    var sameLetters =
-        closest.stream().filter(name -> letters(key.apply(name)).equals(letters(wanted))).toList();
-    return sameLetters.isEmpty() ? only(closest) : only(sameLetters);
-  }
-
-  /// The letters of a name in order, without case: the same for a name with two of them swapped.
-  private static String letters(String name) {
-    var letters = name.toLowerCase(Locale.ROOT).toCharArray();
-    java.util.Arrays.sort(letters);
-    return new String(letters);
-  }
-
-  /// The one name, unless there are several, which can't be told apart.
-  private static Optional<String> only(List<String> names) {
-    return names.stream().distinct().count() == 1
-        ? Optional.of(names.getFirst())
-        : Optional.empty();
+    return names.stream()
+        .filter(name -> distance(wanted, key.apply(name)) <= most)
+        .min(
+            Comparator.<String>comparingInt(name -> distance(wanted, key.apply(name)))
+                .thenComparingInt(name -> Math.abs(key.apply(name).length() - wanted.length())));
   }
 
   /// The edits from `from` to `to`: a character inserted, deleted, changed, or two next to each

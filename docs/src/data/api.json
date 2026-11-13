@@ -1976,7 +1976,7 @@
           "kind": "class",
           "signature": "@Internal class Nearest",
           "summary": "The one name close to a mistyped one, for an error to say \"There's one called …\": a command, an option, a value, a key in a file, a module or an id.",
-          "doc": "The one name close to a mistyped one, for an error to say \"There's one called …\": a command, an\noption, a value, a key in a file, a module or an id. Said, never acted on: the person or agent\nruns it, so a guess must be likely, and two as close are no guess at all.\n\nThe rule, the same in both editions: the same name but for case; else the closest within\n`max(length, 3) / 3` edits, where an edit inserts, deletes or changes a character or swaps two\nnext to each other. Of two as close, the one with the same letters is the likelier slip, so\n`tset` is `test`, not `set`; otherwise two as close are neither.",
+          "doc": "The one name close to a mistyped one, for an error to say \"There's one called …\": a command, an\noption, a value, a key in a file, a module or an id. Said, never acted on: the person or agent\nruns it, so a guess must be likely.\n\nThe rule, the same in both editions (mutastic-rs's `similar::closest`): the fewest edits, where\nan edit inserts, deletes or changes a character or swaps two next to each other, compared\nwithout case, and at most `max(length, 3) / 3` of them. Of two as close, the one nearer the\ntyped length wins, then the first: a swap keeps the length, so `tset` is `test`, not `set`. Both\neditions' tests read the same table of typos (`typos.tsv`).",
           "params": [],
           "members": [
             {

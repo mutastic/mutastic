@@ -18,10 +18,11 @@ class ModulesTest {
     assertThat(Modules.closest(":xyz", MODULES)).isEmpty();
   }
 
+  /// Of two as close, the one nearer the typed length, then the first: as mutastic-rs offers.
   @Test
-  void twoAsCloseAreNeitherOffered() {
-    assertThat(Modules.closest(":ab", List.of(":abc", ":abd"))).isEmpty();
-    assertThat(Modules.closest(":App", List.of(":app", ":APP"))).isEmpty();
+  void ofTwoAsCloseTheFirstIsOffered() {
+    assertThat(Modules.closest(":ab", List.of(":abc", ":abd"))).hasValue(":abc");
+    assertThat(Modules.closest(":App", List.of(":app", ":APP"))).hasValue(":app");
   }
 
   @Test
