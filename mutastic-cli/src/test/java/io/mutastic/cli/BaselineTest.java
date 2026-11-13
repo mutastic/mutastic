@@ -69,9 +69,10 @@ class BaselineTest {
     var run = Samples.mutastic("run", project.toString(), "--format=agent");
 
     assertThat(run.exit()).as(run.out()).isEqualTo(Main.TESTS_FAIL);
+    // After what progress said, on a line of its own.
     assertThat(run.err())
-        .startsWith(
-            "mutastic: the tests fail without any mutant: com.example.setup.JupiterSetupTest (the class as a whole, with IllegalStateException, each time it ran: its setup or teardown fails outside any test, such as a `@BeforeAll`, `@AfterAll`, `@BeforeClass`, `@AfterClass`, a class rule or a static initialiser); their output is in ");
+        .contains(
+            "\nmutastic: the tests fail without any mutant: com.example.setup.JupiterSetupTest (the class as a whole, with IllegalStateException, each time it ran: its setup or teardown fails outside any test, such as a `@BeforeAll`, `@AfterAll`, `@BeforeClass`, `@AfterClass`, a class rule or a static initialiser); their output is in ");
   }
 
   @Test
@@ -85,7 +86,7 @@ class BaselineTest {
 
     assertThat(run.exit()).isEqualTo(Main.TESTS_FAIL);
     assertThat(run.err())
-        .startsWith(
-            "mutastic: the tests fail without any mutant: com.example.pricing.PricingTest#bigOrdersGetTenPercentOff");
+        .contains(
+            "\nmutastic: the tests fail without any mutant: com.example.pricing.PricingTest#bigOrdersGetTenPercentOff");
   }
 }

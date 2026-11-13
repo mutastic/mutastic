@@ -2,7 +2,6 @@ package io.mutastic.cli;
 
 import io.mutastic.api.BuildTool;
 import io.mutastic.api.Comparison;
-import io.mutastic.api.CoveragePass;
 import io.mutastic.api.Listener;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Policy;
@@ -156,8 +155,8 @@ public final class Main {
     var tool = BuildTools.of(directory);
     tool.checkModule(directory, command.module(), typed(directory));
     var lock = WorkLock.hold(tool.workDirectory(directory, command.module()), err);
-    try {
-      return held(command, output(command, out, err, terminal), tool, terminal);
+    try (var output = output(command, out, err, terminal)) {
+      return held(command, output, tool, terminal);
     } finally {
       lock.close();
     }
@@ -180,7 +179,7 @@ public final class Main {
     var shares = command.fromShards().map(directory -> Shares.read(directory, version()));
     var progress = output.progress();
     progress.started(version(), tool.name());
-    var prepared = prepare(command, tool);
+    var prepared = prepare(command, tool, progress);
     showFileLines(command, output, humanText(command, output, prepared.sources()), prepared);
     var engine = new Engine(workerJar(), prepared.work().resolve("worker.log"));
     var options = options(command, terminal, prepared);
@@ -200,13 +199,17 @@ public final class Main {
     var display = display(command, prepared, output, judged);
     command.shard().ifPresent(shard -> Shares.forget(shareEvents(prepared, shard)));
     var tested = passes.run(command, prepared, display.listener());
-    passes.progress().finished();
+    passes.progress().checking(RECORDING, 0, 0);
     var kept = kept(command, prepared, tested);
+    passes.progress().finished();
     display.printer().print(tested.report(), kept.comparison(), kept.written());
     toGitHub(command, prepared, output.github(), tested.report());
     baselineNote(command, prepared, tested.report(), output);
     return exitCode(command, tested.report(), judged);
   }
+
+  /// What progress calls writing the run's record and reports.
+  private static final String RECORDING = "writing the record and reports";
 
   /// With `--fail-on-new`, the run judged on the misses the project's baseline doesn't hold. A
   /// share's are judged against it as the whole run's are, and a run made of shares judges the
@@ -980,14 +983,15 @@ public final class Main {
         if (uncaught.isEmpty()) {
           break;
         }
-        var runner = runner(prepared, module);
-        otherTests.addAll(runner.testClasses());
         progress.testsFrom(module);
+        var runner = runner(prepared, module);
+        progress.findingMutants();
+        otherTests.addAll(runner.testClasses());
         var pass =
             engine.run(
                 prepared.project().runningTestsOf(runner, prepared.directory()),
                 options.among(uncaught),
-                counting());
+                progress);
         merged = merged.merge(pass);
       }
       return new Tested(merged, otherTests);
@@ -1025,7 +1029,15 @@ public final class Main {
     private Project runner(Prepared prepared, String module) {
       var work =
           prepared.work().resolve("tests-from").resolve(module.substring(1).replace(':', '/'));
-      return tool.read(prepared.directory(), module, work, prepared.directory().toString());
+      return read(
+          tool,
+          new BuildTool.Request(
+              prepared.directory(),
+              module,
+              work,
+              prepared.directory().toString(),
+              BuildTool.DEFAULT_SUITE),
+          progress);
     }
 
     private static java.util.Set<String> uncaught(Report report) {
@@ -1033,21 +1045,6 @@ public final class Main {
           .filter(result -> !result.status().detected() && result.status() != Status.SKIPPED)
           .map(result -> result.mutant().id())
           .collect(java.util.stream.Collectors.toSet());
-    }
-
-    /// Progress only: each result is shown once every module's tests have run.
-    private Listener counting() {
-      return new Listener() {
-        @Override
-        public void coverageFinished(CoveragePass found) {
-          progress.coverageFinished(found);
-        }
-
-        @Override
-        public void mutantFinished(MutantResult result) {
-          progress.mutantFinished(result);
-        }
-      };
     }
   }
 
@@ -1093,7 +1090,14 @@ public final class Main {
       String format,
       Vocabulary words,
       Style style,
-      GitHubRun github) {}
+      GitHubRun github)
+      implements AutoCloseable {
+    /// Progress stops, and its live line goes, before whatever is said next.
+    @Override
+    public void close() {
+      progress.close();
+    }
+  }
 
   /// A run on GitHub Actions (`GITHUB_ACTIONS=true`, unless `MUTASTIC_GITHUB=off`): where its
   /// annotations go, stderr, so a format's own output stays as it is; and the job summary's file.
@@ -1126,7 +1130,11 @@ public final class Main {
               .formatted(vocabulary));
     }
     var words = Vocabulary.valueOf(vocabulary.toUpperCase(java.util.Locale.ROOT));
-    var progress = new Progress(err, progressMode(command.progress(), format, terminal));
+    var progress =
+        new Progress(
+            err,
+            ProgressChoice.mode(command.progress(), format, terminal),
+            Progress.Settings.of(terminal.env(), progressColour(command, terminal)));
     return new Output(
         out, progress, format, words, style(command, terminal), GitHubRun.of(terminal, err));
   }
@@ -1159,7 +1167,7 @@ public final class Main {
       LocalTime startedAt,
       Duration setup) {}
 
-  private static Prepared prepare(Command command, BuildTool tool) {
+  private static Prepared prepare(Command command, BuildTool tool, Progress progress) {
     long start = System.nanoTime();
     var startedAt = LocalTime.now(java.time.ZoneId.systemDefault()); // the reader's clock
     var directory = command.directory().toAbsolutePath().normalize();
@@ -1169,9 +1177,12 @@ public final class Main {
     var project =
         command.setup().isPresent()
             ? tool.read(directory, command.module(), command.setup().get())
-            : tool.read(
+            : read(
+                tool,
                 new BuildTool.Request(
-                    directory, command.module(), work, typed(directory), command.suite()));
+                    directory, command.module(), work, typed(directory), command.suite()),
+                progress);
+    progress.findingMutants();
     project = project.withTests(project.tests().leavingOut(command.excludeTests()));
     var setup = Duration.ofNanos(System.nanoTime() - start);
     var sources =
@@ -1179,6 +1190,12 @@ public final class Main {
             .withClassSources(new ClassSources(project.classes()))
             .withInvocation(Invocation.of(command.commands(), target));
     return new Prepared(directory, work, project, sources, startedAt, setup);
+  }
+
+  /// The module read through its build, which progress shows as it builds.
+  private static Project read(BuildTool tool, BuildTool.Request request, Progress progress) {
+    progress.building(tool.building(request));
+    return tool.read(request);
   }
 
   /// The project as typed, and its suite when it isn't the default: its tests are the suite's, so
@@ -1377,25 +1394,16 @@ public final class Main {
   }
 
   private static Listener progressAndEvents(Progress progress, JsonEvents events) {
-    return new Listener() {
-      @Override
-      public void coverageFinished(CoveragePass pass) {
-        progress.coverageFinished(pass);
-      }
-
+    return new ForwardingListener(progress) {
       @Override
       public void mutantFinished(MutantResult result) {
-        progress.mutantFinished(result);
+        super.mutantFinished(result);
         events.mutantFinished(result);
       }
 
       @Override
-      public void fileFinished(String topLevelClass, List<MutantResult> results) {
-        progress.fileFinished(topLevelClass, results);
-      }
-
-      @Override
       public void mutantRevised(MutantResult result) {
+        super.mutantRevised(result);
         events.mutantRevised(result);
       }
     };
@@ -1550,18 +1558,9 @@ public final class Main {
     return words;
   }
 
-  /// A bar on a terminal for people; counter lines in logs; nothing for agents and JSONL readers,
-  /// who only want the result.
-  private static Progress.Mode progressMode(String choice, String format, Terminal terminal) {
-    return switch (choice) {
-      case "bar" -> Progress.Mode.BAR;
-      case "counter" -> Progress.Mode.COUNTER;
-      case "none" -> Progress.Mode.NONE;
-      default ->
-          format.equals("agent") || format.equals("jsonl")
-              ? Progress.Mode.NONE
-              : terminal.interactive() ? Progress.Mode.BAR : Progress.Mode.COUNTER;
-    };
+  /// The live line's bold and dim, unless `NO_COLOR` or `--color=never` says no colour.
+  private static boolean progressColour(Command command, Terminal terminal) {
+    return !terminal.env().containsKey("NO_COLOR") && !command.colour().equals("never");
   }
 
   /// Where each operator is described, in this mutastic's own docs.
@@ -1795,13 +1794,14 @@ public final class Main {
   /// How the result is shown, as the command line chose.
   ///
   /// @param format empty for the default, which depends on where output goes
-  /// @param colour `auto`, `always` or `never`, as are `links` and `progress`
+  /// @param colour `auto`, `always` or `never`, as is `links`
+  /// @param progress `auto`, `bar`, `counter` or `none`; empty when not given
   /// @param eachMutant a card for every missed mutant, not one for the mutants of each line
   record Shown(
       Optional<String> format,
       String colour,
       String links,
-      String progress,
+      Optional<String> progress,
       Optional<String> vocabulary,
       boolean eachMutant) {}
 
@@ -1877,7 +1877,7 @@ public final class Main {
       return shown.links();
     }
 
-    String progress() {
+    Optional<String> progress() {
       return shown.progress();
     }
 
@@ -1982,7 +1982,7 @@ public final class Main {
       private Optional<Integer> workers = Optional.empty();
       private String colour = "auto";
       private String links = "auto";
-      private String progress = "auto";
+      private Optional<String> progress = Optional.empty();
       private boolean suggestions = true;
       private @Nullable List<RequestedReport> reports = null;
       private Optional<String> vocabulary = Optional.empty();
@@ -2072,7 +2072,7 @@ public final class Main {
           case "--vocabulary" -> vocabulary = Optional.of(choice(option, given));
           case "--color" -> colour = choice(option, given);
           case "--hyperlinks" -> links = choice(option, given);
-          case "--progress" -> progress = choice(option, given);
+          case "--progress" -> progress = Optional.of(choice(option, given));
           default -> setIgnoringOrForAPlugin(option, given);
         }
       }
@@ -2107,7 +2107,7 @@ public final class Main {
           case "--prune" -> prune = true;
           case "--hook" -> {
             hook = choice(option, given);
-            progress = "none"; // a hook's stderr is the agent's to read, not progress
+            progress = Optional.of("none"); // a hook's stderr is the agent's to read, not progress
           }
           case "--tries" -> tries = number(option, given, 1, 100);
           case "--top" -> top = number(option, given, 1, io.mutastic.report.Queue.MOST);

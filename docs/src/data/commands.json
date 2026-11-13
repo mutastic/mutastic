@@ -404,9 +404,9 @@
       "group": "Output",
       "value": "STYLE",
       "choices": ["auto", "bar", "counter", "none"],
-      "help": "Progress on stderr: a bar on a terminal, counter lines in logs, none for agents",
+      "help": "Progress on stderr: a live line on a terminal, else a line at least every 30s",
       "commands": ["baseline", "explain", "next", "run", "verify"],
-      "environment": "",
+      "environment": "MUTASTIC_PROGRESS",
       "maven": { "property": "-Dmutastic.progress", "setting": null },
       "gradle": { "property": "-Pmutastic.progress", "setting": null },
       "examples": { "baseline": { "gradle": "", "maven": "", "commandLine": "mutastic baseline --progress=counter", "gradleBuild": "", "mavenBuild": "" }, "explain": { "gradle": "./gradlew mutasticExplain -Pmutastic.mutant=m855c8e3c -Pmutastic.progress=counter", "maven": "mvn mutastic:explain -Dmutastic.mutant=m855c8e3c -Dmutastic.progress=counter", "commandLine": "mutastic explain m855c8e3c --progress=counter", "gradleBuild": "", "mavenBuild": "" }, "next": { "gradle": "", "maven": "", "commandLine": "mutastic next --progress=counter", "gradleBuild": "", "mavenBuild": "" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.progress=counter", "maven": "mvn mutastic:run -Dmutastic.progress=counter", "commandLine": "mutastic run --progress=counter", "gradleBuild": "", "mavenBuild": "" }, "verify": { "gradle": "./gradlew mutasticVerify -Pmutastic.mutant=m855c8e3c -Pmutastic.progress=counter", "maven": "mvn mutastic:verify -Dmutastic.mutant=m855c8e3c -Dmutastic.progress=counter", "commandLine": "mutastic verify m855c8e3c --progress=counter", "gradleBuild": "", "mavenBuild": "" } }

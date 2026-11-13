@@ -3,6 +3,7 @@ package io.mutastic.gradle;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,6 +22,42 @@ class GradleTest {
         .isEqualTo(Path.of("/code/app/build/mutastic/data"));
     assertThat(gradle.workDirectory(project, ":services:api"))
         .isEqualTo(Path.of("/code/app/build/mutastic/services/api"));
+  }
+
+  /// The build's log has the tasks it ran, for progress to show; a failure says what `-q` would
+  /// have said.
+  @Test
+  void aFailureSaysWhatGradleSaidBeyondItsProgress() {
+    var log =
+        """
+        Starting a Gradle Daemon (subsequent builds will be faster)
+        > Task :compileJava FAILED
+        Pricing.java:3: error: ';' expected
+
+        FAILURE: Build failed with an exception.
+
+        BUILD FAILED in 2s
+        1 actionable task: 1 executed
+        """;
+
+    assertThat(GradleSetup.said(log))
+        .isEqualTo(
+            "Pricing.java:3: error: ';' expected\n\nFAILURE: Build failed with an exception.");
+  }
+
+  /// What reading a module builds, as a person would run it.
+  @Test
+  void buildingNamesTheSuitesClasses() {
+    var work = Path.of("/code/app/build/mutastic");
+
+    assertThat(gradle.building(new BuildTool.Request(Path.of("/code/app"), ":", work, ".", "test")))
+        .contains(new BuildTool.Building("gradle testClasses", work.resolve("gradle.log")));
+    assertThat(
+            gradle.building(
+                new BuildTool.Request(Path.of("/code/app"), ":core", work, ".", "integrationTest")))
+        .contains(
+            new BuildTool.Building(
+                "gradle :core:integrationTestClasses", work.resolve("gradle.log")));
   }
 
   @Test

@@ -148,6 +148,9 @@ public abstract class MutasticTask extends DefaultTask {
                   spec.args(arguments());
                   spec.setWorkingDir(new File(getHere().get()));
                   spec.setIgnoreExitValue(true);
+                  // Gradle reads the command's stderr through a pipe and prints it line by line:
+                  // progress is a line at least every 30s there, never a line redrawn in place.
+                  spec.environment("MUTASTIC_STDERR_TTY", "0");
                 });
     int exit = result.getExitValue();
     var command = getCommand().get();

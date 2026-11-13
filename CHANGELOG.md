@@ -7,6 +7,21 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ## Unreleased
 
+### Progress
+
+- **A run is never silent.** Every phase is named while it runs and ends with a line: `building`
+  (the build tool's task, its latest log line under it), `built`, `coverage` (tests run of those
+  planned), `mutants`, `ran`, and `checking` (each catching test run again on the unmutated code,
+  the record and the reports), then `checked`. On a terminal a clock moves every 100 ms; anywhere
+  else a line is printed at least every 30 seconds (`MUTASTIC_HEARTBEAT` changes that), Gradle's
+  plugin and CI logs included. [PROGRESS.md](PROGRESS.md) is the contract, shared with the Rust
+  edition.
+- **Progress asks whether stderr is a terminal,** not stdin and stdout: `mutastic run > out.txt`
+  keeps the live line. The start script says so in `MUTASTIC_STDERR_TTY`; CI, `TERM=dumb` and a
+  coding agent get counter lines instead.
+- **`--format=agent` and `--format=jsonl` show progress on stderr,** as counter lines, so an agent's
+  harness doesn't stop a quiet run; `--progress=none` or `MUTASTIC_PROGRESS=none` silences it.
+
 ### Fixes
 
 - **A build of modules names them as commands, for Maven as for Gradle.** At the top of a Maven

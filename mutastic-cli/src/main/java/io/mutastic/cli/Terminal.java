@@ -5,7 +5,8 @@ import java.util.Map;
 /// What mutastic needs to know about where its output goes.
 ///
 /// @param interactive whether a person is likely watching: stdout is a terminal
-/// @param env the environment, for `NO_COLOR`, `FORCE_COLOR`, `TERM` and `MUTASTIC_AGENT`
+/// @param env the environment, for `NO_COLOR`, `FORCE_COLOR`, `TERM`, `MUTASTIC_AGENT` and
+///   `MUTASTIC_STDERR_TTY`
 record Terminal(boolean interactive, Map<String, String> env) {
   // Since JDK 22 System.console() is there even when output is redirected, so isTerminal() is what
   // answers. The null check stays: -Djdk.console can still leave no console at all.
@@ -13,6 +14,17 @@ record Terminal(boolean interactive, Map<String, String> env) {
   static Terminal current() {
     var console = System.console();
     return new Terminal(console != null && console.isTerminal(), System.getenv());
+  }
+
+  /// Whether stderr, where progress goes, is a terminal: as `MUTASTIC_STDERR_TTY` says, `1` or `0`,
+  /// which the launcher and the start script set as Java can't ask; else as the console says, which
+  /// asks of stdin and stdout.
+  boolean stderrIsTerminal() {
+    return switch (env.getOrDefault("MUTASTIC_STDERR_TTY", "")) {
+      case "1" -> true;
+      case "0" -> false;
+      default -> interactive;
+    };
   }
 
   /// `--color=auto`: on a terminal, unless `NO_COLOR` is set or `TERM=dumb`; `FORCE_COLOR` turns it

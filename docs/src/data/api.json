@@ -181,6 +181,16 @@
             },
             {
               "kind": "method",
+              "name": "building",
+              "anchor": "building",
+              "signature": "default Optional<BuildTool.Building> building(BuildTool.Request request)",
+              "doc": "What [`read(Request)`](#read) will build, and where its log is; empty for a tool that says nothing as\nit goes.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
               "name": "read",
               "anchor": "read-2",
               "signature": "default Project read(BuildTool.Request request)",
@@ -213,6 +223,16 @@
           "signature": "record Address(Path directory, String module)",
           "summary": "A build's directory, and a module of it: `:` for the build in the directory itself.",
           "doc": "A build's directory, and a module of it: `:` for the build in the directory itself.",
+          "params": [],
+          "members": []
+        },
+        {
+          "name": "BuildTool.Building",
+          "slug": "buildtool-building",
+          "kind": "record",
+          "signature": "record Building(String task, Path log)",
+          "summary": "What reading a module builds, for progress to show while it does: the tool's task as a person would name it (`gradle testClasses`), and the log the tool writes as it goes.",
+          "doc": "What reading a module builds, for progress to show while it does: the tool's task as a person\nwould name it (`gradle testClasses`), and the log the tool writes as it goes.",
           "params": [],
           "members": []
         },
@@ -1340,6 +1360,26 @@
           "members": [
             {
               "kind": "method",
+              "name": "mutantsFound",
+              "anchor": "mutantsfound",
+              "signature": "default void mutantsFound(int mutants)",
+              "doc": "The mutants are found, `mutants` of them, and the coverage pass is about to start.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "coverageProgress",
+              "anchor": "coverageprogress",
+              "signature": "default void coverageProgress(int done, int planned)",
+              "doc": "How far the coverage pass is: `done` tests have run of the `planned`, which is 0 until the\ntests are known.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
               "name": "coverageFinished",
               "anchor": "coveragefinished",
               "signature": "default void coverageFinished(CoveragePass pass)",
@@ -1374,6 +1414,16 @@
               "anchor": "mutantrevised",
               "signature": "default void mutantRevised(MutantResult result)",
               "doc": "A mutant's result again, after every mutant had its first result, without a test that turned\nout to fail on its own: for every mutant that test reached, caught or missed, as either result\nmay rest on it. It carries `falseCatchBy` when that test was the one that caught it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "checking",
+              "anchor": "checking",
+              "signature": "default void checking(String step, int done, int total)",
+              "doc": "Every mutant has its first result, and what comes after them is under way: `step`, with `done`\nof its `total` done, or both 0 for a step that isn't counted.",
               "params": [],
               "returns": "",
               "throws": []

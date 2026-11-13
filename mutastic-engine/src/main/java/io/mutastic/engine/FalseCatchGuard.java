@@ -39,6 +39,9 @@ final class FalseCatchGuard {
 
   private static final Pattern NESTED = Pattern.compile("\\[nested-class:(?<name>[^\\]]+)\\]");
 
+  /// What progress calls this, as it goes.
+  static final String STEP = "running each catching test on the unmutated code";
+
   /// Runs a mutant again, against the tests coverage still has.
   @FunctionalInterface
   interface Rerun {
@@ -72,7 +75,7 @@ final class FalseCatchGuard {
           toCheck = unchecked(current, checked)) {
         worker = worker == null ? newWorker.get() : worker;
         checked.addAll(toCheck);
-        var failing = failingUnmutated(toCheck, worker);
+        var failing = failingUnmutated(toCheck, worker, listener);
         if (failing.isEmpty()) {
           break;
         }
@@ -102,9 +105,12 @@ final class FalseCatchGuard {
   }
 
   /// Each of `tests` that fails on the unmutated code, with the exception it failed with.
-  private Map<String, String> failingUnmutated(List<String> tests, TestWorker worker) {
+  private Map<String, String> failingUnmutated(
+      List<String> tests, TestWorker worker, Listener listener) {
     var failing = new LinkedHashMap<String, String>();
-    for (String test : tests) {
+    for (int index = 0; index < tests.size(); index++) {
+      listener.checking(STEP, index, tests.size());
+      var test = tests.get(index);
       var runnable = runnable(test);
       if (runnable.isEmpty()) {
         continue; // nothing can run it again: no evidence either way

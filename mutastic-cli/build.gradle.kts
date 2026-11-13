@@ -44,6 +44,28 @@ application {
     mainClass = "io.mutastic.cli.Main"
 }
 
+// Progress goes to stderr, and Java can only ask whether stdin and stdout are a terminal: the
+// start script asks of stderr, and says, unless whatever started it (the native launcher) has.
+tasks.startScripts {
+    val exec = "exec \"\$JAVACMD\" \"\$@\""
+    val stderr =
+        """
+        if [ -z "${'$'}{MUTASTIC_STDERR_TTY+set}" ]; then
+            if [ -t 2 ]; then MUTASTIC_STDERR_TTY=1; else MUTASTIC_STDERR_TTY=0; fi
+            export MUTASTIC_STDERR_TTY
+        fi
+
+        """.trimIndent()
+    doLast {
+        val script = (this as CreateStartScripts).unixScript
+        val text = script.readText()
+        if (!text.contains(exec)) {
+            throw GradleException("the start script no longer ends with `$exec`")
+        }
+        script.writeText(text.replace(exec, stderr + "\n" + exec))
+    }
+}
+
 // The operators mutastic makes as plugins, for a project to list under `plugins:`: off the
 // classpath, so that listing them is what turns them on.
 distributions {

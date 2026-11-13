@@ -19,7 +19,8 @@ class CommandTest {
                 Main.Subcommand.RUN,
                 Path.of("."),
                 ":",
-                new Main.Shown(Optional.empty(), "auto", "auto", "auto", Optional.empty(), false),
+                new Main.Shown(
+                    Optional.empty(), "auto", "auto", Optional.empty(), Optional.empty(), false),
                 new Main.Bar(80, false),
                 List.of(),
                 new Main.Catches(false, false),
@@ -53,7 +54,12 @@ class CommandTest {
                 Path.of("../app"),
                 ":api",
                 new Main.Shown(
-                    Optional.of("jsonl"), "auto", "auto", "auto", Optional.empty(), false),
+                    Optional.of("jsonl"),
+                    "auto",
+                    "auto",
+                    Optional.empty(),
+                    Optional.empty(),
+                    false),
                 new Main.Bar(60, false),
                 List.of(),
                 new Main.Catches(false, false),

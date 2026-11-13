@@ -380,19 +380,30 @@ public final class Engine {
   /// Each mutant, then each catch checked on the unmutated code ([FalseCatchGuard]), once the
   /// workers that ran them have gone with what their tests started (a server on a fixed port).
   private Ran ran(Project project, Plan plan, List<TestWorker> workers, Listener listener) {
-    var pass = coveragePass(project, plan, workers.getFirst());
+    listener.mutantsFound(plan.mutants().size());
+    var pass = coveragePass(project, plan, workers.getFirst(), listener);
     listener.coverageFinished(pass);
     var results = new SideBySide(plan.mutants(), plan.mutantRun(), workers, listener).runAll();
-    var ghosts =
-        plan.ghosts().stream()
-            .map(
-                found ->
-                    found.with(plan.mutantRun().run(found.mutant(), workers.getFirst()).result()))
-            .toList();
+    var ghosts = ghostsRun(plan, workers.getFirst(), listener);
     workers.forEach(TestWorker::close);
+    listener.checking(FalseCatchGuard.STEP, 0, 0);
     var guarded = guard(plan, workers.getFirst()).check(results, listener);
     return new Ran(
         pass, guarded.results(), flakyBoth(pass, plan.mutantRun(), project, guarded), ghosts);
+  }
+
+  /// What progress calls running the ghosts, after the mutants.
+  static final String GHOSTS_STEP = "running the ghosts";
+
+  /// Each ghost, run once every mutant has its result, on `worker`.
+  private static List<Ghost> ghostsRun(Plan plan, TestWorker worker, Listener listener) {
+    var ghosts = plan.ghosts();
+    var ran = new ArrayList<Ghost>();
+    for (var found : ghosts) {
+      listener.checking(GHOSTS_STEP, ran.size(), ghosts.size());
+      ran.add(found.with(plan.mutantRun().run(found.mutant(), worker).result()));
+    }
+    return List.copyOf(ran);
   }
 
   /// The flaky tests: those that failed in the coverage pass and passed again, then those that
@@ -610,7 +621,8 @@ public final class Engine {
   /// Every test once, on `first`, with coverage; flaky tests are left out of what it recorded. A
   /// module with no test classes has nothing to run: every mutant is not covered, and no worker
   /// starts (one couldn't, with no JUnit on the classpath).
-  private CoveragePass coveragePass(Project project, Plan plan, TestWorker first) {
+  private CoveragePass coveragePass(
+      Project project, Plan plan, TestWorker first, Listener listener) {
     var testClasses =
         testClassesIn(project.testClasses()).stream().filter(project.tests()::runs).toList();
     if (testClasses.isEmpty()) {
@@ -618,7 +630,7 @@ public final class Engine {
     }
     var coverage = plan.mutantRun().coverage();
     long coverageStart = System.nanoTime();
-    var baseline = first.cover(plan.instrumented(), testClasses, coverage);
+    var baseline = first.cover(plan.instrumented(), testClasses, coverage, listener);
     var reruns = new Reruns(coverage, first, Duration.ofNanos(System.nanoTime() - coverageStart));
     var flaky = baseline.passed() ? List.<String>of() : flakyOrFail(baseline, reruns, project);
     boolean recordedNothing = coverage.recordedNothing();
