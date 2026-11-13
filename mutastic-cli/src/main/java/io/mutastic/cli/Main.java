@@ -1167,7 +1167,8 @@ public final class Main {
       Project project,
       SourceView sources,
       LocalTime startedAt,
-      Duration setup) {}
+      Duration setup,
+      Duration build) {}
 
   private static Prepared prepare(Command command, BuildTool tool, Progress progress) {
     long start = System.nanoTime();
@@ -1176,22 +1177,34 @@ public final class Main {
     var work = workDirectory(tool, directory, command.module(), command.suite());
     var here = Path.of("").toAbsolutePath().normalize();
     var target = withSuite(target(here, directory, command.module()), command.suite());
-    var project =
-        command.setup().isPresent()
-            ? tool.read(directory, command.module(), command.setup().get())
-            : read(
-                tool,
-                new BuildTool.Request(
-                    directory, command.module(), work, typed(directory), command.suite()),
-                progress);
+    var request =
+        new BuildTool.Request(directory, command.module(), work, typed(directory), command.suite());
+    var built = built(command, tool, request, progress);
     progress.findingMutants();
-    project = project.withTests(project.tests().leavingOut(command.excludeTests()));
+    var project =
+        built.project().withTests(built.project().tests().leavingOut(command.excludeTests()));
     var setup = Duration.ofNanos(System.nanoTime() - start);
     var sources =
         new SourceView(directory, project.sources(), project.testSources())
             .withClassSources(new ClassSources(project.classes()))
             .withInvocation(Invocation.of(command.commands(), target));
-    return new Prepared(directory, work, project, sources, startedAt, setup);
+    return new Prepared(directory, work, project, sources, startedAt, setup, built.took());
+  }
+
+  /// A module read, and how long its build tool took building what the run needs.
+  private record Built(Project project, Duration took) {}
+
+  /// The module read through its build, which progress shows as it builds; or from what `--setup`
+  /// says the build would, with nothing built.
+  private static Built built(
+      Command command, BuildTool tool, BuildTool.Request request, Progress progress) {
+    if (command.setup().isPresent()) {
+      var read = tool.read(request.directory(), command.module(), command.setup().get());
+      return new Built(read, Duration.ZERO);
+    }
+    long start = System.nanoTime();
+    var project = read(tool, request, progress);
+    return new Built(project, Duration.ofNanos(System.nanoTime() - start));
   }
 
   /// The module read through its build, which progress shows as it builds.
@@ -1365,7 +1378,8 @@ public final class Main {
         prepared.setup(),
         written,
         !command.only().isEmpty(),
-        command.excludeTests());
+        command.excludeTests(),
+        prepared.build());
   }
 
   /// JSON Lines: the run's start now, each mutant as it finishes, and the result at the end.

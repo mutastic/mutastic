@@ -123,14 +123,13 @@
  Not covered (no test reaches these lines)
    ○ src/main/java/com/example/nested/Shipping.java:85 days() in an anonymous class (1 mutant)
 
+ Next: mutastic verify <id> samples/nested · mutastic run --only=<id> samples/nested · mutastic explain <id> samples/nested
+
    Classes  0 clean | 1 with misses (1)
    Mutants  ✓ 21 caught · ✗ 6 missed · ○ 1 not covered · 4 skipped (4 arid) (32)
   Worst at  Shipping.compare() (an anonymous class) 2 ✗ · Shipping.cheapestFirst() 1 ✗ · Shipping.heavyOnes() (a lambda) 1 ✗
  Test runs  27 (162 without coverage selection)
   Start at  …
-  Duration  … (setup …, coverage …, mutants …)
+  Duration  … (setup …, build …, coverage …, mutants …, checking …)
      Tests  6 on JDK 17 · … workers
-     Score  75.0%  = vs last run (same code)  threshold 80  · 77.8% where tests reach
-
- [FAIL] Score below 80: 6 missed, 1 not covered.
- Next: mutastic verify <id> samples/nested · mutastic run --only=<id> samples/nested · mutastic explain <id> samples/nested
+     Score  75.0%  [FAIL] Below the threshold of 80: 6 missed, 1 not covered.  = vs last run (same code)  · 77.8% where tests reach

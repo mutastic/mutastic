@@ -106,14 +106,13 @@
     reproduce  mutastic run --only=m187e7e27 samples/constants
     or ignore  mutastic ignore m187e7e27 --reason="<why>" samples/constants
 
+ Next: mutastic verify <id> samples/constants · mutastic run --only=<id> samples/constants · mutastic explain <id> samples/constants
+
    Classes  0 clean | 1 with misses (1)
    Mutants  ✓ 10 caught · ✗ 6 missed (16)
   Worst at  Messages.numeric() 5 ✗ · Messages.beforeExit() 1 ✗
  Test runs  16 (32 without coverage selection)
   Start at  …
-  Duration  … (setup …, coverage …, mutants …)
+  Duration  … (setup …, build …, coverage …, mutants …, checking …)
      Tests  2 on JDK 17 · … workers
-     Score  62.5%  = vs last run (same code)  threshold 80
-
- [FAIL] Score below 80: 6 missed, 0 not covered.
- Next: mutastic verify <id> samples/constants · mutastic run --only=<id> samples/constants · mutastic explain <id> samples/constants
+     Score  62.5%  [FAIL] Below the threshold of 80: 6 missed, 0 not covered.  = vs last run (same code)

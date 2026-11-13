@@ -42,15 +42,27 @@ public final class HumanText {
   /// report files written, and whether it was one mutant asked for by id.
   ///
   /// @param leftOut the test classes `--exclude-tests` left out, which the summary names
+  /// @param build how long the build tool took building what the run needs, of `setup`
   public record Run(
       LocalTime startedAt,
       Duration setup,
       List<String> reports,
       boolean oneMutant,
-      List<String> leftOut) {
+      List<String> leftOut,
+      Duration build) {
     public Run {
       reports = List.copyOf(reports);
       leftOut = List.copyOf(leftOut);
+    }
+
+    /// A run whose build wasn't timed apart from its setup.
+    public Run(
+        LocalTime startedAt,
+        Duration setup,
+        List<String> reports,
+        boolean oneMutant,
+        List<String> leftOut) {
+      this(startedAt, setup, reports, oneMutant, leftOut, Duration.ZERO);
     }
 
     public Run(LocalTime startedAt, Duration setup, List<String> reports, boolean oneMutant) {
@@ -917,12 +929,17 @@ public final class HumanText {
             note.failure().substring(note.failure().lastIndexOf('.') + 1));
   }
 
+  /// What to do next, under the misses it's about; the rows; and last the score with its verdict,
+  /// the line the cursor lands under. A run of mutants asked for by id ends on each one's fate.
   private void summary(Report report, Optional<Comparison> comparison, Run run, StringBuilder out) {
-    appendRows(out, rows(report, comparison, run));
-    out.append('\n');
-    out.append(verdict(report, run));
     if (report.count(Status.MISSED) > 0 && !run.oneMutant()) {
+      out.append('\n');
       out.append(style.dim(" Next: " + MutantCommand.next(sources.invocation()))).append('\n');
+    }
+    appendRows(out, rows(report, comparison, run));
+    if (run.oneMutant()) {
+      out.append('\n');
+      out.append(report.results().isEmpty() ? " " + verdict(report) + "\n" : fates(report));
     }
   }
 
@@ -1051,12 +1068,24 @@ public final class HumanText {
     return "%s %s"
         .formatted(
             seconds(run.setup().plus(report.took())),
-            style.dim(
-                "(setup %s, coverage %s, mutants %s)"
-                    .formatted(
-                        seconds(run.setup()),
-                        seconds(report.coverage()),
-                        seconds(report.took().minus(report.coverage())))));
+            style.dim("(" + String.join(", ", phases(report, run)) + ")"));
+  }
+
+  /// The run's time by phase, `setup 3.5s, build 9m41s, coverage 7m23s, mutants 34m12s, checking
+  /// 51.0s`: the build and the checking after the mutants where they were timed.
+  private static List<String> phases(Report report, Run run) {
+    var phases = new ArrayList<String>();
+    phases.add("setup " + seconds(run.setup().minus(run.build())));
+    if (!run.build().isZero()) {
+      phases.add("build " + seconds(run.build()));
+    }
+    phases.add("coverage " + seconds(report.coverage()));
+    phases.add(
+        "mutants " + seconds(report.took().minus(report.coverage()).minus(report.checking())));
+    if (!report.checking().isZero()) {
+      phases.add("checking " + seconds(report.checking()));
+    }
+    return phases;
   }
 
   private static String flakyRow(Report report) {
@@ -1079,17 +1108,17 @@ public final class HumanText {
                 : style.dim(" (%d replaced after a timeout)".formatted(report.replaced())));
   }
 
+  /// `90.9% [PASS] 1 missed, above the threshold of 80. = vs last run (same code)`: the score, its
+  /// verdict, how it moved, and what it is where tests reach.
   private String scoreRow(Report report, Optional<Comparison> comparison) {
     if (report.score().isEmpty()) {
-      return style.bold("none") + style.dim(" (no mutants to score)  threshold " + threshold);
+      return style.bold("none") + "  " + verdict(report);
     }
     var score = "%.1f%%".formatted(report.score().getAsDouble());
     return (passes(report) ? style.green(style.bold(score)) : style.red(style.bold(score)))
+        + "  "
+        + verdict(report)
         + delta(report, comparison)
-        + style.dim(
-            failOnNew.isPresent()
-                ? "  threshold not applied (new misses decide)"
-                : "  threshold " + threshold)
         + coveredScore(report);
   }
 
@@ -1102,17 +1131,10 @@ public final class HumanText {
         : style.dim("  · %.1f%% where tests reach".formatted(covered.getAsDouble()));
   }
 
-  /// The last line: each mutant's fate when they were asked for by id, or PASS or FAIL with why.
-  private String verdict(Report report, Run run) {
-    long missed = report.count(Status.MISSED);
-    if (run.oneMutant() && !report.results().isEmpty()) {
-      return fates(report);
-    }
+  /// PASS or FAIL, and why: on the score, or with `--fail-on-new` on the new misses.
+  private String verdict(Report report) {
     if (report.score().isEmpty()) {
-      return " %s %s\n"
-          .formatted(
-              style.label("PASS", Style.GREEN),
-              style.dim("Nothing to measure: no mutants to score."));
+      return passed(style.dim("Nothing to measure: no mutants to score."));
     }
     if (!report.failingAlone().isEmpty()) {
       return failedAlone();
@@ -1120,21 +1142,27 @@ public final class HumanText {
     if (failOnNew.isPresent()) {
       return onNewMisses(report, failOnNew.get());
     }
-    return onScore(report, missed);
+    return onScore(report, report.count(Status.MISSED));
   }
 
   /// PASS when the score reaches the threshold, else FAIL with why.
   private String onScore(Report report, long missed) {
     if (report.passes(threshold)) {
-      return " %s %s\n"
-          .formatted(
-              style.label("PASS", Style.GREEN),
-              style.green(
-                  missed == 0
-                      ? words.allDetected
-                      : "%d %s, above the threshold.".formatted(missed, words.undetected)));
+      return passed(
+          style.green(
+              missed == 0
+                  ? words.allDetected
+                  : "%d %s, above the threshold of %d."
+                      .formatted(missed, words.undetected, threshold)));
     }
-    return failed(missed, report.count(Status.NOT_COVERED));
+    return failed(
+        "Below the threshold of %d: %d %s, %d %s."
+            .formatted(
+                threshold,
+                missed,
+                words.undetected,
+                report.count(Status.NOT_COVERED),
+                words.notCovered));
   }
 
   /// With `--fail-on-new`: PASS while every mutant no test catches is in the baseline, else FAIL
@@ -1143,21 +1171,15 @@ public final class HumanText {
     var added = judged.newMisses(report);
     int known = judged.inBaseline(report);
     if (added.isEmpty()) {
-      return " %s %s\n"
-          .formatted(
-              style.label("PASS", Style.GREEN),
-              style.green("No new misses: %d in the baseline.".formatted(known)));
+      return passed(style.green("No new misses: %d in the baseline.".formatted(known)));
     }
-    return " %s %s\n"
-        .formatted(
-            style.label("FAIL", Style.RED),
-            style.red(
-                "%d new %s, not in the baseline (%d in it): %s."
-                    .formatted(
-                        added.size(),
-                        added.size() == 1 ? "miss" : "misses",
-                        known,
-                        String.join(", ", added))));
+    return failed(
+        "%d new %s, not in the baseline (%d in it): %s."
+            .formatted(
+                added.size(),
+                added.size() == 1 ? "miss" : "misses",
+                known,
+                String.join(", ", added)));
   }
 
   /// Each mutant's fate, one a line, when they were asked for by id.
@@ -1169,21 +1191,19 @@ public final class HumanText {
 
   /// FAIL, whatever the score: a test that caught mutants fails on its own.
   private String failedAlone() {
-    return " %s %s\n"
-        .formatted(
-            style.label("FAIL", Style.RED),
-            style.red(
-                "A test that caught mutants fails on its own, with no mutant in, so its catches"
-                    + " don't count: see the flaky tests above."));
+    return failed(
+        "A test that caught mutants fails on its own, with no mutant in, so its catches"
+            + " don't count: see the flaky tests above.");
   }
 
-  private String failed(long missed, long notCovered) {
-    return " %s %s\n"
-        .formatted(
-            style.label("FAIL", Style.RED),
-            style.red(
-                "Score below %d: %d %s, %d %s."
-                    .formatted(threshold, missed, words.undetected, notCovered, words.notCovered)));
+  /// `[PASS]` and why, already styled.
+  private String passed(String why) {
+    return style.label("PASS", Style.GREEN) + " " + why;
+  }
+
+  /// `[FAIL]` and why, in red.
+  private String failed(String why) {
+    return style.label("FAIL", Style.RED) + " " + style.red(why);
   }
 
   /// `[MISSED] m855c8e3c is still missed`: one mutant's verdict, for a run that asked for it.

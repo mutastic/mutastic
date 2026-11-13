@@ -24,6 +24,8 @@ import org.jspecify.annotations.Nullable;
 ///   and what it reaches that changes from run to run
 /// @param ghosts with `--experimental=ghosts`, each ghost and what its run found, none if it found
 ///   none; never in the score, the counts or `results`. Empty when the run didn't look for ghosts.
+/// @param checking how long what follows the mutants took, of `took`: the ghosts, and each catch
+///   checked on the unmutated code
 @Internal
 public record Report(
     String project,
@@ -39,7 +41,8 @@ public record Report(
     Optional<ChangedLines> scope,
     List<Ignore> staleIgnores,
     List<FlakyTest> flakyEvidence,
-    Optional<List<Ghost>> ghosts) {
+    Optional<List<Ghost>> ghosts,
+    Duration checking) {
 
   public Report {
     ghosts = ghosts.map(List::copyOf);
@@ -48,6 +51,40 @@ public record Report(
     results = List.copyOf(results);
     flaky = List.copyOf(flaky);
     audited = List.copyOf(audited);
+  }
+
+  /// A run whose checking after the mutants wasn't timed: one put together from shares, say.
+  public Report(
+      String project,
+      int jdk,
+      List<MutantResult> results,
+      int tests,
+      List<String> flaky,
+      Duration coverage,
+      int workers,
+      int started,
+      Duration took,
+      List<MutantResult> audited,
+      Optional<ChangedLines> scope,
+      List<Ignore> staleIgnores,
+      List<FlakyTest> flakyEvidence,
+      Optional<List<Ghost>> ghosts) {
+    this(
+        project,
+        jdk,
+        results,
+        tests,
+        flaky,
+        coverage,
+        workers,
+        started,
+        took,
+        audited,
+        scope,
+        staleIgnores,
+        flakyEvidence,
+        ghosts,
+        Duration.ZERO);
   }
 
   /// A run without ghosts.
@@ -159,7 +196,8 @@ public record Report(
         scope,
         staleIgnores,
         flakyEvidence,
-        ghosts);
+        ghosts,
+        checking);
   }
 
   /// This run's results with `other`'s, a run of other tests (another module's) over the same
@@ -170,16 +208,12 @@ public record Report(
     other.results().forEach(result -> theirs.put(result.mutant().id(), result));
     var merged =
         results.stream().map(mine -> combined(mine, theirs.get(mine.mutant().id()))).toList();
-    var allFlaky = new java.util.ArrayList<>(flaky);
-    allFlaky.addAll(other.flaky());
-    var allEvidence = new java.util.ArrayList<>(flakyEvidence);
-    allEvidence.addAll(other.flakyEvidence());
     return new Report(
         project,
         jdk,
         merged,
         tests + other.tests(),
-        allFlaky,
+        both(flaky, other.flaky()),
         coverage.plus(other.coverage()),
         Math.max(workers, other.workers()),
         started + other.started(),
@@ -187,8 +221,16 @@ public record Report(
         audited,
         scope,
         staleIgnores,
-        allEvidence,
-        ghosts);
+        both(flakyEvidence, other.flakyEvidence()),
+        ghosts,
+        checking.plus(other.checking()));
+  }
+
+  /// `mine`, then `theirs`.
+  private static <T> List<T> both(List<T> mine, List<T> theirs) {
+    var all = new java.util.ArrayList<>(mine);
+    all.addAll(theirs);
+    return all;
   }
 
   private static MutantResult combined(MutantResult mine, @Nullable MutantResult theirs) {

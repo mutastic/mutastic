@@ -540,14 +540,13 @@
    reproduce  mutastic run --only=m1339c5fd samples/suggestions
    or ignore  mutastic ignore m1339c5fd --reason="<why>" samples/suggestions
 
+ Next: mutastic verify <id> samples/suggestions · mutastic run --only=<id> samples/suggestions · mutastic explain <id> samples/suggestions
+
    Classes  0 clean | 4 with misses (4)
    Mutants  ✓ 21 caught · ✗ 21 missed · 2 skipped (2 arid) (44)
   Worst at  Window.openOn() 7 ✗ · Delivery.isFree() 3 ✗ · Rates.inCredit() 3 ✗
  Test runs  42 (336 without coverage selection)
   Start at  …
-  Duration  … (setup …, coverage …, mutants …)
+  Duration  … (setup …, build …, coverage …, mutants …, checking …)
      Tests  8 on JDK 17 · … workers
-     Score  50.0%  = vs last run (same code)  threshold 80
-
- [FAIL] Score below 80: 21 missed, 0 not covered.
- Next: mutastic verify <id> samples/suggestions · mutastic run --only=<id> samples/suggestions · mutastic explain <id> samples/suggestions
+     Score  50.0%  [FAIL] Below the threshold of 80: 21 missed, 0 not covered.  = vs last run (same code)
