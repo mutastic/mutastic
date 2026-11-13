@@ -19,14 +19,13 @@
     reproduce  mutastic run --only=mddb9663e samples/observable
     or ignore  mutastic ignore mddb9663e --reason="<why>" samples/observable
 
+ Next: mutastic verify <id> samples/observable · mutastic run --only=<id> samples/observable · mutastic explain <id> samples/observable
+
    Classes  0 clean | 1 with misses (1)
    Mutants  ✓ 2 caught · ✗ 1 missed · 3 skipped (3 arid) (6)
   Worst at  Person.setEmail() 1 ✗
  Test runs  3 (9 without coverage selection)
   Start at  …
-  Duration  … (setup …, coverage …, mutants …)
+  Duration  … (setup …, build …, coverage …, mutants …, checking …)
      Tests  3 on JDK 17 · … workers
-     Score  66.7%  = vs last run (same code)  threshold 80
-
- [FAIL] Score below 80: 1 missed, 0 not covered.
- Next: mutastic verify <id> samples/observable · mutastic run --only=<id> samples/observable · mutastic explain <id> samples/observable
+     Score  66.7%  [FAIL] Below the threshold of 80: 1 missed, 0 not covered.  = vs last run (same code)

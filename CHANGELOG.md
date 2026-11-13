@@ -36,6 +36,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 - **Every line of the live block fits the terminal:** the bar shrinks first, then the counts lose
   their words, then a line is cut with `…`, and wrapping is off while it's drawn. The start script
   passes the width in `MUTASTIC_COLUMNS`; without it, `COLUMNS`, or 100.
+- **The summary ends on the score, with its verdict beside it:** `Score  90.9%  [PASS] 1 missed,
+  above the threshold of 80.` The verdict names the threshold (`[FAIL] Below the threshold of 80: 6
+  missed, 0 not covered.`), so the row no longer says `threshold 80` apart. `Next:` moves above the
+  rows, under the misses it's about, and the Duration row names the build and the checking after
+  the mutants beside setup, coverage and mutants.
 
 ### Fixes
 

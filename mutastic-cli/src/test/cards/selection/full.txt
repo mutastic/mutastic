@@ -46,14 +46,13 @@
     reproduce  mutastic run --only=m71d455f1 samples/selection
     or ignore  mutastic ignore m71d455f1 --reason="<why>" samples/selection
 
+ Next: mutastic verify <id> samples/selection · mutastic run --only=<id> samples/selection · mutastic explain <id> samples/selection
+
    Classes  0 clean | 1 with misses (1)
    Mutants  ✓ 9 caught · ✗ 2 missed (11)
   Worst at  Fees.fee() 1 ✗ · Fees.rate() 1 ✗
  Test runs  11 (11 without coverage selection)
   Start at  …
-  Duration  … (setup …, coverage …, mutants …)
+  Duration  … (setup …, build …, coverage …, mutants …, checking …)
      Tests  1 on JDK 17 · … workers
-     Score  81.8%  = vs last run (same code)  threshold 80
-
- [PASS] 2 missed, above the threshold.
- Next: mutastic verify <id> samples/selection · mutastic run --only=<id> samples/selection · mutastic explain <id> samples/selection
+     Score  81.8%  [PASS] 2 missed, above the threshold of 80.  = vs last run (same code)

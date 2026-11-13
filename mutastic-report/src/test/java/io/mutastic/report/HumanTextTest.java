@@ -162,8 +162,10 @@ class HumanTextTest {
         .doesNotContain("<field", "<class>");
   }
 
+  /// `Next:` under the misses it's about, then the rows, and last the score with its verdict: the
+  /// line the cursor lands under.
   @Test
-  void theSummaryEndsOnTheScoreThenTheVerdict() {
+  void theSummaryEndsOnTheScoreAndItsVerdict() {
     var output =
         text(HumanText.Detail.FULL, Vocabulary.PLAIN)
             .render(report(missed(boundary(), Map.of())), Optional.empty(), RUN);
@@ -175,12 +177,56 @@ class HumanTextTest {
             "   Mutants  ✓ 0 caught · ✗ 1 missed (1)",
             " Test runs  1 (3 without coverage selection)",
             "  Start at  09:30:05");
-    assertThat(lines.get(lines.size() - 4)).isEqualTo("     Score  0.0%  threshold 80");
-    assertThat(lines.get(lines.size() - 2))
-        .isEqualTo(" [FAIL] Score below 80: 1 missed, 0 not covered.");
     assertThat(lines.getLast())
-        .isEqualTo(
-            " Next: mutastic verify <id> · mutastic run --only=<id> · mutastic explain <id>");
+        .isEqualTo("     Score  0.0%  [FAIL] Below the threshold of 80: 1 missed, 0 not covered.");
+    assertThat(output)
+        .contains(
+            """
+
+             Next: mutastic verify <id> · mutastic run --only=<id> · mutastic explain <id>
+
+               Classes  0 clean | 1 with misses (1)
+            """);
+  }
+
+  /// The Duration row names each phase it timed: the build apart from the rest of the setup, and
+  /// the checking after the mutants apart from them.
+  @Test
+  void theDurationNamesEveryPhaseTimed() {
+    var untimed = report(missed(boundary(), Map.of()));
+    var timed =
+        new Report(
+            "sample",
+            17,
+            untimed.results(),
+            3,
+            List.of(),
+            Duration.ofMillis(200),
+            1,
+            1,
+            Duration.ofMillis(400),
+            List.of(),
+            Optional.empty(),
+            List.of(),
+            List.of(),
+            Optional.empty(),
+            Duration.ofMillis(50));
+    var built =
+        new HumanText.Run(
+            LocalTime.of(9, 30, 5),
+            Duration.ofMillis(500),
+            List.of(),
+            false,
+            List.of(),
+            Duration.ofMillis(300));
+    var text = text(HumanText.Detail.FULL, Vocabulary.PLAIN);
+
+    assertThat(text.render(untimed, Optional.empty(), RUN))
+        .contains("  Duration  900ms (setup 500ms, coverage 200ms, mutants 200ms)\n");
+    assertThat(text.render(timed, Optional.empty(), built))
+        .contains(
+            "  Duration  900ms (setup 200ms, build 300ms, coverage 200ms, mutants 150ms,"
+                + " checking 50ms)\n");
   }
 
   /// `--only=a,b` ends on each mutant's fate, not the first one's alone.
@@ -207,8 +253,7 @@ class HumanTextTest {
         text(HumanText.Detail.FULL, Vocabulary.PLAIN).render(report(), Optional.empty(), RUN);
 
     assertThat(output)
-        .contains("     Score  none (no mutants to score)  threshold 80")
-        .contains(" [PASS] Nothing to measure: no mutants to score.")
+        .contains("     Score  none  [PASS] Nothing to measure: no mutants to score.")
         .doesNotContain("100.0%");
   }
 

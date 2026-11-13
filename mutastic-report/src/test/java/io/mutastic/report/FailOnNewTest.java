@@ -80,8 +80,7 @@ class FailOnNewTest {
         human().failingOnNew(new FailOnNew(Set.of(known, added))).render(report, none(), run());
 
     assertThat(output)
-        .contains("33.3%  threshold not applied (new misses decide)")
-        .contains("[PASS] No new misses: 2 in the baseline.")
+        .contains("33.3%  [PASS] No new misses: 2 in the baseline.")
         .doesNotContain("FAIL");
   }
 

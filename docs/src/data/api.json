@@ -2283,7 +2283,7 @@
           "name": "Report",
           "slug": "report",
           "kind": "record",
-          "signature": "@Internal record Report(\n    String project,\n    int jdk,\n    List<MutantResult> results,\n    int tests,\n    List<String> flaky,\n    Duration coverage,\n    int workers,\n    int started,\n    Duration took,\n    List<MutantResult> audited,\n    Optional<ChangedLines> scope,\n    List<Ignore> staleIgnores,\n    List<FlakyTest> flakyEvidence,\n    Optional<List<Ghost>> ghosts)",
+          "signature": "@Internal record Report(\n    String project,\n    int jdk,\n    List<MutantResult> results,\n    int tests,\n    List<String> flaky,\n    Duration coverage,\n    int workers,\n    int started,\n    Duration took,\n    List<MutantResult> audited,\n    Optional<ChangedLines> scope,\n    List<Ignore> staleIgnores,\n    List<FlakyTest> flakyEvidence,\n    Optional<List<Ghost>> ghosts,\n    Duration checking)",
           "summary": "A finished run: every mutant's result, in the order they were found.",
           "doc": "A finished run: every mutant's result, in the order they were found.",
           "params": [
@@ -2326,6 +2326,10 @@
             {
               "name": "ghosts",
               "doc": "with `--experimental=ghosts`, each ghost and what its run found, none if it found none; never in the score, the counts or `results`. Empty when the run didn't look for ghosts."
+            },
+            {
+              "name": "checking",
+              "doc": "how long what follows the mutants took, of `took`: the ghosts, and each catch checked on the unmutated code"
             }
           ],
           "members": [
@@ -2333,6 +2337,16 @@
               "kind": "constructor",
               "name": "Report",
               "anchor": "report",
+              "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores, List<FlakyTest> flakyEvidence, Optional<List<Ghost>> ghosts)",
+              "doc": "A run whose checking after the mutants wasn't timed: one put together from shares, say.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "Report",
+              "anchor": "report-2",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores, List<FlakyTest> flakyEvidence)",
               "doc": "A run without ghosts.",
               "params": [],
@@ -2342,7 +2356,7 @@
             {
               "kind": "constructor",
               "name": "Report",
-              "anchor": "report-2",
+              "anchor": "report-3",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores)",
               "doc": "A run with nothing known of why its flaky tests are flaky.",
               "params": [],
@@ -2352,7 +2366,7 @@
             {
               "kind": "constructor",
               "name": "Report",
-              "anchor": "report-3",
+              "anchor": "report-4",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took)",
               "doc": "A run without an audit.",
               "params": [],

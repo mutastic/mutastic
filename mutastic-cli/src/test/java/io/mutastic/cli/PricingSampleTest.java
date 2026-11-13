@@ -99,16 +99,8 @@ class PricingSampleTest {
     assertThat(run.out())
         .contains(
             " ✗ src/main/java/com/example/pricing/Pricing.java:17 no test checks discount() at total == 100 m855c8e3c");
-    assertThat(
-            run.out()
-                .strip()
-                .lines()
-                .filter(line -> line.contains("Score"))
-                .findFirst()
-                .orElseThrow())
-        .isEqualTo("     Score  90.9%  threshold 80");
-    assertThat(run.out().strip().lines().toList())
-        .contains(" [PASS] 1 missed, above the threshold.");
+    assertThat(run.out().strip().lines().toList().getLast())
+        .isEqualTo("     Score  90.9%  [PASS] 1 missed, above the threshold of 80.");
     // Progress goes to stderr, so stdout is only the result: in a log, a line per file as it
     // finishes.
     assertThat(run.err())

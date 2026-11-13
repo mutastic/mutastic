@@ -29,14 +29,13 @@
     reproduce  mutastic run --only=m855c8e3c samples/pricing
     or ignore  mutastic ignore m855c8e3c --reason="<why>" samples/pricing
 
+ Next: mutastic verify <id> samples/pricing · mutastic run --only=<id> samples/pricing · mutastic explain <id> samples/pricing
+
    Classes  0 clean | 1 with misses (1)
    Mutants  ✓ 10 caught · ✗ 1 missed (11)
   Worst at  Pricing.discount() 1 ✗
  Test runs  13 (33 without coverage selection)
   Start at  …
-  Duration  … (setup …, coverage …, mutants …)
+  Duration  … (setup …, build …, coverage …, mutants …, checking …)
      Tests  3 on JDK 17 · … workers
-     Score  90.9%  = vs last run (same code)  threshold 80
-
- [PASS] 1 missed, above the threshold.
- Next: mutastic verify <id> samples/pricing · mutastic run --only=<id> samples/pricing · mutastic explain <id> samples/pricing
+     Score  90.9%  [PASS] 1 missed, above the threshold of 80.  = vs last run (same code)

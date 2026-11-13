@@ -354,29 +354,42 @@ public final class Engine {
     var workers = workersFor(project, options.workers(), plan.mutants().size());
     try {
       var ran = ran(project, plan, workers, listener);
-      return new Report(
-          project.name(),
-          workers.getFirst().jdk(),
-          ran.results(),
-          plan.mutantRun().coverage().testCount(),
-          ran.flaky().stream().map(FlakyTest::test).toList(),
-          ran.pass().took(),
-          ran(workers),
-          workers.stream().mapToInt(TestWorker::started).sum(),
-          Duration.ofNanos(System.nanoTime() - start),
-          inOrderFound(plan.mutantRun().audited(), plan.mutants()),
-          options.changed().map(changed -> changed.within(project.sources())),
-          plan.stale(),
-          ran.flaky(),
-          options.ghosts() ? Optional.of(ran.ghosts()) : Optional.empty());
+      return ran.report(project, plan, options, Duration.ofNanos(System.nanoTime() - start));
     } finally {
       workers.forEach(TestWorker::close);
     }
   }
 
-  /// The coverage pass, then every mutant, and the flaky tests both found.
+  /// The coverage pass, then every mutant, and the flaky tests both found, on `workers`.
+  ///
+  /// @param checking how long what follows the mutants took: the ghosts, and the catches checked
   private record Ran(
-      CoveragePass pass, List<MutantResult> results, List<FlakyTest> flaky, List<Ghost> ghosts) {}
+      CoveragePass pass,
+      List<MutantResult> results,
+      List<FlakyTest> flaky,
+      List<Ghost> ghosts,
+      Duration checking,
+      List<TestWorker> workers) {
+    /// The run's report, the whole of it having taken `took`.
+    Report report(Project project, Plan plan, Options options, Duration took) {
+      return new Report(
+          project.name(),
+          workers.getFirst().jdk(),
+          results,
+          plan.mutantRun().coverage().testCount(),
+          flaky.stream().map(FlakyTest::test).toList(),
+          pass.took(),
+          Engine.ran(workers),
+          workers.stream().mapToInt(TestWorker::started).sum(),
+          took,
+          inOrderFound(plan.mutantRun().audited(), plan.mutants()),
+          options.changed().map(changed -> changed.within(project.sources())),
+          plan.stale(),
+          flaky,
+          options.ghosts() ? Optional.of(ghosts) : Optional.empty(),
+          checking);
+    }
+  }
 
   /// Each mutant, then each catch checked on the unmutated code ([FalseCatchGuard]), once the
   /// workers that ran them have gone with what their tests started (a server on a fixed port).
@@ -385,12 +398,18 @@ public final class Engine {
     var pass = coveragePass(project, plan, workers.getFirst(), listener);
     listener.coverageFinished(pass);
     var results = new SideBySide(plan.mutants(), plan.mutantRun(), workers, listener).runAll();
+    long checkingStart = System.nanoTime();
     var ghosts = ghostsRun(plan, workers.getFirst(), listener);
     workers.forEach(TestWorker::close);
     listener.checking(FalseCatchGuard.STEP, 0, 0);
     var guarded = guard(plan, workers.getFirst()).check(results, listener);
     return new Ran(
-        pass, guarded.results(), flakyBoth(pass, plan.mutantRun(), project, guarded), ghosts);
+        pass,
+        guarded.results(),
+        flakyBoth(pass, plan.mutantRun(), project, guarded),
+        ghosts,
+        Duration.ofNanos(System.nanoTime() - checkingStart),
+        workers);
   }
 
   /// What progress calls running the ghosts, after the mutants.

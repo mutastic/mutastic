@@ -41,9 +41,7 @@ class FailOnNewRunTest {
             "mutastic: PASS · no new misses, 1 in the baseline · score 90.9% (threshold not"
                 + " applied) · ");
     assertThat(human.exit()).isEqualTo(Main.PASSED);
-    assertThat(human.out())
-        .contains("threshold not applied (new misses decide)")
-        .contains("[PASS] No new misses: 1 in the baseline.");
+    assertThat(human.out()).contains("90.9%  [PASS] No new misses: 1 in the baseline.");
     assertThat(jsonl.exit()).isEqualTo(Main.PASSED);
     assertThat(jsonl.out())
         .contains("\"threshold\":95,\"passed\":true,\"failOnNew\":true,\"newMisses\":[]")

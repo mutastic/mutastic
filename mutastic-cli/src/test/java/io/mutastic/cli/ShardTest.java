@@ -104,7 +104,7 @@ class ShardTest {
     var run = mutastic("run", project, "--from-shards=" + shares, "--threshold=100");
 
     assertThat(run.exit()).as(run.err()).isEqualTo(Main.FAILED);
-    assertThat(run.out()).contains(missedId(), "[FAIL] Score below 100");
+    assertThat(run.out()).contains(missedId(), "[FAIL] Below the threshold of 100");
   }
 
   @Test

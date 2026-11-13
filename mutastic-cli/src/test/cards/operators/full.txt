@@ -72,14 +72,13 @@
    reproduce  mutastic run --only=me98ceb51 samples/operators
    or ignore  mutastic ignore me98ceb51 --reason="<why>" samples/operators
 
+ Next: mutastic verify <id> samples/operators · mutastic run --only=<id> samples/operators · mutastic explain <id> samples/operators
+
    Classes  0 clean | 1 with misses (1)
    Mutants  ✓ 7 caught · ✗ 4 missed (11)
   Worst at  Orders.large() (a lambda) 3 ✗ · Orders.large() 1 ✗
  Test runs  11 (33 without coverage selection)
   Start at  …
-  Duration  … (setup …, coverage …, mutants …)
+  Duration  … (setup …, build …, coverage …, mutants …, checking …)
      Tests  3 on JDK 17 · … workers
-     Score  63.6%  = vs last run (same code)  threshold 80
-
- [FAIL] Score below 80: 4 missed, 0 not covered.
- Next: mutastic verify <id> samples/operators · mutastic run --only=<id> samples/operators · mutastic explain <id> samples/operators
+     Score  63.6%  [FAIL] Below the threshold of 80: 4 missed, 0 not covered.  = vs last run (same code)
