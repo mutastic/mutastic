@@ -32,7 +32,9 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
     }
     var source = sources.testSource(testClass);
     var style = Style.of(source.orElse(""));
-    var name = freeName(name(result.mutant().methodName(), suggestion), source.orElse(""));
+    var name =
+        freeName(
+            name(result.mutant().methodName(), suggestion, compared(result)), source.orElse(""));
     return Optional.of(
         new SuggestedTest(
             testClass.substring(testClass.lastIndexOf('.') + 1),
@@ -99,7 +101,7 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
     }
     var suggestion = result.suggestion().orElseThrow();
     var source = sources.testSource(testClass).orElse("");
-    var name = freeName(name(result.mutant().methodName(), suggestion), source);
+    var name = freeName(name(result.mutant().methodName(), suggestion, compared(result)), source);
     return KotlinAssertion.of(suggestion, Style.ofKotlin(source))
         .map(
             assertion ->
@@ -121,7 +123,7 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
   }
 
   /// One mutant of a finding, and the test suggested for it: none when there's no suggestion, or
-  /// when an earlier mutant's test is the same call.
+  /// when an earlier mutant's test makes the same call.
   record ForMutant(MutantResult result, Optional<SuggestedTest> test) {}
 
   /// Each mutant of `finding` in order, with its test, each call once.
@@ -133,10 +135,19 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
       var test =
           of(result, sources)
               .map(found -> shared ? found.naming(result.mutant().id()) : found)
-              .filter(found -> names.add(found.testClass() + "#" + found.name()));
+              .filter(found -> names.add(found.testClass() + "#" + callOf(result)));
       each.add(new ForMutant(result, test));
     }
     return each;
+  }
+
+  /// What a suggested test calls, and with what: two mutants given the same call get one test,
+  /// named for the first, though another's name would say where the input sits another way.
+  private static String callOf(MutantResult result) {
+    return result
+        .suggestion()
+        .map(found -> found.call() + found.receiver() + found.inputs())
+        .orElse(result.mutant().id());
   }
 
   /// Whether a card has a test for more than one of its mutants, so one fix can't describe them:
@@ -263,9 +274,72 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
   /// class's outer instance's, `heavyResultForParcel30InShipping10`. Every argument is in the name,
   /// so two different calls never share one, and the same call (for two mutants) is the same test.
   static String name(String method, Suggestion suggestion) {
+    return name(method, suggestion, List.of());
+  }
+
+  /// The name as above, but for a call of one argument, said by where its value sits rather than
+  /// the value, which goes stale when the spec moves (no guide or big suite names a test by its
+  /// input): at the edge of the literal the mutant's comparison has, `operands`, just below or just
+  /// above it, `loyaltyCreditAtTheTotalEdge`; or zero or negative, `feeWhenAmountIsZero`. The
+  /// number stays in the test's call, where a spec change is made anyway.
+  static String name(String method, Suggestion suggestion, List<String> operands) {
     if (suggestion.named().isPresent()) {
       return method + "At" + pascal(suggestion.named().get().name());
     }
+    return where(method, suggestion, operands).orElseGet(() -> withValues(method, suggestion));
+  }
+
+  /// `feeWhenAmountIsZero` or `…IsNegative`, or `loyaltyCreditAtTheTotalEdge`,
+  /// `…JustBelowTheTotalEdge` or `…JustAboveTheTotalEdge`, for a call of one argument; none
+  /// otherwise.
+  private static Optional<String> where(
+      String method, Suggestion suggestion, List<String> operands) {
+    if (suggestion.inputs().size() != 1 || suggestion.receiverTakesArguments()) {
+      return Optional.empty();
+    }
+    var parameter = suggestion.parameters().getFirst();
+    var title = Character.toUpperCase(parameter.charAt(0)) + parameter.substring(1);
+    long value = suggestion.inputs().getFirst();
+    // Zero or below first: it's the call's alone, so every mutant that suggests it names it the
+    // same, and pasting each card's test doesn't add one call twice.
+    if (value <= 0) {
+      return Optional.of(method + "When" + title + (value == 0 ? "IsZero" : "IsNegative"));
+    }
+    var edge = edgeOf(parameter, operands);
+    if (edge.isPresent() && Math.abs(value - edge.get()) <= 1) {
+      var side = value == edge.get() ? "At" : value < edge.get() ? "JustBelow" : "JustAbove";
+      return Optional.of(method + side + "The" + title + "Edge");
+    }
+    return Optional.empty();
+  }
+
+  /// What a condition's mutant compares, `total` and `100`; nothing for another mutant, whose
+  /// operands (`amount * 10`) have no edge.
+  private static List<String> compared(MutantResult result) {
+    var operator = result.mutant().operator();
+    boolean condition =
+        operator == io.mutastic.api.BuiltIn.BOUNDARY
+            || operator == io.mutastic.api.BuiltIn.COMPARISON
+            || operator == io.mutastic.api.BuiltIn.OTHER_COMPARISON
+            || operator == io.mutastic.api.BuiltIn.REMOVE_CONDITIONAL;
+    return condition ? result.mutant().operands() : List.of();
+  }
+
+  /// The literal `parameter` is compared with, when the operands are it and a whole number.
+  private static Optional<Long> edgeOf(String parameter, List<String> operands) {
+    if (operands.size() != 2 || !operands.contains(parameter)) {
+      return Optional.empty();
+    }
+    var other = operands.get(operands.indexOf(parameter) == 0 ? 1 : 0);
+    try {
+      return Optional.of(Long.parseLong(other));
+    } catch (NumberFormatException e) {
+      return Optional.empty();
+    }
+  }
+
+  /// `discountWithTotal100`: the method, then each argument by its name and value.
+  private static String withValues(String method, Suggestion suggestion) {
     var name = new StringBuilder(method);
     if (suggestion.inputs().isEmpty()) {
       name.append("Result");

@@ -198,7 +198,7 @@ $ mutastic explain m209a60d0
 
             // in DiscountsTest
             @Test
-            void discountWithTotal99() {
+            void discountJustBelowTheTotalEdge() {
               assertThat(Discounts.discount(99)).isEqualTo(0); // today 0 · with this mutant 10
             }
             check today's value is the one you intend: the test pins what the code does now
@@ -288,7 +288,7 @@ $ mutastic explain m2b0d1651
 
             // in DiscountsTest
             @Test
-            void bulkWithCount49() {
+            void bulkJustBelowTheCountEdge() {
               assertThat(Discounts.bulk(49)).isEqualTo(0); // today 0 · with this mutant 5
             }
             check today's value is the one you intend: the test pins what the code does now
@@ -331,7 +331,7 @@ $ mutastic explain m49a00b3f
 
             // in DiscountsTest
             @Test
-            void columnsWithChosen3() {
+            void columnsAtTheChosenEdge() {
               assertThat(Discounts.columns(3)).isEqualTo(1); // today 1 · with this mutant 2
             }
             check today's value is the one you intend: the test pins what the code does now
@@ -374,7 +374,7 @@ $ mutastic explain m111a435d
 
             // in DiscountsTest
             @Test
-            void columnsWithChosen3() {
+            void columnsAtTheChosenEdge() {
               assertThat(Discounts.columns(3)).isEqualTo(1); // today 1 · with this mutant 2
             }
             check today's value is the one you intend: the test pins what the code does now
@@ -419,7 +419,7 @@ $ mutastic explain m2e491c40
 
             // in RatesTest
             @Test
-            void lateFeeWithDaysLate7() {
+            void lateFeeAtTheDaysLateEdge() {
               assertThat(Rates.lateFee(7L)).isEqualTo(0L); // today 0L · with this mutant 5L
             }
             check today's value is the one you intend: the test pins what the code does now

@@ -16,7 +16,7 @@
 
             [2m// in PricingTest[0m
             @Test
-            void discountWithTotal100() {
+            void discountAtTheTotalEdge() {
             [32m  assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0[0m
             }
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m

@@ -9,6 +9,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Card changes
 
+- **A suggested test is named by where its input sits, not its value.** A number in a name goes
+  stale when the spec moves, and no guide or big suite names a test that way. A call of one
+  argument is named for zero or a negative input, `feeWhenAmountIsZero`, or for the edge of the
+  literal its condition compares with, `discountAtTheTotalEdge` and
+  `discountJustBelowTheTotalEdge`; a constant the source names is used as before,
+  `discountAtFreeFrom`; anything else keeps its values, `isFreeWithTotal0ForFreeFrom50`. The value
+  stays in the call.
 - **A card names an object made where it's used.** A comparison or sum whose side is a call on
   `new Something(…)` was named without its receiver: the card said `length() != 0` for
   `new Measured(a).length() != 0`, a condition the source doesn't have. The receiver is now read

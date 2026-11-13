@@ -80,7 +80,7 @@ class SuggestionsTest {
         }""",
             """
         @Test
-        void lateFeeWithDaysLate7() {
+        void lateFeeAtTheDaysLateEdge() {
           assertThat(Rates.lateFee(7L)).isEqualTo(0L); // today 0L · with this mutant 5L
         }""",
             """
@@ -91,12 +91,12 @@ class SuggestionsTest {
         }""",
             """
         @Test
-        void bulkWithCount49() {
+        void bulkJustBelowTheCountEdge() {
           assertThat(Discounts.bulk(49)).isEqualTo(0); // today 0 · with this mutant 5
         }""",
             """
         @Test
-        void discountWithTotal99() {
+        void discountJustBelowTheTotalEdge() {
           assertThat(Discounts.discount(99)).isEqualTo(0); // today 0 · with this mutant 10
         }""",
             """
@@ -107,7 +107,7 @@ class SuggestionsTest {
         }""",
             """
         @Test
-        void inCreditWithBalance0() {
+        void inCreditWhenBalanceIsZero() {
           assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
         }""",
             """
@@ -118,7 +118,7 @@ class SuggestionsTest {
         }""",
             """
         @Test
-        void columnsWithChosen3() {
+        void columnsAtTheChosenEdge() {
           assertThat(Discounts.columns(3)).isEqualTo(1); // today 1 · with this mutant 2
         }""",
             """

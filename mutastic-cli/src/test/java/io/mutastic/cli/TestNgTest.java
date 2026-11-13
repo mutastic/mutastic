@@ -28,7 +28,7 @@ class TestNgTest {
         .contains("1 missed")
         .contains("no test checks `lateFee()` at `days == 30`")
         .contains("covered by: RatesTest#aLongWayLateHasAFee")
-        .contains("public void lateFeeWithDays30() {")
+        .contains("public void lateFeeAtTheDaysEdge() {")
         .contains("assertEquals(new Rates().lateFee(30), 25);");
     var id = run.out().replaceAll("(?s).*1\\. missed (m[0-9a-f]{8}).*", "$1");
 
@@ -41,7 +41,7 @@ class TestNgTest {
                 """
 
                   @Test
-                  public void lateFeeWithDays30() {
+                  public void lateFeeAtTheDaysEdge() {
                     assertEquals(new Rates().lateFee(30), 25);
                   }
                 }
@@ -50,6 +50,6 @@ class TestNgTest {
 
     assertThat(verified.out())
         .as(verified.err())
-        .contains("is caught by com.example.rates.RatesTest#lateFeeWithDays30");
+        .contains("is caught by com.example.rates.RatesTest#lateFeeAtTheDaysEdge");
   }
 }

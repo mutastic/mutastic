@@ -19,7 +19,7 @@
 
             [2m// in RatesTest[0m
             @Test
-            void inCreditWithBalance0() {
+            void inCreditWhenBalanceIsZero() {
             [32m  assertThat(Rates.inCredit(0)).isFalse(); // today false · with md4db94d8 true[0m
             }
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m

@@ -85,12 +85,12 @@ spec's value and fail on today's code: that's a bug found, and the cycle goes ba
 {/* added to: samples/pricing/src/test/java/com/example/pricing/PricingTest.java */}
 ```java
 @Test
-void loyaltyCreditWithTotal30() {
+void loyaltyCreditAtTheTotalEdge() {
   assertEquals(5, new Pricing().loyaltyCredit(30));
 }
 
 @Test
-void loyaltyCreditWithTotal29() {
+void loyaltyCreditJustBelowTheTotalEdge() {
   assertEquals(0, new Pricing().loyaltyCredit(29));
 }
 ```

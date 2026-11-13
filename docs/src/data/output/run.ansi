@@ -20,7 +20,7 @@
 
             [2m// in PricingTest[0m
             @Test
-            void discountWithTotal100() {
+            void discountAtTheTotalEdge() {
             [32m  assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0[0m
             }
             [2mcheck today's value is the one you intend: the test pins what the code does now[0m
@@ -33,8 +33,8 @@
  [2m  Mutants[0m  [32m✓ [1m10 caught[0m[0m[2m · [0m[1;31m✗ [1m1 missed[0m[0m[2m (11)[0m
  [2m Worst at[0m  Pricing.discount() 1 ✗
  [2mTest runs[0m  13[2m (33 without coverage selection)[0m
- [2m Start at[0m  01:42:38
- [2m Duration[0m  3.7s [2m(setup 1.1s, coverage 239ms, mutants 2.4s)[0m
+ [2m Start at[0m  17:59:03
+ [2m Duration[0m  3.9s [2m(setup 1.4s, coverage 271ms, mutants 2.2s)[0m
  [2m    Tests[0m  3 on JDK 17 · 4 workers
  [2m  Reports[0m  build/mutastic/mutation.json[2m · [0mbuild/mutastic/mutation.html
  [2m    Score[0m  [32m[1m90.9%[0m[0m[2m  threshold 80[0m
