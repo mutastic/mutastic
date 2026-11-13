@@ -48,6 +48,11 @@ public final class Gradle implements BuildTool {
   }
 
   @Override
+  public java.util.Optional<Building> building(Request request) {
+    return java.util.Optional.of(GradleSetup.building(request));
+  }
+
+  @Override
   public Project read(Path directory, String module, Path setup) {
     return GradleSetup.written(directory, module, setup);
   }

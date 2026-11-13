@@ -85,15 +85,22 @@ final class TestWorker implements AutoCloseable {
   /// @param failures each failing test's exception and its causes, `a.B>c.D`
   record Baseline(boolean passed, List<String> failing, Map<String, String> failures) {}
 
-  Baseline cover(Map<String, byte[]> instrumented, List<String> testClasses, Coverage coverage) {
+  /// @param listener hears how many tests have run of how many there are, as they run
+  Baseline cover(
+      Map<String, byte[]> instrumented,
+      List<String> testClasses,
+      Coverage coverage,
+      io.mutastic.api.Listener listener) {
     instrumented.forEach(this::stage);
     send("COVER\t" + String.join("\t", testClasses));
     var failures = new java.util.LinkedHashMap<String, String>();
+    var counted = new TestsCounted(coverage, listener);
     while (true) {
       var answer = coverageAnswer();
       var parts = answer.split("\t", -1);
       switch (parts[0]) {
-        case "TEST" -> coverage.recordTest(parts[1], Duration.ofNanos(Long.parseLong(parts[2])));
+        case "TESTS" -> counted.planned(Integer.parseInt(parts[1]));
+        case "TEST" -> counted.ran(parts[1], Duration.ofNanos(Long.parseLong(parts[2])));
         case "LINE" -> coverage.recordLines(parts[1], commaSeparated(parts[2], Integer::valueOf));
         case "LOADING" -> coverage.recordOnlyAtLoad(commaSeparated(parts[1], Integer::valueOf));
         case "VALUE" ->
@@ -106,6 +113,31 @@ final class TestWorker implements AutoCloseable {
         }
         default -> throw new IllegalStateException("the worker said: " + answer);
       }
+    }
+  }
+
+  /// The coverage pass's tests as they run, recorded, and counted to a listener: a test the plan
+  /// didn't list (one made as the tests run) adds to those planned.
+  private static final class TestsCounted {
+    private final Coverage coverage;
+    private final io.mutastic.api.Listener listener;
+    private int planned;
+    private int done;
+
+    TestsCounted(Coverage coverage, io.mutastic.api.Listener listener) {
+      this.coverage = coverage;
+      this.listener = listener;
+    }
+
+    void planned(int count) {
+      planned = count;
+      listener.coverageProgress(done, Math.max(planned, done));
+    }
+
+    void ran(String test, Duration took) {
+      coverage.recordTest(test, took);
+      done++;
+      listener.coverageProgress(done, Math.max(planned, done));
     }
   }
 

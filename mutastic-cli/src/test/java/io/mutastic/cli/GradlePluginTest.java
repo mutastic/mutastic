@@ -99,6 +99,34 @@ class GradlePluginTest {
         .contains("com.example.tally.TallyTest#aHighScoreGetsTheBonus");
   }
 
+  /// Gradle reads the command's stderr through a pipe, and prints it a line at a time: progress
+  /// there is a line as each phase ends and a heartbeat whenever the last line is old enough, never
+  /// a line redrawn in place.
+  @Test
+  void throughGradleProgressIsLinesAndHeartbeats() throws Exception {
+    var project = withPlugin(Samples.copy(SAMPLE, work.resolve("modules")));
+
+    var run =
+        gradlew(
+            project,
+            java.util.Map.of("MUTASTIC_HEARTBEAT", "0.2"),
+            List.of("-q"),
+            ":core:mutasticRun",
+            "-Pmutastic.threshold=0");
+
+    assertThat(run.exit()).as(run.out()).isZero();
+    assertThat(run.out())
+        .as(run.out())
+        .contains("built     ", "coverage  ", "ran       ")
+        .doesNotContain("\u001b[");
+    assertThat(run.out().lines()).as(run.out()).anyMatch(line -> HEARTBEAT.matcher(line).matches());
+  }
+
+  /// A heartbeat: a phase, what it's doing, and its clock.
+  private static final Pattern HEARTBEAT =
+      Pattern.compile(
+          "(?<phase>building|coverage|mutants|checking) +(?<doing>.+) · (?<clock>\\d+s)");
+
   /// `suite` in the build file picks the Test task whose tests run, as `--suite` does, and the
   /// command line's `-Pmutastic.suite` is over it; its setup is the init script's for that suite.
   @Test
@@ -285,6 +313,13 @@ class GradlePluginTest {
 
   private Samples.Result gradlew(Path project, List<String> logging, String... arguments)
       throws IOException, InterruptedException {
+    return gradlew(project, java.util.Map.of(), logging, arguments);
+  }
+
+  /// With `env` added to Gradle's environment, which the command it runs inherits.
+  private Samples.Result gradlew(
+      Path project, java.util.Map<String, String> env, List<String> logging, String... arguments)
+      throws IOException, InterruptedException {
     // Windows starts a program by its file's name, the wrapper's batch file there.
     var wrapper = java.io.File.separatorChar == '\\' ? "gradlew.bat" : "gradlew";
     var command = new ArrayList<>(List.of(project.resolve(wrapper).toString()));
@@ -297,13 +332,13 @@ class GradlePluginTest {
     }
     command.addAll(List.of(arguments));
     var log = work.resolve("gradle.log");
-    int exit =
+    var builder =
         new ProcessBuilder(command)
             .directory(project.toFile())
             .redirectErrorStream(true)
-            .redirectOutput(log.toFile())
-            .start()
-            .waitFor();
+            .redirectOutput(log.toFile());
+    builder.environment().putAll(env);
+    int exit = builder.start().waitFor();
     return new Samples.Result(exit, Files.readString(log, StandardCharsets.UTF_8), "");
   }
 }

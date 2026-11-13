@@ -54,7 +54,7 @@ import org.junit.platform.launcher.core.LauncherFactory;
 /// | Engine sends | Worker answers |
 /// |---|---|
 /// | `CLASS <name> <base64>`: use these bytes for the next command | nothing |
-/// | `COVER <test>...`: run every test, recording lines and arguments | `TEST <id> <nanos>`, `LINE <id> <ids>` and `VALUE <id> <parameter> <values>` lines, then `DONE PASSED` or `DONE FAILED <id>...` |
+/// | `COVER <test>...`: run every test, recording lines and arguments | `TESTS <count>` as they start, `TEST <id> <nanos>`, `LINE <id> <ids>` and `VALUE <id> <parameter> <values>` lines, then `DONE PASSED` or `DONE FAILED <id>...` |
 /// | `COVER` answers also hold `LOADING <ids>`: the lines some test ran, but only while a class was loading, and `LOADED <class>...`: the production classes it loaded, in order | |
 /// | `WARM <class>...`: load and initialise them, with no mutant in, as a worker that didn't run `COVER` must before its first mutant | `WARMED`, or `NOT-WARMED <class>` for the first that couldn't be |
 /// | `RUN <test>...`: run in order until one fails | `RESULT PASSED <ran>`, `RESULT FAILED <ran> <test> <exception> <origin> <port-clash or ->` or `RESULT ERROR <why>`, after `AGED` if this worker is now worth replacing ([Aging]) |
@@ -349,7 +349,8 @@ public final class Worker {
     Probes.reset();
     failures.clear();
     var scopes = new TestScopes(Worker::id, framework == null);
-    var failing = execute(tests, production(), timingTests(), scopes);
+    var planned = new PlannedTests(Worker::id, count -> protocol.println("TESTS\t" + count));
+    var failing = execute(tests, production(), planned, timingTests(), scopes);
     Probes.flush();
     scopes.credit();
     reportLines();

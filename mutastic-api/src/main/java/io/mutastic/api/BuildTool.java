@@ -62,6 +62,16 @@ public interface BuildTool {
   ///   [#DEFAULT_SUITE]
   record Request(Path directory, String module, Path workDirectory, String typed, String suite) {}
 
+  /// What reading a module builds, for progress to show while it does: the tool's task as a person
+  /// would name it (`gradle testClasses`), and the log the tool writes as it goes.
+  record Building(String task, Path log) {}
+
+  /// What [#read(Request)] will build, and where its log is; empty for a tool that says nothing as
+  /// it goes.
+  default java.util.Optional<Building> building(Request request) {
+    return java.util.Optional.empty();
+  }
+
   /// The module's code and the tests of one of its suites, and how its build runs them. A tool with
   /// one suite has only [#DEFAULT_SUITE].
   ///

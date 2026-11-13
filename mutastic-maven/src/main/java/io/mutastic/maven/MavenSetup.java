@@ -33,13 +33,22 @@ final class MavenSetup {
   /// name it.
   static final List<String> SUITES = List.of("test", "integration-test", "integrationTest");
 
+  /// What reading the request's module builds, and the log Maven's output goes to.
+  static BuildTool.Building building(BuildTool.Request request) {
+    return new BuildTool.Building("mvn test-compile", log(request.workDirectory()));
+  }
+
+  private static Path log(Path workDirectory) {
+    return workDirectory.resolve("maven.log");
+  }
+
   static Project read(BuildTool.Request request) {
     var directory = request.directory();
     var module = request.module();
     try {
       Files.createDirectories(request.workDirectory());
       var out = request.workDirectory().resolve("maven-setup");
-      var log = request.workDirectory().resolve("maven.log");
+      var log = log(request.workDirectory());
       if (mvn(directory, command(directory, module, out, request.suite()), log) != 0) {
         throw failed(directory, module, request.typed(), log);
       }
@@ -163,12 +172,12 @@ final class MavenSetup {
         "-Dmutastic.module=" + (module.equals(":") ? "" : module.substring(1)));
   }
 
+  /// Not `-q`: the log says what Maven is doing, for progress to show as it runs.
   private static List<String> command(Path directory, String module, Path out, String suite) {
     var command =
         new ArrayList<>(
             List.of(
                 mvn(directory),
-                "-q",
                 "-B",
                 "test-compile",
                 "-Dmaven.ext.class.path=" + extensionJar(),

@@ -38,6 +38,21 @@ final class GradleSetup {
     }
   }
 
+  /// What reading the request's module builds: its suite's classes, by the task a person would run
+  /// for them (`testClasses`, `:app:testClasses`), and the log Gradle's output goes to.
+  static BuildTool.Building building(BuildTool.Request request) {
+    var module = request.module().equals(":") ? "" : request.module() + ":";
+    var classes =
+        request.suite().equals(BuildTool.DEFAULT_SUITE)
+            ? "testClasses"
+            : request.suite() + "Classes";
+    return new BuildTool.Building("gradle " + module + classes, log(request.workDirectory()));
+  }
+
+  private static Path log(Path workDirectory) {
+    return workDirectory.resolve("gradle.log");
+  }
+
   /// A build to run, mutastic's init script to run it with, and the `Test` task it reads.
   private record Build(Path directory, Path init, String suite) {
     Build(Path directory, Path init) {
@@ -54,8 +69,8 @@ final class GradleSetup {
     Files.createDirectories(workDirectory);
     writeInitScript(build.init());
     Files.deleteIfExists(out);
-    var log = workDirectory.resolve("gradle.log");
-    int exit = gradle(build, out, log, task(build.directory(), module, "mutasticSetup"));
+    int exit =
+        gradle(build, out, log(workDirectory), task(build.directory(), module, "mutasticSetup"));
     if (exit != 0 || !Files.exists(out)) {
       throw failed(build, request, exit);
     }
@@ -69,7 +84,7 @@ final class GradleSetup {
     var module = request.module();
     var workDirectory = request.workDirectory();
     var typed = request.typed();
-    var output = Files.readString(workDirectory.resolve("gradle.log")).strip();
+    var output = said(Files.readString(log(workDirectory)));
     if (output.contains("'mutasticSetup' not found")) {
       return new SetupFailed(noJava(build, module, workDirectory, typed));
     }
@@ -83,6 +98,30 @@ final class GradleSetup {
                     "Gradle couldn't build %s for mutastic (exit %d):\n%s"
                         .formatted(build.directory(), exit, output)));
   }
+
+  /// What Gradle said beyond its progress: the log as `-q` would have kept it, without the tasks it
+  /// ran and how the build went, which are written to the log for progress to show as it runs.
+  static String said(String log) {
+    return log.lines()
+        .filter(line -> PROGRESS.stream().noneMatch(line::startsWith))
+        .filter(line -> !line.contains(" actionable task"))
+        .collect(java.util.stream.Collectors.joining("\n"))
+        .strip();
+  }
+
+  /// How Gradle's lifecycle lines start, which `-q` leaves out.
+  private static final List<String> PROGRESS =
+      List.of(
+          "> Task ",
+          "> Configure project ",
+          "BUILD SUCCESSFUL in ",
+          "BUILD FAILED in ",
+          "Starting a Gradle Daemon",
+          "Daemon will be stopped at the end of the build",
+          "[Incubating] Problems report is available at",
+          "Deprecated Gradle features were used in this build",
+          "You can use '--warning-mode all' to show the individual deprecation warnings",
+          "For more on this, please refer to https://docs.gradle.org");
 
   /// The module's setup, already written to `setup`.
   static Project written(Path directory, String module, Path setup) {
@@ -150,7 +189,8 @@ final class GradleSetup {
         : List.<String>of();
   }
 
-  /// Runs the build's own Gradle with mutastic's init script; its output goes to `log`.
+  /// Runs the build's own Gradle with mutastic's init script; its output goes to `log`, the tasks
+  /// it runs among it, so that progress can show the latest.
   private static int gradle(Build build, Path out, Path log, String task)
       throws IOException, InterruptedException {
     return new ProcessBuilder(gradleCommand(build, out, task))
@@ -164,7 +204,7 @@ final class GradleSetup {
   private static List<String> gradleCommand(Build build, Path out, String task) {
     return List.of(
         gradle(build.directory(), Objects.requireNonNullElse(System.getenv("PATH"), "")),
-        "-q",
+        "--console=plain",
         "--no-configuration-cache",
         "-I",
         build.init().toString(),
