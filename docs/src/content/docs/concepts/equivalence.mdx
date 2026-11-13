@@ -242,8 +242,11 @@ pub fn share(total: u32, parts: NonZeroU32) -> u32 {
 }
 ```
 
-The reason names the value: `equivalent: differs only when parts.get() is 0. That can't happen
-because parts is a NonZeroU32, which can't hold 0.` The type has to be the one the source declares,
+The reason names the value, and the event stream gives it with the kind as `skipKind`:
+
+<RustOutput name="operators/conditions/remove-conditional-skipped" />
+
+The type has to be the one the source declares,
 for a parameter, a `let` with its type written, or a field. Where it's inferred, generic, imported
 from somewhere other than std, or a name passed to a macro, the mutants run. A signed one can be
 below 0, so `n.get() < 0` on a `NonZeroI32` made never true runs too.

@@ -12,9 +12,10 @@
     }
   },
   "concepts/equivalence": {
-    "commit": "0468b1ffd9c99107debd8672d66a204a8d7f06b4",
+    "commit": "24beb4f1727ab4117692621b1161d8cfaf72c66c",
     "sources": {
-      "operators/returns.md#unwrap-try": "978d40a728bf2600"
+      "operators/returns.md#unwrap-try": "978d40a728bf2600",
+      "operators/conditions.md#remove-conditional": "9efed681a539c90e"
     }
   },
   "concepts/flaky-tests": {
