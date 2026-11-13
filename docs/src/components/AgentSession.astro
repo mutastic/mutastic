@@ -1,13 +1,15 @@
 ---
 // A recorded agent session, from a data file of its steps in order (src/data/test-first-agent/
-// session.json): the prompt, the gate's hooks, what the agent said, and each tool call with its
-// result. A recording, not a capture: no docs test runs it again, so it's shown as it was, and
-// never edited. `from` and `to` pick the steps to show, by their place in the file, so a page can
-// show the session a part at a time; without them it shows all of it.
+// session.json): the prompt, as the person's message (see Prompt), the gate's hooks, what the
+// agent said, and each tool call with its result. A recording, not a capture: no docs test runs it
+// again, so it's shown as it was, and never edited. `from` and `to` pick the steps to show, by their
+// place in the file, so a page can show the session a part at a time; without them it shows all of
+// it.
 //
 //   <AgentSession session={session} from={15} to={31} />
 //   <AgentSession session={session} />
 import { Code } from '@astrojs/starlight/components';
+import Prompt from './Prompt.astro';
 
 type Step =
   | { kind: 'prompt'; text: string }
@@ -74,12 +76,7 @@ const hookLabel = (event: string) =>
     shown.map((step) => {
       switch (step.kind) {
         case 'prompt':
-          return (
-            <div class="step prompt">
-              <p class="label">The prompt</p>
-              <p class="text">{step.text}</p>
-            </div>
-          );
+          return <Prompt label="The prompt" text={step.text} />;
         case 'hook':
           return (
             <div class="step hook">
@@ -165,13 +162,9 @@ const hookLabel = (event: string) =>
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
-  .prompt,
   .hook {
     padding: 0.6rem 0.8rem;
     border-radius: 0.4rem;
-    background: var(--sl-color-gray-6);
-  }
-  .hook {
     background: var(--sl-color-accent-low);
     border: 1px solid var(--sl-color-accent);
   }

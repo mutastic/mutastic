@@ -1,0 +1,42 @@
+---
+// What the person types to the agent, as a chat message: the prompt a task starts from, or a reply
+// to the agent or the gate. A recorded session's prompt (AgentSession) and the page's own examples
+// share it, so the person's words look the same wherever they are.
+//
+//   <Prompt label="Your prompt" text="Loyal customers get 5 off orders of 30 or more." />
+interface Props {
+  text: string;
+  label?: string;
+}
+const { text, label = 'You' } = Astro.props;
+---
+
+<div class="prompt not-content">
+  <p class="label">{label}</p>
+  <p class="text">{text}</p>
+</div>
+
+<style>
+  .prompt {
+    margin: 1rem 0 1rem auto;
+    max-width: min(38rem, 92%);
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.9rem 0.9rem 0.2rem 0.9rem;
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-white);
+  }
+  .label {
+    margin: 0 0 0.25rem;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--sl-color-gray-3);
+  }
+  .text {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+</style>
