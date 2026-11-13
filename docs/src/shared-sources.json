@@ -59,15 +59,15 @@
     }
   },
   "guides/test-first": {
-    "commit": "ac83ee1a17c841b5868f01721f31be94edf644c1",
+    "commit": "077fc71baa4fed1dd32515bdd1df4be10b47a338",
     "sources": {
-      "test-first.md": "3aac7d45c6ee1947"
+      "test-first.md": "11e527dbd7fc3762"
     }
   },
   "guides/test-first-refactor": {
-    "commit": "ac83ee1a17c841b5868f01721f31be94edf644c1",
+    "commit": "077fc71baa4fed1dd32515bdd1df4be10b47a338",
     "sources": {
-      "test-first-refactor.md": "6d6a06219d8bf605"
+      "test-first-refactor.md": "a6ce3ad45c3c801a"
     }
   }
 }
