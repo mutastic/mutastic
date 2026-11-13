@@ -126,20 +126,47 @@ final class Suggester {
   private static Optional<List<String>> today(Call call, List<List<Long>> candidates) {
     long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(BUDGET_MILLIS);
     var today = new ArrayList<String>();
+    int again = AGAIN;
     for (List<Long> inputs : candidates) {
       if (System.nanoTime() > deadline) {
         break;
       }
       var first = call.on(inputs);
-      // Twice: a method that answers differently to the same call (it uses a random number, the
+      // Again: a method that answers differently to the same call (it uses a random number, the
       // clock, shared state) can't be pinned by an assertion, and any difference the mutant
       // seemed to make could be chance.
-      if (first.isPresent() && !first.equals(call.on(inputs))) {
+      if (first.isPresent() && varies(call, inputs, first, again)) {
         return Optional.empty();
       }
+      again = 1;
       today.add(first.orElse(null));
     }
     return Optional.of(today);
+  }
+
+  /// How often the first candidate is called again, a millisecond apart: two calls in a row read
+  /// the same clock tick, and a clock's answer would pass for a fixed one.
+  private static final int AGAIN = 6;
+
+  /// Whether `times` more calls, a millisecond apart when more than one, answer other than `first`.
+  private static boolean varies(Call call, List<Long> inputs, Optional<String> first, int times) {
+    for (int i = 0; i < times; i++) {
+      if (times > 1) {
+        pause();
+      }
+      if (!first.equals(call.on(inputs))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static void pause() {
+    try {
+      Thread.sleep(1);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   /// The first candidate where the mutant, now swapped in, answers differently from `today`.
