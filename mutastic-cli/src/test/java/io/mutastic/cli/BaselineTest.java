@@ -72,7 +72,8 @@ class BaselineTest {
     // After what progress said, on a line of its own.
     assertThat(run.err())
         .contains(
-            "\nmutastic: the tests fail without any mutant: com.example.setup.JupiterSetupTest (the class as a whole, with IllegalStateException, each time it ran: its setup or teardown fails outside any test, such as a `@BeforeAll`, `@AfterAll`, `@BeforeClass`, `@AfterClass`, a class rule or a static initialiser); their output is in ");
+            "\nmutastic: com.example.setup.JupiterSetupTest (the class as a whole, with IllegalStateException, each time it ran: its setup or teardown fails outside any test, such as a `@BeforeAll`, `@AfterAll`, `@BeforeClass`, `@AfterClass`, a class rule or a static initialiser) fails without any mutant, so mutastic can't judge one.")
+        .contains(" test --tests 'com.example.setup.JupiterSetupTest'\n");
   }
 
   @Test
@@ -87,6 +88,7 @@ class BaselineTest {
     assertThat(run.exit()).isEqualTo(Main.TESTS_FAIL);
     assertThat(run.err())
         .contains(
-            "\nmutastic: the tests fail without any mutant: com.example.pricing.PricingTest#bigOrdersGetTenPercentOff");
+            "\nmutastic: com.example.pricing.PricingTest#bigOrdersGetTenPercentOff fails without any"
+                + " mutant, so mutastic can't judge one.\nIt failed: expected: <26> but was: <25>\n");
   }
 }

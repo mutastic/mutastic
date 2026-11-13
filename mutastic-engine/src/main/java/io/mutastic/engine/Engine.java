@@ -107,6 +107,20 @@ public final class Engine {
     }
   }
 
+  /// The module has test classes, but none ran on the JUnit Platform: a runner mutastic doesn't
+  /// run, or tests every one of which is filtered out.
+  public static final class NoTestsRan extends CantRun {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    NoTestsRan(Project project) {
+      super(
+          ("no test ran in %s, so there's nothing to judge a mutant by. mutastic runs tests on the"
+                  + " JUnit Platform: JUnit 5, and JUnit 4 and TestNG through their engines, as"
+                  + " the build's test task picks them")
+              .formatted(project.name()));
+    }
+  }
+
   /// The tests ran and passed, but the coverage pass recorded no line of any class with a mutant:
   /// it measured nothing, so no score can be given.
   ///
@@ -161,23 +175,91 @@ public final class Engine {
   public static final class BaselineFailed extends RuntimeException {
     @java.io.Serial private static final long serialVersionUID = 1L;
 
+    /// The most failing tests the message names, each with what it said; the log has the rest.
+    private static final int NAMED = 5;
+
     /// Not serialised: nothing sends this exception anywhere, it's reported where it's caught.
     private final transient List<String> failing;
 
-    /// @param failures each failing test's exception and its causes, `a.B>c.D`
+    /// @param baseline the coverage pass's failures: each test's exception and causes, and message
     /// @param services the JDK services the project provides that the worker can't install: each a
     ///   likely reason tests that pass in the build fail here
     BaselineFailed(
-        List<String> failing, Map<String, String> failures, Path log, List<String> services) {
-      super(
-          "the tests fail without any mutant: "
-              + failing.stream()
-                  .map(test -> test + asAWhole(test, failures))
-                  .collect(Collectors.joining(", "))
-              + "; their output is in "
-              + log
-              + loadedElsewhere(failing, services));
+        List<String> failing, TestWorker.Baseline baseline, Path log, List<String> services) {
+      this(said(failing, baseline, log, services), failing);
+    }
+
+    private BaselineFailed(String message, List<String> failing) {
+      super(message);
       this.failing = List.copyOf(failing);
+    }
+
+    /// The tests' JVM stopped, or ran past its limit, in the coverage pass: with no mutant in, so a
+    /// test did it, the one running if the worker said which.
+    static BaselineFailed stopped(TestWorker.Stopped stopped, Path log) {
+      var running = stopped.running();
+      var during = running.map(", while %s ran"::formatted).orElse("");
+      if (stopped.exited()) {
+        return new BaselineFailed(
+            ("the tests' JVM stopped during the coverage pass, with no mutant in%s.\n"
+                    + "A test that calls System.exit, or crashes the JVM, stops it. The end of its"
+                    + " output says which:\n  tail -n 40 %s")
+                .formatted(during, shown(log)),
+            List.of());
+      }
+      return new BaselineFailed(
+          ("the tests didn't finish within %d minutes, with no mutant in%s.\nA test that waits"
+                  + " for what never comes, or never stops, keeps them going. Their output is in"
+                  + " %s.")
+              .formatted(TestWorker.COVERAGE_LIMIT.toMinutes(), during, shown(log)),
+          running.stream().toList());
+    }
+
+    /// The same, ending in the command that runs the first failing test alone in its build.
+    public BaselineFailed endingIn(String command) {
+      return new BaselineFailed(
+          "%s To run %s alone:\n  %s"
+              .formatted(getMessage(), failing.size() == 1 ? "it" : "the first", command),
+          failing);
+    }
+
+    private static String said(
+        List<String> failing, TestWorker.Baseline baseline, Path log, List<String> services) {
+      var failures = baseline.failures();
+      var messages = baseline.messages();
+      var where = loadedElsewhere(failing, services);
+      if (failing.size() == 1) {
+        var test = failing.getFirst();
+        var said = messages.getOrDefault(test, "");
+        return "%s%s fails without any mutant, so mutastic can't judge one.%s%s\nIts output is in %s."
+            .formatted(
+                test,
+                asAWhole(test, failures),
+                said.isBlank() ? "" : "\nIt failed: " + said,
+                where,
+                shown(log));
+      }
+      var named =
+          failing.stream()
+              .limit(NAMED)
+              .map(test -> "  " + test + asAWhole(test, failures) + saying(test, messages))
+              .collect(Collectors.joining("\n"));
+      var more = failing.size() > NAMED ? "\n  and %d more".formatted(failing.size() - NAMED) : "";
+      return "%d tests fail without any mutant, so mutastic can't judge one:\n%s%s%s\nTheir output is in %s."
+          .formatted(failing.size(), named, more, where, shown(log));
+    }
+
+    /// `log` from where the person is, when it's inside it.
+    private static Path shown(Path log) {
+      var here = Path.of("").toAbsolutePath().normalize();
+      var absolute = log.toAbsolutePath().normalize();
+      return absolute.startsWith(here) ? here.relativize(absolute) : absolute;
+    }
+
+    /// `: expected: <24> but was: <25>`, what the test's failure said, if it said anything.
+    private static String saying(String test, Map<String, String> messages) {
+      var message = messages.getOrDefault(test, "");
+      return message.isBlank() ? "" : ": " + message;
     }
 
     /// For a class that failed as a whole, where: outside its tests, in what it runs around them.
@@ -674,7 +756,7 @@ public final class Engine {
     }
     var coverage = plan.mutantRun().coverage();
     long coverageStart = System.nanoTime();
-    var baseline = first.cover(plan.instrumented(), testClasses, coverage, listener);
+    var baseline = covered(first, plan, testClasses, listener);
     var reruns = new Reruns(coverage, first, Duration.ofNanos(System.nanoTime() - coverageStart));
     var flaky = baseline.passed() ? List.<String>of() : flakyOrFail(baseline, reruns, project);
     boolean recordedNothing = coverage.recordedNothing();
@@ -689,6 +771,17 @@ public final class Engine {
         first.jdk(), coverage.testCount(), coverageTook, plan.mutants().size(), flaky, evidence);
   }
 
+  /// The coverage pass's tests run on `first`: a test that stops its JVM, or keeps it past the
+  /// pass's limit, fails the run as a test failing with no mutant in does.
+  private TestWorker.Baseline covered(
+      TestWorker first, Plan plan, List<String> testClasses, Listener listener) {
+    try {
+      return first.cover(plan.instrumented(), testClasses, plan.mutantRun().coverage(), listener);
+    } catch (TestWorker.Stopped stopped) {
+      throw BaselineFailed.stopped(stopped, log);
+    }
+  }
+
   /// Stops a run whose coverage pass measured nothing: no test ran, or tests ran and passed and the
   /// probes in the classes with mutants never did. Scored, that would be every mutant not covered:
   /// a 0% that reads as tests that don't reach the code, when it's mutastic that didn't see them. A
@@ -697,8 +790,7 @@ public final class Engine {
   private void measured(Project project, Plan plan, boolean recordedNothing) {
     int tests = plan.mutantRun().coverage().testCount();
     if (tests == 0) {
-      throw new IllegalStateException(
-          "no tests ran in " + project.name() + "; mutastic runs JUnit Platform tests");
+      throw new NoTestsRan(project);
     }
     if (recordedNothing && plan.whole()) {
       throw new NothingCovered(project, tests, plan.instrumented().size(), log);
@@ -894,8 +986,7 @@ public final class Engine {
     var failing = Reruns.withoutTheirClasses(baseline.failing());
     var stillFailing = failing.stream().filter(test -> !reruns.passesAgain(test)).toList();
     if (!stillFailing.isEmpty()) {
-      throw new BaselineFailed(
-          stillFailing, baseline.failures(), log, SystemServices.providedBy(project));
+      throw new BaselineFailed(stillFailing, baseline, log, SystemServices.providedBy(project));
     }
     return failing;
   }

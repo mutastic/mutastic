@@ -35,6 +35,14 @@ public interface BuildTool {
   /// @throws SetupFailed when `module` isn't one of the build's, saying which modules are
   default void checkModule(Path directory, String module, String typed) {}
 
+  /// The command that runs one test of the request's suite in its build, as the person would type
+  /// it from where they are, to see it fail there: empty when the tool can't name one test.
+  ///
+  /// @param test the test as mutastic names it: `com.example.PricingTest#bigOrders`, or a class
+  default java.util.Optional<String> testCommand(Request request, String test) {
+    return java.util.Optional.empty();
+  }
+
   /// How `mutastic run` names `directory`, a directory one of its builds is in: by default the
   /// build in it, as a build that runs from any of its directories is named.
   default Address address(Path directory) {

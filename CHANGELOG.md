@@ -87,6 +87,20 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   in `.mutastic/ignores.yaml`, and list what's valid when nothing is close. `operators: [stronger]`,
   which mutastic doesn't read, is shown written an item a line, rather than as an unknown section.
 - **`--report`'s error lists `sarif`,** which it has taken since 1.0.0.
+- **A build that fails is quoted at your line.** Gradle's failure came whole, its `* Try:` advice
+  and all, and Maven's only as a log's path. Now mutastic says `pricing doesn't build, before any
+  mutant is in it.`, names the compiler's error at your file and line (the first three, of how
+  many), or what the tool says went wrong, and ends in the build's own command, `./gradlew
+  testClasses` or `mvn test-compile`: the Rust edition's words.
+- **A failing test says what it said, and how to run it alone.** `the tests fail without any
+  mutant: <test>; their output is in <log>` is now `<test> fails without any mutant, so mutastic
+  can't judge one.`, then `It failed: expected: <24> but was: <25>`, the log, and the build's
+  command for that test, `./gradlew test --tests '…'` or `mvn test -Dtest='…'`.
+- **A test that ends the JVM, or tests that run past 10 minutes, exit with 3,** as tests failing
+  with no mutant in do, naming the test that was running, not with 4 and `internal error:
+  java.lang.IllegalStateException`. A file mutastic can't read or write (a read-only build
+  directory, a file in the way, a full disk) exits with 2 and the system's reason, and a module
+  whose tests none ran on the JUnit Platform says so, with 2.
 
 ## 1.1.0 (12 Nov 2026)
 

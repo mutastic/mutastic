@@ -236,7 +236,7 @@ class DocsOutputTest {
     added(code, steps.get(1));
     var red = Samples.mutastic(TERMINAL, "run", project.toString());
     assertThat(red.exit()).as(red.err()).isEqualTo(Main.TESTS_FAIL);
-    shown("test-first-red.ansi", project, itsMessage(red));
+    shown("test-first-red.ansi", project, fromItsMessage(red));
 
     var stub = steps.get(1).code().indent(2).stripTrailing();
     var source = Files.readString(code);
@@ -367,7 +367,7 @@ class DocsOutputTest {
     var red = Samples.mutastic(TERMINAL, "run", project.toString());
     assertThat(red.exit()).as(red.err()).isEqualTo(Main.TESTS_FAIL);
     assertThat(red.err()).contains("From" + tier);
-    shown("test-first-refactor-red-" + tier + ".ansi", project, itsMessage(red));
+    shown("test-first-refactor-red-" + tier + ".ansi", project, fromItsMessage(red));
 
     changed(code, steps.get(1));
     var run = Samples.mutastic(TERMINAL, "run", project.toString(), "--since=HEAD", "--workers=1");
@@ -480,7 +480,7 @@ class DocsOutputTest {
     assertThat(failing.exit()).isEqualTo(Main.TESTS_FAIL);
     shown("below-threshold.ansi", project, below);
     shown("id-elsewhere.ansi", project, itsMessage(elsewhere));
-    shown("tests-fail.ansi", project, itsMessage(failing));
+    shown("tests-fail.ansi", project, fromItsMessage(failing));
   }
 
   /// Troubleshooting's examples of a multi-module build run without a module, and with one it
@@ -625,7 +625,13 @@ class DocsOutputTest {
   /// `samples/<name>`. Timings are kept as they were when it was written, and left out of the
   /// comparison; so a file is written again only when more than its timings changed.
   private static void shown(String name, Path project, Samples.Result result) throws Exception {
-    var output = result.out().replace(project.toString(), "samples/" + project.getFileName());
+    var sample = "samples/" + project.getFileName();
+    // Its real path first: a build tool names it so, through a link such as macOS's /var.
+    var output =
+        result
+            .out()
+            .replace(project.toRealPath().toString(), sample)
+            .replace(project.toString(), sample);
     var file = OUTPUT.resolve(name);
     var written = Files.exists(file) ? Files.readString(file, StandardCharsets.UTF_8) : "";
     if (WRITE && !withoutTimings(written).equals(withoutTimings(output))) {

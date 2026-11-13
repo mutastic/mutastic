@@ -48,6 +48,11 @@ public final class Gradle implements BuildTool {
   }
 
   @Override
+  public java.util.Optional<String> testCommand(Request request, String test) {
+    return java.util.Optional.of(GradleSetup.testCommand(request, test));
+  }
+
+  @Override
   public java.util.Optional<Building> building(Request request) {
     return java.util.Optional.of(GradleSetup.building(request));
   }

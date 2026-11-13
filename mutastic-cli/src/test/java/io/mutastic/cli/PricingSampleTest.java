@@ -119,7 +119,10 @@ class PricingSampleTest {
     var run = Samples.mutastic("run", project.toString());
 
     assertThat(run.exit()).isEqualTo(Main.USAGE);
-    assertThat(run.err()).contains("Gradle couldn't build");
+    assertThat(run.err())
+        .contains("mutastic: pricing doesn't build, before any mutant is in it.")
+        .contains("build.gradle.kts, line 1: ")
+        .doesNotContain("* Try:", "--stacktrace", "BUILD FAILED");
   }
 
   @Test
