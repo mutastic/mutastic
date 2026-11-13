@@ -1,0 +1,185 @@
+---
+// A recorded agent session, from a data file of its steps in order (src/data/test-first-agent/
+// session.json): the prompt, the gate's hooks, what the agent said, and each tool call with its
+// result. A recording, not a capture: no docs test runs it again, so it's shown as it was, and
+// never edited. `from` and `to` pick the steps to show, by their place in the file, so a page can
+// show the session a part at a time; without them it shows all of it.
+//
+//   <AgentSession session={session} from={15} to={31} />
+//   <AgentSession session={session} />
+import { Code } from '@astrojs/starlight/components';
+
+type Step =
+  | { kind: 'prompt'; text: string }
+  | { kind: 'hook'; event: string; text: string }
+  | { kind: 'say'; text: string }
+  | { kind: 'run'; id: string; command: string }
+  | { kind: 'read'; id: string; file: string }
+  | { kind: 'edit'; id: string; file: string; old: string; new: string }
+  | { kind: 'skill'; id: string; skill: string }
+  | { kind: 'tool'; id: string; tool: string; input: unknown }
+  | { kind: 'result'; id: string; text: string; error?: boolean };
+
+interface Props {
+  session: { steps: Step[] };
+  from?: number;
+  to?: number;
+}
+const { session, from = 0, to = session.steps.length - 1 } = Astro.props;
+const all = session.steps;
+if (from < 0 || to >= all.length || from > to) {
+  throw new Error(`AgentSession: no steps ${from} to ${to} in a session of ${all.length}`);
+}
+const shown = all.slice(from, to + 1);
+const resultOf = (id: string) =>
+  all.find((step): step is Extract<Step, { kind: 'result' }> => step.kind === 'result' && step.id === id);
+
+// An edit as a diff: the lines both share at the start and end, then what went and what came.
+function diff(before: string, after: string): string {
+  const old = before.split('\n');
+  const now = after.split('\n');
+  let head = 0;
+  while (head < old.length && head < now.length && old[head] === now[head]) head++;
+  let tail = 0;
+  while (
+    tail < old.length - head &&
+    tail < now.length - head &&
+    old[old.length - 1 - tail] === now[now.length - 1 - tail]
+  )
+    tail++;
+  return [
+    ...old.slice(0, head).map((line) => `  ${line}`),
+    ...old.slice(head, old.length - tail).map((line) => `- ${line}`),
+    ...now.slice(head, now.length - tail).map((line) => `+ ${line}`),
+    ...old.slice(old.length - tail).map((line) => `  ${line}`),
+  ].join('\n');
+}
+
+// What the gate's Stop hook said, as its JSON gives it: the message the person sees, or the
+// reason the agent was sent back.
+function hookText(step: Extract<Step, { kind: 'hook' }>): string {
+  try {
+    const answer = JSON.parse(step.text);
+    return answer.systemMessage ?? answer.reason ?? step.text;
+  } catch {
+    return step.text;
+  }
+}
+const hookLabel = (event: string) =>
+  event === 'Stop' ? 'The gate, when the agent stopped' : 'The gate, on the prompt';
+---
+
+<div class="agent-session not-content">
+  {
+    shown.map((step) => {
+      switch (step.kind) {
+        case 'prompt':
+          return (
+            <div class="step prompt">
+              <p class="label">The prompt</p>
+              <p class="text">{step.text}</p>
+            </div>
+          );
+        case 'hook':
+          return (
+            <div class="step hook">
+              <p class="label">{hookLabel(step.event)}</p>
+              <p class="text">{hookText(step)}</p>
+            </div>
+          );
+        case 'say':
+          return (
+            <div class="step say">
+              <p class="label">The agent</p>
+              <p class="text">{step.text}</p>
+            </div>
+          );
+        case 'run': {
+          const result = resultOf(step.id);
+          return (
+            <div class="step tool">
+              <Code code={step.command} lang="sh" wrap />
+              {result && result.text && <Code code={result.text} lang="text" wrap />}
+            </div>
+          );
+        }
+        case 'edit':
+          return (
+            <div class="step tool">
+              <p class="label">
+                Edits <code>{step.file}</code>
+              </p>
+              <Code code={diff(step.old, step.new)} lang="diff" wrap />
+            </div>
+          );
+        case 'read':
+          return (
+            <p class="step read">
+              Reads <code>{step.file}</code>
+            </p>
+          );
+        case 'skill':
+          return (
+            <p class="step read">
+              Loads the <code>{step.skill}</code> skill
+            </p>
+          );
+        case 'tool':
+          return (
+            <div class="step tool">
+              <p class="label">{step.tool}</p>
+              <Code code={JSON.stringify(step.input, null, 2)} lang="json" />
+            </div>
+          );
+        default:
+          return null;
+      }
+    })
+  }
+</div>
+
+<style>
+  .agent-session {
+    margin: 1rem 0 1.5rem;
+    border-left: 3px solid var(--sl-color-gray-5);
+    padding-left: 1rem;
+  }
+  .step {
+    margin: 0 0 0.9rem;
+  }
+  .step .label {
+    margin: 0 0 0.25rem;
+    overflow-wrap: anywhere;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--sl-color-gray-3);
+  }
+  .step .label code {
+    text-transform: none;
+    letter-spacing: normal;
+  }
+  .step .text {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .prompt,
+  .hook {
+    padding: 0.6rem 0.8rem;
+    border-radius: 0.4rem;
+    background: var(--sl-color-gray-6);
+  }
+  .hook {
+    background: var(--sl-color-accent-low);
+    border: 1px solid var(--sl-color-accent);
+  }
+  .read {
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+  .tool :global(.expressive-code) {
+    margin-top: 0.4rem;
+  }
+</style>

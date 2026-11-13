@@ -69,6 +69,9 @@ class DocsOutputTest {
           "\\d+(\\.\\d+)?(ms|s)\\b|\\d\\d:\\d\\d:\\d\\d|Ms\" ?: ?\\d+|\"testsRun\" ?: ?\\d+"
               + "|Test runs(?:\u001B\\[[0-9;]*m)*  \\d+");
 
+  /// The commit a gate's task starts from, which changes with each repository a test makes.
+  private static final Pattern COMMITS = Pattern.compile("(from |--since=)[0-9a-f]{7,40}\\b");
+
   @TempDir Path work;
 
   /// The quickstart's tour, in order: a run that misses one mutant, that mutant explained, the
@@ -252,6 +255,50 @@ class DocsOutputTest {
         Samples.mutastic(TERMINAL, "run", project.toString(), "--since=HEAD", "--workers=1");
     assertThat(again.exit()).as(again.err()).isEqualTo(Main.PASSED);
     shown("test-first-again.ansi", project, again);
+  }
+
+  /// The agent guide's cycle, as the agent and its gate see it: the test-first guide's code on the
+  /// pricing sample in a repository of its own, with the gate opened as the plugin's hook opens it,
+  /// the agent format's run on the cycle's lines once the code passes, and the gate's check once
+  /// the card's tests are in. The guide's `verify` is the test-first guide's.
+  @Test
+  void anAgentsTestFirstCycle() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+    Files.writeString(project.resolve(".gitignore"), "build/\n.gradle/\n");
+    git(project, "init", "-q");
+    git(project, "add", "-A");
+    git(project, "commit", "-q", "-m", "start");
+    var steps = marked(PAGES.resolve("guides/test-first.mdx"));
+    var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
+    var code = project.resolve("src/main/java/com/example/pricing/Pricing.java");
+    var stdin = System.in;
+    Samples.Result opened;
+    try {
+      System.setIn(
+          new java.io.ByteArrayInputStream(
+              "{\"session_id\":\"docs\"}".getBytes(StandardCharsets.UTF_8)));
+      opened = Samples.mutastic("gate", "open", project.toString(), "--hook=claude");
+    } finally {
+      System.setIn(stdin);
+    }
+    assertThat(opened.exit()).as(opened.err()).isEqualTo(Main.PASSED);
+    shown("test-first-agent-open.txt", project, opened);
+
+    added(test, steps.get(0));
+    added(code, steps.get(1));
+    changed(code, steps.get(2));
+    var run =
+        Samples.mutastic(
+            "run", project.toString(), "--since=HEAD", "--format=agent", "--workers=1");
+    assertThat(run.exit()).as(run.err()).isEqualTo(Main.FAILED);
+    assertThat(run.out()).contains("done when: mutastic verify m809c9c9b,md0b32a4f ");
+    shown("test-first-agent-run.txt", project, run);
+
+    added(test, steps.get(3));
+    var check = Samples.mutastic("gate", "check", project.toString());
+    assertThat(check.exit()).as(check.out()).isEqualTo(Main.PASSED);
+    assertThat(check.out()).startsWith("mutastic gate: passed");
+    shown("test-first-agent-check.txt", project, check);
   }
 
   /// The refactor guide's cycles, from where the test-first guide's ends, committed: for each tier
@@ -592,6 +639,6 @@ class DocsOutputTest {
   }
 
   private static String withoutTimings(String output) {
-    return TIMINGS.matcher(output).replaceAll("…");
+    return COMMITS.matcher(TIMINGS.matcher(output).replaceAll("…")).replaceAll("$1…");
   }
 }

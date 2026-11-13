@@ -1,0 +1,1 @@
+mutastic gate: this task is gated from b1208f1: before you finish, check the lines it changes with `mutastic run --since=b1208f1bc203bd0d0dd107bd68302b2741aa7e53 --format=agent`; the gate checks them when you finish, so you needn't run `mutastic gate check` yourself. Never change production code to make a mutant go away: tell the person.

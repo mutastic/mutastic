@@ -1,0 +1,285 @@
+---
+title: "Working test-first: with an agent"
+description: "An agent's tests go green whether they check anything or not. A short instruction has it work test-first with mutastic, and the gate holds what it hands back: what it sees at each step, where you come in, and a real session."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import AgentSession from '../../../components/AgentSession.astro';
+import EditionTabs from '../../../components/EditionTabs.astro';
+import RustAwaiting from '../../../components/RustAwaiting.astro';
+import RustOutput from '../../../components/RustOutput.astro';
+import TddLoop from '../../../components/TddLoop.astro';
+import snippet from '../../../data/test-first-agent/AGENTS.md?raw';
+import session from '../../../data/test-first-agent/session.json';
+import opened from '../../../data/output/test-first-agent-open.txt?raw';
+import run from '../../../data/output/test-first-agent-run.txt?raw';
+import verify from '../../../data/output/test-first-verify.ansi?raw';
+import checked from '../../../data/output/test-first-agent-check.txt?raw';
+
+Ask a coding agent for tests and you get tests, and they pass. Whether they check anything is
+another matter: a test at an order of 50 passes whether the code says `>= 30` or `> 30`. And when
+an agent can't get to green, it has ways round that a person would rarely take: it changes what the
+test expects, or changes the code until the test passes for the wrong reason. Where a test
+contradicts its spec, so that any pass is a cheat,
+[ImpossibleBench](https://arxiv.org/abs/2510.20270) found Claude models cheat mostly by editing
+the test.
+
+Working test-first helps. A test that has to fail first is a test that checks something. But red
+and green are the agent's own word. This page gives an agent the cycle from
+[Working test-first](/guides/test-first/) in a few lines for its instructions, then shows what
+mutastic tells it at each step, what the gate holds it to before it can say it's done, and where
+you come in. At the end is a real session on the pricing sample, as it was recorded.
+
+<RustAwaiting>
+This guide's Rust output comes with mutastic for Rust's next release. Until then, these are the
+Java edition's steps: on a crate they're the same, with `mutastic run` and `mutastic verify` as
+[the quickstart](/rust/getting-started/) runs them.
+</RustAwaiting>
+
+## Before you start
+
+- **The mutastic plugin for your agent**, which brings the gate and the `mutastic` skill:
+  [Claude Code](/agents/claude-code/), [Codex](/agents/codex/), or
+  [opencode](/agents/other-agents/#opencode). They work the same way: the gate opens on your
+  prompt and checks when the agent says it's done.
+- **Let the agent run mutastic, the build and `git commit`.** It commits at the end of each cycle.
+  In Claude Code, in the project's `.claude/settings.json`:
+
+  ```json
+  {
+    "permissions": {
+      "allow": ["Bash(mutastic:*)", "Bash(./gradlew:*)", "Bash(git add:*)", "Bash(git commit:*)"]
+    }
+  }
+  ```
+
+- **A clean tree.** The gate counts everything changed since the task started as the task's.
+
+## Tell the agent to work test-first
+
+Put this in the project's `AGENTS.md`, which Codex and opencode read. Claude Code reads
+`CLAUDE.md`: put it there, or a line `@AGENTS.md` that brings it in. Or paste it into the prompt
+with the spec.
+
+<Code code={snippet} lang="md" title="AGENTS.md" wrap />
+
+Then give it the spec. The cycle below is the one from [Working test-first](/guides/test-first/):
+loyal customers get 5 off orders of 30 or more.
+
+The `mutastic` skill already teaches the agent to run mutastic on what it changed, to write the
+test each card asks for, and to prove it with `verify`. What the snippet adds is the order. A
+separate, opt-in test-first plugin is planned to take its place; the mutastic plugin and the gate
+won't change.
+
+## What the agent sees
+
+### When the task starts
+
+The gate opens on your prompt and tells the agent where the task starts:
+
+<EditionTabs>
+<div slot="java">
+
+<Code code={opened} lang="text" wrap />
+
+</div>
+<div slot="rust">
+
+<RustOutput name="test-first-agent/open" wrap />
+
+</div>
+</EditionTabs>
+
+### Red
+
+<TddLoop current="Red" />
+
+The agent writes one test from the spec, and a stub so it compiles, and runs the tests. The test
+fails. mutastic won't run on a red suite, so this step is the agent's own: it's the step the gate
+can't see (see [what the gate can't check](#what-the-gate-cant-check)).
+
+### Green
+
+<TddLoop current="Green" />
+
+The least code that passes. In this cycle, an `if` at 30, with one test at 50.
+
+### Mutate
+
+<TddLoop current="Mutate" />
+
+The agent runs mutastic on the cycle's lines, in the agent format:
+
+<EditionTabs>
+<div slot="java">
+
+```sh
+mutastic run samples/pricing --since=HEAD --format=agent
+```
+
+<Code code={run} lang="text" wrap />
+
+</div>
+<div slot="rust">
+
+```sh
+mutastic run fixtures/pricing --since=HEAD --format=agent
+```
+
+<RustOutput name="test-first-agent/run" wrap />
+
+</div>
+</EditionTabs>
+
+The `rules:` line comes first: tests only, and never production code changed to make a mutant go
+away. `decline:` is its honest way out, when a mutant's case can't happen. Then a card for each
+line the tests don't check, with the test to add, today's value and the mutant's, and the
+`done when` command. `not covered` is the line no test reaches yet: the cards' test below 30
+reaches it.
+
+### Triangulate
+
+<TddLoop current="Triangulate" />
+
+The card's values are what the code does today, not what the spec says. Each card says so:
+"check today's value is the one you intend". The snippet has the agent check each value against
+the spec before it writes the test: an order of exactly 30 gets 5 off, and one of 29 gets nothing.
+If one didn't match, the snippet tells it to stop and ask you.
+
+Then the card's `verify`, which passes only when the new tests catch each mutant:
+
+<EditionTabs>
+<div slot="java">
+
+```sh
+mutastic verify m809c9c9b,md0b32a4f samples/pricing
+```
+
+<Code code={verify} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```sh
+mutastic verify m525ce1d2,m076d6006 fixtures/pricing
+```
+
+<RustOutput name="test-first/verify" />
+
+</div>
+</EditionTabs>
+
+### Refactor and commit
+
+<TddLoop current="Refactor" />
+
+If the code needs it, a change of structure, with the tests green, and mutastic again: see
+[Working test-first: the refactor](/guides/test-first-refactor/).
+
+<TddLoop current="Commit" />
+
+Then a commit, which is where the next cycle starts.
+
+### When it says it's done
+
+The gate runs mutastic on every line changed since the task started, committed or not:
+
+<EditionTabs>
+<div slot="java">
+
+<Code code={checked} lang="text" />
+
+</div>
+<div slot="rust">
+
+<RustOutput name="test-first-agent/check" />
+
+</div>
+</EditionTabs>
+
+## What the gate holds it to
+
+Before the agent can stop, [the gate](/agents/gate/) checks that:
+
+- **each mutant on the changed lines is caught, or proposed** for a person to ignore;
+- **the task made no ignore of its own**: it proposes, and you decide;
+- **no test was taken away**: no fewer tests than at the start, and none more disabled;
+- **the tests pass.** When a test that was there before fails, the gate tells the agent to find
+  out whether the change or the test is wrong, and to ask you if it isn't sure, rather than
+  rewrite what the test expects.
+
+When something's missed, the gate sends the agent back with the cards, as the run above shows
+them. When it can't get there, the gate lets it stop and tells you what's left.
+
+### What the gate can't check
+
+The gate checks results, not order. It can't tell whether a test came first: an agent that
+writes the code, then the tests the cards ask for, passes the gate too. Its tests still catch every
+mutant on the lines it changed, but the spec didn't drive them. The snippet asks for the order,
+and the session's log shows whether the agent kept it.
+
+## Where you come in
+
+- **Proposed ignores.** When a mutant's case can't happen, the agent proposes an ignore, with its
+  reason, in `.mutastic/proposals.yaml`. Read the reason against the code, then
+  `mutastic ignore --accept ID`, or `mutastic ignore --remove ID` to say no. Until you accept it,
+  it counts as missed. See [what stays yours](/agents/#what-stays-yours).
+- **When the spec and a test disagree.** The agent stops and asks. You say which is right: the
+  spec, and the test keeps its value and the code changes; or the test, and the spec was wrong.
+- **When the gate hands over.** It tells you what's still missed, and why it let the agent stop.
+
+## A recorded session
+
+One run of Claude Code on a copy of the pricing sample, with the snippet above as its
+`CLAUDE.md`, the mutastic plugin loaded and its hooks on. It's shown as it was recorded, not
+picked from several, and not checked by the docs' tests: what a later mutastic prints may differ.
+
+- **Recorded** {session.recorded}, with {session.agent} and the model <code>{session.model}</code>, and
+  mutastic {session.mutastic}; the plugin from {session.plugin}.
+- **Cost** ${session.costUsd}, in {session.turns} turns and {session.seconds} seconds.
+
+It started from the spec as its prompt, and the gate opened:
+
+<AgentSession session={session} from={0} to={1} />
+
+It read the code and the tests, then wrote a stub and one test, at the edge, and ran the tests:
+
+<AgentSession session={session} from={15} to={21} />
+
+The least code that passes one test at 30 is `return 5`, so that's what it wrote. Then mutastic
+on the cycle's lines, and a commit:
+
+<AgentSession session={session} from={22} to={34} />
+
+Its second cycle took the other side of the edge, a test at 29, which fails on `return 5`:
+
+<AgentSession session={session} from={35} to={41} />
+
+Then the `if`, mutastic on the cycle's lines and on the whole task's, and a commit:
+
+<AgentSession session={session} from={42} to={53} />
+
+Its answer, and the gate's verdict:
+
+<AgentSession session={session} from={54} to={55} />
+
+What happened, plainly:
+
+- **It kept the order.** Each test failed before the code that passes it, and it committed at the
+  end of each cycle.
+- **It never got a card.** Its first test was at 30, the edge itself, and its second at 29, below
+  it, so by the time mutastic ran, both sides of the edge were checked. The cycle in
+  [Working test-first](/guides/test-first/), with its test at 50, is the one that gets cards; the
+  sections above show those. Here mutastic's part was to confirm it: every mutant on the changed
+  lines caught, and the gate passed at the first check.
+- **It ran mutastic on the whole task too**, from the commit the gate named, which the snippet
+  doesn't ask for.
+- **It said what the spec left open**: the method has no notion of who's loyal, and the 30 is a
+  literal. Those are yours to answer.
+
+<details>
+<summary>The whole session</summary>
+
+<AgentSession session={session} />
+
+</details>
