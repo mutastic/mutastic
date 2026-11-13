@@ -159,7 +159,7 @@ class SchemaCompatibilityTest {
   @Test
   void anEventGoneBreaksThem() {
     assertThat(breaks(schema -> ((ArrayNode) schema.get("allOf")).remove(0)))
-        .containsExactly("the event: the branch for " + reason("run-started") + " is gone");
+        .containsExactly("the event: the branch for " + reason("run-failed") + " is gone");
   }
 
   /// What the published schema breaks once `change` is made to a copy of it.
