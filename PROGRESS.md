@@ -69,14 +69,18 @@ coverage pass they count tests. For mutants they're weighted: each mutant counts
 covering tests took in the coverage pass, and one no test reaches counts for nothing, so the bar
 moves with the time that's passed rather than the number of mutants.
 
+**A file's line** gives the time from its first mutant's start to its last one's end, not the sum
+of its mutants' times across the workers.
+
 **What's left** (`~21m left`) is the mutant phase's time so far, scaled by the cost still to run over
 the cost done. It shows once three mutants have run and ten seconds have passed. It rounds to whole
 minutes above ten minutes, to ten seconds above one, and to five below.
 
 **Worker lines**, one per worker, with a `[HH:MM:SS]` timer, `SLOW` (bold amber) and what it runs: a
 test's name, or a mutant as `file:line function() change`, its change in the words a miss line uses.
-A mutant is SLOW at three times what its tests took, or at half its timeout, whichever comes first.
-A test in the coverage pass is SLOW after a minute. Up to eight show, four below 100 columns, then
+A mutant is SLOW at three times what its tests took, or at half its timeout, whichever comes first,
+and never before two seconds, so a mutant whose tests take milliseconds isn't marked for being a
+little slower. A test in the coverage pass is SLOW after a minute. Up to eight show, four below 100 columns, then
 `… and K more running`. The block keeps its height while workers come and go: an idle one says
 `idle`.
 
@@ -229,7 +233,8 @@ the build is done), and the events before it are phase events only.
 
 ## Later
 
-Still to come: Gradle's footer (P3, the Java edition's alone): the plugin reads the child's
-`progress` events and drives Gradle's own progress line, falling back to heartbeat lines where
-Gradle's internal API isn't there. A preview of all of it:
+Gradle's footer is the Java edition's alone: the plugin follows the run's live events and drives
+Gradle's own progress line, falling back to heartbeat lines where Gradle's internal API isn't there.
+In the Rust edition the `mutant-finished` events still come at the end, after the phases', since
+each carries what the checking phase found. A preview of all of it:
 https://claude.ai/artifact/EXHy5dovr98tnBYAfBXn2M

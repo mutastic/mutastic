@@ -987,7 +987,8 @@ public final class Main {
     if (PEOPLE.contains(output.format()) && command.testsFrom().isEmpty()) {
       output
           .progress()
-          .showFiles(results -> human.fileFinished(prepared.project().name(), results));
+          .showFiles(
+              (results, took) -> human.fileFinished(prepared.project().name(), results, took));
     }
   }
 

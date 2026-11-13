@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import org.jspecify.annotations.Nullable;
@@ -103,7 +104,10 @@ final class Progress implements Listener, AutoCloseable {
   private final ProgressStream stream;
 
   /// Prints each source file's line as it finishes, for people; none for agents and JSONL.
-  private @Nullable Function<List<MutantResult>, String> fileLines;
+  private @Nullable BiFunction<List<MutantResult>, Duration, String> fileLines;
+
+  /// When each source file's first mutant started, by its top-level class, for its line's time.
+  private final Map<String, Long> fileStarted = new HashMap<>();
 
   /// Names a mutant as a worker's line shows it.
   private Function<Mutant, String> naming = Mutant::id;
@@ -144,7 +148,7 @@ final class Progress implements Listener, AutoCloseable {
   }
 
   /// From now on, each source file's line as it finishes: once the sources are known.
-  void showFiles(Function<List<MutantResult>, String> lines) {
+  void showFiles(BiFunction<List<MutantResult>, Duration, String> lines) {
     this.fileLines = lines;
   }
 
@@ -283,6 +287,7 @@ final class Progress implements Listener, AutoCloseable {
   public void mutantStarted(int worker, Mutant mutant, MutantCost cost) {
     var named = naming.apply(mutant);
     synchronized (lock) {
+      fileStarted.putIfAbsent(topLevel(mutant.binaryName()), now());
       workload.started(worker, new Workload.Running(mutant.id(), named, now(), cost));
     }
   }
@@ -310,9 +315,20 @@ final class Progress implements Listener, AutoCloseable {
     var lines = fileLines;
     if (lines != null) {
       synchronized (lock) {
-        say(lines.apply(results));
+        var started = fileStarted.get(topLevelClass);
+        var took =
+            started == null
+                ? results.stream().map(MutantResult::took).reduce(Duration.ZERO, Duration::plus)
+                : Duration.ofNanos(now() - started);
+        say(lines.apply(results, took));
       }
     }
+  }
+
+  /// `com.example.Pricing` for `com.example.Pricing$Rates`: the class its source file is named for.
+  private static String topLevel(String binaryName) {
+    int dollar = binaryName.indexOf('$', binaryName.lastIndexOf('.') + 1);
+    return dollar < 0 ? binaryName : binaryName.substring(0, dollar);
   }
 
   @Override
