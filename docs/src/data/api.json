@@ -113,6 +113,40 @@
             },
             {
               "kind": "method",
+              "name": "checkModule",
+              "anchor": "checkmodule",
+              "signature": "default void checkModule(Path directory, String module, String typed)",
+              "doc": "Says, before mutastic makes anything for it, that `module` isn't one of the build's, when\nthat's known without building: so a mistyped name leaves no directory behind.",
+              "params": [
+                {
+                  "name": "module",
+                  "doc": "`:` for the build in `directory`, else the module as the tool names it"
+                },
+                {
+                  "name": "typed",
+                  "doc": "the directory as the person would type it, for the commands a failure suggests"
+                }
+              ],
+              "returns": "",
+              "throws": [
+                {
+                  "name": "SetupFailed",
+                  "doc": "when `module` isn't one of the build's, saying which modules are"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "address",
+              "anchor": "address",
+              "signature": "default BuildTool.Address address(Path directory)",
+              "doc": "How `mutastic run` names `directory`, a directory one of its builds is in: by default the\nbuild in it, as a build that runs from any of its directories is named.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
               "name": "read",
               "anchor": "read",
               "signature": "Project read(Path directory, String module, Path workDirectory, String typed)",
@@ -171,6 +205,16 @@
               "throws": []
             }
           ]
+        },
+        {
+          "name": "BuildTool.Address",
+          "slug": "buildtool-address",
+          "kind": "record",
+          "signature": "record Address(Path directory, String module)",
+          "summary": "A build's directory, and a module of it: `:` for the build in the directory itself.",
+          "doc": "A build's directory, and a module of it: `:` for the build in the directory itself.",
+          "params": [],
+          "members": []
         },
         {
           "name": "BuildTool.Request",
@@ -1330,6 +1374,62 @@
               "anchor": "mutantrevised",
               "signature": "default void mutantRevised(MutantResult result)",
               "doc": "A mutant's result again, after every mutant had its first result, without a test that turned\nout to fail on its own: for every mutant that test reached, caught or missed, as either result\nmay rest on it. It carries `falseCatchBy` when that test was the one that caught it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Modules",
+          "slug": "modules",
+          "kind": "class",
+          "signature": "@Internal class Modules",
+          "summary": "What a build tool says when the module asked for isn't one mutastic can test: the build's modules with Java code, as the commands that test them.",
+          "doc": "What a build tool says when the module asked for isn't one mutastic can test: the build's\nmodules with Java code, as the commands that test them. Gradle and Maven say it in the same\nwords.\n\nA list of modules is in the tool's own names for them, `:app`; `:` in it is the build's own\ndirectory, when it has Java code of its own.",
+          "params": [],
+          "members": [
+            {
+              "kind": "field",
+              "name": "COMMANDS",
+              "anchor": "commands",
+              "signature": "static final int COMMANDS",
+              "doc": "The most commands a message offers. Every module is named, whatever their number.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "atRoot",
+              "anchor": "atroot",
+              "signature": "static String atRoot(Path directory, List<String> modules, String typed)",
+              "doc": "`directory` is a build's root, and has no Java code of its own.",
+              "params": [
+                {
+                  "name": "typed",
+                  "doc": "the build's directory as the person would type it, for the commands"
+                }
+              ],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withoutJava",
+              "anchor": "withoutjava",
+              "signature": "static String withoutJava(Path directory, String module, List<String> modules, String typed)",
+              "doc": "`module` of the build in `directory` has no Java code.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "missing",
+              "anchor": "missing",
+              "signature": "static String missing(String module, List<String> modules, String typed)",
+              "doc": "The build has no module `module`: one with a close name if there's one, else its modules. The\nclose one is said, never run.",
               "params": [],
               "returns": "",
               "throws": []

@@ -2,6 +2,7 @@ package io.mutastic.maven;
 
 import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
+import io.mutastic.api.Modules;
 import io.mutastic.api.Project;
 import io.mutastic.api.ProjectSetup;
 import io.mutastic.api.Wrappers;
@@ -40,8 +41,7 @@ final class MavenSetup {
       var out = request.workDirectory().resolve("maven-setup");
       var log = request.workDirectory().resolve("maven.log");
       if (mvn(directory, command(directory, module, out, request.suite()), log) != 0) {
-        throw SetupFailed.noSuite(Files.readAllLines(log).stream())
-            .orElseGet(() -> new SetupFailed("the Maven build failed; its output is in " + log));
+        throw failed(directory, module, request.typed(), log);
       }
       var setup =
           out.resolve(module.equals(":") ? "" : module.substring(1)).resolve("setup.properties");
@@ -55,6 +55,66 @@ final class MavenSetup {
       Thread.currentThread().interrupt();
       throw new IllegalStateException("interrupted while Maven ran", e);
     }
+  }
+
+  /// Why the build failed, from its log: a module the reactor hasn't got, a suite the module
+  /// hasn't, else the log to read.
+  private static SetupFailed failed(Path directory, String module, String typed, Path log)
+      throws IOException, InterruptedException {
+    var output = Files.readAllLines(log);
+    if (output.stream().anyMatch(line -> line.contains(NOT_IN_REACTOR))) {
+      return new SetupFailed(Modules.missing(module, javaModules(directory), typed));
+    }
+    return SetupFailed.noSuite(output.stream())
+        .orElseGet(() -> new SetupFailed("the Maven build failed; its output is in " + log));
+  }
+
+  /// What Maven says when `-pl` names a module its reactor hasn't got.
+  private static final String NOT_IN_REACTOR = "Could not find the selected project in the reactor";
+
+  /// A module whose directory has no `pom.xml` isn't one of the build's, unless the reactor lists
+  /// it (a module can name a pom file of another name): said before its work directory is made, so
+  /// a mistyped name leaves no directory behind.
+  static void checkModule(Path directory, String module, String typed) {
+    if (module.equals(":")
+        || Files.isRegularFile(moduleDirectory(directory, module).resolve("pom.xml"))) {
+      return;
+    }
+    try {
+      var modules = javaModules(directory);
+      if (!modules.contains(module)) {
+        throw new SetupFailed(Modules.missing(module, modules, typed));
+      }
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("interrupted while Maven ran", e);
+    }
+  }
+
+  /// The build's modules with Java code, `:` for the build's own directory, as its reactor lists
+  /// them (a `validate` run, so quick). Its output goes to the build's own work directory.
+  private static List<String> javaModules(Path directory) throws IOException, InterruptedException {
+    var work = moduleDirectory(directory, ":").resolve("target/mutastic");
+    Files.createDirectories(work);
+    var listed = work.resolve("java-modules.txt");
+    Files.deleteIfExists(listed);
+    var command =
+        List.of(
+            mvn(directory),
+            "-q",
+            "-B",
+            "validate",
+            "-Dmaven.ext.class.path=" + extensionJar(),
+            "-Dmutastic.modules=" + listed);
+    mvn(directory, command, work.resolve("maven-modules.log"));
+    return Files.exists(listed)
+        ? Files.readAllLines(listed).stream()
+            .filter(line -> !line.isBlank())
+            .map(path -> path.equals(".") ? ":" : ":" + path)
+            .toList()
+        : List.of();
   }
 
   /// The module's setup, already written to `setup`: by the extension, or by the Maven plugin.
@@ -151,12 +211,13 @@ final class MavenSetup {
                         .formatted(directory)));
   }
 
-  private static String noJava(Path directory, String module, String typed) {
+  /// The module asked for has no Java code: say so, and name the modules that have some.
+  private static String noJava(Path directory, String module, String typed)
+      throws IOException, InterruptedException {
+    var modules = javaModules(directory);
     return module.equals(":")
-        ? "%s has no Java code to mutate; name a module with some: mutastic run %s :<module>"
-            .formatted(directory, typed)
-        : "%s has no Java module %s: name a module by its directory, as -pl does (mutastic run %s :<directory>)"
-            .formatted(directory, module, typed);
+        ? Modules.atRoot(directory, modules, typed)
+        : Modules.withoutJava(directory, module, modules, typed);
   }
 
   /// `pricing`, or `app/services/api` for `:services/api`.

@@ -189,6 +189,7 @@ val secondsOnCi =
         "SuggestionsTest" to 40,
         "OperatorsTest" to 40,
         "TestsFromTest" to 39,
+        "ModuleNamesTest" to 40,
         "IgnoreTest" to 38,
         "BaselineTest" to 35,
         "ReplacedWorkersTest" to 33,

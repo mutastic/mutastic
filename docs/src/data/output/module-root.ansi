@@ -1,0 +1,4 @@
+mutastic: samples/maven-modules is a build's root, with no Java code of its own.
+Its modules with Java code are :app and :core. To test one:
+  mutastic run samples/maven-modules :app
+  mutastic run samples/maven-modules :core

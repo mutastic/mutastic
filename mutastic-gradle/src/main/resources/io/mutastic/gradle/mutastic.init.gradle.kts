@@ -158,6 +158,12 @@ fun mutasticTasks(project: Project) = with(project) {
     }
 
     tasks.register("mutasticSetup") {
+        // Gradle runs a task in a project whose name only starts as the one asked for does, :core
+        // for :cor. mutastic tests only the module named, and says when the build hasn't got it.
+        val asked = project.findProperty("mutasticProject") as String?
+        if (asked != null && asked != project.path) {
+            throw GradleException("mutastic: no project $asked in this build")
+        }
         val suite = suiteOf(project)
         val suiteTask = suite.task
         val main = suite.main

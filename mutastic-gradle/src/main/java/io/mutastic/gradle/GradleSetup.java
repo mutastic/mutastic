@@ -2,6 +2,7 @@ package io.mutastic.gradle;
 
 import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
+import io.mutastic.api.Modules;
 import io.mutastic.api.Project;
 import io.mutastic.api.ProjectSetup;
 import io.mutastic.api.Wrappers;
@@ -12,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 /// A Gradle module's setup, read by running its build with mutastic's init script: compiles the
 /// code and tests, and writes what the `test` task would use.
@@ -27,7 +29,7 @@ final class GradleSetup {
             request.workDirectory().resolve("mutastic.init.gradle.kts"),
             request.suite());
     try {
-      return setUp(build, request.module(), request.workDirectory(), request.typed());
+      return setUp(build, request);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     } catch (InterruptedException e) {
@@ -44,8 +46,10 @@ final class GradleSetup {
   }
 
   /// Runs the module's `mutasticSetup` task and reads the project from what it wrote.
-  private static Project setUp(Build build, String module, Path workDirectory, String typed)
+  private static Project setUp(Build build, BuildTool.Request request)
       throws IOException, InterruptedException {
+    var module = request.module();
+    var workDirectory = request.workDirectory();
     var out = workDirectory.resolve("setup.properties");
     Files.createDirectories(workDirectory);
     writeInitScript(build.init());
@@ -53,22 +57,31 @@ final class GradleSetup {
     var log = workDirectory.resolve("gradle.log");
     int exit = gradle(build, out, log, task(build.directory(), module, "mutasticSetup"));
     if (exit != 0 || !Files.exists(out)) {
-      var output = Files.readString(log).strip();
-      if (output.contains("'mutasticSetup' not found")) {
-        throw new SetupFailed(noJava(build, module, workDirectory, typed));
-      }
-      throw SetupFailed.noSuite(output.lines())
-          .orElseGet(
-              () ->
-                  new SetupFailed(
-                      "Gradle couldn't build "
-                          + build.directory()
-                          + " for mutastic (exit "
-                          + exit
-                          + "):\n"
-                          + output));
+      throw failed(build, request, exit);
     }
     return ProjectSetup.read(name(build.directory(), module), out);
+  }
+
+  /// Why the build failed, from its log: a module with no Java code, a module the build hasn't got,
+  /// a suite the module hasn't, else Gradle's own output.
+  private static SetupFailed failed(Build build, BuildTool.Request request, int exit)
+      throws IOException, InterruptedException {
+    var module = request.module();
+    var workDirectory = request.workDirectory();
+    var typed = request.typed();
+    var output = Files.readString(workDirectory.resolve("gradle.log")).strip();
+    if (output.contains("'mutasticSetup' not found")) {
+      return new SetupFailed(noJava(build, module, workDirectory, typed));
+    }
+    if (NOT_FOUND.matcher(output).find() || output.contains("mutastic: no project ")) {
+      return new SetupFailed(Modules.missing(module, javaModules(build, workDirectory), typed));
+    }
+    return SetupFailed.noSuite(output.lines())
+        .orElseGet(
+            () ->
+                new SetupFailed(
+                    "Gradle couldn't build %s for mutastic (exit %d):\n%s"
+                        .formatted(build.directory(), exit, output)));
   }
 
   /// The module's setup, already written to `setup`.
@@ -86,6 +99,11 @@ final class GradleSetup {
     }
   }
 
+  /// What Gradle says when a task's path names a project the build hasn't got. A name only the
+  /// start of a project's, Gradle would take for that project: the init script says so instead.
+  private static final Pattern NOT_FOUND =
+      Pattern.compile("as project '(?<project>[^']*)' not found in");
+
   static final List<String> BUILD_FILES =
       List.of("settings.gradle.kts", "settings.gradle", "build.gradle.kts", "build.gradle");
 
@@ -93,17 +111,9 @@ final class GradleSetup {
   private static String noJava(Build build, String module, Path workDirectory, String typed)
       throws IOException, InterruptedException {
     var modules = javaModules(build, workDirectory);
-    var where =
-        module.equals(":")
-            ? "the root project of " + build.directory()
-            : "module %s of %s".formatted(module, build.directory());
-    if (modules.isEmpty()) {
-      return "%s has no Java code for mutastic to test, and no module of it has.\n".formatted(where)
-          + "Run mutastic on the project with your Java code and tests:\n"
-          + "  mutastic run <project directory> [:module]\n"
-          + SetupFailed.ID_HINT;
-    }
-    return javaElsewhere(where, modules, typed);
+    return module.equals(":")
+        ? Modules.atRoot(build.directory(), modules, typed)
+        : Modules.withoutJava(build.directory(), module, modules, typed);
   }
 
   /// The modules that depend on `module`, as its `mutasticDependents` task lists them.
@@ -140,29 +150,6 @@ final class GradleSetup {
         : List.<String>of();
   }
 
-  /// `where` has no Java code but `modules` have: the commands to run on them instead.
-  private static String javaElsewhere(String where, List<String> modules, String typed) {
-    var on = typed.isEmpty() ? "" : " " + typed;
-    var suggestions =
-        modules.stream()
-            .limit(5)
-            .map(found -> "  mutastic run%s %s".formatted(on, found))
-            .collect(java.util.stream.Collectors.joining("\n"));
-    return """
-        %s has no Java code for mutastic to test. Its modules with Java code are %s.
-        Name one, and the same for an id from a run on it:
-        %s
-          mutastic run --only=<id>%s %s
-        %s"""
-        .formatted(
-            where,
-            String.join(", ", modules),
-            suggestions,
-            on,
-            modules.getFirst(),
-            SetupFailed.ID_HINT);
-  }
-
   /// Runs the build's own Gradle with mutastic's init script; its output goes to `log`.
   private static int gradle(Build build, Path out, Path log, String task)
       throws IOException, InterruptedException {
@@ -183,7 +170,14 @@ final class GradleSetup {
         build.init().toString(),
         "-PmutasticOut=" + out,
         "-PmutasticSuite=" + build.suite(),
+        "-PmutasticProject=" + project(task),
         task);
+  }
+
+  /// The project a task's path names: `:core` for `:core:mutasticSetup`, `:` for the root's.
+  private static String project(String task) {
+    var project = task.substring(0, task.lastIndexOf(':'));
+    return project.isEmpty() ? ":" : project;
   }
 
   /// `pricing`, or `app/data` for `:data`.

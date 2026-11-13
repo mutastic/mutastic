@@ -72,11 +72,9 @@ class RunningElsewhereTest {
     assertThat(run.exit()).isEqualTo(Main.USAGE);
     assertThat(run.err())
         .contains(
-            "the root project of " + build + " has no Java code for mutastic to test.",
-            "Its modules with Java code are :app.",
-            "  mutastic run %s :app".formatted(build),
-            "  mutastic run --only=<id> %s :app".formatted(build),
-            "A mutant's id belongs to the project its run was on.");
+            build + " is a build's root, with no Java code of its own.",
+            "Its module with Java code is :app. To test it:",
+            "  mutastic run %s :app".formatted(build));
   }
 
   @Test

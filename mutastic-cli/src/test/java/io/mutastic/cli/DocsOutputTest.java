@@ -335,6 +335,22 @@ class DocsOutputTest {
     shown("tests-fail.ansi", project, itsMessage(failing));
   }
 
+  /// Troubleshooting's examples of a multi-module build run without a module, and with one it
+  /// hasn't got: the Maven sample of two modules.
+  @Test
+  void aBuildOfModules() throws Exception {
+    var project =
+        Samples.copy(SAMPLE.resolveSibling("maven-modules"), work.resolve("maven-modules"));
+
+    var root = Samples.mutastic(TERMINAL, "run", project.toString());
+    var missing = Samples.mutastic(TERMINAL, "run", project.toString(), ":nope");
+
+    assertThat(root.exit()).isEqualTo(Main.USAGE);
+    assertThat(missing.exit()).isEqualTo(Main.USAGE);
+    shown("module-root.ansi", project, fromItsMessage(root));
+    shown("module-missing.ansi", project, fromItsMessage(missing));
+  }
+
   /// Troubleshooting's example of tests that pass and reach nothing, which measure nothing: the
   /// pricing sample, with its tests replaced by one that never calls its code.
   @Test
@@ -357,6 +373,15 @@ class DocsOutputTest {
   private static Samples.Result itsMessage(Samples.Result result) {
     var said = result.err().lines().filter(line -> line.startsWith("mutastic: ")).toList();
     assertThat(said).as(result.err()).isNotEmpty();
+    return new Samples.Result(result.exit(), String.join("\n", said) + "\n", "");
+  }
+
+  /// What mutastic says on stderr from its message's first line, a message of more than one.
+  private static Samples.Result fromItsMessage(Samples.Result result) {
+    var lines = result.err().lines().toList();
+    var first = lines.stream().filter(line -> line.startsWith("mutastic: ")).findFirst();
+    assertThat(first).as(result.err()).isPresent();
+    var said = lines.subList(lines.indexOf(first.get()), lines.size());
     return new Samples.Result(result.exit(), String.join("\n", said) + "\n", "");
   }
 

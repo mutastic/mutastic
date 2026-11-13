@@ -154,6 +154,7 @@ public final class Main {
     var directory = command.directory().toAbsolutePath().normalize();
     noBaselineToFailOn(command, directory);
     var tool = BuildTools.of(directory);
+    tool.checkModule(directory, command.module(), typed(directory));
     var lock = WorkLock.hold(tool.workDirectory(directory, command.module()), err);
     try {
       return held(command, output(command, out, err, terminal), tool, terminal);
@@ -1170,11 +1171,7 @@ public final class Main {
             ? tool.read(directory, command.module(), command.setup().get())
             : tool.read(
                 new BuildTool.Request(
-                    directory,
-                    command.module(),
-                    work,
-                    String.join(" ", target(here, directory, ":")),
-                    command.suite()));
+                    directory, command.module(), work, typed(directory), command.suite()));
     project = project.withTests(project.tests().leavingOut(command.excludeTests()));
     var setup = Duration.ofNanos(System.nanoTime() - start);
     var sources =
@@ -1531,6 +1528,12 @@ public final class Main {
       case "sarif" -> "mutation.sarif";
       default -> "mutations.xml";
     };
+  }
+
+  /// The build's directory as it would be typed from where mutastic runs, for the commands a
+  /// failure suggests: nothing when it's there.
+  private static String typed(Path directory) {
+    return String.join(" ", target(Path.of("").toAbsolutePath().normalize(), directory, ":"));
   }
 
   /// The project as it would be typed from `here`: `samples/pricing :api`, a path relative to
