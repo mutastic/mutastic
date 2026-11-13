@@ -36,6 +36,12 @@ public final class LiveEvents {
     emit("progress", all);
   }
 
+  /// The command couldn't do what it was asked: the stream's last event, with `fields` from `code`
+  /// on. The events schema says what each holds.
+  public void runFailed(Map<String, Object> fields) {
+    emit("run-failed", fields);
+  }
+
   /// One line, whole, so another thread's event never lands inside it.
   private void emit(String reason, Map<String, Object> fields) {
     var event = new LinkedHashMap<String, Object>();

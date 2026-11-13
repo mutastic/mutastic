@@ -525,7 +525,7 @@ class DocsOutputTest {
   }
 
   /// What mutastic says on stderr from its message's first line, a message of more than one.
-  private static Samples.Result fromItsMessage(Samples.Result result) {
+  static Samples.Result fromItsMessage(Samples.Result result) {
     var lines = result.err().lines().toList();
     var first = lines.stream().filter(line -> line.startsWith("mutastic: ")).findFirst();
     assertThat(first).as(result.err()).isPresent();
@@ -624,7 +624,7 @@ class DocsOutputTest {
   /// As the docs show it, from the repository's root, where the sample is typed as
   /// `samples/<name>`. Timings are kept as they were when it was written, and left out of the
   /// comparison; so a file is written again only when more than its timings changed.
-  private static void shown(String name, Path project, Samples.Result result) throws Exception {
+  static void shown(String name, Path project, Samples.Result result) throws Exception {
     var sample = "samples/" + project.getFileName();
     // Its real path first: a build tool names it so, through a link such as macOS's /var.
     var output =

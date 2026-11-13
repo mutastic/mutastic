@@ -83,7 +83,10 @@ class FailOnNewRunTest {
     var run = run("--format=agent", "--fail-on-new");
 
     assertThat(run.exit()).isEqualTo(Main.USAGE);
-    assertThat(run.out()).isEmpty();
+    // For an agent, the error is also stdout's one event.
+    assertThat(run.out().lines())
+        .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
+        .contains("\"reason\":\"run-failed\"", "\"code\":\"no-baseline\"");
     assertThat(run.err())
         .startsWith("mutastic: --fail-on-new needs a baseline to tell new misses from")
         .contains("`mutastic baseline` writes one");

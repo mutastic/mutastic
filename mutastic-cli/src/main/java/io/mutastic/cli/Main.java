@@ -128,8 +128,49 @@ public final class Main {
     } catch (RuntimeException e) {
       var failure = Failure.of(e, List.of(args), terminal.env());
       err.print(failure.said());
+      if (forAgents(List.of(args), terminal)) {
+        new LiveEvents(out).runFailed(failure.event(typedDirectory(List.of(args))));
+      }
       return failure.exit();
     }
+  }
+
+  /// The directory the command line names, as typed, `.` when it names none: read as a command is,
+  /// or, from a line that isn't one, its first word that could be a directory.
+  private static String typedDirectory(List<String> args) {
+    try {
+      return Command.parse(args.toArray(String[]::new)).directory().toString();
+    } catch (RuntimeException e) {
+      return args.stream()
+          .skip(Subcommand.at(args).map(command -> Subcommand.length(args)).orElse(1))
+          .filter(arg -> !arg.startsWith("-") && !arg.startsWith(":"))
+          .filter(arg -> !arg.matches("m[0-9a-f]{8}(,m[0-9a-f]{8})*"))
+          .findFirst()
+          .orElse(".");
+    }
+  }
+
+  /// Whether stdout is an agent's or a program's, `--format=agent` or `jsonl`, as the command line
+  /// asked (a format it doesn't have is no answer) or else the environment: then a failure is an
+  /// event there too, its last. Not for a hook, whose stdout is its answer in the agent's own form.
+  private static boolean forAgents(List<String> args, Terminal terminal) {
+    if (args.stream().anyMatch(arg -> arg.startsWith("--hook"))) {
+      return false;
+    }
+    var format =
+        java.util.stream.IntStream.range(0, args.size())
+            .mapToObj(
+                at ->
+                    args.get(at).startsWith("--format=")
+                        ? Optional.of(args.get(at).substring("--format=".length()))
+                        : args.get(at).equals("--format") && at + 1 < args.size()
+                            ? Optional.of(args.get(at + 1))
+                            : Optional.<String>empty())
+            .flatMap(Optional::stream)
+            .filter(FORMATS::contains)
+            .reduce((first, last) -> last)
+            .orElseGet(terminal::defaultFormat);
+    return format.equals("agent") || format.equals("jsonl");
   }
 
   /// A hook runs in whatever project the agent is in. Where mutastic reads no build, there's
@@ -1169,12 +1210,14 @@ public final class Main {
     var format = command.format().orElse(terminal.defaultFormat());
     if (!FORMATS.contains(format)) {
       throw new ConfigException(
+          "environment",
           "unknown format %s in MUTASTIC_FORMAT (one of %s)"
               .formatted(format, String.join(", ", FORMATS)));
     }
     var vocabulary = command.vocabulary().orElse(terminal.defaultVocabulary());
     if (!VOCABULARIES.contains(vocabulary)) {
       throw new ConfigException(
+          "environment",
           "unknown vocabulary %s in MUTASTIC_VOCABULARY (one of plain, classic)"
               .formatted(vocabulary));
     }
@@ -1201,6 +1244,7 @@ public final class Main {
       case "off" -> Style.Labels.OFF;
       default ->
           throw new ConfigException(
+              "environment",
               "unknown labels %s in MUTASTIC_PILLS (one of square, rounded, off)"
                   .formatted(chosen));
     };
@@ -1356,6 +1400,7 @@ public final class Main {
                   unknown.getMessage()));
     }
     return new UsageException(
+        "option-value",
         "--operators: " + unknown.getMessage(),
         unknown.closest().map(close -> Correction.of(unknown.name(), close)).orElse(null));
   }
@@ -1859,15 +1904,22 @@ public final class Main {
   static final class UsageException extends RuntimeException {
     @java.io.Serial private static final long serialVersionUID = 1L;
 
+    private final String code;
     private final transient @Nullable Correction correction;
 
     UsageException(String message) {
-      this(message, null);
+      this(Failure.USAGE, message, null);
     }
 
-    UsageException(String message, @Nullable Correction correction) {
+    /// @param code what went wrong, as the `run-failed` event names it: `unknown-option`
+    UsageException(String code, String message, @Nullable Correction correction) {
       super(message);
+      this.code = code;
       this.correction = correction;
+    }
+
+    String code() {
+      return code;
     }
 
     Optional<Correction> correction() {
@@ -1881,8 +1933,21 @@ public final class Main {
   static final class ConfigException extends RuntimeException {
     @java.io.Serial private static final long serialVersionUID = 1L;
 
+    private final String code;
+
     ConfigException(String message) {
+      this("config", message);
+    }
+
+    /// @param code what went wrong, as the `run-failed` event names it: `config`, `git` or
+    ///   `environment`
+    ConfigException(String code, String message) {
       super(message);
+      this.code = code;
+    }
+
+    String code() {
+      return code;
     }
   }
 
@@ -2074,25 +2139,33 @@ public final class Main {
     private static UsageException unknownCommand(List<String> words) {
       boolean gate = words.getFirst().equals("gate");
       if (gate && words.size() == 1) {
-        return new UsageException("gate needs what to do: open, check or close");
+        return new UsageException(
+            "unknown-command", "gate needs what to do: open, check or close", null);
       }
       var typed = words.get(gate ? 1 : 0);
-      var commands =
-          java.util.Arrays.stream(Subcommand.values())
-              .filter(command -> !gate || command.gate())
-              .map(command -> command.word().split(" ", -1)[gate ? 1 : 0])
-              .distinct()
-              .toList();
+      var commands = commandWords(gate);
       var owner = gate ? "gate" : "mutastic";
       var close = io.mutastic.api.Nearest.name(typed, commands);
       if (close.isPresent()) {
         return new UsageException(
+            "unknown-command",
             "%s has no command %s. There's one called %s.".formatted(owner, typed, close.get()),
             Correction.of(typed, close.get()));
       }
       return new UsageException(
+          "unknown-command",
           "%s has no command %s; its commands are %s"
-              .formatted(owner, typed, Options.listed(commands, "and")));
+              .formatted(owner, typed, Options.listed(commands, "and")),
+          null);
+    }
+
+    /// The words that name a command: `run`, `gate`; after `gate`, `open`, `check` and `close`.
+    private static List<String> commandWords(boolean gate) {
+      return java.util.Arrays.stream(Subcommand.values())
+          .filter(command -> !gate || command.gate())
+          .map(command -> command.word().split(" ", -1)[gate ? 1 : 0])
+          .distinct()
+          .toList();
     }
 
     /// The arguments after the subcommand, read one at a time.
@@ -2186,9 +2259,12 @@ public final class Main {
         var close = io.mutastic.api.Nearest.name(value, choices);
         if (close.isEmpty()) {
           return new UsageException(
-              "%s takes %s, not %s".formatted(option, Options.listed(choices, "or"), value));
+              "option-value",
+              "%s takes %s, not %s".formatted(option, Options.listed(choices, "or"), value),
+              null);
         }
         return new UsageException(
+            "option-value",
             "%s has no value %s. There's one called %s.".formatted(option, value, close.get()),
             new Correction(typed, option + "=" + close.get() + after));
       }
@@ -2205,9 +2281,10 @@ public final class Main {
         var close = io.mutastic.api.Nearest.name(name, names, io.mutastic.api.Nearest::bare);
         var unknown = "%s has no option %s".formatted(subcommand.word(), name);
         if (close.isEmpty()) {
-          return new UsageException(unknown);
+          return new UsageException("unknown-option", unknown, null);
         }
         return new UsageException(
+            "unknown-option",
             "%s. There's one called %s.".formatted(unknown, close.get()),
             Correction.of(arg, close.get() + arg.substring(name.length())));
       }

@@ -1,0 +1,4 @@
+mutastic: pricing doesn't build, before any mutant is in it.
+The error is in samples/pricing/src/main/java/com/example/pricing/Pricing.java, line 18: ';' expected.
+Gradle's output is in samples/pricing/build/mutastic/gradle.log. To see it in full:
+  samples/pricing/gradlew -p samples/pricing testClasses

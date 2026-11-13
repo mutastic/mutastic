@@ -102,6 +102,18 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   directory, a file in the way, a full disk) exits with 2 and the system's reason, and a module
   whose tests none ran on the JUnit Platform says so, with 2.
 
+### Agents
+
+- **A failure is an event too.** In `--format=agent` and `--format=jsonl`, an error is also the
+  last line on stdout, a `run-failed` event in `mutastic.events/v1`, the Rust edition's shape:
+  `code` (`unknown-option`, `build-failed`, `red-baseline`, …), `message`, `where` (the directory
+  as typed and its whole path), `help` (each command the error ends in, with whether it runs as it
+  is, has a `<placeholder>`, or is a close name to check) and `exitCode`, with `rendered`, the
+  words stderr has. A `--hook` run writes none. Before, a red baseline in `jsonl` wrote
+  `run-started` and stopped.
+- **An errors page** in the reference lists every code with what mutastic says on a sample, why and
+  what to do, and how the Rust edition's exit statuses differ until 2.0.
+
 ## 1.1.0 (12 Nov 2026)
 
 ### Card changes

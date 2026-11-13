@@ -19,9 +19,9 @@ final class BuildTools {
   /// The tool whose build `directory` is: the first that recognises it.
   static BuildTool of(Path directory) {
     if (!Files.isDirectory(directory)) {
-      throw new SetupFailed("there's no directory %s".formatted(directory));
+      throw new SetupFailed("no-directory", "there's no directory %s".formatted(directory));
     }
-    return find(directory).orElseThrow(() -> new SetupFailed(notABuild(directory)));
+    return find(directory).orElseThrow(() -> new SetupFailed("no-project", notABuild(directory)));
   }
 
   /// The tool whose build `directory` is, if any recognises it.

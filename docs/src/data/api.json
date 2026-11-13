@@ -377,10 +377,45 @@
               "throws": []
             },
             {
+              "kind": "field",
+              "name": "UNKNOWN_SUITE",
+              "anchor": "unknown_suite",
+              "signature": "static final String UNKNOWN_SUITE",
+              "doc": "What the `run-failed` event calls a suite the build hasn't got.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
               "kind": "constructor",
               "name": "SetupFailed",
               "anchor": "setupfailed",
               "signature": "SetupFailed(String message)",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "SetupFailed",
+              "anchor": "setupfailed-2",
+              "signature": "SetupFailed(String code, String message)",
+              "doc": "",
+              "params": [
+                {
+                  "name": "code",
+                  "doc": "what went wrong, as the `run-failed` event names it, in lower case and dashes"
+                }
+              ],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "code",
+              "anchor": "code",
+              "signature": "String code()",
               "doc": "",
               "params": [],
               "returns": "",

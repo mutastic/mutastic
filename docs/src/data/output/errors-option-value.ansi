@@ -1,0 +1,2 @@
+mutastic: --format has no value agnt. There's one called agent.
+  mutastic run samples/pricing --format=agent

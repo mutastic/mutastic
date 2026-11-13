@@ -321,6 +321,8 @@ tasks.register<Test>("exportDocsOutput") {
     useJUnitPlatform()
     filter {
         includeTestsMatching("io.mutastic.cli.DocsOutputTest")
+        // The errors page's captures.
+        includeTestsMatching("io.mutastic.cli.ErrorsPageTest")
         // The cards on the operator pages.
         includeTestsMatching("io.mutastic.cli.DocsOperatorsTest")
     }
