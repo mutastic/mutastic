@@ -238,6 +238,18 @@ class CardTruthTest {
         .extracting(Mutant::methodName)
         .contains("lengthNotZero", "arrayAboveZero", "bufferLeft", "groupsNotZero")
         .doesNotContain("userListSize", "userTextLength");
+    assertThat(equivalent)
+        .as("comparisons of an index with -1 that differ only below -1")
+        .filteredOn(mutant -> mutant.skipped().get().equals(Comparisons.NEVER_BELOW_MINUS_ONE))
+        .extracting(Mutant::methodName)
+        .contains("indexMissing", "lastIndexFound", "notADigit")
+        .doesNotContain("userIndex");
+    assertThat(mutations.find(model))
+        .as("an index of the project's own compared with -1: what differs only below -1 runs")
+        .filteredOn(mutant -> mutant.methodName().equals("userIndex"))
+        .filteredOn(mutant -> mutant.replacement().equals("IF_ICMPGT"))
+        .allMatch(mutant -> mutant.skipped().isEmpty())
+        .isNotEmpty();
     // A list or text of the project's own can be negative: what differs only there runs.
     for (var method : List.of("userListSize", "userTextLength")) {
       assertThat(differingOnlyBelowZero(mutations, model, method, original))

@@ -48,4 +48,17 @@ final class Other {
       return "";
     }
   }
+
+  /// An `indexOf` that isn't the JDK's: it gives `a - 3`, which can be below -1.
+  static final class Finder {
+    private final int at;
+
+    Finder(int at) {
+      this.at = at - 3;
+    }
+
+    int indexOf(char wanted) {
+      return at;
+    }
+  }
 }

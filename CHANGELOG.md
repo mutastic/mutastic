@@ -56,6 +56,10 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Scoring changes
 
+- **An index compared with -1 skips what differs only below -1.** `s.indexOf(c) == -1` made
+  `<= -1`, and the like, can't be told apart, since `indexOf` gives -1 or an index: skipped as
+  equivalent for `indexOf` and `lastIndexOf` on `String`, `StringBuilder` and `StringBuffer`, and
+  `Character.digit`. A `List`'s runs. Scores can go up; no id changes.
 - **A module uses its nearest `mutastic.yaml`, however it's run.** `mutastic run :core` from the
   build's top, the Gradle plugin's task and `mvn mutastic:run` used to read only the top's file,
   while a run in `core/` read only `core/mutastic.yaml`, so the same module could get two scores.
