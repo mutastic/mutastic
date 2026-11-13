@@ -7,6 +7,8 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ## Unreleased
 
+## 1.1.0 (12 Nov 2026)
+
 ### Card changes
 
 - **A suggested test is named by where its input sits, not its value.** A number in a name goes
