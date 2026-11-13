@@ -125,11 +125,18 @@ export default defineConfig({
       // otherwise, where before links were checked by hand. The pages written from the CLI's and
       // the API's own declarations aren't content it can read, so links to them are left out; a
       // relative link is fine, as the home page's actions are, which work under any base.
+      // Checked where the site is served from its root: a release line's copy under /vX.Y/ has
+      // the same pages and links, under a base the exclusions don't name, and once failed the
+      // release's whole deploy over it.
       plugins: [
-        starlightLinksValidator({
-          errorOnRelativeLinks: false,
-          exclude: ({ link }) => generatedPages.has(link.split('#')[0]),
-        }),
+        ...(base === '/'
+          ? [
+              starlightLinksValidator({
+                errorOnRelativeLinks: false,
+                exclude: ({ link }) => generatedPages.has(link.split('#')[0]),
+              }),
+            ]
+          : []),
         starlightLlmsTxt(),
       ],
       // One edition's sidebar at a time: a `Java` group and a `Rust` group, each with the same

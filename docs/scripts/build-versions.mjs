@@ -10,7 +10,7 @@
 // is the newest patch of each minor version, 0.3 for 0.3.0 and 0.3.1. Older lines whose build
 // fails are left out, and said so, rather than holding up a release; the latest must build.
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -66,6 +66,21 @@ function build(directory, into, environment) {
   });
 }
 
+/**
+ * A release's docs checked under /vX.Y/ as at its root: 1.1.0's config ran the link checker under
+ * every base, where links to the generated reference pages carry the base its exclusions don't
+ * name, so its /v1.1/ build failed. Under a base, the checker is left out of a checkout whose
+ * config runs it unguarded, as later configs do themselves: the root build has checked the same
+ * pages.
+ */
+function linksCheckedAtRootOnly(worktree) {
+  const config = join(worktree, 'docs', 'astro.config.mjs');
+  const text = readFileSync(config, 'utf8');
+  const unguarded = /\n(\s*)starlightLinksValidator\(\{[\s\S]*?\n\1\}\),\n/;
+  if (text.includes("base === '/'") || !unguarded.test(text)) return;
+  writeFileSync(config, text.replace(unguarded, '\n'));
+}
+
 /** The docs at `tag`, checked out on their own, their dependencies installed. */
 function checkout(tag) {
   const worktree = mkdtempSync(join(tmpdir(), `mutastic-docs-${tag}-`));
@@ -92,6 +107,7 @@ function release() {
         build(join(worktree, 'docs'), out, { ...environment, DOCS_BASE: '/' });
       }
       const staged = mkdtempSync(join(tmpdir(), `mutastic-docs-v${line}-`));
+      linksCheckedAtRootOnly(worktree);
       build(join(worktree, 'docs'), staged, { ...environment, DOCS_BASE: `/v${line}/` });
       cpSync(staged, join(out, `v${line}`), { recursive: true });
       published.push({ line, tag, path: line === latest ? '/' : `/v${line}/` });
