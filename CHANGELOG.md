@@ -57,6 +57,21 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   missed · ~21m left`, from the run's live events. It's Gradle's internal API, so a Gradle without
   it shows the heartbeat's lines alone.
 
+### Additions
+
+- **A run with no mutant to run runs no test.** `mutastic run --since=HEAD` on a clean tree started
+  a worker and ran every test, a minute and more on a big module, to say there was nothing to
+  measure. When no mutant is there to run (no changed lines, changed lines with no mutant, `--only`
+  with skipped mutants only, a share that holds none, or a module with none), mutastic still builds
+  the module and finds its mutants, lists the skipped ones with their reasons, and passes in the
+  time the build takes. The summary says `Tests  none ran: no mutant to run`, with no test runs
+  row; `run-finished` has `tests` 0 and `workersStarted` 0. Such a run doesn't replace the last
+  run's record, or its report files unless a `--report` is asked for, so `explain`, `next` and the
+  next run's comparison still read the last run that measured something. The gate passes a task
+  that changed no mutant's line as fast. `--force-coverage` (`forceCoverage` in the build plugins)
+  runs the tests anyway, as before, to check or time the suite. See [When there's nothing to
+  run](https://docs.mutastic.io/concepts/how-a-run-works/#when-theres-nothing-to-run).
+
 ### Fixes
 
 - **A build of modules names them as commands, for Maven as for Gradle.** At the top of a Maven

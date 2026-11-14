@@ -274,8 +274,11 @@ final class Shares {
   private Report report(Project project, List<MutantResult> results, Engine.Mutants found) {
     var events = shares.stream().map(Read::events).toList();
     int workers = events.stream().mapToInt(ShareEvents::workers).max().orElse(1);
+    // A share with no mutant to run started no worker: it replaced none.
     int replaced =
-        events.stream().mapToInt(share -> share.workersStarted() - share.workers()).sum();
+        events.stream()
+            .mapToInt(share -> Math.max(0, share.workersStarted() - share.workers()))
+            .sum();
     return new Report(
         project.name(),
         events.getFirst().jdk(),

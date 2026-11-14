@@ -2589,6 +2589,16 @@
             },
             {
               "kind": "method",
+              "name": "testsRan",
+              "anchor": "testsran",
+              "signature": "boolean testsRan()",
+              "doc": "Whether any test ran: none does in a run with no mutant to run, where no worker starts.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
               "name": "replaced",
               "anchor": "replaced",
               "signature": "int replaced()",

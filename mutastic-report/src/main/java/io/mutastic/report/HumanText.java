@@ -951,13 +951,18 @@ public final class HumanText {
     }
   }
 
+  /// Why a run ran no test, as the Rust edition says it.
+  private static final String NOTHING_TO_RUN = "no mutant to run";
+
   /// The summary's rows, label to value, in the order shown.
   private Map<String, String> rows(Report report, Optional<Comparison> comparison, Run run) {
     var rows = new LinkedHashMap<String, String>();
     rows.put("Classes", classesRow(report));
     rows.put("Mutants", mutantsRow(report));
     putWhenThere(rows, report);
-    rows.put("Test runs", testRunsRow(report));
+    if (report.testsRan()) {
+      rows.put("Test runs", testRunsRow(report));
+    }
     rows.put("Start at", run.startedAt().format(DateTimeFormatter.ofPattern("HH:mm:ss")));
     rows.put("Duration", durationRow(report, run));
     rows.put("Tests", testsRow(report));
@@ -1087,6 +1092,9 @@ public final class HumanText {
     if (!run.build().isZero()) {
       phases.add("build " + seconds(run.build()));
     }
+    if (!report.testsRan()) {
+      return phases;
+    }
     phases.add("coverage " + seconds(report.coverage()));
     phases.add(
         "mutants " + seconds(report.took().minus(report.coverage()).minus(report.checking())));
@@ -1102,6 +1110,9 @@ public final class HumanText {
   }
 
   private String testsRow(Report report) {
+    if (!report.testsRan()) {
+      return "none ran: " + NOTHING_TO_RUN;
+    }
     if (report.tests() == 0) {
       return "none found (mutastic runs JUnit Platform tests)";
     }

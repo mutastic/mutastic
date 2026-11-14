@@ -26,7 +26,8 @@ class MutasticTaskTest {
         .containsEntry("suggestions", "true")
         .containsEntry("confirmCatches", "false")
         .containsEntry("testsFrom", "")
-        .doesNotContainKeys("workers", "format", "since", "eachMutant", "failOnNew");
+        .doesNotContainKeys(
+            "workers", "format", "since", "eachMutant", "failOnNew", "forceCoverage");
   }
 
   @Test
@@ -35,12 +36,14 @@ class MutasticTaskTest {
     extension.getThreshold().set(60);
     extension.getTestsFrom().set(List.of(":app", ":web"));
     extension.getFailOnNew().set(true);
+    extension.getForceCoverage().set(true);
     task("mutasticRun").getThreshold().set(70);
 
     assertThat(task("mutasticRun").configured())
         .containsEntry("threshold", "70")
         .containsEntry("testsFrom", ":app,:web")
-        .containsEntry("failOnNew", "true");
+        .containsEntry("failOnNew", "true")
+        .containsEntry("forceCoverage", "true");
     assertThat(task("mutasticVerify").configured()).containsEntry("threshold", "60");
   }
 

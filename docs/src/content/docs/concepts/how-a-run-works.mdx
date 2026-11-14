@@ -148,6 +148,20 @@ time to see how it died. What that means depends on where the mutant is: see
 </div>
 </EditionTabs>
 
+<EditionOnly edition="java">
+
+## When there's nothing to run
+
+A run of a change that touched no mutant's line, of skipped mutants only, or of a share that holds
+none has nothing to measure, and running every test would take minutes to find that out. So
+mutastic runs no test: it finds the mutants, lists the skipped ones with their reasons, and passes
+with nothing to measure, saying `Tests  none ran: no mutant to run`. Your build still compiles the
+code, as the mutants are found in its class files, so such a run takes about as long as the build.
+It leaves the last run's record and report files as they were. `--force-coverage` runs the tests
+anyway, to check that they pass or to time them.
+
+</EditionOnly>
+
 <EditionOnly edition="rust">
 
 ## Running it again

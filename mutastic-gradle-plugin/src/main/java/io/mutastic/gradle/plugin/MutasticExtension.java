@@ -34,6 +34,10 @@ public abstract class MutasticExtension {
   /// one that isn't, whatever the score: the threshold isn't applied. Off unless set.
   public abstract Property<Boolean> getFailOnNew();
 
+  /// Build and run every test even when no mutant is there to run, to check or time the suite. Off
+  /// unless set.
+  public abstract Property<Boolean> getForceCoverage();
+
   /// Mutate only the lines changed since this ref; empty for the default branch.
   public abstract Property<String> getSince();
 

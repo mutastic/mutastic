@@ -194,7 +194,8 @@ out.
 ## Only what a pull request changed
 
 `--since=REF` mutates only the lines changed since the branch left `REF`, so a pull request's run
-tries its own mutants, not the whole run's. It needs the base branch, and the history back to
+tries its own mutants, not the whole run's. A pull request that changes no mutant's line runs no
+test at all, and passes in the time the build takes. It needs the base branch, and the history back to
 where the branch left it, which a CI checkout doesn't have unless asked. Name the base branch as the
 remote has it, since the checkout has no local branch of that name.
 

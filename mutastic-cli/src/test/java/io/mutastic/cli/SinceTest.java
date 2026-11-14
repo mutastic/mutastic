@@ -49,6 +49,62 @@ class SinceTest {
         .contains("\"scope\":{\"since\":\"HEAD\",\"fileCount\":2,\"lineCount\":8}");
   }
 
+  /// A run with no mutant to run starts no worker and runs no test, says so, and leaves the last
+  /// run that measured something as the one `explain` and the next run read; `--force-coverage`
+  /// runs the tests anyway.
+  @Test
+  void aCleanTreeRunsNoTest() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+    git(project, "init", "-q");
+    git(project, "add", ".");
+    git(project, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "start");
+    assertThat(Samples.mutastic("run", project.toString(), "--format=brief").exit())
+        .isEqualTo(Main.PASSED);
+    var kept = project.resolve("build/mutastic");
+    var before = keptFiles(kept);
+
+    var empty = Samples.mutastic("run", project.toString(), "--since=HEAD", "--format=jsonl");
+
+    assertThat(empty.exit()).isEqualTo(Main.PASSED);
+    assertThat(empty.out())
+        .doesNotContain("\"phase\":\"coverage\"")
+        .doesNotContain("\"phase\":\"mutants\"")
+        .contains("\"tests\":0,\"workers\":")
+        .contains("\"workersStarted\":0,\"coverageMs\":0")
+        .contains("\"score\":null")
+        .contains("\"reports\":[]")
+        .contains("\"scope\":{\"since\":\"HEAD\",\"fileCount\":0,\"lineCount\":0}");
+    var text = Samples.mutastic("run", project.toString(), "--since=HEAD", "--format=brief");
+    assertThat(text.out())
+        .contains("  Changed  0 lines in 0 files since HEAD\n")
+        .contains("    Tests  none ran: no mutant to run\n")
+        .contains("    Score  none  [PASS] Nothing to measure: no mutants to score.")
+        .doesNotContain("Test runs")
+        .doesNotContain("Reports");
+    assertThat(keptFiles(kept)).isEqualTo(before);
+
+    var forced =
+        Samples.mutastic(
+            "run",
+            project.toString(),
+            "--since=HEAD",
+            "--force-coverage",
+            "--format=jsonl",
+            "--report=none");
+
+    assertThat(forced.exit()).isEqualTo(Main.PASSED);
+    assertThat(forced.out()).contains("\"phase\":\"coverage\"").doesNotContain("\"tests\":0,");
+  }
+
+  /// The run record and the report files a run keeps, by name, with what's in them.
+  private static java.util.Map<String, String> keptFiles(Path kept) throws Exception {
+    var files = new java.util.TreeMap<String, String>();
+    for (var name : List.of("last-run.tsv", "mutation.json", "mutation.html")) {
+      files.put(name, Files.readString(kept.resolve(name)));
+    }
+    return files;
+  }
+
   @Test
   void aDirectoryOutsideGitSaysWhatsNeeded() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("pricing"));

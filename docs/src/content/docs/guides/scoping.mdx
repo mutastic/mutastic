@@ -5,7 +5,7 @@ description: "Mutate only what a change touched, run another module's tests or a
 
 ## Only what changed
 
-`--since=main` mutates only the lines changed since the branch left `main` (its merge-base), uncommitted edits and new files included: a pull request's or an agent's change, which is where a missed mutant is worth acting on. A bare `--since` means the repository's default branch. The summary says what the run covered (`Changed  12 lines in 3 files since main`); a scoped run writes its reports but doesn't replace the last full run's record. In CI, a pull request's run needs the base branch's history: see [Running in CI](/guides/ci/#only-what-a-pull-request-changed).
+`--since=main` mutates only the lines changed since the branch left `main` (its merge-base), uncommitted edits and new files included: a pull request's or an agent's change, which is where a missed mutant is worth acting on. A bare `--since` means the repository's default branch. The summary says what the run covered (`Changed  12 lines in 3 files since main`); a scoped run writes its reports but doesn't replace the last full run's record. A change with no mutant on its lines has nothing to measure, so no test runs and the run passes in seconds (`Tests  none ran: no mutant to run`), leaving the last run's record and reports as they were; `--force-coverage` runs the tests anyway, to check or time them. In CI, a pull request's run needs the base branch's history: see [Running in CI](/guides/ci/#only-what-a-pull-request-changed).
 
 ## Other modules' tests
 

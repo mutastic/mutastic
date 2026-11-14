@@ -11,7 +11,7 @@
       "exits": "0 when the score reaches the threshold, 1 when it doesn't; with --fail-on-new, 0 when every mutant no test catches is in the baseline, 1 when one isn't.",
       "takesMutantId": false,
       "examples": [{ "gradle": "./gradlew mutasticRun", "maven": "mvn mutastic:run", "commandLine": "mutastic run" }, { "gradle": "./gradlew mutasticRun -Pmutastic.threshold=70 -p samples/pricing", "maven": "mvn mutastic:run -Dmutastic.threshold=70 -f samples/pricing", "commandLine": "mutastic run samples/pricing --threshold=70" }, { "gradle": "./gradlew mutasticRun -Pmutastic.since=main", "maven": "mvn mutastic:run -Dmutastic.since=main", "commandLine": "mutastic run --since=main" }, { "gradle": "./gradlew :core:mutasticRun -Pmutastic.testsFrom=dependents", "maven": "mvn mutastic:run -Dmutastic.testsFrom=dependents -pl core", "commandLine": "mutastic run . :core --tests-from=dependents" }],
-      "options": ["--threshold", "--fail-on-new", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--kill-matrix", "--shard", "--from-shards", "--no-suggestions", "--exclude-tests", "--suite", "--operators", "--experimental", "--report", "--format", "--each-mutant", "--vocabulary", "--color", "--hyperlinks", "--progress"]
+      "options": ["--threshold", "--fail-on-new", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--kill-matrix", "--shard", "--from-shards", "--no-suggestions", "--force-coverage", "--exclude-tests", "--suite", "--operators", "--experimental", "--report", "--format", "--each-mutant", "--vocabulary", "--color", "--hyperlinks", "--progress"]
     },
     {
       "name": "verify",
@@ -138,7 +138,7 @@
       "group": "Running",
       "value": "REF",
       "choices": [],
-      "help": "Mutate only the lines changed since REF; the default branch without one",
+      "help": "Mutate only the lines changed since REF; the default branch without one. With no mutant on those lines, nothing is built or run",
       "commands": ["next", "run"],
       "environment": "",
       "maven": { "property": "-Dmutastic.since", "setting": "<since>…</since>" },
@@ -256,6 +256,20 @@
       "maven": { "property": "-Dmutastic.suggestions", "setting": "<suggestions>false</suggestions>" },
       "gradle": { "property": "-Pmutastic.suggestions", "setting": "suggestions = false" },
       "examples": { "explain": { "gradle": "./gradlew mutasticExplain -Pmutastic.mutant=m855c8e3c -Pmutastic.suggestions=false", "maven": "mvn mutastic:explain -Dmutastic.mutant=m855c8e3c -Dmutastic.suggestions=false", "commandLine": "mutastic explain m855c8e3c --no-suggestions", "gradleBuild": "mutastic {\n    suggestions = false\n}", "mavenBuild": "<configuration>\n  <suggestions>false</suggestions>\n</configuration>" }, "next": { "gradle": "", "maven": "", "commandLine": "mutastic next --no-suggestions", "gradleBuild": "mutastic {\n    suggestions = false\n}", "mavenBuild": "<configuration>\n  <suggestions>false</suggestions>\n</configuration>" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.suggestions=false", "maven": "mvn mutastic:run -Dmutastic.suggestions=false", "commandLine": "mutastic run --no-suggestions", "gradleBuild": "mutastic {\n    suggestions = false\n}", "mavenBuild": "<configuration>\n  <suggestions>false</suggestions>\n</configuration>" } }
+    },
+    {
+      "name": "--force-coverage",
+      "synopsis": "--force-coverage",
+      "kind": "flag",
+      "group": "Running",
+      "value": "",
+      "choices": [],
+      "help": "Build and run every test even when no mutant is there to run, to check or time the suite",
+      "commands": ["run"],
+      "environment": "",
+      "maven": { "property": "-Dmutastic.forceCoverage", "setting": "<forceCoverage>true</forceCoverage>" },
+      "gradle": { "property": "-Pmutastic.forceCoverage", "setting": "forceCoverage = true" },
+      "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.since= -Pmutastic.forceCoverage", "maven": "mvn mutastic:run -Dmutastic.since= -Dmutastic.forceCoverage", "commandLine": "mutastic run --since --force-coverage", "gradleBuild": "mutastic {\n    forceCoverage = true\n}", "mavenBuild": "<configuration>\n  <forceCoverage>true</forceCoverage>\n</configuration>" } }
     },
     {
       "name": "--exclude-tests",

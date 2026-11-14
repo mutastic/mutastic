@@ -245,6 +245,11 @@ public record Report(
         : mine.alsoCoveredBy(theirs.coveredBy());
   }
 
+  /// Whether any test ran: none does in a run with no mutant to run, where no worker starts.
+  public boolean testsRan() {
+    return started > 0;
+  }
+
   /// Workers started again after one was killed for taking too long: never fewer than none.
   public int replaced() {
     return Math.max(0, started - workers);
