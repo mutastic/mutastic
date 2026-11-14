@@ -15,17 +15,21 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
-/// The Java lines a change touched, from git: since the merge-base of `HEAD` and a commit, so
-/// `--since=main` on a branch is the branch's own change, uncommitted edits and new files included.
-/// Lines a change only deleted aren't there: nothing is left on them to mutate.
+/// The Java and Kotlin lines a change touched, from git: since the merge-base of `HEAD` and a
+/// commit, so `--since=main` on a branch is the branch's own change, uncommitted edits and new
+/// files included. Lines a change only deleted aren't there: nothing is left on them to mutate.
 final class Git {
   /// `@@ -12,3 +14,5 @@`: five lines from line 14 of the new file.
   private static final Pattern HUNK =
       Pattern.compile("^@@ -\\d+(?:,\\d+)? \\+(?<start>\\d+)(?:,(?<count>\\d+))? @@");
 
-  /// The working tree against a commit, inserted before `--`: changed lines only, Java only.
+  /// The files mutastic mutates the classes of, in whichever source sets the build compiles them
+  /// from: [ChangedLines#within] keeps a module's own.
+  static final List<String> SOURCES = List.of("*.java", "*.kt");
+
+  /// The working tree against a commit, which goes last: changed lines only.
   private static final List<String> DIFF =
-      List.of("diff", "--unified=0", "--no-color", "--no-ext-diff", "--no-renames", "--", "*.java");
+      List.of("diff", "--unified=0", "--no-color", "--no-ext-diff", "--no-renames");
 
   private final Path directory;
 
@@ -114,10 +118,12 @@ final class Git {
     return new ChangedLines(reference, lines);
   }
 
-  /// Each Java file's added lines in the diff from `base` to the working tree.
+  /// Each source file's added lines in the diff from `base` to the working tree.
   private void diff(Path root, String base, Map<Path, Set<Integer>> lines) {
     var args = new ArrayList<>(DIFF);
-    args.add(args.size() - 2, base);
+    args.add(base);
+    args.add("--");
+    args.addAll(SOURCES);
     var diff = output(args, "git couldn't diff");
     Set<Integer> changed = new TreeSet<>(); // the current file's, until a file starts
     for (String line : diff.lines().toList()) {
@@ -146,13 +152,14 @@ final class Git {
     }
   }
 
-  /// New Java files git doesn't track yet: every line of them is the change.
+  /// New source files git doesn't track yet: every line of them is the change.
   private void untracked(Path root, Map<Path, Set<Integer>> lines) {
+    var args =
+        new ArrayList<>(List.of("ls-files", "--others", "--exclude-standard", "--full-name"));
+    args.add("--");
+    args.addAll(SOURCES);
     for (String name :
-        output(
-                List.of(
-                    "ls-files", "--others", "--exclude-standard", "--full-name", "--", "*.java"),
-                "git couldn't list new files")
+        output(args, "git couldn't list new files")
             .lines()
             .filter(name -> !name.isBlank())
             .toList()) {

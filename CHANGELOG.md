@@ -189,6 +189,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Agents
 
+- **The gate and `--since` see Kotlin.** Git's diff and its new-file listing took only `*.java`,
+  so a Kotlin task's changed lines were none: `--since` mutated nothing, and the gate passed a
+  task that changed `.kt` code with no mutant run. Its test count read only `.java` files too, so
+  taking a Kotlin test away didn't hold the task. Both read `.kt` files now, in whichever source
+  sets the build compiles; a new sample, `samples/parameterized-kotlin`, pins them.
 - **`mutation.original` and `replacement` are source, as in the Rust edition.** In the events and
   `mutation.json`, `original` is the source the mutant replaces and `replacement` the source that
   replaces it, so writing one over the other gives the mutant's line; `mutation.json`'s `location`
