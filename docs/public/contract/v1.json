@@ -1807,20 +1807,6 @@
       "reason": "Each language's own word."
     },
     {
-      "id": "D1",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "`--format agent` with a space is refused",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "decision": 1,
-      "items": [
-        "error:space:*"
-      ]
-    },
-    {
       "id": "D2",
       "kind": "pending",
       "editions": [
@@ -1830,20 +1816,6 @@
       "summary": "A panic exits 101 with no `run-failed` event: no panic hook, no `internal` code",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
       "decision": 2
-    },
-    {
-      "id": "D5",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "configuration",
-      "summary": "A bad environment value falls back to the default silently",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "decision": 5,
-      "items": [
-        "error:envval:*"
-      ]
     },
     {
       "id": "D7",
@@ -2007,20 +1979,6 @@
       "surface": "command line",
       "summary": "`--operators` doesn't take `all`, a namespace, or `-` to leave one out",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G9",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "`--threshold` takes `72.5` and `150`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "error:th:*",
-        "error:thf:*"
-      ]
     },
     {
       "id": "G10",
@@ -2211,7 +2169,7 @@
         "rust"
       ],
       "surface": "errors",
-      "summary": "No `disk`, `environment`, `no-tests`, `nothing-covered`, `tests-stopped` or `tests-timed-out` codes",
+      "summary": "No `disk`, `no-tests`, `nothing-covered`, `tests-stopped` or `tests-timed-out` codes",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
