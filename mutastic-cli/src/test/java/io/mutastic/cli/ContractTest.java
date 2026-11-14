@@ -92,6 +92,11 @@ class ContractTest {
         "report",
         Schemas.class.getResourceAsStream("schema/mutation-testing-report-schema.json"));
     schema(found, schemas, "sarif", Schemas.class.getResourceAsStream("schema/sarif-2.1.0.json"));
+    schema(
+        found,
+        schemas,
+        "reportAdditions",
+        Files.newInputStream(Path.of(System.getProperty("mutastic.schemas"), "report/v1.json")));
 
     assertThat(CONTRACT.unrecorded(found, List.of("schema"))).isEmpty();
   }
@@ -701,13 +706,14 @@ class ContractTest {
     }
   }
 
-  /// Every key path in `node`, `a.b` for an object's, `a[].b` within an array's items, and a file's
-  /// name as `*` under mutation.json's `files` and `testFiles`.
+  /// Every key path in `node`, `a.b` for an object's, `a[].b` within an array's items, and as `*` a
+  /// key the data names: a file's under mutation.json's `files` and `testFiles`, an operator's
+  /// under `operatorDocs`, a parameter's under `inputs` and `arguments`.
   static SequencedSet<String> paths(JsonNode node, String at) {
     var paths = new LinkedHashSet<String>();
     if (node.isObject()) {
       for (var field : node.properties()) {
-        var key = at.equals("files") || at.equals("testFiles") ? "*" : field.getKey();
+        var key = keyedByData(at) ? "*" : field.getKey();
         var path = at.isEmpty() ? key : at + "." + key;
         paths.add(path);
         paths.addAll(paths(field.getValue(), path));
@@ -716,6 +722,14 @@ class ContractTest {
       node.values().forEach(item -> paths.addAll(paths(item, at + "[]")));
     }
     return paths;
+  }
+
+  private static boolean keyedByData(String at) {
+    return at.equals("files")
+        || at.equals("testFiles")
+        || at.endsWith("mutastic.operatorDocs")
+        || at.endsWith("mutastic.inputs")
+        || at.endsWith("suggestedTest.arguments");
   }
 
   @Test
