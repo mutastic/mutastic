@@ -17,7 +17,7 @@
                 [2mIADD: add two ints[0m
                 [2mISUB: subtract two ints[0m
     [2m=[0m [1;34m[1moperator[0m[0m  mutastic/math: `+` becomes `-`, `*` becomes `/`, and back, on `int` and `long`.
-                [2mdocs: https://docs.mutastic.io/concepts/operators/#math[0m
+                [2mdocs: https://docs.mutastic.io/java/operators/arithmetic/#math[0m
     [2m=[0m [1;34m[1mid      [0m[0m  m6393711d: `m` and the first 8 hex digits of its fingerprint, 6393711ddb367a4b, a
                 SHA-256 of the class, method, site and change
                 [2mno line number goes in, so the id stays the same when code above it moves[0m

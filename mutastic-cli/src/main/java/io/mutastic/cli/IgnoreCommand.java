@@ -66,31 +66,39 @@ final class IgnoreCommand {
         Ignores.proposed(where.directory()).stream()
             .filter(entry -> entry.ignore().id().equals(id))
             .findFirst();
-    if (proposal.isEmpty()) {
-      return notProposed(id, where, out);
-    }
     var entries = without(id, where);
-    entries.add(proposal.get());
+    entries.add(proposal.orElseThrow()); // one that isn't is refused first: see nothingToDo
     Ignores.write(where.directory(), entries);
     Ignores.propose(where.directory(), withoutProposal(id, where));
     out.printf(
         "mutastic: %s is ignored, as proposed: %s\n  recorded in %s: commit it, as a decision to"
             + " review\n  to undo: %s\n",
         id,
-        proposal.get().ignore().reason(),
+        proposal.orElseThrow().ignore().reason(),
         where.shownFile(),
         where.command(List.of("--remove", id)));
     return Main.PASSED;
   }
 
-  /// `id` isn't proposed: with the proposal a slip away from it, if there's one.
-  private static int notProposed(String id, Where where, PrintStream out) {
-    out.printf(
-        "mutastic: %s isn't proposed in %s: nothing to accept%s\n",
-        id,
-        where.shownProposals(),
-        close(id, Ignores.proposed(where.directory()), "--accept", where));
-    return Main.FAILED;
+  /// `--accept` of a mutant that isn't proposed, or `--remove` of one neither ignored nor proposed:
+  /// nothing to do, said with the id a slip away from it, if there's one. Empty when there's
+  /// something to do.
+  static java.util.Optional<String> nothingToDo(Main.Ignoring how, String id, Where where) {
+    var proposed = Ignores.proposed(where.directory());
+    var ignored = Ignores.read(where.directory());
+    if (how.accept() && proposed.stream().noneMatch(entry -> entry.ignore().id().equals(id))) {
+      return java.util.Optional.of(
+          "mutastic: %s isn't proposed in %s: nothing to accept%s\n"
+              .formatted(id, where.shownProposals(), close(id, proposed, "--accept", where)));
+    }
+    if (how.remove()
+        && java.util.stream.Stream.concat(proposed.stream(), ignored.stream())
+            .noneMatch(entry -> entry.ignore().id().equals(id))) {
+      return java.util.Optional.of(
+          "mutastic: %s isn't ignored in %s: nothing to remove%s\n"
+              .formatted(id, where.shownFile(), close(id, ignored, "--remove", where)));
+    }
+    return java.util.Optional.empty();
   }
 
   /// The one id in `entries` a slip away from `id`, said with its command: never acted on.
@@ -143,16 +151,10 @@ final class IgnoreCommand {
     if (removed.isEmpty() && withdraw(id, where, out)) {
       return Main.PASSED;
     }
-    if (removed.isEmpty()) {
-      out.printf(
-          "mutastic: %s isn't ignored in %s: nothing to remove%s\n",
-          id, where.shownFile(), close(id, Ignores.read(where.directory()), "--remove", where));
-      return Main.PASSED;
-    }
     Ignores.write(where.directory(), without(id, where));
     out.printf(
         "mutastic: %s is no longer ignored: it runs again\n  removed from %s\n  to undo: %s\n",
-        id, where.shownFile(), where.command(undo(removed.get().ignore())));
+        id, where.shownFile(), where.command(undo(removed.orElseThrow().ignore())));
     return Main.PASSED;
   }
 
