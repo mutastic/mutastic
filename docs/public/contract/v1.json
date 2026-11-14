@@ -1832,17 +1832,6 @@
       "decision": 2
     },
     {
-      "id": "D4",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "gate, ignore, baseline",
-      "summary": "A refusal that does nothing prints on stdout, and `ignore --remove` exits 0",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "decision": 4
-    },
-    {
       "id": "D5",
       "kind": "pending",
       "editions": [
@@ -1954,20 +1943,6 @@
       "summary": "The gate counts a change to any Java file, tests included, before looking for the task's ignores",
       "issue": "https://github.com/mutastic/mutastic/issues/61",
       "decision": 15
-    },
-    {
-      "id": "G2",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "command line",
-      "summary": "Takes any option on any command and ignores it",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "items": [
-        "error:notake:*",
-        "error:since:*"
-      ]
     },
     {
       "id": "G3",
@@ -2311,16 +2286,6 @@
       "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
-      "id": "G35",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "errors",
-      "summary": "The model's exit 1 leaves out `next` queued, `ignore --accept`/`--remove` and `baseline` refusals",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "G36",
       "kind": "pending",
       "editions": [
@@ -2630,16 +2595,6 @@
       "surface": "events",
       "summary": "Another key order in `mutant-finished`",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "E2",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "events",
-      "summary": "`run doesn't take --top` is `extra-words`, not `option-not-taken` (with G2)",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
       "id": "P1",

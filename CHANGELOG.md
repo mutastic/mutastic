@@ -115,6 +115,17 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   only that word changed, `mutastic run --format=agent`, its value after an `=`. Close means the
   same but for case, else within a third of the name's length in edits, two letters swapped
   counting as one; an id must be one slip away.
+- **A refusal that does nothing goes to stderr, and exits 1.** `ignore --remove` of a mutant that
+  isn't ignored (which exited 0), `ignore --accept` of one that isn't proposed, `baseline` with one
+  there already and `baseline --prune` with none printed on stdout, after reading the build. Now
+  each is refused before the build is read, on stderr, as the Rust edition does, so stdout holds
+  only results. `gate check` with no task open says so on stderr too, and still exits 2.
+- **An option the command doesn't take is refused.** `mutastic verify m855c8e3c --threshold=70`
+  ran as if the option weren't there. Now it says `verify doesn't take --threshold`, with the
+  command's usage, and exits 2 with the code `option-not-taken`, as the Rust edition does. A build
+  plugin's `mutastic.` properties are still passed to every goal.
+- **`baseline` counts one mutant in the singular:** `1 mutant no test catches is in
+  .mutastic/baseline.yaml`.
 - **A usage error prints one line of usage,** the command's own, `usage: mutastic run [DIR]
   [:MODULE] [OPTIONS]`, not every command's. A mistake in `mutastic.yaml`, a rules file,
   `.mutastic/ignores.yaml`, an environment variable or the git repository prints none: it isn't

@@ -101,8 +101,7 @@ class LombokTest {
             org.assertj.core.groups.Tuple.tuple("setGiftMessage", "Survived"));
     passNull(project);
     var ids = checks.stream().map(Seen::id).toList();
-    var verified =
-        Samples.mutastic("verify", ids.get(0), ids.get(1), project.toString(), "--color=never");
+    var verified = Samples.mutastic("verify", ids.get(0), ids.get(1), project.toString());
     assertThat(verified.out())
         .as(verified.err())
         .contains(
