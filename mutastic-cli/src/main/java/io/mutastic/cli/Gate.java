@@ -25,7 +25,9 @@ import java.util.stream.Stream;
 /// task.
 ///
 /// With `--hook=claude`, each reads a Claude Code hook's input on stdin and answers as a hook does:
-/// `open` once per session, `check` with a block and its reason, or a message for the person.
+/// `open` once per session, `check` with a block and its reason, or a message for the person. An
+/// ignore the person accepts between turns, after a check let the agent stop and before the next
+/// prompt, joins where the task starts; one made while the agent has the turn stays the agent's.
 final class Gate {
   private static final String FILE = "gate.properties";
 
@@ -58,6 +60,9 @@ final class Gate {
   ///   empty when it hasn't since it last passed
   /// @param red the tests that failed at a check since the gate opened, each with its body's
   ///   fingerprint then, as [RedTests] keeps them
+  /// @param stopped the ignores when a hooked check last let the agent stop, until the next prompt:
+  ///   empty while the agent has the turn. What's ignored after it is the person's, made between
+  ///   turns
   record State(
       String session,
       String base,
@@ -65,25 +70,51 @@ final class Gate {
       Shape shape,
       int blocks,
       String tree,
-      Map<String, String> red) {
+      Map<String, String> red,
+      Optional<Set<String>> stopped) {
     State {
       ignored = Set.copyOf(ignored);
       red = Map.copyOf(red);
+      stopped = stopped.map(Set::copyOf);
     }
 
+    /// Sent back: the agent has the turn, so what it ignores now is its own.
     State blockedOnce(String now) {
-      return new State(session, base, ignored, shape, blocks + 1, now, red);
+      return new State(session, base, ignored, shape, blocks + 1, now, red, Optional.empty());
     }
 
     State passed() {
-      return new State(session, base, ignored, shape, 0, "", red);
+      return new State(session, base, ignored, shape, 0, "", red, stopped);
+    }
+
+    /// The agent let stop, with what's ignored `now`.
+    State stoppedWith(Set<String> now) {
+      return new State(session, base, ignored, shape, blocks, tree, red, Optional.of(now));
     }
 
     /// These, and the tests that failed at this check too.
     State remembering(Map<String, String> failed) {
       var all = new TreeMap<>(red);
       all.putAll(failed);
-      return new State(session, base, ignored, shape, blocks, tree, all);
+      return new State(session, base, ignored, shape, blocks, tree, all, stopped);
+    }
+
+    /// A new prompt, with what's ignored `now`: the ignores the person made between turns, after
+    /// the agent stopped, are the task's to start from, as those there when it opened are; one the
+    /// agent made in its turn stays the agent's, whatever the person says next. With no stop since
+    /// the last prompt, the agent still has the turn, and nothing changes.
+    State prompted(Set<String> now) {
+      if (stopped.isEmpty()) {
+        return this;
+      }
+      var atStop = stopped.get();
+      var kept = new TreeSet<String>();
+      for (var id : now) {
+        if (ignored.contains(id) || !atStop.contains(id)) {
+          kept.add(id);
+        }
+      }
+      return new State(session, base, kept, shape, blocks, tree, red, Optional.empty());
     }
 
     /// Whether the agent was sent back, and has changed nothing since.
@@ -102,18 +133,24 @@ final class Gate {
       } catch (IOException e) {
         throw new UncheckedIOException(e);
       }
-      var ignored = properties.getProperty("ignored", "");
+      var stopped = Optional.ofNullable(properties.getProperty("stopped")).map(State::ids);
       return Optional.of(
           new State(
               properties.getProperty("session", ""),
               properties.getProperty("base", ""),
-              ignored.isEmpty() ? Set.of() : Set.of(ignored.split(",")),
+              ids(properties.getProperty("ignored", "")),
               new Shape(
                   Integer.parseInt(properties.getProperty("tests", "0")),
                   Integer.parseInt(properties.getProperty("disabled", "0"))),
               Integer.parseInt(properties.getProperty("blocks", "0")),
               properties.getProperty("tree", ""),
-              redIn(properties)));
+              redIn(properties),
+              stopped));
+    }
+
+    /// Ids as [#FILE] keeps them: separated by commas.
+    private static Set<String> ids(String value) {
+      return value.isEmpty() ? Set.of() : Set.of(value.split(",", -1));
     }
 
     private static Map<String, String> redIn(Properties properties) {
@@ -135,6 +172,8 @@ final class Gate {
       properties.setProperty("disabled", String.valueOf(shape.disabled()));
       properties.setProperty("blocks", String.valueOf(blocks));
       properties.setProperty("tree", tree);
+      stopped.ifPresent(
+          ids -> properties.setProperty("stopped", String.join(",", new TreeSet<>(ids))));
       red.forEach((test, body) -> properties.setProperty(RED + test, body));
       try {
         Files.createDirectories(work);

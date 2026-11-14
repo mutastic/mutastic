@@ -119,6 +119,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Agents
 
+- **An ignore you accept between turns doesn't hold the gate.** The gate counted the ignores from
+  a session's first prompt, so a proposal you accepted and then prompted again counted as the
+  task's own (`the task ignored … itself`). Now, as a hook, a check that lets the agent stop notes
+  the ignores, and the next prompt takes in those added since: yours, made between turns. One the
+  agent adds in its turn, with `ignore --accept` or by editing `.mutastic/ignores.yaml`, still
+  holds the gate after your next prompt.
 - **A failure is an event too.** In `--format=agent` and `--format=jsonl`, an error is also the
   last line on stdout, a `run-failed` event in `mutastic.events/v1`, the Rust edition's shape:
   `code` (`unknown-option`, `build-failed`, `red-baseline`, …), `message`, `where` (the directory

@@ -12,6 +12,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /// `mutastic gate`: a coding agent's task held to the mutants on the lines it changed. Done when
 /// each is caught or proposed for a person to ignore; not by an ignore of its own, or a test taken
@@ -159,6 +161,65 @@ class GateTest {
         .startsWith("{\"systemMessage\": ")
         .contains("the agent was sent back 1 times, so it's over to you");
     assertThat(closed.out()).isEmpty(); // nothing gated: the agent may stop
+  }
+
+  /// An ignore the person accepts between turns, after the gate let the agent stop and before their
+  /// next prompt, is the task's to start from: the next check passes. One the agent accepts in its
+  /// turn, or writes into `.mutastic/ignores.yaml` itself, stays the agent's, after the person's
+  /// next prompt too: re-reading the ignores at every prompt would pass whatever the agent ignored.
+  @ParameterizedTest
+  @ValueSource(strings = {"person", "agent", "file"})
+  void anIgnoreThePersonAcceptsBetweenTurnsDoesntHoldTheGate(String who) throws Exception {
+    var session = "{\"session_id\":\"s1\"}";
+    hooked(session, "gate", "open", "--hook=claude");
+    aDiscountForOrdersOverFifty();
+    var blocked = hooked(session, "gate", "check", "--hook=claude");
+    var ids = missedIds(blocked.out());
+    assertThat(ids).as(blocked.out()).isNotEmpty();
+    for (var id : ids) {
+      mutastic("ignore", id, project.toString(), "--propose", "--reason=fifty is checked by hand");
+    }
+    switch (who) {
+      case "agent" -> acceptAll(ids);
+      // The agent moves the proposals into the ignores by hand, rather than accept them.
+      case "file" ->
+          Files.move(
+              project.resolve(".mutastic/proposals.yaml"),
+              project.resolve(".mutastic/ignores.yaml"));
+      default -> {}
+    }
+    var stop = hooked(session, "gate", "check", "--hook=claude");
+    if (who.equals("person")) {
+      assertThat(stop.out()).startsWith("{\"systemMessage\": \"mutastic gate: passed");
+      acceptAll(ids); // between turns
+    } else {
+      // Held; sent back, the agent changes nothing, so it's over to the person, the ignores still
+      // the agent's.
+      assertThat(stop.out())
+          .startsWith("{\"decision\": \"block\"")
+          .contains("the task ignored " + ids[0]);
+      assertThat(hooked(session, "gate", "check", "--hook=claude").out())
+          .startsWith("{\"systemMessage\": ")
+          .contains("so it's over to you");
+    }
+    hooked(session, "gate", "open", "--hook=claude");
+    var next = hooked(session, "gate", "check", "--hook=claude");
+
+    if (who.equals("person")) {
+      assertThat(next.out()).startsWith("{\"systemMessage\": \"mutastic gate: passed");
+    } else {
+      assertThat(next.out())
+          .as(who)
+          .startsWith("{\"decision\": \"block\"")
+          .contains("the task ignored " + ids[0]);
+    }
+  }
+
+  private void acceptAll(String[] ids) {
+    for (var id : ids) {
+      assertThat(mutastic("ignore", "--accept", id, project.toString()).exit())
+          .isEqualTo(Main.PASSED);
+    }
   }
 
   /// Sent back, an agent that changes nothing has declined, as it may when the person said no

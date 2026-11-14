@@ -559,16 +559,23 @@ public final class Main {
     };
   }
 
-  /// Keeps where the task starts; with a hook, once for each session. A hook's output is the
-  /// agent's to read: it's told the task is gated, and how to check its work as it goes.
+  /// Keeps where the task starts; with a hook, once for each session, and at each later prompt
+  /// takes in the ignores the person made between turns. A hook's output is the agent's to read:
+  /// it's told the task is gated, and how to check its work as it goes.
   private static int gateOpen(Gated gated, String session) {
-    if (gated.hooked() && openFor(gated, session)) {
+    var directory = gated.prepared().directory();
+    var open = gated.hooked() ? openFor(gated, session) : Optional.<Gate.State>empty();
+    if (open.isPresent()) {
+      // A later prompt: what the person ignored between turns is the task's to start from.
+      if (open.get().stopped().isPresent()) {
+        open.get().prompted(ignored(directory)).write(gated.work());
+      }
       return PASSED;
     }
-    var directory = gated.prepared().directory();
     var base = new Git(directory).head();
     var shape = Gate.Shape.of(gated.prepared().project().testSources());
-    new Gate.State(session, base, ignored(directory), shape, 0, "", Map.of()).write(gated.work());
+    new Gate.State(session, base, ignored(directory), shape, 0, "", Map.of(), Optional.empty())
+        .write(gated.work());
     gated
         .output()
         .out()
@@ -590,12 +597,11 @@ public final class Main {
         : "`mutastic gate check` says when it's done";
   }
 
-  /// Whether a task is open already for this session.
-  private static boolean openFor(Gated gated, String session) {
-    return !session.isEmpty()
-        && Gate.State.read(gated.work())
-            .filter(state -> state.session().equals(session))
-            .isPresent();
+  /// The task open already for this session, if there is one.
+  private static Optional<Gate.State> openFor(Gated gated, String session) {
+    return session.isEmpty()
+        ? Optional.empty()
+        : Gate.State.read(gated.work()).filter(state -> state.session().equals(session));
   }
 
   /// Whether the task is done: as a hook's answer, or as the exit status, with what's left.
@@ -613,7 +619,7 @@ public final class Main {
     var verdict = gateVerdict(gated, open.get());
     var state = open.get().remembering(verdict.red());
     if (verdict.passes()) {
-      state.passed().write(gated.work());
+      stopped(gated, state.passed()).write(gated.work());
       return answer(gated, forThePerson(gated, state, verdict));
     }
     return notDone(gated, state, verdict);
@@ -631,8 +637,14 @@ public final class Main {
     } else if (gated.hooked() && state.blocks() > tries) {
       answer = new Gate.Verdict(true, true, gaveUp(tries, verdict.text()));
     }
-    (answer.passes() ? state.passed() : state).write(gated.work());
+    (answer.passes() ? stopped(gated, state.passed()) : state).write(gated.work());
     return answer(gated, answer.passes() ? forThePerson(gated, open, answer) : answer);
+  }
+
+  /// As a hook, a check that lets the agent stop notes what's ignored: what's ignored after it, and
+  /// before the next prompt, is the person's.
+  private static Gate.State stopped(Gated gated, Gate.State state) {
+    return gated.hooked() ? state.stoppedWith(ignored(gated.prepared().directory())) : state;
   }
 
   /// A pass or a hand-over, with the tests there when the task started that it changed what they
@@ -1813,7 +1825,8 @@ public final class Main {
         "Start gating a coding agent's task: keep where it starts",
         "Keeps the commit the task starts from, its ignores, and how many tests run and are"
             + " disabled, in the module's work directory, so gate check can say whether the task is"
-            + " done. With --hook, once for each of the agent's sessions.",
+            + " done. With --hook, once for each of the agent's sessions; at a later prompt, it"
+            + " takes in the ignores made since the agent stopped.",
         "0 once it has kept where the task starts; 2 outside a git repository with a commit.",
         List.of("mutastic gate open", "mutastic gate open --hook=claude")),
     GATE_CHECK(
