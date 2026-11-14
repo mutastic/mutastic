@@ -74,7 +74,8 @@ it on docs.mutastic.io. It holds what the editions must agree on:
   names, choices, defaults, environment variables and exit codes;
 - every error code with its exit code, the pairs that mean the same thing (`errorPairs`), and a
   table of error cases (`errorCases`) with the code and exit code each must end with;
-- help's layout, the human summary's rows and their order, and the agent format's line shapes;
+- help's layout, the human summary's rows and their order, and the agent format's line shapes
+  (its head, each entry, and the tail that closes the fence around the project's text);
 - the events' key paths per event type and their order, and mutation.json's key paths;
 - the events, report and SARIF schemas, by sha256;
 - the 15 decisions taken on 13 Nov 2026 (`decisions`), each a shared rule;

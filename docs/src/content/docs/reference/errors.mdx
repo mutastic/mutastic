@@ -60,6 +60,25 @@ it is for `mutastic run samples/pricing --formt=jsonl`:
 
 A `--hook` run answers as its agent's hooks do, and writes no event.
 
+## The same error in the Rust edition
+
+Most codes are the same in both editions. Where an error is about the build tool, each edition
+names it for its own, and a few kinds have a code in one edition only. A script that reads both
+should treat each pair below as one kind:
+
+| Java edition | Rust edition | The error |
+|---|---|---|
+| `no-build-tool` | `no-cargo` | No build tool to run the build with |
+| `module-without-java`, at a build's root | `workspace-root` | The root of a build of modules (a workspace), which mutastic doesn't test as one; it names the modules (packages) to test |
+| `module-missing` | `no-directory`, for a workspace member | The module (package) named isn't in the build |
+| `build-failed` | `build-failed`, `copy-build-failed` | The project doesn't build; the Rust edition says too when only its copy with the mutants in fails |
+
+These are only the Java edition's: `unknown-suite`, `tests-stopped`, `tests-timed-out`, `no-tests`,
+`nothing-covered` and `disk`. These are only the Rust edition's: `both-editions`, `java-edition`
+and `proc-macro`. A code an edition doesn't have comes out there as `other`, or as the nearest it
+has. Both editions keep these names for 1.x. A new edition uses the general name of each pair:
+`no-build-tool`, and `build-root` for the root of a build of modules.
+
 ## Mistakes in the command line
 
 These exit with 2. When nothing is close to what you typed, one line of the command's usage
