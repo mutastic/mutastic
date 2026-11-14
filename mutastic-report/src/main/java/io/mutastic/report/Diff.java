@@ -86,7 +86,7 @@ public record Diff(int first, List<String> before, Optional<List<String>> after,
       shown.add(ELLIPSIS);
     }
     for (var line : lines.subList(from, to)) {
-      shown.add(line.substring(Math.min(indent, leading(line))).stripTrailing());
+      shown.add(Untrusted.value(line.substring(Math.min(indent, leading(line))).stripTrailing()));
     }
     if (to < lines.size()) {
       shown.add(ELLIPSIS);

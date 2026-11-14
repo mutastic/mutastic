@@ -277,7 +277,7 @@ class GateTest {
 
     assertThat(broken.exit()).isEqualTo(Main.FAILED);
     assertThat(broken.out())
-        .contains("PricingTest#bigOrdersGetTenPercentOff was there when the task started")
+        .contains("PricingTest#bigOrdersGetTenPercentOff (there when the task started)")
         .contains("Find out whether the change or the test is wrong")
         .contains("Don't change what a test expects, or take it away, to make it pass")
         .contains("if you're not sure, ask")
@@ -293,9 +293,8 @@ class GateTest {
         .doesNotContain("there when the task started");
     assertThat(deleted.exit()).isEqualTo(Main.FAILED);
     assertThat(deleted.out())
-        .contains(
-            "com.example.pricing.PricingTest#hugeOrders failed at an earlier check, and it's gone"
-                + " now. Put it back")
+        .contains("the test named below failed at an earlier check, and it's gone now. Put it back")
+        .contains("\ncom.example.pricing.PricingTest#hugeOrders\n<<end mutastic-data ")
         .contains("unless the spec or plan is what's wrong, in which case say so and stop")
         .doesNotContain("bigOrdersGetTenPercentOff"); // still there, and passing
   }
@@ -353,15 +352,14 @@ class GateTest {
 
     assertThat(blocked.out())
         .startsWith("{\"decision\": \"block\"")
-        .contains("ThresholdTest#shippingIsFreeFromFifty was there when the task started");
+        .contains("ThresholdTest#shippingIsFreeFromFifty (there when the task started)");
     assertThat(handedOver.out())
         .startsWith("{\"systemMessage\": ")
         .contains("nothing changed since the agent was sent back, so it's over to you");
     assertThat(broken.exit()).isEqualTo(Main.FAILED);
     assertThat(broken.out())
-        .contains(
-            "ThresholdTest#shippingIsFreeFromFifty was there when the task started: if it passed"
-                + " then, the task's change broke it");
+        .contains("One was there when the task started, marked so below: if it passed then, the")
+        .contains("ThresholdTest#shippingIsFreeFromFifty (there when the task started)");
     assertThat(plain.exit()).isEqualTo(Main.PASSED);
     assertThat(plain.out()).contains("    Tests  none ran: no mutant to run\n");
     assertThat(unbroken.exit()).as(unbroken.out()).isEqualTo(Main.PASSED);
@@ -371,10 +369,149 @@ class GateTest {
                 + " to run\n");
     assertThat(data.exit()).isEqualTo(Main.FAILED);
     assertThat(data.out())
-        .contains("PricingTest#smallOrdersPayFullPrice was there when the task started");
+        .contains("PricingTest#smallOrdersPayFullPrice (there when the task started)");
     assertThat(untouched.exit()).isEqualTo(Main.PASSED);
     assertThat(untouched.out())
         .isEqualTo("mutastic gate: passed: the task changed no lines mutastic mutates\n");
+  }
+
+  /// A task that changes no line mutastic mutates is still held to the gate's other checks: it
+  /// mustn't take a test away, or ignore a mutant or add one to the baseline itself. Without them,
+  /// an agent passes by deleting the test that fails, once the rest pass. Its own ignore or
+  /// baseline entry holds it where git doesn't see `.mutastic/` too. An ignore the person accepts
+  /// between turns is still the task's to start from, and a task that changed nothing passes at
+  /// once.
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "deletes-file",
+        "removes-test",
+        "ignores",
+        "baselines",
+        "ignores-unseen",
+        "baselines-unseen",
+        "person-ignores",
+        "nothing"
+      })
+  void aTaskThatChangesNoMutatedLineIsHeldToTheOtherChecks(String task) throws Exception {
+    // A test the task starts with, failing: what an agent would rather take away than pass, in a
+    // file of its own or beside another.
+    var failing =
+        """
+          @Test
+          void shippingIsFreeFromForty() {
+            assertEquals(0, new Pricing().shipping(45));
+          }
+        """;
+    var tests = project.resolve("src/test/java/com/example/pricing");
+    var pricingTest = tests.resolve("PricingTest.java");
+    var original = Files.readString(pricingTest);
+    switch (task) {
+      case "deletes-file" ->
+          Files.writeString(
+              tests.resolve("FortyTest.java"),
+              """
+              package com.example.pricing;
+
+              import static org.junit.jupiter.api.Assertions.assertEquals;
+
+              import org.junit.jupiter.api.Test;
+
+              class FortyTest {
+              %s}
+              """
+                  .formatted(failing));
+      case "removes-test" ->
+          Files.writeString(
+              pricingTest,
+              original.substring(0, original.lastIndexOf('}')) + "\n" + failing + "}\n");
+      // A project whose git doesn't see `.mutastic/`: the tree looks untouched.
+      case "ignores-unseen", "baselines-unseen" ->
+          Files.writeString(project.resolve(".gitignore"), "build/\n.gradle/\n.mutastic/\n");
+      default -> {}
+    }
+    git("add", "-A");
+    git(
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@t",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "--allow-empty",
+        "-qm",
+        "t");
+    var session = "{\"session_id\":\"s1\"}";
+    hooked(session, "gate", "open", "--hook=claude");
+    var fewer =
+        "mutastic gate: fewer tests run than when the task started (4, 0 disabled; now 3, 0"
+            + " disabled). Put them back: the gate doesn't pass a change by taking tests away";
+    String held =
+        switch (task) {
+          case "deletes-file" -> {
+            Files.delete(tests.resolve("FortyTest.java"));
+            yield fewer;
+          }
+          case "removes-test" -> {
+            Files.writeString(pricingTest, original);
+            yield fewer;
+          }
+          case "ignores", "ignores-unseen" -> {
+            var id = aMissedMutant();
+            mutastic("ignore", id, project.toString(), "--reason=mine to decide");
+            yield "mutastic gate: the task ignored "
+                + id
+                + " itself, and whether a mutant is worth"
+                + " a test is a person's call";
+          }
+          case "baselines", "baselines-unseen" -> {
+            var id = aMissedMutant();
+            assertThat(mutastic("baseline", project.toString()).exit()).isEqualTo(Main.PASSED);
+            // `.mutastic\\baseline.yaml` on Windows, as the gate says it there
+            yield "mutastic gate: the task added %s to %s itself, and whether a miss is the"
+                    .formatted(id, Baseline.FILE.toString().replace("\\", "\\\\"))
+                + " project's backlog is a person's call";
+          }
+          case "person-ignores" -> {
+            // The agent's turn changes nothing, and the gate lets it stop. Between turns the
+            // person ignores a mutant, and prompts again.
+            var id = aMissedMutant();
+            assertThat(hooked(session, "gate", "check", "--hook=claude").out())
+                .startsWith("{\"systemMessage\": \"mutastic gate: passed");
+            mutastic("ignore", id, project.toString(), "--reason=a person's call");
+            hooked(session, "gate", "open", "--hook=claude");
+            yield null;
+          }
+          default -> null;
+        };
+    var answer = hooked(session, "gate", "check", "--hook=claude");
+
+    if (held == null) {
+      assertThat(answer.out())
+          .isEqualTo(
+              "{\"systemMessage\": \"mutastic gate: passed: %s\"}\n"
+                  .formatted(
+                      task.equals("nothing")
+                          ? "the task changed no lines mutastic mutates"
+                          : "the tests pass, and the task changed no lines mutastic mutates"));
+      return;
+    }
+    assertThat(answer.out()).as(task).startsWith("{\"decision\": \"block\", \"reason\": \"" + held);
+    // Sent back, the agent changes nothing: over to the person, with the same words.
+    assertThat(hooked(session, "gate", "check", "--hook=claude").out())
+        .as(task)
+        .startsWith(
+            "{\"systemMessage\": \"mutastic gate: nothing changed since the agent was sent back")
+        .contains(held);
+  }
+
+  /// The mutant the sample misses, `>=` turning into `>` far from the edge, by its id.
+  private String aMissedMutant() {
+    var run = mutastic("run", project.toString(), "--format=agent", "--threshold=0");
+    var ids = missedIds(run.out());
+    assertThat(ids).as(run.out()).isNotEmpty();
+    return ids[0];
   }
 
   /// A pass tells the person when the task changed what an existing test expects: a test made to
@@ -401,8 +538,9 @@ class GateTest {
       assertThat(passed.out())
           .contains("passed")
           .contains(
-              "The task changed what tests that were there when it started expect, in"
-                  + " PricingTest.java: check that's what you asked for");
+              "The task changed what tests that were there when it started expect, in the"
+                  + " files below: check that's what you asked for")
+          .containsPattern("\nPricingTest\\.java\n<<end mutastic-data [0-9a-f]{8}>>");
     }
     assertThat(untouched.exit()).isEqualTo(Main.PASSED);
     assertThat(untouched.out()).doesNotContain("changed what tests");

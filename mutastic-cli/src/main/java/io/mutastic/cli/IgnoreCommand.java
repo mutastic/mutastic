@@ -5,6 +5,7 @@ import io.mutastic.api.Mutant;
 import io.mutastic.engine.Engine;
 import io.mutastic.report.MutantCommand;
 import io.mutastic.report.SourceView;
+import io.mutastic.report.Untrusted;
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -53,7 +54,7 @@ final class IgnoreCommand {
         "mutastic: %s is proposed for ignoring: %s\n  recorded in %s: it counts as missed until a"
             + " person accepts it\n  to accept: %s\n  to withdraw: %s\n",
         mutant.id(),
-        how.reason(),
+        Untrusted.value(how.reason()),
         where.shownProposals(),
         where.command(List.of("--accept", mutant.id())),
         where.command(List.of("--remove", mutant.id())));
@@ -74,7 +75,7 @@ final class IgnoreCommand {
         "mutastic: %s is ignored, as proposed: %s\n  recorded in %s: commit it, as a decision to"
             + " review\n  to undo: %s\n",
         id,
-        proposal.orElseThrow().ignore().reason(),
+        Untrusted.value(proposal.orElseThrow().ignore().reason()),
         where.shownFile(),
         where.command(List.of("--remove", id)));
     return Main.PASSED;
@@ -125,8 +126,7 @@ final class IgnoreCommand {
     if (already
         .filter(skip -> skip.startsWith("generated:") || skip.startsWith("equivalent:"))
         .isPresent()) {
-      out.printf(
-          "mutastic: %s doesn't run anyway (%s): nothing to ignore\n", mutant.id(), already.get());
+      out.print(runsAnyway(mutant, already.get()));
       return Main.PASSED;
     }
     var entries = without(mutant.id(), where);
@@ -139,8 +139,17 @@ final class IgnoreCommand {
           recorded in %s: commit it, as a decision to review
           to undo: %s
         """,
-        mutant.id(), reason, where.shownFile(), where.command(List.of("--remove", mutant.id())));
+        mutant.id(),
+        Untrusted.value(reason),
+        where.shownFile(),
+        where.command(List.of("--remove", mutant.id())));
     return Main.PASSED;
+  }
+
+  /// A mutant mutastic skips on its own: nothing to ignore.
+  private static String runsAnyway(Mutant mutant, String skipped) {
+    return "mutastic: %s doesn't run anyway (%s): nothing to ignore\n"
+        .formatted(mutant.id(), Untrusted.value(skipped));
   }
 
   static int remove(String id, Where where, PrintStream out) {
@@ -223,7 +232,7 @@ final class IgnoreCommand {
         """,
         removed,
         removed == 1 ? "" : "s",
-        String.join(", ", stale.stream().sorted().toList()),
+        Untrusted.values(stale.stream().sorted().toList()),
         where.shownFile(),
         MutantCommand.shell(where.shownFile()));
     return Main.PASSED;

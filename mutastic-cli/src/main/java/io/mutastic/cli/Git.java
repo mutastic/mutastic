@@ -51,8 +51,14 @@ final class Git {
       try {
         var real =
             Path.of(output(List.of("rev-parse", "--git-path", "index"), "no git index").strip());
+        // The copy keeps the index's time: git trusts a file whose size and time it has, unless
+        // the file is as new as the index. A copy made now would hide a change made in the same
+        // second that kept the size, where git compares times to the second.
         Files.copy(
-            directory.resolve(real), index, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            directory.resolve(real),
+            index,
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+            java.nio.file.StandardCopyOption.COPY_ATTRIBUTES);
         var scratch = Map.of("GIT_INDEX_FILE", index.toString());
         if (run(List.of("add", "--all"), scratch).isEmpty()) {
           throw new Main.ConfigException("git", "git couldn't read the working tree");
