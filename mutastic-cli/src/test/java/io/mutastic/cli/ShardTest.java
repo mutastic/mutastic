@@ -272,6 +272,7 @@ class ShardTest {
   private static JsonNode withoutTimings(JsonNode report) {
     var copy = report.deepCopy();
     ((ObjectNode) copy).remove("performance");
+    ((ObjectNode) copy.path("mutastic")).remove("startedAt");
     for (JsonNode file : copy.get("files")) {
       for (JsonNode mutant : file.get("mutants")) {
         var fields = (ObjectNode) mutant;

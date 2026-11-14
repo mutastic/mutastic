@@ -83,6 +83,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`mutation.json` says what the cards say.** Under one `mutastic` key on each mutant: where it
+  is (`method`), and for a miss its evidence, its fix, the inputs the tests passed and the test to
+  add; under one at the top, the run's facts: the commands for a mutant, the docs, the score,
+  threshold and verdict, the JDK and when it started. Each test in `testFiles` has its `location`.
+  The report schema stays as it is: these are additions, described at
+  https://docs.mutastic.io/schemas/report/v1.json, and the Rust edition writes the same.
 - **`mutastic mutants` lists the mutants, and runs no test.** One line each, as the Rust edition
   prints it: the id, the change's file, line and column, the operator, the change, and the method
   it's in; then how many. With `--operators=stronger` it shows what a set would add before a run
