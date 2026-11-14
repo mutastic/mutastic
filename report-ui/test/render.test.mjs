@@ -180,7 +180,7 @@ describe('a report written to break the page', () => {
       mutants: [
         { id: 'm0000000a', mutatorName: evil, replacement: evil, description: `\`${evil}\``, status: 'Survived', statusReason: `no test sees ${evil}`,
           location: { start: { line: 2, column: 13 }, end: { line: 2, column: 20 } }, coveredBy: [`tests::${evil}`],
-          mutastic: { fix: `check ${evil}`, evidence: ['shown \u202Eevil\u202C here\u200B and \u001b[31mred'], inputs: { [evil]: [evil] },
+          mutastic: { fix: 'check \u202Eevil\u202C here\u200B and \u001b[31mred', evidence: ['shown \u202Eevil\u202C here\u200B and \u001b[31mred'], inputs: { [evil]: [evil] },
             suggestedTest: { testClass: evil, code: 'let x = "```";\nlet y = "````";', call: evil, today: evil, withMutant: evil } } },
         { id: 'm0000000b', mutatorName: 'logical', replacement: 'a || b || c', description: '`&&` becomes `||`', status: 'Survived',
           location: { start: { line: 4, column: 8 }, end: { line: 6, column: 13 } }, coveredBy: [] },
@@ -219,14 +219,58 @@ describe('a report written to break the page', () => {
     await file.close();
   });
 
-  test('Copy shows hidden characters as escapes and fences code longer than any backticks in it', async () => {
+  test('Copy shows hidden characters as escapes', async () => {
     const page = await open(json, '#/m/m0000000a');
     const text = await page.copied('.dd-head [data-list]');
-    assert.match(text, /Shown \\u\{202E\}evil\\u\{202C\} here\\u\{200B\} and \\u\{001B\}\[31mred/);
-    assert.doesNotMatch(text, /[\u202A-\u202E\u200B\u001b]/);
-    assert.match(text, /## No test sees \\<img src=x/, 'HTML outside code is escaped, so a paste can\'t hide text in a comment');
-    assert.match(text, /`src\/<img src=x onerror="window.__owned=1">.rs:2`/, 'in code it stays as it is');
-    assert.match(text, /\n`````rust\nlet x = "```";\nlet y = "````";\n`````\n/);
+    assert.equal(text, `- ${evil}.rs:2 - check \\u{202E}evil\\u{202C} here\\u{200B} and \\u{001B}[31mred\n`);
+    await page.close();
+  });
+});
+
+describe('what the tests let through', () => {
+  const at = (line) => ({ start: { line, column: 5 }, end: { line, column: 7 } });
+  const json = report({
+    'src/a/lib.rs': { language: 'rust', source: 'fn f() {\n    1 + 1\n}\n', mutants: [
+      { id: 'm00000001', mutatorName: 'math', description: '`+` becomes `-`', status: 'Survived', location: at(2), coveredBy: ['t::a'], mutastic: { fix: 'Test `f()` and assert it' } }] },
+    'src/b/lib.rs': { language: 'rust', source: 'fn g() {\n    1 + 1\n}\n', mutants: [
+      { id: 'm00000002', mutatorName: 'math', description: '`+` becomes `-`', status: 'Killed', location: at(2), killedBy: ['t::b'] },
+      { id: 'm00000003', mutatorName: 'math', description: '`+` becomes `-`', status: 'NoCoverage', location: at(2), mutastic: { method: 'g()', nearUnsafe: 'inside unsafe code' } }] },
+    'src/neon.rs': { language: 'rust', source: 'fn h() {\n    1 + 1\n}\n', mutants: [
+      { id: 'm00000004', mutatorName: 'math', description: '`+` becomes `-`', status: 'Killed', location: at(2), killedBy: ['t::c'] },
+      { id: 'm00000005', mutatorName: 'math', description: '`+` becomes `-`', status: 'Timeout', location: at(2) },
+      { id: 'm00000006', mutatorName: 'math', description: '`+` becomes `-`', status: 'Ignored', statusReason: 'equivalent: no caller sees it', location: at(2) }] },
+  });
+
+  test('lists a change no test reaches beside the misses, and says what keeps a score down', async () => {
+    const page = await open(json, '#/file/src/b/lib.rs');
+    assert.match(await page.text('aside'), /50\.0%[\s\S]*1 change no test reaches[\s\S]*Tests to write[\s\S]*Add a test that calls g\(\)/);
+    assert.match(await page.text('#tabs'), /Tests to write\s+2/);
+    await page.route('#/m/m00000003');
+    assert.match(await page.text('h1'), /No test reaches g\(\)/);
+    assert.match(await page.text('.dd-head'), /near unsafe/);
+    assert.match(await page.text('main'), /mutastic verify|What to test\s+Add a test that calls g\(\)/);
+    await page.route('#/missed');
+    assert.equal(await page.count('.list .miss'), 2);
+    assert.match(await page.text('main'), /not covered/);
+    await page.route('#/');
+    assert.match(await page.text('.hero .score'), /1 missed, 1 no test reaches/);
+    await page.close();
+  });
+
+  test('says why a file with nothing to write still isn\'t all caught', async () => {
+    const page = await open(json, '#/file/src/neon.rs');
+    assert.match(await page.text('aside'), /None here\. 1 timed out, which counts as caught; 1 skipped, out of the score\./);
+    assert.doesNotMatch(await page.text('aside'), /no test reaches|missed/, 'a timeout counts as caught: no gap to name');
+    await page.close();
+  });
+
+  test('Copy lists each a line, by file name, by path where two share a name', async () => {
+    const page = await open(json, '#/missed');
+    assert.equal(await page.copied('.hero [data-list]'), '- src/a/lib.rs:2 - test `f()` and assert it\n- src/b/lib.rs:2 - add a test that calls `g()`\n');
+    await page.key('j');
+    assert.equal(await page.eval('location.hash'), '#/m/m00000001', 'j steps through the tests to write');
+    await page.key('j');
+    assert.equal(await page.eval('location.hash'), '#/m/m00000003');
     await page.close();
   });
 });

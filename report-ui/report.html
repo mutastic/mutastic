@@ -159,6 +159,7 @@ input[type=search]{flex:1 1 220px;min-width:0;min-height:42px;padding:0 14px;bor
 .gauge{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
 .gauge b{font-size:44px;font-weight:700;line-height:1}
 .cap{font-size:13px;color:var(--muted)}
+.gapline{font:600 13px var(--display);color:var(--survInk)}
 .todo{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
 .todo a,.todo .row{display:flex;gap:10px;color:var(--text);text-decoration:none;padding:6px;border-radius:8px}
 .todo a:hover{background:var(--surface2)}
@@ -414,7 +415,7 @@ function lit(f){ return f.lit || (f.lit = tokens(f.source, f.lang)); }
 
 // ---------- the report ----------
 var R, RUN, FILES, ALL, BYID, TESTS, ROOT, MUTATORS, ROWS;
-var state = { theme: null, filter: {Survived:true}, mutator: '', treeOnlyMissed: false, q: '', mq: '', tq: '', lineOpen: dict(), missedShown: 50, mutantsShown: 100, testsShown: 100 };
+var state = { theme: null, filter: {Survived:true, NoCoverage:true}, mutator: '', treeOnlyMissed: false, q: '', mq: '', tq: '', lineOpen: dict(), missedShown: 50, mutantsShown: 100, testsShown: 100 };
 try { state.theme = localStorage.getItem('mutastic-theme'); } catch (e) { /* storage off: the system theme */ }
 
 function node(path){ return { path: path, dirs: dict(), files: [], ms: [], c: null }; }
@@ -474,15 +475,42 @@ function navSet(){ return ALL.filter(shown); }
 function linesOf(f){ return f.lines || (f.lines = f.source.split('\n')); }
 function testName(t){ var h = t.indexOf('#'); if (h > 0){ var c = t.slice(0, h); return c.slice(c.lastIndexOf('.') + 1) + t.slice(h); } return t; }
 function testShort(t){ var i = Math.max(t.lastIndexOf('#'), t.lastIndexOf('::'), t.lastIndexOf('.')); return i >= 0 ? t.slice(i + (t.charAt(i) === ':' ? 2 : 1)) : t; }
+// "Tests to write" holds what the tests let through: changes they ran and still passed (missed), and
+// changes no test reaches (not covered). Both count against the score.
+function toWrite(m){ return m.status === 'Survived' || m.status === 'NoCoverage'; }
+// `discount()`, from the method the report names: `Pricing.discount()`, `Pricing::discount()`.
+function methodName(m){ var s = str(m.x.method), i = Math.max(s.lastIndexOf('.'), s.lastIndexOf('::')); return i >= 0 ? s.slice(i + (s.charAt(i) === ':' ? 2 : 1)) : s; }
 function headline(m){
   if (m.status === 'Survived' && m.reason) return cap(m.reason);
-  if (m.status === 'NoCoverage') return 'No test runs this line';
+  if (m.status === 'NoCoverage') return methodName(m) ? 'No test reaches `' + methodName(m) + '`' : 'No test reaches line ' + m.line;
   return cap(m.description);
+}
+// The test to write, in a sentence: the card's fix line, or for a change no test reaches, a test
+// that gets there.
+function fixOf(m){
+  if (str(m.x.fix)) return m.x.fix;
+  if (m.status === 'NoCoverage') return methodName(m) ? 'add a test that calls `' + methodName(m) + '`' : 'add a test that runs line ' + m.line;
+  return 'write a test whose answer changes with this change in';
+}
+// What keeps a score below 100%, in words: `2 missed, 1 no test reaches`.
+function gapLine(c){
+  var parts = [];
+  if (c.Survived) parts.push(c.Survived + ' missed');
+  if (c.NoCoverage) parts.push(c.NoCoverage + (c.Survived ? '' : c.NoCoverage === 1 ? ' change' : ' changes') + ' no test reaches');
+  return parts.join(', ');
+}
+// Why a scope with nothing to write may still not be all caught.
+function nothingToWrite(c){
+  var rest = [], out = c.Ignored + c.CompileError + c.Pending;
+  if (c.Timeout) rest.push(c.Timeout + ' timed out, which counts as caught');
+  if (c.RuntimeError) rest.push(c.RuntimeError + ' crashed, which is out of the score');
+  if (out) rest.push(out + (c.Ignored === out ? ' skipped' : ' skipped or not built') + ', out of the score');
+  return 'None here.' + (rest.length ? ' ' + cap(rest.join('; ')) + '.' : ' Pip approves.');
 }
 function label(m){
   var out = [];
   if (m.status === 'Ignored'){ var k = m.reason.split(':')[0]; if (/^(generated|equivalent|unviable|arid|user|ignored)$/.test(k)) out.push(k); }
-  if (m.x.nearUnsafe === true) out.push('near unsafe');
+  if (str(m.x.nearUnsafe)) out.push('near unsafe');
   if (str(m.x.failureOrigin) && m.status === 'Killed') out.push('failed in ' + m.x.failureOrigin);
   return out;
 }
@@ -559,8 +587,8 @@ function crumbs(r){
 }
 function tabs(r){
   var c = ROOT.c, mv = r.view === 'mutant';
-  var t = [['#/', 'Files', FILES.length, r.view === 'files' || r.view === 'file' || (mv && r.m.status !== 'Survived')],
-    ['#/missed', 'Tests to write', c.Survived, r.view === 'missed' || (mv && r.m.status === 'Survived')],
+  var t = [['#/', 'Files', FILES.length, r.view === 'files' || r.view === 'file' || (mv && !toWrite(r.m))],
+    ['#/missed', 'Tests to write', c.Survived + c.NoCoverage, r.view === 'missed' || (mv && toWrite(r.m))],
     ['#/mutants', 'Mutants', ALL.length, r.view === 'mutants'],
     ['#/tests', 'Tests', Object.keys(TESTS).length, r.view === 'tests']];
   document.getElementById('tabs').innerHTML = t.map(function(x){ return '<a href="' + x[0] + '"' + (x[3] ? ' aria-current="page"' : '') + '>' + x[1] + ' <span class="n">' + x[2] + '</span></a>'; }).join('');
@@ -592,12 +620,13 @@ function gauge(c, name){
   var s = scoreOf(c);
   return '<section class="card pad gauge" aria-label="Score">' + melon(s, 168) +
     '<b style="color:var(' + band(s)[0] + ')">' + fmt(s) + '</b><span style="font-weight:600;overflow-wrap:anywhere">' + esc(name) + '</span>' +
+    (s != null && s < 100 && gapLine(c) ? '<span class="gapline">' + esc(gapLine(c)) + '</span>' : '') +
     '<span class="cap">Green is what your tests check. Red is what they don\'t.</span></section>';
 }
-function todoText(m){ return str(m.x.fix) ? words(cap(m.x.fix)) : words(headline(m)); }
+function todoText(m){ return words(cap(fixOf(m))); }
 function todo(ms, cur, scope, scopeName){
-  var miss = ms.filter(function(m){ return m.status === 'Survived'; });
-  if (!miss.length) return '<section class="card pad"><h2 style="margin-bottom:8px">Tests to write</h2><p class="cap" style="margin:0">None here. Pip approves.</p></section>';
+  var miss = ms.filter(toWrite);
+  if (!miss.length) return '<section class="card pad"><h2 style="margin-bottom:8px">Tests to write</h2><p class="cap" style="margin:0">' + nothingToWrite(counts(ms)) + '</p></section>';
   var start = 0;
   if (cur){ var k = miss.indexOf(cur); if (k > 5) start = k - 3; }
   var some = miss.slice(start, start + 6);
@@ -625,10 +654,10 @@ function runVerdict(){
   return RUN.passed ? ' The run passed its ' + RUN.threshold + '% threshold.' : ' The run is under its ' + RUN.threshold + '% threshold.';
 }
 function keysCard(){
-  var f = state.filter, only = !f.all && Object.keys(f).length === 1 && f.Survived;
+  var f = state.filter, only = !f.all && Object.keys(f).length === 2 && f.Survived && f.NoCoverage;
   return '<p class="keys"><kbd>j</kbd> <kbd>k</kbd> next and previous ' + (only ? 'test to write' : 'mutant shown') + ' · <kbd>Esc</kbd> back · <kbd>/</kbd> find</p>'; }
 function mrow(m, withFile){
-  return '<a class="mrow ' + m.status + '" href="' + mHref(m) + '">' + pill(m.status) + labs(m) + '<span class="d">' + words(m.status === 'Survived' ? headline(m) : m.description) + '</span><span class="id">' + esc(m.id) + '</span>' +
+  return '<a class="mrow ' + m.status + '" href="' + mHref(m) + '">' + pill(m.status) + labs(m) + '<span class="d">' + words(toWrite(m) ? headline(m) : m.description) + '</span><span class="id">' + esc(m.id) + '</span>' +
     (withFile ? '<span class="at">' + esc(m.file) + ':' + m.line + '</span>' : '') + '</a>';
 }
 function moreBtn(id){ return '<button type="button" class="btn more" id="' + id + '">Show more</button>'; }
@@ -686,7 +715,8 @@ function renderFiles(dir){
   var title = dir ? short(dir) : 'All files';
   app.innerHTML = '<div class="cols"><div class="main">' +
     '<div class="hero"><div><h1>' + esc(title) + '</h1><div class="path">' + esc(dir || (str(R.projectRoot) ? short(str(R.projectRoot).replace(/[\\\/]+$/, '').replace(/\\/g, '/')) : '')) + '</div><p class="lede">' + verdict(s) + (dir ? '' : runVerdict()) + ' Each miss is a test you haven\'t written yet.</p></div>' +
-    '<div class="score">' + melon(s, 56) + '<b style="color:var(' + band(s)[0] + ')">' + fmt(s) + '</b><span style="color:var(--muted)">mutation score</span></div></div>' +
+    '<div class="score">' + melon(s, 56) + '<b style="color:var(' + band(s)[0] + ')">' + fmt(s) + '</b><span style="color:var(--muted)">mutation score' +
+    (s != null && s < 100 && gapLine(c) ? '<br><span class="gapline">' + esc(gapLine(c)) + '</span>' : '') + '</span></div></div>' +
     stack(c) +
     '<div class="toolbar"><label for="q">Find a file</label><input id="q" type="search" placeholder="e.g. ' + esc(FILES[0] ? short(FILES[0].path).split('.')[0] : '') + '" value="' + esc(state.q) + '">' +
     '<button type="button" class="chip" id="onlyMissed" aria-pressed="' + state.treeOnlyMissed + '"><span aria-hidden="true">✗</span> Only files with misses</button></div>' +
@@ -699,7 +729,7 @@ function renderFiles(dir){
 function statusCard(c, n){
   return '<section class="card pad" aria-labelledby="st-h"><h2 id="st-h" style="margin-bottom:10px">' + n + ' mutants</h2><ul class="todo">' + ORDER.filter(function(k){ return c[k]; }).map(function(k){
     var inner = '<span class="pill" style="color:var(' + ST[k].ink + ');background:var(' + ST[k].pill + ')" aria-hidden="true">' + ST[k].sym + '</span><span style="flex:1"><b>' + cap(ST[k].word) + '</b> <span class="mono">' + c[k] + '</span><br><span class="cap">' + SAY[k] + '</span></span>';
-    return '<li>' + (k === 'Survived' ? '<a href="#/missed">' + inner + '</a>' : '<div class="row">' + inner + '</div>') + '</li>'; }).join('') + '</ul></section>';
+    return '<li>' + (k === 'Survived' || k === 'NoCoverage' ? '<a href="#/missed">' + inner + '</a>' : '<div class="row">' + inner + '</div>') + '</li>'; }).join('') + '</ul></section>';
 }
 
 // A file's source, in chunks of lines. A long file's chunks are filled as they near the screen.
@@ -759,16 +789,15 @@ app.addEventListener('click', function(e){
 });
 
 function renderMissed(){
-  var all = ALL.filter(function(m){ return m.status === 'Survived'; }), miss = all.filter(function(m){ return !state.mutator || m.mutator === state.mutator; });
-  var nc = ROOT.c.NoCoverage, some = miss.slice(0, state.missedShown);
-  app.innerHTML = '<div class="cols"><div class="main"><div class="hero"><div><h1>Tests to write</h1><p class="lede">Your tests ran each of these and still passed. Write the test, then prove it with <code>mutastic verify</code>.</p></div>' + (miss.length ? '<div>' + copyPair(state.mutator ? 'all:' + state.mutator : 'all', miss.length, state.mutator ? state.mutator + ' misses' : 'all files') + '</div>' : '') + '</div>' +
+  var all = ALL.filter(toWrite), miss = all.filter(function(m){ return !state.mutator || m.mutator === state.mutator; });
+  var some = miss.slice(0, state.missedShown);
+  app.innerHTML = '<div class="cols"><div class="main"><div class="hero"><div><h1>Tests to write</h1><p class="lede">Each is a change your tests let through: they ran it and still passed, or no test reaches it. Write the test, then prove it with <code>mutastic verify</code>.</p></div>' + (miss.length ? '<div>' + copyPair(state.mutator ? 'all:' + state.mutator : 'all', miss.length, state.mutator ? 'what ' + state.mutator + ' made' : 'all files') + '</div>' : '') + '</div>' +
     (all.length ? '<div class="toolbar">' + mutatorPick(all) + '</div>' : '') +
     (miss.length ? '<div class="list">' + some.map(function(m){
-      return '<a class="miss" href="' + mHref(m) + '"><span class="h">' + words(headline(m)) + '</span><span class="w">' + esc(m.id) + '</span><span class="w wide">' + esc(m.file) + ':' + m.line + ' · ' + words(m.description) + '</span>' +
-        (str(m.x.fix) ? '<span class="f">' + words(cap(m.x.fix)) + '</span>' : '') + '</a>'; }).join('') + '</div>' +
+      return '<a class="miss" href="' + mHref(m) + '"><span class="h">' + words(headline(m)) + '</span><span class="w">' + esc(m.id) + '</span><span class="w wide">' + (m.status === 'NoCoverage' ? pill(m.status) + ' ' : '') + esc(m.file) + ':' + m.line + ' · ' + words(m.description) + '</span>' +
+        '<span class="f">' + todoText(m) + '</span></a>'; }).join('') + '</div>' +
       (miss.length > some.length ? moreBtn('more') : '')
-      : '<div class="card empty">' + PIP + '<p>Nothing got through. Every mutant your tests reached, they caught.</p></div>') +
-    (nc ? '<p class="cap">Lines no test runs are listed in each file, and under <a href="#/mutants">Mutants</a>, as <span style="color:var(--ncInk)">○ not covered</span>.</p>' : '') +
+      : '<div class="card empty">' + PIP + '<p>' + (all.length ? 'Nothing here from ' + esc(state.mutator) + '.' : 'Nothing got through: your tests reach every change, and caught each one they ran.') + '</p></div>') +
     '</div><aside>' + gauge(ROOT.c, 'All files') + keysCard() + '</aside></div>';
   var b = document.getElementById('more'); if (b) b.addEventListener('click', function(){ state.missedShown += 100; render(); });
 }
@@ -904,7 +933,7 @@ function inputsSeen(x){
 }
 function agentCard(m, n){
   var x = m.x, src = linesOf(m.f)[m.line - 1] || '', out = [], c = commands(m), st = obj(x.suggestedTest), ev = strs(x.evidence);
-  out.push(n + '. missed ' + m.id + ': ' + (m.reason || m.description));
+  out.push(n + '. ' + ST[m.status].word + ' ' + m.id + ': ' + (m.status === 'Survived' ? m.reason || m.description : headline(m)));
   out.push('   at ' + m.file + ':' + m.line);
   var after = spliced(m, src);
   if (after != null){ out.push('   - ' + src.trim()); out.push('   + ' + after.trim()); }
@@ -912,7 +941,7 @@ function agentCard(m, n){
   if (m.coveredBy.length) out.push('   covered by: ' + m.coveredBy.map(testName).join(', ') + '; all still pass with the change');
   ev.forEach(function(e){ out.push('   evidence: ' + e); });
   if (inputsSeen(x) && !ev.some(function(e){ return /^inputs seen/.test(e); })) out.push('   evidence: inputs seen: ' + inputsSeen(x));
-  if (str(x.fix)) out.push('   fix: ' + x.fix);
+  out.push('   fix: ' + fixOf(m));
   if (str(st.code)){
     out.push('   test to add in ' + str(st.testClass) + ':');
     st.code.split('\n').forEach(function(l){ out.push('     ' + l); });
@@ -923,21 +952,22 @@ function agentCard(m, n){
 }
 function prompt(ms){
   var one = ms.length === 1;
-  return (one ? 'Write the test this mutant asks for. It is a small change mutastic made to the code, and every test that ran it still passed: behaviour no test checks.'
-              : 'Write the tests these mutants ask for. Each is a small change mutastic made to the code, and every test that ran it still passed: behaviour no test checks.') +
+  return (one ? 'Write the test this mutant asks for. It is a small change mutastic made to the code that no test caught: behaviour no test checks.'
+              : 'Write the tests these mutants ask for. Each is a small change mutastic made to the code that no test caught: behaviour no test checks.') +
+    ' A missed one ran and every test still passed; a not covered one no test reaches.' +
     '\n\nRules:\n' + (one ? RULES : RULES.concat([TASK_LIST])).map(function(r){ return '- ' + r; }).join('\n') + '\n\n' +
     ms.map(function(m, i){ return agentCard(m, i + 1); }).join('\n\n') + '\n';
 }
 // "Copy" beside "Copy as prompt": the same misses, one for a person and one for an agent.
 function copyPair(which, n, scopeName, primary){
-  var what = n === 1 && !scopeName ? 'this miss' : (n === 1 ? 'the miss' : 'the ' + n + ' misses') + (scopeName ? ' in ' + scopeName : '');
-  var list = '<button type="button" class="btn' + (primary && !PROMPT ? ' primary' : '') + '" data-list="' + esc(which) + '" title="As a list, for an issue or a PR: ' + esc(what) + '"><span class="lbl">Copy</span></button>';
+  var what = n === 1 && !scopeName ? 'this one' : (n === 1 ? 'the test to write' : 'the ' + n + ' tests to write') + (scopeName ? ' in ' + scopeName : '');
+  var list = '<button type="button" class="btn' + (primary && !PROMPT ? ' primary' : '') + '" data-list="' + esc(which) + '" title="As a list, for an issue or a PR" aria-label="Copy ' + esc(what) + ' as a list"><span class="lbl">Copy</span></button>';
   if (!PROMPT) return '<div class="pair">' + list + '</div>';
   var text = 'Copy as prompt' + (scopeName ? ' · ' + scopeName : '');
   return '<div class="pair">' + list + '<button type="button" class="btn' + (primary ? ' primary' : '') + '" data-prompt="' + esc(which) + '" title="For your coding agent: ' + esc(what) + ', with mutastic\'s rules"><span class="lbl">' + esc(text) + '</span></button></div>';
 }
 function missSet(w){
-  var miss = ALL.filter(function(m){ return m.status === 'Survived'; });
+  var miss = ALL.filter(toWrite);
   if (w === 'all') return miss;
   if (w.indexOf('all:') === 0) return miss.filter(function(m){ return m.mutator === w.slice(4); });
   if (w.indexOf('file:') === 0) return miss.filter(function(m){ return m.file === w.slice(5); });
@@ -951,45 +981,15 @@ function neutral(text){
   return text.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u061c\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g, function(c){
     return '\\u{' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0') + '}'; });
 }
-// Backticks around `text`, more of them than any run inside it, so the text can't end the span.
-function ticks(text, min){
-  var run = 0; (text.match(/`+/g) || []).forEach(function(r){ run = Math.max(run, r.length); });
-  return new Array(Math.max(min, run + 1) + 1).join('`');
-}
-// Prose for Markdown: `<` outside code escaped, so pasted HTML or a comment can't hide anything.
-function prose(text){
-  var out = '', re = /(`+)[\s\S]*?\1/g, last = 0, m;
-  text = String(text);
-  while ((m = re.exec(text))){ out += text.slice(last, m.index).replace(/</g, '\\<') + m[0]; last = re.lastIndex; }
-  return out + text.slice(last).replace(/</g, '\\<');
-}
-function inline(text){ var t = ticks(text, 1), pad = /^`|`$/.test(text) ? ' ' : ''; return t + pad + text + pad + t; }
-function fenced(code, lang){ var t = ticks(code, 3); return t + (lang || '') + '\n' + code + '\n' + t; }
-// The misses as the page describes them, in Markdown that reads as plain text too: for an issue, a
-// PR comment or a chat. The page's own words; a field the report lacks is left out.
-function issues(ms, which){
-  var where = which === 'all' ? '' : which.indexOf('all:') === 0 ? ' made by ' + which.slice(4) : which.indexOf('file:') === 0 ? ' in ' + short(which.slice(5))
-    : which.indexOf('dir:') === 0 ? ' in ' + which.slice(4) + '/' : '';
-  var head = (ms.length === 1 ? 'Test to write' : ms.length + ' tests to write') + (which === ms[0].id ? ': ' + ms[0].id : where);
-  return '# ' + prose(head) + '\n\n' + ms.map(function(m, i){
-    var x = m.x, src = linesOf(m.f)[m.line - 1] || '', after = spliced(m, src), st = obj(x.suggestedTest), c = commands(m), out = [];
-    out.push('## ' + (ms.length > 1 ? (i + 1) + '. ' : '') + prose(headline(m)));
-    out.push(inline(m.file + ':' + m.line) + ' · ' + m.id);
-    out.push(after != null ? fenced('- ' + src.trim() + '\n+ ' + after.trim(), 'diff') : 'The change: ' + prose(m.description) + '.');
-    var why = strs(x.evidence).filter(function(e){ return !(inputsSeen(x) && /^inputs seen/.test(e)); }).map(function(e){ return cap(e) + '.'; });
-    why.push(m.coveredBy.length ? 'Every test that ran it still passed with the change in.' : 'No test ran it.');
-    out.push('**Why it got through:** ' + prose(why.join(' ')));
-    var inputs = obj(x.inputs), want = obj(st.arguments), names = Object.keys(inputs).filter(function(k){ return Array.isArray(inputs[k]); });
-    if (names.length) out.push('**Inputs the tests used:** ' + names.map(function(p){
-      var seen = inputs[p].map(val), w = p in want ? val(want[p]) : null;
-      return inline(p) + ': ' + seen.map(inline).join(', ') + (w != null && seen.indexOf(w) < 0 ? ' (none is ' + inline(w) + ')' : ''); }).join('; '));
-    if (str(st.code)){
-      out.push('**Test to add**' + (str(st.testClass) ? ' in ' + inline(st.testClass) : '') + ':' + (str(x.fix) ? ' ' + prose(cap(x.fix)) + '.' : ''));
-      out.push(fenced(st.code, m.f.lang));
-    } else if (str(x.fix)) out.push('**What to test:** ' + prose(cap(x.fix)) + '.');
-    if (c) out.push('**Done when this passes:** ' + inline(c.verify));
-    return out.join('\n\n');
-  }).join('\n\n') + '\n';
+// The tests to write as a list, a line each, for an issue, a PR or a chat: `- lib.rs:62 - add a test
+// where …`. A file goes by its name, or its path where two in the list share a name.
+function issues(ms){
+  var paths = dict();
+  ms.forEach(function(m){ (paths[short(m.file)] = paths[short(m.file)] || dict())[m.file] = 1; });
+  return ms.map(function(m){
+    var fix = fixOf(m), name = Object.keys(paths[short(m.file)]).length > 1 ? m.file : short(m.file);
+    return '- ' + name + ':' + m.line + ' - ' + fix.charAt(0).toLowerCase() + fix.slice(1);
+  }).join('\n') + '\n';
 }
 function copy(text, b){
   var lbl = b.querySelector('.lbl') || b, was = lbl.textContent;
@@ -1000,7 +1000,7 @@ document.addEventListener('click', function(e){
   var b = e.target.closest('[data-prompt]');
   if (b){ var ms = missSet(b.getAttribute('data-prompt')); if (ms.length) copy(neutral(prompt(ms)), b); return; }
   b = e.target.closest('[data-list]');
-  if (b){ var ls = missSet(b.getAttribute('data-list')); if (ls.length) copy(neutral(issues(ls, b.getAttribute('data-list'))), b); return; }
+  if (b){ var ls = missSet(b.getAttribute('data-list')); if (ls.length) copy(neutral(issues(ls)), b); return; }
   b = e.target.closest('[data-copy]');
   if (b) copy(b.getAttribute('data-copy'), b);
 });
@@ -1048,15 +1048,13 @@ function why(m){
   return m.reason ? '<section class="sec"><h2>Why</h2><p>' + words(cap(m.reason)) + '.</p></section>' : '';
 }
 function suggestion(m){
-  var x = m.x, st = obj(x.suggestedTest), fix = str(x.fix);
+  var x = m.x, st = obj(x.suggestedTest), fix = toWrite(m) ? fixOf(m) : '';
   if (str(st.code)){
     return '<section class="sec"><h2>Test to add</h2>' + (fix ? '<p class="help">' + words(cap(fix)) + '.</p>' : '') +
       '<div class="cmd col"><div class="head"><span class="cap">in <code>' + esc(st.testClass) + '</code></span>' + copyBtn(st.code, 'the test', 'btn') + '</div><pre class="code">' + esc(st.code) + '</pre></div>' +
       (str(st.call) ? '<p class="cap">Today <code>' + esc(st.call) + '</code> gives <code>' + esc(st.today) + '</code>; with the mutant, <code>' + esc(st.withMutant) + '</code>. Check today\'s answer is the one you mean: the test pins what the code does now.</p>' : '') + '</section>';
   }
-  if (fix) return '<section class="sec"><h2>What to test</h2><p class="help">' + words(cap(fix)) + '.</p></section>';
-  if (m.status === 'Survived' || m.status === 'NoCoverage') return '<section class="sec"><h2>What to test</h2><p>Write a test whose answer changes with this change in.</p></section>';
-  return '';
+  return fix ? '<section class="sec"><h2>What to test</h2><p class="help">' + words(cap(fix)) + '.</p></section>' : '';
 }
 function inputsSec(m){
   var inputs = obj(m.x.inputs), want = obj(obj(m.x.suggestedTest).arguments), names = Object.keys(inputs).filter(function(k){ return Array.isArray(inputs[k]); });
@@ -1098,7 +1096,7 @@ function renderMutant(m){
   else scope = state.filter.all ? 'mutant' : ORDER.filter(function(s){ return state.filter[s]; }).map(function(s){ return ST[s].word; }).join(' or ');
   var prev = nav[(k - 1 + nav.length) % nav.length], next = nav[(k + 1) % nav.length];
   var head = '<div class="dd-head ' + m.status + '">' + pill(m.status) + labs(m) +
-    '<span class="mono" style="font-size:12px;color:var(--muted)">' + esc(m.mutator) + '</span><span class="grow"></span>' + (m.status === 'Survived' ? copyPair(m.id, 1) : '') +
+    '<span class="mono" style="font-size:12px;color:var(--muted)">' + esc(m.mutator) + '</span><span class="grow"></span>' + (toWrite(m) ? copyPair(m.id, 1) : '') +
     (nav.length > 1 ? '<span class="nav"><a class="btn sq" href="' + mHref(prev) + '" aria-label="Previous ' + esc(scope) + '" aria-keyshortcuts="k">↑</a><span class="pos">' + (k + 1) + ' of ' + nav.length + '</span><a class="btn sq" href="' + mHref(next) + '" aria-label="Next ' + esc(scope) + '" aria-keyshortcuts="j">↓</a></span>' : '') + '</div>';
   app.innerHTML = '<div class="cols"><div class="main"><article class="card" aria-labelledby="dd-t">' + head + '<div class="dd-body">' +
     '<div><h1 class="dd-title" id="dd-t">' + words(headline(m)) + '</h1><div class="where"><a href="' + fileHref(m.file) + '">' + esc(m.file) + '</a>:' + m.line + ' · ' + esc(m.id) + '</div></div>' +

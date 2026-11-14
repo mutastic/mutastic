@@ -145,6 +145,7 @@ input[type=search]{flex:1 1 220px;min-width:0;min-height:42px;padding:0 14px;bor
 .gauge{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
 .gauge b{font-size:44px;font-weight:700;line-height:1}
 .cap{font-size:13px;color:var(--muted)}
+.gapline{font:600 13px var(--display);color:var(--survInk)}
 .todo{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
 .todo a,.todo .row{display:flex;gap:10px;color:var(--text);text-decoration:none;padding:6px;border-radius:8px}
 .todo a:hover{background:var(--surface2)}
