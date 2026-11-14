@@ -1,0 +1,472 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/mutation-testing-elements/master/packages/report-schema/src/mutation-testing-report-schema.json",
+  "schemaVersion": "2",
+  "thresholds": {
+    "high": 80,
+    "low": 60
+  },
+  "projectRoot": "/private/tmp/claude-501/-Users-briancorbin-Code-mutastic/277a661e-9e57-4f0c-b24f-8cd0c88bb0f6/scratchpad/runs/java-pricing",
+  "files": {
+    "src/main/java/com/example/pricing/Pricing.java": {
+      "language": "java",
+      "source": "package com.example.pricing;\n\npublic class Pricing {\n  private final int freeShippingFrom;\n\n  public Pricing() {\n    this(50);\n  }\n\n  /// A test seam: tests set the free-shipping threshold.\n  Pricing(int freeShippingFrom) {\n    this.freeShippingFrom = freeShippingFrom;\n  }\n\n  /// 10% off orders of 100 or more.\n  public int discount(int total) {\n    if (total >= 100) {\n      return total / 10;\n    }\n    return 0;\n  }\n\n  /// Free from the threshold up.\n  public int shipping(int total) {\n    if (total < freeShippingFrom) {\n      return 5;\n    }\n    return 0;\n  }\n}\n",
+      "mutants": [
+        {
+          "id": "m855c8e3c",
+          "mutatorName": "boundary",
+          "replacement": ">",
+          "description": "`>=` becomes `>`",
+          "location": {
+            "start": {
+              "line": 17,
+              "column": 15
+            },
+            "end": {
+              "line": 17,
+              "column": 17
+            }
+          },
+          "status": "Survived",
+          "statusReason": "no test checks `discount()` at `total == 100`",
+          "coveredBy": [
+            "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff",
+            "com.example.pricing.PricingTest#smallOrdersPayFullPrice"
+          ],
+          "testsCompleted": 2,
+          "duration": 394,
+          "mutastic": {
+            "method": "Pricing.discount()",
+            "evidence": [
+              "every test calls `discount()` away from the boundary",
+              "inputs seen: 50, 250 (none is 100)"
+            ],
+            "fix": "test `discount()` with `total = 100` and assert the result",
+            "inputs": {
+              "total": [
+                50,
+                250
+              ]
+            },
+            "suggestedTest": {
+              "testClass": "PricingTest",
+              "name": "discountAtTheTotalEdge",
+              "code": "@Test\nvoid discountAtTheTotalEdge() {\n  assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0\n}",
+              "call": "new Pricing().discount(100)",
+              "today": "10",
+              "withMutant": "0",
+              "arguments": {
+                "total": 100
+              }
+            }
+          }
+        },
+        {
+          "id": "m53e1dc80",
+          "mutatorName": "remove-conditional",
+          "replacement": "`total >= 100` is always false",
+          "description": "`total >= 100` is always false",
+          "location": {
+            "start": {
+              "line": 17,
+              "column": 15
+            },
+            "end": {
+              "line": 17,
+              "column": 17
+            }
+          },
+          "status": "Killed",
+          "statusReason": "org.opentest4j.AssertionFailedError",
+          "coveredBy": [
+            "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff",
+            "com.example.pricing.PricingTest#smallOrdersPayFullPrice"
+          ],
+          "killedBy": [
+            "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff"
+          ],
+          "testsCompleted": 1,
+          "duration": 23,
+          "mutastic": {
+            "method": "Pricing.discount()",
+            "inputs": {
+              "total": [
+                50,
+                250
+              ]
+            },
+            "failureOrigin": "assertion"
+          }
+        },
+        {
+          "id": "mfb551430",
+          "mutatorName": "remove-conditional",
+          "replacement": "`total >= 100` is always true",
+          "description": "`total >= 100` is always true",
+          "location": {
+            "start": {
+              "line": 17,
+              "column": 15
+            },
+            "end": {
+              "line": 17,
+              "column": 17
+            }
+          },
+          "status": "Killed",
+          "statusReason": "org.opentest4j.AssertionFailedError",
+          "coveredBy": [
+            "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff",
+            "com.example.pricing.PricingTest#smallOrdersPayFullPrice"
+          ],
+          "killedBy": [
+            "com.example.pricing.PricingTest#smallOrdersPayFullPrice"
+          ],
+          "testsCompleted": 2,
+          "duration": 407,
+          "mutastic": {
+            "method": "Pricing.discount()",
+            "inputs": {
+              "total": [
+                50,
+                250
+              ]
+            },
+            "failureOrigin": "assertion"
+          }
+        },
+        {
+          "id": "mabd5e44c",
+          "mutatorName": "math",
+          "replacement": "*",
+          "description": "`/` becomes `*`",
+          "location": {
+            "start": {
+              "line": 18,
+              "column": 20
+            },
+            "end": {
+              "line": 18,
+              "column": 21
+            }
+          },
+          "status": "Killed",
+          "statusReason": "org.opentest4j.AssertionFailedError",
+          "coveredBy": [
+            "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff"
+          ],
+          "killedBy": [
+            "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff"
+          ],
+          "testsCompleted": 1,
+          "duration": 413,
+          "mutastic": {
+            "method": "Pricing.discount()",
+            "inputs": {
+              "total": [
+                250
+              ]
+            },
+            "failureOrigin": "assertion"
+          }
+        },
+        {
+          "id": "mf7bb3882",
+          "mutatorName": "return-value",
+          "replacement": "return 0;",
+          "description": "returns `0` instead",
+          "location": {
+            "start": {
+              "line": 18,
+              "column": 7
+            },
+            "end": {
+              "line": 18,
+              "column": 25
+            }
+          },
+          "status": "Killed",
+          "statusReason": "org.opentest4j.AssertionFailedError",
+          "coveredBy": [
+            "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff"
+          ],
+          "killedBy": [
+            "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff"
+          ],
+          "testsCompleted": 1,
+          "duration": 13,
+          "mutastic": {
+            "method": "Pricing.discount()",
+            "inputs": {
+              "total": [
+                250
+              ]
+            },
+            "failureOrigin": "assertion"
+          }
+        },
+        {
+          "id": "m3264f639",
+          "mutatorName": "return-value",
+          "replacement": "return 1;",
+          "description": "returns `1` instead",
+          "location": {
+            "start": {
+              "line": 20,
+              "column": 5
+            },
+            "end": {
+              "line": 20,
+              "column": 14
+            }
+          },
+          "status": "Killed",
+          "statusReason": "org.opentest4j.AssertionFailedError",
+          "coveredBy": [
+            "com.example.pricing.PricingTest#smallOrdersPayFullPrice"
+          ],
+          "killedBy": [
+            "com.example.pricing.PricingTest#smallOrdersPayFullPrice"
+          ],
+          "testsCompleted": 1,
+          "duration": 9,
+          "mutastic": {
+            "method": "Pricing.discount()",
+            "inputs": {
+              "total": [
+                50
+              ]
+            },
+            "failureOrigin": "assertion"
+          }
+        },
+        {
+          "id": "m2de3396d",
+          "mutatorName": "boundary",
+          "replacement": "<=",
+          "description": "`<` becomes `<=`",
+          "location": {
+            "start": {
+              "line": 25,
+              "column": 15
+            },
+            "end": {
+              "line": 25,
+              "column": 16
+            }
+          },
+          "status": "Killed",
+          "statusReason": "org.opentest4j.AssertionFailedError",
+          "coveredBy": [
+            "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
+          ],
+          "killedBy": [
+            "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
+          ],
+          "testsCompleted": 1,
+          "duration": 17,
+          "mutastic": {
+            "method": "Pricing.shipping()",
+            "inputs": {
+              "total": [
+                39,
+                40
+              ]
+            },
+            "failureOrigin": "assertion"
+          }
+        },
+        {
+          "id": "m73f3386e",
+          "mutatorName": "remove-conditional",
+          "replacement": "`total < freeShippingFrom` is always false",
+          "description": "`total < freeShippingFrom` is always false",
+          "location": {
+            "start": {
+              "line": 25,
+              "column": 15
+            },
+            "end": {
+              "line": 25,
+              "column": 16
+            }
+          },
+          "status": "Killed",
+          "statusReason": "org.opentest4j.AssertionFailedError",
+          "coveredBy": [
+            "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
+          ],
+          "killedBy": [
+            "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
+          ],
+          "testsCompleted": 1,
+          "duration": 19,
+          "mutastic": {
+            "method": "Pricing.shipping()",
+            "inputs": {
+              "total": [
+                39,
+                40
+              ]
+            },
+            "failureOrigin": "assertion"
+          }
+        },
+        {
+          "id": "m091729b1",
+          "mutatorName": "remove-conditional",
+          "replacement": "`total < freeShippingFrom` is always true",
+          "description": "`total < freeShippingFrom` is always true",
+          "location": {
+            "start": {
+              "line": 25,
+              "column": 15
+            },
+            "end": {
+              "line": 25,
+              "column": 16
+            }
+          },
+          "status": "Killed",
+          "statusReason": "org.opentest4j.AssertionFailedError",
+          "coveredBy": [
+            "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
+          ],
+          "killedBy": [
+            "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
+          ],
+          "testsCompleted": 1,
+          "duration": 10,
+          "mutastic": {
+            "method": "Pricing.shipping()",
+            "inputs": {
+              "total": [
+                39,
+                40
+              ]
+            },
+            "failureOrigin": "assertion"
+          }
+        },
+        {
+          "id": "m39e3e756",
+          "mutatorName": "return-value",
+          "replacement": "return 0;",
+          "description": "returns `0` instead",
+          "location": {
+            "start": {
+              "line": 26,
+              "column": 7
+            },
+            "end": {
+              "line": 26,
+              "column": 16
+            }
+          },
+          "status": "Killed",
+          "statusReason": "org.opentest4j.AssertionFailedError",
+          "coveredBy": [
+            "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
+          ],
+          "killedBy": [
+            "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
+          ],
+          "testsCompleted": 1,
+          "duration": 11,
+          "mutastic": {
+            "method": "Pricing.shipping()",
+            "inputs": {
+              "total": [
+                39,
+                40
+              ]
+            },
+            "failureOrigin": "assertion"
+          }
+        },
+        {
+          "id": "m3b5420b6",
+          "mutatorName": "return-value",
+          "replacement": "return 1;",
+          "description": "returns `1` instead",
+          "location": {
+            "start": {
+              "line": 28,
+              "column": 5
+            },
+            "end": {
+              "line": 28,
+              "column": 14
+            }
+          },
+          "status": "Killed",
+          "statusReason": "org.opentest4j.AssertionFailedError",
+          "coveredBy": [
+            "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
+          ],
+          "killedBy": [
+            "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
+          ],
+          "testsCompleted": 1,
+          "duration": 11,
+          "mutastic": {
+            "method": "Pricing.shipping()",
+            "inputs": {
+              "total": [
+                39,
+                40
+              ]
+            },
+            "failureOrigin": "assertion"
+          }
+        }
+      ]
+    }
+  },
+  "testFiles": {
+    "src/test/java/com/example/pricing/PricingTest.java": {
+      "source": "package com.example.pricing;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\n\nimport com.example.testing.Orders;\nimport java.util.Properties;\nimport org.junit.jupiter.api.Test;\n\nclass PricingTest {\n  // Only far from the edge: `>=` turning into `>` goes unnoticed.\n  // A helper from another test package, and a test resource: mutastic must find both, as\n  // Gradle's one test classpath does.\n  @Test\n  void bigOrdersGetTenPercentOff() {\n    assertEquals(25, new Pricing().discount(Orders.large()));\n  }\n\n  @Test\n  void smallOrdersPayFullPrice() throws Exception {\n    var orders = new Properties();\n    try (var in = getClass().getResourceAsStream(\"/orders.properties\")) {\n      orders.load(in);\n    }\n    assertEquals(0, new Pricing().discount(Integer.parseInt(orders.getProperty(\"small\"))));\n  }\n\n  // Through the package-private seam, and right at the edge.\n  @Test\n  void shippingIsFreeFromTheThreshold() {\n    var pricing = new Pricing(40);\n    assertEquals(0, pricing.shipping(40));\n    assertEquals(5, pricing.shipping(39));\n  }\n}\n",
+      "tests": [
+        {
+          "id": "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff",
+          "name": "bigOrdersGetTenPercentOff"
+        },
+        {
+          "id": "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold",
+          "name": "shippingIsFreeFromTheThreshold"
+        },
+        {
+          "id": "com.example.pricing.PricingTest#smallOrdersPayFullPrice",
+          "name": "smallOrdersPayFullPrice"
+        }
+      ]
+    }
+  },
+  "framework": {
+    "name": "mutastic",
+    "version": "1.1.0-SNAPSHOT"
+  },
+  "performance": {
+    "setup": 0,
+    "initialRun": 301,
+    "mutation": 2794
+  },
+  "mutastic": {
+    "edition": "java",
+    "runDir": "java-pricing",
+    "docsBase": "https://docs.mutastic.io/",
+    "operatorDocs": {
+      "boundary": "concepts/operators/#boundary",
+      "math": "concepts/operators/#math",
+      "remove-conditional": "concepts/operators/#remove-conditional",
+      "return-value": "concepts/operators/#return-value"
+    },
+    "score": 90.9,
+    "threshold": 80,
+    "passed": true,
+    "toolchain": {
+      "name": "jdk",
+      "version": "17"
+    },
+    "startedAt": "2026-11-13T20:34:31Z"
+  }
+}
