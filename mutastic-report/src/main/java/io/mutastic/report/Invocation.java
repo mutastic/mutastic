@@ -138,14 +138,24 @@ public record Invocation(Form form, String launcher, List<String> target) {
     return camel.toString();
   }
 
-  /// A word with a space or a quote, quoted for a shell. Not a template the person fills in,
-  /// `<id>`, `--as=<equivalent|unreachable|…>` or `--reason="<why>"`: quoting it wouldn't help
-  /// them.
+  /// A word with a space or a quote, quoted for a shell, in single quotes, where nothing in it is
+  /// run, and with what can't be seen escaped ([Untrusted#escape]). Not one of mutastic's templates
+  /// the person fills in, `<id>`, `--as=<equivalent|unreachable|…>` or `--reason="<why>"`: quoting
+  /// it wouldn't help them. Only those: a word from the project with a `<…>` in it is quoted too.
   static String quoted(String word) {
-    return word.matches(PLAIN) || word.matches(".*<[^<>]+>.*")
-        ? word
-        : "'" + word.replace("'", "'\\''") + "'";
+    if (word.matches(PLAIN) || TEMPLATE.matcher(word).matches()) {
+      return word;
+    }
+    return "'" + Untrusted.escape(word).replace("'", "'\\''") + "'";
   }
+
+  /// A word of mutastic's own commands the person fills in, left as it is: `<id>`, or an option
+  /// (`--only=`, `-Dmutastic.reason=`) set to one of the placeholders mutastic writes.
+  private static final java.util.regex.Pattern TEMPLATE =
+      java.util.regex.Pattern.compile(
+          "(?:--[a-z-]+=|-[DP]mutastic\\.[A-Za-z]+=)?(?:<id>|<equivalent\\|unreachable\\|…>|\"<why>\"|"
+              + java.util.regex.Pattern.quote("\"" + MutantCommand.Reason.TEMPLATE + "\"")
+              + ")");
 
   /// The characters a word can have and not need quotes. On Windows, a path's `\` and the `~` of a
   /// short name (`C:\Users\RUNNER~1`) are typed as they are.

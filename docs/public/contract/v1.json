@@ -1044,7 +1044,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "6028d1f5adfda2dbec65f8399ac121dcb2bc45f4a4988c05c41e87ea261d3569"
+      "sha256": "e72d3c2056e063e22237ffda6b1da307bac3917e607ff66fa304e21fff875a33"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1807,20 +1807,6 @@
       "reason": "Each language's own word."
     },
     {
-      "id": "D1",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "`--format agent` with a space is refused",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "decision": 1,
-      "items": [
-        "error:space:*"
-      ]
-    },
-    {
       "id": "D2",
       "kind": "pending",
       "editions": [
@@ -1832,20 +1818,6 @@
       "decision": 2
     },
     {
-      "id": "D5",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "configuration",
-      "summary": "A bad environment value falls back to the default silently",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "decision": 5,
-      "items": [
-        "error:envval:*"
-      ]
-    },
-    {
       "id": "D7",
       "kind": "pending",
       "editions": [
@@ -1855,17 +1827,6 @@
       "summary": "`mutant-finished` is written after `phase-finished checking`, not before its phase ends (see G16)",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
       "decision": 7
-    },
-    {
-      "id": "D8",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "events",
-      "summary": "`mutation.original` and `replacement` aren't the source span replaced and the source that replaces it",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "decision": 8
     },
     {
       "id": "D10",
@@ -1996,20 +1957,6 @@
       "surface": "command line",
       "summary": "`--operators` doesn't take `all`, a namespace, or `-` to leave one out",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G9",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "`--threshold` takes `72.5` and `150`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "error:th:*",
-        "error:thf:*"
-      ]
     },
     {
       "id": "G10",
@@ -2200,7 +2147,7 @@
         "rust"
       ],
       "surface": "errors",
-      "summary": "No `disk`, `environment`, `no-tests`, `nothing-covered`, `tests-stopped` or `tests-timed-out` codes",
+      "summary": "No `disk`, `no-tests`, `nothing-covered`, `tests-stopped` or `tests-timed-out` codes",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
@@ -2571,16 +2518,6 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "P2",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "reports",
-      "summary": "Remove-conditional `replacement` is the description, not the source (with D8)",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "P3",
       "kind": "pending",
       "editions": [
@@ -2891,19 +2828,6 @@
       "surface": "human output",
       "summary": "The summary's `Left out` row is code not mutated, early in the summary; Java's is `--exclude-tests`, after Reports",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "U1",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "agent format",
-      "summary": "The project's text isn't fenced between `<<mutastic-data TOKEN>>` markers yet",
-      "issue": "https://github.com/mutastic/mutastic/issues/68",
-      "items": [
-        "agent:fence-open"
-      ]
     }
   ]
 }

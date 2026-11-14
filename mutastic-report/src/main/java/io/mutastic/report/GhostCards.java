@@ -80,8 +80,13 @@ final class GhostCards {
         .toList();
   }
 
-  /// One ghost's lines: where, why, what its run found, and what to do.
+  /// One ghost's lines: where, why, what its run found, and what to do. They quote the code (a
+  /// field, a property, a method), so they're escaped as the code is.
   List<String> card(Ghost ghost) {
+    return lines(ghost).stream().map(Untrusted::escape).toList();
+  }
+
+  private List<String> lines(Ghost ghost) {
     var mutant = ghost.result().mutant();
     var where = "%s:%d".formatted(sources.file(mutant), mutant.line());
     var method = simpleClass(mutant.className()) + "." + mutant.methodName() + "()";

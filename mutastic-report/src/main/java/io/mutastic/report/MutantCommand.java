@@ -155,16 +155,19 @@ public enum MutantCommand {
   String eachOf(List<String> ids, Invocation invocation) {
     return ids.size() == 1
         ? text(ids.getFirst(), invocation)
-        : command("<id>", invocation) + " for each of " + String.join(", ", ids);
+        : command("<id>", invocation)
+            + " for each of "
+            + String.join(", ", ids.stream().map(MutantCommand::checked).toList());
   }
 
   /// The arguments after `mutastic`, for checking they parse: `verify m855c8e3c`. A quoted value is
-  /// one word, spaces and all.
+  /// one word, spaces and all. Each id is a mutant's, `m` and 8 hex digits, or `<id>` to fill in:
+  /// never other text, from the project or a report file.
   public List<String> arguments(String id) {
     var words = new java.util.ArrayList<String>();
     var word = new StringBuilder();
     boolean quoted = false;
-    var written = arguments.formatted(id);
+    var written = arguments.formatted(checked(id));
     for (int at = 0; at < written.length(); at++) {
       char each = written.charAt(at);
       if (each == ' ' && !quoted) {
@@ -177,6 +180,13 @@ public enum MutantCommand {
     }
     words.add(word.toString());
     return List.copyOf(words);
+  }
+
+  /// `ids`, split by commas, each a mutant's id, or else `<id>`.
+  static String checked(String ids) {
+    return java.util.Arrays.stream(ids.split(",", -1))
+        .map(id -> Untrusted.isId(id) ? id : "<id>")
+        .collect(Collectors.joining(","));
   }
 
   /// `mutastic verify <id> · mutastic run --only=<id> · mutastic explain <id>`: the summary's.
