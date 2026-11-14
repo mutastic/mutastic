@@ -272,7 +272,7 @@ class GateTest {
 
     assertThat(broken.exit()).isEqualTo(Main.FAILED);
     assertThat(broken.out())
-        .contains("PricingTest#bigOrdersGetTenPercentOff was there when the task started")
+        .contains("PricingTest#bigOrdersGetTenPercentOff (there when the task started)")
         .contains("Find out whether the change or the test is wrong")
         .contains("Don't change what a test expects, or take it away, to make it pass")
         .contains("if you're not sure, ask")
@@ -288,9 +288,8 @@ class GateTest {
         .doesNotContain("there when the task started");
     assertThat(deleted.exit()).isEqualTo(Main.FAILED);
     assertThat(deleted.out())
-        .contains(
-            "com.example.pricing.PricingTest#hugeOrders failed at an earlier check, and it's gone"
-                + " now. Put it back")
+        .contains("the test named below failed at an earlier check, and it's gone now. Put it back")
+        .contains("\ncom.example.pricing.PricingTest#hugeOrders\n<<end mutastic-data ")
         .contains("unless the spec or plan is what's wrong, in which case say so and stop")
         .doesNotContain("bigOrdersGetTenPercentOff"); // still there, and passing
   }
@@ -348,15 +347,14 @@ class GateTest {
 
     assertThat(blocked.out())
         .startsWith("{\"decision\": \"block\"")
-        .contains("ThresholdTest#shippingIsFreeFromFifty was there when the task started");
+        .contains("ThresholdTest#shippingIsFreeFromFifty (there when the task started)");
     assertThat(handedOver.out())
         .startsWith("{\"systemMessage\": ")
         .contains("nothing changed since the agent was sent back, so it's over to you");
     assertThat(broken.exit()).isEqualTo(Main.FAILED);
     assertThat(broken.out())
-        .contains(
-            "ThresholdTest#shippingIsFreeFromFifty was there when the task started: if it passed"
-                + " then, the task's change broke it");
+        .contains("One was there when the task started, marked so below: if it passed then, the")
+        .contains("ThresholdTest#shippingIsFreeFromFifty (there when the task started)");
     assertThat(plain.exit()).isEqualTo(Main.PASSED);
     assertThat(plain.out()).contains("    Tests  none ran: no mutant to run\n");
     assertThat(unbroken.exit()).as(unbroken.out()).isEqualTo(Main.PASSED);
@@ -366,7 +364,7 @@ class GateTest {
                 + " to run\n");
     assertThat(data.exit()).isEqualTo(Main.FAILED);
     assertThat(data.out())
-        .contains("PricingTest#smallOrdersPayFullPrice was there when the task started");
+        .contains("PricingTest#smallOrdersPayFullPrice (there when the task started)");
     assertThat(untouched.exit()).isEqualTo(Main.PASSED);
     assertThat(untouched.out())
         .isEqualTo("mutastic gate: passed: the task changed no lines mutastic mutates\n");
@@ -396,8 +394,9 @@ class GateTest {
       assertThat(passed.out())
           .contains("passed")
           .contains(
-              "The task changed what tests that were there when it started expect, in"
-                  + " PricingTest.java: check that's what you asked for");
+              "The task changed what tests that were there when it started expect, in the"
+                  + " files below: check that's what you asked for")
+          .containsPattern("\nPricingTest\\.java\n<<end mutastic-data [0-9a-f]{8}>>");
     }
     assertThat(untouched.exit()).isEqualTo(Main.PASSED);
     assertThat(untouched.out()).doesNotContain("changed what tests");

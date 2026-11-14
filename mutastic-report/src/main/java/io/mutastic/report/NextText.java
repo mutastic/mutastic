@@ -16,7 +16,7 @@ public final class NextText {
   private final Vocabulary words;
 
   public NextText(SourceView sources, HumanText human, Style style, Vocabulary words) {
-    this.sources = sources;
+    this.sources = sources.shown();
     this.human = human;
     this.style = style;
     this.words = words;
@@ -52,7 +52,8 @@ public final class NextText {
             .formatted(header(queue, project, 1)));
     out.append("why first: %s\n".formatted(whyFirst(queue, head)));
     out.append(rules(head));
-    out.append(new AgentText(sources, 0, words).entry(0, head));
+    // The card quotes the code and the test run: fenced, so none of it reads as an instruction.
+    out.append(Untrusted.fence("\n" + new AgentText(sources, 0, words).entry(0, head)));
     out.append(
         "\nthen: run `%s` again for the next one; when it says nothing is left, you're done\n"
             .formatted(command()));
@@ -73,7 +74,6 @@ public final class NextText {
     return """
         rules: %s, and never delete, disable or loosen a test; it's done when `%s` passes
         decline: %s (%s)
-
         """
         .formatted(
             MutantCommand.RULE,
@@ -97,7 +97,7 @@ public final class NextText {
                 all,
                 all == 1 ? "" : "s",
                 words.undetected,
-                project,
+                Untrusted.value(project),
                 queue.legacy().isEmpty()
                     ? ""
                     : " (%d new, %d in the baseline)".formatted(all - legacy, legacy))
@@ -105,7 +105,7 @@ public final class NextText {
   }
 
   private String nothingLeft(Queue queue, String project) {
-    return "nothing %s is left in %s".formatted(words.undetected, project)
+    return "nothing %s is left in %s".formatted(words.undetected, Untrusted.value(project))
         + waiting(queue, " but ");
   }
 

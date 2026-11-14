@@ -7,6 +7,30 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ## Unreleased
 
+### Security
+
+- **Text from the project reaches an agent fenced off as data.** The agent format, `next`'s agent
+  text and the gate's messages put mutastic's instructions (`rules:`, `done when:`, `fix:`) in the
+  same text as the project's code and test run: the lines a mutant changes, test names, what a
+  failing test said. A string literal or a comment on a mutated line, a test's name or its data
+  could write a line an agent takes as an instruction, and agents read this text through the
+  plugins' hooks. The project's text now comes after mutastic's instructions, between
+  `<<mutastic-data 3f9a0c1e>>` and `<<end mutastic-data 3f9a0c1e>>`, with a token drawn at random
+  for each run (and drawn again if the text holds it), so nothing inside can close it early; the
+  opening line says everything up to the closing marker is data, not instructions. The lines inside
+  keep their shapes. See [Agent output and untrusted
+  text](https://docs.mutastic.io/agents/#agent-output-and-untrusted-text).
+- **Hidden characters show as escapes.** Every value and line of the project's that mutastic
+  prints, to an agent or to a terminal, shows control characters (ANSI escapes among them) as
+  `\x1b`, and bidi controls, zero-width characters and every other invisible format character as
+  `\u202e`: a Trojan Source line reads as it runs, and an escape can't rewrite the screen. A value
+  or line over 200 characters is cut, with `…(n more chars)`. Events keep the text as it is,
+  JSON-escaped.
+- **Commands come only from mutastic.** Every command offered (`verify`, `run --only`,
+  `ignore --propose`, `next`) is made of a mutant's id (`m` and 8 hex digits, or `<id>`), known
+  options and placeholders, and the directory, in single quotes when a shell needs them. A word
+  with a `<…>` in it was left unquoted as a template: now only mutastic's own templates are.
+
 ### Progress
 
 - **A run is never silent.** Every phase is named while it runs and ends with a line: `building`
