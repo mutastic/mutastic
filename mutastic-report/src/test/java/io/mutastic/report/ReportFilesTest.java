@@ -97,10 +97,7 @@ class ReportFilesTest {
     var json =
         files
             .withRun(
-                new ReportFiles.Run(
-                    java.time.Instant.parse("2026-11-13T20:34:31.250Z"),
-                    false,
-                    OperatorDocs.LATEST))
+                new ReportFiles.Run(java.time.Instant.parse("2026-11-13T20:34:31.250Z"), false))
             .json(report());
 
     var run = (Map<String, Object>) json.get("mutastic");
@@ -116,7 +113,7 @@ class ReportFilesTest {
         .containsEntry("run", "mutastic run --only=<id>")
         .containsEntry("ignore", "mutastic ignore <id> --reason=\"<why>\"");
     assertThat((Map<String, Object>) run.get("operatorDocs"))
-        .containsEntry("boundary", "concepts/operators/#boundary");
+        .containsEntry("boundary", "java/operators/conditions/#boundary");
     var file =
         (Map<String, Object>)
             ((Map<String, Object>) json.get("files")).get("src/main/java/com/example/Pricing.java");

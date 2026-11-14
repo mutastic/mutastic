@@ -1044,7 +1044,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "07da1a2389d1772cca3a4a7a1bfc2b935be313ce8acffd966d1994f4006cec24"
+      "sha256": "6028d1f5adfda2dbec65f8399ac121dcb2bc45f4a4988c05c41e87ea261d3569"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1874,17 +1874,6 @@
       "decision": 2
     },
     {
-      "id": "D4",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "gate, ignore, baseline",
-      "summary": "A refusal that does nothing prints on stdout, and `ignore --remove` exits 0",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "decision": 4
-    },
-    {
       "id": "D5",
       "kind": "pending",
       "editions": [
@@ -1896,20 +1885,6 @@
       "decision": 5,
       "items": [
         "error:envval:*"
-      ]
-    },
-    {
-      "id": "D6",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "errors",
-      "summary": "A directory inside a single-package build is refused rather than walked up from",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "decision": 6,
-      "items": [
-        "error:subdir:*"
       ]
     },
     {
@@ -1938,7 +1913,6 @@
       "id": "D9",
       "kind": "pending",
       "editions": [
-        "java",
         "rust"
       ],
       "surface": "reports",
@@ -1996,20 +1970,6 @@
       "summary": "The gate counts a change to any Java file, tests included, before looking for the task's ignores",
       "issue": "https://github.com/mutastic/mutastic/issues/61",
       "decision": 15
-    },
-    {
-      "id": "G2",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "command line",
-      "summary": "Takes any option on any command and ignores it",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "items": [
-        "error:notake:*",
-        "error:since:*"
-      ]
     },
     {
       "id": "G3",
@@ -2174,16 +2134,6 @@
       ]
     },
     {
-      "id": "G17",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "No false-catch guard: no `mutant-revised`, no `falseCatchBy`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
       "id": "G18",
       "kind": "pending",
       "editions": [
@@ -2338,16 +2288,6 @@
       ],
       "surface": "errors",
       "summary": "No command-first hint",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "G35",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "errors",
-      "summary": "The model's exit 1 leaves out `next` queued, `ignore --accept`/`--remove` and `baseline` refusals",
       "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
@@ -2660,16 +2600,6 @@
       "surface": "events",
       "summary": "Another key order in `mutant-finished`",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "E2",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "events",
-      "summary": "`run doesn't take --top` is `extra-words`, not `option-not-taken` (with G2)",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
       "id": "P2",

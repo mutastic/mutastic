@@ -35,30 +35,42 @@ public final class ReportFiles {
   private final SourceView sources;
   private final int threshold;
   private final String version;
+  private final OperatorDocs docs;
   private final Optional<Run> run;
 
-  /// What the run was beyond its results, for the report's own page: when it started, whether it
-  /// passed as its exit code says (on the threshold, or with `--fail-on-new` on new misses), and
-  /// the docs of the mutastic that ran it.
-  public record Run(Instant startedAt, boolean passed, OperatorDocs docs) {}
+  /// What the run was beyond its results, for the report's own page: when it started, and whether
+  /// it passed as its exit code says (on the threshold, or with `--fail-on-new` on new misses).
+  public record Run(Instant startedAt, boolean passed) {}
 
   /// `root` is the project directory: file paths in the reports are relative to it.
   public ReportFiles(Path root, SourceView sources, int threshold, String version) {
-    this(root, sources, threshold, version, Optional.empty());
+    this(root, sources, threshold, version, OperatorDocs.LATEST);
+  }
+
+  /// @param docs where each operator is described, for SARIF's rules and the report page to link to
+  public ReportFiles(
+      Path root, SourceView sources, int threshold, String version, OperatorDocs docs) {
+    this(root, sources, threshold, version, docs, Optional.empty());
   }
 
   private ReportFiles(
-      Path root, SourceView sources, int threshold, String version, Optional<Run> run) {
+      Path root,
+      SourceView sources,
+      int threshold,
+      String version,
+      OperatorDocs docs,
+      Optional<Run> run) {
     this.root = root;
     this.sources = sources;
     this.threshold = threshold;
     this.version = version;
+    this.docs = docs;
     this.run = run;
   }
 
   /// The same reports, with what's known of the run that made them.
   public ReportFiles withRun(Run run) {
-    return new ReportFiles(root, sources, threshold, version, Optional.of(run));
+    return new ReportFiles(root, sources, threshold, version, docs, Optional.of(run));
   }
 
   /// Writes the report of `kind` to `file`.
@@ -68,7 +80,7 @@ public final class ReportFiles {
           case "json" -> Json.write(json(report));
           case "html" -> html(report);
           case "xml" -> xml(report);
-          case "sarif" -> Json.write(new Sarif(root, sources, version).document(report));
+          case "sarif" -> Json.write(new Sarif(root, sources, version, docs).document(report));
           default -> throw new IllegalArgumentException("unknown report " + kind);
         };
     try {
@@ -157,7 +169,6 @@ public final class ReportFiles {
     var facts = new LinkedHashMap<String, Object>();
     facts.put("edition", "java");
     facts.put("commands", commands());
-    var docs = run.map(Run::docs).orElse(OperatorDocs.LATEST);
     facts.put("docsBase", docs.base());
     facts.put("operatorDocs", operatorDocs(report, docs));
     var score = report.score();

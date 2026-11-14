@@ -91,7 +91,7 @@ describe('the Java pricing sample', () => {
     assert.match(text, /mutastic run --only=m855c8e3c\s/);
     assert.match(text, /mutastic ignore m855c8e3c --reason="<why>"/);
     assert.match(text, /in Pricing\.discount\(\)/);
-    assert.equal(await page.eval(`document.querySelector('a[target=_blank]').href`), 'https://docs.mutastic.io/concepts/operators/#boundary');
+    assert.equal(await page.eval(`document.querySelector('a[target=_blank]').href`), 'https://docs.mutastic.io/java/operators/conditions/#boundary');
     assert.equal(await page.count('[data-prompt]'), 0, 'no Copy as prompt in the default build');
     await page.close();
   });

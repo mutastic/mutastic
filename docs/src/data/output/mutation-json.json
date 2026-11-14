@@ -64,10 +64,10 @@
     },
     "docsBase" : "https://docs.mutastic.io/",
     "operatorDocs" : {
-      "boundary" : "concepts/operators/#boundary",
-      "math" : "concepts/operators/#math",
-      "remove-conditional" : "concepts/operators/#remove-conditional",
-      "return-value" : "concepts/operators/#return-value"
+      "boundary" : "java/operators/conditions/#boundary",
+      "math" : "java/operators/arithmetic/#math",
+      "remove-conditional" : "java/operators/conditions/#remove-conditional",
+      "return-value" : "java/operators/returns/#return-value"
     },
     "score" : 90.9,
     "threshold" : 80,
