@@ -105,17 +105,16 @@ export function compareCaptures(rust) {
   return { compared, differ };
 }
 
-/** What to warn about: how many scenarios match, and each that doesn't. */
+/** What to warn about: how many scenarios match, each that doesn't, and those with no pair. */
 export function captureWarnings(rust) {
   const { compared, differ } = compareCaptures(rust);
   if (differ.length === 0) return [];
+  const missing = differ.filter((d) => d.missing).map((d) => d.missing);
+  const shapes = differ.filter((d) => !d.missing);
   return [
-    `${compared - differ.filter((d) => !d.missing).length} of ${compared} paired captures have the same shape in both editions (public/schemas/contract/captures.json); these don't:`,
-    ...differ.map((d) =>
-      d.missing
-        ? `  ${d.scenario}: no capture ${d.missing}`
-        : `  ${d.scenario}, line ${d.line}:\n      java: ${d.java}\n      rust: ${d.rust}`,
-    ),
+    `${compared - shapes.length} of ${compared} paired captures have the same shape in both editions (public/schemas/contract/captures.json)${shapes.length ? "; these don't:" : '.'}`,
+    ...shapes.map((d) => `  ${d.scenario}, line ${d.line}:\n      java: ${d.java}\n      rust: ${d.rust}`),
+    ...(missing.length ? [`  ${missing.length} scenarios have no capture to pair in these docs: ${missing.join(', ')}`] : []),
   ];
 }
 

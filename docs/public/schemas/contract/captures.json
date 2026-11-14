@@ -60,10 +60,6 @@
       "java": "errors-config",
       "rust": "errors/config"
     },
-    "configured-card": {
-      "java": "configured",
-      "rust": "reference/configured-card"
-    },
     "test-first-run": {
       "java": "test-first-run",
       "rust": "test-first/run"
