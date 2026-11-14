@@ -1354,7 +1354,7 @@ public final class HumanText {
 
   /// `Shipping.Zone.surcharge()`, or `Shipping.heavyOnes() (a lambda)`: where the misses are, as
   /// the source names it.
-  private static String methodLabel(Mutant mutant) {
+  static String methodLabel(Mutant mutant) {
     var where = SourceNames.of(mutant);
     var member = new ClassMutator.Member(mutant.methodName(), mutant.descriptor());
     if (mutant.operator() instanceof ClassMutator && !member.isMethod()) {

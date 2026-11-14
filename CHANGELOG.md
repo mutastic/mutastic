@@ -59,6 +59,10 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`mutastic mutants` lists the mutants, and runs no test.** One line each, as the Rust edition
+  prints it: the id, the change's file, line and column, the operator, the change, and the method
+  it's in; then how many. With `--operators=stronger` it shows what a set would add before a run
+  pays for it. The build still compiles the code, as the mutants are in its classes.
 - **The errors page pairs each code with the Rust edition's.** `no-build-tool` is the Rust
   edition's `no-cargo`, `module-without-java` at a build's root its `workspace-root`, and the page
   lists the codes only one edition has, so a script that wraps both reads one kind for each pair.
@@ -79,11 +83,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
-- **A directory inside a build runs that build.** In a build's `src`, mutastic said it isn't a
-  build's top directory and ended in the command to run. Now it runs the build, or the Maven
-  module, the directory is in, as the Rust edition runs the package a directory is in. In a build
-  of modules but in none of them, it's refused as the build's root is, with a command for each
-  module.
+- **The events schema says the order events come in, as both editions write them.** It said a run
+  writes `run-started` first, but the phase events of reading and building the project come before
+  it. Now it says: those phase events may come first; `run-started` comes before the first
+  `mutant-finished`; each `mutant-finished` is written as its mutant finishes, before its phase
+  ends; and `run-finished` or `run-failed` is last. Only the descriptions changed.
 - **The gate runs the tests even with no mutant on the changed lines.** Since a run with no mutant
   to run stopped running the tests, a task that changed only lines with no mutant (a constant, an
   import, a log line) passed the gate with no test run, even when it broke one. The gate's run now
@@ -100,10 +104,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   failure. Now it says `the build has no module :nope.`, names the modules there are, and makes
   nothing. A close name, `:cor`, gets `There's one called :core.` and its command. Gradle, which
   took `:cor` for `:core` and ran it, now says so too.
-- **A directory inside a build names the build.** Run in a build's `src`, mutastic said it isn't a
-  Gradle or Maven build, with commands to fill in. Now it says which build it's inside and ends in
-  the command that tests it: `mutastic run ..`, or `mutastic run ../.. :app` for a Maven module,
-  which is tested from the top of its build.
+- **A directory inside a build runs that build.** In a build's `src`, mutastic said it isn't a
+  build's top directory and ended in the command to run. Now it runs the build, or the Maven
+  module, the directory is in, as the Rust edition runs the package a directory is in. In a build
+  of modules but in none of them, it's refused as the build's root is, with a command for each
+  module.
 - **A close name is said, with the command corrected.** A mistyped command, option, value,
   `mutastic.` property, `mutastic.yaml` section or rule, rules-file key, operator, filter or mutant
   id now gets the one name close to it, as a statement, never run in its place:
