@@ -1871,17 +1871,6 @@
       "decision": 13
     },
     {
-      "id": "D15",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "gate",
-      "summary": "The gate counts a change to any Java file, tests included, as a changed line",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "decision": 15
-    },
-    {
       "id": "G3",
       "kind": "pending",
       "editions": [
