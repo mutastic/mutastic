@@ -134,6 +134,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **`verify` doesn't say it found no test to suggest.** It looks for none, so its `checked` line
+  ended in a misleading `no test found to suggest`; that clause is left out now, in `verify` and
+  with `--no-suggestions`.
+- **`--kill-matrix` lists every catching test in `mutation.json`.** `killedBy` held only the first,
+  while the events' `caughtByAll` had them all; now `killedBy` has them all too, the first first.
 - **The gate holds a task that changes no line mutastic mutates to its other checks.** Such a task
   skipped the checks for ignores and baseline entries the task made itself, and for tests taken
   away or `@Disabled`, so an agent that only deleted a failing test, or ignored a mutant itself,

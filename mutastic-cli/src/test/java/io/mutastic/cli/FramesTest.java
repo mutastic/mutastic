@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import org.junit.jupiter.api.Test;
 
 /// Each line progress prints, as `PROGRESS.md` words it, at 160, 120 and 80 columns. Where the
@@ -340,10 +341,13 @@ class FramesTest {
         .isEqualTo(
             "ran       5525 mutants in 34m12s · ✓ 2610 caught · ✗ 41 missed · ○ 214 not covered"
                 + " · ⏱ 6 timed out\n");
-    assertThat(Frames.checked(52, 41, Duration.ofSeconds(51)))
+    assertThat(Frames.checked(52, OptionalInt.of(41), Duration.ofSeconds(51)))
         .isEqualTo("checked   52 missed mutants in 51.0s · a test to write for 41\n");
-    assertThat(Frames.checked(1, 0, Duration.ofMillis(3500)))
+    assertThat(Frames.checked(1, OptionalInt.of(0), Duration.ofMillis(3500)))
         .isEqualTo("checked   1 missed mutant in 3.5s · no test found to suggest\n");
+    // verify looks for no test, so it says nothing of one.
+    assertThat(Frames.checked(1, OptionalInt.empty(), Duration.ofMillis(4)))
+        .isEqualTo("checked   1 missed mutant in 4ms\n");
   }
 
   @Test

@@ -3,6 +3,7 @@ package io.mutastic.cli;
 import static io.mutastic.cli.Samples.mutastic;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
@@ -35,5 +36,13 @@ class KillMatrixTest {
       several += found.group("all").contains("\",\"") ? 1 : 0;
     }
     assertThat(several).as("mutants more than one test catches").isPositive();
+
+    // The report's killedBy has them all too, in the same order.
+    var report = Files.readString(project.resolve("build/mutastic/mutation.json"));
+    for (var line : caught) {
+      var found = CAUGHT.matcher(line);
+      assertThat(found.find()).isTrue();
+      assertThat(report).contains("\"killedBy\":[" + found.group("all") + "]");
+    }
   }
 }
