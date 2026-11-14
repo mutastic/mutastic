@@ -295,6 +295,83 @@ class GateTest {
         .doesNotContain("bigOrdersGetTenPercentOff"); // still there, and passing
   }
 
+  /// The gate runs the tests even with no mutant on the lines the task changed: a task that breaks
+  /// a test with a line holding none (a constant, an import, a log line) is held, as a red suite
+  /// is, with the same hand-over, while a plain `run --since` of the same change runs no test. Only
+  /// a task that changed nothing skips them.
+  @Test
+  void theGateRunsTheTestsWithNoMutantOnTheChangedLines() throws Exception {
+    Files.writeString(
+        project.resolve("src/test/java/com/example/pricing/ThresholdTest.java"),
+        """
+        package com.example.pricing;
+
+        import static org.junit.jupiter.api.Assertions.assertEquals;
+
+        import org.junit.jupiter.api.Test;
+
+        class ThresholdTest {
+          @Test
+          void shippingIsFreeFromFifty() {
+            assertEquals(5, new Pricing().shipping(49));
+          }
+        }
+        """);
+    git("add", "-A");
+    git(
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@t",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-qm",
+        "t");
+    var session = "{\"session_id\":\"s1\"}";
+    hooked(session, "gate", "open", "--hook=claude");
+    var pricing = project.resolve(PRICING);
+    var text = Files.readString(pricing);
+    Files.writeString(pricing, text.replace("this(50);", "this(40);"));
+    var blocked = hooked(session, "gate", "check", "--hook=claude");
+    var handedOver = hooked(session, "gate", "check", "--hook=claude");
+    var broken = mutastic("gate", "check", project.toString());
+    var plain = mutastic("run", project.toString(), "--since=HEAD", "--format=brief");
+    Files.writeString(pricing, text.replace("this(50);", "this(60);"));
+    var unbroken = mutastic("gate", "check", project.toString());
+    Files.writeString(pricing, text);
+    var orders = project.resolve("src/test/resources/orders.properties");
+    Files.writeString(orders, "small=150\n");
+    var data = mutastic("gate", "check", project.toString());
+    git("checkout", "--", "src/test/resources/orders.properties");
+    var untouched = mutastic("gate", "check", project.toString());
+
+    assertThat(blocked.out())
+        .startsWith("{\"decision\": \"block\"")
+        .contains("ThresholdTest#shippingIsFreeFromFifty was there when the task started");
+    assertThat(handedOver.out())
+        .startsWith("{\"systemMessage\": ")
+        .contains("nothing changed since the agent was sent back, so it's over to you");
+    assertThat(broken.exit()).isEqualTo(Main.FAILED);
+    assertThat(broken.out())
+        .contains(
+            "ThresholdTest#shippingIsFreeFromFifty was there when the task started: if it passed"
+                + " then, the task's change broke it");
+    assertThat(plain.exit()).isEqualTo(Main.PASSED);
+    assertThat(plain.out()).contains("    Tests  none ran: no mutant to run\n");
+    assertThat(unbroken.exit()).as(unbroken.out()).isEqualTo(Main.PASSED);
+    assertThat(unbroken.out())
+        .isEqualTo(
+            "mutastic gate: passed: the tests pass, and the lines the task changed hold no mutant"
+                + " to run\n");
+    assertThat(data.exit()).isEqualTo(Main.FAILED);
+    assertThat(data.out())
+        .contains("PricingTest#smallOrdersPayFullPrice was there when the task started");
+    assertThat(untouched.exit()).isEqualTo(Main.PASSED);
+    assertThat(untouched.out())
+        .isEqualTo("mutastic gate: passed: the task changed no lines mutastic mutates\n");
+  }
+
   /// A pass tells the person when the task changed what an existing test expects: a test made to
   /// fit a wrong change catches every mutant, and a task that only weakens a test changes no line
   /// mutastic mutates.

@@ -67,13 +67,20 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   time the build takes. The summary says `Tests  none ran: no mutant to run`, with no test runs
   row; `run-finished` has `tests` 0 and `workersStarted` 0. Such a run doesn't replace the last
   run's record, or its report files unless a `--report` is asked for, so `explain`, `next` and the
-  next run's comparison still read the last run that measured something. The gate passes a task
-  that changed no mutant's line as fast. `--force-coverage` (`forceCoverage` in the build plugins)
+  next run's comparison still read the last run that measured something. The gate still runs the
+  tests: see the fixes. `--force-coverage` (`forceCoverage` in the build plugins)
   runs the tests anyway, as before, to check or time the suite. See [When there's nothing to
   run](https://docs.mutastic.io/concepts/how-a-run-works/#when-theres-nothing-to-run).
 
 ### Fixes
 
+- **The gate runs the tests even with no mutant on the changed lines.** Since a run with no mutant
+  to run stopped running the tests, a task that changed only lines with no mutant (a constant, an
+  import, a log line) passed the gate with no test run, even when it broke one. The gate's run now
+  always runs the tests, as `--force-coverage` does, and a test that fails holds the task as a red
+  suite does, with the same words and the same hand-over. A task that changed only files mutastic
+  doesn't mutate (a test's data, a build file) runs the tests too; only one that changed nothing
+  skips them. A plain `run --since` keeps the fast path.
 - **A build of modules names them as commands, for Maven as for Gradle.** At the top of a Maven
   build with no Java code of its own, mutastic said `name a module with some: mutastic run
   :<module>` and named none. Now both tools say `<directory> is a build's root, with no Java code
