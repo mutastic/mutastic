@@ -2860,19 +2860,6 @@
       "surface": "human output",
       "summary": "The summary's `Left out` row is code not mutated, early in the summary; Java's is `--exclude-tests`, after Reports",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "U1",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "agent format",
-      "summary": "The project's text isn't fenced between `<<mutastic-data TOKEN>>` markers yet",
-      "issue": "https://github.com/mutastic/mutastic/issues/68",
-      "items": [
-        "agent:fence-open"
-      ]
     }
   ]
 }

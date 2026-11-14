@@ -21,7 +21,7 @@ public final class GitHubActions {
   /// `root` is the project's directory, which the sources' paths are relative to.
   public GitHubActions(Path root, SourceView sources) {
     this.root = root;
-    this.sources = sources;
+    this.sources = sources.shown();
   }
 
   /// `::warning file=…,line=…,title=…::…` for each of the first misses: a workflow command the
