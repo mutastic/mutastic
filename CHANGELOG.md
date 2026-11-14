@@ -107,6 +107,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **The gate holds a task that changes no line mutastic mutates to its other checks.** Such a task
+  skipped the checks for ignores and baseline entries the task made itself, and for tests taken
+  away or `@Disabled`, so an agent that only deleted a failing test, or ignored a mutant itself,
+  passed once the rest of the tests did. Now they run on every check, whatever lines changed, with
+  the same words and the same hand-over; only a task that changed nothing passes at once, and
+  an ignore or baseline entry it made itself holds it even where git doesn't see `.mutastic/`.
+  An ignore you accept between turns is still the task's to start from.
 - **The events schema says the order events come in, as both editions write them.** It said a run
   writes `run-started` first, but the phase events of reading and building the project come before
   it. Now it says: those phase events may come first; `run-started` comes before the first
@@ -182,6 +189,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Agents
 
+- **`mutation.original` and `replacement` are source, as in the Rust edition.** In the events and
+  `mutation.json`, `original` is the source the mutant replaces and `replacement` the source that
+  replaces it, so writing one over the other gives the mutant's line; `mutation.json`'s `location`
+  and SARIF's region span that source. A condition made constant had `original` `>=` and no
+  replacement; now it's `total >= 100` and `false`. A return's `replacement` was `return 0;`, and
+  is `0`. A statement taken out has an empty replacement. Where the source can't show the change,
+  `mutation.json` gives no `replacement` rather than the description, which stays in `description`.
 - **An ignore you accept between turns doesn't hold the gate.** The gate counted the ignores from
   a session's first prompt, so a proposal you accepted and then prompted again counted as the
   task's own (`the task ignored … itself`). Now, as a hook, a check that lets the agent stop notes

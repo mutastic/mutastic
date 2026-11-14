@@ -1044,7 +1044,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "6028d1f5adfda2dbec65f8399ac121dcb2bc45f4a4988c05c41e87ea261d3569"
+      "sha256": "e72d3c2056e063e22237ffda6b1da307bac3917e607ff66fa304e21fff875a33"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1277,7 +1277,7 @@
     },
     {
       "id": 15,
-      "rule": "The gate passes \"changed no lines\" when no changed line is in a file the edition mutates, checked before looking for ignores the task made."
+      "rule": "The gate passes \"changed no lines\" when no changed line is in a file the edition mutates, once the tests pass and after the checks for ignores and baseline entries the task made itself and for tests taken away; only a tree untouched since the task's start commit skips the tests and the check for tests taken away."
     }
   ],
   "differences": [
@@ -1807,28 +1807,6 @@
       "reason": "Each language's own word."
     },
     {
-      "id": "D2",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "A panic exits 101 with no `run-failed` event: no panic hook, no `internal` code",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "decision": 2
-    },
-    {
-      "id": "D8",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "events",
-      "summary": "`mutation.original` and `replacement` aren't the source span replaced and the source that replaces it",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "decision": 8
-    },
-    {
       "id": "D9",
       "kind": "pending",
       "editions": [
@@ -1840,42 +1818,13 @@
       "decision": 9
     },
     {
-      "id": "D10",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "help",
-      "summary": "Help isn't one layout generated from the model, Java's shape, wrapped to the terminal (see H1-H8): lines up to 700 columns",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "decision": 10,
-      "items": [
-        "help:*:width"
-      ]
-    },
-    {
-      "id": "D11",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "Synopses use `<id>` and `[dir]`, not capitals",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "decision": 11,
-      "items": [
-        "synopsis:*"
-      ]
-    },
-    {
       "id": "D13",
       "kind": "pending",
       "editions": [
-        "java",
-        "rust"
+        "java"
       ],
       "surface": "errors",
-      "summary": "Codes worked out from the message's words (Rust's `failure::CODES`, Java's `usageCode`) rather than set where the error is raised",
+      "summary": "Codes worked out from the message's words (Java's `usageCode`) rather than set where the error is raised",
       "issue": "https://github.com/mutastic/mutastic/issues/61",
       "decision": 13
     },
@@ -1886,7 +1835,7 @@
         "java"
       ],
       "surface": "gate",
-      "summary": "The gate counts a change to any Java file, tests included, before looking for the task's ignores",
+      "summary": "The gate counts a change to any Java file, tests included, as a changed line",
       "issue": "https://github.com/mutastic/mutastic/issues/61",
       "decision": 15
     },
@@ -1968,19 +1917,6 @@
       "surface": "command line",
       "summary": "`--operators` doesn't take `all`, a namespace, or `-` to leave one out",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G10",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "help",
-      "summary": "`--edition` is in the model for every command but in no command's help",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "help:*:option:--edition"
-      ]
     },
     {
       "id": "G11",
@@ -2129,16 +2065,6 @@
       "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
-      "id": "G29",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "No `internal` code: a panic exits 101 with no event (with D2)",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
       "id": "G30",
       "kind": "pending",
       "editions": [
@@ -2147,32 +2073,6 @@
       "surface": "errors",
       "summary": "No `disk`, `no-tests`, `nothing-covered`, `tests-stopped` or `tests-timed-out` codes",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G31",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "`gate` with no action gets `other`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "error:gate:code"
-      ]
-    },
-    {
-      "id": "G32",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "`gate opn` outside a project is checked for a project before its action",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "error:gate2:code"
-      ]
     },
     {
       "id": "G33",
@@ -2346,83 +2246,6 @@
       ]
     },
     {
-      "id": "H1",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "help",
-      "summary": "Another tagline",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "help:top:tagline"
-      ]
-    },
-    {
-      "id": "H2",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "help",
-      "summary": "Top-level help is hand-written: no Examples, Environment, Exit codes or Docs",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "help:top:section:*",
-        "help:top:docs"
-      ]
-    },
-    {
-      "id": "H3",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "help",
-      "summary": "Top-level help's `--report` leaves out sarif (with H2)",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "H4",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "help",
-      "summary": "Command help has no `Usage:`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "help:*:usage"
-      ]
-    },
-    {
-      "id": "H5",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "help",
-      "summary": "`Exit status:` rather than an `Exits` paragraph",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "help:*:exits"
-      ]
-    },
-    {
-      "id": "H6",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "help",
-      "summary": "No `Docs:` link and no `Examples:`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "help:*:docs",
-        "help:*:section:Examples:"
-      ]
-    },
-    {
       "id": "H7",
       "kind": "pending",
       "editions": [
@@ -2431,19 +2254,6 @@
       "surface": "help",
       "summary": "`--workers`: how many workers, where Rust's \"how many mutants\" is what it does",
       "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "H8",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "help",
-      "summary": "No arguments: the usage on stdout, not stderr",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "help:none"
-      ]
     },
     {
       "id": "O1",
@@ -2514,16 +2324,6 @@
       "surface": "reports",
       "summary": "Survived `statusReason` has its backticks stripped",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "P2",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "reports",
-      "summary": "Remove-conditional `replacement` is the description, not the source (with D8)",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
       "id": "P3",
@@ -2811,20 +2611,6 @@
       "issue": "https://github.com/mutastic/mutastic/issues/61",
       "items": [
         "help:*:width"
-      ]
-    },
-    {
-      "id": "K2",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "A bad `--format` value writes no `run-failed` event, though MUTASTIC_FORMAT=jsonl",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "error:val:code",
-        "error:val2:code"
       ]
     },
     {
