@@ -1907,8 +1907,7 @@
       "id": "D9",
       "kind": "pending",
       "editions": [
-        "java",
-        "rust"
+        "java"
       ],
       "surface": "reports",
       "summary": "Docs links per operator aren't `/<edition>/operators/<family>/#<id>` in events, explain and SARIF `helpUri`",
