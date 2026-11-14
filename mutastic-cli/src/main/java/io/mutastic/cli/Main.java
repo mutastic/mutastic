@@ -692,7 +692,10 @@ public final class Main {
     if (gone.isPresent()) {
       return gone.get(); // first: taking the test away may leave no line changed
     }
-    if (new Git(directory).changedSince(state.base()).lines().isEmpty()) {
+    // Only lines in the code it mutates count: a task that changed only tests, or files outside
+    // the module, has no mutant to gate.
+    var sources = gated.prepared().project().sources();
+    if (new Git(directory).changedSince(state.base()).within(sources).lines().isEmpty()) {
       return Gate.Verdict.pass("mutastic gate: passed: the task changed no lines mutastic mutates");
     }
     return selfIgnored(directory, state)

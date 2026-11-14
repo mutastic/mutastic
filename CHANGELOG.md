@@ -74,6 +74,10 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **The gate passes a task that changed no line it mutates.** It passed only when no Java file
+  gained a line, tests included, so a task that changed only tests ran every mutant on the lines it
+  touched, of which there were none. Now, as in the Rust edition, only changed lines in the
+  module's main sources count, and that's checked before the ignores the task made.
 - **A build of modules names them as commands, for Maven as for Gradle.** At the top of a Maven
   build with no Java code of its own, mutastic said `name a module with some: mutastic run
   :<module>` and named none. Now both tools say `<directory> is a build's root, with no Java code

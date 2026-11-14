@@ -113,6 +113,19 @@ class GateTest {
     assertThat(mutastic("gate", "check", project.toString()).exit()).isEqualTo(Main.PASSED);
   }
 
+  /// A task that changed only tests changed no line mutastic mutates: there's nothing to gate,
+  /// and it passes before the mutants or the ignores are looked at, as in the Rust edition.
+  @Test
+  void aTaskThatChangedOnlyTestsPasses() throws Exception {
+    mutastic("gate", "open", project.toString());
+    var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
+    Files.writeString(test, Files.readString(test).replace("@Test", "// a note\n  @Test"));
+    var checked = mutastic("gate", "check", project.toString());
+
+    assertThat(checked.exit()).isEqualTo(Main.PASSED);
+    assertThat(checked.out()).contains("passed: the task changed no lines mutastic mutates");
+  }
+
   /// The task can't settle a mutant itself: an ignore it made, or a test taken away, holds it.
   @Test
   void aTaskCantIgnoreAMutantOrTakeATestAway() throws Exception {
