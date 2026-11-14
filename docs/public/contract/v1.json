@@ -1277,7 +1277,7 @@
     },
     {
       "id": 15,
-      "rule": "The gate passes \"changed no lines\" when no changed line is in a file the edition mutates, checked before looking for ignores the task made."
+      "rule": "The gate passes \"changed no lines\" when no changed line is in a file the edition mutates, once the tests pass and after the checks for ignores and baseline entries the task made itself and for tests taken away; only a tree untouched since the task's start commit skips the tests and the check for tests taken away."
     }
   ],
   "differences": [
@@ -1962,7 +1962,7 @@
         "java"
       ],
       "surface": "gate",
-      "summary": "The gate counts a change to any Java file, tests included, before looking for the task's ignores",
+      "summary": "The gate counts a change to any Java file, tests included, as a changed line",
       "issue": "https://github.com/mutastic/mutastic/issues/61",
       "decision": 15
     },
