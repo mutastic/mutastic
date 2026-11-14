@@ -8,17 +8,18 @@ import java.util.stream.StreamSupport;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/// The editions' contract (docs/public/schemas/contract/v1.json), as an edition's checks read it:
-/// what was found to differ from it, and whether its `differences` account for each. A difference
-/// found that no entry names fails; so does an entry whose items name nothing found, since the
-/// edition now matches and the entry should go. ContractTest finds; this judges.
+/// The editions' contract (docs/public/contract/v1.json), as an edition's checks read it: what was
+/// found to differ from it, and whether its `differences` account for each. A difference found that
+/// no entry names fails; so does an entry whose items name nothing found, since the edition now
+/// matches and the entry should go. ContractTest finds; this judges.
 ///
 /// The Rust edition's tests/contract.rs judges the same way, so the two read one file alike.
 final class EditionContract {
   static final String EDITION = "java";
 
-  /// The contract and its JSON Schema, beside the events schema.
-  static final Path FILE = Path.of(System.getProperty("mutastic.schemas"), "contract/v1.json");
+  /// The contract, published beside the schemas: its JSON Schema is schemas/contract/v1.json.
+  static final Path FILE =
+      Path.of(System.getProperty("mutastic.schemas")).resolveSibling("contract/v1.json");
 
   private final JsonNode contract;
 
@@ -47,7 +48,7 @@ final class EditionContract {
       if (mine.stream().noneMatch(difference -> names(items(difference), each.item()))) {
         failures.add(
             "%s: %s. Make the Java edition match, or record it under differences in %s"
-                    .formatted(each.item(), each.what(), "docs/public/schemas/contract/v1.json")
+                    .formatted(each.item(), each.what(), "docs/public/contract/v1.json")
                 + " (engine with a reason, dated with an until, pending with an issue)");
       }
     }
@@ -56,8 +57,7 @@ final class EditionContract {
       if (!here.isEmpty() && found.stream().noneMatch(each -> names(here, each.item()))) {
         failures.add(
             "%s now matches for java: take java out of its editions, or the entry out, in %s"
-                .formatted(
-                    difference.get("id").asString(), "docs/public/schemas/contract/v1.json"));
+                .formatted(difference.get("id").asString(), "docs/public/contract/v1.json"));
       }
     }
     return failures;

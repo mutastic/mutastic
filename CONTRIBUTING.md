@@ -65,9 +65,10 @@ mutastic has a Java edition (this repository) and a Rust edition
 person, an agent and a CI job. Without a check, a difference is found only by running both and
 noticing. The editions' contract makes each one a test failure instead.
 
-**The contract** is [`docs/public/schemas/contract/v1.json`](docs/public/schemas/contract/v1.json)
-(`mutastic.contract/v1`, described by `v1.schema.json` beside it, published at
-docs.mutastic.io/schemas/contract/v1.json). It holds what the editions must agree on:
+**The contract** is [`docs/public/contract/v1.json`](docs/public/contract/v1.json)
+(`mutastic.contract/v1`), described by the JSON Schema
+[`docs/public/schemas/contract/v1.json`](docs/public/schemas/contract/v1.json) and published with
+it on docs.mutastic.io. It holds what the editions must agree on:
 
 - the command line: commands, synopses, the options each takes and in what order, kinds, value
   names, choices, defaults, environment variables and exit codes;
@@ -117,7 +118,7 @@ contract first, then each edition.
    `Build` row, the toolchain in `Tests`, and `mutation.applied.level`.
 
 **The docs' captures, compared.** The docs build pairs each edition's captured output by scenario
-([`captures.json`](docs/public/schemas/contract/captures.json) maps Java's flat names to Rust's
+([`captures.json`](docs/public/contract/captures.json) maps Java's flat names to Rust's
 folders), masks ids, paths, timings, names and code, and warns where the shapes differ
 (`docs/scripts/compare-captures.mjs`; `node docs/scripts/compare-captures.mjs <mutastic-rs docs>`
 lists them). Warnings for now, while the masks settle.

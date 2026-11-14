@@ -2,8 +2,8 @@
 // and each language says its own way: ids, directories, paths, file locations, timings, source
 // lines, suggested tests' code, test and function names, and the summary's engine rows (the unit,
 // Build, the toolchain). What's left is labels, order, punctuation and fixed text, which should be
-// the same. The scenarios are paired in public/schemas/contract/captures.json, and the editions'
-// contract (public/schemas/contract/v1.json) is what holds the rest of their output level.
+// the same. The scenarios are paired in public/contract/captures.json, and the editions'
+// contract (public/contract/v1.json) is what holds the rest of their output level.
 //
 // It warns, never fails, while the masks are still finding their shape: run it with
 // `node scripts/compare-captures.mjs [mutastic-rs docs folder]` for every difference.
@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const java = fileURLToPath(new URL('../src/data/output/', import.meta.url));
-const mapping = fileURLToPath(new URL('../public/schemas/contract/captures.json', import.meta.url));
+const mapping = fileURLToPath(new URL('../public/contract/captures.json', import.meta.url));
 
 /** A capture by its name, `.ansi` in colour or `.txt`, or undefined. */
 function read(dir, name) {
@@ -112,7 +112,7 @@ export function captureWarnings(rust) {
   const missing = differ.filter((d) => d.missing).map((d) => d.missing);
   const shapes = differ.filter((d) => !d.missing);
   return [
-    `${compared - shapes.length} of ${compared} paired captures have the same shape in both editions (public/schemas/contract/captures.json)${shapes.length ? "; these don't:" : '.'}`,
+    `${compared - shapes.length} of ${compared} paired captures have the same shape in both editions (public/contract/captures.json)${shapes.length ? "; these don't:" : '.'}`,
     ...shapes.map((d) => `  ${d.scenario}, line ${d.line}:\n      java: ${d.java}\n      rust: ${d.rust}`),
     ...(missing.length ? [`  ${missing.length} scenarios have no capture to pair in these docs: ${missing.join(', ')}`] : []),
   ];

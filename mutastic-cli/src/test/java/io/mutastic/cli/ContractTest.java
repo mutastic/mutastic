@@ -31,12 +31,12 @@ import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/// The Java edition keeps the editions' contract (docs/public/schemas/contract/v1.json): its
-/// command line, its help's layout, the error code and exit code of each error case, the human
-/// summary's rows, the agent format's lines, the events' key paths and order, and mutation.json's
-/// key paths. Each is found by running mutastic as a person does, on a copy of the pricing sample,
-/// and compared with the contract: a difference the contract doesn't record fails, naming the item
-/// and what to do, and so does a recorded one that has gone.
+/// The Java edition keeps the editions' contract (docs/public/contract/v1.json): its command line,
+/// its help's layout, the error code and exit code of each error case, the human summary's rows,
+/// the agent format's lines, the events' key paths and order, and mutation.json's key paths. Each
+/// is found by running mutastic as a person does, on a copy of the pricing sample, and compared
+/// with the contract: a difference the contract doesn't record fails, naming the item and what to
+/// do, and so does a recorded one that has gone.
 ///
 /// The Rust edition runs the same checks on its own binary and fixture (mutastic-rs's
 /// tests/contract.rs), so neither shares the other's code. CONTRIBUTING.md says how it works.
@@ -65,7 +65,7 @@ class ContractTest {
   void theContractIsWellFormed() throws IOException {
     var text = Files.readString(EditionContract.FILE, StandardCharsets.UTF_8);
 
-    assertThat(Schemas.yamlProblems("contract/v1.schema.json", text)).isEmpty();
+    assertThat(Schemas.yamlProblems("contract/v1.json", text)).isEmpty();
     var ids = strings(ids());
     assertThat(ids).doesNotHaveDuplicates();
     assertThat(strings(CONTRACT.get("editions"))).contains(EditionContract.EDITION);
@@ -85,7 +85,7 @@ class ContractTest {
         found,
         schemas,
         "events",
-        Files.newInputStream(EditionContract.FILE.resolveSibling("../events/v1.json")));
+        Files.newInputStream(Path.of(System.getProperty("mutastic.schemas"), "events/v1.json")));
     schema(
         found,
         schemas,
