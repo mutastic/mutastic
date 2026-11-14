@@ -769,22 +769,28 @@ public final class Main {
     if (gone.isPresent()) {
       return gone.get(); // first: taking the test away may leave no line changed
     }
-    if (new Git(directory).changedSince(state.base()).lines().isEmpty()) {
-      return testsVerdict(gated, state);
+    // Whatever lines it changed: a task that only ignores a mutant itself changes none mutastic
+    // mutates, and mustn't pass for it. Checked even on a tree git sees as untouched, which it is
+    // when the project's git ignores `.mutastic/`.
+    var own = selfIgnored(directory, state).or(() -> selfBaselined(directory, state));
+    if (own.isPresent()) {
+      return own.get();
     }
-    return selfIgnored(directory, state)
-        .or(() -> selfBaselined(directory, state))
-        .or(() -> fewerTests(gated, state))
-        .orElseGet(() -> mutantsVerdict(gated, state));
-  }
-
-  /// A task that changed no line mutastic mutates: passed, once the tests pass. A task that changed
-  /// nothing can't have broken one; one that changed a test, a build file or a test's data may
-  /// have, so they run.
-  private static Gate.Verdict testsVerdict(Gated gated, Gate.State state) {
-    if (new Git(gated.prepared().directory()).untouchedSince(state.base())) {
+    if (new Git(directory).untouchedSince(state.base())) {
+      // a task that changed nothing else can't have taken a test away or broken one
       return Gate.Verdict.pass("mutastic gate: passed: the task changed no lines mutastic mutates");
     }
+    return fewerTests(gated, state)
+        .orElseGet(
+            () ->
+                new Git(directory).changedSince(state.base()).lines().isEmpty()
+                    ? testsVerdict(gated, state)
+                    : mutantsVerdict(gated, state));
+  }
+
+  /// A task that changed no line mutastic mutates, but changed something: passed, once the tests
+  /// pass. A change to a test, a build file or a test's data may have broken one, so they run.
+  private static Gate.Verdict testsVerdict(Gated gated, Gate.State state) {
     try {
       gateRun(gated, state.base());
     } catch (Engine.BaselineFailed e) {

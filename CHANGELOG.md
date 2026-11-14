@@ -107,6 +107,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **The gate holds a task that changes no line mutastic mutates to its other checks.** Such a task
+  skipped the checks for ignores and baseline entries the task made itself, and for tests taken
+  away or `@Disabled`, so an agent that only deleted a failing test, or ignored a mutant itself,
+  passed once the rest of the tests did. Now they run on every check, whatever lines changed, with
+  the same words and the same hand-over; only a task that changed nothing passes at once, and
+  an ignore or baseline entry it made itself holds it even where git doesn't see `.mutastic/`.
+  An ignore you accept between turns is still the task's to start from.
 - **The events schema says the order events come in, as both editions write them.** It said a run
   writes `run-started` first, but the phase events of reading and building the project come before
   it. Now it says: those phase events may come first; `run-started` comes before the first
