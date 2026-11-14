@@ -1967,20 +1967,6 @@
       "decision": 15
     },
     {
-      "id": "G1",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "command line",
-      "summary": "No `mutants` command",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "items": [
-        "command:mutants",
-        "help:mutants:*"
-      ]
-    },
-    {
       "id": "G2",
       "kind": "pending",
       "editions": [
