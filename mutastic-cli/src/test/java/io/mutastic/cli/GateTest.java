@@ -113,8 +113,8 @@ class GateTest {
     assertThat(mutastic("gate", "check", project.toString()).exit()).isEqualTo(Main.PASSED);
   }
 
-  /// A task that changed only tests changed no line mutastic mutates: there's nothing to gate,
-  /// and it passes before the mutants or the ignores are looked at, as in the Rust edition.
+  /// A task that changed only tests changed no line mutastic mutates: there's nothing to gate, and
+  /// it passes before the mutants or the ignores are looked at, as in the Rust edition.
   @Test
   void aTaskThatChangedOnlyTestsPasses() throws Exception {
     mutastic("gate", "open", project.toString());
