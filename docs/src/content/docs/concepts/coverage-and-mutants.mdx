@@ -1,0 +1,512 @@
+---
+title: Coverage and mutants
+description: "A test can run every line and both sides of every if and still check nothing. Measured on one small example: the same coverage for tests that check and tests that don't, and the bugs mutastic finds that coverage can't."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import EditionTabs from '../../../components/EditionTabs.astro';
+import RustAwaiting from '../../../components/RustAwaiting.astro';
+import RustOutput from '../../../components/RustOutput.astro';
+import weak from '../../../data/output/coverage-weak.ansi?raw';
+import strong from '../../../data/output/coverage-strong.ansi?raw';
+import edges from '../../../data/output/coverage-edges.ansi?raw';
+import arithmetic from '../../../data/output/coverage-arithmetic.ansi?raw';
+import returns from '../../../data/output/coverage-returns.ansi?raw';
+import calls from '../../../data/output/coverage-calls.ansi?raw';
+import strongerMutants from '../../../data/output/coverage-stronger-mutants.ansi?raw';
+import stronger from '../../../data/output/coverage-stronger.ansi?raw';
+import strongerVerify from '../../../data/output/coverage-stronger-verify.ansi?raw';
+
+A test can run every line of your code, and both sides of every `if`, without checking what any of
+it does. Coverage scores it the same as a test that checks everything, so the report is green
+while the tests would pass on code that's wrong. mutastic asks the question coverage can't: it
+puts a small bug in the code, runs the tests, and tells you when they don't notice.
+
+This page measures one small example both ways, with tests that check too little and tests that
+check the results. Coverage can't tell them apart, and mutastic can. Then it shows where mutants
+reach past branch coverage even for good tests, and when `--operators=stronger` finds more than
+the defaults.
+
+<RustAwaiting>
+This page's Rust example comes with mutastic for Rust's next release. Until then, it shows the Java
+edition's: on a crate, the coverage tool is `cargo llvm-cov`, and mutastic's cards are the same.
+</RustAwaiting>
+
+## Three ways to measure tests
+
+- **Line coverage** asks which lines ran. A line no test runs is untested, for sure. A line that
+  ran may be untested too: running it isn't checking it.
+- **Branch coverage** asks which way each decision went: whether the tests took each `if` both
+  ways. It finds the side of a condition no test takes. It still doesn't look at what the tests
+  assert.
+- **Mutation testing** asks whether the tests would notice a bug. mutastic makes one small change
+  to the code at a time, a mutant, and runs the tests that reach it. A mutant they catch is code
+  they check. One they miss is a gap, on a line coverage counts as tested.
+
+Coverage is cheap, and it tells you where tests never go. Only mutants tell you whether the tests
+check what they reach.
+
+## The example
+
+The example works out what an order costs:
+
+<EditionTabs>
+<div slot="java">
+
+{/* from: samples/checkout/src/main/java/com/example/checkout/Checkout.java */}
+```java
+public class Checkout {
+  /// 10% off orders of 100 or more.
+  public int discount(int total) {
+    if (total >= 100) {
+      return total / 10;
+    }
+    return 0;
+  }
+
+  /// What `quantity` items at `price` each cost, less any discount, which goes on the receipt.
+  public int pay(int quantity, int price, List<String> receipt) {
+    int total = quantity * price;
+    int off = discount(total);
+    receipt.add("discount " + off);
+    return total - off;
+  }
+}
+```
+
+</div>
+<div slot="rust">
+
+In `fixtures/checkout/src/lib.rs`, in mutastic for Rust's repository:
+
+```rust
+/// 10% off orders of 100 or more.
+pub fn discount(total: u32) -> u32 {
+    if total >= 100 {
+        return total / 10;
+    }
+    0
+}
+
+/// What `quantity` items at `price` each cost, less any discount, which goes on the receipt.
+pub fn pay(quantity: u32, price: u32, receipt: &mut Vec<String>) -> u32 {
+    let total = quantity * price;
+    let off = discount(total);
+    receipt.push(format!("discount {off}"));
+    total - off
+}
+```
+
+</div>
+</EditionTabs>
+
+## Two sets of tests, the same coverage
+
+Its tests run every line, and take the `if` both ways: a big order gets the discount and a small
+one doesn't. But one checks only that a big order costs less than 250, and the other checks
+nothing at all:
+
+<EditionTabs>
+<div slot="java">
+
+{/* from: samples/checkout/src/test/java/com/example/checkout/CheckoutTest.java */}
+```java
+class CheckoutTest {
+  @Test
+  void bigOrdersGetADiscount() {
+    var receipt = new ArrayList<String>();
+    assertTrue(new Checkout().pay(1, 250, receipt) < 250);
+  }
+
+  @Test
+  void smallOrdersPayFullPrice() {
+    new Checkout().pay(1, 50, new ArrayList<>());
+  }
+}
+```
+
+</div>
+<div slot="rust">
+
+```rust
+#[test]
+fn big_orders_get_a_discount() {
+    let mut receipt = Vec::new();
+    assert!(pay(1, 250, &mut receipt) < 250);
+}
+
+#[test]
+fn small_orders_pay_full_price() {
+    pay(1, 50, &mut Vec::new());
+}
+```
+
+</div>
+</EditionTabs>
+
+These check the results: what each order costs, and what goes on the receipt.
+
+<EditionTabs>
+<div slot="java">
+
+With `import static org.junit.jupiter.api.Assertions.assertEquals;` and `import java.util.List;`
+at the top of the file:
+
+{/* changed in: samples/checkout/src/test/java/com/example/checkout/CheckoutTest.java */}
+```java
+@Test
+void bigOrdersGetADiscount() {
+  var receipt = new ArrayList<String>();
+  assertEquals(225, new Checkout().pay(1, 250, receipt));
+  assertEquals(List.of("discount 25"), receipt);
+}
+
+@Test
+void smallOrdersPayFullPrice() {
+  var receipt = new ArrayList<String>();
+  assertEquals(50, new Checkout().pay(1, 50, receipt));
+  assertEquals(List.of("discount 0"), receipt);
+}
+```
+
+</div>
+<div slot="rust">
+
+```rust
+#[test]
+fn big_orders_get_a_discount() {
+    let mut receipt = Vec::new();
+    assert_eq!(pay(1, 250, &mut receipt), 225);
+    assert_eq!(receipt, ["discount 25"]);
+}
+
+#[test]
+fn small_orders_pay_full_price() {
+    let mut receipt = Vec::new();
+    assert_eq!(pay(1, 50, &mut receipt), 50);
+    assert_eq!(receipt, ["discount 0"]);
+}
+```
+
+</div>
+</EditionTabs>
+
+<EditionTabs>
+<div slot="java">
+
+[JaCoCo](https://www.jacoco.org/jacoco/) measures their coverage. The sample's build applies its
+Gradle plugin, and its CSV report has the counts:
+
+```sh
+./gradlew test jacocoTestReport
+```
+
+| Tests | Lines | Branches |
+|---|---|---|
+| Checking too little | 8 of 8 | 2 of 2 |
+| Checking the results | 8 of 8 | 2 of 2 |
+
+Every line ran, and the `if` went both ways, with either set of tests.
+
+</div>
+<div slot="rust">
+
+[`cargo llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov) measures their coverage:
+
+```sh
+cargo llvm-cov --manifest-path fixtures/checkout/Cargo.toml --lcov --summary-only --remap-path-prefix
+```
+
+With the tests that check too little:
+
+<RustOutput name="coverage-and-mutants/llvm-cov-weak" />
+
+With the tests that check the results:
+
+<RustOutput name="coverage-and-mutants/llvm-cov-strong" />
+
+The same, to the last line. In lcov's terms, `LF` is the lines found and `LH` the lines hit, and
+`FNF` and `FNH` the same for functions: every one ran, both times. `BRF` and `BRH`, the branches,
+are 0 because branch coverage in Rust needs a nightly compiler (`cargo +nightly llvm-cov
+--branch`).
+
+</div>
+</EditionTabs>
+
+## What mutastic sees
+
+The tests that check too little:
+
+<EditionTabs>
+<div slot="java">
+
+```sh
+mutastic run samples/checkout --format=concise
+```
+
+<Code code={weak} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```sh
+mutastic run fixtures/checkout --format=concise
+```
+
+<RustOutput name="coverage-and-mutants/weak" />
+
+</div>
+</EditionTabs>
+
+Each mutant under `Missed` is a bug those tests let through, on code that coverage counts as
+tested. With the tests that check the results, mutastic catches all of them but one, and that one
+is the first of the next section.
+
+## Where mutants go further than branches
+
+### Boundaries
+
+The tests that check the results take the `if` both ways, at 50 and 250. Branch coverage asks for
+nothing more. But no test is at 100, so `>=` and `>` give the same answer on every test, and the
+off-by-one bug passes:
+
+<EditionTabs>
+<div slot="java">
+
+```sh
+mutastic run samples/checkout
+```
+
+<Code code={strong} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```sh
+mutastic run fixtures/checkout
+```
+
+<RustOutput name="coverage-and-mutants/strong" />
+
+</div>
+</EditionTabs>
+
+The card asks for a test at 100. Here's that one, through `pay()` as the others go, and one just
+below the edge, so the edge is pinned from both sides:
+
+<EditionTabs>
+<div slot="java">
+
+{/* added to: samples/checkout/src/test/java/com/example/checkout/CheckoutTest.java */}
+```java
+@Test
+void ordersOf100GetADiscount() {
+  assertEquals(90, new Checkout().pay(1, 100, new ArrayList<>()));
+}
+
+@Test
+void ordersJustUnder100PayFullPrice() {
+  assertEquals(99, new Checkout().pay(1, 99, new ArrayList<>()));
+}
+```
+
+</div>
+<div slot="rust">
+
+```rust
+#[test]
+fn orders_of_100_get_a_discount() {
+    assert_eq!(pay(1, 100, &mut Vec::new()), 90);
+}
+
+#[test]
+fn orders_just_under_100_pay_full_price() {
+    assert_eq!(pay(1, 99, &mut Vec::new()), 99);
+}
+```
+
+</div>
+</EditionTabs>
+
+Now the run catches every mutant:
+
+<EditionTabs>
+<div slot="java">
+
+```sh
+mutastic run samples/checkout
+```
+
+<Code code={edges} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```sh
+mutastic run fixtures/checkout
+```
+
+<RustOutput name="coverage-and-mutants/edges" />
+
+</div>
+</EditionTabs>
+
+### Arithmetic
+
+Every test buys one item, and 1 / 250 is 0. With `*` changed to `/`, `pay()` charges nothing, and
+nothing is less than 250, so the test that checks too little still passes. Coverage counted the
+line; nothing checked what it worked out.
+
+<EditionTabs>
+<div slot="java">
+
+<Code code={arithmetic} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+<RustOutput name="coverage-and-mutants/arithmetic" />
+
+</div>
+</EditionTabs>
+
+### Return values
+
+A test that checks only which way a value went passes for a wrong value too. `pay()` returning 0
+is less than 250:
+
+<EditionTabs>
+<div slot="java">
+
+<Code code={returns} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+<RustOutput name="coverage-and-mutants/returns" />
+
+</div>
+</EditionTabs>
+
+### Removed calls
+
+The receipt is what the customer sees, and neither test looks at it. With the line that writes it
+gone, both pass:
+
+<EditionTabs>
+<div slot="java">
+
+<Code code={calls} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+<RustOutput name="coverage-and-mutants/calls" />
+
+</div>
+</EditionTabs>
+
+The tests that check the results catch all three: they assert what `pay()` returns and what's on
+the receipt.
+
+## When the defaults aren't enough
+
+A run uses the `defaults` set of operators: the changes most likely to find a gap worth a test.
+`--operators=stronger` adds more (see [All operators](/concepts/operators/#choosing-operators)).
+Before you pay for a run, `mutastic mutants` lists what it would make, and runs no test:
+
+<EditionTabs>
+<div slot="java">
+
+```sh
+mutastic mutants samples/checkout --operators=stronger
+```
+
+<Code code={strongerMutants} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```sh
+mutastic mutants fixtures/checkout --operators=stronger
+```
+
+<RustOutput name="coverage-and-mutants/stronger-mutants" />
+
+</div>
+</EditionTabs>
+
+With every test so far in, the defaults catch everything. `stronger` finds one more:
+
+<EditionTabs>
+<div slot="java">
+
+```sh
+mutastic run samples/checkout --operators=stronger
+```
+
+<Code code={stronger} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```sh
+mutastic run fixtures/checkout --operators=stronger
+```
+
+<RustOutput name="coverage-and-mutants/stronger" />
+
+</div>
+</EditionTabs>
+
+Every test buys one item, so `quantity * price` and `price` are the same on every test: a bug that
+drops the quantity would ship. The defaults only try `*` to `/`, and the tests catch that one,
+since 1 / 250 is 0. A test that buys more than one closes the gap:
+
+<EditionTabs>
+<div slot="java">
+
+{/* added to: samples/checkout/src/test/java/com/example/checkout/CheckoutTest.java */}
+```java
+@Test
+void severalItemsCostTheirPriceEach() {
+  assertEquals(60, new Checkout().pay(3, 20, new ArrayList<>()));
+}
+```
+
+```sh
+mutastic verify mf248f66b samples/checkout
+```
+
+<Code code={strongerVerify} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+```rust
+#[test]
+fn several_items_cost_their_price_each() {
+    assert_eq!(pay(3, 20, &mut Vec::new()), 60);
+}
+```
+
+```sh
+mutastic verify md6d95190 fixtures/checkout
+```
+
+<RustOutput name="coverage-and-mutants/stronger-verify" />
+
+</div>
+</EditionTabs>
+
+## Which to use
+
+- **Coverage finds what no test runs.** That's worth knowing, and cheap to measure. mutastic lists
+  it too, under `Not covered`.
+- **A coverage gate says the tests ran the code. mutastic's score says they checked it.** A score
+  can't be raised by calling code without checking it, which a coverage number can.
+- **The defaults first, `stronger` when they're all caught.** It finds gaps like the one above, at
+  the cost of more mutants to run.
+
+Writing tests first doesn't close these gaps by itself: [Working test-first](/guides/test-first/)
+shows a test written first passing on code that's wrong, and mutastic finding it in the cycle.

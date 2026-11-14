@@ -34,6 +34,14 @@ class DocsOutputTest {
       Path.of(System.getProperty("mutastic.samples"), "configured");
   private static final Path PAGES = Path.of(System.getProperty("mutastic.docs"));
   private static final Path STOCK = Path.of(System.getProperty("mutastic.samples"), "stock");
+  private static final Path CHECKOUT = Path.of(System.getProperty("mutastic.samples"), "checkout");
+  private static final String CHECKOUT_TEST =
+      "src/test/java/com/example/checkout/CheckoutTest.java";
+
+  /// What a CSV row's cells are split at, and the tests in a block of more than one.
+  private static final Pattern COMMA = Pattern.compile(",");
+
+  private static final Pattern BLANK_LINE = Pattern.compile("\n\n");
 
   /// The stock sample's `left > 0` becoming `left != 0` where `left` is `@NonNegative`, skipped,
   /// and where it's `@PositiveOrZero`, which runs.
@@ -421,6 +429,160 @@ class DocsOutputTest {
     var exit =
         new ProcessBuilder(command).directory(project.toFile()).inheritIO().start().waitFor();
     assertThat(exit).as(String.join(" ", arguments)).isZero();
+  }
+
+  /// The coverage page's example. The checkout sample's tests check too little, and the page's
+  /// check the results: JaCoCo measures the same line and branch coverage for both, as the page's
+  /// table says, while mutastic misses mutants with the first that the second catches, all but the
+  /// boundary. The edge's tests catch that, and `stronger` finds what every test buying one item
+  /// hides, which the page's last test catches. Each run is on a copy of its own, so none is
+  /// compared with the one before.
+  @Test
+  void coverageAndMutants() throws Exception {
+    var page = PAGES.resolve("concepts/coverage-and-mutants.mdx");
+    var text = Files.readString(page);
+    var steps = marked(page).stream().filter(block -> !block.kind().equals("from")).toList();
+    var path = "samples/checkout/" + CHECKOUT_TEST;
+    assertThat(steps)
+        .extracting(Marked::kind, Marked::path)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple("changed in", path),
+            org.assertj.core.groups.Tuple.tuple("added to", path),
+            org.assertj.core.groups.Tuple.tuple("added to", path));
+
+    var weak = checkout("weak", steps.subList(0, 0));
+    var tooLittle = jacoco(weak);
+    assertThat(text).contains("| Checking too little | " + tooLittle + " |");
+    var concise = concise(weak);
+    assertThat(concise.exit()).as(concise.out()).isEqualTo(Main.FAILED);
+    shown("coverage-weak.ansi", weak, concise);
+    var cards = checkout("cards", steps.subList(0, 0));
+    var full = Samples.mutastic(TERMINAL, "run", cards.toString(), "--workers=1");
+    shown(
+        "coverage-arithmetic.ansi",
+        cards,
+        aCard(full, "tests pass even when * becomes / in pay()"));
+    shown("coverage-returns.ansi", cards, aCard(full, "no test checks what pay() returns here"));
+    shown("coverage-calls.ansi", cards, aCard(full, "no test checks the effect of calling add()"));
+
+    var strong = checkout("strong", steps.subList(0, 1));
+    var checking = jacoco(strong);
+    assertThat(checking).isEqualTo(tooLittle);
+    assertThat(text).contains("| Checking the results | " + checking + " |");
+    var run = Samples.mutastic(TERMINAL, "run", strong.toString(), "--workers=1");
+    assertThat(run.exit()).as(run.out()).isEqualTo(Main.PASSED);
+    assertThat(ANSI.matcher(run.out()).replaceAll(""))
+        .containsOnlyOnce("✗ MISSED")
+        .contains("no test checks discount() at total == 100");
+    shown("coverage-strong.ansi", strong, run);
+
+    var edges = checkout("edges", steps.subList(0, 2));
+    var caught = Samples.mutastic(TERMINAL, "run", edges.toString(), "--workers=1");
+    assertThat(caught.exit()).as(caught.out()).isEqualTo(Main.PASSED);
+    assertThat(ANSI.matcher(caught.out()).replaceAll("")).doesNotContain("✗ MISSED");
+    shown("coverage-edges.ansi", edges, caught);
+    shown(
+        "coverage-stronger-mutants.ansi",
+        edges,
+        mutastic("mutants", edges.toString(), "--operators=stronger"));
+    var more =
+        Samples.mutastic(TERMINAL, "run", edges.toString(), "--operators=stronger", "--workers=1");
+    assertThat(more.exit()).as(more.out()).isEqualTo(Main.PASSED);
+    var plain = ANSI.matcher(more.out()).replaceAll("");
+    assertThat(plain).containsOnlyOnce("✗ MISSED").contains("+ int total = price;");
+    var done = DONE_WHEN.matcher(plain);
+    assertThat(done.find()).as(more.out()).isTrue();
+    var ids = done.group("ids");
+    assertThat(text).contains("mutastic verify " + ids + " samples/checkout\n");
+    shown("coverage-stronger.ansi", edges, more);
+    added(edges.resolve(CHECKOUT_TEST), steps.get(2));
+    shown("coverage-stronger-verify.ansi", edges, mutastic("verify", ids, edges.toString()));
+  }
+
+  /// A copy of the checkout sample, under `name`, with the coverage page's `steps` made to its
+  /// tests.
+  private Path checkout(String name, List<Marked> steps) throws IOException {
+    var project = Samples.copy(CHECKOUT, work.resolve(name).resolve("checkout"));
+    var test = project.resolve(CHECKOUT_TEST);
+    for (Marked step : steps) {
+      if (step.kind().equals("added to")) {
+        added(test, step);
+      } else {
+        replacedTests(test, step);
+        imported(test);
+      }
+    }
+    return project;
+  }
+
+  /// The imports the coverage page says the tests that check the results need, added to `file`.
+  private static void imported(Path file) throws IOException {
+    var page = Files.readString(PAGES.resolve("concepts/coverage-and-mutants.mdx"));
+    var source = Files.readString(file);
+    for (String[] after :
+        List.of(
+            new String[] {
+              "import static org.junit.jupiter.api.Assertions.assertTrue;",
+              "import static org.junit.jupiter.api.Assertions.assertEquals;"
+            },
+            new String[] {"import java.util.ArrayList;", "import java.util.List;"})) {
+      assertThat(page).contains("`" + after[1] + "`");
+      assertThat(source).contains(after[0] + "\n");
+      source = source.replace(after[0] + "\n", after[1] + "\n" + after[0] + "\n");
+    }
+    Files.writeString(file, source);
+  }
+
+  /// Each test in `block` in place of the one of its name in `file`.
+  private static void replacedTests(Path file, Marked block) throws IOException {
+    var source = Files.readString(file);
+    for (String test : BLANK_LINE.splitAsStream(block.code().strip()).toList()) {
+      var name = test.lines().filter(line -> line.startsWith("void ")).findFirst().orElseThrow();
+      var at = source.indexOf("  " + name + "\n");
+      assertThat(at).as("%s in %s", name, file).isNotNegative();
+      var start = source.lastIndexOf("  @Test\n", at);
+      var end = source.indexOf("\n  }\n", at) + "\n  }\n".length();
+      source = source.substring(0, start) + test.indent(2) + source.substring(end);
+    }
+    Files.writeString(file, source);
+  }
+
+  /// JaCoCo's line and branch coverage of the checkout sample, as the coverage page's table shows
+  /// it, `8 of 8 | 2 of 2`, from the CSV report its build writes. Every line and branch is covered.
+  private static String jacoco(Path project) throws Exception {
+    var exit =
+        new ProcessBuilder(project.resolve("gradlew").toString(), "-q", "test", "jacocoTestReport")
+            .directory(project.toFile())
+            .inheritIO()
+            .start()
+            .waitFor();
+    assertThat(exit).as("./gradlew test jacocoTestReport").isZero();
+    var csv = Files.readAllLines(project.resolve("build/reports/jacoco/test/jacocoTestReport.csv"));
+    assertThat(csv).as("one class").hasSize(2);
+    var header = COMMA.splitAsStream(csv.get(0)).toList();
+    var row = COMMA.splitAsStream(csv.get(1)).toList();
+    java.util.function.ToIntFunction<String> count =
+        column -> Integer.parseInt(row.get(header.indexOf(column)));
+    assertThat(count.applyAsInt("LINE_MISSED")).as("lines missed").isZero();
+    assertThat(count.applyAsInt("BRANCH_MISSED")).as("branches missed").isZero();
+    return "%d of %d | %d of %d"
+        .formatted(
+            count.applyAsInt("LINE_COVERED"),
+            count.applyAsInt("LINE_COVERED"),
+            count.applyAsInt("BRANCH_COVERED"),
+            count.applyAsInt("BRANCH_COVERED"));
+  }
+
+  /// The card whose headline starts `headline`, without the run's summary after the last.
+  private static Samples.Result aCard(Samples.Result result, String headline) {
+    var card = theCard(result, headline);
+    var lines = card.out().lines().toList();
+    var end = 0;
+    while (end < lines.size() && !ANSI.matcher(lines.get(end)).replaceAll("").contains("Next:")) {
+      end++;
+    }
+    var shown = String.join("\n", lines.subList(0, end)).stripTrailing() + "\n";
+    return new Samples.Result(result.exit(), shown, result.err());
   }
 
   /// The configuration guide's example: the configured sample without its mutastic.yaml, where the
