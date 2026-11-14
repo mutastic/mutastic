@@ -27,14 +27,7 @@ final class NamedNotes {
     } else {
       notes.add("the edge is " + named.get().meaning());
     }
-    return new Advice(
-        advice.before(),
-        advice.after(),
-        advice.change(),
-        advice.changedTo(),
-        advice.headline(),
-        notes,
-        advice.fix());
+    return advice.withNotes(notes);
   }
 
   /// The inputs seen with the value the receiver was made with after them; false if no note says

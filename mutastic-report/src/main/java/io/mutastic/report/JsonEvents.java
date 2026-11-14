@@ -150,8 +150,8 @@ public final class JsonEvents {
   private Map<String, Object> mutation(Mutant mutant) {
     var advice = sources.advice(mutant);
     var mutation = new LinkedHashMap<String, Object>();
-    advice.before().ifPresent(before -> mutation.put("original", before));
-    advice.after().ifPresent(after -> mutation.put("replacement", after));
+    advice.original().ifPresent(original -> mutation.put("original", original));
+    advice.replacement().ifPresent(replacement -> mutation.put("replacement", replacement));
     mutation.put("description", advice.change());
     var applied = new LinkedHashMap<String, Object>();
     applied.put("level", "bytecode");

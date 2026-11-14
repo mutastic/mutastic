@@ -160,7 +160,7 @@ public final class ReportFiles {
     var entry = new LinkedHashMap<String, Object>();
     entry.put("id", mutant.id());
     entry.put("mutatorName", mutatorName(mutant));
-    entry.put("replacement", advice.after().orElse(advice.change()));
+    entry.put("replacement", advice.replacement().orElse(advice.change()));
     entry.put("description", advice.change());
     entry.put(
         "location",

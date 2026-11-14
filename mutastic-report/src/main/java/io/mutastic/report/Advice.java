@@ -26,6 +26,9 @@ import java.util.stream.Collectors;
 /// @param headline the gap in the tests, for a missed mutant
 /// @param notes the evidence: what the tests did
 /// @param fix the test to write
+/// @param original the source the mutant replaces, as the events and reports give it: the token, or
+///   for a condition made constant the condition, `total >= 100`, where the run says which
+/// @param replacement the source that replaces it: `>`, `false`, or a return's new value, `0`
 public record Advice(
     Optional<String> before,
     Optional<String> after,
@@ -33,10 +36,30 @@ public record Advice(
     String changedTo,
     String headline,
     List<String> notes,
-    String fix) {
+    String fix,
+    Optional<String> original,
+    Optional<String> replacement) {
 
   public Advice {
     notes = List.copyOf(notes);
+  }
+
+  /// Advice whose change, as source, is its token before and after: what most operators change.
+  public Advice(
+      Optional<String> before,
+      Optional<String> after,
+      String change,
+      String changedTo,
+      String headline,
+      List<String> notes,
+      String fix) {
+    this(before, after, change, changedTo, headline, notes, fix, before, after);
+  }
+
+  /// The same advice with other notes.
+  Advice withNotes(List<String> others) {
+    return new Advice(
+        before, after, change, changedTo, headline, others, fix, original, replacement);
   }
 
   /// javac usually compiles an `if` to a jump past its body, so the jump tests the opposite of the
@@ -236,7 +259,9 @@ public record Advice(
         "no test needs %s to be %s in %s".formatted(condition, other, method),
         inputsSeen(seen),
         "add a test where %s is %s, and assert what %s does then"
-            .formatted(condition, other, method));
+            .formatted(condition, other, method),
+        conditionSource(mutant.operands(), token),
+        Optional.of(truth));
   }
 
   /// A comparison changed, by where the two comparisons give different answers: only where its two
@@ -551,7 +576,9 @@ public record Advice(
             .map(
                 was ->
                     "add a test where %s returns `%s` here, and assert it".formatted(method, was))
-            .orElseGet(() -> returnHelp(method, value)));
+            .orElseGet(() -> returnHelp(method, value)),
+        Optional.empty(),
+        Optional.of(value));
   }
 
   /// What a return gives today, when the mutant's value says: the other `boolean`, or the `0` a
@@ -867,7 +894,9 @@ public record Advice(
         words.apply(changedTo),
         words.apply(headline),
         notes.stream().map(words).toList(),
-        words.apply(fix));
+        words.apply(fix),
+        original,
+        replacement);
   }
 
   /// A comparison of a name with a value, the name first however the source has it: `total >= 100`
@@ -904,6 +933,17 @@ public record Advice(
 
   /// `` `total >= 100` ``, `` `Files.isRegularFile(git)` `` for a test of a call, or "the `>=`
   /// check" / "the condition" when the operands aren't known.
+  /// The condition as source, `total >= 100`, or `ready` for one operand: none when the run
+  /// doesn't say what it compares.
+  private static Optional<String> conditionSource(List<String> operands, Optional<String> token) {
+    if (operands.size() == 1) {
+      return Optional.of(operands.getFirst());
+    }
+    return operands.size() == 2
+        ? token.map(each -> "%s %s %s".formatted(operands.get(0), each, operands.get(1)))
+        : Optional.empty();
+  }
+
   private static String condition(List<String> operands, Optional<String> token) {
     if (operands.size() == 1) {
       return "`%s`".formatted(operands.getFirst());

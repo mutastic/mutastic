@@ -74,6 +74,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **`mutation.original` and `replacement` are source, as in the Rust edition.** In the events and
+  `mutation.json`, `original` is the source span the mutant replaces and `replacement` the source
+  that replaces it. A condition made constant had `original` `>=` and no replacement; now it's
+  `total >= 100` and `false`. A return's `replacement` was `return 0;`, and is `0`. In
+  `mutation.json`, a condition made constant's `replacement` was its description, and is the
+  source too.
 - **A build of modules names them as commands, for Maven as for Gradle.** At the top of a Maven
   build with no Java code of its own, mutastic said `name a module with some: mutastic run
   :<module>` and named none. Now both tools say `<directory> is a build's root, with no Java code
