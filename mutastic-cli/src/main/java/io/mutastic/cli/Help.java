@@ -50,7 +50,9 @@ final class Help {
           new Entry(
               "1",
               "The score is below the threshold, or with --fail-on-new a miss is new; for verify,"
-                  + " the mutant is still missed; for gate check, the task isn't done"),
+                  + " the mutant is still missed; for gate check, the task isn't done; for next,"
+                  + " something is queued; for ignore --accept or --remove, the mutant isn't"
+                  + " proposed or ignored; for baseline, there's one already, or none to prune"),
           new Entry("2", "A usage error, or a build mutastic couldn't read"),
           new Entry(
               "3",

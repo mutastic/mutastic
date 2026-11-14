@@ -129,13 +129,18 @@ class IgnoreTest {
     Samples.mutastic("ignore", ID, project.toString(), "--propose", "--reason=never 100");
     var withdrawn = Samples.mutastic("ignore", "--remove", ID, project.toString());
     var nothing = Samples.mutastic("ignore", "--accept", ID, project.toString());
+    var nothingToRemove = Samples.mutastic("ignore", "--remove", ID, project.toString());
 
     assertThat(withdrawn.out())
         .contains(ID + " is no longer proposed")
         .contains("to undo: mutastic ignore " + ID + " --propose '--reason=never 100'");
     assertThat(project.resolve(".mutastic/proposals.yaml")).doesNotExist();
     assertThat(nothing.exit()).isEqualTo(Main.FAILED);
-    assertThat(nothing.out()).contains(ID + " isn't proposed");
+    assertThat(nothing.out()).isEmpty();
+    assertThat(nothing.err()).startsWith("mutastic: " + ID + " isn't proposed");
+    assertThat(nothingToRemove.exit()).isEqualTo(Main.FAILED);
+    assertThat(nothingToRemove.out()).isEmpty();
+    assertThat(nothingToRemove.err()).contains(ID + " isn't ignored");
   }
 
   /// Each says where it wrote, and how to undo it.

@@ -33,12 +33,19 @@ final class Sarif {
   private final Path root;
   private final SourceView sources;
   private final String version;
+  private final OperatorDocs docs;
 
   /// `root` is the project's directory, which the sources' paths are relative to.
   Sarif(Path root, SourceView sources, String version) {
+    this(root, sources, version, OperatorDocs.LATEST);
+  }
+
+  /// @param docs where each operator is described: a rule's `helpUri`
+  Sarif(Path root, SourceView sources, String version, OperatorDocs docs) {
     this.root = root;
     this.sources = sources;
     this.version = version;
+    this.docs = docs;
   }
 
   Map<String, Object> document(Report report) {
@@ -77,7 +84,7 @@ final class Sarif {
   }
 
   /// Each operator that made a result, by its id, in order.
-  private static Map<String, Map<String, Object>> rules(List<MutantResult> flagged) {
+  private Map<String, Map<String, Object>> rules(List<MutantResult> flagged) {
     var rules = new TreeMap<String, Map<String, Object>>();
     for (MutantResult result : flagged) {
       rules.computeIfAbsent(
@@ -86,12 +93,15 @@ final class Sarif {
     return rules;
   }
 
-  private static Map<String, Object> rule(Operator operator) {
+  /// An operator as a rule: what it changes, and where the docs describe it, for an operator that
+  /// has a page there.
+  private Map<String, Object> rule(Operator operator) {
     var rule = new LinkedHashMap<String, Object>();
     rule.put("id", operator.id());
     rule.put("shortDescription", text(firstSentence(operator.explanation())));
     rule.put("fullDescription", text(operator.explanation()));
     rule.put("help", text(operator.explanation()));
+    docs.url(operator).ifPresent(url -> rule.put("helpUri", url));
     rule.put("defaultConfiguration", Map.of("level", "warning"));
     rule.put("properties", Map.of("tags", List.of("mutation-testing", "tests")));
     return rule;
