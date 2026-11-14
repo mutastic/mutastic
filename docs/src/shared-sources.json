@@ -5,6 +5,12 @@
       "concepts/results.md": "d02a8d6edb60868c"
     }
   },
+  "concepts/coverage-and-mutants": {
+    "commit": "73cd11789c407bd849c62af4295c4a86fc9a6698",
+    "sources": {
+      "coverage-and-mutants.md": "e025d36d6418984a"
+    }
+  },
   "concepts/suggested-tests": {
     "commit": "24beb4f1727ab4117692621b1161d8cfaf72c66c",
     "sources": {
