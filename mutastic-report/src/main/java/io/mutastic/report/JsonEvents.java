@@ -226,7 +226,7 @@ public final class JsonEvents {
     return fields;
   }
 
-  private static Map<String, Object> suggestedTest(SuggestedTest test, MutantResult result) {
+  static Map<String, Object> suggestedTest(SuggestedTest test, MutantResult result) {
     var found = result.suggestion().orElseThrow();
     var suggestion = new LinkedHashMap<String, Object>();
     suggestion.put("testClass", test.testClass());

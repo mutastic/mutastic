@@ -24,8 +24,13 @@ import tools.jackson.databind.node.ObjectNode;
 public final class Schemas {
   static final Path PUBLISHED = Path.of(System.getProperty("mutastic.schemas"));
   static final Path EVENTS = PUBLISHED.resolve("events/v1.json");
+  static final Path REPORT = PUBLISHED.resolve("report/v1.json");
 
   private static final Schema STRICT = schema(strict(read(EVENTS)));
+
+  /// mutastic's additions to mutation.json, read strictly as the events are: a field under a
+  /// `mutastic` key that the schema doesn't name fails.
+  private static final Schema STRICT_REPORT = schema(closed(read(REPORT)));
 
   private Schemas() {}
 
@@ -62,9 +67,12 @@ public final class Schemas {
   }
 
   /// What the mutation-testing report schema, at the version mutation.json claims, finds wrong with
-  /// `json`: its own copy, in test resources (THIRD-PARTY.md says from where).
+  /// `json` (its own copy, in test resources: THIRD-PARTY.md says from where), and what the
+  /// published schema of mutastic's additions to it does.
   public static List<String> reportProblems(String json) {
-    return problems(report(), json);
+    var problems = new java.util.ArrayList<>(problems(report(), json));
+    problems.addAll(problems(STRICT_REPORT, json));
+    return problems;
   }
 
   /// What the SARIF 2.1.0 schema finds wrong with `json`: its own copy, in test resources
@@ -81,6 +89,13 @@ public final class Schemas {
 
   static List<String> problems(Schema schema, String json) {
     return schema.validate(json, InputFormat.JSON).stream().map(Error::toString).toList();
+  }
+
+  /// The published schema with every object its definitions describe closed.
+  static JsonNode closed(JsonNode published) {
+    var closed = (ObjectNode) published.deepCopy();
+    close(closed.get("$defs"));
+    return closed;
   }
 
   /// The published schema with every object it describes closed, and only its reasons allowed.

@@ -39,7 +39,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
-import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -288,7 +288,7 @@ public final class Main {
     command.shard().ifPresent(shard -> Shares.forget(shareEvents(prepared, shard)));
     var tested = passes.run(command, prepared, display.listener());
     passes.progress().checking(RECORDING, 0, 0);
-    var kept = kept(command, prepared, tested);
+    var kept = kept(command, prepared, tested, judged);
     passes.progress().finished();
     display.printer().print(tested.report(), kept.comparison(), kept.written());
     toGitHub(command, prepared, output.github(), tested.report());
@@ -522,10 +522,9 @@ public final class Main {
   }
 
   /// Only full runs compare, are kept and write reports: one mutant says nothing about the rest.
-  private static Kept kept(Command command, Prepared prepared, Tested tested) {
-    return command.only().isEmpty()
-        ? keep(command, prepared, tested.report(), tested.otherTests())
-        : Kept.NOTHING;
+  private static Kept kept(
+      Command command, Prepared prepared, Tested tested, Optional<FailOnNew> judged) {
+    return command.only().isEmpty() ? keep(command, prepared, tested, judged) : Kept.NOTHING;
   }
 
   /// A `gate` command, with what running it needs.
@@ -1273,13 +1272,13 @@ public final class Main {
       Path work,
       Project project,
       SourceView sources,
-      LocalTime startedAt,
+      ZonedDateTime startedAt,
       Duration setup,
       Duration build) {}
 
   private static Prepared prepare(Command command, BuildTool tool, Progress progress) {
     long start = System.nanoTime();
-    var startedAt = LocalTime.now(java.time.ZoneId.systemDefault()); // the reader's clock
+    var startedAt = ZonedDateTime.now(java.time.ZoneId.systemDefault()); // the reader's clock
     var directory = command.directory().toAbsolutePath().normalize();
     var work = workDirectory(tool, directory, command.module(), command.suite());
     var here = Path.of("").toAbsolutePath().normalize();
@@ -1500,7 +1499,7 @@ public final class Main {
   /// and the tests it was told to leave out.
   private static HumanText.Run run(Command command, Prepared prepared, List<String> written) {
     return new HumanText.Run(
-        prepared.startedAt(),
+        prepared.startedAt().toLocalTime(),
         prepared.setup(),
         written,
         !command.only().isEmpty(),
@@ -1559,17 +1558,20 @@ public final class Main {
   /// Compares with the last run under the same operators before keeping this one, then writes the
   /// report files.
   private static Kept keep(
-      Command command, Prepared prepared, Report report, List<Path> otherTests) {
+      Command command, Prepared prepared, Tested tested, Optional<FailOnNew> judged) {
+    var report = tested.report();
     var share = command.shard().map(shard -> shareEvents(prepared, shard));
     // A run with no mutant to run measured nothing: the last run that did stays the one `explain`
     // and the next run read, unless a report was asked for by name. A share's folder is its own.
     boolean measured = report.testsRan() || share.isPresent();
     var comparison =
-        measured ? recorded(command, prepared, report, otherTests) : Optional.<Comparison>empty();
+        measured
+            ? recorded(command, prepared, report, tested.otherTests())
+            : Optional.<Comparison>empty();
     var written =
         new ArrayList<>(
             measured || !command.reports().equals(DEFAULT_REPORTS)
-                ? writeReports(command, prepared, report)
+                ? writeReports(command, prepared, report, judged)
                 : List.of());
     share.ifPresent(file -> written.add(shownFrom(prepared.directory(), file)));
     var kept = new Kept(comparison, List.copyOf(written));
@@ -1648,9 +1650,16 @@ public final class Main {
   }
 
   /// The report files asked for, as they're written: relative to the project where they're in it.
-  private static List<String> writeReports(Command command, Prepared prepared, Report report) {
+  private static List<String> writeReports(
+      Command command, Prepared prepared, Report report, Optional<FailOnNew> judged) {
     var directory = prepared.directory();
-    var files = new ReportFiles(directory, prepared.sources(), command.threshold(), version());
+    var passed =
+        judged
+            .map(onNew -> onNew.passes(report))
+            .orElseGet(() -> report.passes(command.threshold()));
+    var files =
+        new ReportFiles(directory, prepared.sources(), command.threshold(), version())
+            .withRun(new ReportFiles.Run(prepared.startedAt().toInstant(), passed, operatorDocs()));
     var written = new ArrayList<String>();
     for (var requested : command.reports()) {
       var file =

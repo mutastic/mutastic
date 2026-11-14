@@ -137,6 +137,11 @@ class DocsOutputTest {
     entry.put("source", "…");
     entry.putArray("mutants").add(missed);
     trimmed.set("framework", report.path("framework"));
+    // When it ran, and on which JDK, change from run to run.
+    var run = (tools.jackson.databind.node.ObjectNode) report.path("mutastic").deepCopy();
+    run.put("startedAt", "…");
+    ((tools.jackson.databind.node.ObjectNode) run.path("toolchain")).put("version", "…");
+    trimmed.set("mutastic", run);
     var laidOut = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(trimmed) + "\n";
     return new Samples.Result(0, laidOut, "");
   }

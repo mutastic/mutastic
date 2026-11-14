@@ -59,6 +59,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`mutation.json` says what the cards say.** Under one `mutastic` key on each mutant: where it
+  is (`method`), and for a miss its evidence, its fix, the inputs the tests passed and the test to
+  add; under one at the top, the run's facts: the commands for a mutant, the docs, the score,
+  threshold and verdict, the JDK and when it started. Each test in `testFiles` has its `location`.
+  The report schema stays as it is: these are additions, described at
+  https://docs.mutastic.io/schemas/report/v1.json, and the Rust edition writes the same.
 - **A run with no mutant to run runs no test.** `mutastic run --since=HEAD` on a clean tree started
   a worker and ran every test, a minute and more on a big module, to say there was nothing to
   measure. When no mutant is there to run (no changed lines, changed lines with no mutant, `--only`

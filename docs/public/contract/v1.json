@@ -1045,6 +1045,11 @@
       "id": "sarif 2.1.0",
       "url": "https://json.schemastore.org/sarif-2.1.0.json",
       "sha256": "c96eb2d311c37b0a38cbd18c52d79a68f778bbd2d831abed7412d9850740f785"
+    },
+    "reportAdditions": {
+      "id": "mutastic.report/v1",
+      "url": "https://docs.mutastic.io/schemas/report/v1.json",
+      "sha256": "05b1463d79cc28fc517a9b97306716ac94cfed57d1cf4317a9e75c49394c39dd"
     }
   },
   "events": {
@@ -1182,6 +1187,22 @@
       "files.*.mutants[].location.start",
       "files.*.mutants[].location.start.column",
       "files.*.mutants[].location.start.line",
+      "files.*.mutants[].mutastic",
+      "files.*.mutants[].mutastic.evidence",
+      "files.*.mutants[].mutastic.failureOrigin",
+      "files.*.mutants[].mutastic.fix",
+      "files.*.mutants[].mutastic.inputs",
+      "files.*.mutants[].mutastic.inputs.*",
+      "files.*.mutants[].mutastic.method",
+      "files.*.mutants[].mutastic.suggestedTest",
+      "files.*.mutants[].mutastic.suggestedTest.arguments",
+      "files.*.mutants[].mutastic.suggestedTest.arguments.*",
+      "files.*.mutants[].mutastic.suggestedTest.call",
+      "files.*.mutants[].mutastic.suggestedTest.code",
+      "files.*.mutants[].mutastic.suggestedTest.name",
+      "files.*.mutants[].mutastic.suggestedTest.testClass",
+      "files.*.mutants[].mutastic.suggestedTest.today",
+      "files.*.mutants[].mutastic.suggestedTest.withMutant",
       "files.*.mutants[].mutatorName",
       "files.*.mutants[].replacement",
       "files.*.mutants[].status",
@@ -1191,6 +1212,23 @@
       "framework",
       "framework.name",
       "framework.version",
+      "mutastic",
+      "mutastic.commands",
+      "mutastic.commands.ignore",
+      "mutastic.commands.propose",
+      "mutastic.commands.run",
+      "mutastic.commands.verify",
+      "mutastic.docsBase",
+      "mutastic.edition",
+      "mutastic.operatorDocs",
+      "mutastic.operatorDocs.*",
+      "mutastic.passed",
+      "mutastic.score",
+      "mutastic.startedAt",
+      "mutastic.threshold",
+      "mutastic.toolchain",
+      "mutastic.toolchain.name",
+      "mutastic.toolchain.version",
       "performance",
       "performance.initialRun",
       "performance.mutation",
@@ -1202,6 +1240,10 @@
       "testFiles.*.source",
       "testFiles.*.tests",
       "testFiles.*.tests[].id",
+      "testFiles.*.tests[].location",
+      "testFiles.*.tests[].location.start",
+      "testFiles.*.tests[].location.start.column",
+      "testFiles.*.tests[].location.start.line",
       "testFiles.*.tests[].name",
       "thresholds",
       "thresholds.high",
@@ -2163,10 +2205,11 @@
         "rust"
       ],
       "surface": "events",
-      "summary": "No `failureOrigin`",
+      "summary": "No `failureOrigin`, in the events or mutation.json",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
       "items": [
-        "event:mutant-finished:failureOrigin"
+        "event:mutant-finished:failureOrigin",
+        "report:files.*.mutants[].mutastic.failureOrigin"
       ]
     },
     {
@@ -2222,19 +2265,6 @@
       "surface": "events",
       "summary": "The schema's `$defs/test` describes only `Class#method`, and `statusReason` says only for a skipped mutant",
       "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "G25",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "reports",
-      "summary": "mutation.json's `testFiles` is keyed by module path, with no `source`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "report:testFiles.*.source"
-      ]
     },
     {
       "id": "G26",
@@ -2675,16 +2705,6 @@
       "surface": "events",
       "summary": "`run doesn't take --top` is `extra-words`, not `option-not-taken` (with G2)",
       "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "P1",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "reports",
-      "summary": "Survived `statusReason` has its backticks stripped",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
       "id": "P2",
