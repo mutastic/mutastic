@@ -465,10 +465,10 @@ class GateTest {
           case "baselines", "baselines-unseen" -> {
             var id = aMissedMutant();
             assertThat(mutastic("baseline", project.toString()).exit()).isEqualTo(Main.PASSED);
-            yield "mutastic gate: the task added "
-                + id
-                + " to .mutastic/baseline.yaml itself, and"
-                + " whether a miss is the project's backlog is a person's call";
+            // `.mutastic\\baseline.yaml` on Windows, as the gate says it there
+            yield "mutastic gate: the task added %s to %s itself, and whether a miss is the"
+                    .formatted(id, Baseline.FILE.toString().replace("\\", "\\\\"))
+                + " project's backlog is a person's call";
           }
           case "person-ignores" -> {
             // The agent's turn changes nothing, and the gate lets it stop. Between turns the
