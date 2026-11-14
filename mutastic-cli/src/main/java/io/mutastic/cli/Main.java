@@ -30,6 +30,7 @@ import io.mutastic.report.Queue;
 import io.mutastic.report.ReportFiles;
 import io.mutastic.report.SourceView;
 import io.mutastic.report.Style;
+import io.mutastic.report.Untrusted;
 import io.mutastic.report.Vocabulary;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -45,6 +46,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 /// `mutastic`: mutation testing for a Java build, read through Gradle or Maven. `mutastic --help`
@@ -128,7 +130,8 @@ public final class Main {
       return nothingToGate(command) ? PASSED : run(command, out, err, terminal);
     } catch (RuntimeException e) {
       var failure = Failure.of(e, List.of(args), terminal.env());
-      err.print(failure.said());
+      // A build's or a test's output comes with it: escaped, a line at a time.
+      err.print(Untrusted.escapeLines(failure.said()));
       if (forAgents(List.of(args), terminal)) {
         new LiveEvents(out).runFailed(failure.event(typedDirectory(List.of(args))));
       }
@@ -727,9 +730,12 @@ public final class Main {
     return new Gate.Verdict(
         true,
         verdict.gaveUp(),
-        ("%s\n\nThe task changed what tests that were there when it started expect, in %s: check"
-                + " that's what you asked for")
-            .formatted(verdict.text(), String.join(", ", changed)));
+        ("%s\n\nThe task changed what tests that were there when it started expect, in the files"
+                + " below: check that's what you asked for\n\n%s")
+            .formatted(
+                verdict.text(),
+                Untrusted.fence(
+                    changed.stream().map(Untrusted::value).collect(Collectors.joining("\n")))));
   }
 
   /// Sent back, the agent changed nothing: it's declined, as it may when told to, so sending it
@@ -800,7 +806,7 @@ public final class Main {
                         + " is a person's call. Take it back with `mutastic ignore --remove ID`, and"
                         + " propose it instead: `mutastic ignore ID --propose --as=KIND"
                         + " --reason=\"…\"`")
-                    .formatted(String.join(", ", added))));
+                    .formatted(Untrusted.values(List.copyOf(added)))));
   }
 
   /// A test that failed at an earlier check and is gone now, by name and by body: a task isn't done
@@ -818,11 +824,17 @@ public final class Main {
                 ("mutastic gate: %s failed at an earlier check, and %s gone now. Put %s back: the"
                         + " gate doesn't pass a task by taking a failing test away. Leave a failing"
                         + " test in place and make the code pass it, unless the spec or plan is"
-                        + " what's wrong, in which case say so and stop")
+                        + " what's wrong, in which case say so and stop\n\n%s")
                     .formatted(
-                        String.join(", ", gone),
+                        gone.size() == 1
+                            ? "the test named below"
+                            : "the %d tests named below".formatted(gone.size()),
                         gone.size() == 1 ? "it's" : "they're",
-                        gone.size() == 1 ? "it" : "them")));
+                        gone.size() == 1 ? "it" : "them",
+                        Untrusted.fence(
+                            gone.stream()
+                                .map(Untrusted::value)
+                                .collect(Collectors.joining("\n"))))));
   }
 
   /// A mutant the task added to the baseline itself: like an ignore, a person's call.
@@ -838,7 +850,7 @@ public final class Main {
                         + " or propose ignoring it: `mutastic ignore ID --propose --as=KIND"
                         + " --reason=\"…\"`")
                     .formatted(
-                        String.join(", ", added),
+                        Untrusted.values(List.copyOf(added)),
                         Baseline.FILE,
                         added.size() == 1 ? "it" : "them")));
   }
@@ -950,27 +962,48 @@ public final class Main {
   /// told to find out which is wrong, and to ask. One the task added usually needs its code
   /// written, but it may be what shows the spec is wrong, and making it pass would bury that.
   private static String red(Gated gated, Gate.State state, Engine.BaselineFailed failed) {
-    var said = String.valueOf(failed.getMessage()).replaceFirst("\\.$", ""); // what follows goes on
+    var said = String.valueOf(failed.getMessage());
     var before =
         failed.failing().stream().filter(test -> wasThere(gated, state.base(), test)).toList();
+    var fenced = redFence(said, before);
+    var where = outputIn(said);
     if (before.isEmpty()) {
-      return "mutastic gate: "
-          + said
-          + ". Make them pass first, unless the spec or plan is what's wrong, in which case say so"
-          + " and stop. Either way, leave a failing test in place: the gate doesn't pass a task"
-          + " by taking it away";
+      return ("mutastic gate: the tests named below fail without any mutant%s. Make them pass"
+              + " first, unless the spec or plan is what's wrong, in which case say so and stop."
+              + " Either way, leave a failing test in place: the gate doesn't pass a task by taking"
+              + " it away\n\n%s")
+          .formatted(where, fenced);
     }
-    return ("mutastic gate: %s.\n\n%s %s there when the task started: if %s passed then, the task's"
-            + " change broke %s. Find out whether the change or the test is wrong. Don't change"
-            + " what a test expects, or take it away, to make it pass unless the task asked for"
-            + " that behaviour, and if you're not sure, ask")
+    return ("mutastic gate: the tests named below fail without any mutant%s.\n\n%s there when the"
+            + " task started, marked so below: if %s passed then, the task's change broke %s. Find"
+            + " out whether the change or the test is wrong. Don't change what a test expects, or"
+            + " take it away, to make it pass unless the task asked for that behaviour, and if"
+            + " you're not sure, ask\n\n%s")
         .formatted(
-            said,
-            String.join(", ", before),
-            before.size() == 1 ? "was" : "were",
+            where,
+            before.size() == 1 ? "One was" : "%d were".formatted(before.size()),
             before.size() == 1 ? "it" : "they",
-            before.size() == 1 ? "it" : "them");
+            before.size() == 1 ? "it" : "them",
+            fenced);
   }
+
+  /// `; their output is in build/….log`, as a red suite's message says, or nothing.
+  private static String outputIn(String said) {
+    var log = OUTPUT_IN.matcher(said);
+    return log.find() ? "; their output is in " + Untrusted.value(log.group("log")) : "";
+  }
+
+  /// What failed and how, the project's text, fenced, with the tests there when the task started
+  /// marked: what the gate names after it says what to do.
+  private static String redFence(String said, List<String> before) {
+    var lines = new ArrayList<>(said.lines().map(Untrusted::value).toList());
+    before.forEach(test -> lines.add(Untrusted.value(test) + " (there when the task started)"));
+    return Untrusted.fence(String.join("\n", lines));
+  }
+
+  /// Where a red suite's output is, as its message says: `Their output is in build/….log.`
+  private static final java.util.regex.Pattern OUTPUT_IN =
+      java.util.regex.Pattern.compile("(?:Its|Their) output is in (?<log>\\S+?)\\.(?:\\s|$)");
 
   /// Whether a test, `com.example.ATest#name`, was in its class's source at `base`.
   private static boolean wasThere(Gated gated, String base, String test) {
@@ -1538,12 +1571,13 @@ public final class Main {
   private static int verified(MutantResult result, PrintStream out) {
     var fate =
         switch (result.status()) {
-          case CAUGHT, TIMED_OUT -> "is caught by " + result.caughtBy().orElse("a timeout");
+          case CAUGHT, TIMED_OUT ->
+              "is caught by " + Untrusted.value(result.caughtBy().orElse("a timeout"));
           case MISSED -> "is still missed";
           case NOT_COVERED -> "isn't reached by any test";
           case SKIPPED ->
               "is skipped (%s), so it isn't run and needs no test"
-                  .formatted(result.mutant().skipped().orElse("skipped"));
+                  .formatted(Untrusted.value(result.mutant().skipped().orElse("skipped")));
         };
     out.printf("mutastic: %s %s\n", result.mutant().id(), fate);
     return settled(result) ? PASSED : FAILED;

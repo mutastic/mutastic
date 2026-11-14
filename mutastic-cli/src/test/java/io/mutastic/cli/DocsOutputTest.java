@@ -72,6 +72,9 @@ class DocsOutputTest {
   /// The commit a gate's task starts from, which changes with each repository a test makes.
   private static final Pattern COMMITS = Pattern.compile("(from |--since=)[0-9a-f]{7,40}\\b");
 
+  /// The fence around the project's text in an agent's: each run draws its own token.
+  private static final Pattern FENCE = Pattern.compile("(?<marker>mutastic-data )[0-9a-f]{8}>>");
+
   @TempDir Path work;
 
   /// The sample's mutants, listed; then the quickstart's tour, in order: a run that misses one
@@ -651,6 +654,7 @@ class DocsOutputTest {
   }
 
   private static String withoutTimings(String output) {
-    return COMMITS.matcher(TIMINGS.matcher(output).replaceAll("…")).replaceAll("$1…");
+    var steady = COMMITS.matcher(TIMINGS.matcher(output).replaceAll("…")).replaceAll("$1…");
+    return FENCE.matcher(steady).replaceAll("${marker}3f9a0c1e>>");
   }
 }

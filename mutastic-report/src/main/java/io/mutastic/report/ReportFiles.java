@@ -281,17 +281,16 @@ public final class ReportFiles {
   private Map<String, Object> mutant(MutantResult result) {
     var mutant = result.mutant();
     var advice = sources.advice(mutant);
-    var place = sources.place(mutant);
     var entry = new LinkedHashMap<String, Object>();
     entry.put("id", mutant.id());
     entry.put("mutatorName", mutatorName(mutant));
-    entry.put("replacement", advice.after().orElse(advice.change()));
+    var change = sources.change(mutant);
+    change
+        .map(SourceChange::replacement)
+        .or(advice::after)
+        .ifPresent(replacement -> entry.put("replacement", replacement));
     entry.put("description", advice.change());
-    entry.put(
-        "location",
-        pair(
-            "start", pair("line", place.line(), "column", place.start()),
-            "end", pair("line", place.line(), "column", place.end())));
+    entry.put("location", location(change, sources.place(mutant)));
     entry.put("status", result.status().schemaName());
     var reason = statusReason(result, advice);
     if (!reason.isEmpty()) {
@@ -332,6 +331,23 @@ public final class ReportFiles {
         .ifPresent(test -> fields.put("suggestedTest", suggestedTest(test, result)));
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
     return fields;
+  }
+
+  /// The source the mutant replaces, from where it starts to where it ends; the line's change where
+  /// the source can't show it exactly.
+  private static Map<String, Object> location(
+      Optional<SourceChange> change, SourceView.Place place) {
+    return change
+        .map(
+            found ->
+                pair(
+                    "start", pair("line", found.line(), "column", found.column()),
+                    "end", pair("line", found.endLine(), "column", found.endColumn())))
+        .orElseGet(
+            () ->
+                pair(
+                    "start", pair("line", place.line(), "column", place.start()),
+                    "end", pair("line", place.line(), "column", place.end())));
   }
 
   /// `boundary` for mutastic's own operators, a plugin's by its whole id: `stream/remove-stage`.

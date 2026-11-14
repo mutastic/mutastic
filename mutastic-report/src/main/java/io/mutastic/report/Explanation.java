@@ -41,7 +41,7 @@ public final class Explanation {
     addRow(rows, "bytecode", bytecode(mutant));
     addRow(rows, "operator", operator(mutant));
     addRow(rows, "id", id(mutant));
-    addRow(rows, "site", List.of(site(mutant)));
+    addRow(rows, "site", List.of(Untrusted.escape(site(mutant))));
     addRow(
         rows,
         "last run",
@@ -68,9 +68,11 @@ public final class Explanation {
   /// `IF_ICMPLT → IF_ICMPLE`, then what each does, then how the jump relates to the source.
   private List<String> bytecode(Mutant mutant) {
     var lines = new ArrayList<String>();
-    lines.add(style.bold(mutant.original() + " → " + mutant.replacement()));
+    lines.add(
+        style.bold(
+            Untrusted.value(mutant.original()) + " → " + Untrusted.value(mutant.replacement())));
     lines.addAll(meanings(mutant));
-    jump(mutant).ifPresent(lines::add);
+    jump(mutant).map(Untrusted::escape).ifPresent(lines::add);
     return lines;
   }
 
