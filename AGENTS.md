@@ -66,6 +66,11 @@ applied by google-java-format through Spotless: that is the spec, not taste.
     .githooks`), and CI checks every new commit. Commits before 9 Nov 2026 use the older style and
     are never reworded.
 
+    A pull request's title becomes its squash merge's subject with " (#<number>)" added, so keep
+    it to 44 characters (43 from #100); CI checks it. Merge with `sh .githooks/merge-pr <number>
+    [body-file]`, never `gh pr merge` by hand: it checks the whole message, body wrapped at 72,
+    and merges only once CI is green. See [Commit messages](CONTRIBUTING.md#commit-messages).
+
 ## mutastic's own rules
 
 - **Output never names other mutation tools.** Cards, `explain`, help text and rule files
