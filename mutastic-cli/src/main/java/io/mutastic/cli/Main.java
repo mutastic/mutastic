@@ -187,6 +187,16 @@ public final class Main {
     noBaselineToFailOn(command, directory);
     var tool = BuildTools.of(directory);
     tool.checkModule(directory, command.module(), typed(directory));
+    var nothingToDo = nothingToDo(command, directory);
+    if (nothingToDo.isPresent()) {
+      err.print(nothingToDo.get());
+      return FAILED;
+    }
+    if (command.subcommand() == Subcommand.GATE_CHECK
+        && Gate.State.read(workPath(tool, directory, command.module(), command.suite()))
+            .isEmpty()) {
+      return noGateOpen(command, err);
+    }
     var lock = WorkLock.hold(tool.workDirectory(directory, command.module()), err);
     try (var output = output(command, out, err, terminal)) {
       return held(command, output, tool, terminal);
@@ -195,6 +205,42 @@ public final class Main {
     } finally {
       lock.close();
     }
+  }
+
+  /// A command with nothing to do, refused before the build is read: `baseline` with one there
+  /// already, or `--prune` with none; `ignore --accept` of a mutant that isn't proposed, or
+  /// `--remove` of one neither ignored nor proposed. Said on stderr, as stdout holds only results.
+  private static Optional<String> nothingToDo(Command command, Path directory) {
+    boolean prune = command.ignore().map(Ignoring::prune).orElse(false);
+    if (command.subcommand() == Subcommand.BASELINE && prune != Baseline.exists(directory)) {
+      return Optional.of(
+          (prune
+                  ? "mutastic: there's no baseline to prune: `mutastic baseline` writes one"
+                  : ("mutastic: there's a baseline already, in %s. `mutastic baseline --prune`"
+                          + " drops its mutants the tests catch now; it's never rewritten to take"
+                          + " in new misses, which would hide them")
+                      .formatted(Baseline.FILE))
+              + "\n");
+    }
+    if (command.subcommand() != Subcommand.IGNORE || prune) {
+      return Optional.empty();
+    }
+    var where =
+        new IgnoreCommand.Where(
+            directory,
+            new SourceView(directory, List.of()).withInvocation(invocation(command, directory)),
+            shown(directory.resolve(Ignores.FILE)));
+    return IgnoreCommand.nothingToDo(command.ignore().get(), command.only().getFirst(), where);
+  }
+
+  /// `gate check` with no task open: a hooked agent may stop, and says nothing; a person is told
+  /// how to open one.
+  private static int noGateOpen(Command command, PrintStream err) {
+    if (!command.gating().hook().isEmpty()) {
+      return PASSED;
+    }
+    err.print("mutastic gate: none open here: `mutastic gate open` starts one\n");
+    return USAGE;
   }
 
   /// The tests failing with no mutant in, ending in the build's command that runs the first alone.
@@ -341,17 +387,6 @@ public final class Main {
   private static int baseline(Command command, Prepared prepared, Passes passes, PrintStream out) {
     var directory = prepared.directory();
     boolean prune = command.ignore().map(Ignoring::prune).orElse(false);
-    if (prune != Baseline.exists(directory)) {
-      out.print(
-          (prune
-                  ? "mutastic: there's no baseline to prune: `mutastic baseline` writes one"
-                  : ("mutastic: there's a baseline already, in %s. `mutastic baseline --prune`"
-                          + " drops its mutants the tests catch now; it's never rewritten to take"
-                          + " in new misses, which would hide them")
-                      .formatted(Baseline.FILE))
-              + "\n");
-      return FAILED;
-    }
     var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
     out.print((prune ? pruned(directory, report) : baselined(prepared, report)) + "\n");
@@ -367,9 +402,10 @@ public final class Main {
   private static String baselined(Prepared prepared, Report report) {
     var entries = Baseline.entries(report.results(), prepared.sources());
     Baseline.write(prepared.directory(), entries);
-    return ("mutastic: %d mutants no test catches are in %s: commit it. A miss that isn't in it is"
-            + " new: the gate holds only new misses, and next offers them first")
-        .formatted(entries.size(), Baseline.FILE);
+    int size = entries.size();
+    return ("mutastic: %d %s no test catches %s in %s: commit it. A miss that isn't in it is new:"
+            + " the gate holds only new misses, and next offers them first")
+        .formatted(size, size == 1 ? "mutant" : "mutants", size == 1 ? "is" : "are", Baseline.FILE);
   }
 
   /// The baseline's mutants a run doesn't find uncaught: caught now, ignored, or gone with their
@@ -608,13 +644,8 @@ public final class Main {
   private static int gateCheck(Gated gated) {
     var open = Gate.State.read(gated.work());
     if (open.isEmpty()) {
-      if (!gated.hooked()) {
-        gated
-            .output()
-            .out()
-            .print("mutastic gate: none open here: `mutastic gate open` starts one\n");
-      }
-      return gated.hooked() ? PASSED : USAGE; // nothing gated: a hooked agent may stop
+      // Closed by another process while the build was read: as a gate check finds nothing open.
+      return gated.hooked() ? PASSED : USAGE;
     }
     var verdict = gateVerdict(gated, open.get());
     var state = open.get().remembering(verdict.red());
@@ -1282,8 +1313,6 @@ public final class Main {
     var startedAt = LocalTime.now(java.time.ZoneId.systemDefault()); // the reader's clock
     var directory = command.directory().toAbsolutePath().normalize();
     var work = workDirectory(tool, directory, command.module(), command.suite());
-    var here = Path.of("").toAbsolutePath().normalize();
-    var target = withSuite(target(here, directory, command.module()), command.suite());
     var request =
         new BuildTool.Request(directory, command.module(), work, typed(directory), command.suite());
     var built = built(command, tool, request, progress);
@@ -1294,7 +1323,7 @@ public final class Main {
     var sources =
         new SourceView(directory, project.sources(), project.testSources())
             .withClassSources(new ClassSources(project.classes()))
-            .withInvocation(Invocation.of(command.commands(), target));
+            .withInvocation(invocation(command, directory));
     return new Prepared(directory, work, project, sources, startedAt, setup, built.took());
   }
 
@@ -1331,15 +1360,26 @@ public final class Main {
     return named;
   }
 
+  /// How the commands mutastic offers run the module, from where mutastic was run.
+  private static Invocation invocation(Command command, Path directory) {
+    var here = Path.of("").toAbsolutePath().normalize();
+    var target = withSuite(target(here, directory, command.module()), command.suite());
+    return Invocation.of(command.commands(), target);
+  }
+
+  /// Where mutastic keeps the module's files, made or not.
+  private static Path workPath(BuildTool tool, Path directory, String module, String suite) {
+    var moduleWork = tool.workDirectory(directory, module);
+    return suite.equals(BuildTool.DEFAULT_SUITE)
+        ? moduleWork
+        : moduleWork.resolve("suites").resolve(suite);
+  }
+
   /// Where mutastic keeps the module's run record, logs and reports, made if it isn't there yet:
   /// with a setup a build plugin wrote, no build has run to make it. A suite but the default keeps
   /// its own, under `suites/`: its run never compares with another suite's.
   private static Path workDirectory(BuildTool tool, Path directory, String module, String suite) {
-    var moduleWork = tool.workDirectory(directory, module);
-    var work =
-        suite.equals(BuildTool.DEFAULT_SUITE)
-            ? moduleWork
-            : moduleWork.resolve("suites").resolve(suite);
+    var work = workPath(tool, directory, module, suite);
     try {
       Files.createDirectories(work);
     } catch (IOException e) {
@@ -1791,7 +1831,8 @@ public final class Main {
             + " isn't worth a test, since until then it still counts as missed. A proposal that a"
             + " mutant is equivalent or unreachable says the one case where it differs, and why"
             + " that can't happen.",
-        "0 when the decision is recorded, proposed, accepted or removed; 1 when --accept names a mutant that isn't proposed.",
+        "0 when the decision is recorded, proposed, accepted or removed; 1 when --accept names a"
+            + " mutant that isn't proposed, or --remove one that isn't ignored or proposed.",
         List.of(
             "mutastic ignore m855c8e3c --reason=\"only logs\"",
             "mutastic ignore m855c8e3c --propose --as=unreachable --reason=\"Differs only when"
@@ -2267,16 +2308,36 @@ public final class Main {
         // stands for.
         var properties = Options.fromProperty(arg);
         if (properties.isPresent()) {
+          byProperty = true;
           properties.get().forEach(each -> read(each, new java.util.ArrayDeque<>()));
+          byProperty = false;
         } else if (arg.startsWith("--")) {
           int equals = arg.indexOf('=');
           var option = option(arg, equals);
+          taken(option);
           var rested = rest.size();
           var value = value(option, arg, equals, rest);
           typed = rest.size() < rested ? List.of(arg, String.valueOf(value)) : List.of(arg);
           set(option, value);
         } else {
           positional(arg, sinceBefore);
+        }
+      }
+
+      /// Whether the option being read came from a build plugin's `mutastic.` property: a plugin
+      /// passes its settings to each of its goals, so one a command doesn't take is no mistake.
+      private boolean byProperty = false;
+
+      /// An option typed for a command that doesn't take it: doing the command without it would
+      /// hide that it was meant for something.
+      private void taken(Option option) {
+        if (!byProperty
+            && option.group() != Option.Group.BUILD_PLUGINS
+            && !option.commands().contains(subcommand)) {
+          throw new UsageException(
+              "option-not-taken",
+              "%s doesn't take %s".formatted(subcommand.word(), option.name()),
+              null);
         }
       }
 

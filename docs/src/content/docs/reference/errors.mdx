@@ -77,6 +77,12 @@ An option the command doesn't have. A single dash is never an option: they're al
 
 <Code code={unknownOption} lang="ansi" />
 
+### `option-not-taken`
+
+An option mutastic has, given to a command that doesn't take it, such as `--threshold` to
+`verify`: the command would otherwise run as if it weren't there. A build plugin's `mutastic.`
+properties are the exception, as a plugin passes its settings to each of its goals.
+
 ### `option-value`
 
 An option's value mutastic can't use: one of a list it isn't, a number out of range, a missing

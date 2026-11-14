@@ -74,6 +74,17 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **A refusal that does nothing goes to stderr, and exits 1.** `ignore --remove` of a mutant that
+  isn't ignored (which exited 0), `ignore --accept` of one that isn't proposed, `baseline` with one
+  there already and `baseline --prune` with none printed on stdout, after reading the build. Now
+  each is refused before the build is read, on stderr, as the Rust edition does, so stdout holds
+  only results. `gate check` with no task open says so on stderr too, and still exits 2.
+- **An option the command doesn't take is refused.** `mutastic verify m855c8e3c --threshold=70`
+  ran as if the option weren't there. Now it says `verify doesn't take --threshold`, with the
+  command's usage, and exits 2 with the code `option-not-taken`, as the Rust edition does. A build
+  plugin's `mutastic.` properties are still passed to every goal.
+- **`baseline` counts one mutant in the singular:** `1 mutant no test catches is in
+  .mutastic/baseline.yaml`.
 - **A build of modules names them as commands, for Maven as for Gradle.** At the top of a Maven
   build with no Java code of its own, mutastic said `name a module with some: mutastic run
   :<module>` and named none. Now both tools say `<directory> is a build's root, with no Java code

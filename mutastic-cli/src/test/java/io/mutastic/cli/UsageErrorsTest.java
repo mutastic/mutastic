@@ -29,6 +29,18 @@ class UsageErrorsTest {
             """);
   }
 
+  /// An option mutastic has, typed for a command that doesn't take it, isn't dropped without a
+  /// word: the command would run as if it weren't there.
+  @Test
+  void anOptionTheCommandDoesntTakeIsRefused() {
+    var verify = Samples.mutastic("verify", "m855c8e3c", "samples/pricing", "--threshold=70");
+    var run = Samples.mutastic(Map.of("MUTASTIC_FORMAT", "jsonl"), "run", "--top=3");
+
+    assertThat(verify.exit()).isEqualTo(Main.USAGE);
+    assertThat(verify.err()).startsWith("mutastic: verify doesn't take --threshold\nusage: ");
+    assertThat(run.out()).contains("\"code\":\"option-not-taken\"");
+  }
+
   /// A value given after a space is corrected to the `=` form the docs and help write.
   @Test
   void aCloseValueIsCorrectedWithAnEquals() {
