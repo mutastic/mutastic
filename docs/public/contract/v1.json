@@ -1849,17 +1849,6 @@
       "reason": "Each language's own word."
     },
     {
-      "id": "D9",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "reports",
-      "summary": "Docs links per operator aren't `/<edition>/operators/<family>/#<id>` in events, explain and SARIF `helpUri`",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "decision": 9
-    },
-    {
       "id": "D13",
       "kind": "pending",
       "editions": [
@@ -1869,17 +1858,6 @@
       "summary": "Codes worked out from the message's words (Java's `usageCode`) rather than set where the error is raised",
       "issue": "https://github.com/mutastic/mutastic/issues/61",
       "decision": 13
-    },
-    {
-      "id": "D15",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "gate",
-      "summary": "The gate counts a change to any Java file, tests included, as a changed line",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "decision": 15
     },
     {
       "id": "G3",

@@ -819,10 +819,13 @@ public final class Main {
       // a task that changed nothing else can't have taken a test away or broken one
       return Gate.Verdict.pass("mutastic gate: passed: the task changed no lines mutastic mutates");
     }
+    // Only lines in the code it mutates count, as in the Rust edition: a task that changed only
+    // tests, or files outside the module's sources, has no mutant to gate, but its tests run.
+    var sources = gated.prepared().project().sources();
     return fewerTests(gated, state)
         .orElseGet(
             () ->
-                new Git(directory).changedSince(state.base()).lines().isEmpty()
+                new Git(directory).changedSince(state.base()).within(sources).lines().isEmpty()
                     ? testsVerdict(gated, state)
                     : mutantsVerdict(gated, state));
   }

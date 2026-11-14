@@ -132,6 +132,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   suite does, with the same words and the same hand-over. A task that changed only files mutastic
   doesn't mutate (a test's data, a build file) runs the tests too; only one that changed nothing
   skips them. A plain `run --since` keeps the fast path.
+- **The gate counts only lines in the code it mutates.** A task counted as changing lines when any
+  Java file gained one, tests included, so a task that changed only tests ran the mutants on lines
+  that hold none. Now, as in the Rust edition, only changed lines in the module's main sources
+  count: a task that changed only tests runs its tests, after the checks above, and passes when
+  they do.
 - **A build of modules names them as commands, for Maven as for Gradle.** At the top of a Maven
   build with no Java code of its own, mutastic said `name a module with some: mutastic run
   :<module>` and named none. Now both tools say `<directory> is a build's root, with no Java code
