@@ -2107,16 +2107,6 @@
       ]
     },
     {
-      "id": "G17",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "No false-catch guard: no `mutant-revised`, no `falseCatchBy`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
       "id": "G18",
       "kind": "pending",
       "editions": [
