@@ -692,16 +692,34 @@ public final class Main {
     if (gone.isPresent()) {
       return gone.get(); // first: taking the test away may leave no line changed
     }
-    // Only lines in the code it mutates count: a task that changed only tests, or files outside
-    // the module, has no mutant to gate.
+    // Only lines in the code it mutates count, as in the Rust edition: a task that changed only
+    // tests, or files outside the module's sources, has no mutant to gate, but its tests run, and
+    // it still can't pass by taking a test away.
     var sources = gated.prepared().project().sources();
     if (new Git(directory).changedSince(state.base()).within(sources).lines().isEmpty()) {
-      return Gate.Verdict.pass("mutastic gate: passed: the task changed no lines mutastic mutates");
+      return fewerTests(gated, state).orElseGet(() -> testsVerdict(gated, state));
     }
     return selfIgnored(directory, state)
         .or(() -> selfBaselined(directory, state))
         .or(() -> fewerTests(gated, state))
         .orElseGet(() -> mutantsVerdict(gated, state));
+  }
+
+  /// A task that changed no line mutastic mutates: passed, once the tests pass. A task that changed
+  /// nothing can't have broken one; one that changed a test, a build file or a test's data may
+  /// have, so they run.
+  private static Gate.Verdict testsVerdict(Gated gated, Gate.State state) {
+    if (new Git(gated.prepared().directory()).untouchedSince(state.base())) {
+      return Gate.Verdict.pass("mutastic gate: passed: the task changed no lines mutastic mutates");
+    }
+    try {
+      gateRun(gated, state.base());
+    } catch (Engine.BaselineFailed e) {
+      var testSources = gated.prepared().project().testSources();
+      return Gate.Verdict.red(red(gated, state, e), RedTests.remember(e.failing(), testSources));
+    }
+    return Gate.Verdict.pass(
+        "mutastic gate: passed: the tests pass, and the task changed no lines mutastic mutates");
   }
 
   /// An ignore the task made itself: a person's call, so it's proposed instead.
@@ -903,7 +921,8 @@ public final class Main {
     return false;
   }
 
-  /// The run on the lines changed since `base`.
+  /// The run on the lines changed since `base`, which always runs the tests, as `--force-coverage`
+  /// does.
   private static Report gateRun(Gated gated, String base) {
     var run = gated.command().runSince(base);
     var passes = gated.passes();
@@ -918,6 +937,10 @@ public final class Main {
 
   /// What a pass says: how many the tests catch, and any proposals waiting for a person.
   private static String passed(Report report, List<String> waiting, int older) {
+    if (report.results().size() == report.count(Status.SKIPPED)) {
+      return "mutastic gate: passed: the tests pass, and the lines the task changed hold no mutant"
+          + " to run";
+    }
     return ("mutastic gate: passed: the tests catch %d of the %d mutants on the lines the task"
             + " changed%s%s")
         .formatted(
@@ -1840,9 +1863,11 @@ public final class Main {
         false,
         "gate check [DIR] [:MODULE]",
         "Say whether a gated task is done: its changed lines' mutants caught",
-        "Runs the mutants on the lines changed since gate open. The task is done when each is"
-            + " caught or proposed for a person to ignore, no ignore was made by the task, and no"
-            + " test was taken away or disabled; until then it says what's left, as the agent"
+        "Runs the tests and the mutants on the lines changed since gate open: the tests run even"
+            + " with no mutant on those lines, and only a task that changed nothing skips them."
+            + " The task is done when the tests pass, each mutant is caught or proposed for a"
+            + " person to ignore, no ignore was made by the task, and no test was taken away or"
+            + " disabled; until then it says what's left, as the agent"
             + " format does. With --hook it answers as the agent's hook, and lets the agent stop,"
             + " saying what's left, when it changed nothing since it was sent back, or after"
             + " --tries.",
@@ -2130,7 +2155,8 @@ public final class Main {
     }
 
     /// The run `gate check` makes: this command's project and operators, on the lines changed since
-    /// `base`, every mutant reported, no report files.
+    /// `base`, every mutant reported, no report files, and the tests run even with no mutant to
+    /// run.
     Command runSince(String base) {
       return new Command(
           Subcommand.RUN,
@@ -2141,7 +2167,9 @@ public final class Main {
           List.of(),
           catches,
           workers,
-          new Extras(extras.suggestions(), false),
+          // The tests always run: a change with no mutant on its lines (a constant, an import, a
+          // log line) can still break one, and the gate mustn't pass it.
+          new Extras(extras.suggestions(), true),
           List.of(),
           testsFrom,
           operators,
