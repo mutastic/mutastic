@@ -123,6 +123,13 @@ operators:
 A run of one mutant, by id (`verify`, `explain`, `run --only`), looks among every operator, so a
 mutant any run found can always be checked again.
 
+To see what a choice adds before a run pays for it, [`mutastic mutants`](/reference/mutants/) lists
+the mutants it makes, a line each, and runs no test:
+
+```sh
+mutastic mutants --operators=stronger
+```
+
 A mutant's id doesn't depend on which operators run: choosing more adds mutants, and never changes
 the ids of the others.
 
