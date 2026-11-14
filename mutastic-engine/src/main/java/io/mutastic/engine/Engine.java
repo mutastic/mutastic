@@ -281,16 +281,25 @@ public final class Engine {
       if (!TestIds.isClass(test)) {
         return "";
       }
+      var outermost =
+          java.util.Optional.ofNullable(failures.get(test)).map(causes -> causes.split(">", -1)[0]);
+      if (outermost.filter(INVALID_CLASS::contains).isPresent()) {
+        return " (the class as a whole: JUnit 4 can't run it, so none of its tests ran)";
+      }
       var with =
-          java.util.Optional.ofNullable(failures.get(test))
-              .map(causes -> causes.split(">", -1)[0])
-              .map(name -> ", with " + name.substring(name.lastIndexOf('.') + 1))
-              .orElse("");
+          outermost.map(name -> ", with " + name.substring(name.lastIndexOf('.') + 1)).orElse("");
       return (" (the class as a whole%s, each time it ran: its setup or teardown fails outside any"
               + " test, such as a `@BeforeAll`, `@AfterAll`, `@BeforeClass`, `@AfterClass`, a class"
               + " rule or a static initialiser)")
           .formatted(with);
     }
+
+    /// What JUnit 4 throws for a class it can't run: a test method that isn't public, or no public
+    /// constructor.
+    private static final java.util.Set<String> INVALID_CLASS =
+        java.util.Set.of(
+            "org.junit.runners.model.InvalidTestClassError",
+            "org.junit.runners.model.InitializationError");
 
     /// Why tests that pass in the build can fail here, when the project provides a JDK service.
     private static String loadedElsewhere(List<String> failing, List<String> services) {

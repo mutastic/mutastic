@@ -569,13 +569,19 @@ public final class Worker {
     lastPortClash = portClash(thrown);
   }
 
-  /// What a failure says, on one line: the first line of its message, else its class's name.
+  /// What a failure says, on one line: the first line of its message, else its class's name. A
+  /// first line that ends in a colon says what follows it, so the lines after it come too: JUnit
+  /// 4's `Invalid test class 'a.BTest':` and then why. A test class's copy is named as the build
+  /// names it.
   static String message(Throwable thrown) {
     var said = thrown.getMessage() == null ? "" : thrown.getMessage();
-    var first =
-        said.lines().map(String::strip).filter(line -> !line.isEmpty()).findFirst().orElse("");
-    var line = first.isEmpty() ? thrown.getClass().getName() : first;
-    return line.replace('\t', ' ').substring(0, Math.min(line.length(), MESSAGE));
+    var lines = said.lines().map(String::strip).filter(line -> !line.isEmpty()).toList();
+    var line =
+        lines.isEmpty()
+            ? thrown.getClass().getName()
+            : lines.get(0).endsWith(":") ? String.join(" ", lines) : lines.get(0);
+    line = Renamer.original(line).replace('\t', ' ');
+    return line.substring(0, Math.min(line.length(), MESSAGE));
   }
 
   /// The most of a failure's message the protocol carries.
@@ -635,8 +641,9 @@ public final class Worker {
   /// `com.example.PricingTest#discount(java.nio.file.Path)`, under the name the build gave the
   /// class. Parameter types too: `selectMethod(class, "name")` finds only a no-argument method, so
   /// a test taking a `@TempDir Path` would select nothing. A test class, which fails as a whole
-  /// when its setup or teardown does, is `com.example.PricingTest`, which selects it again;
-  /// anything else is the platform's unique id.
+  /// when its setup or teardown does, is `com.example.PricingTest`, which selects it again; so is a
+  /// test with no source that a JUnit 4 runner reports for its class, as `initializationError` is
+  /// for a class JUnit 4 can't run. Anything else is the platform's unique id.
   static String id(TestIdentifier test) {
     var testClass =
         test.getSource().filter(ClassSource.class::isInstance).map(ClassSource.class::cast);
@@ -655,8 +662,26 @@ public final class Worker {
                         + (method.getMethodParameterTypes().isEmpty()
                             ? ""
                             : "(" + method.getMethodParameterTypes() + ")"))
+            .or(() -> runnerClass(test))
             .orElse(test.getUniqueId()));
   }
+
+  /// `[runner:com.example.FooTest]`, the vintage engine's runner for a JUnit 4 class, in the unique
+  /// id of a test with no source: the class it runs, unless the test has a source of its own.
+  private static java.util.Optional<String> runnerClass(TestIdentifier test) {
+    if (test.getSource().isPresent()) {
+      return java.util.Optional.empty();
+    }
+    var matcher = RUNNER.matcher(test.getUniqueId());
+    String found = null;
+    while (matcher.find()) {
+      found = matcher.group("runner");
+    }
+    return java.util.Optional.ofNullable(found);
+  }
+
+  private static final java.util.regex.Pattern RUNNER =
+      java.util.regex.Pattern.compile("\\[runner:(?<runner>[\\w.$]+)\\]");
 
   /// `com.example.FooTest#bar(java.nio.file.Path)` → `bar`.
   private static String method(String test) {

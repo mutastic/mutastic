@@ -233,14 +233,31 @@ class ReportFilesTest {
   }
 
   @Test
-  void htmlEmbedsTheViewerAndTheDataSafely() {
+  void htmlIsTheReportPageWithTheJsonInItsSlot() throws Exception {
     var html = files.html(report());
 
-    assertThat(html).contains("<mutation-test-report-app titlePostfix=\"mutastic\">");
-    assertThat(html).contains("MutationTestElements"); // the viewer itself, so it opens offline
-    // Only the page's own three script tags close: nothing in the data or viewer ends one early.
-    assertThat(html.split("</script>", -1)).hasSize(3);
-    assertThat(html).doesNotContain("src=\"http");
+    var slot = html.indexOf("<script type=\"application/json\" id=\"mutation-report\">");
+    var data = html.substring(slot, html.indexOf("</script>", slot));
+    assertThat(Json.write(files.json(report())).replace("<", "\\u003c"))
+        .isEqualTo(data.substring(data.indexOf('>') + 1));
+    // Nothing in the data can open or close a tag.
+    assertThat(data.substring(data.indexOf('>') + 1)).doesNotContain("<");
+    assertThat(html).doesNotContain("src=\"http").doesNotContain(ReportFiles.SLOT);
+    assertThat(html).startsWith("<!doctype html>");
+  }
+
+  @Test
+  void theReportPageIsTheOneReportUiBuilt() throws Exception {
+    var built = Path.of(System.getProperty("mutastic.reportPage"));
+    var page = ReportFiles.page();
+
+    assertThat(page).isEqualTo(Files.readString(built.resolve("report.html")));
+    var sum =
+        java.util.HexFormat.of()
+            .formatHex(
+                java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(page.getBytes(StandardCharsets.UTF_8)));
+    assertThat(Files.readString(built.resolve("report.html.sha256"))).startsWith(sum + "  ");
   }
 
   @Test

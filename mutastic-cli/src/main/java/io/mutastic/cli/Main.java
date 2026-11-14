@@ -273,10 +273,12 @@ public final class Main {
     return USAGE;
   }
 
-  /// The tests failing with no mutant in, ending in the build's command that runs the first alone.
+  /// The tests failing with no mutant in, ending in the build's command that runs the first alone:
+  /// the first a build can name, a test or a class. An engine's own unique id it can't.
   private static Engine.BaselineFailed rerun(
       Engine.BaselineFailed failed, Command command, BuildTool tool, Path directory) {
-    if (failed.failing().isEmpty()) {
+    var named = failed.failing().stream().filter(test -> !test.startsWith("[")).findFirst();
+    if (named.isEmpty()) {
       return failed;
     }
     var request =
@@ -286,9 +288,7 @@ public final class Main {
             tool.workDirectory(directory, command.module()),
             typed(directory),
             command.suite());
-    return tool.testCommand(request, failed.failing().getFirst())
-        .map(failed::endingIn)
-        .orElse(failed);
+    return tool.testCommand(request, named.get()).map(failed::endingIn).orElse(failed);
   }
 
   /// `--fail-on-new` with no baseline to tell new misses from: every miss would be new, or none,
@@ -1482,13 +1482,27 @@ public final class Main {
               .formatted(vocabulary));
     }
     var words = Vocabulary.valueOf(vocabulary.toUpperCase(java.util.Locale.ROOT));
+    return new Output(
+        out,
+        progress(command, err, format, terminal),
+        format,
+        words,
+        style(command, terminal),
+        GitHubRun.of(terminal, err));
+  }
+
+  /// Progress on `err`, saying how many tests it found to suggest only when it looks for them.
+  private static Progress progress(
+      Command command, PrintStream err, String format, Terminal terminal) {
     var progress =
         new Progress(
             err,
             ProgressChoice.mode(command.progress(), format, terminal),
             Progress.Settings.of(terminal.env(), progressColour(command, terminal)));
-    return new Output(
-        out, progress, format, words, style(command, terminal), GitHubRun.of(terminal, err));
+    if (!command.suggestions() || command.verify()) {
+      progress.notSuggesting();
+    }
+    return progress;
   }
 
   private static Style style(Command command, Terminal terminal) {

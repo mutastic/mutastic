@@ -504,13 +504,26 @@ final class Progress implements Listener, AutoCloseable {
     }
   }
 
-  /// The missed mutants a test was found for.
-  private int suggested() {
-    return (int)
-        results.values().stream()
-            .filter(result -> result.status() == Status.MISSED)
-            .filter(result -> result.suggestion().isPresent())
-            .count();
+  /// The missed mutants a test was found for: none to say when tests aren't looked for.
+  private java.util.OptionalInt suggested() {
+    if (!suggesting) {
+      return java.util.OptionalInt.empty();
+    }
+    return java.util.OptionalInt.of(
+        (int)
+            results.values().stream()
+                .filter(result -> result.status() == Status.MISSED)
+                .filter(result -> result.suggestion().isPresent())
+                .count());
+  }
+
+  /// Whether tests are looked for, so the checking phase says how many it found: not in `verify`,
+  /// or with `--no-suggestions`.
+  private boolean suggesting = true;
+
+  /// Tests aren't looked for in this run.
+  void notSuggesting() {
+    suggesting = false;
   }
 
   /// Colour only where the block is drawn in place: a log's lines are plain.

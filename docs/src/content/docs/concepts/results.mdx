@@ -95,6 +95,32 @@ in `#[cfg(test)]` modules, integration tests in `tests/`, and each binary's test
 </div>
 </EditionTabs>
 
+<EditionOnly edition="java">
+
+## Parameterised and data-driven tests
+
+A parameterised method is one test, however many cases it runs. Each row of a `@CsvSource`, each
+value of a `@ValueSource`, each `Arguments.of(…)` a `@MethodSource` returns, and each row of a
+JUnit 4 `Parameterized` class is a case of the method that declares it, so mutastic names the
+method, by its class and its parameters' types, `CalculatorTest#addsMixed(int, int, int)`, and
+never the case. A `@RepeatedTest`, a `@TestFactory`'s dynamic tests and a JUnit 4
+`Parameterized` class's test (`SubtractJUnit4Test#subtracts`) are one test each the same way.
+
+That holds everywhere a test is named or counted:
+
+- **Caught by** names the method one of whose cases failed. It doesn't say which case yet, or show
+  a custom `@ParameterizedTest(name = …)`: when only one row catches a mutant, the card names the
+  method, not the row.
+- **Covered by** and "its 1 covering test" count methods, not cases.
+- **Re-running a test** runs every one of its cases: against a mutant, to confirm a catch, and in
+  `--kill-matrix`.
+- **Inputs seen** pools each parameter's values across every case of every covering test, so
+  `a = 1, 2; b = 1` doesn't say which values came in one row.
+- **A suggested test** is a new plain test, not a new row. It compiles as pasted, in a class of only
+  parameterised tests too, which imports no `@Test`, and in a JUnit 4 class it's `public`.
+
+</EditionOnly>
+
 <EditionOnly edition="rust">
 
 ## Caught only because the test process crashed
