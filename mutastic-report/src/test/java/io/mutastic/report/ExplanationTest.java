@@ -137,7 +137,7 @@ class ExplanationTest {
   @Test
   void theOperatorLinksToItsDocs() {
     assertThat(explanation.render(jump(List.of()), Optional.empty()))
-        .contains("docs: https://docs.mutastic.io/concepts/operators/#boundary\n");
+        .contains("docs: https://docs.mutastic.io/java/operators/conditions/#boundary\n");
 
     var release =
         new Explanation(
@@ -145,7 +145,7 @@ class ExplanationTest {
             Style.PLAIN,
             new OperatorDocs("https://docs.mutastic.io/v1.0/"));
     assertThat(release.render(jump(List.of()), Optional.empty()))
-        .contains("docs: https://docs.mutastic.io/v1.0/concepts/operators/#boundary\n");
+        .contains("docs: https://docs.mutastic.io/v1.0/java/operators/conditions/#boundary\n");
   }
 
   /// A plugin's operator has no row in the docs to link to.

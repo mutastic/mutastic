@@ -1752,7 +1752,9 @@ public final class Main {
   /// The report files asked for, as they're written: relative to the project where they're in it.
   private static List<String> writeReports(Command command, Prepared prepared, Report report) {
     var directory = prepared.directory();
-    var files = new ReportFiles(directory, prepared.sources(), command.threshold(), version());
+    var files =
+        new ReportFiles(
+            directory, prepared.sources(), command.threshold(), version(), operatorDocs());
     var written = new ArrayList<String>();
     for (var requested : command.reports()) {
       var file =

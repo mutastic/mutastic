@@ -135,6 +135,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   in `.mutastic/ignores.yaml`, and list what's valid when nothing is close. `operators: [stronger]`,
   which mutastic doesn't read, is shown written an item a line, rather than as an unknown section.
 - **`--report`'s error lists `sarif`,** which it has taken since 1.0.0.
+- **An operator's docs link names its family, in the path both editions use.** Events' `docs`,
+  `explain`'s link and the card's linked operator went to the operators page's row,
+  `/concepts/operators/#boundary`. Now each goes to the operator's section of its family's page,
+  `https://docs.mutastic.io/java/operators/conditions/#boundary`, as the Rust edition's go to
+  `/rust/operators/…`, and the site redirects that path to the Java family pages, anchor kept.
+  SARIF rules gain the same link as `helpUri`.
 - **A build that fails is quoted at your line.** Gradle's failure came whole, its `* Try:` advice
   and all, and Maven's only as a log's path. Now mutastic says `pricing doesn't build, before any
   mutant is in it.`, names the compiler's error at your file and line (the first three, of how
