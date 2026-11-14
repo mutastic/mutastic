@@ -1807,17 +1807,6 @@
       "reason": "Each language's own word."
     },
     {
-      "id": "D2",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "A panic exits 101 with no `run-failed` event: no panic hook, no `internal` code",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "decision": 2
-    },
-    {
       "id": "D7",
       "kind": "pending",
       "editions": [
@@ -1843,11 +1832,10 @@
       "id": "D13",
       "kind": "pending",
       "editions": [
-        "java",
-        "rust"
+        "java"
       ],
       "surface": "errors",
-      "summary": "Codes worked out from the message's words (Rust's `failure::CODES`, Java's `usageCode`) rather than set where the error is raised",
+      "summary": "Codes worked out from the message's words (Java's `usageCode`) rather than set where the error is raised",
       "issue": "https://github.com/mutastic/mutastic/issues/61",
       "decision": 13
     },
@@ -2101,16 +2089,6 @@
       "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
-      "id": "G29",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "No `internal` code: a panic exits 101 with no event (with D2)",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
       "id": "G30",
       "kind": "pending",
       "editions": [
@@ -2119,32 +2097,6 @@
       "surface": "errors",
       "summary": "No `disk`, `no-tests`, `nothing-covered`, `tests-stopped` or `tests-timed-out` codes",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G31",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "`gate` with no action gets `other`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "error:gate:code"
-      ]
-    },
-    {
-      "id": "G32",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "`gate opn` outside a project is checked for a project before its action",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "error:gate2:code"
-      ]
     },
     {
       "id": "G33",
@@ -2683,20 +2635,6 @@
       "issue": "https://github.com/mutastic/mutastic/issues/61",
       "items": [
         "help:*:width"
-      ]
-    },
-    {
-      "id": "K2",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "A bad `--format` value writes no `run-failed` event, though MUTASTIC_FORMAT=jsonl",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "error:val:code",
-        "error:val2:code"
       ]
     },
     {
