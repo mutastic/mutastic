@@ -763,8 +763,12 @@ public final class Main {
     if (gone.isPresent()) {
       return gone.get(); // first: taking the test away may leave no line changed
     }
-    if (new Git(directory).changedSince(state.base()).lines().isEmpty()) {
-      return testsVerdict(gated, state);
+    // Only lines in the code it mutates count, as in the Rust edition: a task that changed only
+    // tests, or files outside the module's sources, has no mutant to gate, but its tests run, and
+    // it still can't pass by taking a test away.
+    var sources = gated.prepared().project().sources();
+    if (new Git(directory).changedSince(state.base()).within(sources).lines().isEmpty()) {
+      return fewerTests(gated, state).orElseGet(() -> testsVerdict(gated, state));
     }
     return selfIgnored(directory, state)
         .or(() -> selfBaselined(directory, state))
