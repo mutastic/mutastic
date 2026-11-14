@@ -54,7 +54,9 @@ class CardsTest {
         "selection",
         "testng",
         "lombok",
-        "constants"
+        "constants",
+        "parameterized",
+        "parameterized-kotlin"
       })
   void everyCardOnTheSample(String sample) throws Exception {
     var project = Samples.copy(SAMPLES.resolve(sample), work.resolve(sample));

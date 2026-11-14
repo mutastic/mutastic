@@ -83,6 +83,15 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **Copy as prompt, in the HTML report.** Beside each Copy, on the tests to write, a folder or
+  file's side card and each mutant, it puts those tests on the clipboard as a prompt for any coding
+  agent, in the agent format's shape: mutastic's rules first, then the mutants fenced off as data on
+  a token no one can guess. The page shows hidden characters in the project's text as escapes too,
+  as the terminal does.
+- **With more than one test to write, the agent format says how to take them.** After `rules:` and
+  `decline:`, a `tasks:` line asks the agent to make a task list, one item per mutant grouped by
+  file, then write each test, run its `mutastic verify` and mark it done before the next. The Rust
+  edition and Copy as prompt say the same.
 - **`mutation.json` says what the cards say.** Under one `mutastic` key on each mutant: where it
   is (`method`), and for a miss its evidence, its fix, the inputs the tests passed and the test to
   add; under one at the top, the run's facts: the commands for a mutant, the docs, the score,
@@ -120,6 +129,20 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   the same words and the same hand-over; only a task that changed nothing passes at once, and
   an ignore or baseline entry it made itself holds it even where git doesn't see `.mutastic/`.
   An ignore you accept between turns is still the task's to start from.
+- **A suggested test compiles as pasted.** In a class of only parameterized tests, which imports
+  no `@Test`, a suggestion didn't build: `@Test` and an assertion such as `assertFalse` weren't
+  imported. What the class doesn't import is now written in full, `@org.junit.jupiter.api.Test`
+  and `org.junit.jupiter.api.Assertions.assertFalse(…)`. A JUnit 4 class gets a `public void`
+  test, as JUnit 4 runs no other: a package-private one stopped the whole class running. A
+  nested test class is read from its outer class's file.
+- **A JUnit 4 class that can't run is named as you write it.** Its red baseline gave the vintage
+  engine's unique id, the class's renamed copy (`SubtractJUnit4Test__m1`), a reason cut off at
+  its colon, and a `--tests` command that crashed Gradle. Now it's the class, as `--tests` takes
+  it (`com.example.calc.SubtractJUnit4Test`), "the class as a whole: JUnit 4 can't run it", and
+  the reason in full: `Invalid test class '…': 1. Method notPublic() should be public`. A
+  failure mutastic can't name a test or class for gets no command, rather than one that doesn't
+  run.
+- **"Doesn't build" names what javac can't find:** `line 57: cannot find symbol: class Test`.
 - **The events schema says the order events come in, as both editions write them.** It said a run
   writes `run-started` first, but the phase events of reading and building the project come before
   it. Now it says: those phase events may come first; `run-started` comes before the first

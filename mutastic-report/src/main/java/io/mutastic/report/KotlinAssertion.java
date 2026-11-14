@@ -49,7 +49,7 @@ final class KotlinAssertion {
     return switch (style) {
       case ASSERTJ -> "assertThat(%s).isEqualTo(%s)".formatted(call, today);
       case TESTNG -> "assertEquals(%s, %s)".formatted(call, today);
-      case JUNIT -> "assertEquals(%s, %s)".formatted(today, call);
+      case JUNIT, JUNIT4 -> "assertEquals(%s, %s)".formatted(today, call);
     };
   }
 

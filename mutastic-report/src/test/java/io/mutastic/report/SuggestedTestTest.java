@@ -119,7 +119,12 @@ class SuggestedTestTest {
   @Test
   void aValueTheSourceNamesNamesTheTestAndIsSaidInIt() throws Exception {
     testSource(
-        "import static org.junit.jupiter.api.Assertions.assertEquals;\nclass PricingTest {}\n");
+        """
+        import static org.junit.jupiter.api.Assertions.assertEquals;
+        import static org.junit.jupiter.api.Assertions.assertTrue;
+        import org.junit.jupiter.api.Test;
+        class PricingTest {}
+        """);
     var constant =
         new Suggestion(
             "new Pricing().discount(Pricing.FREE_FROM)",

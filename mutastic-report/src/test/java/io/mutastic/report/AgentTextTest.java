@@ -80,6 +80,27 @@ class AgentTextTest {
   }
 
   @Test
+  void twoOrMoreToWriteAreATaskList() {
+    var two =
+        text.render(
+            report(
+                List.of(
+                    result(boundary(0), Status.MISSED), result(boundary(1), Status.NOT_COVERED)),
+                List.of(),
+                List.of()));
+    var one =
+        text.render(report(List.of(result(boundary(0), Status.MISSED)), List.of(), List.of()));
+
+    var line =
+        "\ntasks: first make a task list with one item per mutant, grouped by file; then take them"
+            + " one at a time: write its test, run `mutastic verify <id>`, and mark it done before"
+            + " starting the next\n<<mutastic-data ";
+    assertThat(two).contains(line);
+    assertThat(two.indexOf(line)).isGreaterThan(two.indexOf("\ndecline: "));
+    assertThat(one).doesNotContain("\ntasks: ");
+  }
+
+  @Test
   void eachMissedMutantSaysWhereWhatAndHowToProveTheFix() {
     var missed = result(boundary(0), Status.MISSED);
 

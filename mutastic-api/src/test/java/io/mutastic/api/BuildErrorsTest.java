@@ -50,6 +50,45 @@ class BuildErrorsTest {
               ./gradlew x""");
   }
 
+  /// javac says what it can't find a line or two after the error: a test pasted into a class that
+  /// doesn't import `@Test` names it.
+  @Test
+  void aMissingSymbolIsNamed() {
+    var javac =
+        """
+        HERE/src/test/java/a/CalculatorTest.java:57: error: cannot find symbol
+          @Test
+           ^
+          symbol:   class Test
+          location: class CalculatorTest
+        HERE/src/test/java/a/CalculatorTest.java:59: error: cannot find symbol
+            assertFalse(new Calculator().isEven(1));
+            ^
+          symbol:   method assertFalse(boolean)
+          location: class CalculatorTest
+        HERE/src/test/java/a/CalculatorTest.java:61: error: ';' expected
+          symbol:   not this one's
+        """
+            .replace("HERE", HERE)
+            .lines()
+            .toList();
+    var maven =
+        List.of(
+            "[ERROR] " + HERE + "/src/test/java/a/CalculatorTest.java:[57,4] cannot find symbol",
+            "[ERROR]   symbol:   class Test",
+            "[ERROR]   location: class a.CalculatorTest");
+
+    assertThat(BuildErrors.compilerErrors(javac, Path.of(HERE)))
+        .containsExactly(
+            "src/test/java/a/CalculatorTest.java, line 57: cannot find symbol: class Test",
+            "src/test/java/a/CalculatorTest.java, line 59: cannot find symbol: method"
+                + " assertFalse(boolean)",
+            "src/test/java/a/CalculatorTest.java, line 61: ';' expected");
+    assertThat(BuildErrors.compilerErrors(maven, Path.of(HERE)))
+        .containsExactly(
+            "src/test/java/a/CalculatorTest.java, line 57: cannot find symbol: class Test");
+  }
+
   @Test
   void kotlinAndMavensErrorsAreQuotedAtTheirLine() {
     var kotlin =

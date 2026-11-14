@@ -137,6 +137,11 @@ public final class AgentText {
             .formatted(
                 MutantCommand.DECLINE,
                 MutantCommand.PROPOSE.command("<id>", sources.invocation())));
+    if (missed.size() + notCovered.size() > 1) {
+      out.append(
+          "tasks: %s\n"
+              .formatted(tasks(MutantCommand.DONE_WHEN.command("<id>", sources.invocation()))));
+    }
     // From here on, each line quotes the code or the test run: fenced, so none of it reads as
     // mutastic's own instructions.
     var quoted = new StringBuilder();
@@ -145,6 +150,15 @@ public final class AgentText {
       appendNotCovered(quoted, report, notCovered, missed.isEmpty());
     }
     out.append(Untrusted.fence(quoted.toString()));
+  }
+
+  /// With two or more mutants to write a test for, how an agent takes them: a task list, then one
+  /// at a time, each proved before the next. The Rust edition and the HTML report's Copy as prompt
+  /// say the same; `verify` is the run's own `mutastic verify` for `<id>`.
+  static String tasks(String verify) {
+    return ("first make a task list with one item per mutant, grouped by file; then take them one at"
+            + " a time: write its test, run `%s`, and mark it done before starting the next")
+        .formatted(verify);
   }
 
   /// The one mutant's fate, and for a missed one the rules and its entry.
