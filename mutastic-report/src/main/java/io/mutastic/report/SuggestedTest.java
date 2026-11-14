@@ -9,7 +9,9 @@ import java.util.Optional;
 /// A suggested test as code to paste: into the test class of the first test listed as reaching the
 /// mutant (its own test class, if a test there does), written the way that class writes assertions
 /// (AssertJ's `assertThat` if it imports AssertJ, JUnit's otherwise), with a name it doesn't
-/// already use.
+/// already use. It compiles as pasted: a JUnit 4 or TestNG test is `public`, and what the class
+/// doesn't import, as a class of only parameterized tests doesn't import `@Test`, is written in
+/// full, `@org.junit.jupiter.api.Test`.
 ///
 /// @param testClass where it goes, `PricingTest`
 /// @param lines the test method, one line each, unindented
@@ -30,30 +32,30 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
     if (sources.isKotlin(result.mutant())) {
       return inKotlin(result, testClass, sources);
     }
-    var source = sources.testSource(testClass);
-    var style = Style.of(source.orElse(""));
-    var name =
-        freeName(
-            name(result.mutant().methodName(), suggestion, compared(result)), source.orElse(""));
+    var source = sourceOf(testClass, sources);
+    var name = freeName(name(result.mutant().methodName(), suggestion, compared(result)), source);
     return Optional.of(
         new SuggestedTest(
             testClass.substring(testClass.lastIndexOf('.') + 1),
             name,
-            lines(suggestion, style, name),
+            lines(suggestion, source, name),
             outcomes(suggestion)));
   }
 
   /// The test method, a line each: with the local a value the source names is declared in, if it
   /// has one.
-  private static List<String> lines(Suggestion suggestion, Style style, String name) {
+  private static List<String> lines(Suggestion suggestion, String source, String name) {
+    var framework = Framework.of(source);
+    var style = Style.of(source);
     var lines = new ArrayList<String>();
-    lines.add("@Test");
-    lines.add((style == Style.TESTNG ? "public void %s() {" : "void %s() {").formatted(name));
+    lines.add("@" + Imports.annotation(source, framework.test(), false));
+    lines.add((framework.isPublic() ? "public void %s() {" : "void %s() {").formatted(name));
     suggestion.named().flatMap(Suggestion.Named::local).ifPresent(local -> lines.add("  " + local));
     var made = madeAsATestMakesIt(suggestion);
     made.ifPresent(receiver -> lines.add("  " + receiver.declaration()));
     var called = made.map(MadeAsATest::calledOnIt).orElse(suggestion);
-    lines.add("  " + assertion(called, style) + " // " + comment(suggestion));
+    var assertion = Imports.assertion(source, assertion(called, style), style.assertions(), false);
+    lines.add("  " + assertion + " // " + comment(suggestion));
     lines.add("}");
     return lines;
   }
@@ -92,6 +94,13 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
                 suggestion.builtBy())));
   }
 
+  /// The source of the file a test class is in: its outer class's, for a nested one,
+  /// `ShippingTest$Parcels`. Empty when there's none to read.
+  private static String sourceOf(String testClass, SourceView sources) {
+    int dollar = testClass.indexOf('$');
+    return sources.testSource(dollar < 0 ? testClass : testClass.substring(0, dollar)).orElse("");
+  }
+
   /// The test in Kotlin, for what kotlinc compiled. A call written in Kotlin can't be pasted into a
   /// test class in Java, so there's none for one.
   private static Optional<SuggestedTest> inKotlin(
@@ -100,18 +109,23 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
       return Optional.empty();
     }
     var suggestion = result.suggestion().orElseThrow();
-    var source = sources.testSource(testClass).orElse("");
+    var source = sourceOf(testClass, sources);
     var name = freeName(name(result.mutant().methodName(), suggestion, compared(result)), source);
-    return KotlinAssertion.of(suggestion, Style.ofKotlin(source))
+    var style = Style.ofKotlin(source);
+    var test = Framework.ofKotlin(source).test();
+    return KotlinAssertion.of(suggestion, style)
         .map(
             assertion ->
                 new SuggestedTest(
                     testClass.substring(testClass.lastIndexOf('.') + 1),
                     name,
                     List.of(
-                        "@Test",
+                        "@" + Imports.annotation(source, test, true),
                         "fun %s() {".formatted(name),
-                        "    " + assertion + " // " + outcomes(suggestion),
+                        "    "
+                            + Imports.assertion(source, assertion, style.assertions(), true)
+                            + " // "
+                            + outcomes(suggestion),
                         "}"),
                     outcomes(suggestion)));
   }
@@ -196,21 +210,34 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
         : Optional.of(assertion(suggestion, Style.of(source)));
   }
 
-  /// How the test class writes its tests: JUnit's assertions, AssertJ's, or TestNG's, whose test
-  /// methods must be public and whose `assertEquals` takes the actual value first.
+  /// How the test class writes its assertions: JUnit 5's, JUnit 4's, AssertJ's, or TestNG's, whose
+  /// `assertEquals` takes the actual value first.
   enum Style {
-    JUNIT,
-    ASSERTJ,
-    TESTNG;
+    JUNIT("org.junit.jupiter.api.Assertions"),
+    JUNIT4("org.junit.Assert"),
+    ASSERTJ("org.assertj.core.api.Assertions"),
+    TESTNG("org.testng.Assert");
+
+    private final String assertions;
+
+    Style(String assertions) {
+      this.assertions = assertions;
+    }
+
+    /// The class its assertions are static methods of.
+    String assertions() {
+      return assertions;
+    }
 
     /// The style of a test class's source, by what it imports.
     static Style of(String source) {
       if (source.contains("import static org.assertj.")) {
         return ASSERTJ;
       }
-      return source.contains("import static org.testng.") || source.contains("import org.testng.")
-          ? TESTNG
-          : JUNIT;
+      if (source.contains("import static org.testng.") || source.contains("import org.testng.")) {
+        return TESTNG;
+      }
+      return Framework.of(source) == Framework.JUNIT4 ? JUNIT4 : JUNIT;
     }
 
     /// The style of a test class in Kotlin, whose imports have no `static`.
@@ -218,7 +245,58 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
       if (source.contains("import org.assertj.")) {
         return ASSERTJ;
       }
-      return source.contains("import org.testng.") ? TESTNG : JUNIT;
+      if (source.contains("import org.testng.")) {
+        return TESTNG;
+      }
+      return Framework.ofKotlin(source) == Framework.JUNIT4 ? JUNIT4 : JUNIT;
+    }
+  }
+
+  /// What runs the test class: JUnit 5, JUnit 4 or TestNG. JUnit 4 and TestNG run only public test
+  /// methods; JUnit 4 fails the whole class over one that isn't.
+  enum Framework {
+    JUPITER("org.junit.jupiter.api.Test", false),
+    JUNIT4("org.junit.Test", true),
+    TESTNG("org.testng.annotations.Test", true);
+
+    /// What JUnit 4 imports: `org.junit.Test`, its assertions, and its runners. Not `org.junit.`
+    /// alone, which JUnit 5's `org.junit.jupiter` starts with too.
+    private static final java.util.regex.Pattern JUNIT4_IMPORT =
+        java.util.regex.Pattern.compile(
+            "import\\s+(?:static\\s+)?org\\.junit\\.(?:(?:Test|Assert|Assume|Rule|ClassRule|Before"
+                + "|After|BeforeClass|AfterClass|Ignore|runner|runners)\\b|\\*)");
+
+    private final String test;
+    private final boolean isPublic;
+
+    Framework(String test, boolean isPublic) {
+      this.test = test;
+      this.isPublic = isPublic;
+    }
+
+    /// Its test annotation, in full.
+    String test() {
+      return test;
+    }
+
+    boolean isPublic() {
+      return isPublic;
+    }
+
+    /// What runs a test class in Java, by what it imports: JUnit 5 unless it imports TestNG or
+    /// JUnit 4.
+    static Framework of(String source) {
+      if (source.contains("import static org.testng.") || source.contains("import org.testng.")) {
+        return TESTNG;
+      }
+      return !source.contains("org.junit.jupiter.api.Test") && JUNIT4_IMPORT.matcher(source).find()
+          ? JUNIT4
+          : JUPITER;
+    }
+
+    /// The same for a test class in Kotlin.
+    static Framework ofKotlin(String source) {
+      return of(source);
     }
   }
 
@@ -244,7 +322,7 @@ public record SuggestedTest(String testClass, String name, List<String> lines, S
     return switch (style) {
       case ASSERTJ -> "assertThat(%s).isEqualTo(%s);".formatted(call, today);
       case TESTNG -> "assertEquals(%s, %s);".formatted(call, today);
-      case JUNIT -> "assertEquals(%s, %s);".formatted(today, call);
+      case JUNIT, JUNIT4 -> "assertEquals(%s, %s);".formatted(today, call);
     };
   }
 

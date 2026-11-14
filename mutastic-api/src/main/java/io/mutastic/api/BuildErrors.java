@@ -76,22 +76,52 @@ public final class BuildErrors {
   }
 
   /// Each compiler error, `src/main/java/Pricing.java, line 18: ';' expected`, in the order the
-  /// compiler gave them, each once.
+  /// compiler gave them, each once. javac says what it can't find on a line of its own after the
+  /// error, so that comes too: `cannot find symbol: class Test`.
   static List<String> compilerErrors(List<String> log, Path here) {
     var errors = new java.util.LinkedHashSet<String>();
-    for (String line : log) {
-      matching(line)
-          .ifPresent(
-              error ->
-                  errors.add(
-                      "%s, line %s: %s"
-                          .formatted(
-                              shown(error.group("file"), here),
-                              error.group("line"),
-                              error.group("message").strip())));
+    for (int at = 0; at < log.size(); at++) {
+      var error = matching(log.get(at));
+      if (error.isPresent()) {
+        errors.add(
+            "%s, line %s: %s%s"
+                .formatted(
+                    shown(error.get().group("file"), here),
+                    error.get().group("line"),
+                    error.get().group("message").strip(),
+                    symbol(error.get().group("message"), log, at + 1)
+                        .map(": "::concat)
+                        .orElse("")));
+      }
     }
     return List.copyOf(errors);
   }
+
+  /// javac's `symbol: class Test` among the lines after a `cannot find symbol`, before the next
+  /// error: `class Test`.
+  private static Optional<String> symbol(String message, List<String> log, int from) {
+    if (!message.strip().equals("cannot find symbol")) {
+      return Optional.empty();
+    }
+    for (int at = from; at < Math.min(log.size(), from + SYMBOL_WITHIN); at++) {
+      var line = log.get(at);
+      if (matching(line).isPresent()) {
+        return Optional.empty();
+      }
+      var found = SYMBOL.matcher(line);
+      if (found.find()) {
+        return Optional.of(found.group("symbol").strip());
+      }
+    }
+    return Optional.empty();
+  }
+
+  /// ` symbol: class Test`, or Maven's `[ERROR] symbol: class Test`.
+  private static final Pattern SYMBOL =
+      Pattern.compile("^(?:\\[ERROR\\])?\\s+symbol:\\s+(?<symbol>\\S.*)$");
+
+  /// How far after an error javac says its symbol: the line, its caret, then the symbol.
+  private static final int SYMBOL_WITHIN = 4;
 
   private static Optional<Matcher> matching(String line) {
     for (Pattern pattern : List.of(JAVAC, KOTLIN, MAVEN)) {
