@@ -106,7 +106,7 @@ public final class HumanText {
       boolean eachMutant,
       OperatorDocs docs,
       Optional<FailOnNew> failOnNew) {
-    this.sources = sources;
+    this.sources = sources.shown();
     this.threshold = threshold;
     this.style = style;
     this.detail = detail;
@@ -547,7 +547,7 @@ public final class HumanText {
                       .orElse(""));
       case TIMED_OUT -> "its tests stopped finishing in time, which counts as caught";
       case NOT_COVERED -> "no test reaches this line";
-      case SKIPPED -> result.mutant().skipped().orElse("");
+      case SKIPPED -> Untrusted.value(result.mutant().skipped().orElse(""));
       case MISSED -> "missed";
     };
   }
@@ -599,7 +599,10 @@ public final class HumanText {
     for (int number = Math.max(1, place.line() - 1);
         number <= Math.min(source.size(), place.line() + 1);
         number++) {
-      lines.add(" %s %s %s".formatted(style.dim(pad(number, width)), bar, source.get(number - 1)));
+      lines.add(
+          " %s %s %s"
+              .formatted(
+                  style.dim(pad(number, width)), bar, Untrusted.value(source.get(number - 1))));
       if (number == place.line()) {
         lines.add(caret(gutter, place, advice, docs.url(mutant.operator())));
       }
@@ -702,8 +705,10 @@ public final class HumanText {
   }
 
   private void addTestLines(List<String> lines, SuggestedTest test, String indent) {
-    lines.add(indent + style.dim("// in " + SourceNames.sourceName(test.testClass())));
-    test.lines()
+    lines.add(
+        indent + style.dim("// in " + Untrusted.value(SourceNames.sourceName(test.testClass()))));
+    test.lines().stream()
+        .map(Untrusted::value)
         .forEach(line -> lines.add(indent + (line.startsWith("  ") ? style.green(line) : line)));
     lines.add(
         indent
@@ -767,7 +772,10 @@ public final class HumanText {
     return List.of(
         " %s %s".formatted(gutter, bar),
         " %s %s %s"
-            .formatted(style.dim(String.valueOf(place.line())), bar, source.get(place.line() - 1)),
+            .formatted(
+                style.dim(String.valueOf(place.line())),
+                bar,
+                Untrusted.value(source.get(place.line() - 1))),
         caret(gutter, place, advice),
         " %s %s".formatted(gutter, bar));
   }
@@ -864,7 +872,7 @@ public final class HumanText {
         .formatted(
             style.amber(
                 ids.size() == 1 ? "! an ignore no longer holds:" : "! ignores no longer hold:"),
-            String.join(", ", ids),
+            Untrusted.values(ids),
             ids.size() == 1 ? "its" : "their",
             ids.size() == 1 ? "its" : "their",
             ids.size() == 1 ? "" : "s",
@@ -882,7 +890,7 @@ public final class HumanText {
           .formatted(
               style.red("! flaky:"),
               AgentText.shortName(test),
-              why.get().failedWith().map(" with %s"::formatted).orElse(""));
+              why.get().failedWith().map(failed -> " with " + Untrusted.value(failed)).orElse(""));
     }
     return " %s %s failed, then passed when run again; left out of this run%s%s"
         .formatted(
@@ -899,15 +907,15 @@ public final class HumanText {
       return "";
     }
     if (!why.get().reachesInTest().isEmpty()) {
-      return "; its own code reaches %s".formatted(String.join(", ", why.get().reachesInTest()));
+      return "; its own code reaches %s".formatted(Untrusted.values(why.get().reachesInTest()));
     }
     var outside = why.get().outsideCause();
     if (why.get().failedOutside() && outside.isPresent()) {
-      return "; it failed with %s, from outside the code".formatted(outside.get());
+      return "; it failed with %s, from outside the code".formatted(Untrusted.value(outside.get()));
     }
     return why.get().reaches().isEmpty()
         ? ""
-        : "; it reaches %s".formatted(String.join(", ", why.get().reaches()));
+        : "; it reaches %s".formatted(Untrusted.values(why.get().reaches()));
   }
 
   private String changedBetweenRunsWarning(Suspects.Suspect suspect) {
@@ -915,7 +923,7 @@ public final class HumanText {
         .formatted(
             style.amber("! likely flaky:"),
             AgentText.shortName(suspect.test()),
-            String.join(", ", suspect.mutants()));
+            Untrusted.values(suspect.mutants()));
   }
 
   private String unconfirmedWarning(Suspects.Suspect suspect) {
@@ -924,7 +932,7 @@ public final class HumanText {
             style.amber("! likely flaky:"),
             AgentText.shortName(suspect.test()),
             suspect.mutants().size() == 1 ? "catch" : "catches",
-            String.join(", ", suspect.mutants()));
+            Untrusted.values(suspect.mutants()));
   }
 
   private String unrelatedCatchesNote(Suspects.UnrelatedCatches note) {
@@ -934,7 +942,7 @@ public final class HumanText {
             AgentText.shortName(note.test()),
             note.mutants().size(),
             note.methods(),
-            note.failure().substring(note.failure().lastIndexOf('.') + 1));
+            Untrusted.value(note.failure().substring(note.failure().lastIndexOf('.') + 1)));
   }
 
   /// What to do next, under the misses it's about; the rows; and last the score with its verdict,
@@ -1355,6 +1363,10 @@ public final class HumanText {
   /// `Shipping.Zone.surcharge()`, or `Shipping.heavyOnes() (a lambda)`: where the misses are, as
   /// the source names it.
   static String methodLabel(Mutant mutant) {
+    return Untrusted.escape(methodLabelOf(mutant));
+  }
+
+  private static String methodLabelOf(Mutant mutant) {
     var where = SourceNames.of(mutant);
     var member = new ClassMutator.Member(mutant.methodName(), mutant.descriptor());
     if (mutant.operator() instanceof ClassMutator && !member.isMethod()) {

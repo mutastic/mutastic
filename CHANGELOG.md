@@ -7,6 +7,30 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ## Unreleased
 
+### Security
+
+- **Text from the project reaches an agent fenced off as data.** The agent format, `next`'s agent
+  text and the gate's messages put mutastic's instructions (`rules:`, `done when:`, `fix:`) in the
+  same text as the project's code and test run: the lines a mutant changes, test names, what a
+  failing test said. A string literal or a comment on a mutated line, a test's name or its data
+  could write a line an agent takes as an instruction, and agents read this text through the
+  plugins' hooks. The project's text now comes after mutastic's instructions, between
+  `<<mutastic-data 3f9a0c1e>>` and `<<end mutastic-data 3f9a0c1e>>`, with a token drawn at random
+  for each run (and drawn again if the text holds it), so nothing inside can close it early; the
+  opening line says everything up to the closing marker is data, not instructions. The lines inside
+  keep their shapes. See [Agent output and untrusted
+  text](https://docs.mutastic.io/agents/#agent-output-and-untrusted-text).
+- **Hidden characters show as escapes.** Every value and line of the project's that mutastic
+  prints, to an agent or to a terminal, shows control characters (ANSI escapes among them) as
+  `\x1b`, and bidi controls, zero-width characters and every other invisible format character as
+  `\u202e`: a Trojan Source line reads as it runs, and an escape can't rewrite the screen. A value
+  or line over 200 characters is cut, with `…(n more chars)`. Events keep the text as it is,
+  JSON-escaped.
+- **Commands come only from mutastic.** Every command offered (`verify`, `run --only`,
+  `ignore --propose`, `next`) is made of a mutant's id (`m` and 8 hex digits, or `<id>`), known
+  options and placeholders, and the directory, in single quotes when a shell needs them. A word
+  with a `<…>` in it was left unquoted as a template: now only mutastic's own templates are.
+
 ### Progress
 
 - **A run is never silent.** Every phase is named while it runs and ends with a line: `building`
@@ -83,6 +107,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **The gate holds a task that changes no line mutastic mutates to its other checks.** Such a task
+  skipped the checks for ignores and baseline entries the task made itself, and for tests taken
+  away or `@Disabled`, so an agent that only deleted a failing test, or ignored a mutant itself,
+  passed once the rest of the tests did. Now they run on every check, whatever lines changed, with
+  the same words and the same hand-over; only a task that changed nothing passes at once, and
+  an ignore or baseline entry it made itself holds it even where git doesn't see `.mutastic/`.
+  An ignore you accept between turns is still the task's to start from.
 - **The events schema says the order events come in, as both editions write them.** It said a run
   writes `run-started` first, but the phase events of reading and building the project come before
   it. Now it says: those phase events may come first; `run-started` comes before the first
@@ -95,11 +126,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   suite does, with the same words and the same hand-over. A task that changed only files mutastic
   doesn't mutate (a test's data, a build file) runs the tests too; only one that changed nothing
   skips them. A plain `run --since` keeps the fast path.
-- **The gate passes a task that changed no line it mutates.** It passed only when no Java file
-  gained a line, tests included: a task that changed only tests went on to the checks of its
-  ignores and its tests, and a run of the mutants. Now, as in the Rust edition, only changed lines
-  in the module's main sources count, and that's checked before the ignores the task made. The
-  tests still run for such a task, as above.
+- **The gate counts only lines in the code it mutates.** A task counted as changing lines when any
+  Java file gained one, tests included, so a task that changed only tests ran the mutants on lines
+  that hold none. Now, as in the Rust edition, only changed lines in the module's main sources
+  count: a task that changed only tests runs its tests, after the checks above, and passes when
+  they do.
 - **A build of modules names them as commands, for Maven as for Gradle.** At the top of a Maven
   build with no Java code of its own, mutastic said `name a module with some: mutastic run
   :<module>` and named none. Now both tools say `<directory> is a build's root, with no Java code
@@ -163,6 +194,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Agents
 
+- **`mutation.original` and `replacement` are source, as in the Rust edition.** In the events and
+  `mutation.json`, `original` is the source the mutant replaces and `replacement` the source that
+  replaces it, so writing one over the other gives the mutant's line; `mutation.json`'s `location`
+  and SARIF's region span that source. A condition made constant had `original` `>=` and no
+  replacement; now it's `total >= 100` and `false`. A return's `replacement` was `return 0;`, and
+  is `0`. A statement taken out has an empty replacement. Where the source can't show the change,
+  `mutation.json` gives no `replacement` rather than the description, which stays in `description`.
 - **An ignore you accept between turns doesn't hold the gate.** The gate counted the ignores from
   a session's first prompt, so a proposal you accepted and then prompted again counted as the
   task's own (`the task ignored … itself`). Now, as a hook, a check that lets the agent stop notes

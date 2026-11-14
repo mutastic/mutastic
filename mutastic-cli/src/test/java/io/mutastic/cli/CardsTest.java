@@ -21,6 +21,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 class CardsTest {
   private static final Path SAMPLES = Path.of(System.getProperty("mutastic.samples"));
   private static final Path CARDS = Path.of(System.getProperty("mutastic.cards"));
+  private static final java.util.regex.Pattern FENCE =
+      java.util.regex.Pattern.compile("(?<marker>mutastic-data )[0-9a-f]{8}>>");
+
   private static final boolean WRITE = Boolean.getBoolean("mutastic.cards.write");
 
   /// The samples whose mutants explain too: the quickstart's, and the one that suggests tests.
@@ -109,6 +112,8 @@ class CardsTest {
                     .matcher(output.replace(project.toString(), "samples/" + sample))
                     .replaceAll("…"))
             .replaceAll("… workers");
+    // Each run draws its own token for the fence around the project's text.
+    text = FENCE.matcher(text).replaceAll("${marker}3f9a0c1e>>");
     var file = CARDS.resolve(sample).resolve(name);
     if (WRITE) {
       Files.createDirectories(file.getParent());
