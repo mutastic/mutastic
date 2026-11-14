@@ -109,10 +109,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   failure. Now it says `the build has no module :nope.`, names the modules there are, and makes
   nothing. A close name, `:cor`, gets `There's one called :core.` and its command. Gradle, which
   took `:cor` for `:core` and ran it, now says so too.
-- **A directory inside a build names the build.** Run in a build's `src`, mutastic said it isn't a
-  Gradle or Maven build, with commands to fill in. Now it says which build it's inside and ends in
-  the command that tests it: `mutastic run ..`, or `mutastic run ../.. :app` for a Maven module,
-  which is tested from the top of its build.
+- **A directory inside a build runs that build.** In a build's `src`, mutastic said it isn't a
+  build's top directory and ended in the command to run. Now it runs the build, or the Maven
+  module, the directory is in, as the Rust edition runs the package a directory is in. In a build
+  of modules but in none of them, it's refused as the build's root is, with a command for each
+  module.
 - **A close name is said, with the command corrected.** A mistyped command, option, value,
   `mutastic.` property, `mutastic.yaml` section or rule, rules-file key, operator, filter or mutant
   id now gets the one name close to it, as a statement, never run in its place:
@@ -120,6 +121,17 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   only that word changed, `mutastic run --format=agent`, its value after an `=`. Close means the
   same but for case, else within a third of the name's length in edits, two letters swapped
   counting as one; an id must be one slip away.
+- **A refusal that does nothing goes to stderr, and exits 1.** `ignore --remove` of a mutant that
+  isn't ignored (which exited 0), `ignore --accept` of one that isn't proposed, `baseline` with one
+  there already and `baseline --prune` with none printed on stdout, after reading the build. Now
+  each is refused before the build is read, on stderr, as the Rust edition does, so stdout holds
+  only results. `gate check` with no task open says so on stderr too, and still exits 2.
+- **An option the command doesn't take is refused.** `mutastic verify m855c8e3c --threshold=70`
+  ran as if the option weren't there. Now it says `verify doesn't take --threshold`, with the
+  command's usage, and exits 2 with the code `option-not-taken`, as the Rust edition does. A build
+  plugin's `mutastic.` properties are still passed to every goal.
+- **`baseline` counts one mutant in the singular:** `1 mutant no test catches is in
+  .mutastic/baseline.yaml`.
 - **A usage error prints one line of usage,** the command's own, `usage: mutastic run [DIR]
   [:MODULE] [OPTIONS]`, not every command's. A mistake in `mutastic.yaml`, a rules file,
   `.mutastic/ignores.yaml`, an environment variable or the git repository prints none: it isn't
@@ -128,6 +140,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   in `.mutastic/ignores.yaml`, and list what's valid when nothing is close. `operators: [stronger]`,
   which mutastic doesn't read, is shown written an item a line, rather than as an unknown section.
 - **`--report`'s error lists `sarif`,** which it has taken since 1.0.0.
+- **An operator's docs link names its family, in the path both editions use.** Events' `docs`,
+  `explain`'s link and the card's linked operator went to the operators page's row,
+  `/concepts/operators/#boundary`. Now each goes to the operator's section of its family's page,
+  `https://docs.mutastic.io/java/operators/conditions/#boundary`, as the Rust edition's go to
+  `/rust/operators/…`, and the site redirects that path to the Java family pages, anchor kept.
+  SARIF rules gain the same link as `helpUri`.
 - **A build that fails is quoted at your line.** Gradle's failure came whole, its `* Try:` advice
   and all, and Maven's only as a log's path. Now mutastic says `pricing doesn't build, before any
   mutant is in it.`, names the compiler's error at your file and line (the first three, of how
