@@ -74,6 +74,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **The events schema says the order events come in, as both editions write them.** It said a run
+  writes `run-started` first, but the phase events of reading and building the project come before
+  it. Now it says: those phase events may come first; `run-started` comes before the first
+  `mutant-finished`; each `mutant-finished` is written as its mutant finishes, before its phase
+  ends; and `run-finished` or `run-failed` is last. Only the descriptions changed.
 - **A build of modules names them as commands, for Maven as for Gradle.** At the top of a Maven
   build with no Java code of its own, mutastic said `name a module with some: mutastic run
   :<module>` and named none. Now both tools say `<directory> is a build's root, with no Java code
