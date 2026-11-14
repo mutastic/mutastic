@@ -1171,8 +1171,11 @@ public final class HumanText {
           style.green(
               missed == 0
                   ? words.allDetected
-                  : "%d %s, above the threshold of %d."
-                      .formatted(missed, words.undetected, threshold)));
+                  : threshold <= 0
+                      // A threshold of 0 passes every run: there's nothing to be above.
+                      ? "%d %s, with no threshold set.".formatted(missed, words.undetected)
+                      : "%d %s, above the threshold of %d."
+                          .formatted(missed, words.undetected, threshold)));
     }
     return failed(
         "Below the threshold of %d: %d %s, %d %s."
