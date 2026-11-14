@@ -1818,17 +1818,6 @@
       "decision": 7
     },
     {
-      "id": "D9",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "reports",
-      "summary": "Docs links per operator aren't `/<edition>/operators/<family>/#<id>` in events, explain and SARIF `helpUri`",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "decision": 9
-    },
-    {
       "id": "D13",
       "kind": "pending",
       "editions": [
