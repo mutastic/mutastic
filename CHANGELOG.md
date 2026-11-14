@@ -83,6 +83,15 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **Copy as prompt, in the HTML report.** Beside each Copy, on the tests to write, a folder or
+  file's side card and each mutant, it puts those tests on the clipboard as a prompt for any coding
+  agent, in the agent format's shape: mutastic's rules first, then the mutants fenced off as data on
+  a token no one can guess. The page shows hidden characters in the project's text as escapes too,
+  as the terminal does.
+- **With more than one test to write, the agent format says how to take them.** After `rules:` and
+  `decline:`, a `tasks:` line asks the agent to make a task list, one item per mutant grouped by
+  file, then write each test, run its `mutastic verify` and mark it done before the next. The Rust
+  edition and Copy as prompt say the same.
 - **`mutation.json` says what the cards say.** Under one `mutastic` key on each mutant: where it
   is (`method`), and for a miss its evidence, its fix, the inputs the tests passed and the test to
   add; under one at the top, the run's facts: the commands for a mutant, the docs, the score,
