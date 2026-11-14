@@ -4,7 +4,7 @@
 //
 //   node report-ui/build.mjs            write report.html and its checksum
 //   node report-ui/build.mjs --check    fail if either is out of date with src/ and fonts/
-//   node report-ui/build.mjs --embed mutation.json out.html [--prompt]
+//   node report-ui/build.mjs --embed mutation.json out.html
 //                                       a page with that report in it, to look at while working
 //
 // An edition embeds the report by replacing SLOT, which the page holds once, with the same element
@@ -39,14 +39,11 @@ function fonts() {
     '   Copyright 2020 The JetBrains Mono Project Authors: SIL Open Font License 1.1 (scripts.sil.org/OFL) */\n' + faces.join('\n');
 }
 
-/// The page. `prompt` turns on Copy as prompt.
-export function build({ prompt = false } = {}) {
-  let js = read('src/report.js');
+/// The page.
+export function build() {
+  const js = read('src/report.js');
   for (const bad of ['</script', '<!--']) {
     if (js.includes(bad) || read('src/report.css').includes(bad)) throw new Error(`the script and styles can't hold ${bad}`);
-  }
-  if (prompt) {
-    js = once(js, 'var PROMPT = false;', 'var PROMPT = true;');
   }
   let page = read('src/report.html');
   page = once(page, '/*{{fonts}}*/', fonts());
@@ -77,7 +74,7 @@ export function embed(page, json) {
 function main(args) {
   if (args[0] === '--embed') {
     const [, from, to] = args;
-    writeFileSync(to, embed(build({ prompt: args.includes('--prompt') }), readFileSync(from, 'utf8')));
+    writeFileSync(to, embed(build(), readFileSync(from, 'utf8')));
     return;
   }
   const page = build();
