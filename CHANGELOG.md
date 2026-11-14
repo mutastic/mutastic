@@ -59,6 +59,10 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`mutastic mutants` lists the mutants, and runs no test.** One line each, as the Rust edition
+  prints it: the id, the change's file, line and column, the operator, the change, and the method
+  it's in; then how many. With `--operators=stronger` it shows what a set would add before a run
+  pays for it. The build still compiles the code, as the mutants are in its classes.
 - **The errors page pairs each code with the Rust edition's.** `no-build-tool` is the Rust
   edition's `no-cargo`, `module-without-java` at a build's root its `workspace-root`, and the page
   lists the codes only one edition has, so a script that wraps both reads one kind for each pair.
@@ -79,11 +83,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
-- **The gate passes a task that changed no line it mutates.** It passed only when no Java file
-  gained a line, tests included: a task that changed only tests went on to the checks of its
-  ignores and its tests, and a run of the mutants. Now, as in the Rust edition, only changed lines
-  in the module's main sources count, and that's checked before the ignores the task made. The
-  tests still run for such a task, as below.
+- **The events schema says the order events come in, as both editions write them.** It said a run
+  writes `run-started` first, but the phase events of reading and building the project come before
+  it. Now it says: those phase events may come first; `run-started` comes before the first
+  `mutant-finished`; each `mutant-finished` is written as its mutant finishes, before its phase
+  ends; and `run-finished` or `run-failed` is last. Only the descriptions changed.
 - **The gate runs the tests even with no mutant on the changed lines.** Since a run with no mutant
   to run stopped running the tests, a task that changed only lines with no mutant (a constant, an
   import, a log line) passed the gate with no test run, even when it broke one. The gate's run now
@@ -91,6 +95,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   suite does, with the same words and the same hand-over. A task that changed only files mutastic
   doesn't mutate (a test's data, a build file) runs the tests too; only one that changed nothing
   skips them. A plain `run --since` keeps the fast path.
+- **The gate passes a task that changed no line it mutates.** It passed only when no Java file
+  gained a line, tests included: a task that changed only tests went on to the checks of its
+  ignores and its tests, and a run of the mutants. Now, as in the Rust edition, only changed lines
+  in the module's main sources count, and that's checked before the ignores the task made. The
+  tests still run for such a task, as above.
 - **A build of modules names them as commands, for Maven as for Gradle.** At the top of a Maven
   build with no Java code of its own, mutastic said `name a module with some: mutastic run
   :<module>` and named none. Now both tools say `<directory> is a build's root, with no Java code
