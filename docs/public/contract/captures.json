@@ -24,6 +24,10 @@
       "java": "explain",
       "rust": "commands/explain"
     },
+    "mutants": {
+      "java": "mutants",
+      "rust": "commands/mutants"
+    },
     "format-agent": {
       "java": "format-agent",
       "rust": "concepts/format-agent"

@@ -59,6 +59,10 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`mutastic mutants` lists the mutants, and runs no test.** One line each, as the Rust edition
+  prints it: the id, the change's file, line and column, the operator, the change, and the method
+  it's in; then how many. With `--operators=stronger` it shows what a set would add before a run
+  pays for it. The build still compiles the code, as the mutants are in its classes.
 - **A run with no mutant to run runs no test.** `mutastic run --since=HEAD` on a clean tree started
   a worker and ran every test, a minute and more on a big module, to say there was nothing to
   measure. When no mutant is there to run (no changed lines, changed lines with no mutant, `--only`
