@@ -118,9 +118,7 @@ final class IgnoreCommand {
     if (already
         .filter(skip -> skip.startsWith("generated:") || skip.startsWith("equivalent:"))
         .isPresent()) {
-      out.printf(
-          "mutastic: %s doesn't run anyway (%s): nothing to ignore\n",
-          mutant.id(), Untrusted.value(already.get()));
+      out.print(runsAnyway(mutant, already.get()));
       return Main.PASSED;
     }
     var entries = without(mutant.id(), where);
@@ -138,6 +136,12 @@ final class IgnoreCommand {
         where.shownFile(),
         where.command(List.of("--remove", mutant.id())));
     return Main.PASSED;
+  }
+
+  /// A mutant mutastic skips on its own: nothing to ignore.
+  private static String runsAnyway(Mutant mutant, String skipped) {
+    return "mutastic: %s doesn't run anyway (%s): nothing to ignore\n"
+        .formatted(mutant.id(), Untrusted.value(skipped));
   }
 
   static int remove(String id, Where where, PrintStream out) {

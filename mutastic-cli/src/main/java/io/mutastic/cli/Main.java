@@ -895,12 +895,8 @@ public final class Main {
     var said = String.valueOf(failed.getMessage());
     var before =
         failed.failing().stream().filter(test -> wasThere(gated, state.base(), test)).toList();
-    // What failed and how is the project's text, so it's named in a fence, after what to do.
-    var lines = new ArrayList<>(said.lines().map(Untrusted::value).toList());
-    before.forEach(test -> lines.add(Untrusted.value(test) + " (there when the task started)"));
-    var fenced = Untrusted.fence(String.join("\n", lines));
-    var log = OUTPUT_IN.matcher(said);
-    var where = log.find() ? "; their output is in " + Untrusted.value(log.group("log")) : "";
+    var fenced = redFence(said, before);
+    var where = outputIn(said);
     if (before.isEmpty()) {
       return ("mutastic gate: the tests named below fail without any mutant%s. Make them pass"
               + " first, unless the spec or plan is what's wrong, in which case say so and stop."
@@ -919,6 +915,20 @@ public final class Main {
             before.size() == 1 ? "it" : "they",
             before.size() == 1 ? "it" : "them",
             fenced);
+  }
+
+  /// `; their output is in build/….log`, as a red suite's message says, or nothing.
+  private static String outputIn(String said) {
+    var log = OUTPUT_IN.matcher(said);
+    return log.find() ? "; their output is in " + Untrusted.value(log.group("log")) : "";
+  }
+
+  /// What failed and how, the project's text, fenced, with the tests there when the task started
+  /// marked: what the gate names after it says what to do.
+  private static String redFence(String said, List<String> before) {
+    var lines = new ArrayList<>(said.lines().map(Untrusted::value).toList());
+    before.forEach(test -> lines.add(Untrusted.value(test) + " (there when the task started)"));
+    return Untrusted.fence(String.join("\n", lines));
   }
 
   /// Where a red suite's output is, as its message says: `Their output is in build/….log.`
