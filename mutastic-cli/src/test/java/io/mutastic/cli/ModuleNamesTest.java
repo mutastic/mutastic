@@ -105,8 +105,7 @@ class ModuleNamesTest {
     var build = Samples.copy(SAMPLES.resolve("pricing"), work.resolve("pricing"));
 
     var run =
-        Samples.mutastic(
-            "run", build.resolve("src").toString(), "--format=brief", "--report=none");
+        Samples.mutastic("run", build.resolve("src").toString(), "--format=brief", "--report=none");
 
     assertThat(run.err()).doesNotContain("mutastic:");
     assertThat(run.exit()).isIn(Main.PASSED, Main.FAILED);
@@ -125,8 +124,8 @@ class ModuleNamesTest {
     assertThat(run.exit()).isIn(Main.PASSED, Main.FAILED);
   }
 
-  /// A directory in a build of modules, but in none of them, is the build's root: refused, with
-  /// the command for each module.
+  /// A directory in a build of modules, but in none of them, is the build's root: refused, with the
+  /// command for each module.
   @Test
   void aDirectoryInABuildOfModulesButInNoneIsTheRoots() throws Exception {
     var build = Samples.copy(SAMPLES.resolve("maven-modules"), work.resolve("maven-modules"));

@@ -174,8 +174,8 @@ public final class Main {
   }
 
   /// The command on the build its directory is in, when the directory is below a build's own (its
-  /// `src`, say) and names no module: the build, or the Maven module, that directory belongs to,
-  /// as the Rust edition runs the package a directory is in. The top of a build of modules is then
+  /// `src`, say) and names no module: the build, or the Maven module, that directory belongs to, as
+  /// the Rust edition runs the package a directory is in. The top of a build of modules is then
   /// refused as it is when named, with the module commands to run. A build plugin names its build.
   private static Command enclosing(Command command) {
     if (!command.module().equals(":") || command.setup().isPresent()) {

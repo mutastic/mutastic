@@ -24,8 +24,8 @@ final class BuildTools {
     return find(directory).orElseThrow(() -> new SetupFailed("no-project", notABuild(directory)));
   }
 
-  /// The build, and the module, a directory that isn't a build's own is inside: empty for a
-  /// build's directory, one that isn't there, and one in no build.
+  /// The build, and the module, a directory that isn't a build's own is inside: empty for a build's
+  /// directory, one that isn't there, and one in no build.
   static Optional<BuildTool.Address> enclosing(Path directory) {
     if (!Files.isDirectory(directory) || find(directory).isPresent()) {
       return Optional.empty();
