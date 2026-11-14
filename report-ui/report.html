@@ -319,7 +319,7 @@ var ORDER = ['Survived','NoCoverage','Killed','Timeout','RuntimeError','CompileE
 var SAY = { Survived:'Ran, changed, and every test still passed', NoCoverage:'No test runs the line', Killed:'A test failed, as it should', Timeout:'The tests hung, which counts as caught',
   RuntimeError:'The tests crashed; out of the score', CompileError:"The change didn't build; out of the score", Ignored:'Skipped on purpose; out of the score', Pending:'Not run yet' };
 // An id mutastic made. Commands are built only from ids that look like one.
-var SAFE_ID = /^m[0-9a-f]{8,16}$/;
+var SAFE_ID = /^m[0-9a-f]{8}$/;
 
 function dict(){ return Object.create(null); }
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -480,16 +480,33 @@ function testShort(t){ var i = Math.max(t.lastIndexOf('#'), t.lastIndexOf('::'),
 function toWrite(m){ return m.status === 'Survived' || m.status === 'NoCoverage'; }
 // `discount()`, from the method the report names: `Pricing.discount()`, `Pricing::discount()`.
 function methodName(m){ var s = str(m.x.method), i = Math.max(s.lastIndexOf('.'), s.lastIndexOf('::')); return i >= 0 ? s.slice(i + (s.charAt(i) === ':' ? 2 : 1)) : s; }
+// Whether a test reached the function a not-covered mutant is in: another mutant in the same
+// method ran (caught, missed, timed out or crashed). Then it's the line no test reaches, not the
+// function. Read from results only, never from comments.
+function functionReached(m){
+  var method = str(m.x.method);
+  return !!method && m.f.mutants.some(function(o){
+    return o !== m && str(o.x.method) === method && /^(Killed|Survived|Timeout|RuntimeError)$/.test(o.status); });
+}
 function headline(m){
   if (m.status === 'Survived' && m.reason) return cap(m.reason);
-  if (m.status === 'NoCoverage') return methodName(m) ? 'No test reaches `' + methodName(m) + '`' : 'No test reaches line ' + m.line;
+  if (m.status === 'NoCoverage'){
+    if (!methodName(m)) return 'No test reaches line ' + m.line;
+    return functionReached(m) ? 'No test reaches line ' + m.line + ' in `' + methodName(m) + '`' : 'No test reaches `' + methodName(m) + '`';
+  }
   return cap(m.description);
 }
 // The test to write, in a sentence: the card's fix line, or for a change no test reaches, a test
 // that gets there.
-function fixOf(m){
+// `full` is the page's own sentence; the short one is for lists and copies.
+function fixOf(m, full){
   if (str(m.x.fix)) return m.x.fix;
-  if (m.status === 'NoCoverage') return methodName(m) ? 'add a test that calls `' + methodName(m) + '`' : 'add a test that runs line ' + m.line;
+  if (m.status === 'NoCoverage'){
+    if (!methodName(m)) return 'add a test that runs line ' + m.line;
+    if (!functionReached(m)) return 'add a test that calls `' + methodName(m) + '`';
+    return full ? 'no test reaches line ' + m.line + ' in `' + methodName(m) + '`: add a test that gets there, or, if nothing can, propose ignoring it as unreachable'
+      : 'no test reaches this line in `' + methodName(m) + '`: add a test that gets there, or propose ignoring it as unreachable';
+  }
   return 'write a test whose answer changes with this change in';
 }
 // What keeps a score below 100%, in words: `2 missed, 1 no test reaches`.
@@ -523,13 +540,19 @@ function nodeAt(dir){
 }
 
 // ---------- commands ----------
-// A path as one shell word.
-function arg(s){ return /^[A-Za-z0-9_\/.:@%+=,-]+$/.test(s) ? s : "'" + s.replace(/'/g, "'\\''") + "'"; }
-function where(){ var d = str(RUN.runDir); return d ? ' ' + arg(d) : ''; }
+// The commands for a mutant: the run's own (`mutastic.commands`, written for its project and as
+// mutastic was started), its id put where `<id>` is. Only an id that looks like mutastic's goes in,
+// and only into a template that's one command of mutastic's, the command line's or a build tool's.
+function command(template, id){
+  var bare = template.replace(/<[^<>\n]*>/g, '');
+  if (template.indexOf('<id>') < 0 || /[\n\r;&|`$\\<>]/.test(bare) || !/^(mutastic|cargo mutastic|mvn|\.\/gradlew|gradlew|gradle) /.test(template)) return null;
+  return template.split('<id>').join(id);
+}
 function commands(m){
+  var t = obj(RUN.commands), out = {};
   if (!SAFE_ID.test(m.id)) return null;
-  return { verify: 'mutastic verify ' + m.id + where(), run: 'mutastic run --only=' + m.id + where(),
-    ignore: 'mutastic ignore ' + m.id + ' --reason="<why>"' + where() };
+  ['verify', 'run', 'ignore'].forEach(function(k){ var c = command(str(t[k]), m.id); if (c) out[k] = c; });
+  return out.verify ? out : null;
 }
 function operatorDocs(m){
   var base = str(RUN.docsBase), page = str(obj(RUN.operatorDocs)[m.mutator]);
@@ -974,13 +997,33 @@ function missSet(w){
   if (w.indexOf('dir:') === 0) return miss.filter(function(m){ return m.file.indexOf(w.slice(4) + '/') === 0; });
   return BYID[w] ? [BYID[w]] : [];
 }
-// Characters that hide or reorder text (bidi controls, zero-width characters), terminal escapes
-// and other control characters, written as visible escapes in whatever is copied: pasted, the text
-// shows everything it holds.
-function neutral(text){
-  return text.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u061c\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g, function(c){
-    return '\\u{' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0') + '}'; });
+// Text from the project as both editions show it to a person or an agent (their `Untrusted`): each
+// control character but a tab as `\x1b`, each invisible format character (bidi controls,
+// zero-width and tag characters, separators, variation selectors) as `\u202e` or `\u{e0041}`, and a
+// value over 200 characters cut, with how many more there were. Pasted, the text shows all it holds.
+var INVISIBLE = [[0xAD, 0xAD], [0x34F, 0x34F], [0x600, 0x605], [0x61C, 0x61C], [0x6DD, 0x6DD], [0x70F, 0x70F], [0x890, 0x891], [0x8E2, 0x8E2],
+  [0x115F, 0x1160], [0x17B4, 0x17B5], [0x180B, 0x180F], [0x200B, 0x200F], [0x2028, 0x202E], [0x2060, 0x2064], [0x2066, 0x206F], [0x3164, 0x3164],
+  [0xFE00, 0xFE0F], [0xFEFF, 0xFEFF], [0xFFA0, 0xFFA0], [0xFFF9, 0xFFFB], [0x110BD, 0x110BD], [0x110CD, 0x110CD], [0x13430, 0x1343F],
+  [0x1BCA0, 0x1BCA3], [0x1D173, 0x1D17A], [0xE0001, 0xE0001], [0xE0020, 0xE007F], [0xE0100, 0xE01EF]];
+var LONGEST = 200;
+function control(cp){ return cp < 0x20 || (cp >= 0x7F && cp <= 0x9F); }
+function hidden(cp){
+  if (control(cp)) return cp !== 9;
+  return INVISIBLE.some(function(r){ return cp >= r[0] && cp <= r[1]; });
 }
+function hex(cp, width){ var h = cp.toString(16); while (h.length < width) h = '0' + h; return h; }
+function escapeText(text){
+  var out = '';
+  Array.from(String(text)).forEach(function(ch){
+    var cp = ch.codePointAt(0);
+    out += !hidden(cp) ? ch : control(cp) ? '\\x' + hex(cp, 2) : cp <= 0xFFFF ? '\\u' + hex(cp, 4) : '\\u{' + hex(cp, 1) + '}';
+  });
+  return out;
+}
+function cutText(text){ var cps = Array.from(String(text)); return cps.length <= LONGEST ? String(text) : cps.slice(0, LONGEST).join('') + '…(' + (cps.length - LONGEST) + ' more chars)'; }
+// One value or line of the project's, as it's shown: cut, then escaped.
+function untrusted(text){ return escapeText(cutText(text)); }
+function escapeLines(text){ return String(text).split('\n').map(escapeText).join('\n'); }
 // The tests to write as a list, a line each, for an issue, a PR or a chat: `- lib.rs:62 - add a test
 // where …`. A file goes by its name, or its path where two in the list share a name.
 function issues(ms){
@@ -988,7 +1031,7 @@ function issues(ms){
   ms.forEach(function(m){ (paths[short(m.file)] = paths[short(m.file)] || dict())[m.file] = 1; });
   return ms.map(function(m){
     var fix = fixOf(m), name = Object.keys(paths[short(m.file)]).length > 1 ? m.file : short(m.file);
-    return '- ' + name + ':' + m.line + ' - ' + fix.charAt(0).toLowerCase() + fix.slice(1);
+    return '- ' + untrusted(name) + ':' + m.line + ' - ' + untrusted(fix.charAt(0).toLowerCase() + fix.slice(1));
   }).join('\n') + '\n';
 }
 function copy(text, b){
@@ -998,9 +1041,9 @@ function copy(text, b){
 }
 document.addEventListener('click', function(e){
   var b = e.target.closest('[data-prompt]');
-  if (b){ var ms = missSet(b.getAttribute('data-prompt')); if (ms.length) copy(neutral(prompt(ms)), b); return; }
+  if (b){ var ms = missSet(b.getAttribute('data-prompt')); if (ms.length) copy(escapeLines(prompt(ms)), b); return; }
   b = e.target.closest('[data-list]');
-  if (b){ var ls = missSet(b.getAttribute('data-list')); if (ls.length) copy(neutral(issues(ls)), b); return; }
+  if (b){ var ls = missSet(b.getAttribute('data-list')); if (ls.length) copy(issues(ls), b); return; }
   b = e.target.closest('[data-copy]');
   if (b) copy(b.getAttribute('data-copy'), b);
 });
@@ -1048,7 +1091,7 @@ function why(m){
   return m.reason ? '<section class="sec"><h2>Why</h2><p>' + words(cap(m.reason)) + '.</p></section>' : '';
 }
 function suggestion(m){
-  var x = m.x, st = obj(x.suggestedTest), fix = toWrite(m) ? fixOf(m) : '';
+  var x = m.x, st = obj(x.suggestedTest), fix = toWrite(m) ? fixOf(m, true) : '';
   if (str(st.code)){
     return '<section class="sec"><h2>Test to add</h2>' + (fix ? '<p class="help">' + words(cap(fix)) + '.</p>' : '') +
       '<div class="cmd col"><div class="head"><span class="cap">in <code>' + esc(st.testClass) + '</code></span>' + copyBtn(st.code, 'the test', 'btn') + '</div><pre class="code">' + esc(st.code) + '</pre></div>' +
@@ -1077,9 +1120,9 @@ function reached(m){
 function commandsSec(m){
   var c = commands(m);
   if (!c || (m.status !== 'Survived' && m.status !== 'NoCoverage')) return '';
+  var more = [['run', 'Run it again', 'the run command'], ['ignore', 'Or ignore it', 'the ignore command']].filter(function(k){ return c[k[0]]; });
   return '<section class="sec"><h2>Done when this passes</h2><div class="cmd"><code>' + esc(c.verify) + '</code>' + copyBtn(c.verify, 'the verify command') + '</div>' +
-    '<div class="cmds"><span class="k">Run it again</span><div class="cmd"><code>' + esc(c.run) + '</code>' + copyBtn(c.run, 'the run command') + '</div>' +
-    '<span class="k">Or ignore it</span><div class="cmd"><code>' + esc(c.ignore) + '</code>' + copyBtn(c.ignore, 'the ignore command') + '</div></div></section>';
+    (more.length ? '<div class="cmds">' + more.map(function(k){ return '<span class="k">' + k[1] + '</span><div class="cmd"><code>' + esc(c[k[0]]) + '</code>' + copyBtn(c[k[0]], k[2]) + '</div>'; }).join('') + '</div>' : '') + '</section>';
 }
 function about(m){
   var docs = operatorDocs(m), method = str(m.x.method);

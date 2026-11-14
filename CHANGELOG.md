@@ -83,6 +83,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`mutation.json` says what the cards say.** Under one `mutastic` key on each mutant: where it
+  is (`method`), and for a miss its evidence, its fix, the inputs the tests passed and the test to
+  add; under one at the top, the run's facts: the commands for a mutant, the docs, the score,
+  threshold and verdict, the JDK and when it started. Each test in `testFiles` has its `location`.
+  The report schema stays as it is: these are additions, described at
+  https://docs.mutastic.io/schemas/report/v1.json, and the Rust edition writes the same.
 - **`mutastic mutants` lists the mutants, and runs no test.** One line each, as the Rust edition
   prints it: the id, the change's file, line and column, the operator, the change, and the method
   it's in; then how many. With `--operators=stronger` it shows what a set would add before a run
@@ -112,6 +118,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   with `--no-suggestions`.
 - **`--kill-matrix` lists every catching test in `mutation.json`.** `killedBy` held only the first,
   while the events' `caughtByAll` had them all; now `killedBy` has them all too, the first first.
+- **The gate holds a task that changes no line mutastic mutates to its other checks.** Such a task
+  skipped the checks for ignores and baseline entries the task made itself, and for tests taken
+  away or `@Disabled`, so an agent that only deleted a failing test, or ignored a mutant itself,
+  passed once the rest of the tests did. Now they run on every check, whatever lines changed, with
+  the same words and the same hand-over; only a task that changed nothing passes at once, and
+  an ignore or baseline entry it made itself holds it even where git doesn't see `.mutastic/`.
+  An ignore you accept between turns is still the task's to start from.
 - **The events schema says the order events come in, as both editions write them.** It said a run
   writes `run-started` first, but the phase events of reading and building the project come before
   it. Now it says: those phase events may come first; `run-started` comes before the first
@@ -187,6 +200,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Agents
 
+- **The gate and `--since` see Kotlin.** Git's diff and its new-file listing took only `*.java`,
+  so a Kotlin task's changed lines were none: `--since` mutated nothing, and the gate passed a
+  task that changed `.kt` code with no mutant run. Its test count read only `.java` files too, so
+  taking a Kotlin test away didn't hold the task. Both read `.kt` files now, in whichever source
+  sets the build compiles; a new sample, `samples/parameterized-kotlin`, pins them.
 - **`mutation.original` and `replacement` are source, as in the Rust edition.** In the events and
   `mutation.json`, `original` is the source the mutant replaces and `replacement` the source that
   replaces it, so writing one over the other gives the mutant's line; `mutation.json`'s `location`

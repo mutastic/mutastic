@@ -29,7 +29,11 @@ class PublishedSchemasTest {
     assertThat(published)
         .extracting(file -> Schemas.PUBLISHED.relativize(file).toString())
         .containsExactly(
-            "contract/v1.json", "events/v1.json", "mutastic-yaml/v1.json", "rules/v1.json");
+            "contract/v1.json",
+            "events/v1.json",
+            "mutastic-yaml/v1.json",
+            "report/v1.json",
+            "rules/v1.json");
     for (Path file : published) {
       var schema = Schemas.read(file);
       var served = Schemas.PUBLISHED.relativize(file).toString();

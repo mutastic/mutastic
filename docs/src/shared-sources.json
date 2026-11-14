@@ -71,9 +71,9 @@
     }
   },
   "guides/test-first-agent": {
-    "commit": "f17bf20024517538a29118ab464641f457b9c177",
+    "commit": "e59b3a3b3cb9d261a197b95aabad2e7b0fff4f90",
     "sources": {
-      "test-first-agent.md": "7e17967a2bc70e65"
+      "test-first-agent.md": "46ecb51c23a4cb7a"
     }
   }
 }

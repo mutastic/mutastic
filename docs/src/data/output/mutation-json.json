@@ -27,12 +27,55 @@
         "status" : "Survived",
         "statusReason" : "no test checks `discount()` at `total == 100`",
         "coveredBy" : [ "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff", "com.example.pricing.PricingTest#smallOrdersPayFullPrice" ],
-        "testsCompleted" : 2
+        "testsCompleted" : 2,
+        "mutastic" : {
+          "method" : "Pricing.discount()",
+          "evidence" : [ "every test calls `discount()` away from the boundary", "inputs seen: 50, 250 (none is 100)" ],
+          "fix" : "test `discount()` with `total = 100` and assert the result",
+          "inputs" : {
+            "total" : [ 50, 250 ]
+          },
+          "suggestedTest" : {
+            "testClass" : "PricingTest",
+            "name" : "discountAtTheTotalEdge",
+            "code" : "@Test\nvoid discountAtTheTotalEdge() {\n  assertEquals(10, new Pricing().discount(100)); // today 10 · with this mutant 0\n}",
+            "call" : "new Pricing().discount(100)",
+            "today" : "10",
+            "withMutant" : "0",
+            "arguments" : {
+              "total" : 100
+            }
+          }
+        }
       } ]
     }
   },
   "framework" : {
     "name" : "mutastic",
     "version" : "dev"
+  },
+  "mutastic" : {
+    "edition" : "java",
+    "commands" : {
+      "verify" : "mutastic verify <id> samples/pricing",
+      "run" : "mutastic run --only=<id> samples/pricing",
+      "ignore" : "mutastic ignore <id> --reason=\"<why>\" samples/pricing",
+      "propose" : "mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason=\"Differs only when <case>. That can't happen because <why>.\" samples/pricing"
+    },
+    "docsBase" : "https://docs.mutastic.io/",
+    "operatorDocs" : {
+      "boundary" : "java/operators/conditions/#boundary",
+      "math" : "java/operators/arithmetic/#math",
+      "remove-conditional" : "java/operators/conditions/#remove-conditional",
+      "return-value" : "java/operators/returns/#return-value"
+    },
+    "score" : 90.9,
+    "threshold" : 80,
+    "passed" : true,
+    "toolchain" : {
+      "name" : "jdk",
+      "version" : "…"
+    },
+    "startedAt" : "…"
   }
 }
