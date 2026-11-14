@@ -22,8 +22,9 @@ start from a clean tree to gate only what the agent does.
 
 ## When it's done
 
-`gate check` runs mutastic on the lines changed since the task started, committed or not. A task
-that changed no mutant's line runs no test, so the check takes seconds. The task is done when:
+`gate check` runs the tests, and mutastic on the lines changed since the task started, committed
+or not. It runs the tests even when no mutant is on those lines: a constant, an import or a log
+line can break a test too. The task is done when:
 
 - **each mutant on those lines is caught, or proposed** for a person to ignore. A proposed mutant
   still counts as missed in the score, but it doesn't hold the gate: deciding it is yours. With a
@@ -52,7 +53,8 @@ that changed no mutant's line runs no test, so the check takes seconds. The task
   keeps its body, so either still counts; a test changed in both at once can't be told from one
   taken away, so the gate names it and holds the task.
 
-A task that changes no lines mutastic mutates (docs, build files, tests only) passes at once.
+A task that changes no lines mutastic mutates (docs, build files, tests only) passes once the tests
+do, and one that changed nothing passes at once.
 Mutants on lines the task didn't touch aren't its business: they were missed before it started.
 
 When it isn't done, `gate check` says why, as [the agent format](/concepts/output/#formats)

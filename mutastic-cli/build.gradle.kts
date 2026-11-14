@@ -143,6 +143,8 @@ tasks.test {
     val schemas = rootDir.resolve("docs/public/schemas")
     systemProperty("mutastic.schemas", schemas.absolutePath)
     inputs.dir(schemas).withPathSensitivity(PathSensitivity.RELATIVE)
+    // ContractTest holds this edition to the editions' contract, published beside the schemas.
+    inputs.dir(rootDir.resolve("docs/public/contract")).withPathSensitivity(PathSensitivity.RELATIVE)
     // DocsPluginsTest reads the example plugins the docs show.
     inputs.dir(rootDir.resolve("docs/src/data/plugins")).withPathSensitivity(PathSensitivity.RELATIVE)
     // The Maven plugin's test resolves it, and everything it needs, from a repository in the build.

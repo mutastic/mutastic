@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docs.mutastic.io/schemas/contract/v1.json",
+  "title": "mutastic.contract/v1",
+  "description": "What every edition of mutastic must agree on, and each known difference with its kind. Each edition's CI runs its own binary on its own pricing fixture and checks what it does against this file: a difference that isn't recorded fails, and so does a recorded one that has gone. CONTRIBUTING.md says how to use it.",
+  "type": "object",
+  "required": ["schema", "version", "editions", "reference", "engineSlots", "commands", "options", "environment", "exitCodes", "errors", "errorPairs", "errorCases", "help", "output", "schemas", "events", "report", "decisions", "differences"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema": { "const": "mutastic.contract/v1" },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "The editions' shared version this contract describes." },
+    "editions": { "type": "array", "items": { "$ref": "#/$defs/edition" }, "minItems": 1, "uniqueItems": true },
+    "reference": { "$ref": "#/$defs/edition", "description": "The edition the cross-edition capture comparison measures the others against." },
+    "engineSlots": {
+      "type": "array",
+      "description": "Synopsis words an edition may add for its own project unit, each with the difference that says why.",
+      "items": { "type": "object", "required": ["slot", "difference"], "additionalProperties": false, "properties": { "slot": { "type": "string" }, "difference": { "type": "string" } } }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "synopsis", "options"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "synopsis": { "type": "string" },
+          "options": { "type": "array", "items": { "type": "string", "pattern": "^--" }, "description": "The shared options it takes, in the order help and commands.json list them." }
+        }
+      }
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "pattern": "^--[a-z-]+$" },
+          "kind": { "enum": ["flag", "value", "optional_value", "repeated"] },
+          "value": { "type": "string" },
+          "choices": { "type": "array", "items": { "type": "string" } },
+          "environment": { "type": "array", "items": { "type": "string" } },
+          "default": { "type": "string", "description": "Its help says `<default> unless set`." }
+        }
+      }
+    },
+    "environment": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z_]+$" }, "description": "The variables every edition documents, by name (commands.json's `MUTASTIC_AGENT=1` is `MUTASTIC_AGENT`)." },
+    "exitCodes": { "type": "object", "propertyNames": { "pattern": "^[0-9]+$" }, "additionalProperties": { "type": "string" } },
+    "errors": {
+      "type": "array",
+      "description": "Every shared error code and the exit code it ends with.",
+      "items": { "type": "object", "required": ["code", "exit"], "additionalProperties": false, "properties": { "code": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }, "exit": { "type": "integer" } } }
+    },
+    "errorPairs": {
+      "type": "array",
+      "description": "Codes that mean the same thing under each edition's name (decision 12).",
+      "items": {
+        "type": "object",
+        "required": ["code", "names", "why"],
+        "additionalProperties": false,
+        "properties": { "code": { "type": "string" }, "names": { "type": "object", "additionalProperties": { "type": "string" } }, "why": { "type": "string" } }
+      }
+    },
+    "errorCases": {
+      "type": "array",
+      "description": "Command lines run on the fixture, and what each must end with. `{dir}` is the fixture's copy as typed, `{id}` its missed mutant, `{empty}` the absolute path of an empty directory. Every case runs with its `env`.",
+      "items": {
+        "type": "object",
+        "required": ["id", "args", "exit", "env"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+$" },
+          "args": { "type": "array", "items": { "type": "string" } },
+          "exit": { "type": "integer" },
+          "code": { "type": "string", "description": "The last run-failed event's code; none when the case runs." },
+          "env": { "type": "object", "additionalProperties": { "type": "string" } },
+          "setup": { "enum": ["red-baseline"], "description": "red-baseline: one of the fixture's tests is made to fail first, with no mutant in." },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "help": { "type": "object" },
+    "output": {
+      "type": "object",
+      "required": ["summary", "agent"],
+      "properties": {
+        "summary": {
+          "type": "object",
+          "required": ["rows"],
+          "properties": {
+            "rule": { "type": "string" },
+            "rows": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["label"],
+                "additionalProperties": false,
+                "properties": {
+                  "label": { "type": "string" },
+                  "pattern": { "type": "string", "description": "A slot: any label this matches, that no other row names." },
+                  "optional": { "type": "boolean" },
+                  "shape": { "type": "string", "description": "A regular expression the row's value must match." },
+                  "note": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "agent": {
+          "type": "object",
+          "required": ["head", "entry"],
+          "properties": {
+            "masks": { "type": "string" },
+            "head": { "$ref": "#/$defs/shapes" },
+            "entry": { "$ref": "#/$defs/shapes" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["id", "url", "sha256"],
+        "additionalProperties": false,
+        "properties": { "id": { "type": "string" }, "url": { "type": "string" }, "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
+      }
+    },
+    "events": {
+      "type": "object",
+      "required": ["order", "keyPaths"],
+      "properties": {
+        "order": { "type": "array", "items": { "type": "string" } },
+        "keyPaths": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } }, "description": "Each event type's key paths on the fixture's run, `[]` for an array's items." }
+      }
+    },
+    "report": {
+      "type": "object",
+      "required": ["keyPaths"],
+      "properties": { "keyPaths": { "type": "array", "items": { "type": "string" }, "description": "mutation.json's key paths, a file's name under files and testFiles as `*`." } }
+    },
+    "decisions": {
+      "type": "array",
+      "items": { "type": "object", "required": ["id", "rule"], "additionalProperties": false, "properties": { "id": { "type": "integer" }, "rule": { "type": "string" } } }
+    },
+    "differences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "editions", "surface", "summary"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Z]+[0-9]*$" },
+          "kind": { "enum": ["engine", "dated", "pending"] },
+          "editions": { "type": "array", "items": { "$ref": "#/$defs/edition" }, "minItems": 1, "uniqueItems": true, "description": "The editions that differ from the contract." },
+          "surface": { "type": "string" },
+          "summary": { "type": "string" },
+          "reason": { "type": "string" },
+          "until": { "type": "string", "description": "The edition and release the difference ends at: `rust 2.0.0`." },
+          "issue": { "type": "string", "format": "uri" },
+          "decision": { "type": "integer" },
+          "items": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "The check items it accounts for, `*` matching anything. A difference with items fails once none of them is found: it now matches."
+          }
+        },
+        "allOf": [
+          { "if": { "properties": { "kind": { "const": "engine" } } }, "then": { "required": ["reason"] } },
+          { "if": { "properties": { "kind": { "const": "dated" } } }, "then": { "required": ["reason", "until"] } },
+          { "if": { "properties": { "kind": { "const": "pending" } } }, "then": { "required": ["issue"] } }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "edition": { "type": "string", "pattern": "^[a-z]+$" },
+    "shapes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "pattern"],
+        "additionalProperties": false,
+        "properties": { "name": { "type": "string" }, "pattern": { "type": "string" }, "repeat": { "enum": ["1", "?", "*", "+"] } }
+      }
+    }
+  }
+}
