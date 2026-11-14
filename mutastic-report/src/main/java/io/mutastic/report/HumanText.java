@@ -1362,7 +1362,7 @@ public final class HumanText {
 
   /// `Shipping.Zone.surcharge()`, or `Shipping.heavyOnes() (a lambda)`: where the misses are, as
   /// the source names it.
-  private static String methodLabel(Mutant mutant) {
+  static String methodLabel(Mutant mutant) {
     return Untrusted.escape(methodLabelOf(mutant));
   }
 

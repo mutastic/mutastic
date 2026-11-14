@@ -58,8 +58,7 @@ export const PAIRS = [
   ['concepts/operators/streams', 'rust/operators/iterators'],
   ['concepts/operators/optional', 'rust/operators/options'],
   ['concepts/operators/control', 'rust/operators/control'],
-  // A page for each command, written in both from the CLI's own declarations. mutants is the
-  // Rust edition's only: the switch opens the overview.
+  // A page for each command, written in both from the CLI's own declarations.
   ['reference/run', 'rust/reference/run'],
   ['reference/verify', 'rust/reference/verify'],
   ['reference/explain', 'rust/reference/explain'],
@@ -69,6 +68,7 @@ export const PAIRS = [
   ['reference/gate-open', 'rust/reference/gate-open'],
   ['reference/gate-check', 'rust/reference/gate-check'],
   ['reference/gate-close', 'rust/reference/gate-close'],
+  ['reference/mutants', 'rust/reference/mutants'],
   ['reference/environment', 'rust/reference/environment'],
   ['reference/reports', 'rust/reference/reports'],
   ['reference/schemas', 'rust/reference/events'],

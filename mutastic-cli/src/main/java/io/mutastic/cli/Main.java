@@ -23,6 +23,7 @@ import io.mutastic.report.Invocation;
 import io.mutastic.report.JsonEvents;
 import io.mutastic.report.LiveEvents;
 import io.mutastic.report.MutantCommand;
+import io.mutastic.report.MutantList;
 import io.mutastic.report.NextText;
 import io.mutastic.report.OperatorDocs;
 import io.mutastic.report.Queue;
@@ -240,6 +241,9 @@ public final class Main {
       progress.redBelow(command.threshold());
     }
     var prepared = prepare(command, tool, progress);
+    if (command.subcommand() == Subcommand.MUTANTS) {
+      return listed(command, prepared, output, terminal);
+    }
     var human = humanText(command, output, prepared.sources());
     showFileLines(command, output, human, prepared);
     progress.nameMutants(human::running);
@@ -252,6 +256,16 @@ public final class Main {
           : single(command, prepared, passes, output);
     }
     return fullRun(command, prepared, passes, output);
+  }
+
+  /// `mutants`: every mutant a run would have, a line each, found in the built classes with no test
+  /// run.
+  private static int listed(Command command, Prepared prepared, Output output, Terminal terminal) {
+    var engine = new Engine(workerJar(), prepared.work().resolve("worker.log"));
+    var found = engine.find(prepared.project(), options(command, terminal, prepared));
+    output.progress().finished();
+    output.out().print(new MutantList(prepared.sources()).of(found.all()));
+    return PASSED;
   }
 
   /// Where `run`'s live events go as it runs: stdout with `--format=jsonl`, a `progress` event on
@@ -1909,7 +1923,16 @@ public final class Main {
         "Stop gating a task: forget where it started",
         "The next gate open starts a new task.",
         "0 whether a task was open or not: it says which, or with --hook says nothing.",
-        List.of("mutastic gate close"));
+        List.of("mutastic gate close")),
+    MUTANTS(
+        false,
+        "mutants [DIR] [:MODULE]",
+        "List the mutants, without running a test",
+        "One line each: its id, place, operator, the change, and the method it's in; the last"
+            + " line counts them. The build compiles the code, as the mutants are in its classes,"
+            + " and no test runs. With --operators, it shows what those would add before a run.",
+        "0 once they're listed.",
+        List.of("mutastic mutants", "mutastic mutants samples/pricing --operators=stronger"));
 
     final boolean takesMutantId;
     final String synopsis;

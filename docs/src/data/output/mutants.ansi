@@ -1,0 +1,12 @@
+m855c8e3c src/main/java/com/example/pricing/Pricing.java:17:15 mutastic/boundary >= becomes > in Pricing.discount()
+m53e1dc80 src/main/java/com/example/pricing/Pricing.java:17:15 mutastic/remove-conditional total >= 100 is always false in Pricing.discount()
+mfb551430 src/main/java/com/example/pricing/Pricing.java:17:15 mutastic/remove-conditional total >= 100 is always true in Pricing.discount()
+mabd5e44c src/main/java/com/example/pricing/Pricing.java:18:20 mutastic/math / becomes * in Pricing.discount()
+mf7bb3882 src/main/java/com/example/pricing/Pricing.java:18:7 mutastic/return-value returns 0 instead in Pricing.discount()
+m3264f639 src/main/java/com/example/pricing/Pricing.java:20:5 mutastic/return-value returns 1 instead in Pricing.discount()
+m2de3396d src/main/java/com/example/pricing/Pricing.java:25:15 mutastic/boundary < becomes <= in Pricing.shipping()
+m73f3386e src/main/java/com/example/pricing/Pricing.java:25:15 mutastic/remove-conditional total < freeShippingFrom is always false in Pricing.shipping()
+m091729b1 src/main/java/com/example/pricing/Pricing.java:25:15 mutastic/remove-conditional total < freeShippingFrom is always true in Pricing.shipping()
+m39e3e756 src/main/java/com/example/pricing/Pricing.java:26:7 mutastic/return-value returns 0 instead in Pricing.shipping()
+m3b5420b6 src/main/java/com/example/pricing/Pricing.java:28:5 mutastic/return-value returns 1 instead in Pricing.shipping()
+11 mutants

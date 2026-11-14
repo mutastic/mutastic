@@ -83,6 +83,10 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`mutastic mutants` lists the mutants, and runs no test.** One line each, as the Rust edition
+  prints it: the id, the change's file, line and column, the operator, the change, and the method
+  it's in; then how many. With `--operators=stronger` it shows what a set would add before a run
+  pays for it. The build still compiles the code, as the mutants are in its classes.
 - **The errors page pairs each code with the Rust edition's.** `no-build-tool` is the Rust
   edition's `no-cargo`, `module-without-java` at a build's root its `workspace-root`, and the page
   lists the codes only one edition has, so a script that wraps both reads one kind for each pair.
