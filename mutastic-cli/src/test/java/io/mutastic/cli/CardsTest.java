@@ -155,12 +155,13 @@ class CardsTest {
     int from = Math.max(0, start - CONTEXT);
     var out = new StringBuilder();
     out.append("--- kept\n+++ ran\n");
-    out.append("@@ -%d,%d +%d,%d @@%n"
-        .formatted(
-            from + 1,
-            Math.min(kept.size(), keptEnd + CONTEXT) - from,
-            from + 1,
-            Math.min(ran.size(), ranEnd + CONTEXT) - from));
+    out.append(
+        "@@ -%d,%d +%d,%d @@%n"
+            .formatted(
+                from + 1,
+                Math.min(kept.size(), keptEnd + CONTEXT) - from,
+                from + 1,
+                Math.min(ran.size(), ranEnd + CONTEXT) - from));
     var lines = new java.util.ArrayList<String>();
     kept.subList(from, start).forEach(line -> lines.add(" " + line));
     kept.subList(start, keptEnd).forEach(line -> lines.add("-" + line));
