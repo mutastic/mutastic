@@ -22,7 +22,7 @@ suggests the test that would catch it, and gives the command that proves the fix
 
 <a href="https://mutastic.io/launch-video/"><img src="https://media.mutastic.io/launch/poster-wide.webp" alt="A frame from mutastic's launch film. Play the 32-second film on mutastic.io" width="720"></a>
 
-*[Watch the 32-second launch film](https://mutastic.io/launch-video/), with captions and a scene-by-scene description.*
+*[Watch the 32-second launch film](https://mutastic.io/launch-video/).*
 
 ## What it looks like
 
