@@ -1,5 +1,6 @@
-# The build on every push and pull request: format, Error Prone and NullAway, Checkstyle, the
-# tests (on JDK 25 for the engine and JDK 17 for the worker), ArchUnit and the coverage floor.
+# The build on every push, pull request and merge queue entry: format, Error Prone and NullAway,
+# Checkstyle, the tests (on JDK 25 for the engine and JDK 17 for the worker), ArchUnit and the
+# coverage floor.
 # Actions are pinned to a commit: a tag can be moved.
 #
 # The CLI's end-to-end tests take most of the time, each running a sample's own build, so they run
@@ -12,6 +13,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The merge queue: each pull request merged with main and those ahead of it, before it lands.
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 permissions:
