@@ -59,6 +59,10 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`mutastic mutants` lists the mutants, and runs no test.** One line each, as the Rust edition
+  prints it: the id, the change's file, line and column, the operator, the change, and the method
+  it's in; then how many. With `--operators=stronger` it shows what a set would add before a run
+  pays for it. The build still compiles the code, as the mutants are in its classes.
 - **The errors page pairs each code with the Rust edition's.** `no-build-tool` is the Rust
   edition's `no-cargo`, `module-without-java` at a build's root its `workspace-root`, and the page
   lists the codes only one edition has, so a script that wraps both reads one kind for each pair.
@@ -79,12 +83,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
-- **An operator's docs link names its family, in the path both editions use.** Events' `docs`,
-  `explain`'s link and the card's linked operator went to the operators page's row,
-  `/concepts/operators/#boundary`. Now each goes to the operator's section of its family's page,
-  `https://docs.mutastic.io/java/operators/conditions/#boundary`, as the Rust edition's go to
-  `/rust/operators/…`, and the site redirects that path to the Java family pages, anchor kept.
-  SARIF rules gain the same link as `helpUri`.
+- **The events schema says the order events come in, as both editions write them.** It said a run
+  writes `run-started` first, but the phase events of reading and building the project come before
+  it. Now it says: those phase events may come first; `run-started` comes before the first
+  `mutant-finished`; each `mutant-finished` is written as its mutant finishes, before its phase
+  ends; and `run-finished` or `run-failed` is last. Only the descriptions changed.
 - **The gate runs the tests even with no mutant on the changed lines.** Since a run with no mutant
   to run stopped running the tests, a task that changed only lines with no mutant (a constant, an
   import, a log line) passed the gate with no test run, even when it broke one. The gate's run now
@@ -120,6 +123,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   in `.mutastic/ignores.yaml`, and list what's valid when nothing is close. `operators: [stronger]`,
   which mutastic doesn't read, is shown written an item a line, rather than as an unknown section.
 - **`--report`'s error lists `sarif`,** which it has taken since 1.0.0.
+- **An operator's docs link names its family, in the path both editions use.** Events' `docs`,
+  `explain`'s link and the card's linked operator went to the operators page's row,
+  `/concepts/operators/#boundary`. Now each goes to the operator's section of its family's page,
+  `https://docs.mutastic.io/java/operators/conditions/#boundary`, as the Rust edition's go to
+  `/rust/operators/…`, and the site redirects that path to the Java family pages, anchor kept.
+  SARIF rules gain the same link as `helpUri`.
 - **A build that fails is quoted at your line.** Gradle's failure came whole, its `* Try:` advice
   and all, and Maven's only as a log's path. Now mutastic says `pricing doesn't build, before any
   mutant is in it.`, names the compiler's error at your file and line (the first three, of how
