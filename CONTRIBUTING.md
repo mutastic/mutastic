@@ -56,6 +56,11 @@ projects the end-to-end tests run on.
   After changing an option or a command, run `./gradlew :mutastic-cli:exportDocsModel`; the build
   fails until the docs' reference matches. After changing what a command prints, run
   `./gradlew :mutastic-cli:exportDocsOutput`, for the output the docs show.
+- **The HTML report:** the page both editions embed is `report-ui/`: its markup, styles and
+  script in `src/`, and the fonts. After changing them, run `node report-ui/build.mjs` and commit
+  `report.html` and its checksum with them; `node --test report-ui/test/*.test.mjs` renders it in
+  Chrome. `node report-ui/build.mjs --embed mutation.json out.html` puts a run's report in it, to
+  look at.
 - **Dependencies:** pin exact versions, then `./gradlew lockDependencies --write-locks`.
 
 ## Pull requests
