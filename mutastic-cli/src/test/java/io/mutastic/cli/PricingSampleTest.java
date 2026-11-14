@@ -41,7 +41,12 @@ class PricingSampleTest {
         .contains("\"inputs\":{\"total\":[50,250]}"); // what the tests tried: never 100
     var id = missed.replaceAll(".*\"id\":\"(m[0-9a-f]{8})\".*", "$1");
 
-    assertThat(Samples.mutastic("verify", id, project.toString()).exit()).isEqualTo(Main.FAILED);
+    var missedStill = Samples.mutastic("verify", id, project.toString());
+    assertThat(missedStill.exit()).isEqualTo(Main.FAILED);
+    // verify looks for no test to suggest, so it says nothing of one.
+    assertThat(missedStill.err())
+        .contains("checked   1 missed mutant in ")
+        .doesNotContain("no test found to suggest");
     var caught =
         run.out()
             .lines()

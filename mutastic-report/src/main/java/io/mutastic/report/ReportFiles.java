@@ -181,7 +181,7 @@ public final class ReportFiles {
       entry.put("statusReason", reason);
     }
     entry.put("coveredBy", result.coveredBy());
-    result.caughtBy().ifPresent(test -> entry.put("killedBy", List.of(test)));
+    result.caughtBy().ifPresent(test -> entry.put("killedBy", killedBy(test, result)));
     entry.put("testsCompleted", result.testsRun());
     entry.put("duration", result.took().toMillis());
     return entry;
@@ -202,6 +202,14 @@ public final class ReportFiles {
                 pair(
                     "start", pair("line", place.line(), "column", place.start()),
                     "end", pair("line", place.line(), "column", place.end())));
+  }
+
+  /// Every test that catches it, with `--kill-matrix`, as the events' `caughtByAll` has them: the
+  /// one that caught it first, then the rest. Else the one.
+  private static List<String> killedBy(String caught, MutantResult result) {
+    var all = new java.util.ArrayList<>(List.of(caught));
+    result.caughtByAll().stream().filter(test -> !test.equals(caught)).forEach(all::add);
+    return all;
   }
 
   /// `boundary` for mutastic's own operators, a plugin's by its whole id: `stream/remove-stage`.

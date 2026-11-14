@@ -107,6 +107,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **`verify` doesn't say it found no test to suggest.** It looks for none, so its `checked` line
+  ended in a misleading `no test found to suggest`; that clause is left out now, in `verify` and
+  with `--no-suggestions`.
+- **`--kill-matrix` lists every catching test in `mutation.json`.** `killedBy` held only the first,
+  while the events' `caughtByAll` had them all; now `killedBy` has them all too, the first first.
 - **The events schema says the order events come in, as both editions write them.** It said a run
   writes `run-started` first, but the phase events of reading and building the project come before
   it. Now it says: those phase events may come first; `run-started` comes before the first

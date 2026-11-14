@@ -1369,6 +1369,9 @@ public final class Main {
             err,
             ProgressChoice.mode(command.progress(), format, terminal),
             Progress.Settings.of(terminal.env(), progressColour(command, terminal)));
+    if (!command.suggestions() || command.verify()) {
+      progress.notSuggesting();
+    }
     return new Output(
         out, progress, format, words, style(command, terminal), GitHubRun.of(terminal, err));
   }
