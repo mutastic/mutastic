@@ -1,0 +1,124 @@
+{
+  "description": "The docs' captured output, under one scenario name for every edition: Java's captures are flat (docs/src/data/output/<name>.ansi), Rust's are in folders (docs/output/<folder>/<name>.ansi in mutastic-rs). scripts/check-editions.mjs compares each pair, masked, as warnings. A capture under a folder in `samePath` pairs with the other edition's at the same path. Add a scenario here when both editions capture the same command.",
+  "editions": {
+    "java": "docs/src/data/output",
+    "rust": "docs/output"
+  },
+  "samePath": [
+    "operators"
+  ],
+  "scenarios": {
+    "quickstart-run": {
+      "java": "run",
+      "rust": "getting-started/run"
+    },
+    "quickstart-run-again": {
+      "java": "run-again",
+      "rust": "getting-started/run-again"
+    },
+    "quickstart-verify": {
+      "java": "verify",
+      "rust": "getting-started/verify"
+    },
+    "explain": {
+      "java": "explain",
+      "rust": "commands/explain"
+    },
+    "format-agent": {
+      "java": "format-agent",
+      "rust": "concepts/format-agent"
+    },
+    "format-concise": {
+      "java": "format-concise",
+      "rust": "concepts/format-concise"
+    },
+    "format-jsonl": {
+      "java": "format-jsonl",
+      "rust": "concepts/format-jsonl"
+    },
+    "errors-unknown-id": {
+      "java": "errors-unknown-id",
+      "rust": "errors/unknown-id"
+    },
+    "errors-unknown-command": {
+      "java": "errors-unknown-command",
+      "rust": "errors/unknown-command"
+    },
+    "errors-unknown-option": {
+      "java": "errors-unknown-option",
+      "rust": "errors/unknown-option"
+    },
+    "errors-option-value": {
+      "java": "errors-option-value",
+      "rust": "errors/option-value"
+    },
+    "errors-no-directory": {
+      "java": "errors-no-directory",
+      "rust": "errors/no-directory"
+    },
+    "errors-config": {
+      "java": "errors-config",
+      "rust": "errors/config"
+    },
+    "test-first-run": {
+      "java": "test-first-run",
+      "rust": "test-first/run"
+    },
+    "test-first-red": {
+      "java": "test-first-red",
+      "rust": "test-first/red"
+    },
+    "test-first-verify": {
+      "java": "test-first-verify",
+      "rust": "test-first/verify"
+    },
+    "test-first-again": {
+      "java": "test-first-again",
+      "rust": "test-first/again"
+    },
+    "test-first-agent-open": {
+      "java": "test-first-agent-open",
+      "rust": "test-first-agent/open"
+    },
+    "test-first-agent-run": {
+      "java": "test-first-agent-run",
+      "rust": "test-first-agent/run"
+    },
+    "test-first-agent-check": {
+      "java": "test-first-agent-check",
+      "rust": "test-first-agent/check"
+    },
+    "test-first-refactor-before": {
+      "java": "test-first-refactor-before",
+      "rust": "test-first-refactor/before"
+    },
+    "test-first-refactor-after": {
+      "java": "test-first-refactor-after",
+      "rust": "test-first-refactor/after"
+    },
+    "test-first-refactor-red-100": {
+      "java": "test-first-refactor-red-100",
+      "rust": "test-first-refactor/red-100"
+    },
+    "test-first-refactor-red-250": {
+      "java": "test-first-refactor-red-250",
+      "rust": "test-first-refactor/red-250"
+    },
+    "test-first-refactor-run-100": {
+      "java": "test-first-refactor-run-100",
+      "rust": "test-first-refactor/run-100"
+    },
+    "test-first-refactor-run-250": {
+      "java": "test-first-refactor-run-250",
+      "rust": "test-first-refactor/run-250"
+    },
+    "test-first-refactor-verify-100": {
+      "java": "test-first-refactor-verify-100",
+      "rust": "test-first-refactor/verify-100"
+    },
+    "test-first-refactor-verify-250": {
+      "java": "test-first-refactor-verify-250",
+      "rust": "test-first-refactor/verify-250"
+    }
+  }
+}
