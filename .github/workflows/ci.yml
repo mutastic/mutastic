@@ -161,6 +161,11 @@ jobs:
           .\gradlew.bat :mutastic-cli:test ${{ matrix.tests }} --continue
           $tests = $LASTEXITCODE
           Get-PSDrive C, D | Format-Table Name, @{n='FreeGB'; e={[math]::Round($_.Free / 1GB, 1)}}
+          Write-Host "DIAG runner temp $env:RUNNER_TEMP exists: $(Test-Path $env:RUNNER_TEMP)"
+          Write-Host "DIAG temp $env:TEMP exists: $(Test-Path $env:TEMP)"
+          Write-Host "DIAG cwd exists: $(Test-Path (Get-Location))"
+          Get-CimInstance Win32_OperatingSystem | Format-List FreePhysicalMemory, FreeVirtualMemory
+          Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'java|node|Runner' } | Format-Table ProcessId, ParentProcessId, Name, @{n='Cmd'; e={$c = "$($_.CommandLine)"; $c.Substring(0, [math]::Min(160, $c.Length))}} -AutoSize -Wrap
           .\gradlew.bat --stop
           Get-Process java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           exit $tests
