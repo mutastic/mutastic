@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mutastic report</title>
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M6 25 A44 44 0 0 0 94 25 Z' fill='%232e7d32'/%3E%3Cpath d='M11 25 A39 39 0 0 0 89 25 Z' fill='%23a3d97a'/%3E%3Cpath d='M15 25 A35 35 0 0 0 85 25 Z' fill='%23f55252'/%3E%3Ccircle cx='37' cy='42' r='5.6' fill='%2316201a'/%3E%3Ccircle cx='63' cy='42' r='5.6' fill='%2316201a'/%3E%3C/svg%3E">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+</style>
+</head>
+<body>
+<!--{{slot}}-->
+<a class="sr" href="#app">Skip to the report</a>
+<header class="top"><div class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb" id="crumbs"></nav>
+  <div class="meta"><span class="ver" id="ver"></span>
+    <button type="button" class="btn" id="theme" aria-label="Switch theme"></button>
+  </div>
+</div></header>
+<nav class="tabs" aria-label="Views"><div class="wrap" id="tabs"></div></nav>
+<main id="app" class="page wrap" tabindex="-1"></main>
+<footer class="foot"><div class="wrap"><span id="foot"></span><span>One file. Works offline. <label>Open another mutation.json<input type="file" accept=".json,application/json" id="pick" class="sr"></label></span></div></footer>
+<div class="drop" aria-hidden="true">Drop a mutation.json to open it</div>
+<div class="sr" role="status" aria-live="polite" id="said"></div>
+<script>
+/*{{js}}*/
+</script>
+</body>
+</html>

@@ -149,6 +149,7 @@ class GateTest {
     var gaveUp = hooked("{\"session_id\":\"s1\"}", "gate", "check", "--hook=claude", "--tries=1");
     mutastic("gate", "close", project.toString());
     var closed = hooked("{\"session_id\":\"s1\"}", "gate", "check", "--hook=claude");
+    var none = mutastic("gate", "check", project.toString());
 
     assertThat(first.out())
         .contains("this task is gated from")
@@ -161,6 +162,10 @@ class GateTest {
         .startsWith("{\"systemMessage\": ")
         .contains("the agent was sent back 1 times, so it's over to you");
     assertThat(closed.out()).isEmpty(); // nothing gated: the agent may stop
+    assertThat(none.exit()).isEqualTo(Main.USAGE);
+    assertThat(none.out()).isEmpty(); // stdout holds only results
+    assertThat(none.err())
+        .isEqualTo("mutastic gate: none open here: `mutastic gate open` starts one\n");
   }
 
   /// An ignore the person accepts between turns, after the gate let the agent stop and before their

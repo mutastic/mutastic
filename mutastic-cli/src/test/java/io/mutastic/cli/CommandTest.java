@@ -234,6 +234,8 @@ class CommandTest {
     assertThatThrownBy(() -> parse("run", "--from-shards=shares", "--tests-from=:app"))
         .hasMessageEndingWith("not with --tests-from, which the shares run with");
     assertThatThrownBy(() -> parse("verify", "m855c8e3c", "--from-shards=shares"))
+        .hasMessage("verify doesn't take --from-shards");
+    assertThatThrownBy(() -> parse("verify", "m855c8e3c", "-Dmutastic.fromShards=shares"))
         .hasMessage("--from-shards is run's: mutastic run --from-shards=DIR");
   }
 

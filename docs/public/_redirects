@@ -1,0 +1,5 @@
+# The Java edition's operator pages, by the path both editions link to an operator by:
+# /<edition>/operators/<family>/#<id>. An HTTP redirect keeps the #anchor; a page that
+# redirects by itself (Astro's redirects) would drop it. An older release's docs are under /vX.Y/.
+/java/operators/* /concepts/operators/:splat 301
+/:version/java/operators/* /:version/concepts/operators/:splat 301

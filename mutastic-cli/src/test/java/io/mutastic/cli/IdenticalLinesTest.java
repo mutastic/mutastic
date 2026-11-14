@@ -50,7 +50,7 @@ class IdenticalLinesTest {
   void verifyActsOnItsOwnLine() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("identical"));
 
-    var verified = Samples.mutastic("verify", MINUS.get(7), project.toString(), "--color=never");
+    var verified = Samples.mutastic("verify", MINUS.get(7), project.toString());
 
     assertThat(verified.exit()).as(verified.err()).isEqualTo(Main.FAILED);
     assertThat(verified.out()).isEqualTo("mutastic: " + MINUS.get(7) + " is still missed\n");

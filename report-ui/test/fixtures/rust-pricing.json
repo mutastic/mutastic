@@ -1,0 +1,465 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/mutation-testing-elements/master/packages/report-schema/src/mutation-testing-report-schema.json",
+  "schemaVersion": "2",
+  "thresholds": {
+    "high": 80,
+    "low": 60
+  },
+  "projectRoot": "/private/tmp/claude-501/-Users-briancorbin-Code-mutastic/277a661e-9e57-4f0c-b24f-8cd0c88bb0f6/scratchpad/runs/rs-pricing",
+  "files": {
+    "src/lib.rs": {
+      "language": "rust",
+      "source": "//! The pricing sample, ported from the Java edition's `samples/pricing`, so the two editions'\n//! cards can be read side by side.\n\npub struct Pricing {\n    free_shipping_from: u32,\n}\n\nimpl Default for Pricing {\n    fn default() -> Self {\n        Pricing::new()\n    }\n}\n\nimpl Pricing {\n    pub fn new() -> Self {\n        Pricing::with_free_shipping_from(50)\n    }\n\n    /// A test seam: tests set the free-shipping threshold.\n    pub fn with_free_shipping_from(free_shipping_from: u32) -> Self {\n        Pricing { free_shipping_from }\n    }\n\n    /// 10% off orders of 100 or more.\n    pub fn discount(&self, total: u32) -> u32 {\n        if total >= 100 {\n            return total / 10;\n        }\n        0\n    }\n\n    /// Free from the threshold up.\n    pub fn shipping(&self, total: u32) -> u32 {\n        if total < self.free_shipping_from {\n            return 5;\n        }\n        0\n    }\n}\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[test]\n    fn small_orders_pay_full_price() {\n        let small: u32 = include_str!(\"../tests/orders.txt\").trim().parse().unwrap();\n        assert_eq!(Pricing::new().discount(small), 0);\n    }\n\n    // Through the test seam, and right at the edge.\n    #[test]\n    fn shipping_is_free_from_the_threshold() {\n        let pricing = Pricing::with_free_shipping_from(40);\n        assert_eq!(pricing.shipping(40), 0);\n        assert_eq!(pricing.shipping(39), 5);\n    }\n}\n",
+      "mutants": [
+        {
+          "id": "mc9e13290",
+          "mutatorName": "return-value",
+          "replacement": "1",
+          "description": "returns `1` instead",
+          "location": {
+            "start": {
+              "line": 29,
+              "column": 9
+            },
+            "end": {
+              "line": 29,
+              "column": 10
+            }
+          },
+          "status": "Killed",
+          "statusReason": "panic",
+          "coveredBy": [
+            "tests::small_orders_pay_full_price"
+          ],
+          "killedBy": [
+            "tests::small_orders_pay_full_price"
+          ],
+          "testsCompleted": 1,
+          "duration": 4,
+          "mutastic": {
+            "method": "Pricing::discount()",
+            "inputs": {
+              "total": [
+                50
+              ]
+            }
+          }
+        },
+        {
+          "id": "mb2f8ae57",
+          "mutatorName": "boundary",
+          "replacement": ">",
+          "description": "`>=` becomes `>`",
+          "location": {
+            "start": {
+              "line": 26,
+              "column": 18
+            },
+            "end": {
+              "line": 26,
+              "column": 20
+            }
+          },
+          "status": "Survived",
+          "statusReason": "no test checks discount() at total == 100",
+          "coveredBy": [
+            "tests::small_orders_pay_full_price",
+            "pricing::big_orders_get_ten_percent_off"
+          ],
+          "testsCompleted": 2,
+          "duration": 8,
+          "mutastic": {
+            "method": "Pricing::discount()",
+            "evidence": [
+              "every test calls `discount()` away from the boundary",
+              "inputs seen: 50, 250 (none is 100)"
+            ],
+            "fix": "test `discount()` with `total = 100` and assert the result",
+            "inputs": {
+              "total": [
+                50,
+                250
+              ]
+            },
+            "suggestedTest": {
+              "testClass": "tests",
+              "name": "discount_at_the_total_edge",
+              "code": "#[test]\nfn discount_at_the_total_edge() {\n    assert_eq!(Pricing::new().discount(100), 10); // today 10 · with this mutant 0\n}",
+              "call": "Pricing::new().discount(100)",
+              "today": "10",
+              "withMutant": "0",
+              "arguments": {
+                "total": 100
+              }
+            }
+          }
+        },
+        {
+          "id": "md56e8c39",
+          "mutatorName": "remove-conditional",
+          "replacement": "true",
+          "description": "`total >= 100` is always true",
+          "location": {
+            "start": {
+              "line": 26,
+              "column": 12
+            },
+            "end": {
+              "line": 26,
+              "column": 24
+            }
+          },
+          "status": "Killed",
+          "statusReason": "panic",
+          "coveredBy": [
+            "tests::small_orders_pay_full_price",
+            "pricing::big_orders_get_ten_percent_off"
+          ],
+          "killedBy": [
+            "tests::small_orders_pay_full_price"
+          ],
+          "testsCompleted": 2,
+          "duration": 8,
+          "mutastic": {
+            "method": "Pricing::discount()",
+            "inputs": {
+              "total": [
+                50,
+                250
+              ]
+            }
+          }
+        },
+        {
+          "id": "m1636f6d5",
+          "mutatorName": "remove-conditional",
+          "replacement": "false",
+          "description": "`total >= 100` is always false",
+          "location": {
+            "start": {
+              "line": 26,
+              "column": 12
+            },
+            "end": {
+              "line": 26,
+              "column": 24
+            }
+          },
+          "status": "Killed",
+          "statusReason": "panic",
+          "coveredBy": [
+            "tests::small_orders_pay_full_price",
+            "pricing::big_orders_get_ten_percent_off"
+          ],
+          "killedBy": [
+            "pricing::big_orders_get_ten_percent_off"
+          ],
+          "testsCompleted": 1,
+          "duration": 4,
+          "mutastic": {
+            "method": "Pricing::discount()",
+            "inputs": {
+              "total": [
+                50,
+                250
+              ]
+            }
+          }
+        },
+        {
+          "id": "m6d05659f",
+          "mutatorName": "return-value",
+          "replacement": "0",
+          "description": "returns `0` instead",
+          "location": {
+            "start": {
+              "line": 27,
+              "column": 20
+            },
+            "end": {
+              "line": 27,
+              "column": 30
+            }
+          },
+          "status": "Killed",
+          "statusReason": "panic",
+          "coveredBy": [
+            "pricing::big_orders_get_ten_percent_off"
+          ],
+          "killedBy": [
+            "pricing::big_orders_get_ten_percent_off"
+          ],
+          "testsCompleted": 1,
+          "duration": 4,
+          "mutastic": {
+            "method": "Pricing::discount()",
+            "inputs": {
+              "total": [
+                250
+              ]
+            }
+          }
+        },
+        {
+          "id": "m95f96847",
+          "mutatorName": "math",
+          "replacement": "*",
+          "description": "`/` becomes `*`",
+          "location": {
+            "start": {
+              "line": 27,
+              "column": 26
+            },
+            "end": {
+              "line": 27,
+              "column": 27
+            }
+          },
+          "status": "Killed",
+          "statusReason": "panic",
+          "coveredBy": [
+            "pricing::big_orders_get_ten_percent_off"
+          ],
+          "killedBy": [
+            "pricing::big_orders_get_ten_percent_off"
+          ],
+          "testsCompleted": 1,
+          "duration": 4,
+          "mutastic": {
+            "method": "Pricing::discount()",
+            "inputs": {
+              "total": [
+                250
+              ]
+            }
+          }
+        },
+        {
+          "id": "m383e0002",
+          "mutatorName": "return-value",
+          "replacement": "1",
+          "description": "returns `1` instead",
+          "location": {
+            "start": {
+              "line": 37,
+              "column": 9
+            },
+            "end": {
+              "line": 37,
+              "column": 10
+            }
+          },
+          "status": "Killed",
+          "statusReason": "panic",
+          "coveredBy": [
+            "tests::shipping_is_free_from_the_threshold"
+          ],
+          "killedBy": [
+            "tests::shipping_is_free_from_the_threshold"
+          ],
+          "testsCompleted": 1,
+          "duration": 4,
+          "mutastic": {
+            "method": "Pricing::shipping()",
+            "inputs": {
+              "total": [
+                39,
+                40
+              ]
+            }
+          }
+        },
+        {
+          "id": "m7d92063c",
+          "mutatorName": "boundary",
+          "replacement": "<=",
+          "description": "`<` becomes `<=`",
+          "location": {
+            "start": {
+              "line": 34,
+              "column": 18
+            },
+            "end": {
+              "line": 34,
+              "column": 19
+            }
+          },
+          "status": "Killed",
+          "statusReason": "panic",
+          "coveredBy": [
+            "tests::shipping_is_free_from_the_threshold"
+          ],
+          "killedBy": [
+            "tests::shipping_is_free_from_the_threshold"
+          ],
+          "testsCompleted": 1,
+          "duration": 4,
+          "mutastic": {
+            "method": "Pricing::shipping()",
+            "inputs": {
+              "total": [
+                39,
+                40
+              ]
+            }
+          }
+        },
+        {
+          "id": "m3be6b420",
+          "mutatorName": "remove-conditional",
+          "replacement": "true",
+          "description": "`total < self.free_shipping_from` is always true",
+          "location": {
+            "start": {
+              "line": 34,
+              "column": 12
+            },
+            "end": {
+              "line": 34,
+              "column": 43
+            }
+          },
+          "status": "Killed",
+          "statusReason": "panic",
+          "coveredBy": [
+            "tests::shipping_is_free_from_the_threshold"
+          ],
+          "killedBy": [
+            "tests::shipping_is_free_from_the_threshold"
+          ],
+          "testsCompleted": 1,
+          "duration": 4,
+          "mutastic": {
+            "method": "Pricing::shipping()",
+            "inputs": {
+              "total": [
+                39,
+                40
+              ]
+            }
+          }
+        },
+        {
+          "id": "m89be540d",
+          "mutatorName": "remove-conditional",
+          "replacement": "false",
+          "description": "`total < self.free_shipping_from` is always false",
+          "location": {
+            "start": {
+              "line": 34,
+              "column": 12
+            },
+            "end": {
+              "line": 34,
+              "column": 43
+            }
+          },
+          "status": "Killed",
+          "statusReason": "panic",
+          "coveredBy": [
+            "tests::shipping_is_free_from_the_threshold"
+          ],
+          "killedBy": [
+            "tests::shipping_is_free_from_the_threshold"
+          ],
+          "testsCompleted": 1,
+          "duration": 4,
+          "mutastic": {
+            "method": "Pricing::shipping()",
+            "inputs": {
+              "total": [
+                39,
+                40
+              ]
+            }
+          }
+        },
+        {
+          "id": "mbddcd9c4",
+          "mutatorName": "return-value",
+          "replacement": "0",
+          "description": "returns `0` instead",
+          "location": {
+            "start": {
+              "line": 35,
+              "column": 20
+            },
+            "end": {
+              "line": 35,
+              "column": 21
+            }
+          },
+          "status": "Killed",
+          "statusReason": "panic",
+          "coveredBy": [
+            "tests::shipping_is_free_from_the_threshold"
+          ],
+          "killedBy": [
+            "tests::shipping_is_free_from_the_threshold"
+          ],
+          "testsCompleted": 1,
+          "duration": 4,
+          "mutastic": {
+            "method": "Pricing::shipping()",
+            "inputs": {
+              "total": [
+                39,
+                40
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "testFiles": {
+    "pricing": {
+      "tests": [
+        {
+          "id": "pricing::big_orders_get_ten_percent_off",
+          "name": "big_orders_get_ten_percent_off"
+        }
+      ]
+    },
+    "tests": {
+      "tests": [
+        {
+          "id": "tests::shipping_is_free_from_the_threshold",
+          "name": "shipping_is_free_from_the_threshold"
+        },
+        {
+          "id": "tests::small_orders_pay_full_price",
+          "name": "small_orders_pay_full_price"
+        }
+      ]
+    }
+  },
+  "framework": {
+    "name": "mutastic",
+    "version": "1.1.0"
+  },
+  "performance": {
+    "setup": 0,
+    "initialRun": 8,
+    "mutation": 1618
+  },
+  "mutastic": {
+    "edition": "rust",
+    "runDir": ".",
+    "docsBase": "https://docs.mutastic.io/rust/",
+    "operatorDocs": {
+      "boundary": "operators/conditions/#boundary",
+      "math": "operators/arithmetic/#math",
+      "remove-conditional": "operators/conditions/#remove-conditional",
+      "return-value": "operators/returns/#return-value"
+    },
+    "score": 90.9,
+    "threshold": 80,
+    "passed": true,
+    "toolchain": {
+      "name": "rustc",
+      "version": "1.94.0"
+    },
+    "startedAt": "2026-11-13T20:34:31Z"
+  }
+}
