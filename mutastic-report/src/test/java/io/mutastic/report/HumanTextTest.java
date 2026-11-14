@@ -189,6 +189,17 @@ class HumanTextTest {
             """);
   }
 
+  /// At `--threshold=0` every run passes, so the verdict names no bar to be above.
+  @Test
+  void aThresholdOfZeroIsNoThreshold() {
+    var output =
+        new HumanText(sources, 0, Style.PLAIN, HumanText.Detail.FULL, Vocabulary.PLAIN)
+            .render(report(missed(boundary(), Map.of())), Optional.empty(), RUN);
+
+    assertThat(output.strip().lines().toList().getLast())
+        .isEqualTo("     Score  0.0%  [PASS] 1 missed, with no threshold set.");
+  }
+
   /// The Duration row names each phase it timed: the build apart from the rest of the setup, and
   /// the checking after the mutants apart from them.
   @Test
