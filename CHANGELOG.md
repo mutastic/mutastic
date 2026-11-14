@@ -74,6 +74,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **A directory inside a build runs that build.** In a build's `src`, mutastic said it isn't a
+  build's top directory and ended in the command to run. Now it runs the build, or the Maven
+  module, the directory is in, as the Rust edition runs the package a directory is in. In a build
+  of modules but in none of them, it's refused as the build's root is, with a command for each
+  module.
 - **A build of modules names them as commands, for Maven as for Gradle.** At the top of a Maven
   build with no Java code of its own, mutastic said `name a module with some: mutastic run
   :<module>` and named none. Now both tools say `<directory> is a build's root, with no Java code

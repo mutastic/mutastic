@@ -91,9 +91,10 @@ When the name is close to a module's, `:cor` for `:core`, mutastic says `There's
 and gives that module's command. It never runs it in place of the one you named. Gradle builds say
 the same.
 
-Run in a directory inside a build, such as its `src`, mutastic names the build it's in, and the
-command that tests it from where you are. A Maven module is named from the top of its build, which
-builds the modules it uses: `mutastic run ../.. :app`.
+Run in a directory inside a build, such as its `src`, mutastic runs the build it's in. In a Maven
+module it runs the module from the top of its build, which builds the modules it uses, as
+`mutastic run ../.. :app` would. In a build of modules but in none of them, it names the modules,
+as at the build's root.
 
 ### The tests pass, but coverage recorded nothing
 
