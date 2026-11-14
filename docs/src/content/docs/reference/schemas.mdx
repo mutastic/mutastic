@@ -26,10 +26,10 @@ Each line says which format it is, and its major version, in `schema`: `mutastic
 
 | `reason` | When |
 |---|---|
-| `run-started` | First, once the build has been read |
-| `mutant-finished` | For each mutant, as it finishes |
+| `run-started` | Once the build has been read, before the first `mutant-finished`; only the phase events of reading and building the project come before it |
+| `mutant-finished` | For each mutant, as it finishes, before the phase it ran in ends |
 | `mutant-revised` | Once every mutant has its result, for each mutant a test reached that then failed on its own with no mutant in: its result again, without that test, which replaces the first |
-| `run-finished` | Last: the totals, the score and the verdict |
+| `run-finished` | Last, or `run-failed` in its place: the totals, the score and the verdict |
 | `phase-started` | As each phase of `run` starts, among the others (`phase`: `reading`, `building`, `coverage`, `mutants`, `checking`); the phases before `run-started` come before it |
 | `phase-finished` | As each phase ends, with `durationMs` |
 | `progress` | Every 30 seconds (`MUTASTIC_HEARTBEAT`) while a phase runs, whatever stderr shows: `elapsedMs`, `done` and `total` where there's a count, and for the mutants `weighted`, `leftMs`, the four fates and the busy workers (`running`) |
