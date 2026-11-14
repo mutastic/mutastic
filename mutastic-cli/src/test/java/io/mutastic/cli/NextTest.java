@@ -95,6 +95,7 @@ class NextTest {
   /// leaves an older miss on a line a task touched to the person, but not one the task baselined.
   @Test
   void aBaselineToldOlderMissesFromNewOnes() throws Exception {
+    var noneToPrune = mutastic("baseline", project.toString(), "--prune");
     var taken = mutastic("baseline", project.toString());
     var again = mutastic("baseline", project.toString());
     var next = mutastic("next", project.toString(), "--top=5", "--color=never");
@@ -109,11 +110,15 @@ class NextTest {
     Files.writeString(baseline, Files.readString(baseline) + "  - id: m0000abcd\n");
     var added = mutastic("gate", "check", project.toString());
 
+    assertThat(noneToPrune.exit()).isEqualTo(Main.FAILED);
+    assertThat(noneToPrune.err())
+        .isEqualTo("mutastic: there's no baseline to prune: `mutastic baseline` writes one\n");
     assertThat(taken.exit()).isEqualTo(Main.PASSED);
-    assertThat(taken.out()).contains("mutants no test catches are in .mutastic/baseline.yaml");
+    assertThat(taken.out()).contains("1 mutant no test catches is in .mutastic/baseline.yaml");
     assertThat(Files.readString(baseline)).contains("  - id: m").contains("Pricing#discount");
     assertThat(again.exit()).isEqualTo(Main.FAILED);
-    assertThat(again.out()).contains("there's a baseline already");
+    assertThat(again.out()).isEmpty();
+    assertThat(again.err()).contains("there's a baseline already");
     assertThat(next.out())
         .contains("(0 new, 1 in the baseline)")
         .contains("in the baseline: missed");

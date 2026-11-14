@@ -190,7 +190,7 @@ class JsonEventsTest {
                 .formatted(id))
         .contains(
             "\"status\":\"Survived\",\"operator\":\"mutastic/boundary\","
-                + "\"docs\":\"https://docs.mutastic.io/concepts/operators/#boundary\"")
+                + "\"docs\":\"https://docs.mutastic.io/java/operators/conditions/#boundary\"")
         .contains(
             "\"location\":{\"file\":\"src/main/java/com/example/Pricing.java\",\"line\":5,"
                 + "\"class\":\"com.example.Pricing\",\"method\":\"discount(I)I\"}")

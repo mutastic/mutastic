@@ -83,6 +83,11 @@ class SarifTest {
     assertThat(rules)
         .extracting(rule -> rule.get("id"))
         .containsExactly("mutastic/boundary", "mutastic/return-value");
+    assertThat(rules)
+        .extracting(rule -> rule.get("helpUri"))
+        .containsExactly(
+            "https://docs.mutastic.io/java/operators/conditions/#boundary",
+            "https://docs.mutastic.io/java/operators/returns/#return-value");
     for (var result : results(document)) {
       assertThat(rules.get((int) result.get("ruleIndex")).get("id"))
           .isEqualTo(result.get("ruleId"));

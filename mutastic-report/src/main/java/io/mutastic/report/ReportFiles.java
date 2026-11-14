@@ -30,13 +30,21 @@ public final class ReportFiles {
   private final SourceView sources;
   private final int threshold;
   private final String version;
+  private final OperatorDocs docs;
 
   /// `root` is the project directory: file paths in the reports are relative to it.
   public ReportFiles(Path root, SourceView sources, int threshold, String version) {
+    this(root, sources, threshold, version, OperatorDocs.LATEST);
+  }
+
+  /// @param docs where each operator is described, for SARIF's rules to link to
+  public ReportFiles(
+      Path root, SourceView sources, int threshold, String version, OperatorDocs docs) {
     this.root = root;
     this.sources = sources;
     this.threshold = threshold;
     this.version = version;
+    this.docs = docs;
   }
 
   /// Writes the report of `kind` to `file`.
@@ -46,7 +54,7 @@ public final class ReportFiles {
           case "json" -> Json.write(json(report));
           case "html" -> html(report);
           case "xml" -> xml(report);
-          case "sarif" -> Json.write(new Sarif(root, sources, version).document(report));
+          case "sarif" -> Json.write(new Sarif(root, sources, version, docs).document(report));
           default -> throw new IllegalArgumentException("unknown report " + kind);
         };
     try {
