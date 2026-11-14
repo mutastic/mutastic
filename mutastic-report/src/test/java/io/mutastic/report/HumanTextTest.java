@@ -391,7 +391,8 @@ class HumanTextTest {
             .card(missed(boundary(), Map.of()));
 
     assertThat(linked)
-        .contains("\u001b]8;;https://docs.mutastic.io/v1.0/java/operators/conditions/#boundary\u001b\\^");
+        .contains(
+            "\u001b]8;;https://docs.mutastic.io/v1.0/java/operators/conditions/#boundary\u001b\\^");
     assertThat(plain).doesNotContain("\u001b").doesNotContain("docs.mutastic.io");
   }
 

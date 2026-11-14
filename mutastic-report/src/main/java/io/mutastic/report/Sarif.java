@@ -93,8 +93,8 @@ final class Sarif {
     return rules;
   }
 
-  /// An operator as a rule: what it changes, and where the docs describe it, for an operator
-  /// that has a page there.
+  /// An operator as a rule: what it changes, and where the docs describe it, for an operator that
+  /// has a page there.
   private Map<String, Object> rule(Operator operator) {
     var rule = new LinkedHashMap<String, Object>();
     rule.put("id", operator.id());

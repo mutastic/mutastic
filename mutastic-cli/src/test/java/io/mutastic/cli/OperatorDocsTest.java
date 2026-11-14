@@ -24,8 +24,7 @@ class OperatorDocsTest {
   private static final String PAGE = "https://docs.mutastic.io/java/operators/";
 
   /// `java/operators/conditions/#boundary`: the family and the anchor.
-  private static final Pattern LINK =
-      Pattern.compile("(?<family>[a-z]+)/#(?<anchor>[a-z0-9-]+)");
+  private static final Pattern LINK = Pattern.compile("(?<family>[a-z]+)/#(?<anchor>[a-z0-9-]+)");
 
   /// `## Boundary`: a section's heading, whose slug is its anchor.
   private static final Pattern HEADING = Pattern.compile("(?m)^## (?<heading>.+)$");
@@ -83,8 +82,8 @@ class OperatorDocsTest {
         .hasValue("https://docs.mutastic.io/v0.3/java/operators/conditions/#boundary");
   }
 
-  /// The anchors of a family page's sections, as the site writes them from their headings:
-  /// `## indexOf swap` is `#indexof-swap`.
+  /// The anchors of a family page's sections, as the site writes them from their headings: `##
+  /// indexOf swap` is `#indexof-swap`.
   private static Set<String> sections(String family) throws IOException {
     var page = Files.readString(DOCS.resolve("concepts/operators/" + family + ".mdx"));
     return HEADING

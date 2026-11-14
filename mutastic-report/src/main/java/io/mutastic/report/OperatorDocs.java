@@ -40,7 +40,11 @@ public record OperatorDocs(String base) {
               "remove-negation",
               "unchecked-arithmetic"),
           "calls",
-          List.of("remove-void-call", "remove-discarded-call", "remove-assignment", "remove-field-write"),
+          List.of(
+              "remove-void-call",
+              "remove-discarded-call",
+              "remove-assignment",
+              "remove-field-write"),
           "conditions",
           List.of(
               "boundary",
@@ -54,7 +58,11 @@ public record OperatorDocs(String base) {
           List.of("remove-switch-arm", "drop-catch-type"),
           "library",
           List.of(
-              "string-method-swap", "indexof-swap", "math-method-swap", "string-constant", "regex-constant"),
+              "string-method-swap",
+              "indexof-swap",
+              "math-method-swap",
+              "string-constant",
+              "regex-constant"),
           "optional",
           List.of(
               "optional-presence-swap",
@@ -91,12 +99,10 @@ public record OperatorDocs(String base) {
           Map.entry("optional/always-default", "optional-default"),
           Map.entry("optional/no-default", "optional-default"));
 
-  /// `https://docs.mutastic.io/java/operators/conditions/#boundary`; empty for a plugin's
-  /// operator.
+  /// `https://docs.mutastic.io/java/operators/conditions/#boundary`; empty for a plugin's operator.
   public Optional<String> url(Operator operator) {
     return anchor(operator)
-        .flatMap(
-            anchor -> family(anchor).map(family -> base + PAGES + family + "/#" + anchor));
+        .flatMap(anchor -> family(anchor).map(family -> base + PAGES + family + "/#" + anchor));
   }
 
   /// `conditions`: the family whose page describes the operator with that anchor.
