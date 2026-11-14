@@ -83,7 +83,7 @@ class UsageErrorsTest {
         .isEqualTo(
             """
             mutastic: mutastic has no command frobnicate; its commands are run, verify, explain,\
-             ignore, next, baseline and gate
+             ignore, next, baseline, gate and mutants
             usage: mutastic COMMAND [DIR] [:MODULE] [OPTIONS]  (mutastic --help says more)
             """);
   }
