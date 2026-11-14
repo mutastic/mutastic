@@ -356,7 +356,8 @@ public final class Worker {
     var scopes = new TestScopes(Worker::id, framework == null);
     var planned = new PlannedTests(Worker::id, count -> protocol.println("TESTS\t" + count));
     var starting = new TestsStarting(Worker::id, test -> protocol.println("STARTED\t" + test));
-    var failing = execute(tests, production(), planned, starting, timingTests(), scopes);
+    var cases = new TestCases();
+    var failing = execute(tests, production(), planned, starting, timingTests(), scopes, cases);
     Probes.flush();
     scopes.credit();
     reportLines();
@@ -367,6 +368,7 @@ public final class Worker {
         (test, chain) ->
             protocol.println(
                 "FAILURE\t" + test + "\t" + chain + "\t" + messages.getOrDefault(test, "")));
+    protocol.println("CASES\t" + cases.ran() + "\t" + cases.skipped());
     protocol.println(
         "DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
   }
@@ -543,8 +545,9 @@ public final class Worker {
       @Override
       public void executionFinished(TestIdentifier test, TestExecutionResult result) {
         // Containers too: a mutant that breaks a test class's set-up (a static initialiser,
-        // `@BeforeAll`) fails the class, and its tests never start.
-        if (result.getStatus() != TestExecutionResult.Status.SUCCESSFUL) {
+        // `@BeforeAll`) fails the class, and its tests never start. A case an assumption aborts
+        // didn't fail: it checked nothing, and is counted as skipped ([TestCases]).
+        if (result.getStatus() == TestExecutionResult.Status.FAILED) {
           failing.add(id(test));
           lastFailure = "unknown";
           lastOrigin = "unknown";
