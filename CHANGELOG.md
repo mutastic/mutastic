@@ -158,6 +158,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Agents
 
+- **The gate and `--since` see Kotlin.** Git's diff and its new-file listing took only `*.java`,
+  so a Kotlin task's changed lines were none: `--since` mutated nothing, and the gate passed a
+  task that changed `.kt` code with no mutant run. Its test count read only `.java` files too, so
+  taking a Kotlin test away didn't hold the task. Both read `.kt` files now, in whichever source
+  sets the build compiles; a new sample, `samples/parameterized-kotlin`, pins them.
 - **An ignore you accept between turns doesn't hold the gate.** The gate counted the ignores from
   a session's first prompt, so a proposal you accepted and then prompted again counted as the
   task's own (`the task ignored … itself`). Now, as a hook, a check that lets the agent stop notes

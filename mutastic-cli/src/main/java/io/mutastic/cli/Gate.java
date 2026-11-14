@@ -224,7 +224,7 @@ final class Gate {
           continue;
         }
         try (Stream<Path> files = Files.walk(root)) {
-          for (var file : files.filter(path -> path.toString().endsWith(".java")).toList()) {
+          for (var file : files.filter(Shape::source).toList()) {
             var text = Files.readString(file);
             tests += (int) TEST.matcher(text).results().count();
             disabled += (int) DISABLED.matcher(text).results().count();
@@ -234,6 +234,12 @@ final class Gate {
         }
       }
       return new Shape(tests, disabled);
+    }
+
+    /// A test source, in Java or Kotlin.
+    private static boolean source(Path file) {
+      var name = file.getFileName().toString();
+      return name.endsWith(".java") || name.endsWith(".kt");
     }
 
     /// Whether this has fewer tests running than `before`: fewer, or more of them disabled.

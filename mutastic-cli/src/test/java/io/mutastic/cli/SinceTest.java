@@ -49,6 +49,40 @@ class SinceTest {
         .contains("\"scope\":{\"since\":\"HEAD\",\"fileCount\":2,\"lineCount\":8}");
   }
 
+  /// Kotlin sources are a change as Java ones are: an edited `.kt` file's lines, and a new one's.
+  @Test
+  void kotlinChangesAreMutated() throws Exception {
+    var project =
+        Samples.copy(
+            Path.of(System.getProperty("mutastic.samples"), "parameterized-kotlin"),
+            work.resolve("parameterized-kotlin"));
+    git(project, "init", "-q");
+    git(project, "add", ".");
+    git(project, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "start");
+    var calculator = project.resolve("src/main/kotlin/com/example/calc/Calculator.kt");
+    Files.writeString(
+        calculator,
+        Files.readString(calculator)
+            .replace(
+                "fun add(a: Int, b: Int): Int = a + b", "fun add(a: Int, b: Int): Int = b + a"));
+    Files.writeString(
+        calculator.resolveSibling("Twice.kt"),
+        """
+        package com.example.calc
+
+        fun twice(x: Int): Int = x * 2
+        """);
+
+    var run =
+        Samples.mutastic(
+            "run", project.toString(), "--since=HEAD", "--format=jsonl", "--report=none");
+
+    var lines = LINE.matcher(run.out()).results().map(found -> found.group(1)).distinct().toList();
+    assertThat(lines).containsExactlyInAnyOrder("4", "3");
+    assertThat(run.out())
+        .contains("\"scope\":{\"since\":\"HEAD\",\"fileCount\":2,\"lineCount\":4}");
+  }
+
   /// A run with no mutant to run starts no worker and runs no test, says so, and leaves the last
   /// run that measured something as the one `explain` and the next run read; `--force-coverage`
   /// runs the tests anyway.
