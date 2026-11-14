@@ -1,0 +1,1 @@
+- Pricing.java:17 - test `discount()` with `total = 100` and assert the result
