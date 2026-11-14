@@ -546,6 +546,45 @@ class GateTest {
     assertThat(untouched.out()).doesNotContain("changed what tests");
   }
 
+  /// A Kotlin task is held as a Java one is: its changed lines are mutated, and a test it takes
+  /// away is missed.
+  @Test
+  void aKotlinTaskCantTakeATestAway() throws Exception {
+    project =
+        Samples.copy(
+            Path.of(System.getProperty("mutastic.samples"), "parameterized-kotlin"),
+            work.resolve("parameterized-kotlin"));
+    Files.writeString(project.resolve(".gitignore"), "build/\n.gradle/\n.kotlin/\n");
+    git("init", "-q", "-b", "main");
+    git("add", "-A");
+    git(
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@t",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-qm",
+        "start");
+    mutastic("gate", "open", project.toString());
+    var calculator = project.resolve("src/main/kotlin/com/example/calc/Calculator.kt");
+    Files.writeString(calculator, Files.readString(calculator).replace("= a * b", "= b * a"));
+    var changed = mutastic("run", project.toString(), "--since=main", "--format=brief");
+    var test = project.resolve("src/test/kotlin/com/example/calc/CalculatorTest.kt");
+    var text = Files.readString(test);
+    var multiplies = text.indexOf("    @ParameterizedTest\n    @CsvSource(\"1, 1, 1\"");
+    var evens = text.indexOf("    @ParameterizedTest\n    @ValueSource");
+    Files.writeString(test, text.substring(0, multiplies) + text.substring(evens));
+
+    var held = mutastic("gate", "check", project.toString());
+
+    assertThat(changed.out()).contains("Changed  1 line in 1 file since main");
+    assertThat(held.exit()).as(held.out()).isEqualTo(Main.FAILED);
+    assertThat(held.out())
+        .contains("fewer tests run than when the task started (5, 0 disabled; now 4, 0 disabled)");
+  }
+
   @Test
   void gateNeedsToBeToldWhatToDo() {
     var bare = mutastic("gate");
