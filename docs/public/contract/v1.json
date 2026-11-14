@@ -1807,17 +1807,6 @@
       "reason": "Each language's own word."
     },
     {
-      "id": "D7",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "`mutant-finished` is written after `phase-finished checking`, not before its phase ends (see G16)",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "decision": 7
-    },
-    {
       "id": "D9",
       "kind": "pending",
       "editions": [
@@ -1970,19 +1959,6 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
       "items": [
         "env:MUTASTIC_ARID"
-      ]
-    },
-    {
-      "id": "G16",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "`mutant-finished` is written at the end of a run, not live",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "event-order:live"
       ]
     },
     {
