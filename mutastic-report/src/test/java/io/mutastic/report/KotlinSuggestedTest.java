@@ -140,7 +140,12 @@ class KotlinSuggestedTest {
   @Test
   void aTestIsInKotlinWhereTheMutatedFileIs() throws Exception {
     testFile(
-        "ProbeTest.kt", "import org.assertj.core.api.Assertions.assertThat\nclass ProbeTest\n");
+        "ProbeTest.kt",
+        """
+        import org.assertj.core.api.Assertions.assertThat
+        import org.junit.jupiter.api.Test
+        class ProbeTest
+        """);
 
     var test = SuggestedTest.of(missed(suggestion("2", "0")), sources()).orElseThrow();
 

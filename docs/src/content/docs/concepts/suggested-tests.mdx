@@ -80,8 +80,14 @@ made twice, and any difference means no suggestion.
 
 The test is written for the class of a test that already reaches the mutant (the mutant's own
 test class, `PricingTest` for `Pricing`, if one of its tests does, or else the first by name), in its
-assertion style (AssertJ, JUnit or TestNG, whose test methods it makes public and whose
-`assertEquals` it gives the actual value first), with a name it doesn't already use.
+assertion style (AssertJ, JUnit 5, JUnit 4 or TestNG; JUnit 4 and TestNG run only public test
+methods, so it makes them public, and TestNG's `assertEquals` gets the actual value first), with a
+name it doesn't already use.
+
+It compiles as pasted. What the class doesn't import is written in full: a class of only
+parameterized tests imports no `@Test`, so the test is `@org.junit.jupiter.api.Test`, and an
+assertion it doesn't import is `org.junit.jupiter.api.Assertions.assertFalse(…)`. Add the import and
+shorten it if you'd rather.
 
 The name says where the input sits, not its value, which goes stale when the spec moves: the number
 stays in the call, where a change to the spec is made anyway. For a call of one argument, at the
