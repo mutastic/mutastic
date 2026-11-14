@@ -5,7 +5,7 @@
     "high": 80,
     "low": 60
   },
-  "projectRoot": "/private/tmp/claude-501/-Users-briancorbin-Code-mutastic/277a661e-9e57-4f0c-b24f-8cd0c88bb0f6/scratchpad/runs/java-pricing",
+  "projectRoot": "/home/you/pricing",
   "files": {
     "src/main/java/com/example/pricing/Pricing.java": {
       "language": "java",
@@ -33,7 +33,7 @@
             "com.example.pricing.PricingTest#smallOrdersPayFullPrice"
           ],
           "testsCompleted": 2,
-          "duration": 394,
+          "duration": 289,
           "mutastic": {
             "method": "Pricing.discount()",
             "evidence": [
@@ -85,7 +85,7 @@
             "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff"
           ],
           "testsCompleted": 1,
-          "duration": 23,
+          "duration": 282,
           "mutastic": {
             "method": "Pricing.discount()",
             "inputs": {
@@ -122,7 +122,7 @@
             "com.example.pricing.PricingTest#smallOrdersPayFullPrice"
           ],
           "testsCompleted": 2,
-          "duration": 407,
+          "duration": 287,
           "mutastic": {
             "method": "Pricing.discount()",
             "inputs": {
@@ -158,7 +158,7 @@
             "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff"
           ],
           "testsCompleted": 1,
-          "duration": 413,
+          "duration": 22,
           "mutastic": {
             "method": "Pricing.discount()",
             "inputs": {
@@ -193,7 +193,7 @@
             "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff"
           ],
           "testsCompleted": 1,
-          "duration": 13,
+          "duration": 10,
           "mutastic": {
             "method": "Pricing.discount()",
             "inputs": {
@@ -228,7 +228,7 @@
             "com.example.pricing.PricingTest#smallOrdersPayFullPrice"
           ],
           "testsCompleted": 1,
-          "duration": 9,
+          "duration": 12,
           "mutastic": {
             "method": "Pricing.discount()",
             "inputs": {
@@ -263,7 +263,7 @@
             "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
           ],
           "testsCompleted": 1,
-          "duration": 17,
+          "duration": 8,
           "mutastic": {
             "method": "Pricing.shipping()",
             "inputs": {
@@ -299,7 +299,7 @@
             "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
           ],
           "testsCompleted": 1,
-          "duration": 19,
+          "duration": 11,
           "mutastic": {
             "method": "Pricing.shipping()",
             "inputs": {
@@ -335,7 +335,7 @@
             "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
           ],
           "testsCompleted": 1,
-          "duration": 10,
+          "duration": 9,
           "mutastic": {
             "method": "Pricing.shipping()",
             "inputs": {
@@ -371,7 +371,7 @@
             "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
           ],
           "testsCompleted": 1,
-          "duration": 11,
+          "duration": 7,
           "mutastic": {
             "method": "Pricing.shipping()",
             "inputs": {
@@ -407,7 +407,7 @@
             "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold"
           ],
           "testsCompleted": 1,
-          "duration": 11,
+          "duration": 7,
           "mutastic": {
             "method": "Pricing.shipping()",
             "inputs": {
@@ -428,15 +428,33 @@
       "tests": [
         {
           "id": "com.example.pricing.PricingTest#bigOrdersGetTenPercentOff",
-          "name": "bigOrdersGetTenPercentOff"
+          "name": "bigOrdersGetTenPercentOff",
+          "location": {
+            "start": {
+              "line": 14,
+              "column": 8
+            }
+          }
         },
         {
           "id": "com.example.pricing.PricingTest#shippingIsFreeFromTheThreshold",
-          "name": "shippingIsFreeFromTheThreshold"
+          "name": "shippingIsFreeFromTheThreshold",
+          "location": {
+            "start": {
+              "line": 29,
+              "column": 8
+            }
+          }
         },
         {
           "id": "com.example.pricing.PricingTest#smallOrdersPayFullPrice",
-          "name": "smallOrdersPayFullPrice"
+          "name": "smallOrdersPayFullPrice",
+          "location": {
+            "start": {
+              "line": 19,
+              "column": 8
+            }
+          }
         }
       ]
     }
@@ -447,18 +465,23 @@
   },
   "performance": {
     "setup": 0,
-    "initialRun": 301,
-    "mutation": 2794
+    "initialRun": 221,
+    "mutation": 2507
   },
   "mutastic": {
     "edition": "java",
-    "runDir": "java-pricing",
+    "commands": {
+      "verify": "mutastic verify <id>",
+      "run": "mutastic run --only=<id>",
+      "ignore": "mutastic ignore <id> --reason=\"<why>\"",
+      "propose": "mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason=\"Differs only when <case>. That can't happen because <why>.\""
+    },
     "docsBase": "https://docs.mutastic.io/",
     "operatorDocs": {
-      "boundary": "concepts/operators/#boundary",
-      "math": "concepts/operators/#math",
-      "remove-conditional": "concepts/operators/#remove-conditional",
-      "return-value": "concepts/operators/#return-value"
+      "boundary": "java/operators/conditions/#boundary",
+      "math": "java/operators/arithmetic/#math",
+      "remove-conditional": "java/operators/conditions/#remove-conditional",
+      "return-value": "java/operators/returns/#return-value"
     },
     "score": 90.9,
     "threshold": 80,
@@ -467,6 +490,6 @@
       "name": "jdk",
       "version": "17"
     },
-    "startedAt": "2026-11-13T20:34:31Z"
+    "startedAt": "2026-11-14T03:43:57Z"
   }
 }

@@ -10,17 +10,21 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 
 /// The run as files other tools read:
 ///
 /// - `json`: the mutation-testing report schema (version 2), which report viewers, dashboards and
-///   badges understand.
+///   badges understand, with what mutastic knows beyond it under `mutastic` keys
+///   (`docs/public/schemas/report/v1.json`).
 /// - `html`: that JSON in the schema's own viewer, embedded, so it opens offline from disk.
 /// - `xml`: the `mutations.xml` format many build-server and code-quality plugins read.
 /// - `sarif`: SARIF 2.1.0, which code scanning reads ([Sarif]).
@@ -32,20 +36,41 @@ public final class ReportFiles {
   private final int threshold;
   private final String version;
   private final OperatorDocs docs;
+  private final Optional<Run> run;
+
+  /// What the run was beyond its results, for the report's own page: when it started, and whether
+  /// it passed as its exit code says (on the threshold, or with `--fail-on-new` on new misses).
+  public record Run(Instant startedAt, boolean passed) {}
 
   /// `root` is the project directory: file paths in the reports are relative to it.
   public ReportFiles(Path root, SourceView sources, int threshold, String version) {
     this(root, sources, threshold, version, OperatorDocs.LATEST);
   }
 
-  /// @param docs where each operator is described, for SARIF's rules to link to
+  /// @param docs where each operator is described, for SARIF's rules and the report page to link to
   public ReportFiles(
       Path root, SourceView sources, int threshold, String version, OperatorDocs docs) {
+    this(root, sources, threshold, version, docs, Optional.empty());
+  }
+
+  private ReportFiles(
+      Path root,
+      SourceView sources,
+      int threshold,
+      String version,
+      OperatorDocs docs,
+      Optional<Run> run) {
     this.root = root;
     this.sources = sources;
     this.threshold = threshold;
     this.version = version;
     this.docs = docs;
+    this.run = run;
+  }
+
+  /// The same reports, with what's known of the run that made them.
+  public ReportFiles withRun(Run run) {
+    return new ReportFiles(root, sources, threshold, version, docs, Optional.of(run));
   }
 
   /// Writes the report of `kind` to `file`.
@@ -92,7 +117,69 @@ public final class ReportFiles {
     document.put("testFiles", testFiles(report));
     document.put("framework", pair("name", "mutastic", "version", version));
     document.put("performance", performance(report));
+    document.put("mutastic", runFacts(report));
     return document;
+  }
+
+  /// The commands for one mutant, as the run's own output writes them, `<id>` where its id goes.
+  private static final Map<String, MutantCommand> COMMANDS = orderedCommands();
+
+  private static Map<String, MutantCommand> orderedCommands() {
+    var commands = new LinkedHashMap<String, MutantCommand>();
+    commands.put("verify", MutantCommand.DONE_WHEN);
+    commands.put("run", MutantCommand.REPRODUCE);
+    commands.put("ignore", MutantCommand.IGNORE);
+    commands.put("propose", MutantCommand.PROPOSE);
+    return commands;
+  }
+
+  /// The test to add as the events have it, with the value it passes each parameter.
+  private static Map<String, Object> suggestedTest(SuggestedTest test, MutantResult result) {
+    var suggested = JsonEvents.suggestedTest(test, result);
+    var found = result.suggestion().orElseThrow();
+    var arguments = new LinkedHashMap<String, Object>();
+    for (int i = 0; i < Math.min(found.parameters().size(), found.inputs().size()); i++) {
+      arguments.put(found.parameters().get(i), found.inputs().get(i));
+    }
+    suggested.put("arguments", arguments);
+    return suggested;
+  }
+
+  private Map<String, Object> commands() {
+    var commands = new LinkedHashMap<String, Object>();
+    COMMANDS.forEach(
+        (key, command) -> commands.put(key, command.command("<id>", sources.invocation())));
+    return commands;
+  }
+
+  /// Each operator in the report the docs describe, by its `mutatorName`: its page under the base.
+  private static Map<String, Object> operatorDocs(Report report, OperatorDocs docs) {
+    var operators = new TreeMap<String, Object>();
+    for (MutantResult result : report.results()) {
+      docs.url(result.mutant().operator())
+          .ifPresent(
+              url ->
+                  operators.put(mutatorName(result.mutant()), url.substring(docs.base().length())));
+    }
+    return operators;
+  }
+
+  /// What mutastic knows of the run beyond the report schema: what its own page shows at the top.
+  private Map<String, Object> runFacts(Report report) {
+    var facts = new LinkedHashMap<String, Object>();
+    facts.put("edition", "java");
+    facts.put("commands", commands());
+    facts.put("docsBase", docs.base());
+    facts.put("operatorDocs", operatorDocs(report, docs));
+    var score = report.score();
+    facts.put("score", score.isPresent() ? Math.round(score.getAsDouble() * 10) / 10.0 : null);
+    facts.put("threshold", threshold);
+    facts.put("passed", run.map(Run::passed).orElseGet(() -> report.passes(threshold)));
+    facts.put("toolchain", pair("name", "jdk", "version", String.valueOf(report.jdk())));
+    run.ifPresent(
+        known ->
+            facts.put("startedAt", known.startedAt().truncatedTo(ChronoUnit.SECONDS).toString()));
+    return facts;
   }
 
   /// Each source file's entry, by its path.
@@ -104,7 +191,7 @@ public final class ReportFiles {
           files.computeIfAbsent(
               sources.file(mutant),
               path -> new SourceFile(sources.text(mutant).orElse(""), new ArrayList<>()));
-      file.mutants().add(mutant(result));
+      file.mutants().add(withCard(mutant(result), result));
     }
     var fileEntries = new TreeMap<String, Map<String, Object>>();
     files.forEach((path, file) -> fileEntries.put(path, file.json()));
@@ -118,8 +205,9 @@ public final class ReportFiles {
         .forEach(
             (testClass, ids) -> {
               var entry = new LinkedHashMap<String, Object>();
-              sources.testSource(testClass).ifPresent(source -> entry.put("source", source));
-              entry.put("tests", testDefinitions(ids));
+              var source = sources.testSource(testClass);
+              source.ifPresent(text -> entry.put("source", text));
+              entry.put("tests", testDefinitions(ids, source));
               testFiles.put(sources.testFile(testClass).orElse(testClass), entry);
             });
     return testFiles;
@@ -136,12 +224,40 @@ public final class ReportFiles {
     return tests;
   }
 
-  private static List<Map<String, Object>> testDefinitions(List<String> ids) {
+  private static List<Map<String, Object>> testDefinitions(
+      List<String> ids, Optional<String> source) {
     return ids.stream()
         .distinct()
         .sorted()
-        .map(id -> pair("id", id, "name", testName(id)))
+        .map(
+            id -> {
+              var test = pair("id", id, "name", testName(id));
+              source
+                  .flatMap(text -> testLocation(text, testName(id)))
+                  .ifPresent(location -> test.put("location", location));
+              return test;
+            })
         .toList();
+  }
+
+  /// Where a test is declared in its source, `{"start": {"line", "column"}}` at its name: `void
+  /// name(`, or Kotlin's `fun name(` and `` fun `a name`( ``. Empty where the source doesn't show
+  /// it.
+  static Optional<Map<String, Object>> testLocation(String source, String test) {
+    var name = test.replaceFirst("[(\\[].*", "");
+    if (name.isEmpty()) {
+      return Optional.empty();
+    }
+    var declaration =
+        Pattern.compile("\\b(?:void|fun)\\s+`?(?<name>" + Pattern.quote(name) + ")`?\\s*\\(");
+    var lines = source.lines().toList();
+    for (int i = 0; i < lines.size(); i++) {
+      var found = declaration.matcher(lines.get(i));
+      if (found.find()) {
+        return Optional.of(Map.of("start", pair("line", i + 1, "column", found.start("name") + 1)));
+      }
+    }
+    return Optional.empty();
   }
 
   /// Two fields in the order given. `Map.of` would iterate in an order that changes from one JVM to
@@ -185,6 +301,36 @@ public final class ReportFiles {
     entry.put("testsCompleted", result.testsRun());
     entry.put("duration", result.took().toMillis());
     return entry;
+  }
+
+  /// A mutant's entry with what its card says, when it says anything more.
+  private Map<String, Object> withCard(Map<String, Object> entry, MutantResult result) {
+    var more = cardFields(result);
+    if (!more.isEmpty()) {
+      entry.put("mutastic", more);
+    }
+    return entry;
+  }
+
+  /// What the mutant's card says beyond the report schema: where, and for a miss, what the tests
+  /// did, the test to write and the values they passed.
+  private Map<String, Object> cardFields(MutantResult result) {
+    var fields = new LinkedHashMap<String, Object>();
+    fields.put("method", HumanText.methodLabel(result.mutant()));
+    if (result.status() == Status.MISSED) {
+      var advice = sources.advice(result);
+      if (!advice.notes().isEmpty()) {
+        fields.put("evidence", advice.notes());
+      }
+      fields.put("fix", advice.fix());
+    }
+    if (!result.inputs().isEmpty()) {
+      fields.put("inputs", result.inputs());
+    }
+    SuggestedTest.of(result, sources)
+        .ifPresent(test -> fields.put("suggestedTest", suggestedTest(test, result)));
+    result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
+    return fields;
   }
 
   /// The source the mutant replaces, from where it starts to where it ends; the line's change where

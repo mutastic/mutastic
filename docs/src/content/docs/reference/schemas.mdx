@@ -94,6 +94,7 @@ mutastic publishes a JSON Schema (2020-12) for each format another tool reads or
 | Schema | Describes |
 |---|---|
 | [`/schemas/events/v1.json`](https://docs.mutastic.io/schemas/events/v1.json) | The events `--format=jsonl` writes, one per line |
+| [`/schemas/report/v1.json`](https://docs.mutastic.io/schemas/report/v1.json) | What mutastic adds to `mutation.json`, under its `mutastic` keys |
 | [`/schemas/mutastic-yaml/v1.json`](https://docs.mutastic.io/schemas/mutastic-yaml/v1.json) | A project's [`mutastic.yaml`](/guides/configuration/#mutasticyaml) |
 | [`/schemas/rules/v1.json`](https://docs.mutastic.io/schemas/rules/v1.json) | A [rules file](/guides/plugins/#rules-files) of call operators |
 
@@ -103,7 +104,8 @@ against theirs, so a schema can't drift from what mutastic does.
 
 The report files follow formats of their own: `mutation.json` is the [mutation-testing report
 schema](https://github.com/stryker-mutator/mutation-testing-elements/tree/master/packages/report-schema)'s,
-version 2, and mutastic's tests check it against that schema too. See [Report files](/reference/reports/).
+version 2, and mutastic's tests check it against that schema too, and what mutastic adds to it, under
+`mutastic` keys, against `report/v1.json`. See [Report files](/reference/reports/#what-mutastic-adds).
 
 ## What v1 promises
 

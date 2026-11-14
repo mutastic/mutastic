@@ -32,6 +32,23 @@ other mutants, the tests, its absolute `projectRoot` or its timings:
 `location` is 1-based, its end one past the change. `statusReason` is the card's headline, and
 `coveredBy` the tests that ran it and passed.
 
+### What mutastic adds
+
+The schema is what other tools read, and it has no place for what a card says about a miss. So
+mutastic writes that under one `mutastic` key on each mutant, and the run's own facts under one at
+the top. Tools that don't know them skip them; mutastic's own HTML report reads them. Both editions
+write the same, and [`report/v1.json`](https://docs.mutastic.io/schemas/report/v1.json) describes
+them.
+
+- **On a mutant:** `method`, where the change is; for a miss, the card's `evidence` lines and its
+  `fix`; the `inputs` the tests passed; the `suggestedTest`, with the `arguments` it passes; and
+  for a caught one, `failureOrigin`. A field is left out when there's nothing to say.
+- **On the run:** the `edition`; the `commands` for one mutant (`verify`, `run`, `ignore`,
+  `propose`), written as the run's own output writes them for this project, with `<id>` where the
+  mutant's id goes; `docsBase` and each operator's page under it (`operatorDocs`); the `score`,
+  `threshold` and whether the run `passed`; the `toolchain`; and when it `startedAt`.
+- **On a test,** in `testFiles`: its `location`, at its name in its file.
+
 ## Code scanning
 
 `--report=sarif` writes a result for each missed mutant, as a warning, and each one no test

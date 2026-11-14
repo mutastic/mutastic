@@ -92,6 +92,58 @@ class ReportFilesTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  void jsonCarriesWhatTheCardsSayUnderMutastic() {
+    var json =
+        files
+            .withRun(
+                new ReportFiles.Run(java.time.Instant.parse("2026-11-13T20:34:31.250Z"), false))
+            .json(report());
+
+    var run = (Map<String, Object>) json.get("mutastic");
+    assertThat(run)
+        .containsEntry("edition", "java")
+        .containsEntry("docsBase", "https://docs.mutastic.io/")
+        .containsEntry("threshold", 80)
+        .containsEntry("passed", false)
+        .containsEntry("toolchain", Map.of("name", "jdk", "version", "17"))
+        .containsEntry("startedAt", "2026-11-13T20:34:31Z");
+    assertThat((Map<String, Object>) run.get("commands"))
+        .containsEntry("verify", "mutastic verify <id>")
+        .containsEntry("run", "mutastic run --only=<id>")
+        .containsEntry("ignore", "mutastic ignore <id> --reason=\"<why>\"");
+    assertThat((Map<String, Object>) run.get("operatorDocs"))
+        .containsEntry("boundary", "java/operators/conditions/#boundary");
+    var file =
+        (Map<String, Object>)
+            ((Map<String, Object>) json.get("files")).get("src/main/java/com/example/Pricing.java");
+    var missed = ((List<Map<String, Object>>) file.get("mutants")).getFirst();
+    assertThat((Map<String, Object>) missed.get("mutastic"))
+        .containsEntry("method", "Pricing.discount()")
+        .containsKey("fix");
+  }
+
+  @Test
+  void aTestIsFoundAtItsNameInItsSource() {
+    var source =
+        """
+        class PricingTest {
+          @Test
+          void bigOrders() {}
+
+          @Test
+          fun `small orders pay full price`() {}
+        }
+        """;
+
+    assertThat(ReportFiles.testLocation(source, "bigOrders()"))
+        .contains(Map.of("start", Map.of("line", 3, "column", 8)));
+    assertThat(ReportFiles.testLocation(source, "small orders pay full price"))
+        .contains(Map.of("start", Map.of("line", 6, "column", 8)));
+    assertThat(ReportFiles.testLocation(source, "gone")).isEmpty();
+  }
+
+  @Test
   void jsonIsAReportTheSchemaAccepts() {
     assertThat(Schemas.reportProblems(Json.write(files.json(report())))).isEmpty();
   }
