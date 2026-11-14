@@ -150,6 +150,22 @@ final class GateCount {
         : Optional.of(Counted.failed("the count stopped before it finished"));
   }
 
+  /// The count's process ended, and what it started, before its copy goes: one still running would
+  /// write into it again.
+  private static void ended(ProcessHandle process) {
+    var started = process.descendants().toList();
+    started.forEach(ProcessHandle::destroy);
+    process.destroy();
+    try {
+      process.onExit().get(10, java.util.concurrent.TimeUnit.SECONDS);
+    } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException e) {
+      process.destroyForcibly();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+    started.forEach(ProcessHandle::destroyForcibly);
+  }
+
   private static Optional<ProcessHandle> process(Properties started) {
     return ProcessHandle.of(Long.parseLong(started.getProperty("pid", "-1")));
   }
@@ -160,12 +176,7 @@ final class GateCount {
     read(work.resolve(STARTED))
         .ifPresent(
             started -> {
-              process(started)
-                  .ifPresent(
-                      process -> {
-                        process.descendants().forEach(ProcessHandle::destroy);
-                        process.destroy();
-                      });
+              process(started).ifPresent(GateCount::ended);
               var copy = started.getProperty("copy", "");
               if (!copy.isEmpty()) {
                 delete(Path.of(copy));
