@@ -58,6 +58,72 @@ projects the end-to-end tests run on.
   `./gradlew :mutastic-cli:exportDocsOutput`, for the output the docs show.
 - **Dependencies:** pin exact versions, then `./gradlew lockDependencies --write-locks`.
 
+## Keeping the editions level
+
+mutastic has a Java edition (this repository) and a Rust edition
+([mutastic-rs](https://github.com/mutastic/mutastic-rs)), and they should look the same to a
+person, an agent and a CI job. Without a check, a difference is found only by running both and
+noticing. The editions' contract makes each one a test failure instead.
+
+**The contract** is [`docs/public/contract/v1.json`](docs/public/contract/v1.json)
+(`mutastic.contract/v1`), described by the JSON Schema
+[`docs/public/schemas/contract/v1.json`](docs/public/schemas/contract/v1.json) and published with
+it on docs.mutastic.io. It holds what the editions must agree on:
+
+- the command line: commands, synopses, the options each takes and in what order, kinds, value
+  names, choices, defaults, environment variables and exit codes;
+- every error code with its exit code, the pairs that mean the same thing (`errorPairs`), and a
+  table of error cases (`errorCases`) with the code and exit code each must end with;
+- help's layout, the human summary's rows and their order, and the agent format's line shapes
+  (its head, each entry, and the tail that closes the fence around the project's text);
+- the events' key paths per event type and their order, and mutation.json's key paths;
+- the events, report and SARIF schemas, by sha256;
+- the 15 decisions taken on 13 Nov 2026 (`decisions`), each a shared rule;
+- `differences`: every known way an edition differs, each one of three kinds:
+  - `engine`: permanent, with a `reason` another edition would share (Gradle modules, `unsafe`);
+  - `dated`: with an `until` (`rust 2.0.0`);
+  - `pending`: a gap, a drift or a decision not yet carried out, with an `issue`.
+
+**The checks.** Each edition runs its own binary on its own pricing fixture, as a person does, and
+compares what it does with the contract: its `commands.json`, `--help` and each command's help,
+the error cases, a full run's summary, `--format=agent` and `--format=jsonl`, and mutation.json.
+Here that's `ContractTest` (in `mutastic-cli`); in mutastic-rs it's `tests/contract.rs`. Each
+difference is found as an item, such as `takes:baseline:--operators` or `error:gate:code`. An item
+no difference for that edition names fails, saying what to do. A difference whose `items` name
+nothing that was found fails too, as it now matches: take the edition out of its `editions`, or
+the entry out. So the list only shrinks when the editions really meet. A difference without
+`items` describes something no check reaches yet, and stays until someone removes it.
+
+**Adding an option to both editions:**
+
+1. Add it to the contract: to `options`, and to each command's `options` in the order help lists
+   them. If one edition will have it first, add a `pending` difference for the other, with items
+   `option:--name` and `takes:*:--name` and an issue.
+2. Add it here, run `./gradlew :mutastic-cli:exportDocsModel`, and `ContractTest` passes.
+3. mutastic-rs pins the contract by commit (`contract.json`). When the Rust side is written, its
+   contract check fails with "now matches". Take `rust` out of the pending entry in a mutastic PR,
+   then move the pin in the Rust PR to that merge commit. Its weekly drift job, against mutastic
+   main, says when the two are out of step.
+
+An option only one edition will ever have, for a reason of its engine, is an `engine` difference
+with its reason. A change to shared output (a summary row, an agent line) goes the same way: the
+contract first, then each edition.
+
+**A new edition** (Swift, say) adopts the contract on its first day:
+
+1. Add it to `editions`.
+2. Port the pricing fixture, and write its checks from mutastic-rs's `tests/contract.rs`: they
+   read only the contract, the edition's `commands.json` and what its binary prints.
+3. Every failure becomes a `pending` difference with an issue, or an `engine` one with a reason,
+   reviewed in one pull request. Its engine slots are already named: the summary's unit row, the
+   `Build` row, the toolchain in `Tests`, and `mutation.applied.level`.
+
+**The docs' captures, compared.** The docs build pairs each edition's captured output by scenario
+([`captures.json`](docs/public/contract/captures.json) maps Java's flat names to Rust's
+folders), masks ids, paths, timings, names and code, and warns where the shapes differ
+(`docs/scripts/compare-captures.mjs`; `node docs/scripts/compare-captures.mjs <mutastic-rs docs>`
+lists them). Warnings for now, while the masks settle.
+
 ## Pull requests
 
 - One change per pull request, with a description of what it changes and why. The template asks.
@@ -113,6 +179,23 @@ git config core.hooksPath .githooks
 
 CI runs the same check on each new commit in a push or pull request (`.githooks/check-commits`),
 counting from the commit that added the hook. `sh .githooks/test-commit-msg` tests the hook.
+
+A pull request is squash-merged, and GitHub writes its title and " (#<number>)" as the subject on
+`main`, where the check counts the whole line. So the title follows the same rules with the
+suffix counted: at most 44 characters for #10 to #99, 43 for #100 to #999. CI checks it
+(`.githooks/check-title`), again whenever the title is edited, and says the limit for the pull
+request's number.
+
+Merge with `.githooks/merge-pr`, not `gh pr merge` by hand. It writes the subject from the title,
+takes the body from a file (wrapped at 72) or leaves it empty, checks the whole message with
+`commit-msg`, and merges only once every check has passed, on the commit they ran on. It deletes
+the branch on GitHub and leaves local branches and worktrees alone. `--admin` merges without
+waiting for the checks, for one that can't pass; the message is still checked.
+
+```sh
+sh .githooks/merge-pr 59            # subject "<title> (#59)", no body
+sh .githooks/merge-pr 59 body.txt   # with a body that says why
+```
 
 ## Licence
 

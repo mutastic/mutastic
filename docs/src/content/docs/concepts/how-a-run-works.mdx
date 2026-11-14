@@ -158,7 +158,9 @@ mutastic runs no test: it finds the mutants, lists the skipped ones with their r
 with nothing to measure, saying `Tests  none ran: no mutant to run`. Your build still compiles the
 code, as the mutants are found in its class files, so such a run takes about as long as the build.
 It leaves the last run's record and report files as they were. `--force-coverage` runs the tests
-anyway, to check that they pass or to time them.
+anyway, to check that they pass or to time them. [The gate](/agents/gate/#when-its-done) always
+does: a change to a line with no mutant can still break a test, so it runs the tests unless the
+task changed nothing.
 
 </EditionOnly>
 
