@@ -72,6 +72,21 @@ final class Git {
     }
   }
 
+  /// The repository's top directory, absolute.
+  Path toplevel() {
+    return Path.of(output(List.of("rev-parse", "--show-toplevel"), "no git repository").strip())
+        .toAbsolutePath()
+        .normalize();
+  }
+
+  /// The files of `tree`, as [#tree] gives one, into a tar file: a copy of the working tree that
+  /// leaves it as it is.
+  void archive(String tree, Path tar) {
+    output(
+        List.of("archive", "--format=tar", "-o", tar.toAbsolutePath().toString(), tree),
+        "git couldn't copy the working tree");
+  }
+
   /// Whether the working tree is the commit `base`'s, file for file: a task that changed nothing
   /// can't have broken a test.
   boolean untouchedSince(String base) {

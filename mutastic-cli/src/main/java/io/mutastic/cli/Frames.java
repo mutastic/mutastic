@@ -371,14 +371,22 @@ final class Frames {
         + "\n";
   }
 
-  /// `checked 8 missed mutants in 3.1s · a test to write for 5`.
-  static String checked(int missed, int suggested, Duration took) {
+  /// `checked 8 missed mutants in 3.1s · a test to write for 5`; without what's suggested when
+  /// nothing is looked for, as in `verify`.
+  static String checked(int missed, java.util.OptionalInt suggested, Duration took) {
     return Phase.padded("checked")
         + count(missed, "missed mutant")
         + " in "
         + duration(took)
-        + " · "
-        + (suggested == 0 ? "no test found to suggest" : "a test to write for " + suggested)
+        + suggested.stream()
+            .mapToObj(
+                found ->
+                    " · "
+                        + (found == 0
+                            ? "no test found to suggest"
+                            : "a test to write for " + found))
+            .findFirst()
+            .orElse("")
         + "\n";
   }
 

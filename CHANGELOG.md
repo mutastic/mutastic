@@ -7,6 +7,18 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ## Unreleased
 
+### HTML report
+
+- **`mutation.html` is mutastic's own report page.** It replaces the generic viewer it embedded,
+  and shows what the cards say: for each miss the change, why the tests let it through, the
+  inputs they used, the test to add and the `mutastic verify` that proves it; tests to write,
+  missed and not covered, with `j`/`k` through them; every mutant by status and operator; each
+  test with its source and what it let through; code coloured for Java and Kotlin. **Copy** puts
+  a list's tests to write on the clipboard, a line each, for an issue or a pull request. It's still
+  one file that opens from disk with no network, and the Rust edition's is the same page. The old
+  view isn't an option: `mutation.json` hasn't changed shape, so Stryker's report tools, which
+  read it, still show it the old way. See [Report files](https://docs.mutastic.io/reference/reports/).
+
 ### Security
 
 - **Text from the project reaches an agent fenced off as data.** The agent format, `next`'s agent
@@ -122,6 +134,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **`verify` doesn't say it found no test to suggest.** It looks for none, so its `checked` line
+  ended in a misleading `no test found to suggest`; that clause is left out now, in `verify` and
+  with `--no-suggestions`.
+- **`--kill-matrix` lists every catching test in `mutation.json`.** `killedBy` held only the first,
+  while the events' `caughtByAll` had them all; now `killedBy` has them all too, the first first.
 - **The gate holds a task that changes no line mutastic mutates to its other checks.** Such a task
   skipped the checks for ignores and baseline entries the task made itself, and for tests taken
   away or `@Disabled`, so an agent that only deleted a failing test, or ignored a mutant itself,
@@ -223,6 +240,19 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Agents
 
+- **The gate counts a parameterized test's rows.** It counted test methods, so a task that took a
+  row out of a `@CsvSource` or `Arguments.of(…)`, or turned a parameterized test off, passed. Now
+  rows a static source holds are counted from its annotations, at `gate open` and at each check:
+  `@CsvSource` entries and `textBlock` lines, `@ValueSource` values, `@EnumSource` names,
+  `@CsvFileSource` lines, `@NullSource` and `@EmptySource`. `@Disabled` and `@Ignore` turn off all
+  of a method's or a class's rows. What only running says (rows a `@MethodSource`,
+  `@ArgumentsSource` or `@FieldSource` makes, a test a condition such as `@DisabledOnOs` turns off,
+  a case an assumption aborts) a run counts: `gate open` starts one in the background, on a copy of
+  the tree, and returns at once; a check waits for it, up to four minutes
+  (`MUTASTIC_GATE_COUNT_WAIT`, in seconds), and holds a task whose own run has fewer cases or more
+  skipped. If it couldn't count, a pass says so. `gate close` stops it. Comments don't count.
+- **A case an assumption aborts isn't a failure.** `assumeTrue(false)` failed the test as far as
+  mutastic was concerned: a red baseline, or a mutant caught. It's skipped now, as JUnit says.
 - **The gate and `--since` see Kotlin.** Git's diff and its new-file listing took only `*.java`,
   so a Kotlin task's changed lines were none: `--since` mutated nothing, and the gate passed a
   task that changed `.kt` code with no mutant run. Its test count read only `.java` files too, so

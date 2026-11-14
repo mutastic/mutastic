@@ -25,7 +25,8 @@ import java.util.regex.Pattern;
 /// - `json`: the mutation-testing report schema (version 2), which report viewers, dashboards and
 ///   badges understand, with what mutastic knows beyond it under `mutastic` keys
 ///   (`docs/public/schemas/report/v1.json`).
-/// - `html`: that JSON in the schema's own viewer, embedded, so it opens offline from disk.
+/// - `html`: that JSON in mutastic's own report page (`report-ui/` builds it), in one file that
+///   opens offline from disk.
 /// - `xml`: the `mutations.xml` format many build-server and code-quality plugins read.
 /// - `sarif`: SARIF 2.1.0, which code scanning reads ([Sarif]).
 public final class ReportFiles {
@@ -297,7 +298,7 @@ public final class ReportFiles {
       entry.put("statusReason", reason);
     }
     entry.put("coveredBy", result.coveredBy());
-    result.caughtBy().ifPresent(test -> entry.put("killedBy", List.of(test)));
+    result.caughtBy().ifPresent(test -> entry.put("killedBy", killedBy(test, result)));
     entry.put("testsCompleted", result.testsRun());
     entry.put("duration", result.took().toMillis());
     return entry;
@@ -350,6 +351,14 @@ public final class ReportFiles {
                     "end", pair("line", place.line(), "column", place.end())));
   }
 
+  /// Every test that catches it, with `--kill-matrix`, as the events' `caughtByAll` has them: the
+  /// one that caught it first, then the rest. Else the one.
+  private static List<String> killedBy(String caught, MutantResult result) {
+    var all = new java.util.ArrayList<>(List.of(caught));
+    result.caughtByAll().stream().filter(test -> !test.equals(caught)).forEach(all::add);
+    return all;
+  }
+
   /// `boundary` for mutastic's own operators, a plugin's by its whole id: `stream/remove-stage`.
   private static String mutatorName(Mutant mutant) {
     var id = mutant.operator().id();
@@ -367,31 +376,19 @@ public final class ReportFiles {
     };
   }
 
-  /// The JSON in the schema's viewer, embedded with the viewer itself, so the page needs no
-  /// network.
+  /// The page's empty slot for the report: `report-ui/build.mjs` writes it there once.
+  static final String SLOT = "<script type=\"application/json\" id=\"mutation-report\"></script>";
+
+  /// The JSON in mutastic's report page, which needs no network. Every `<` in it is written as
+  /// JSON's escape for it, which reads back the same, so nothing in the data (a `</script>` or a
+  /// `<!--` in a source file) can end the page's script element or change how the page reads it.
   String html(Report report) {
-    // `</` can't appear inside a script element: `<\/` means the same in JavaScript.
-    var data = Json.write(json(report)).replace("</", "<\\/");
-    return """
-        <!doctype html>
-        <html lang="en">
-        <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>mutastic · %s</title>
-        <script>
-        %s
-        </script>
-        </head>
-        <body>
-        <mutation-test-report-app titlePostfix="mutastic"></mutation-test-report-app>
-        <script>
-        document.querySelector('mutation-test-report-app').report = %s;
-        </script>
-        </body>
-        </html>
-        """
-        .formatted(escapeXml(report.project()), viewer().replace("</script", "<\\/script"), data);
+    var data = Json.write(json(report)).replace("<", "\\u003c");
+    var page = page();
+    int slot = page.indexOf(SLOT);
+    return page.substring(0, slot)
+        + SLOT.replace("></script>", ">" + data + "</script>")
+        + page.substring(slot + SLOT.length());
   }
 
   /// `mutations.xml`. Its consumers key on established mutator class names, so those are what
@@ -518,9 +515,12 @@ public final class ReportFiles {
     return hash < 0 ? test : test.substring(hash + 1);
   }
 
-  private static String viewer() {
-    try (InputStream in =
-        ReportFiles.class.getResourceAsStream("viewer/mutation-test-elements.js")) {
+  /// The report page, as `report-ui/` built it: a resource of this module.
+  static String page() {
+    try (InputStream in = ReportFiles.class.getResourceAsStream("report.html")) {
+      if (in == null) {
+        throw new IllegalStateException("report.html isn't on the classpath: build report-ui");
+      }
       return new String(in.readAllBytes(), StandardCharsets.UTF_8);
     } catch (IOException e) {
       throw new UncheckedIOException(e);

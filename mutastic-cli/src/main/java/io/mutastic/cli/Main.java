@@ -330,6 +330,36 @@ public final class Main {
     return fullRun(command, prepared, passes, output);
   }
 
+  /// A run that mutates nothing and runs every test, quietly.
+  private static final List<String> COUNTING =
+      List.of(
+          "--since=HEAD", "--force-coverage", "--report=none", "--progress=none", "--format=jsonl");
+
+  /// The test cases a run of `project` runs and skips, with no mutant: what [GateCount] counts at a
+  /// gated task's start, in a process of its own.
+  static int[] countCases(Path project, String module, String suite) {
+    var args = new ArrayList<>(List.of("run", project.toString()));
+    if (!module.equals(":")) {
+      args.add(module);
+    }
+    args.addAll(COUNTING);
+    var command = enclosing(Command.parse(withSuite(args, suite).toArray(String[]::new)));
+    var terminal = Terminal.current();
+    var tool = BuildTools.of(project);
+    var nowhere =
+        new PrintStream(java.io.OutputStream.nullOutputStream(), true, StandardCharsets.UTF_8);
+    try (var output = output(command, nowhere, nowhere, terminal)) {
+      var progress = output.progress();
+      var prepared = prepare(command, tool, progress);
+      var engine = new Engine(workerJar(), prepared.work().resolve("worker.log"));
+      var heard = new HeardCoverage(progress);
+      new Passes(engine, options(command, terminal, prepared), progress, tool, Optional.empty())
+          .run(command, prepared, heard);
+      var pass = heard.pass.orElseThrow(() -> new IllegalStateException("no test ran"));
+      return new int[] {pass.cases(), pass.skippedCases()};
+    }
+  }
+
   /// `mutants`: every mutant a run would have, a line each, found in the built classes with no test
   /// run.
   private static int listed(Command command, Prepared prepared, Output output, Terminal terminal) {
@@ -624,6 +654,7 @@ public final class Main {
     return switch (gated.command().subcommand()) {
       case GATE_OPEN -> gateOpen(gated, session);
       case GATE_CLOSE -> {
+        GateCount.stop(gated.work());
         boolean closed = Gate.State.close(gated.work());
         if (!gated.hooked()) {
           gated
@@ -651,9 +682,7 @@ public final class Main {
       return PASSED;
     }
     var base = new Git(directory).head();
-    var shape = Gate.Shape.of(gated.prepared().project().testSources());
-    new Gate.State(session, base, ignored(directory), shape, 0, "", Map.of(), Optional.empty())
-        .write(gated.work());
+    started(gated, session, base);
     gated
         .output()
         .out()
@@ -665,6 +694,17 @@ public final class Main {
             whenItsDone(gated),
             MutantCommand.NO_REWRITE);
     return PASSED;
+  }
+
+  /// Where the task starts: its commit, the ignores, and the tests from their annotations, kept;
+  /// what only a run counts, counted in the background, so the agent needn't wait for it.
+  private static void started(Gated gated, String session, String base) {
+    var directory = gated.prepared().directory();
+    var shape = Gate.Shape.of(gated.prepared().project().testSources());
+    new Gate.State(session, base, ignored(directory), shape, 0, "", Map.of(), Optional.empty())
+        .write(gated.work());
+    var module = new GateCount.Module(gated.command().module(), gated.command().suite());
+    GateCount.start(gated.work(), directory, new Git(directory).tree(), module);
   }
 
   /// A hook checks the task when the agent finishes, so the agent isn't asked to check it too: a
@@ -793,14 +833,80 @@ public final class Main {
   /// A task that changed no line mutastic mutates, but changed something: passed, once the tests
   /// pass. A change to a test, a build file or a test's data may have broken one, so they run.
   private static Gate.Verdict testsVerdict(Gated gated, Gate.State state) {
+    var heard = new HeardCoverage(gated.passes().progress());
     try {
-      gateRun(gated, state.base());
+      gateRun(gated, state.base(), heard);
     } catch (Engine.BaselineFailed e) {
       var testSources = gated.prepared().project().testSources();
       return Gate.Verdict.red(red(gated, state, e), RedTests.remember(e.failing(), testSources));
     }
-    return Gate.Verdict.pass(
-        "mutastic gate: passed: the tests pass, and the task changed no lines mutastic mutates");
+    return counted(
+        gated,
+        heard,
+        Gate.Verdict.pass(
+            "mutastic gate: passed: the tests pass, and the task changed no lines mutastic"
+                + " mutates"));
+  }
+
+  /// The coverage pass of a run, as it's heard.
+  private static final class HeardCoverage extends ForwardingListener {
+    private Optional<io.mutastic.api.CoveragePass> pass = Optional.empty();
+
+    HeardCoverage(io.mutastic.api.Listener to) {
+      super(to);
+    }
+
+    @Override
+    public void coverageFinished(io.mutastic.api.CoveragePass heard) {
+      pass = Optional.of(heard);
+      super.coverageFinished(heard);
+    }
+  }
+
+  /// How long a check waits for the count of the task's start ([GateCount]): within a hook's ten
+  /// minutes, with the check's own run.
+  private static final java.time.Duration COUNT_WAIT = java.time.Duration.ofMinutes(4);
+
+  /// The verdict, unless fewer test cases ran in the check's run than at the task's start, or more
+  /// were skipped: rows a `@MethodSource` makes taken away, a test a condition turned off, a case
+  /// an assumption aborts. Then it's held. When the start couldn't be counted, a pass says it
+  /// compared what the annotations say alone.
+  private static Gate.Verdict counted(Gated gated, HeardCoverage heard, Gate.Verdict verdict) {
+    var wait =
+        gated
+            .terminal()
+            .env()
+            .getOrDefault("MUTASTIC_GATE_COUNT_WAIT", String.valueOf(COUNT_WAIT.toSeconds()));
+    var before =
+        GateCount.waitFor(gated.work(), java.time.Duration.ofSeconds(Long.parseLong(wait)));
+    var now = heard.pass.filter(pass -> pass.cases() >= 0);
+    if (!before.counted() || now.isEmpty()) {
+      return uncounted(verdict, before.counted() ? "this run didn't count them" : before.why());
+    }
+    var pass = now.get();
+    if (pass.cases() >= before.cases() && pass.skippedCases() <= before.skipped()) {
+      return verdict;
+    }
+    return Gate.Verdict.block(
+        ("mutastic gate: fewer test cases run than when the task started (%d run, %d skipped; now"
+                + " %d run, %d skipped): rows taken away, or tests turned off or aborted by an"
+                + " assumption. Put them back: the gate doesn't pass a change by taking tests away")
+            .formatted(before.cases(), before.skipped(), pass.cases(), pass.skippedCases()));
+  }
+
+  /// A pass, saying the test cases at the task's start couldn't be counted, and why.
+  private static Gate.Verdict uncounted(Gate.Verdict verdict, String why) {
+    if (!verdict.passes()) {
+      return verdict;
+    }
+    return new Gate.Verdict(
+        true,
+        verdict.gaveUp(),
+        ("%s\n\nThe test cases running when the task started couldn't be counted (%s), so the"
+                + " gate compared the tests' annotations only: rows a method makes, and tests a"
+                + " condition or an assumption turns off, weren't compared")
+            .formatted(verdict.text(), why),
+        verdict.red());
   }
 
   /// An ignore the task made itself: a person's call, so it's proposed instead.
@@ -881,15 +987,19 @@ public final class Main {
   /// The mutants on the lines the task changed: each caught, or proposed for a person to ignore.
   private static Gate.Verdict mutantsVerdict(Gated gated, Gate.State state) {
     Report report;
+    var heard = new HeardCoverage(gated.passes().progress());
     try {
-      report = gateRun(gated, state.base());
+      report = gateRun(gated, state.base(), heard);
     } catch (Engine.BaselineFailed e) {
       var testSources = gated.prepared().project().testSources();
       return Gate.Verdict.red(red(gated, state, e), RedTests.remember(e.failing(), testSources));
     }
-    return report.failingAlone().isEmpty()
-        ? missedVerdict(gated, report)
-        : Gate.Verdict.block(falseCaught(report));
+    return counted(
+        gated,
+        heard,
+        report.failingAlone().isEmpty()
+            ? missedVerdict(gated, report)
+            : Gate.Verdict.block(falseCaught(report)));
   }
 
   /// Done when each mutant on the changed lines is caught, or proposed for a person to ignore.
@@ -1031,13 +1141,13 @@ public final class Main {
 
   /// The run on the lines changed since `base`, which always runs the tests, as `--force-coverage`
   /// does.
-  private static Report gateRun(Gated gated, String base) {
+  private static Report gateRun(Gated gated, String base, Listener listener) {
     var run = gated.command().runSince(base);
     var passes = gated.passes();
     var options = options(run, gated.terminal(), gated.prepared());
     var report =
         new Passes(passes.engine(), options, passes.progress(), passes.tool(), Optional.empty())
-            .run(run, gated.prepared(), passes.progress())
+            .run(run, gated.prepared(), listener)
             .report();
     passes.progress().finished();
     return report;
@@ -1372,13 +1482,27 @@ public final class Main {
               .formatted(vocabulary));
     }
     var words = Vocabulary.valueOf(vocabulary.toUpperCase(java.util.Locale.ROOT));
+    return new Output(
+        out,
+        progress(command, err, format, terminal),
+        format,
+        words,
+        style(command, terminal),
+        GitHubRun.of(terminal, err));
+  }
+
+  /// Progress on `err`, saying how many tests it found to suggest only when it looks for them.
+  private static Progress progress(
+      Command command, PrintStream err, String format, Terminal terminal) {
     var progress =
         new Progress(
             err,
             ProgressChoice.mode(command.progress(), format, terminal),
             Progress.Settings.of(terminal.env(), progressColour(command, terminal)));
-    return new Output(
-        out, progress, format, words, style(command, terminal), GitHubRun.of(terminal, err));
+    if (!command.suggestions() || command.verify()) {
+      progress.notSuggesting();
+    }
+    return progress;
   }
 
   private static Style style(Command command, Terminal terminal) {

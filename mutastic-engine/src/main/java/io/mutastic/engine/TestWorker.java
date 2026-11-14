@@ -130,7 +130,7 @@ final class TestWorker implements AutoCloseable {
       var answer = coverageAnswer(counted::running);
       var parts = answer.split("\t", -1);
       switch (parts[0]) {
-        case "TESTS", "STARTED", "TEST" -> counted.heard(parts);
+        case "TESTS", "STARTED", "TEST", "CASES" -> counted.heard(parts);
         case "LINE" -> coverage.recordLines(parts[1], commaSeparated(parts[2], Integer::valueOf));
         case "LOADING" -> coverage.recordOnlyAtLoad(commaSeparated(parts[1], Integer::valueOf));
         case "VALUE" ->
@@ -160,10 +160,13 @@ final class TestWorker implements AutoCloseable {
       this.listener = listener;
     }
 
-    /// `TESTS` and how many, `STARTED` and a test, or `TEST`, a test and its nanoseconds.
+    /// `TESTS` and how many, `STARTED` and a test, `TEST`, a test and its nanoseconds, or `CASES`,
+    /// how many cases ran and were skipped.
     void heard(String[] parts) {
       switch (parts[0]) {
         case "TESTS" -> planned(Integer.parseInt(parts[1]));
+        case "CASES" ->
+            coverage.recordCases(Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
         case "STARTED" -> {
           started.add(parts[1]);
           listener.testStarted(parts[1]);

@@ -890,7 +890,8 @@ public final class Engine {
     var coverageTook = Duration.ofNanos(System.nanoTime() - coverageStart);
     measured(project, plan, recordedNothing);
     return new CoveragePass(
-        first.jdk(), coverage.testCount(), coverageTook, plan.mutants().size(), flaky, evidence);
+            first.jdk(), coverage.testCount(), coverageTook, plan.mutants().size(), flaky, evidence)
+        .withCases(coverage.casesRan(), coverage.casesSkipped());
   }
 
   /// The coverage pass's tests run on `first`: a test that stops its JVM, or keeps it past the

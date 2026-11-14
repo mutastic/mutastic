@@ -12,7 +12,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 /// `mutastic gate`: a coding agent's task, held to what mutastic says of the lines it changed.
 ///
@@ -38,9 +37,6 @@ final class Gate {
   static final Pattern TEST =
       Pattern.compile(
           "@(?:[\\w.]+\\.)?(Test|ParameterizedTest|RepeatedTest|TestFactory|TestTemplate)\\b");
-
-  /// By its simple name or its full one: `@org.junit.jupiter.api.Disabled` turns a test off too.
-  private static final Pattern DISABLED = Pattern.compile("@(?:[\\w.]+\\.)?(Disabled|Ignore)\\b");
 
   /// A line the task took out of a test that said what to expect: an assertion, or a mock's
   /// expectation. Not a comment.
@@ -214,32 +210,17 @@ final class Gate {
     return files;
   }
 
-  /// How many tests the test sources have, and how many of them are disabled.
-  record Shape(int tests, int disabled) {
-    static Shape of(List<Path> testSources) {
-      int tests = 0;
-      int disabled = 0;
-      for (Path root : testSources) {
-        if (!Files.isDirectory(root)) {
-          continue;
-        }
-        try (Stream<Path> files = Files.walk(root)) {
-          for (var file : files.filter(Shape::source).toList()) {
-            var text = Files.readString(file);
-            tests += (int) TEST.matcher(text).results().count();
-            disabled += (int) DISABLED.matcher(text).results().count();
-          }
-        } catch (IOException e) {
-          throw new UncheckedIOException(e);
-        }
-      }
-      return new Shape(tests, disabled);
+  /// How many tests the test sources have, each parameterized test's rows counted, and how many of
+  /// them are disabled, from their annotations: see [TestRows]. `dynamic` are the tests whose rows
+  /// only a run counts ([Cases]).
+  record Shape(int tests, int disabled, int dynamic) {
+    Shape(int tests, int disabled) {
+      this(tests, disabled, 0);
     }
 
-    /// A test source, in Java or Kotlin.
-    private static boolean source(Path file) {
-      var name = file.getFileName().toString();
-      return name.endsWith(".java") || name.endsWith(".kt");
+    static Shape of(List<Path> testSources) {
+      var rows = TestRows.of(testSources);
+      return new Shape(rows.tests(), rows.disabled(), rows.dynamic());
     }
 
     /// Whether this has fewer tests running than `before`: fewer, or more of them disabled.
