@@ -63,6 +63,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   prints it: the id, the change's file, line and column, the operator, the change, and the method
   it's in; then how many. With `--operators=stronger` it shows what a set would add before a run
   pays for it. The build still compiles the code, as the mutants are in its classes.
+- **The errors page pairs each code with the Rust edition's.** `no-build-tool` is the Rust
+  edition's `no-cargo`, `module-without-java` at a build's root its `workspace-root`, and the page
+  lists the codes only one edition has, so a script that wraps both reads one kind for each pair.
+  The compatibility page says the run record, `next`'s state and `gate.properties` are private to
+  each edition: only their names, and `gate close` deleting the gate's file, are promised.
 - **A run with no mutant to run runs no test.** `mutastic run --since=HEAD` on a clean tree started
   a worker and ran every test, a minute and more on a big module, to say there was nothing to
   measure. When no mutant is there to run (no changed lines, changed lines with no mutant, `--only`
