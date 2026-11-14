@@ -5,7 +5,7 @@
     "high": 80,
     "low": 60
   },
-  "projectRoot": "/private/tmp/claude-501/-Users-briancorbin-Code-mutastic/277a661e-9e57-4f0c-b24f-8cd0c88bb0f6/scratchpad/runs/rs-pricing",
+  "projectRoot": "/home/you/pricing",
   "files": {
     "src/lib.rs": {
       "language": "rust",
@@ -61,7 +61,7 @@
             }
           },
           "status": "Survived",
-          "statusReason": "no test checks discount() at total == 100",
+          "statusReason": "no test checks `discount()` at `total == 100`",
           "coveredBy": [
             "tests::small_orders_pay_full_price",
             "pricing::big_orders_get_ten_percent_off"
@@ -413,25 +413,45 @@
     }
   },
   "testFiles": {
-    "pricing": {
-      "tests": [
-        {
-          "id": "pricing::big_orders_get_ten_percent_off",
-          "name": "big_orders_get_ten_percent_off"
-        }
-      ]
-    },
-    "tests": {
+    "src/lib.rs": {
       "tests": [
         {
           "id": "tests::shipping_is_free_from_the_threshold",
-          "name": "shipping_is_free_from_the_threshold"
+          "name": "shipping_is_free_from_the_threshold",
+          "location": {
+            "start": {
+              "line": 53,
+              "column": 8
+            }
+          }
         },
         {
           "id": "tests::small_orders_pay_full_price",
-          "name": "small_orders_pay_full_price"
+          "name": "small_orders_pay_full_price",
+          "location": {
+            "start": {
+              "line": 46,
+              "column": 8
+            }
+          }
         }
-      ]
+      ],
+      "source": "//! The pricing sample, ported from the Java edition's `samples/pricing`, so the two editions'\n//! cards can be read side by side.\n\npub struct Pricing {\n    free_shipping_from: u32,\n}\n\nimpl Default for Pricing {\n    fn default() -> Self {\n        Pricing::new()\n    }\n}\n\nimpl Pricing {\n    pub fn new() -> Self {\n        Pricing::with_free_shipping_from(50)\n    }\n\n    /// A test seam: tests set the free-shipping threshold.\n    pub fn with_free_shipping_from(free_shipping_from: u32) -> Self {\n        Pricing { free_shipping_from }\n    }\n\n    /// 10% off orders of 100 or more.\n    pub fn discount(&self, total: u32) -> u32 {\n        if total >= 100 {\n            return total / 10;\n        }\n        0\n    }\n\n    /// Free from the threshold up.\n    pub fn shipping(&self, total: u32) -> u32 {\n        if total < self.free_shipping_from {\n            return 5;\n        }\n        0\n    }\n}\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[test]\n    fn small_orders_pay_full_price() {\n        let small: u32 = include_str!(\"../tests/orders.txt\").trim().parse().unwrap();\n        assert_eq!(Pricing::new().discount(small), 0);\n    }\n\n    // Through the test seam, and right at the edge.\n    #[test]\n    fn shipping_is_free_from_the_threshold() {\n        let pricing = Pricing::with_free_shipping_from(40);\n        assert_eq!(pricing.shipping(40), 0);\n        assert_eq!(pricing.shipping(39), 5);\n    }\n}\n"
+    },
+    "tests/pricing.rs": {
+      "tests": [
+        {
+          "id": "pricing::big_orders_get_ten_percent_off",
+          "name": "big_orders_get_ten_percent_off",
+          "location": {
+            "start": {
+              "line": 8,
+              "column": 4
+            }
+          }
+        }
+      ],
+      "source": "mod common;\n\nuse pricing::Pricing;\n\n// Only far from the edge: `>=` turning into `>` goes unnoticed. A helper from another test module,\n// as test data often is: mutastic must find tests in `tests/` as well as `mod tests`.\n#[test]\nfn big_orders_get_ten_percent_off() {\n    assert_eq!(Pricing::new().discount(common::large()), 25);\n}\n"
     }
   },
   "framework": {
@@ -440,12 +460,17 @@
   },
   "performance": {
     "setup": 0,
-    "initialRun": 8,
-    "mutation": 1618
+    "initialRun": 4,
+    "mutation": 1554
   },
   "mutastic": {
     "edition": "rust",
-    "runDir": ".",
+    "commands": {
+      "verify": "mutastic verify <id> .",
+      "run": "mutastic run --only=<id> .",
+      "ignore": "mutastic ignore <id> --reason=\"<why>\" .",
+      "propose": "mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason=\"Differs only when <case>. That can't happen because <why>.\" ."
+    },
     "docsBase": "https://docs.mutastic.io/rust/",
     "operatorDocs": {
       "boundary": "operators/conditions/#boundary",
@@ -460,6 +485,6 @@
       "name": "rustc",
       "version": "1.94.0"
     },
-    "startedAt": "2026-11-13T20:34:31Z"
+    "startedAt": "2026-11-14T03:44:13Z"
   }
 }

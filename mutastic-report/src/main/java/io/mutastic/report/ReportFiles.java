@@ -238,12 +238,12 @@ public final class ReportFiles {
       return Optional.empty();
     }
     var declaration =
-        Pattern.compile("\\b(?:void|fun)\\s+`?(" + Pattern.quote(name) + ")`?\\s*\\(");
+        Pattern.compile("\\b(?:void|fun)\\s+`?(?<name>" + Pattern.quote(name) + ")`?\\s*\\(");
     var lines = source.lines().toList();
     for (int i = 0; i < lines.size(); i++) {
       var found = declaration.matcher(lines.get(i));
       if (found.find()) {
-        return Optional.of(Map.of("start", pair("line", i + 1, "column", found.start(1) + 1)));
+        return Optional.of(Map.of("start", pair("line", i + 1, "column", found.start("name") + 1)));
       }
     }
     return Optional.empty();
