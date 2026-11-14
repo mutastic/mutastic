@@ -1044,7 +1044,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "2b990b50daaa673a0e08d3369f82087c5cb911ac55330e19b25142f7edf0fe3c"
+      "sha256": "07da1a2389d1772cca3a4a7a1bfc2b935be313ce8acffd966d1994f4006cec24"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1832,17 +1832,6 @@
       "decision": 2
     },
     {
-      "id": "D3",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "`run --only` prints the whole summary with a Score row and `Next:`, and `passed` follows the score",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "decision": 3
-    },
-    {
       "id": "D4",
       "kind": "pending",
       "editions": [
@@ -1964,20 +1953,6 @@
       "summary": "The gate counts a change to any Java file, tests included, before looking for the task's ignores",
       "issue": "https://github.com/mutastic/mutastic/issues/61",
       "decision": 15
-    },
-    {
-      "id": "G1",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "command line",
-      "summary": "No `mutants` command",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "items": [
-        "command:mutants",
-        "help:mutants:*"
-      ]
     },
     {
       "id": "G2",
@@ -2186,16 +2161,6 @@
       ],
       "surface": "events",
       "summary": "`unrelatedCatches` is always `[]`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G20",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "`run-finished` has no `only` (with D3)",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
@@ -2653,16 +2618,6 @@
       ],
       "surface": "human output",
       "summary": "explain's lines aren't wrapped to the terminal",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "O6",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "`run --only` prints `Next:` (with D3)",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {

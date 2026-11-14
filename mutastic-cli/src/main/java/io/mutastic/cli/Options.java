@@ -26,6 +26,11 @@ final class Options {
   /// The commands that run the module's mutants, every one or those on a change.
   private static final Set<Main.Subcommand> MODULE_RUNS = EnumSet.of(RUN, NEXT);
 
+  /// The commands that choose the module's operators: those that run its mutants, and `mutants`,
+  /// which lists them.
+  private static final Set<Main.Subcommand> OPERATORS_CHOSEN =
+      EnumSet.of(RUN, NEXT, Main.Subcommand.MUTANTS);
+
   private static final Set<Main.Subcommand> MUTANTS_RUN =
       EnumSet.of(RUN, VERIFY, EXPLAIN, NEXT, Main.Subcommand.BASELINE);
 
@@ -226,7 +231,7 @@ final class Options {
               List.of(),
               "Which operators run: a set (defaults, stronger, extended or all), an operator's id"
                   + " or namespace, or any with - in front to leave it out; defaults unless set",
-              MODULE_RUNS,
+              OPERATORS_CHOSEN,
               "operators",
               false,
               "",

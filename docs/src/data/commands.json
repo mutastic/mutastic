@@ -100,6 +100,17 @@
       "takesMutantId": false,
       "examples": [{ "gradle": "", "maven": "", "commandLine": "mutastic gate close" }],
       "options": ["--hook"]
+    },
+    {
+      "name": "mutants",
+      "page": "mutants",
+      "synopsis": "mutastic mutants [DIR] [:MODULE]",
+      "summary": "List the mutants, without running a test",
+      "detail": "One line each: its id, place, operator, the change, and the method it's in; the last line counts them. The build compiles the code, as the mutants are in its classes, and no test runs. With --operators, it shows what those would add before a run.",
+      "exits": "0 once they're listed.",
+      "takesMutantId": false,
+      "examples": [{ "gradle": "", "maven": "", "commandLine": "mutastic mutants" }, { "gradle": "", "maven": "", "commandLine": "mutastic mutants samples/pricing --operators=stronger" }],
+      "options": ["--operators"]
     }
   ],
   "options": [
@@ -307,11 +318,11 @@
       "value": "OPERATORS",
       "choices": [],
       "help": "Which operators run: a set (defaults, stronger, extended or all), an operator's id or namespace, or any with - in front to leave it out; defaults unless set",
-      "commands": ["next", "run"],
+      "commands": ["mutants", "next", "run"],
       "environment": "",
       "maven": { "property": "-Dmutastic.operators", "setting": null },
       "gradle": { "property": "-Pmutastic.operators", "setting": null },
-      "examples": { "next": { "gradle": "", "maven": "", "commandLine": "mutastic next --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.operators=stronger", "maven": "mvn mutastic:run -Dmutastic.operators=stronger", "commandLine": "mutastic run --operators=stronger", "gradleBuild": "", "mavenBuild": "" } }
+      "examples": { "mutants": { "gradle": "", "maven": "", "commandLine": "mutastic mutants --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "next": { "gradle": "", "maven": "", "commandLine": "mutastic next --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.operators=stronger", "maven": "mvn mutastic:run -Dmutastic.operators=stronger", "commandLine": "mutastic run --operators=stronger", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--experimental",
