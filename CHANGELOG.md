@@ -240,6 +240,19 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Agents
 
+- **The gate counts a parameterized test's rows.** It counted test methods, so a task that took a
+  row out of a `@CsvSource` or `Arguments.of(…)`, or turned a parameterized test off, passed. Now
+  rows a static source holds are counted from its annotations, at `gate open` and at each check:
+  `@CsvSource` entries and `textBlock` lines, `@ValueSource` values, `@EnumSource` names,
+  `@CsvFileSource` lines, `@NullSource` and `@EmptySource`. `@Disabled` and `@Ignore` turn off all
+  of a method's or a class's rows. What only running says (rows a `@MethodSource`,
+  `@ArgumentsSource` or `@FieldSource` makes, a test a condition such as `@DisabledOnOs` turns off,
+  a case an assumption aborts) a run counts: `gate open` starts one in the background, on a copy of
+  the tree, and returns at once; a check waits for it, up to four minutes
+  (`MUTASTIC_GATE_COUNT_WAIT`, in seconds), and holds a task whose own run has fewer cases or more
+  skipped. If it couldn't count, a pass says so. `gate close` stops it. Comments don't count.
+- **A case an assumption aborts isn't a failure.** `assumeTrue(false)` failed the test as far as
+  mutastic was concerned: a red baseline, or a mutant caught. It's skipped now, as JUnit says.
 - **The gate and `--since` see Kotlin.** Git's diff and its new-file listing took only `*.java`,
   so a Kotlin task's changed lines were none: `--since` mutated nothing, and the gate passed a
   task that changed `.kt` code with no mutant run. Its test count read only `.java` files too, so

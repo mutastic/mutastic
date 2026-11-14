@@ -48,6 +48,7 @@ class GateTest {
   @AfterEach
   void stdinBack() {
     System.setIn(stdin);
+    GateCount.stop(project.resolve("build/mutastic"));
   }
 
   @Test
@@ -602,7 +603,7 @@ class GateTest {
     assertThat(changed.out()).contains("Changed  1 line in 1 file since main");
     assertThat(held.exit()).as(held.out()).isEqualTo(Main.FAILED);
     assertThat(held.out())
-        .contains("fewer tests run than when the task started (5, 0 disabled; now 4, 0 disabled)");
+        .contains("fewer tests run than when the task started (7, 0 disabled; now 5, 0 disabled)");
   }
 
   @Test
