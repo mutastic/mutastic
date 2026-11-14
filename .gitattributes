@@ -3,3 +3,5 @@
 * text=auto eol=lf
 *.bat -text
 *.cmd -text
+# Fonts the report page embeds.
+*.woff2 binary

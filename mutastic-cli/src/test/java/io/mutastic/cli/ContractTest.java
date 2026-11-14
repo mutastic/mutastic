@@ -572,6 +572,8 @@ class ContractTest {
       while (entry && read.more()) {
         entry = read.sequence(agent.get("entry"), false);
       }
+      // The fence's close, after the entries: what quotes the project ends there.
+      read.sequence(agent.get("tail"), true);
       if (read.more()) {
         found.add(
             new Found(

@@ -74,12 +74,13 @@ class DocsOutputTest {
 
   @TempDir Path work;
 
-  /// The quickstart's tour, in order: a run that misses one mutant, that mutant explained, the
-  /// suggested test proving it caught, and the run after it.
+  /// The sample's mutants, listed; then the quickstart's tour, in order: a run that misses one
+  /// mutant, that mutant explained, the suggested test proving it caught, and the run after it.
   @Test
   void theQuickstart() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("pricing"));
 
+    shown("mutants.ansi", project, mutastic("mutants", project.toString()));
     shown("run.ansi", project, mutastic("run", project.toString(), "--workers=4"));
     shown("explain.ansi", project, mutastic("explain", ID, project.toString()));
     var events = mutastic("explain", ID, project.toString(), "--format=jsonl");

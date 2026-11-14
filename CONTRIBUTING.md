@@ -56,6 +56,11 @@ projects the end-to-end tests run on.
   After changing an option or a command, run `./gradlew :mutastic-cli:exportDocsModel`; the build
   fails until the docs' reference matches. After changing what a command prints, run
   `./gradlew :mutastic-cli:exportDocsOutput`, for the output the docs show.
+- **The HTML report:** the page both editions embed is `report-ui/`: its markup, styles and
+  script in `src/`, and the fonts. After changing them, run `node report-ui/build.mjs` and commit
+  `report.html` and its checksum with them; `node --test report-ui/test/*.test.mjs` renders it in
+  Chrome. `node report-ui/build.mjs --embed mutation.json out.html` puts a run's report in it, to
+  look at.
 - **Dependencies:** pin exact versions, then `./gradlew lockDependencies --write-locks`.
 
 ## Keeping the editions level
@@ -74,7 +79,8 @@ it on docs.mutastic.io. It holds what the editions must agree on:
   names, choices, defaults, environment variables and exit codes;
 - every error code with its exit code, the pairs that mean the same thing (`errorPairs`), and a
   table of error cases (`errorCases`) with the code and exit code each must end with;
-- help's layout, the human summary's rows and their order, and the agent format's line shapes;
+- help's layout, the human summary's rows and their order, and the agent format's line shapes
+  (its head, each entry, and the tail that closes the fence around the project's text);
 - the events' key paths per event type and their order, and mutation.json's key paths;
 - the events, report and SARIF schemas, by sha256;
 - the 15 decisions taken on 13 Nov 2026 (`decisions`), each a shared rule;
