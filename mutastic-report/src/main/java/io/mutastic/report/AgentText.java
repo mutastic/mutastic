@@ -40,7 +40,7 @@ public final class AgentText {
       Vocabulary words,
       boolean eachMutant,
       Optional<FailOnNew> failOnNew) {
-    this.sources = sources;
+    this.sources = sources.shown();
     this.threshold = threshold;
     this.words = words;
     this.eachMutant = eachMutant;
@@ -107,9 +107,11 @@ public final class AgentText {
                 + " unless the task or spec says listeners should hear of that write.\n")
             .formatted(GhostCards.summary(report)));
     var cards = new GhostCards(sources);
+    var quoted = new StringBuilder();
     GhostCards.found(report).stream()
         .filter(ghost -> !ghost.appeared())
-        .forEach(ghost -> cards.card(ghost).forEach(line -> out.append(line).append('\n')));
+        .forEach(ghost -> cards.card(ghost).forEach(line -> quoted.append(line).append('\n')));
+    out.append(Untrusted.fence(quoted.toString()));
   }
 
   /// `85.7%`, or `none` when there was nothing to score.
@@ -135,10 +137,14 @@ public final class AgentText {
             .formatted(
                 MutantCommand.DECLINE,
                 MutantCommand.PROPOSE.command("<id>", sources.invocation())));
-    appendMissed(out, missed);
+    // From here on, each line quotes the code or the test run: fenced, so none of it reads as
+    // mutastic's own instructions.
+    var quoted = new StringBuilder();
+    appendMissed(quoted, missed);
     if (!notCovered.isEmpty()) {
-      appendNotCovered(out, report, notCovered, missed.isEmpty());
+      appendNotCovered(quoted, report, notCovered, missed.isEmpty());
     }
+    out.append(Untrusted.fence(quoted.toString()));
   }
 
   /// The one mutant's fate, and for a missed one the rules and its entry.
@@ -147,11 +153,11 @@ public final class AgentText {
     out.append("mutastic: %s %s\n".formatted(result.mutant().id(), fate(result)));
     if (result.status() == Status.MISSED) {
       out.append(
-          "rules: %s; a fix counts when `%s` passes\n\n"
+          "rules: %s; a fix counts when `%s` passes\n"
               .formatted(
                   MutantCommand.RULE,
                   MutantCommand.DONE_WHEN.command(result.mutant().id(), sources.invocation())));
-      out.append(entry(0, result));
+      out.append(Untrusted.fence("\n" + entry(0, result)));
     }
     return out.toString();
   }
@@ -219,7 +225,7 @@ public final class AgentText {
             + " `--exclude-tests=%s`. Never remove, disable or loosen it to get a run through\n")
         .formatted(
             shortName(why.test()),
-            why.failedWith().map(" with %s"::formatted).orElse(""),
+            why.failedWith().map(failed -> " with " + Untrusted.value(failed)).orElse(""),
             testClass(why.test()));
   }
 
@@ -229,8 +235,7 @@ public final class AgentText {
       out.append(
           "stale ignores: %s no longer match their code, so their mutants ran; ask before removing them (%s)\n"
               .formatted(
-                  String.join(
-                      ", ",
+                  Untrusted.values(
                       report.staleIgnores().stream().map(io.mutastic.api.Ignore::id).toList()),
                   sources.invocation().command(HumanText.PRUNE)));
     }
@@ -265,17 +270,19 @@ public final class AgentText {
               + " nothing in the test varies: that's the environment, and changing the test or the"
               + " code to get past it would hide it, so leave both, tell the person, and run"
               + " without it with `--exclude-tests=%s`.")
-          .formatted(outside.get(), testClass(test));
+          .formatted(Untrusted.value(outside.get()), testClass(test));
     }
     if (why.isPresent() && !why.get().reaches().isEmpty()) {
       return ("The code it runs reaches %s, which answers differently every run: making that the"
               + " same every time (a seed, a fixed clock, through the code's own seam) is likely"
               + " safe, so long as the test still checks what it did.")
-          .formatted(String.join(", ", why.get().reaches()));
+          .formatted(Untrusted.values(why.get().reaches()));
     }
     return "mutastic can't tell why%s: leave it unless the cause is plain in the code, and say in your final message that it's flaky."
         .formatted(
-            why.flatMap(FlakyTest::failedWith).map(" (it failed with %s)"::formatted).orElse(""));
+            why.flatMap(FlakyTest::failedWith)
+                .map(failed -> " (it failed with %s)".formatted(Untrusted.value(failed)))
+                .orElse(""));
   }
 
   /// A test whose own code varies: making it the same every run is its fix.
@@ -284,8 +291,10 @@ public final class AgentText {
             + " flakiness%s: making that the same every time is likely safe, and if it stands in"
             + " for something real (a slow service), keep that checked by a test of its own.")
         .formatted(
-            String.join(", ", why.reachesInTest()),
-            why.outsideCause().map(" (it failed with %s)"::formatted).orElse(""));
+            Untrusted.values(why.reachesInTest()),
+            why.outsideCause()
+                .map(failed -> " (it failed with %s)".formatted(Untrusted.value(failed)))
+                .orElse(""));
   }
 
   /// `QuoteClientTest`, the class `--exclude-tests` takes, of `com.example.QuoteClientTest#a`.
@@ -301,7 +310,7 @@ public final class AgentText {
     for (var suspect : Suspects.changedBetweenRuns(comparison)) {
       out.append(
           "likely flaky: %s; with the code unchanged, whether it catches %s changed since the last run. "
-                  .formatted(shortName(suspect.test()), String.join(", ", suspect.mutants()))
+                  .formatted(shortName(suspect.test()), Untrusted.values(suspect.mutants()))
               + "Its catches can't be trusted until it's fixed\n".formatted());
     }
     for (var suspect : Suspects.unconfirmed(report)) {
@@ -310,7 +319,7 @@ public final class AgentText {
               .formatted(
                   shortName(suspect.test()),
                   suspect.mutants().size() == 1 ? "catch" : "catches",
-                  String.join(", ", suspect.mutants())));
+                  Untrusted.values(suspect.mutants())));
     }
   }
 
@@ -323,7 +332,7 @@ public final class AgentText {
                   shortName(note.test()),
                   note.mutants().size(),
                   note.methods(),
-                  note.failure().substring(note.failure().lastIndexOf('.') + 1)));
+                  Untrusted.value(note.failure().substring(note.failure().lastIndexOf('.') + 1))));
     }
   }
 
@@ -371,7 +380,8 @@ public final class AgentText {
               appendProposals(out, mutants);
             });
     SuggestedTest.startingPoints(notCovered, sources, LIMIT)
-        .forEach(assertion -> out.append("  start with: %s\n".formatted(assertion)));
+        .forEach(
+            assertion -> out.append("  start with: %s\n".formatted(Untrusted.value(assertion))));
   }
 
   /// `src/…/Pricing.java:12-15 discount()` to the mutants no test reaches there, in report order:
@@ -508,8 +518,10 @@ public final class AgentText {
   }
 
   private static void addSuggestedTest(List<String> lines, SuggestedTest test) {
-    lines.add("   test to add in %s:".formatted(SourceNames.sourceName(test.testClass())));
-    test.lines().forEach(line -> lines.add("     " + line));
+    lines.add(
+        "   test to add in %s:"
+            .formatted(Untrusted.value(SourceNames.sourceName(test.testClass()))));
+    test.lines().forEach(line -> lines.add("     " + Untrusted.value(line)));
     lines.add(
         "     // check today's value is the one you intend: the test pins what the code does now");
   }
@@ -530,11 +542,13 @@ public final class AgentText {
         : "left out of this run with every test in it, so their catches don't count";
   }
 
+  /// `PricingTest#bigOrders`, as it's shown: [Untrusted#value]d, as a test's name is the project's.
   static String shortName(String test) {
     int hash = test.indexOf('#');
     var className = hash < 0 ? test : test.substring(0, hash);
-    return className.substring(className.lastIndexOf('.') + 1)
-        + (hash < 0 ? "" : test.substring(hash));
+    return Untrusted.value(
+        className.substring(className.lastIndexOf('.') + 1)
+            + (hash < 0 ? "" : test.substring(hash)));
   }
 
   static List<String> shortNames(List<String> tests) {

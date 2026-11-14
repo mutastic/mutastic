@@ -150,8 +150,15 @@ public final class JsonEvents {
   private Map<String, Object> mutation(Mutant mutant) {
     var advice = sources.advice(mutant);
     var mutation = new LinkedHashMap<String, Object>();
-    advice.before().ifPresent(before -> mutation.put("original", before));
-    advice.after().ifPresent(after -> mutation.put("replacement", after));
+    var change = sources.change(mutant);
+    if (change.isPresent()) {
+      mutation.put("original", change.get().original());
+      mutation.put("replacement", change.get().replacement());
+    } else if (advice.before().isPresent() && advice.after().isPresent()) {
+      // A token the line has more than once: its card can't place it, but the tokens are source.
+      mutation.put("original", advice.before().get());
+      mutation.put("replacement", advice.after().get());
+    }
     mutation.put("description", advice.change());
     var applied = new LinkedHashMap<String, Object>();
     applied.put("level", "bytecode");

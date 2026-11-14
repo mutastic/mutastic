@@ -914,8 +914,13 @@ public record Advice(
     return token.map("the `%s` check"::formatted).orElse("the condition");
   }
 
-  /// `` `discount()` ``, or "a lambda in `run()`" for javac's `lambda$run$0`.
+  /// `` `discount()` ``, or "a lambda in `run()`" for javac's `lambda$run$0`, as it's shown: a name
+  /// can hold what a terminal hides, so it's [Untrusted#escape]d.
   static String method(Mutant mutant) {
+    return Untrusted.escape(methodOf(mutant));
+  }
+
+  private static String methodOf(Mutant mutant) {
     var where = SourceNames.of(mutant);
     if (where.method().isEmpty()) {
       return where.kind().orElse("`%s`".formatted(where.className()));

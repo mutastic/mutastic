@@ -20,6 +20,10 @@ public final class SourceView {
   private final Invocation invocation;
   private final Function<String, Optional<String>> classSources;
 
+  /// Whether what it gives of the project's text is shown: [Untrusted#value]d, for a person's or an
+  /// agent's reading. Events and report files keep it as it is.
+  private final boolean shown;
+
   /// `root` is the project directory, which locations are relative to.
   public SourceView(Path root, List<Path> sources) {
     this(root, sources, List.of());
@@ -27,7 +31,7 @@ public final class SourceView {
 
   /// With the test sources too, so suggested tests match the class they'd go into.
   public SourceView(Path root, List<Path> sources, List<Path> testSources) {
-    this(root, sources, testSources, Invocation.HERE, className -> Optional.empty());
+    this(root, sources, testSources, Invocation.HERE, className -> Optional.empty(), false);
   }
 
   private SourceView(
@@ -35,25 +39,35 @@ public final class SourceView {
       List<Path> sources,
       List<Path> testSources,
       Invocation invocation,
-      Function<String, Optional<String>> classSources) {
+      Function<String, Optional<String>> classSources,
+      boolean shown) {
     this.root = root;
     this.sources = List.copyOf(sources);
     this.testSources = List.copyOf(testSources);
     this.invocation = invocation;
     this.classSources = classSources;
+    this.shown = shown;
+  }
+
+  /// The same, giving the project's text as it's shown to a person or an agent: a file's name and
+  /// the advice's words (which quote the code) [Untrusted#escape]d.
+  public SourceView shown() {
+    return shown
+        ? this
+        : new SourceView(root, sources, testSources, invocation, classSources, true);
   }
 
   /// How the person runs mutastic on this run's project, from where they ran it: what the commands
   /// the output offers need, to work as they're copied.
   public SourceView withInvocation(Invocation invocation) {
-    return new SourceView(root, sources, testSources, invocation, classSources);
+    return new SourceView(root, sources, testSources, invocation, classSources, shown);
   }
 
   /// Where each class's source is, under a source root, as its class file names it
   /// (`com/example/tally/Tally.common.kt` for `com/example/tally/Tally_commonKt`), when it's known:
   /// a class's name doesn't always say.
   public SourceView withClassSources(Function<String, Optional<String>> classSources) {
-    return new SourceView(root, sources, testSources, invocation, classSources);
+    return new SourceView(root, sources, testSources, invocation, classSources, shown);
   }
 
   public Invocation invocation() {
@@ -97,7 +111,8 @@ public final class SourceView {
   /// `src/main/java/com/example/Pricing.java`, relative to the project, or the class's own path if
   /// no source directory has it.
   public String file(Mutant mutant) {
-    return sourceFile(mutant).map(this::relative).orElseGet(() -> namedPath(mutant));
+    var file = sourceFile(mutant).map(this::relative).orElseGet(() -> namedPath(mutant));
+    return shown ? Untrusted.value(file) : file;
   }
 
   /// The source file itself, for linking to, if it's there.
@@ -144,12 +159,18 @@ public final class SourceView {
 
   /// The advice for a mutant, its jump read the way the source has it.
   public Advice advice(Mutant mutant) {
-    return advice(mutant, java.util.Map.of());
+    return escaped(advice(mutant, java.util.Map.of()));
   }
 
   /// The advice with the inputs the covering tests passed, its jump read the way the source has it.
   public Advice advice(io.mutastic.api.MutantResult result) {
-    return NamedNotes.of(advice(result.mutant(), result.inputs()), result);
+    return escaped(NamedNotes.of(advice(result.mutant(), result.inputs()), result));
+  }
+
+  /// The advice as this view gives it: its words quote the code (an operand, a name), so where the
+  /// text is shown they're escaped as the code is.
+  private Advice escaped(Advice advice) {
+    return shown ? advice.reworded(Untrusted::escape) : advice;
   }
 
   private Advice advice(Mutant mutant, java.util.Map<String, List<Long>> seen) {
@@ -412,6 +433,12 @@ public final class SourceView {
             .map(text -> Statements.linesOf(text, before))
             .filter(after -> !after.equals(before));
     return new Diff(first, before, changed, advice.change());
+  }
+
+  /// The mutant's change as source, when its card can show it: the span it replaces, and what
+  /// replaces it.
+  public Optional<SourceChange> change(Mutant mutant) {
+    return SourceChange.of(diff(mutant, advice(mutant)));
   }
 
   /// Where the mutant's line is: for code copied in from another file, that file and no other, as
