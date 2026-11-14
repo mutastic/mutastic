@@ -98,42 +98,51 @@ class ModuleNamesTest {
     assertWorks(lastCommand(run));
   }
 
+  /// A directory below a build's own runs that build, as the Rust edition runs the package a
+  /// directory is in.
   @Test
-  void aDirectoryInsideAGradleBuildNamesTheBuild() throws Exception {
+  void aDirectoryInsideAGradleBuildRunsTheBuild() throws Exception {
     var build = Samples.copy(SAMPLES.resolve("pricing"), work.resolve("pricing"));
 
-    var run = Samples.mutastic("run", build.resolve("src").toString());
+    var run =
+        Samples.mutastic("run", build.resolve("src").toString(), "--format=brief", "--report=none");
 
-    assertThat(run.exit()).isEqualTo(Main.USAGE);
-    assertThat(run.err())
-        .isEqualTo(
-            """
-            mutastic: %s isn't a build's top directory.
-            It's inside the Gradle build in %s. To test it:
-              mutastic run %s
-            """
-                .formatted(build.resolve("src"), build, build));
-    assertWorks(lastCommand(run));
+    assertThat(run.err()).doesNotContain("mutastic:");
+    assertThat(run.exit()).isIn(Main.PASSED, Main.FAILED);
+    assertThat(run.out()).contains("Pricing");
   }
 
   /// A Maven module is tested from the top of its build, which builds the modules it uses.
   @Test
-  void aDirectoryInsideAMavenModuleNamesTheModuleFromTheTop() throws Exception {
+  void aDirectoryInsideAMavenModuleRunsTheModuleFromTheTop() throws Exception {
     var build = Samples.copy(SAMPLES.resolve("maven-modules"), work.resolve("maven-modules"));
     var inside = build.resolve("app/src/main");
 
-    var run = Samples.mutastic("run", inside.toString());
+    var run = Samples.mutastic("run", inside.toString(), "--format=brief", "--report=none");
 
+    assertThat(run.err()).doesNotContain("mutastic:");
+    assertThat(run.exit()).isIn(Main.PASSED, Main.FAILED);
+  }
+
+  /// A directory in a build of modules, but in none of them, is the build's root: refused, with the
+  /// command for each module.
+  @Test
+  void aDirectoryInABuildOfModulesButInNoneIsTheRoots() throws Exception {
+    var build = Samples.copy(SAMPLES.resolve("maven-modules"), work.resolve("maven-modules"));
+    var notes = java.nio.file.Files.createDirectories(build.resolve("notes"));
+
+    var run = Samples.mutastic("run", notes.toString());
+
+    assertThat(run.exit()).isEqualTo(Main.USAGE);
     assertThat(run.err())
-        .isEqualTo(
+        .endsWith(
             """
-            mutastic: %s isn't a build's top directory.
-            It's inside module :app of the Maven build in %s. To test it:
-              mutastic run %s :app
+            mutastic: %1$s is a build's root, with no Java code of its own.
+            Its modules with Java code are :app and :core. To test one:
+              mutastic run %1$s :app
+              mutastic run %1$s :core
             """
-                .formatted(inside, build, build));
-    assertThat(build.resolve("app/target")).doesNotExist();
-    assertWorks(lastCommand(run));
+                .formatted(build));
   }
 
   /// The words of the message's last line, a `mutastic` command, without `mutastic`.

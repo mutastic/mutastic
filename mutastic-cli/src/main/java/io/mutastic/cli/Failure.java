@@ -31,6 +31,7 @@ record Failure(int exit, String code, String said) {
       List.of(
           "unknown-command",
           "unknown-option",
+          "option-not-taken",
           "option-value",
           "needs-id",
           "extra-words",
