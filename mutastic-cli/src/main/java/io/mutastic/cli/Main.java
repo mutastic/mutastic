@@ -1369,6 +1369,18 @@ public final class Main {
               .formatted(vocabulary));
     }
     var words = Vocabulary.valueOf(vocabulary.toUpperCase(java.util.Locale.ROOT));
+    return new Output(
+        out,
+        progress(command, err, format, terminal),
+        format,
+        words,
+        style(command, terminal),
+        GitHubRun.of(terminal, err));
+  }
+
+  /// Progress on `err`, saying how many tests it found to suggest only when it looks for them.
+  private static Progress progress(
+      Command command, PrintStream err, String format, Terminal terminal) {
     var progress =
         new Progress(
             err,
@@ -1377,8 +1389,7 @@ public final class Main {
     if (!command.suggestions() || command.verify()) {
       progress.notSuggesting();
     }
-    return new Output(
-        out, progress, format, words, style(command, terminal), GitHubRun.of(terminal, err));
+    return progress;
   }
 
   private static Style style(Command command, Terminal terminal) {
