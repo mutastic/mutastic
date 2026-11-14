@@ -133,13 +133,18 @@ final class Sarif {
     return message;
   }
 
-  /// Where the mutant is: its file, from the base, and the line and columns of its change.
+  /// Where the mutant is: its file, from the base, and the lines and columns of the source it
+  /// replaces.
   private Map<String, Object> physicalLocation(Mutant mutant) {
     var place = sources.place(mutant);
+    var change = sources.change(mutant);
     var region = new LinkedHashMap<String, Object>();
-    region.put("startLine", place.line());
-    region.put("startColumn", place.start());
-    region.put("endColumn", place.end());
+    region.put("startLine", change.map(SourceChange::line).orElse(place.line()));
+    region.put("startColumn", change.map(SourceChange::column).orElse(place.start()));
+    change
+        .filter(found -> found.endLine() != found.line())
+        .ifPresent(found -> region.put("endLine", found.endLine()));
+    region.put("endColumn", change.map(SourceChange::endColumn).orElse(place.end()));
     var artifact = new LinkedHashMap<String, Object>();
     artifact.put("uri", fromBase(sources.file(mutant)));
     artifact.put("uriBaseId", "%SRCROOT%");
