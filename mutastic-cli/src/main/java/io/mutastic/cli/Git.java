@@ -62,6 +62,15 @@ final class Git {
     }
   }
 
+  /// Whether the working tree is the commit `base`'s, file for file: a task that changed nothing
+  /// can't have broken a test.
+  boolean untouchedSince(String base) {
+    return run(List.of("rev-parse", base + "^{tree}"))
+        .map(String::strip)
+        .filter(tree()::equals)
+        .isPresent();
+  }
+
   /// A file as it was at a commit, by its path from this directory: none if it wasn't there, or
   /// this directory isn't.
   Optional<String> at(String commit, Path file) {
