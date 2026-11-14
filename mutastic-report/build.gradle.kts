@@ -22,7 +22,17 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
+// The HTML report's page, built in report-ui/ (node report-ui/build.mjs) and committed there with
+// its checksum, which ReportFilesTest holds it to.
+val reportPage = rootDir.resolve("report-ui/report.html")
+
+tasks.processResources {
+    from(reportPage) { into("io/mutastic/report") }
+}
+
 tasks.test {
+    systemProperty("mutastic.reportPage", rootDir.resolve("report-ui").absolutePath)
+    inputs.dir(rootDir.resolve("report-ui")).withPathSensitivity(PathSensitivity.RELATIVE)
     useJUnitPlatform()
     // The schemas docs.mutastic.io serves, which every event the tests write is checked against.
     val schemas = rootDir.resolve("docs/public/schemas")

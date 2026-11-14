@@ -184,7 +184,7 @@ class PricingSampleTest {
         .isEmpty();
     assertThat(project.resolve("build/mutastic/mutation.html"))
         .content()
-        .contains("<mutation-test-report-app");
+        .contains("id=\"mutation-report\">{\"$schema\"");
     assertThat(run.out())
         .contains("  Reports  build/mutastic/mutation.json · build/mutastic/mutation.html");
     assertThat(none.resolve("build/mutastic/mutation.json")).doesNotExist();
