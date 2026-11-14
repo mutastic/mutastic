@@ -171,7 +171,9 @@ The directory named isn't there.
 ### `no-project`
 
 The directory isn't a Gradle or Maven build: it has no `settings.gradle(.kts)`, `build.gradle(.kts)`
-or `pom.xml`. Inside a build, mutastic names it and the command that tests it.
+or `pom.xml`, nor does any directory above it. In a directory below a build's own, such as its
+`src`, mutastic runs the build, or the Maven module, the directory is in; in a build of modules but
+in none of them, it's the build's root, below.
 
 ### `module-missing`
 

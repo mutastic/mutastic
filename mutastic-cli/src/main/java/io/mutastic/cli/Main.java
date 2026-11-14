@@ -124,7 +124,7 @@ public final class Main {
       return answered.getAsInt();
     }
     try {
-      var command = Command.parse(args);
+      var command = enclosing(Command.parse(args));
       return nothingToGate(command) ? PASSED : run(command, out, err, terminal);
     } catch (RuntimeException e) {
       var failure = Failure.of(e, List.of(args), terminal.env());
@@ -172,6 +172,32 @@ public final class Main {
             .reduce((first, last) -> last)
             .orElseGet(terminal::defaultFormat);
     return format.equals("agent") || format.equals("jsonl");
+  }
+
+  /// The command on the build its directory is in, when the directory is below a build's own (its
+  /// `src`, say) and names no module: the build, or the Maven module, that directory belongs to, as
+  /// the Rust edition runs the package a directory is in. The top of a build of modules is then
+  /// refused as it is when named, with the module commands to run. A build plugin names its build.
+  private static Command enclosing(Command command) {
+    if (!command.module().equals(":") || command.setup().isPresent()) {
+      return command;
+    }
+    var directory = command.directory().toAbsolutePath().normalize();
+    return BuildTools.enclosing(directory)
+        .map(address -> command.on(typedPath(address.directory()), address.module()))
+        .orElse(command);
+  }
+
+  /// A directory as it would be typed from where mutastic runs: relative when one is inside the
+  /// other, `..`, and `.` for here.
+  private static Path typedPath(Path directory) {
+    var here = Path.of("").toAbsolutePath().normalize();
+    if (directory.equals(here)) {
+      return Path.of(".");
+    }
+    return here.startsWith(directory) || directory.startsWith(here)
+        ? here.relativize(directory)
+        : directory;
   }
 
   /// A hook runs in whatever project the agent is in. Where mutastic reads no build, there's
@@ -2206,6 +2232,33 @@ public final class Main {
           suite,
           since,
           Optional.of(how),
+          setup,
+          commands,
+          gating,
+          experimental,
+          top,
+          sharing);
+    }
+
+    /// The same command, on another build's directory and module.
+    Command on(Path otherDirectory, String otherModule) {
+      return new Command(
+          subcommand,
+          otherDirectory,
+          otherModule,
+          shown,
+          bar,
+          only,
+          catches,
+          workers,
+          extras,
+          reports,
+          testsFrom,
+          operators,
+          excludeTests,
+          suite,
+          since,
+          ignore,
           setup,
           commands,
           gating,

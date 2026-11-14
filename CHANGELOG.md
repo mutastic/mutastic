@@ -104,10 +104,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   failure. Now it says `the build has no module :nope.`, names the modules there are, and makes
   nothing. A close name, `:cor`, gets `There's one called :core.` and its command. Gradle, which
   took `:cor` for `:core` and ran it, now says so too.
-- **A directory inside a build names the build.** Run in a build's `src`, mutastic said it isn't a
-  Gradle or Maven build, with commands to fill in. Now it says which build it's inside and ends in
-  the command that tests it: `mutastic run ..`, or `mutastic run ../.. :app` for a Maven module,
-  which is tested from the top of its build.
+- **A directory inside a build runs that build.** In a build's `src`, mutastic said it isn't a
+  build's top directory and ended in the command to run. Now it runs the build, or the Maven
+  module, the directory is in, as the Rust edition runs the package a directory is in. In a build
+  of modules but in none of them, it's refused as the build's root is, with a command for each
+  module.
 - **A close name is said, with the command corrected.** A mistyped command, option, value,
   `mutastic.` property, `mutastic.yaml` section or rule, rules-file key, operator, filter or mutant
   id now gets the one name close to it, as a statement, never run in its place:

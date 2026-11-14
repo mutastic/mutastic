@@ -1846,20 +1846,6 @@
       ]
     },
     {
-      "id": "D6",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "errors",
-      "summary": "A directory inside a single-package build is refused rather than walked up from",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "decision": 6,
-      "items": [
-        "error:subdir:*"
-      ]
-    },
-    {
       "id": "D7",
       "kind": "pending",
       "editions": [
