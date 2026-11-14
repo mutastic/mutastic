@@ -572,13 +572,16 @@ public record Advice(
             .map(was -> "no test checks %s returning `%s` here".formatted(method, was))
             .orElse("no test checks what %s returns here".formatted(method)),
         notes,
-        today
-            .map(
-                was ->
-                    "add a test where %s returns `%s` here, and assert it".formatted(method, was))
-            .orElseGet(() -> returnHelp(method, value)),
+        returnFix(method, value, today),
         Optional.empty(),
         Optional.of(value));
+  }
+
+  /// The test that needs what the return gives today, when that's known.
+  private static String returnFix(String method, String value, Optional<String> today) {
+    return today
+        .map(was -> "add a test where %s returns `%s` here, and assert it".formatted(method, was))
+        .orElseGet(() -> returnHelp(method, value));
   }
 
   /// What a return gives today, when the mutant's value says: the other `boolean`, or the `0` a
@@ -932,9 +935,8 @@ public record Advice(
   }
 
   /// `` `total >= 100` ``, `` `Files.isRegularFile(git)` `` for a test of a call, or "the `>=`
-  /// check" / "the condition" when the operands aren't known.
-  /// The condition as source, `total >= 100`, or `ready` for one operand: none when the run
-  /// doesn't say what it compares.
+  /// check" / "the condition" when the operands aren't known. The condition as source, `total >=
+  /// 100`, or `ready` for one operand: none when the run doesn't say what it compares.
   private static Optional<String> conditionSource(List<String> operands, Optional<String> token) {
     if (operands.size() == 1) {
       return Optional.of(operands.getFirst());
