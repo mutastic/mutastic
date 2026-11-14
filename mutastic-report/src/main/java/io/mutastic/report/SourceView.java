@@ -414,6 +414,12 @@ public final class SourceView {
     return new Diff(first, before, changed, advice.change());
   }
 
+  /// The mutant's change as source, when its card can show it: the span it replaces, and what
+  /// replaces it.
+  public Optional<SourceChange> change(Mutant mutant) {
+    return SourceChange.of(diff(mutant, advice(mutant)));
+  }
+
   /// Where the mutant's line is: for code copied in from another file, that file and no other, as
   /// the line is one of its.
   private Optional<Path> sourceFile(Mutant mutant) {

@@ -80,11 +80,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 ### Fixes
 
 - **`mutation.original` and `replacement` are source, as in the Rust edition.** In the events and
-  `mutation.json`, `original` is the source span the mutant replaces and `replacement` the source
-  that replaces it. A condition made constant had `original` `>=` and no replacement; now it's
-  `total >= 100` and `false`. A return's `replacement` was `return 0;`, and is `0`. In
-  `mutation.json`, a condition made constant's `replacement` was its description, and is the
-  source too.
+  `mutation.json`, `original` is the source the mutant replaces and `replacement` the source that
+  replaces it, so writing one over the other gives the mutant's line; `mutation.json`'s `location`
+  and SARIF's region span that source. A condition made constant had `original` `>=` and no
+  replacement; now it's `total >= 100` and `false`. A return's `replacement` was `return 0;`, and
+  is `0`. A statement taken out has an empty replacement. Where the source can't show the change,
+  `mutation.json` gives no `replacement` rather than the description, which stays in `description`.
 - **The gate runs the tests even with no mutant on the changed lines.** Since a run with no mutant
   to run stopped running the tests, a task that changed only lines with no mutant (a constant, an
   import, a log line) passed the gate with no test run, even when it broke one. The gate's run now
