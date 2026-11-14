@@ -12,6 +12,9 @@ import java.util.List;
 /// @param flaky tests left out because they failed and then passed
 /// @param flakyEvidence for each flaky test, what it failed with and what it reaches that changes
 ///   from run to run
+/// @param cases the test cases run, each row of a parameterized test one; -1 when not counted
+/// @param skippedCases the tests and cases skipped: turned off, or aborted by an assumption; -1
+///   when not counted
 @Internal
 public record CoveragePass(
     int jdk,
@@ -19,10 +22,28 @@ public record CoveragePass(
     Duration took,
     int mutants,
     List<String> flaky,
-    List<FlakyTest> flakyEvidence) {
+    List<FlakyTest> flakyEvidence,
+    int cases,
+    int skippedCases) {
   public CoveragePass {
     flaky = List.copyOf(flaky);
     flakyEvidence = List.copyOf(flakyEvidence);
+  }
+
+  /// This pass, with the cases it counted.
+  public CoveragePass withCases(int ran, int skipped) {
+    return new CoveragePass(jdk, tests, took, mutants, flaky, flakyEvidence, ran, skipped);
+  }
+
+  /// A pass whose cases weren't counted.
+  public CoveragePass(
+      int jdk,
+      int tests,
+      Duration took,
+      int mutants,
+      List<String> flaky,
+      List<FlakyTest> flakyEvidence) {
+    this(jdk, tests, took, mutants, flaky, flakyEvidence, -1, -1);
   }
 
   /// A pass with nothing known of why its flaky tests are flaky.

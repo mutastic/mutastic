@@ -45,6 +45,8 @@ final class Coverage {
   private final ClassDesc probes;
   private final Map<String, Integer> lineIds = new HashMap<>();
   private final Map<String, Set<Integer>> linesByTest = new HashMap<>();
+  private int casesRan = -1;
+  private int casesSkipped = -1;
   private final Map<String, Duration> durations = new HashMap<>();
 
   /// Lines the tests ran only while a class was loading: see [#onlyAtLoad].
@@ -74,6 +76,20 @@ final class Coverage {
             classBuilder.with(element);
           }
         });
+  }
+
+  /// The test cases the pass ran and skipped (see [CoveragePass#cases]).
+  void recordCases(int ran, int skipped) {
+    casesRan = ran;
+    casesSkipped = skipped;
+  }
+
+  int casesRan() {
+    return casesRan;
+  }
+
+  int casesSkipped() {
+    return casesSkipped;
   }
 
   void recordTest(String test, Duration took) {

@@ -16,7 +16,13 @@ mutastic gate close    # forget the task
 ## Where a task starts
 
 `gate open` keeps the commit the task starts from, the ignores there are, and how many tests there
-are and how many are disabled. It tells the agent how to check its own work as it goes:
+are and how many are disabled, each row of a parameterized test counted as a test. Rows a static
+source holds are counted from its annotations: a `@CsvSource`'s entries and `textBlock` lines, a
+`@ValueSource`'s values, an `@EnumSource`'s names, a `@CsvFileSource`'s lines. What only running
+says (rows a `@MethodSource`, `@ArgumentsSource` or `@FieldSource` makes, a test a condition such
+as `@DisabledOnOs` turns off, a case an assumption aborts) is counted by a run of the tests that
+`gate open` starts in the background, on a copy of the tree as it is then, so the agent needn't
+wait. It tells the agent how to check its own work as it goes:
 `mutastic run --since=<that commit> --format=agent`. Uncommitted changes count as the task's, so
 start from a clean tree to gate only what the agent does.
 
@@ -38,7 +44,10 @@ line can break a test too. The task is done when:
   the turn, with `ignore --accept` or by editing `.mutastic/ignores.yaml`, does, after your next
   prompt too;
 - **no test was taken away**: there are no fewer tests than when the task started, and no more
-  disabled;
+  disabled, counting each row of a parameterized test. The check's own run counts what only
+  running says, and compares it with the count `gate open` started: fewer cases run, or more
+  skipped, holds the task. If that count couldn't finish (the tests failed at the start, or it was
+  stopped), the check says so when it passes, and compares the annotations only;
 - **the tests pass.** When a test that was there when the task started fails, the gate says so,
   and tells the agent to find out whether the change or the test is wrong, and to ask you if it
   isn't sure, rather than rewrite what the test expects. Every mutant is caught by a test made to
