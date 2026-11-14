@@ -6,7 +6,7 @@
     }
   },
   "concepts/coverage-and-mutants": {
-    "commit": "73cd11789c407bd849c62af4295c4a86fc9a6698",
+    "commit": "2701f2b99d0d57c03348b6efea545461863f9d51",
     "sources": {
       "coverage-and-mutants.md": "e025d36d6418984a"
     }
