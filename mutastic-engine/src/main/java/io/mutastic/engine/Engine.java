@@ -502,7 +502,8 @@ public final class Engine {
     // measure nothing.
     if (nothingToRun(plan, options)) {
       var skipped = skippedAll(plan.mutants(), listener);
-      return unrun(project, plan, options, skipped, Duration.ofNanos(System.nanoTime() - start));
+      return unrun(
+          project, plan, options, new Told(skipped, Duration.ofNanos(System.nanoTime() - start)));
     }
     var workers = workersFor(project, options.workers(), plan.mutants().size());
     try {
@@ -520,20 +521,22 @@ public final class Engine {
         && classesToRun(plan.mutants(), options.auditArid()).isEmpty();
   }
 
+  /// The skipped mutants' results, as told to the listener, and how long the run took.
+  private record Told(List<MutantResult> results, Duration took) {}
+
   /// The report of a run with no mutant to run: the skipped mutants, with their reasons, and no
   /// test run, no worker started and no score.
-  private static Report unrun(
-      Project project, Plan plan, Options options, List<MutantResult> skipped, Duration took) {
+  private static Report unrun(Project project, Plan plan, Options options, Told told) {
     return new Report(
         project.name(),
         jdkOf(project.java()),
-        skipped,
+        told.results(),
         0,
         List.of(),
         Duration.ZERO,
         options.workers(),
         0,
-        took,
+        told.took(),
         List.of(),
         options.changed().map(changed -> changed.within(project.sources())),
         plan.stale(),

@@ -1014,6 +1014,10 @@ public final class Main {
   /// and every covering test run, not only up to the first catch (`--kill-matrix`).
   record Catches(boolean confirm, boolean every) {}
 
+  /// What a run does besides running its mutants: look for a test to suggest for each missed one,
+  /// and with `forceCoverage` (`--force-coverage`) run the coverage pass even with none to run.
+  record Extras(boolean suggestions, boolean forceCoverage) {}
+
   /// What a run must clear to pass: its score reaching `threshold`, or with `failOnNew`
   /// (`--fail-on-new`), no miss that the project's baseline doesn't hold, whatever the score.
   record Bar(int threshold, boolean failOnNew) {
@@ -1999,7 +2003,7 @@ public final class Main {
   /// A command line, read.
   ///
   /// @param workers empty for the default, which depends on the machine
-  /// @param forceCoverage run the coverage pass even with no mutant to run (`--force-coverage`)
+  /// @param extras what the run does besides running its mutants
   /// @param reports the report files to write after a full run
   /// @param experimental what's experimental that the run turns on: `ghosts`
   record Command(
@@ -2011,8 +2015,7 @@ public final class Main {
       List<String> only,
       Catches catches,
       Optional<Integer> workers,
-      boolean suggestions,
-      boolean forceCoverage,
+      Extras extras,
       List<RequestedReport> reports,
       List<String> testsFrom,
       List<String> operators,
@@ -2052,6 +2055,16 @@ public final class Main {
 
     boolean confirmCatches() {
       return catches.confirm();
+    }
+
+    /// Look for a test to suggest for each missed mutant.
+    boolean suggestions() {
+      return extras.suggestions();
+    }
+
+    /// `--force-coverage`: the coverage pass runs even with no mutant to run.
+    boolean forceCoverage() {
+      return extras.forceCoverage();
     }
 
     boolean killMatrix() {
@@ -2097,8 +2110,7 @@ public final class Main {
           only,
           catches,
           workers,
-          suggestions,
-          forceCoverage,
+          extras,
           reports,
           testsFrom,
           operators,
@@ -2126,8 +2138,7 @@ public final class Main {
           List.of(),
           catches,
           workers,
-          suggestions,
-          false,
+          new Extras(extras.suggestions(), false),
           List.of(),
           testsFrom,
           operators,
@@ -2339,10 +2350,12 @@ public final class Main {
       }
 
       private void set(Option option, @Nullable String value) {
+        if (flag(option.name())) {
+          return;
+        }
         var given = value == null ? "" : value;
         switch (option.name()) {
           case "--threshold" -> threshold = number(option, given, 0, 100);
-          case "--fail-on-new" -> failOnNew = true;
           case "--since" -> since(value);
           case "--only" -> only = onlyIds(given);
           case "--tests-from" -> testsFrom.add(module(given));
@@ -2351,10 +2364,6 @@ public final class Main {
           case "--exclude-tests" -> excludeTests(given);
           case "--suite" -> suite = suite(given);
           case "--workers" -> workers = Optional.of(number(option, given, 1, Integer.MAX_VALUE));
-          case "--confirm-catches" -> confirmCatches = true;
-          case "--each-mutant" -> eachMutant = true;
-          case "--no-suggestions" -> suggestions = false;
-          case "--force-coverage" -> forceCoverage = true;
           case "--report" -> report(given);
           case "--format" -> format = Optional.of(choice(option, given));
           case "--vocabulary" -> vocabulary = Optional.of(choice(option, given));
@@ -2363,6 +2372,22 @@ public final class Main {
           case "--progress" -> progress = Optional.of(choice(option, given));
           default -> setIgnoringOrForAPlugin(option, given);
         }
+      }
+
+      /// A run's flag, given: on, or for `--no-suggestions`, suggestions off. False for any other
+      /// option, which is set otherwise.
+      private boolean flag(String name) {
+        switch (name) {
+          case "--fail-on-new" -> failOnNew = true;
+          case "--confirm-catches" -> confirmCatches = true;
+          case "--each-mutant" -> eachMutant = true;
+          case "--no-suggestions" -> suggestions = false;
+          case "--force-coverage" -> forceCoverage = true;
+          default -> {
+            return false;
+          }
+        }
+        return true;
       }
 
       /// `--only=ID[,ID…]`'s ids: an empty one, from `--only=` or a comma too many, is no id.
@@ -2632,8 +2657,7 @@ public final class Main {
             only,
             new Catches(confirmCatches, killMatrix),
             workers,
-            suggestions,
-            forceCoverage,
+            new Extras(suggestions, forceCoverage),
             reports == null ? DEFAULT_REPORTS : List.copyOf(reports),
             List.copyOf(testsFrom),
             List.copyOf(operators),
