@@ -31,7 +31,11 @@ is done when:
   project's backlog, not the task's, and doesn't hold it either, though the task can't add to the
   baseline itself;
 - **the task added no ignore of its own.** Ignoring a mutant is a person's call: the agent
-  proposes, with `mutastic ignore ID --propose`;
+  proposes, with `mutastic ignore ID --propose`, and you accept between turns. As a hook, a check
+  that lets the agent stop notes the ignores, and your next prompt takes in those added since, so
+  an ignore you accept after the agent stops doesn't hold the task. One added while the agent has
+  the turn, with `ignore --accept` or by editing `.mutastic/ignores.yaml`, does, after your next
+  prompt too;
 - **no test was taken away**: there are no fewer tests than when the task started, and no more
   disabled;
 - **the tests pass.** When a test that was there when the task started fails, the gate says so,
@@ -72,7 +76,7 @@ so a project whose build output git doesn't ignore always looks changed, and get
 ## As a hook
 
 With `--hook=claude`, `open` and `check` read the hook's input on stdin and answer as Claude Code's
-hooks do: `open` once per session, and `check` with a block, whose reason is the cards, or a
+hooks do: `open` once per session (a later prompt only takes in the ignores made between turns), and `check` with a block, whose reason is the cards, or a
 message for you. Codex's hooks take the same input and answers, so its plugin runs the same
 commands. A hook runs in whatever project the agent is in, so where mutastic reads no build,
 `open` and `check` with `--hook` say nothing and let the agent go on. Other agents' hooks can call
