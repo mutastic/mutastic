@@ -72,7 +72,8 @@ final class Options {
               Group.RUNNING,
               "REF",
               List.of(),
-              "Mutate only the lines changed since REF; the default branch without one",
+              "Mutate only the lines changed since REF; the default branch without one. With no"
+                  + " mutant on those lines, nothing is built or run",
               MODULE_RUNS,
               "since",
               true,
@@ -178,6 +179,19 @@ final class Options {
               true,
               "",
               "mutastic run --no-suggestions"),
+          new Option(
+              "--force-coverage",
+              Kind.FLAG,
+              Group.RUNNING,
+              "",
+              List.of(),
+              "Build and run every test even when no mutant is there to run, to check or time the"
+                  + " suite",
+              RUNS,
+              "forceCoverage",
+              true,
+              "",
+              "mutastic run --since --force-coverage"),
           new Option(
               "--exclude-tests",
               Kind.REPEATED,

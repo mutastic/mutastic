@@ -452,7 +452,7 @@ public final class Main {
             .orElse(passes);
     var tested = run.run(command, prepared, passes.progress());
     var report = tested.report();
-    if (last.isEmpty()) {
+    if (last.isEmpty() && report.testsRan()) {
       recorded(command, prepared, report, tested.otherTests());
     }
     new NextRun(key, Passes.uncaught(report)).write(prepared.work());
@@ -1357,7 +1357,8 @@ public final class Main {
             command.experimental().contains(GHOSTS) || terminal.experimental().contains(GHOSTS))
         .withKillMatrix(command.killMatrix())
         .withShard(command.shard().orElse(Shard.WHOLE))
-        .withTestsLeftOut(!command.excludeTests().isEmpty());
+        .withTestsLeftOut(!command.excludeTests().isEmpty())
+        .withForceCoverage(command.forceCoverage());
   }
 
   /// The project's say, from the module's nearest `mutastic.yaml` and the run's ignores, with the
@@ -1543,9 +1544,17 @@ public final class Main {
   /// report files.
   private static Kept keep(
       Command command, Prepared prepared, Report report, List<Path> otherTests) {
-    var comparison = recorded(command, prepared, report, otherTests);
-    var written = new ArrayList<>(writeReports(command, prepared, report));
     var share = command.shard().map(shard -> shareEvents(prepared, shard));
+    // A run with no mutant to run measured nothing: the last run that did stays the one `explain`
+    // and the next run read, unless a report was asked for by name. A share's folder is its own.
+    boolean measured = report.testsRan() || share.isPresent();
+    var comparison =
+        measured ? recorded(command, prepared, report, otherTests) : Optional.<Comparison>empty();
+    var written =
+        new ArrayList<>(
+            measured || !command.reports().equals(DEFAULT_REPORTS)
+                ? writeReports(command, prepared, report)
+                : List.of());
     share.ifPresent(file -> written.add(shownFrom(prepared.directory(), file)));
     var kept = new Kept(comparison, List.copyOf(written));
     if (share.isPresent()) {
@@ -1977,6 +1986,7 @@ public final class Main {
   /// A command line, read.
   ///
   /// @param workers empty for the default, which depends on the machine
+  /// @param forceCoverage run the coverage pass even with no mutant to run (`--force-coverage`)
   /// @param reports the report files to write after a full run
   /// @param experimental what's experimental that the run turns on: `ghosts`
   record Command(
@@ -1989,6 +1999,7 @@ public final class Main {
       Catches catches,
       Optional<Integer> workers,
       boolean suggestions,
+      boolean forceCoverage,
       List<RequestedReport> reports,
       List<String> testsFrom,
       List<String> operators,
@@ -2074,6 +2085,7 @@ public final class Main {
           catches,
           workers,
           suggestions,
+          forceCoverage,
           reports,
           testsFrom,
           operators,
@@ -2102,6 +2114,7 @@ public final class Main {
           catches,
           workers,
           suggestions,
+          false,
           List.of(),
           testsFrom,
           operators,
@@ -2185,6 +2198,7 @@ public final class Main {
       private String links = "auto";
       private Optional<String> progress = Optional.empty();
       private boolean suggestions = true;
+      private boolean forceCoverage = false;
       private @Nullable List<RequestedReport> reports = null;
       private Optional<String> vocabulary = Optional.empty();
       private final List<String> testsFrom = new ArrayList<>();
@@ -2327,6 +2341,7 @@ public final class Main {
           case "--confirm-catches" -> confirmCatches = true;
           case "--each-mutant" -> eachMutant = true;
           case "--no-suggestions" -> suggestions = false;
+          case "--force-coverage" -> forceCoverage = true;
           case "--report" -> report(given);
           case "--format" -> format = Optional.of(choice(option, given));
           case "--vocabulary" -> vocabulary = Optional.of(choice(option, given));
@@ -2605,6 +2620,7 @@ public final class Main {
             new Catches(confirmCatches, killMatrix),
             workers,
             suggestions,
+            forceCoverage,
             reports == null ? DEFAULT_REPORTS : List.copyOf(reports),
             List.copyOf(testsFrom),
             List.copyOf(operators),
@@ -2655,6 +2671,7 @@ public final class Main {
         given.put("a mutant asked for by id", !only.isEmpty());
         given.put("--since", since.isPresent());
         given.put("--tests-from", !testsFrom.isEmpty());
+        given.put("--force-coverage", forceCoverage);
         return given.entrySet().stream()
             .filter(java.util.Map.Entry::getValue)
             .map(java.util.Map.Entry::getKey)

@@ -22,8 +22,8 @@ start from a clean tree to gate only what the agent does.
 
 ## When it's done
 
-`gate check` runs mutastic on the lines changed since the task started, committed or not. The task
-is done when:
+`gate check` runs mutastic on the lines changed since the task started, committed or not. A task
+that changed no mutant's line runs no test, so the check takes seconds. The task is done when:
 
 - **each mutant on those lines is caught, or proposed** for a person to ignore. A proposed mutant
   still counts as missed in the score, but it doesn't hold the gate: deciding it is yours. With a

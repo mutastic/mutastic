@@ -148,6 +148,30 @@ time to see how it died. What that means depends on where the mutant is: see
 </div>
 </EditionTabs>
 
+## When there's nothing to run
+
+A run of a change that touched no mutant's line, of skipped mutants only, or of a share that holds
+none has nothing to measure, and running every test would take minutes to find that out. So
+mutastic runs no test: it finds the mutants, lists the skipped ones with their reasons, and passes
+with nothing to measure, saying `Tests  none ran: no mutant to run`. Such a run leaves the last
+run's record and report files as they were. `--force-coverage` runs the tests anyway, to check that
+they pass or to time them.
+
+<EditionTabs>
+<div slot="java">
+
+Your build still compiles the code, as the mutants are found in its class files, so such a run
+takes about as long as the build.
+
+</div>
+<div slot="rust">
+
+Nothing is built either (`Build  nothing built: no mutant to run`), so such a run takes a second or
+so.
+
+</div>
+</EditionTabs>
+
 <EditionOnly edition="rust">
 
 ## Running it again
@@ -174,6 +198,7 @@ change to or from one isn't counted.
 
 Only a full run compares and records: a run of one mutant (`--only`, `verify`, `explain`) says
 nothing about the others, and a run of a change (`--since`) has a different score by design. A
+run with no mutant to run measured nothing, so it isn't kept either. A
 share (`--shard`) keeps its record in a folder of its own, so a whole run is never compared with
 part of one.
 

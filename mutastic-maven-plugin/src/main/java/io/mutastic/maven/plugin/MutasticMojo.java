@@ -95,6 +95,10 @@ abstract class MutasticMojo extends AbstractMojo {
   @Parameter(property = "mutastic.failOnNew")
   private @Nullable Boolean failOnNew;
 
+  /// Build and run every test even when no mutant is there to run, to check or time the suite.
+  @Parameter(property = "mutastic.forceCoverage")
+  private @Nullable Boolean forceCoverage;
+
   /// Suggest a test for each missed mutant.
   @Parameter(property = "mutastic.suggestions", defaultValue = "true")
   private boolean suggestions;
@@ -200,6 +204,7 @@ abstract class MutasticMojo extends AbstractMojo {
     putWhenSet(configured, "workers", workers);
     putWhenSet(configured, "eachMutant", eachMutant);
     putWhenSet(configured, "failOnNew", failOnNew);
+    putWhenSet(configured, "forceCoverage", forceCoverage);
     putWhenSet(configured, "format", format);
     putWhenSet(configured, "since", since);
     return configured;

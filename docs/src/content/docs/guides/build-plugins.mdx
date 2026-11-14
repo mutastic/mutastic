@@ -39,6 +39,7 @@ How a run happens can be set in the plugin's configuration:
 | `eachMutant` | `false` | A card for every missed mutant, not one for the mutants of each line |
 | `since` | not set | Mutate only the lines changed since this ref; empty for the default branch |
 | `confirmCatches` | `false` | Run a catching test again on its own, to confirm the catch |
+| `forceCoverage` | `false` | Build and run every test even when no mutant is there to run, to check or time the suite |
 | `suggestions` | `true` | Suggest a test for each missed mutant |
 | `jdk` | see below | The JDK mutastic itself runs on |
 

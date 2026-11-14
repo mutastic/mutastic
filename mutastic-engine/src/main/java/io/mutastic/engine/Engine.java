@@ -337,6 +337,8 @@ public final class Engine {
   /// @param shard the share of the mutants that runs: every one unless the run is split
   /// @param testsLeftOut whether the run leaves out tests the build runs (`--exclude-tests`): the
   ///   lines only they reach count as not covered, even if that's every line
+  /// @param forceCoverage run the coverage pass even when no mutant is there to run
+  ///   (`--force-coverage`), to check or time the tests; with none to run, otherwise, no test runs
   public record Options(
       List<String> only,
       boolean confirmCatches,
@@ -349,7 +351,8 @@ public final class Engine {
       boolean ghosts,
       boolean killMatrix,
       Shard shard,
-      boolean testsLeftOut) {
+      boolean testsLeftOut,
+      boolean forceCoverage) {
     /// Options that stop at a mutant's first catch.
     public Options(
         List<String> only,
@@ -373,6 +376,7 @@ public final class Engine {
           ghosts,
           false,
           Shard.WHOLE,
+          false,
           false);
     }
 
@@ -391,7 +395,8 @@ public final class Engine {
           ghosts,
           every,
           shard,
-          testsLeftOut);
+          testsLeftOut,
+          forceCoverage);
     }
 
     /// The same options, for one share of the mutants (`--shard`).
@@ -408,7 +413,8 @@ public final class Engine {
           ghosts,
           killMatrix,
           share,
-          testsLeftOut);
+          testsLeftOut,
+          forceCoverage);
     }
 
     /// The same options, leaving out tests the build runs or not (`--exclude-tests`).
@@ -425,7 +431,27 @@ public final class Engine {
           ghosts,
           killMatrix,
           shard,
-          leftOut);
+          leftOut,
+          forceCoverage);
+    }
+
+    /// The same options, running the coverage pass even with no mutant to run, or not
+    /// (`--force-coverage`).
+    public Options withForceCoverage(boolean force) {
+      return new Options(
+          only,
+          confirmCatches,
+          workers,
+          suggestions,
+          auditArid,
+          among,
+          policy,
+          changed,
+          ghosts,
+          killMatrix,
+          shard,
+          testsLeftOut,
+          force);
     }
 
     /// Options without ghosts.
@@ -455,7 +481,8 @@ public final class Engine {
           ghosts,
           killMatrix,
           shard,
-          testsLeftOut);
+          testsLeftOut,
+          forceCoverage);
     }
 
     public Options {
@@ -471,6 +498,12 @@ public final class Engine {
   public Report run(Project project, Options options, Listener listener) {
     long start = System.nanoTime();
     var plan = plan(project, options);
+    // With no mutant to run, starting the workers and running every test would take minutes to
+    // measure nothing.
+    if (nothingToRun(plan, options)) {
+      var skipped = skippedAll(plan.mutants(), listener);
+      return unrun(project, plan, options, skipped, Duration.ofNanos(System.nanoTime() - start));
+    }
     var workers = workersFor(project, options.workers(), plan.mutants().size());
     try {
       var ran = ran(project, plan, workers, listener);
@@ -478,6 +511,70 @@ public final class Engine {
     } finally {
       workers.forEach(TestWorker::close);
     }
+  }
+
+  /// Whether no mutant or ghost is there to run: each is skipped, and none is audited.
+  private static boolean nothingToRun(Plan plan, Options options) {
+    return !options.forceCoverage()
+        && plan.ghosts().isEmpty()
+        && classesToRun(plan.mutants(), options.auditArid()).isEmpty();
+  }
+
+  /// The report of a run with no mutant to run: the skipped mutants, with their reasons, and no
+  /// test run, no worker started and no score.
+  private static Report unrun(
+      Project project, Plan plan, Options options, List<MutantResult> skipped, Duration took) {
+    return new Report(
+        project.name(),
+        jdkOf(project.java()),
+        skipped,
+        0,
+        List.of(),
+        Duration.ZERO,
+        options.workers(),
+        0,
+        took,
+        List.of(),
+        options.changed().map(changed -> changed.within(project.sources())),
+        plan.stale(),
+        List.of(),
+        options.ghosts() ? Optional.of(List.of()) : Optional.empty(),
+        Duration.ZERO);
+  }
+
+  /// Each mutant's result as skipped, told to `listener` as a run tells it: each mutant, then each
+  /// source file once its last is told.
+  private static List<MutantResult> skippedAll(List<Mutant> mutants, Listener listener) {
+    var results = mutants.stream().map(MutantResult::skipped).toArray(MutantResult[]::new);
+    var files = new SourceFiles(mutants);
+    for (int at = 0; at < results.length; at++) {
+      listener.mutantFinished(results[at]);
+      files.finished(at, results, listener);
+    }
+    return List.of(results);
+  }
+
+  /// The feature version of the JDK `java` is in, from its `release` file, without starting it;
+  /// this JVM's when that can't be read.
+  static int jdkOf(Path java) {
+    var bin = java.toAbsolutePath().getParent();
+    var home = bin == null ? null : bin.getParent();
+    return home == null ? Runtime.version().feature() : releaseOf(home.resolve("release"));
+  }
+
+  /// The feature version a JDK's `release` file names; this JVM's when it names none.
+  private static int releaseOf(Path release) {
+    try {
+      for (String line : Files.readAllLines(release)) {
+        if (line.startsWith("JAVA_VERSION=")) {
+          var version = line.substring("JAVA_VERSION=".length()).replace("\"", "");
+          return Runtime.Version.parse(version).feature();
+        }
+      }
+    } catch (IOException | IllegalArgumentException e) {
+      // no release file to read: this JVM's version stands in
+    }
+    return Runtime.version().feature();
   }
 
   /// The coverage pass, then every mutant, and the flaky tests both found, on `workers`.

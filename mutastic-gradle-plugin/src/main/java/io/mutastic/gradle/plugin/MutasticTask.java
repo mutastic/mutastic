@@ -96,6 +96,10 @@ public abstract class MutasticTask extends DefaultTask {
 
   @Input
   @Optional
+  public abstract Property<Boolean> getForceCoverage();
+
+  @Input
+  @Optional
   public abstract Property<Boolean> getSuggestions();
 
   @Input
@@ -209,6 +213,7 @@ public abstract class MutasticTask extends DefaultTask {
     getSince().convention(extension.getSince());
     getConfirmCatches().convention(extension.getConfirmCatches());
     getFailOnNew().convention(extension.getFailOnNew());
+    getForceCoverage().convention(extension.getForceCoverage());
     getSuggestions().convention(extension.getSuggestions());
     getEachMutant().convention(extension.getEachMutant());
     getJavaLauncher().convention(extension.getJavaLauncher());
@@ -224,6 +229,7 @@ public abstract class MutasticTask extends DefaultTask {
     put(configured, "suite", getSuite());
     put(configured, "confirmCatches", getConfirmCatches());
     put(configured, "failOnNew", getFailOnNew());
+    put(configured, "forceCoverage", getForceCoverage());
     put(configured, "suggestions", getSuggestions());
     put(configured, "eachMutant", getEachMutant());
     configured.put("testsFrom", String.join(",", getTestsFrom().get()));

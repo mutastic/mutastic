@@ -203,7 +203,8 @@ Then a commit, which is where the next cycle starts.
 
 ### When it says it's done
 
-The gate runs mutastic on every line changed since the task started, committed or not:
+The gate runs mutastic on every line changed since the task started, committed or not. A task
+that changed no mutant's line runs no test, so the check takes seconds:
 
 <EditionTabs>
 <div slot="java">
