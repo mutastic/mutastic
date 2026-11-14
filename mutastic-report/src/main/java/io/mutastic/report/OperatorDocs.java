@@ -2,14 +2,17 @@ package io.mutastic.report;
 
 import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Operator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-/// Where docs.mutastic.io describes an operator: its row on the operators page,
-/// `https://docs.mutastic.io/concepts/operators/#boundary`, which links on to its family's page.
-/// Only mutastic's own operators and its shipped rules have one: a plugin's operator, from a jar or
-/// a rules file, has no row there, so no link.
+/// Where docs.mutastic.io describes an operator: its section of its family's page,
+/// `https://docs.mutastic.io/java/operators/conditions/#boundary`, in the pattern both editions
+/// link by, `/<edition>/operators/<family>/#<id>`. The Java edition's family pages are served at
+/// `/concepts/operators/<family>/`, and the site redirects the edition's path there, the anchor
+/// kept (`docs/public/_redirects`). Only mutastic's own operators and its shipped rules have one: a
+/// plugin's operator, from a jar or a rules file, has no section there, so no link.
 ///
 /// @param base the docs of the mutastic running, `https://docs.mutastic.io/v0.3/`, so an older
 ///   install links to what it does
@@ -17,8 +20,51 @@ public record OperatorDocs(String base) {
   /// The latest release's docs, for a build from source.
   public static final OperatorDocs LATEST = new OperatorDocs("https://docs.mutastic.io/");
 
-  /// The operators page, under the docs' base.
-  private static final String PAGE = "concepts/operators/";
+  /// The family pages, under the docs' base: the edition's own path.
+  private static final String PAGES = "java/operators/";
+
+  /// Each family's page, by the anchors of the operators it describes.
+  private static final Map<String, List<String>> FAMILIES =
+      Map.of(
+          "arguments",
+          List.of("omit-call", "swap-arguments", "null-parameter", "drop-vararg", "omit-argument"),
+          "arithmetic",
+          List.of(
+              "math",
+              "arithmetic-replacement",
+              "other-arithmetic",
+              "bitwise",
+              "keep-operand",
+              "constant-value",
+              "flip-increment",
+              "remove-negation",
+              "unchecked-arithmetic"),
+          "calls",
+          List.of("remove-void-call", "remove-discarded-call", "remove-assignment", "remove-field-write"),
+          "conditions",
+          List.of(
+              "boundary",
+              "comparison",
+              "other-comparison",
+              "remove-conditional",
+              "logical-connector",
+              "predicate-connector-swap",
+              "predicate-negation-removal"),
+          "control",
+          List.of("remove-switch-arm", "drop-catch-type"),
+          "library",
+          List.of(
+              "string-method-swap", "indexof-swap", "math-method-swap", "string-constant", "regex-constant"),
+          "optional",
+          List.of(
+              "optional-presence-swap",
+              "optional-made-empty",
+              "optional-filter-removal",
+              "optional-default"),
+          "returns",
+          List.of("return-value", "replace-body", "remove-throw"),
+          "streams",
+          List.of("stream-stage-removal", "stream-match-swap", "other-stage-removal"));
 
   /// The shipped rules whose row is named as mutastic's own operators' are: the id's name, after
   /// its namespace.
@@ -45,12 +91,24 @@ public record OperatorDocs(String base) {
           Map.entry("optional/always-default", "optional-default"),
           Map.entry("optional/no-default", "optional-default"));
 
-  /// `https://docs.mutastic.io/concepts/operators/#boundary`; empty for a plugin's operator.
+  /// `https://docs.mutastic.io/java/operators/conditions/#boundary`; empty for a plugin's
+  /// operator.
   public Optional<String> url(Operator operator) {
-    return anchor(operator).map(anchor -> base + PAGE + "#" + anchor);
+    return anchor(operator)
+        .flatMap(
+            anchor -> family(anchor).map(family -> base + PAGES + family + "/#" + anchor));
   }
 
-  /// `boundary`: the id of the operator's row on the operators page.
+  /// `conditions`: the family whose page describes the operator with that anchor.
+  static Optional<String> family(String anchor) {
+    return FAMILIES.entrySet().stream()
+        .filter(family -> family.getValue().contains(anchor))
+        .map(Map.Entry::getKey)
+        .findFirst();
+  }
+
+  /// `boundary`: the id of the operator's section on its family's page, and of its row on the
+  /// operators page.
   static Optional<String> anchor(Operator operator) {
     var id = operator.id();
     if (operator instanceof BuiltIn || NAMED_FOR_THEIR_ID.contains(id)) {

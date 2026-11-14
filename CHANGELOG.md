@@ -74,6 +74,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **An operator's docs link names its family, in the path both editions use.** Events' `docs`,
+  `explain`'s link and the card's linked operator went to the operators page's row,
+  `/concepts/operators/#boundary`. Now each goes to the operator's section of its family's page,
+  `https://docs.mutastic.io/java/operators/conditions/#boundary`, as the Rust edition's go to
+  `/rust/operators/…`, and the site redirects that path to the Java family pages, anchor kept.
+  SARIF rules gain the same link as `helpUri`.
 - **A build of modules names them as commands, for Maven as for Gradle.** At the top of a Maven
   build with no Java code of its own, mutastic said `name a module with some: mutastic run
   :<module>` and named none. Now both tools say `<directory> is a build's root, with no Java code
