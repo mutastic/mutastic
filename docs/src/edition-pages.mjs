@@ -14,6 +14,7 @@
  */
 export const SHARED = [
   ['concepts/results', 'concepts/results'],
+  ['concepts/coverage-and-mutants', 'coverage-and-mutants'],
   ['concepts/suggested-tests', 'concepts/suggested-tests'],
   ['concepts/equivalence', undefined],
   ['concepts/flaky-tests', undefined],
@@ -36,6 +37,7 @@ export const SHARED = [
  * must be there, and the build says to take the entry out.
  */
 export const AWAITING_RUST = [
+  ['concepts/coverage-and-mutants', 'v1.1.0'],
   ['guides/test-first', 'v1.1.0'],
   ['guides/test-first-refactor', 'v1.1.0'],
   ['guides/test-first-agent', 'v1.1.0'],

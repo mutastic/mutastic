@@ -206,6 +206,7 @@ const LAYOUT = [
   // (AWAITING_RUST in src/edition-pages.mjs): '/concepts/flaky-tests'.
   ['Concepts', [
     ['concepts/results', 'Results and the score'],
+    ['/concepts/coverage-and-mutants', 'Coverage and mutants'],
     ['concepts/suggested-tests', 'Suggested tests'],
     ['/concepts/equivalence', 'Equivalent mutants'],
     ['/concepts/flaky-tests', 'Flaky tests'],

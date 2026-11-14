@@ -1,0 +1,34 @@
+
+[1;31m[1m Missed [0m[0m[2m────────────────────────────────────────────────────────────[0m
+
+ [1;34m❯[0m [1msrc/main/java/com/example/checkout/Checkout.java[0m  [2m1 missed in 1 method[0m
+
+ [41;30;1m ✗ MISSED [0m no test needs [1mquantity[0m in [1mquantity * price[0m in [1mpay()[0m
+    [2m┌─[0m src/main/java/com/example/checkout/Checkout.java:16
+    [2m│[0m
+ [2m15[0m [2m│[0m   public int pay(int quantity, int price, List<String> receipt) {
+ [2m16[0m [2m│[0m     int total = quantity * price;
+    [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ one value kept[0m
+ [2m17[0m [2m│[0m     int off = discount(total);
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mint total = quantity * price;
+              [32m+ [0mint total = price;
+    [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: quantity = 1; price = 50, 99, 100, 250
+            [2mcovered by CheckoutTest#bigOrdersGetADiscount, CheckoutTest#ordersJustUnder100PayFullPrice, CheckoutTest#ordersOf100GetADiscount and 1 more (all 4 covering tests still pass)[0m
+    [2m=[0m [32m[1mhelp[0m[0m: add a test where [1mquantity[0m changes the result of [1mquantity * price[0m, and assert it
+
+    [2mdone when [0m mutastic verify mf248f66b samples/checkout[2m passes[0m
+    [2mreproduce [0m mutastic run --only=mf248f66b samples/checkout
+    [2mor ignore [0m mutastic ignore mf248f66b --reason="<why>" samples/checkout
+
+[2m Next: mutastic verify <id> samples/checkout · mutastic run --only=<id> samples/checkout · mutastic explain <id> samples/checkout[0m
+
+ [2m  Classes[0m  [32m[1m0 clean[0m[0m[2m | [0m[1;31m[1m1 with misses[0m[0m[2m (1)[0m
+ [2m  Mutants[0m  [32m✓ [1m41 caught[0m[0m[2m · [0m[1;31m✗ [1m1 missed[0m[0m[2m (42)[0m
+ [2m Worst at[0m  Checkout.pay() 1 ✗
+ [2mTest runs[0m  60[2m (168 without coverage selection)[0m
+ [2m Start at[0m  12:16:29
+ [2m Duration[0m  5.5s [2m(setup 0ms, build 1.6s, coverage 1.0s, mutants 1.5s, checking 1.2s)[0m
+ [2m    Tests[0m  4 on JDK 17 · 1 worker
+ [2m  Reports[0m  build/mutastic/mutation.json[2m · [0mbuild/mutastic/mutation.html
+ [2m    Score[0m  [32m[1m97.6%[0m[0m  [42;30;1m PASS [0m [32m1 missed, above the threshold of 80.[0m

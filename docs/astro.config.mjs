@@ -161,6 +161,7 @@ export default defineConfig({
               label: 'Concepts',
               items: [
                 'concepts/results',
+                'concepts/coverage-and-mutants',
                 'concepts/suggested-tests',
                 'concepts/next',
                 'concepts/test-first',

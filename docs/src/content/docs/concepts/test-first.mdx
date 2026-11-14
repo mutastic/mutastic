@@ -23,7 +23,8 @@ didn't, and that's where bugs wait.
 - **Your tests can pass on code that's wrong.** A test of `total >= 100` passes just as well against
   `total > 100`, unless one of its examples is exactly 100. Test-first's "fake it, then generalise"
   needs a second test to force the general code. When that test never comes, the code is general
-  and unchecked.
+  and unchecked. Coverage won't show it either: tests on either side of the edge cover both
+  branches ([Coverage and mutants](/concepts/coverage-and-mutants/#boundaries)).
 - **Tests drift as the code grows.** Cycles get longer under pressure, a refactor adds a branch, an
   assertion is loosened to get back to green. Nothing in red, green, refactor tells you. A run
   scoped to the cycle does, in the cycle it happened.
