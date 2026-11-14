@@ -1832,17 +1832,6 @@
       "decision": 2
     },
     {
-      "id": "D3",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "`run --only` prints the whole summary with a Score row and `Next:`, and `passed` follows the score",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "decision": 3
-    },
-    {
       "id": "D4",
       "kind": "pending",
       "editions": [
@@ -2173,16 +2162,6 @@
       ],
       "surface": "events",
       "summary": "`unrelatedCatches` is always `[]`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G20",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "`run-finished` has no `only` (with D3)",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
@@ -2640,16 +2619,6 @@
       ],
       "surface": "human output",
       "summary": "explain's lines aren't wrapped to the terminal",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "O6",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "`run --only` prints `Next:` (with D3)",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
