@@ -1044,7 +1044,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "2b990b50daaa673a0e08d3369f82087c5cb911ac55330e19b25142f7edf0fe3c"
+      "sha256": "07da1a2389d1772cca3a4a7a1bfc2b935be313ce8acffd966d1994f4006cec24"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",

@@ -83,6 +83,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **The events schema says the order events come in, as both editions write them.** It said a run
+  writes `run-started` first, but the phase events of reading and building the project come before
+  it. Now it says: those phase events may come first; `run-started` comes before the first
+  `mutant-finished`; each `mutant-finished` is written as its mutant finishes, before its phase
+  ends; and `run-finished` or `run-failed` is last. Only the descriptions changed.
 - **The gate runs the tests even with no mutant on the changed lines.** Since a run with no mutant
   to run stopped running the tests, a task that changed only lines with no mutant (a constant, an
   import, a log line) passed the gate with no test run, even when it broke one. The gate's run now
