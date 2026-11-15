@@ -725,19 +725,23 @@ public final class Main {
     var base = new Git(directory).head();
     var operators = gateOperators(gated.command(), gated.prepared());
     started(gated, session, base, operators);
-    gated
-        .output()
-        .out()
-        .printf(
-            "mutastic gate: this task is gated from %s (operators: %s): before you finish, check"
-                + " the lines it changes with `mutastic run --since=%s%s --format=agent`; %s. %s\n",
+    gated.output().out().print(gatedFrom(gated, base, operators));
+    return PASSED;
+  }
+
+  /// What the agent is told when its task is gated: where from, under which operators, and how to
+  /// check its work as it goes.
+  private static String gatedFrom(Gated gated, String base, List<String> operators) {
+    var set = String.join(",", operators);
+    return ("mutastic gate: this task is gated from %s (operators: %s): before you finish, check"
+            + " the lines it changes with `mutastic run --since=%s%s --format=agent`; %s. %s\n")
+        .formatted(
             base.substring(0, Math.min(7, base.length())),
-            String.join(",", operators),
+            set,
             base,
-            asRunWouldChoose(gated, operators) ? "" : " --operators=" + String.join(",", operators),
+            asRunWouldChoose(gated, operators) ? "" : " --operators=" + set,
             whenItsDone(gated),
             MutantCommand.NO_REWRITE);
-    return PASSED;
   }
 
   /// The operators a gated task runs, chosen when it opens: `--operators`, else `mutastic.yaml`'s
@@ -1132,8 +1136,7 @@ public final class Main {
     var missed = missedIds(report).stream().filter(id -> !older.contains(id)).toList();
     var open = missed.stream().filter(id -> !proposed.contains(id)).toList();
     if (open.isEmpty()) {
-      return Gate.Verdict.pass(
-          passed(report, missed, missedIds(report).size() - missed.size(), operatorsOf(gated)));
+      return Gate.Verdict.pass(passed(gated, report, missed));
     }
     // The cards are for what holds the gate: a proposed mutant waits on a person, not the agent.
     var shown =
@@ -1282,6 +1285,13 @@ public final class Main {
       // Red or not, it ran: how long it took is the next check's estimate of its own.
       GateBudget.ran(gated.work(), gated.elapsed());
     }
+  }
+
+  /// A pass: `waiting` are the missed mutants proposed for a person; the rest missed, in the
+  /// baseline.
+  private static String passed(Gated gated, Report report, List<String> waiting) {
+    int older = missedIds(report).size() - waiting.size();
+    return passed(report, waiting, older, operatorsOf(gated));
   }
 
   /// What a pass says: how many the tests catch, and any proposals waiting for a person.

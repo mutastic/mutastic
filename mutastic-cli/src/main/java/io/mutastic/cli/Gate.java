@@ -193,6 +193,19 @@ final class Gate {
     }
 
     void write(Path work) {
+      var properties = properties();
+      try {
+        Files.createDirectories(work);
+        try (var out = Files.newBufferedWriter(work.resolve(FILE))) {
+          properties.store(out, "mutastic gate: where this task started");
+        }
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
+    }
+
+    /// The state as [#FILE] keeps it.
+    private Properties properties() {
       var properties = new Properties();
       properties.setProperty("session", session);
       properties.setProperty("base", base);
@@ -209,14 +222,7 @@ final class Gate {
       if (!operators.isEmpty()) {
         properties.setProperty("operators", String.join(",", operators));
       }
-      try {
-        Files.createDirectories(work);
-        try (var out = Files.newBufferedWriter(work.resolve(FILE))) {
-          properties.store(out, "mutastic gate: where this task started");
-        }
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
+      return properties;
     }
 
     static boolean close(Path work) {
