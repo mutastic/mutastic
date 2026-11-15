@@ -137,6 +137,33 @@ class NextTest {
     assertThat(added.out()).contains("the task added m0000abcd to .mutastic/baseline.yaml itself");
   }
 
+  /// Where git ignores `.mutastic/`, the start commit has no baseline, so the gate keeps the one
+  /// there when it opened: its older misses stay the project's, and only an entry the task added
+  /// holds it. Once every older entry counted as the task's, and the gate never passed.
+  @Test
+  void aBaselineGitDoesntSeeIsTheProjects() throws Exception {
+    Files.writeString(project.resolve(".gitignore"), "build/\n.gradle/\n.mutastic/\n");
+    commit("mutastic's files are local");
+    assertThat(mutastic("baseline", project.toString()).exit()).isEqualTo(Main.PASSED);
+    mutastic("gate", "open", project.toString());
+    var pricing = project.resolve(PRICING);
+    Files.writeString(
+        pricing,
+        Files.readString(pricing).replace("if (total >= 100) {", "if (total >= 100) { // tiers"));
+    var touched = mutastic("gate", "check", project.toString());
+    var baseline = project.resolve(Baseline.FILE);
+    Files.writeString(baseline, Files.readString(baseline) + "  - id: m0000abcd\n");
+    var added = mutastic("gate", "check", project.toString());
+    mutastic("gate", "close", project.toString());
+
+    assertThat(touched.exit()).as(touched.out()).isEqualTo(Main.PASSED);
+    assertThat(touched.out()).contains("missed before the task and in .mutastic/baseline.yaml");
+    assertThat(added.exit()).isEqualTo(Main.FAILED);
+    assertThat(added.out())
+        .contains("the task added m0000abcd to .mutastic/baseline.yaml itself")
+        .contains("Take it out"); // the one entry: not the older ones too
+  }
+
   private void commit(String message) throws Exception {
     git("add", "-A");
     git(

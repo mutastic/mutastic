@@ -928,7 +928,8 @@
         },
         {
           "label": "Reports",
-          "optional": true
+          "optional": true,
+          "note": "Each file as typed from where mutastic runs: relative when it's below there, else absolute; with links on, an OSC 8 link to its absolute file:// URI. Shared by both editions; run-finished's reports stay relative to the project"
         },
         {
           "label": "Left out",
@@ -1049,7 +1050,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "e72d3c2056e063e22237ffda6b1da307bac3917e607ff66fa304e21fff875a33"
+      "sha256": "a4348cd6723170c627b75df64ae3044b64a3f882c831b0604baee35a2908412f"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1325,6 +1326,10 @@
     {
       "id": 15,
       "rule": "The gate passes \"changed no lines\" when no changed line is in a file the edition mutates, once the tests pass and after the checks for ignores and baseline entries the task made itself and for tests taken away; only a tree untouched since the task's start commit skips the tests and the check for tests taken away."
+    },
+    {
+      "id": 16,
+      "rule": "An ignore or baseline entry is the task's own when it wasn't there at `gate open`: the gate keeps both lists when it opens, since git may ignore `.mutastic/` and the start commit can't say. Ignores a person accepts between hooked turns join the opening list."
     }
   ],
   "differences": [

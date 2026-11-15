@@ -145,6 +145,14 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   under, `operators: defaults`, and `--prune` under others says so and drops nothing; `run` no
   longer counts the baseline's mutants caught under others. A baseline written before keeps
   working as it did.
+- **The summary's report files open from where you ran mutastic.** Run from `samples` on
+  `testng`, the `Reports` row said `build/mutastic/mutation.html`, which is there only from
+  `testng`, and isn't a link: a terminal that guessed one from the text opened
+  `/build/mutastic/mutation.html`. Each file is now shown from the directory you ran in
+  (`testng/build/mutastic/mutation.html`), whole when it's outside it, and with links on it links
+  to the file itself. The logs a failure names (`worker.log`, `gradle.log`) are shown and linked
+  the same way. `run-finished`'s `reports` are unchanged: relative to the project. The Rust
+  edition does the same.
 - **A class file from a newer JDK says so.** mutastic reads class files with the JDK it runs on,
   and JDK 25 reads none newer than its own: code compiled on JDK 26 or 27 stopped the run with
   `internal error: … Unsupported class file version: 70`. Now it names the class file and the JDK
