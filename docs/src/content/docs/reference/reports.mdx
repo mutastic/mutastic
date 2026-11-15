@@ -106,7 +106,9 @@ what's missed:
 | Maven | the module's own `target/mutastic/` |
 
 The same goes for a run from the command line and from either build plugin. A file given a path
-of its own goes there instead, relative to the project's directory.
+of its own goes there instead, relative to the project's directory. Beside `mutation.html`,
+`mutation-mutants/` holds a small page for each mutant the run didn't catch, which opens the report
+on it: the ids in the terminal link there.
 
 ## Choosing which
 
