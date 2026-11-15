@@ -196,6 +196,210 @@ class DocsOutputTest {
     return new Samples.Result(result.exit(), laidOut, result.err());
   }
 
+  /// What a long run says while it works, on a courier's round: its one test takes a second, and
+  /// one mutant makes the courier wait at a door for three seconds more, past what the test took
+  /// but inside the mutant's time limit. With one worker each mutant takes its turn, Postage's
+  /// first, then Signature's: `needed is always false`, then the slow one. At a terminal, the
+  /// screen as that mutant runs, marked SLOW; in a log, from the first file's line on, the
+  /// heartbeat that comes while it runs, three and a quarter seconds after Postage's line, with a
+  /// second or more to spare either side.
+  @Test
+  void aLongRun() throws Exception {
+    var project = courier(Samples.copy(SAMPLE, work.resolve("courier")));
+    var run = new String[] {"run", project.toString(), "--workers=1", "--report=none"};
+
+    var live = Samples.mutastic(TERMINAL, withProgress(run, "bar"));
+    assertThat(live.exit()).as(live.err()).isEqualTo(Main.FAILED);
+    shown("run-live.ansi", project, new Samples.Result(0, screenAtSlow(live.err()), ""));
+
+    var heartbeat = new java.util.HashMap<>(TERMINAL);
+    heartbeat.put("MUTASTIC_HEARTBEAT", COURIER_HEARTBEAT);
+    var log = Samples.mutastic(heartbeat, withProgress(run, "counter"));
+    assertThat(log.exit()).as(log.err()).isEqualTo(Main.FAILED);
+    var lines = log.err().lines().toList();
+    int first = 0;
+    while (first < lines.size()
+        && !ANSI.matcher(lines.get(first)).replaceAll("").startsWith(" ❯")) {
+      first++;
+    }
+    var from = String.join("\n", lines.subList(first, lines.size())) + "\n";
+    assertThat(ANSI.matcher(from).replaceAll("").lines())
+        .as(log.err())
+        .anyMatch(line -> line.startsWith("mutants   ["));
+    shown("run-log.ansi", project, new Samples.Result(0, from, ""));
+  }
+
+  /// A mutant that makes a loop never end, as Results shows it: `verify` says a timeout caught it.
+  /// The counter is a `long`, so the loop that counts up instead runs past any time limit, where an
+  /// `int` would wrap round to below 0 and end it.
+  @Test
+  void aTimeout() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("rounds"));
+    try (Stream<Path> files = Files.walk(project.resolve("src"))) {
+      for (var file : files.sorted(java.util.Comparator.reverseOrder()).toList()) {
+        Files.delete(file);
+      }
+    }
+    var main = Files.createDirectories(project.resolve("src/main/java/com/example/rounds"));
+    var test = Files.createDirectories(project.resolve("src/test/java/com/example/rounds"));
+    Files.writeString(
+        main.resolve("Rounds.java"),
+        """
+        package com.example.rounds;
+
+        public final class Rounds {
+          private Rounds() {}
+
+          /// How many trips a van that takes `load` parcels makes to deliver `parcels`.
+          public static int trips(long parcels, long load) {
+            int trips = 0;
+            for (long left = parcels; left > 0; left -= load) {
+              trips++;
+            }
+            return trips;
+          }
+        }
+        """);
+    Files.writeString(
+        test.resolve("RoundsTest.java"),
+        """
+        package com.example.rounds;
+
+        import static org.junit.jupiter.api.Assertions.assertEquals;
+
+        import org.junit.jupiter.api.Test;
+
+        class RoundsTest {
+          @Test
+          void threeTripsForTwentyFive() {
+            assertEquals(3, Rounds.trips(25, 10));
+          }
+        }
+        """);
+    var mutants = Samples.mutastic("mutants", project.toString());
+    var id =
+        ANSI.matcher(mutants.out())
+            .replaceAll("")
+            .lines()
+            .filter(line -> line.contains("- becomes +"))
+            .map(line -> line.substring(0, line.indexOf(' ')))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError(mutants.out()));
+    var verify = Samples.mutastic("verify", id, project.toString());
+    assertThat(verify.out()).as(verify.err()).contains("is caught by a timeout");
+    shown("timed-out.ansi", project, verify);
+  }
+
+  /// How often the courier's log says something when nothing else is: inside the slow mutant's run.
+  private static final String COURIER_HEARTBEAT = "3.25";
+
+  private static String[] withProgress(String[] run, String progress) {
+    var args = new ArrayList<>(List.of(run));
+    args.add("--progress=" + progress);
+    return args.toArray(String[]::new);
+  }
+
+  /// The pricing sample's code and tests replaced by a courier's: postage, and a hand-over that
+  /// waits at the door for a parcel that needs a signature. The test takes a second and a half, as
+  /// a slow integration test does.
+  private static Path courier(Path project) throws IOException {
+    try (Stream<Path> files = Files.walk(project.resolve("src"))) {
+      for (var file : files.sorted(java.util.Comparator.reverseOrder()).toList()) {
+        Files.delete(file);
+      }
+    }
+    var main = Files.createDirectories(project.resolve("src/main/java/com/example/courier"));
+    var test = Files.createDirectories(project.resolve("src/test/java/com/example/courier"));
+    Files.writeString(
+        project.resolve("settings.gradle.kts"),
+        Files.readString(project.resolve("settings.gradle.kts"))
+            .replace("rootProject.name = \"pricing\"", "rootProject.name = \"courier\""));
+    Files.writeString(
+        main.resolve("Postage.java"),
+        """
+        package com.example.courier;
+
+        public final class Postage {
+          private Postage() {}
+
+          /// 3 up to a kilo, 5 above; 2 more for a fragile parcel, and twice that by express.
+          public static int of(int grams, boolean fragile, boolean express) {
+            int postage = grams > 1000 ? 5 : 3;
+            if (fragile) {
+              postage += 2;
+            }
+            return express ? postage * 2 : postage;
+          }
+        }
+        """);
+    Files.writeString(
+        main.resolve("Signature.java"),
+        """
+        package com.example.courier;
+
+        public final class Signature {
+          private Signature() {}
+
+          /// A parcel that needs a signature waits for someone to come to the door.
+          public static void waitFor(boolean needed) throws InterruptedException {
+            if (needed) {
+              Thread.sleep(3000);
+            }
+          }
+        }
+        """);
+    Files.writeString(
+        test.resolve("RoundTest.java"),
+        """
+        package com.example.courier;
+
+        import static org.junit.jupiter.api.Assertions.assertEquals;
+
+        import org.junit.jupiter.api.Test;
+
+        class RoundTest {
+          @Test
+          void aRound() throws InterruptedException {
+            Thread.sleep(1000); // the van takes a while to get round
+            assertEquals(3, Postage.of(500, false, false));
+            assertEquals(14, Postage.of(2000, true, true));
+            Signature.waitFor(false);
+          }
+        }
+        """);
+    return project;
+  }
+
+  /// The terminal as it stood at the last frame the live block drew with a worker marked `SLOW`:
+  /// every permanent line so far, then that frame's block. Each write is a frame, between the
+  /// synchronized output's marks: what clears the last block, any permanent lines, then the block,
+  /// drawn with wrapping off.
+  static String screenAtSlow(String err) {
+    var said = new StringBuilder();
+    String screen = null;
+    for (var frame : err.split(Pattern.quote(ProgressStream.BEGIN_FRAME), -1)) {
+      var text = frame.replace(ProgressStream.END_FRAME, "");
+      int open = text.indexOf(ProgressStream.NO_WRAP);
+      var permanent = open < 0 ? text : text.substring(0, open);
+      said.append(CLEARING.matcher(permanent).replaceAll(""));
+      if (open >= 0) {
+        var block = text.substring(open + ProgressStream.NO_WRAP.length());
+        int close = block.indexOf(ProgressStream.WRAP);
+        block = close < 0 ? block : block.substring(0, close);
+        if (block.contains("SLOW")) {
+          screen = said + block + "\n";
+        }
+      }
+    }
+    assertThat(screen).as(err).isNotNull();
+    return screen;
+  }
+
+  /// What clears the live block, and the tab's progress, which a terminal doesn't show as text.
+  private static final Pattern CLEARING =
+      Pattern.compile(
+          "\r?\u001b\\[2K|\u001b\\[1A|\u001b\\[\\d*[AJK]|\u001b]9;4;[^\u001b]*\u001b\\\\");
+
   /// The flaky sample, run twice: the second time, every check has something to say. Only the end
   /// of its output is shown, from the first warning on.
   @Test
@@ -815,8 +1019,20 @@ class DocsOutputTest {
         .isEqualTo(withoutTimings(output));
   }
 
+  /// The live block's: the spinner's frame, which follows the clock, and the bar, whose width gives
+  /// way to the clock and what's left.
+  private static final Pattern SPINNER = Pattern.compile("[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]");
+
+  private static final Pattern BAR = Pattern.compile("━+((?:\u001B\\[[0-9;]*m)*)─*");
+
+  /// The version a run names as it starts, `dev` in a build of main.
+  private static final Pattern VERSION =
+      Pattern.compile("^mutastic \\S+ · reading", Pattern.MULTILINE);
+
   private static String withoutTimings(String output) {
-    var steady = COMMITS.matcher(TIMINGS.matcher(output).replaceAll("…")).replaceAll("$1…");
+    output = VERSION.matcher(output).replaceAll("mutastic … · reading");
+    var drawn = BAR.matcher(SPINNER.matcher(output).replaceAll("⠋")).replaceAll("━$1─");
+    var steady = COMMITS.matcher(TIMINGS.matcher(drawn).replaceAll("…")).replaceAll("$1…");
     return FENCE.matcher(steady).replaceAll("${marker}3f9a0c1e>>");
   }
 }

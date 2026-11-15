@@ -1,0 +1,8 @@
+ [1;31m❯[0m [46;30;1m courier [0m src/main/java/com/example/courier/Postage.java [2m([0m[2m9 mutants[0m[2m | [0m[1;31m1 missed[0m[2m)[0m [2m9.1s[0m
+   [1;31m×[0m of() [2m:8[0m [1m>[0m becomes [1m>=[0m
+mutants   [10/12] 90% · ✓ 8 caught · ✗ 2 missed · ○ 0 not covered · ⏱ 0 timed out · 12s · ~5s left
+ [1;31m❯[0m [46;30;1m courier [0m src/main/java/com/example/courier/Signature.java [2m([0m[2m3 mutants[0m[2m | [0m[1;31m2 missed[0m[2m)[0m [2m5.0s[0m
+   [1;31m×[0m waitFor() [2m:8[0m [1mneeded[0m is always false
+   [1;31m×[0m waitFor() [2m:8[0m [1mneeded[0m is always true
+ran       12 mutants in 14.6s · ✓ 8 caught · ✗ 3 missed · ○ 0 not covered · ⏱ 0 timed out
+checked   3 missed mutants in 1.6s · no test found to suggest

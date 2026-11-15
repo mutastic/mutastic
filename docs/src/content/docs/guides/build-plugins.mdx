@@ -3,6 +3,10 @@ title: Maven and Gradle plugins
 description: "Run mutastic from the build: goals and tasks, build-file settings, and how they combine with the command line."
 ---
 
+import model from '../../../data/commands.json';
+
+export const reportKinds = model.options.find((option) => option.name === '--report').choices;
+
 Both plugins run the same command, with the build's own settings. The [Install](/getting-started/install/) page has the setup for the current release, and each option is in the [reference](/reference/run/) in all three forms.
 
 ## Maven
@@ -34,7 +38,7 @@ How a run happens can be set in the plugin's configuration:
 | `failOnNew` | `false` | Fail a run only on misses that aren't in `.mutastic/baseline.yaml`, whatever the score |
 | `testsFrom` | none | Other modules whose tests run over the mutants this one's miss: `:app`, or `dependents` |
 | `workers` | by the machine | How many workers run side by side |
-| `reports` | `json,html` | The report files a full run writes, each with `:path` if it isn't the default; empty for none |
+| `reports` | `json,html` | The [report files](/reference/reports/) a full run writes: {reportKinds.map((kind, at) => <span>{at === 0 ? '' : at === reportKinds.length - 1 ? ' or ' : ', '}<code>{kind}</code></span>)}, each with `:path` if it isn't the default |
 | `format` | by the terminal | `full`, `brief`, `concise`, `grouped`, `agent` or `jsonl` |
 | `eachMutant` | `false` | A card for every missed mutant, not one for the mutants of each line |
 | `since` | not set | Mutate only the lines changed since this ref; empty for the default branch |
