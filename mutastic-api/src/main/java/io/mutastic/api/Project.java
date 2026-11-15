@@ -73,7 +73,7 @@ public record Project(
   @Internal
   public Project runningTestsOf(Project runner, Path build) {
     var mine = new java.util.HashSet<>(outputs);
-    var root = build.toAbsolutePath().normalize();
+    var root = RealPath.of(build);
     var others = runner.dependencies().stream().filter(path -> !mine.contains(path)).toList();
     var beside = besideTheMutated(runner, mine);
     others.stream().filter(path -> inside(path, root)).forEach(beside::add);
@@ -105,7 +105,7 @@ public record Project(
   }
 
   private static boolean inside(Path path, Path root) {
-    return path.toAbsolutePath().normalize().startsWith(root);
+    return RealPath.of(path).startsWith(root);
   }
 
   public Project {

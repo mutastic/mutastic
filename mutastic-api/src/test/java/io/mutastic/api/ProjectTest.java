@@ -2,10 +2,12 @@ package io.mutastic.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class ProjectTest {
   private static final Path BUILD = Path.of("/work/shop");
@@ -41,6 +43,22 @@ class ProjectTest {
 
     assertThat(running.dependencies()).containsExactly(library);
     assertThat(running.alongside()).containsExactly(BUILD.resolve("app/classes"), web);
+  }
+
+  /// The build as the person typed it, through a link (`/var` on macOS), and its modules as the
+  /// build tool reports them (`/private/var`): `web` is still one of the build's modules.
+  @Test
+  void aModuleOfTheBuildIsKnownThroughALink(@TempDir Path work) throws Exception {
+    var build = Files.createDirectories(work.resolve("private/shop"));
+    var typed = Files.createSymbolicLink(work.resolve("shop"), build);
+    var web = build.resolve("web/build/libs/web.jar");
+    var core = module("core", List.of(), List.of(BUILD.resolve("core/build/libs/core.jar")));
+    var app = module("app", List.of(web), List.of());
+
+    var running = core.runningTestsOf(app, typed);
+
+    assertThat(running.dependencies()).isEmpty();
+    assertThat(running.alongside()).contains(web);
   }
 
   private static Project module(String name, List<Path> dependencies, List<Path> outputs) {

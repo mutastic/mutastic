@@ -6,6 +6,7 @@ import io.mutastic.api.Listener;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Policy;
 import io.mutastic.api.Project;
+import io.mutastic.api.RealPath;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import io.mutastic.engine.ClassSources;
@@ -194,13 +195,12 @@ public final class Main {
   /// A directory as it would be typed from where mutastic runs: relative when one is inside the
   /// other, `..`, and `.` for here.
   private static Path typedPath(Path directory) {
-    var here = Path.of("").toAbsolutePath().normalize();
-    if (directory.equals(here)) {
+    var here = RealPath.of(Path.of(""));
+    var real = RealPath.of(directory);
+    if (real.equals(here)) {
       return Path.of(".");
     }
-    return here.startsWith(directory) || directory.startsWith(here)
-        ? here.relativize(directory)
-        : directory;
+    return here.startsWith(real) || real.startsWith(here) ? here.relativize(real) : directory;
   }
 
   /// A hook runs in whatever project the agent is in. Where mutastic reads no build, there's
