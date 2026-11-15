@@ -58,7 +58,9 @@ it has.
 
 `gate check` runs the tests, and mutastic on the lines changed since the task started, committed
 or not. It runs the tests even when no mutant is on those lines: a constant, an import or a log
-line can break a test too. The task is done when:
+line can break a test too. Since only the mutants on those lines run, a stronger operator set in
+`mutastic.yaml` stays cheap in an agent's loop: see
+[Choosing operators](/concepts/operators/#choosing-operators). The task is done when:
 
 - **each mutant on those lines is caught, or proposed** for a person to ignore. A proposed mutant
   still counts as missed in the score, but it doesn't hold the gate: deciding it is yours. With a
