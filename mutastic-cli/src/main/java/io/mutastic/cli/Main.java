@@ -213,7 +213,6 @@ public final class Main {
   }
 
   private static int run(Command command, PrintStream out, PrintStream err, Terminal terminal) {
-    long started = System.nanoTime(); // a hooked gate check's budget counts from here
     var directory = command.directory().toAbsolutePath().normalize();
     noBaselineToFailOn(command, directory);
     var tool = BuildTools.of(directory);
@@ -230,7 +229,7 @@ public final class Main {
     }
     var lock = WorkLock.hold(tool.workDirectory(directory, command.module()), err);
     try (var output = output(command, out, err, terminal)) {
-      return held(command, output, tool, terminal, started);
+      return held(command, output, tool, terminal);
     } catch (Engine.BaselineFailed e) {
       throw rerun(e, command, tool, directory);
     } finally {
@@ -304,8 +303,7 @@ public final class Main {
   }
 
   /// A run, holding its module's work directory: see [WorkLock].
-  private static int held(
-      Command command, Output output, BuildTool tool, Terminal terminal, long started) {
+  private static int held(Command command, Output output, BuildTool tool, Terminal terminal) {
     // Shares that can't be put together are refused before the build is read.
     var shares = command.fromShards().map(directory -> Shares.read(directory, version()));
     var progress = output.progress();
@@ -326,7 +324,7 @@ public final class Main {
     var passes = new Passes(engine, options, progress, tool, shares);
     if (command.subcommand() != Subcommand.RUN) {
       return command.subcommand().gate()
-          ? gated(new Gated(command, prepared, passes, output, terminal, started))
+          ? gated(new Gated(command, prepared, passes, output, terminal))
           : single(command, prepared, passes, output);
     }
     return fullRun(command, prepared, passes, output);
@@ -639,15 +637,8 @@ public final class Main {
   }
 
   /// A `gate` command, with what running it needs.
-  ///
-  /// @param started when the command started, by [System#nanoTime]
   private record Gated(
-      Command command,
-      Prepared prepared,
-      Passes passes,
-      Output output,
-      Terminal terminal,
-      long started) {
+      Command command, Prepared prepared, Passes passes, Output output, Terminal terminal) {
     boolean hooked() {
       return !command.gating().hook().isEmpty();
     }
@@ -656,9 +647,10 @@ public final class Main {
       return prepared.work();
     }
 
-    /// How long the command has run.
-    java.time.Duration elapsed() {
-      return java.time.Duration.ofNanos(System.nanoTime() - started);
+    /// How long the command has run, from when it started reading the build: a hooked check's
+    /// budget counts from there.
+    Duration elapsed() {
+      return Duration.between(prepared.startedAt().toInstant(), java.time.Instant.now());
     }
 
     GateBudget budget() {
