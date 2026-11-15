@@ -35,9 +35,14 @@ one click away, not a terminal scroll back:
 - **Mutants:** every mutant in the run, by status and operator.
 - **Tests:** what each test caught and what it ran but let through, with its source.
 
-**Copy** beside each list puts its tests to write on the clipboard a line each, `- Pricing.java:17
-- test discount() with total = 100 and assert the result`, for an issue or a pull request. Opened
-from inside the project the report names, each test links to your editor. Drop another
+**Copy** beside each list puts its tests to write on the clipboard, a line each, for an issue or a
+pull request:
+
+```text
+- Pricing.java:17 - test discount() with total = 100 and assert the result
+```
+
+Opened from inside the project the report names, each test links to your editor. Drop another
 `mutation.json` on the page to read it instead.
 
 ![A missed mutant in mutastic's HTML report: the line it changed, why the tests let it through, the test to add and the command that proves it](../../../assets/report-missed.png)
@@ -72,8 +77,8 @@ them.
 ## Code scanning
 
 `--report=sarif` writes a result for each missed mutant, as a warning, and each one no test
-reaches, as a note, on the line it's on, with the card's headline as its message: `no test checks
-discount() at total == 100`. Caught and skipped mutants aren't results. Each operator that made a
+reaches, as a note, on the line it's on, with the card's headline as its message:
+`no test checks discount() at total == 100`. Caught and skipped mutants aren't results. Each operator that made a
 result is a rule, described as `mutastic explain` describes it.
 
 A result carries the mutant's id in `partialFingerprints` (`mutasticId/v1`), and the id stays the

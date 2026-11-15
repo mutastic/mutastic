@@ -1,0 +1,7 @@
+mutastic dev · reading the Gradle build…
+built     12 mutants in 4.5s
+coverage  1 test on JDK 17 in 1.3s · 12 mutants
+ [1;31m❯[0m [46;30;1m courier [0m src/main/java/com/example/courier/Postage.java [2m([0m[2m9 mutants[0m[2m | [0m[1;31m1 missed[0m[2m)[0m [2m9.2s[0m
+   [1;31m×[0m of() [2m:8[0m [1m>[0m becomes [1m>=[0m
+[32m⠙[0m [1mmutants[0m   [32m━━━━━━━━━━━━━━━━━━[0m[2m──[0m  90% · 10/12 · [32m✓ 8 caught[0m · [1;31m✗ 2 missed[0m · ○ 0 · [33m⏱ 0[0m · 14s · ~5s left
+   1 [2m[00:00:03][0m [1;33mSLOW [0m Signature.java:8 [1mwaitFor()[0m [1mneeded[0m is always true
