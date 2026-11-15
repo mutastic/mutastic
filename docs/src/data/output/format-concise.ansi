@@ -8,8 +8,8 @@
  [2m  Mutants[0m  [32m✓ [1m10 caught[0m[0m[2m · [0m[1;31m✗ [1m1 missed[0m[0m[2m (11)[0m
  [2m Worst at[0m  Pricing.discount() 1 ✗
  [2mTest runs[0m  13[2m (33 without coverage selection)[0m
- [2m Start at[0m  11:56:57
- [2m Duration[0m  2.7s [2m(setup 0ms, build 1.4s, coverage 292ms, mutants 129ms, checking 940ms)[0m
+ [2m Start at[0m  01:19:16
+ [2m Duration[0m  2.5s [2m(setup 0ms, build 1.2s, coverage 209ms, mutants 101ms, checking 989ms)[0m
  [2m    Tests[0m  3 on JDK 17 · 1 worker
- [2m  Reports[0m  build/mutastic/mutation.json[2m · [0mbuild/mutastic/mutation.html
+ [2m  Reports[0m  samples/pricing/build/mutastic/mutation.json[2m · [0msamples/pricing/build/mutastic/mutation.html
  [2m    Score[0m  [32m[1m90.9%[0m[0m  [42;30;1m PASS [0m [32m1 missed, above the threshold of 80.[0m
