@@ -739,28 +739,82 @@ public final class Main {
       return PASSED;
     }
     var base = new Git(directory).head();
-    started(gated, session, base);
-    gated
-        .output()
-        .out()
-        .printf(
-            "mutastic gate: this task is gated from %s: before you finish, check the lines it"
-                + " changes with `mutastic run --since=%s --format=agent`; %s. %s\n",
+    var operators = gateOperators(gated.command(), gated.prepared());
+    started(gated, session, base, operators);
+    gated.output().out().print(gatedFrom(gated, base, operators));
+    return PASSED;
+  }
+
+  /// What the agent is told when its task is gated: where from, under which operators, and how to
+  /// check its work as it goes.
+  private static String gatedFrom(Gated gated, String base, List<String> operators) {
+    var set = String.join(",", operators);
+    return ("mutastic gate: this task is gated from %s (operators: %s): before you finish, check"
+            + " the lines it changes with `mutastic run --since=%s%s --format=agent`; %s. %s\n")
+        .formatted(
             base.substring(0, Math.min(7, base.length())),
+            set,
             base,
+            asRunWouldChoose(gated, operators) ? "" : " --operators=" + set,
             whenItsDone(gated),
             MutantCommand.NO_REWRITE);
-    return PASSED;
+  }
+
+  /// The operators a gated task runs, chosen when it opens: `--operators`, else `mutastic.yaml`'s
+  /// `gate:` `operators:`, else its `operators:`, else the defaults. Checked here, so a set the
+  /// project doesn't have is said at the open, where it was chosen, not at each check.
+  private static List<String> gateOperators(Command command, Prepared prepared) {
+    if (!command.operators().isEmpty()) {
+      policy(command, prepared);
+      return command.operators();
+    }
+    var configuration = configuration(prepared);
+    if (configuration.gateOperators().isEmpty()) {
+      return configuration.operators().isEmpty() ? List.of("defaults") : configuration.operators();
+    }
+    var policy = policy(command, prepared);
+    try {
+      OperatorSet.active(policy.withOperators(configuration.gateOperators(), policy.mutators()));
+    } catch (OperatorSet.Unknown e) {
+      throw new ConfigException(
+          "%s: %s"
+              .formatted(
+                  configuration.place(Configuration.GATE_OPERATORS, e.name()), e.getMessage()));
+    }
+    return configuration.gateOperators();
+  }
+
+  /// The module's `mutastic.yaml`, the nearest at or above it.
+  private static Configuration configuration(Prepared prepared) {
+    return Configuration.read(
+        Configuration.nearest(prepared.project().workingDirectory(), prepared.directory()));
+  }
+
+  /// Whether `operators` are those a `mutastic run` would choose: then the run the agent is told to
+  /// check its work with needs no `--operators`.
+  private static boolean asRunWouldChoose(Gated gated, List<String> operators) {
+    var run = gated.command().withOperators(List.of());
+    return operatorIds(policy(run, gated.prepared()))
+        .equals(operatorIds(policy(run.withOperators(operators), gated.prepared())));
   }
 
   /// Where the task starts: its commit, the ignores, and the tests from their annotations, kept;
   /// what only a run counts, counted in the background, so the agent needn't wait for it.
-  private static void started(Gated gated, String session, String base) {
+  private static void started(Gated gated, String session, String base, List<String> operators) {
     var directory = gated.prepared().directory();
     var shape = Gate.Shape.of(gated.prepared().project().testSources());
     var baselined = Optional.<java.util.Set<String>>of(Baseline.ids(directory));
     new Gate.State(
-            session, base, ignored(directory), baselined, shape, 0, "", Map.of(), Optional.empty())
+            session,
+            base,
+            ignored(directory),
+            baselined,
+            shape,
+            0,
+            "",
+            Map.of(),
+            Optional.empty(),
+            operators)
         .write(gated.work());
     var module = new GateCount.Module(gated.command().module(), gated.command().suite());
     GateCount.start(gated.work(), directory, new Git(directory).tree(), module);
@@ -788,6 +842,7 @@ public final class Main {
       // Closed by another process while the build was read: as a gate check finds nothing open.
       return gated.hooked() ? PASSED : USAGE;
     }
+    gated = underTheOpensOperators(gated, open.get());
     var verdict = gateVerdict(gated, open.get());
     var state = open.get().remembering(verdict.red());
     if (verdict.passes()) {
@@ -795,6 +850,29 @@ public final class Main {
       return answer(gated, forThePerson(gated, state, verdict));
     }
     return notDone(gated, state, verdict);
+  }
+
+  /// The check, running the operators its open chose, so a check can't run fewer than the task
+  /// opened with. Given `--operators` that come to another set, it's refused rather than run.
+  private static Gated underTheOpensOperators(Gated gated, Gate.State open) {
+    var command = gated.command();
+    var prepared = gated.prepared();
+    // A task an older gate opened kept no operators: its checks choose as an open would.
+    var chosen = open.operators().isEmpty() ? gateOperators(command, prepared) : open.operators();
+    var under = command.withOperators(chosen);
+    if (!command.operators().isEmpty()
+        && !operatorIds(policy(command, prepared)).equals(operatorIds(policy(under, prepared)))) {
+      throw new UsageException(
+          ("the gate opened with operators: %s, and a check runs what the open chose: `mutastic"
+                  + " gate close`, then `mutastic gate open --operators=%s`, to choose again")
+              .formatted(String.join(",", chosen), String.join(",", command.operators())));
+    }
+    return new Gated(under, prepared, gated.passes(), gated.output(), gated.terminal());
+  }
+
+  /// The operators a check runs, as its open chose them: what its verdict names.
+  private static String operatorsOf(Gated gated) {
+    return String.join(",", gated.command().operators());
   }
 
   /// The agent is sent back, unless, as a hook, it changed nothing since it last was, or it has had
@@ -1074,7 +1152,7 @@ public final class Main {
     var missed = missedIds(report).stream().filter(id -> !older.contains(id)).toList();
     var open = missed.stream().filter(id -> !proposed.contains(id)).toList();
     if (open.isEmpty()) {
-      return Gate.Verdict.pass(passed(report, missed, missedIds(report).size() - missed.size()));
+      return Gate.Verdict.pass(passed(gated, report, missed));
     }
     // The cards are for what holds the gate: a proposed mutant waits on a person, not the agent.
     var shown =
@@ -1089,7 +1167,8 @@ public final class Main {
                 heldBy(
                     withStatus(shown, Status.MISSED),
                     withStatus(shown, Status.NOT_COVERED),
-                    waiting),
+                    waiting,
+                    operatorsOf(gated)),
                 cards(gated, report.withResults(shown))));
   }
 
@@ -1106,8 +1185,9 @@ public final class Main {
   }
 
   /// What holds the gate, every mutant by id: those missed, those no test reaches, and apart from
-  /// them those proposed, which wait on a person, not the agent.
-  static String heldBy(List<String> missed, List<String> uncovered, List<String> waiting) {
+  /// them those proposed, which wait on a person, not the agent; and the operators that made them.
+  static String heldBy(
+      List<String> missed, List<String> uncovered, List<String> waiting, String operators) {
     int count = missed.size() + uncovered.size();
     var parts = new ArrayList<String>();
     if (!missed.isEmpty()) {
@@ -1116,6 +1196,7 @@ public final class Main {
     if (!uncovered.isEmpty()) {
       parts.add("no test reaches: " + String.join(", ", uncovered));
     }
+    parts.add("operators: " + operators);
     return ("mutastic gate: %d mutant%s on the lines the task changed %s it, so it isn't done (%s).%s"
             + " For each card: write the test, and run its `done when` before you move on; for a"
             + " line no test reaches, write a test that reaches it; if a case can't happen,"
@@ -1222,17 +1303,26 @@ public final class Main {
     }
   }
 
+  /// A pass: `waiting` are the missed mutants proposed for a person; the rest missed, in the
+  /// baseline.
+  private static String passed(Gated gated, Report report, List<String> waiting) {
+    int older = missedIds(report).size() - waiting.size();
+    return passed(report, waiting, older, operatorsOf(gated));
+  }
+
   /// What a pass says: how many the tests catch, and any proposals waiting for a person.
-  private static String passed(Report report, List<String> waiting, int older) {
+  private static String passed(Report report, List<String> waiting, int older, String operators) {
     if (report.results().size() == report.count(Status.SKIPPED)) {
-      return "mutastic gate: passed: the tests pass, and the lines the task changed hold no mutant"
-          + " to run";
+      return ("mutastic gate: passed: the tests pass, and the lines the task changed hold no mutant"
+              + " to run (operators: %s)")
+          .formatted(operators);
     }
     return ("mutastic gate: passed: the tests catch %d of the %d mutants on the lines the task"
-            + " changed%s%s")
+            + " changed (operators: %s)%s%s")
         .formatted(
             report.count(Status.CAUGHT) + report.count(Status.TIMED_OUT),
             report.results().size() - report.count(Status.SKIPPED),
+            operators,
             waiting.isEmpty()
                 ? ""
                 : "; the rest wait for a person, proposed in .mutastic/proposals.yaml: "
@@ -2560,6 +2650,33 @@ public final class Main {
           reports,
           testsFrom,
           operators,
+          excludeTests,
+          suite,
+          since,
+          ignore,
+          setup,
+          commands,
+          gating,
+          experimental,
+          top,
+          sharing);
+    }
+
+    /// The same command, running `chosen` operators: a gate check's, those its open chose.
+    Command withOperators(List<String> chosen) {
+      return new Command(
+          subcommand,
+          directory,
+          module,
+          shown,
+          bar,
+          only,
+          catches,
+          workers,
+          extras,
+          reports,
+          testsFrom,
+          List.copyOf(chosen),
           excludeTests,
           suite,
           since,

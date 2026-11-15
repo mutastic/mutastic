@@ -27,10 +27,15 @@ final class Options {
   /// The commands that run the module's mutants, every one or those on a change.
   private static final Set<Main.Subcommand> MODULE_RUNS = EnumSet.of(RUN, NEXT);
 
-  /// The commands that choose the module's operators: those that run its mutants, and `mutants`,
-  /// which lists them.
+  /// The commands that choose the module's operators: those that run its mutants, `mutants`, which
+  /// lists them, and the gate's open, which keeps them for its checks.
   private static final Set<Main.Subcommand> OPERATORS_CHOSEN =
-      EnumSet.of(RUN, NEXT, Main.Subcommand.MUTANTS);
+      EnumSet.of(
+          RUN,
+          NEXT,
+          Main.Subcommand.MUTANTS,
+          Main.Subcommand.GATE_OPEN,
+          Main.Subcommand.GATE_CHECK);
 
   private static final Set<Main.Subcommand> MUTANTS_RUN =
       EnumSet.of(RUN, VERIFY, EXPLAIN, NEXT, Main.Subcommand.BASELINE);

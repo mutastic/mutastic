@@ -432,7 +432,7 @@ class GateTest {
     assertThat(unbroken.out())
         .isEqualTo(
             "mutastic gate: passed: the tests pass, and the lines the task changed hold no mutant"
-                + " to run\n");
+                + " to run (operators: defaults)\n");
     assertThat(data.exit()).isEqualTo(Main.FAILED);
     assertThat(data.out())
         .contains("PricingTest#smallOrdersPayFullPrice (there when the task started)");

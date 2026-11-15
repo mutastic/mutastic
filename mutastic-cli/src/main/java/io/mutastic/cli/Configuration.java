@@ -41,18 +41,24 @@ import org.jspecify.annotations.Nullable;
 /// operators:
 ///   - stronger
 ///   - -stream/swap-match
+/// gate:
+///   operators:
+///     - stronger
 /// ```
 ///
 /// Read strictly, as exactly this shape: a line it doesn't understand is an error that names it,
 /// never a guess. A plugin is a jar, whose filters run only when `filters:` names them and whose
 /// operators run as `operators:` chooses, or a rules file (`.yaml`) of call operators. `operators:`
-/// chooses as `--operators` does, which replaces it.
+/// chooses as `--operators` does, which replaces it. `gate:`'s `operators:` chooses for `gate open`
+/// alone, in place of `operators:`, so an agent's task can be held to more than everyday runs.
 ///
 /// A module uses the nearest `mutastic.yaml` at or above its directory, however it's run, so the
 /// same module gets the same rules from the build's top as from its own directory. A file adds
 /// another's only when it says so, with `extends:`: one file and the ones it names are all that
 /// apply, never a cascade nobody wrote down.
 ///
+/// @param gateOperators the operators `gate:` chooses for a gated task: empty when it chooses none,
+///   and the gate runs `operators`
 /// @param places where each plugin, filter and operator is listed, `mutastic.yaml line 7`, for an
 ///   error about it to say: by [#place]'s key
 record Configuration(
@@ -60,20 +66,25 @@ record Configuration(
     List<Path> plugins,
     List<String> filters,
     List<String> operators,
+    List<String> gateOperators,
     Map<String, String> places) {
   static final String FILE = "mutastic.yaml";
   static final Configuration NONE =
-      new Configuration(List.of(), List.of(), List.of(), List.of(), Map.of());
+      new Configuration(List.of(), List.of(), List.of(), List.of(), List.of(), Map.of());
 
   /// The sections a file has, each at most once.
   private static final List<String> SECTIONS =
-      List.of("extends:", "rules:", "plugins:", "filters:", "operators:");
+      List.of("extends:", "rules:", "plugins:", "filters:", "operators:", "gate:");
+
+  /// What [#place] calls `gate:`'s `operators:`.
+  static final String GATE_OPERATORS = "gate: operators:";
 
   Configuration {
     rules = List.copyOf(rules);
     plugins = List.copyOf(plugins);
     filters = List.copyOf(filters);
     operators = List.copyOf(operators);
+    gateOperators = List.copyOf(gateOperators);
     places = Map.copyOf(places);
   }
 
@@ -155,8 +166,8 @@ record Configuration(
   }
 
   /// This file's say over `parent`'s: its rules first, so a module's own reason is the one shown,
-  /// then the parent's; the plugins and filters of both; and its operators, if it chooses any, in
-  /// place of the parent's, as `--operators` replaces them.
+  /// then the parent's; the plugins and filters of both; and its operators, and its gate's, if it
+  /// chooses any, in place of the parent's, as `--operators` replaces them.
   private Configuration over(Configuration parent) {
     var placed = new java.util.HashMap<>(parent.places);
     placed.putAll(places);
@@ -165,6 +176,7 @@ record Configuration(
         joined(plugins, parent.plugins),
         joined(filters, parent.filters),
         operators.isEmpty() ? parent.operators : operators,
+        gateOperators.isEmpty() ? parent.gateOperators : gateOperators,
         placed);
   }
 
@@ -183,7 +195,7 @@ record Configuration(
     for (int i = 0; i < plugins.size(); i++) {
       placed.put("plugins: " + moved.get(i), place("plugins:", plugins.get(i).toString()));
     }
-    return new Configuration(rules, moved, filters, operators, placed);
+    return new Configuration(rules, moved, filters, operators, gateOperators, placed);
   }
 
   /// The rules, the filters `filters:` names, found in the plugins, and the operators the plugins
@@ -276,9 +288,16 @@ record Configuration(
     private final List<Path> plugins = new ArrayList<>();
     private final List<String> filters = new ArrayList<>();
     private final List<String> operators = new ArrayList<>();
+    private final List<String> gateOperators = new ArrayList<>();
     private final Map<String, String> places = new java.util.HashMap<>();
     private @Nullable Path extended;
+
+    /// What `gate:` takes, as an error says it.
+    private static final String GATE_SHAPE =
+        "gate: takes operators:, a list under it:\n  gate:\n    operators:\n      - stronger";
+
     private String section = "";
+    private boolean gateKey;
     private @Nullable String pendingVerb;
     private @Nullable String pendingTarget;
     private int number;
@@ -297,7 +316,7 @@ record Configuration(
         }
       }
       requireReason();
-      return new Configuration(rules, plugins, filters, operators, places);
+      return new Configuration(rules, plugins, filters, operators, gateOperators, places);
     }
 
     private void read(String line) {
@@ -317,8 +336,26 @@ record Configuration(
         case "plugins:" -> plugins.add(Path.of(placed(item)));
         case "filters:" -> filters.add(placed(item));
         case "operators:" -> operators.add(placed(item));
+        case "gate:" -> gate(item);
         default -> throw error("a list item needs a section above it");
       }
+    }
+
+    /// A line under `gate:`: `operators:`, then its list under it.
+    private void gate(String item) {
+      if (item.equals("operators:")) {
+        if (gateKey) {
+          throw error("gate: has operators: once");
+        }
+        gateKey = true;
+        return;
+      }
+      if (!gateKey || !item.startsWith("- ")) {
+        throw error(GATE_SHAPE);
+      }
+      var listed = listed(item);
+      places.put(GATE_OPERATORS + " " + listed, "%s line %d".formatted(shown, number));
+      gateOperators.add(listed);
     }
 
     /// A list item, kept with the line it's on.
@@ -333,6 +370,9 @@ record Configuration(
     private Main.ConfigException notASection(String line) {
       int colon = line.indexOf(':');
       var key = colon < 0 ? line : line.substring(0, colon + 1);
+      if (key.equals("gate:")) {
+        return error(GATE_SHAPE);
+      }
       if (SECTIONS.contains(key)) {
         return error(
             "%s takes a list, an item a line under it:\n  %s\n    - %s"

@@ -60,7 +60,7 @@ class ConfigurationTest {
     assertThatThrownBy(() -> Configuration.read(project))
         .hasMessage(
             "mutastic.yaml line 1: garbage isn't a section; the sections are extends:, rules:,"
-                + " plugins:, filters: and operators:");
+                + " plugins:, filters:, operators: and gate:");
   }
 
   /// A list on its section's line is read by YAML but not by mutastic, which says how to write it.
@@ -74,6 +74,27 @@ class ConfigurationTest {
                 + "  operators:%n"
                 + "    - stronger",
             "");
+  }
+
+  /// `gate:` chooses the gate's operators apart from everyday runs', each named by its line, and
+  /// takes nothing else.
+  @Test
+  void theGateChoosesItsOwnOperators() throws Exception {
+    write("operators:\n  - defaults\ngate:\n  operators:\n    - stronger\n    - -stream\n");
+    var configuration = Configuration.read(project);
+
+    assertThat(configuration.operators()).containsExactly("defaults");
+    assertThat(configuration.gateOperators()).containsExactly("stronger", "-stream");
+    assertThat(configuration.place(Configuration.GATE_OPERATORS, "-stream"))
+        .isEqualTo("mutastic.yaml line 6");
+    for (var refused :
+        java.util.List.of(
+            "gate: {operators: stronger}\n", "gate:\n  - stronger\n", "gate:\n  threshold:\n")) {
+      write(refused);
+      assertThatThrownBy(() -> Configuration.read(project))
+          .as(refused)
+          .hasMessageContaining("gate: takes operators:, a list under it");
+    }
   }
 
   /// A rule with a close verb, a filter no plugin has and a plugin that isn't there are each named
@@ -118,6 +139,9 @@ class ConfigurationTest {
         operators:
           - defaults
           - -stream/swap-match
+        gate:
+          operators:
+            - stronger
         """;
     write(read);
     Configuration.read(project);
@@ -127,7 +151,8 @@ class ConfigurationTest {
         java.util.List.of(
             "rules:\n  - skip: com.acme.**\n",
             "rule:\n  - skip: com.acme.**\n",
-            "rules:\n  - skip: com.acme.**\n    mutate: com.acme.**\n    reason: both\n")) {
+            "rules:\n  - skip: com.acme.**\n    mutate: com.acme.**\n    reason: both\n",
+            "gate:\n  threshold: 90\n")) {
       write(refused);
       assertThatThrownBy(() -> Configuration.read(project))
           .as(refused)
