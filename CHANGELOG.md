@@ -260,6 +260,15 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Agents
 
+- **A hooked gate check keeps within the hook's time.** The plugins run `gate check` from a Stop
+  hook that's stopped after ten minutes, and a hook stopped gates nothing; on a slow project the
+  wait for the count of the task's start, up to four minutes, and the check's own run could pass
+  that. As a hook, a check now waits for the count only as long as its budget has left once its
+  run is done (`MUTASTIC_GATE_BUDGET`, in seconds, 600 unless set), and when the count isn't done
+  by then, a pass says the check compared the annotations only, as before. When the last check's
+  own run took longer than the whole budget, the next hands over before it runs and says so: run
+  `mutastic gate check` yourself. A check run by a person has no budget. Both variables are in
+  help now, and the editions' contract holds them (decision 17).
 - **The gate keeps the baseline as it was when it opened.** Where git ignores `.mutastic/`, the
   start commit has no baseline, so every entry of a local one counted as the task's own and held
   the gate however the task did. Only an entry added since `gate open` holds it now.

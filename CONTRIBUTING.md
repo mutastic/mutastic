@@ -83,7 +83,7 @@ it on docs.mutastic.io. It holds what the editions must agree on:
   (its head, each entry, and the tail that closes the fence around the project's text);
 - the events' key paths per event type and their order, and mutation.json's key paths;
 - the events, report and SARIF schemas, by sha256;
-- the 15 decisions taken on 13 Nov 2026 (`decisions`), each a shared rule;
+- the decisions taken since 13 Nov 2026 (`decisions`), each a shared rule;
 - `differences`: every known way an edition differs, each one of three kinds:
   - `engine`: permanent, with a `reason` another edition would share (Gradle modules, `unsafe`);
   - `dated`: with an `until` (`rust 2.0.0`);
