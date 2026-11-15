@@ -135,7 +135,11 @@ lists them). Warnings for now, while the masks settle.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org) and 50/72: a
   `type(scope): subject` of at most 50 characters, imperative and lower case, a blank line, then a
   body wrapped at 72 that explains why: what was wrong or missing, and what the change does about it.
-- CI must pass. A pull request that changes the docs gets a preview link of its own.
+- CI must pass. A pull request that changes the docs gets a preview link of its own. One that
+  changes only what the build never reads (the Markdown pages at the top, the issue and pull
+  request templates, workflows other than CI's, the hooks) skips the build and the tests; docs/
+  is read by the build, so it doesn't. The merge queue runs everything, whatever changed. A new
+  push cancels the checks still running for the one before.
 
 ## Commit messages
 
