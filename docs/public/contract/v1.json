@@ -1876,21 +1876,6 @@
       "decision": 13
     },
     {
-      "id": "D17",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "gate",
-      "summary": "No budget for a hooked gate check: no `MUTASTIC_GATE_BUDGET`, and the count's wait isn't `MUTASTIC_GATE_COUNT_WAIT`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "decision": 17,
-      "items": [
-        "env:MUTASTIC_GATE_BUDGET",
-        "env:MUTASTIC_GATE_COUNT_WAIT"
-      ]
-    },
-    {
       "id": "G3",
       "kind": "pending",
       "editions": [
