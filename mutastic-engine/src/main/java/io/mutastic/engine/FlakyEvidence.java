@@ -2,8 +2,6 @@ package io.mutastic.engine;
 
 import io.mutastic.api.FlakyTest;
 import io.mutastic.api.Project;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.lang.classfile.MethodModel;
@@ -90,14 +88,7 @@ final class FlakyEvidence {
         .map(root -> root.resolve(name))
         .filter(Files::isRegularFile)
         .findFirst()
-        .map(
-            file -> {
-              try {
-                return ClassFile.of().parse(Files.readAllBytes(file));
-              } catch (IOException e) {
-                throw new UncheckedIOException(e);
-              }
-            });
+        .map(file -> ClassFileVersion.parse(ClassFile.of(), file));
   }
 
   private static void scan(MethodModel method, Set<String> reaches) {
