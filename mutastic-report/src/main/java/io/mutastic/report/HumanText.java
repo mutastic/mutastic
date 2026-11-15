@@ -6,6 +6,7 @@ import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -46,7 +47,7 @@ public final class HumanText {
   public record Run(
       LocalTime startedAt,
       Duration setup,
-      List<String> reports,
+      List<Path> reports,
       boolean oneMutant,
       List<String> leftOut,
       Duration build) {
@@ -59,17 +60,17 @@ public final class HumanText {
     public Run(
         LocalTime startedAt,
         Duration setup,
-        List<String> reports,
+        List<Path> reports,
         boolean oneMutant,
         List<String> leftOut) {
       this(startedAt, setup, reports, oneMutant, leftOut, Duration.ZERO);
     }
 
-    public Run(LocalTime startedAt, Duration setup, List<String> reports, boolean oneMutant) {
+    public Run(LocalTime startedAt, Duration setup, List<Path> reports, boolean oneMutant) {
       this(startedAt, setup, reports, oneMutant, List.of());
     }
 
-    public Run(LocalTime startedAt, Duration setup, List<String> reports) {
+    public Run(LocalTime startedAt, Duration setup, List<Path> reports) {
       this(startedAt, setup, reports, false);
     }
   }
@@ -975,7 +976,7 @@ public final class HumanText {
     rows.put("Duration", durationRow(report, run));
     rows.put("Tests", testsRow(report));
     if (!run.reports().isEmpty()) {
-      rows.put("Reports", String.join(style.dim(" · "), run.reports()));
+      rows.put("Reports", String.join(style.dim(" · "), reports(run)));
     }
     if (!run.leftOut().isEmpty()) {
       rows.put("Left out", String.join(", ", run.leftOut()) + style.dim(" (--exclude-tests)"));
@@ -984,6 +985,12 @@ public final class HumanText {
       rows.put("Score", scoreRow(report, comparison));
     }
     return rows;
+  }
+
+  /// Each report file as typed from where mutastic ran, linked to the file itself: a terminal
+  /// guessing a link from the text alone opened `/build/mutastic/mutation.html`.
+  private List<String> reports(Run run) {
+    return run.reports().stream().map(file -> style.link(file, Here.shown(file))).toList();
   }
 
   /// The rows only some runs have: the change it was scoped to, an audit, where the misses are,

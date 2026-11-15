@@ -190,8 +190,12 @@ class PricingSampleTest {
     assertThat(project.resolve("build/mutastic/mutation.html"))
         .content()
         .contains("id=\"mutation-report\">{\"$schema\"");
+    // Whole, as the project is outside where the tests run: ReportPathsTest has the rest.
+    var reports = project.toAbsolutePath().resolve("build/mutastic");
     assertThat(run.out())
-        .contains("  Reports  build/mutastic/mutation.json · build/mutastic/mutation.html");
+        .contains(
+            "  Reports  %s · %s\n"
+                .formatted(reports.resolve("mutation.json"), reports.resolve("mutation.html")));
     assertThat(none.resolve("build/mutastic/mutation.json")).doesNotExist();
   }
 }

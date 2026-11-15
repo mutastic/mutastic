@@ -19,6 +19,7 @@ import io.mutastic.report.AgentText;
 import io.mutastic.report.Explanation;
 import io.mutastic.report.FailOnNew;
 import io.mutastic.report.GitHubActions;
+import io.mutastic.report.Here;
 import io.mutastic.report.HumanText;
 import io.mutastic.report.Invocation;
 import io.mutastic.report.JsonEvents;
@@ -131,13 +132,28 @@ public final class Main {
       return nothingToGate(command) ? PASSED : run(command, out, err, terminal);
     } catch (RuntimeException e) {
       var failure = Failure.of(e, List.of(args), terminal.env());
-      // A build's or a test's output comes with it: escaped, a line at a time.
-      err.print(Untrusted.escapeLines(failure.said()));
+      // A build's or a test's output comes with it: escaped, a line at a time. Its logs are named
+      // as typed from here, and linked, after the escaping, which would undo the links.
+      err.print(Here.logs(Untrusted.escapeLines(failure.said()), linked(List.of(args), terminal)));
       if (forAgents(List.of(args), terminal)) {
         new LiveEvents(out).runFailed(failure.event(typedDirectory(List.of(args))));
       }
       return failure.exit();
     }
+  }
+
+  /// Plain text, with file links when `--hyperlinks` (the last one given) or the terminal says so,
+  /// read from the arguments alone: a failure can come before they're parsed, or from parsing them.
+  private static Style linked(List<String> args, Terminal terminal) {
+    var choice = "auto";
+    for (int at = 0; at < args.size(); at++) {
+      if (args.get(at).startsWith("--hyperlinks=")) {
+        choice = args.get(at).substring("--hyperlinks=".length());
+      } else if (args.get(at).equals("--hyperlinks") && at + 1 < args.size()) {
+        choice = args.get(at + 1);
+      }
+    }
+    return terminal.links(choice) ? Style.PLAIN.withLinks() : Style.PLAIN;
   }
 
   /// The directory the command line names, as typed, `.` when it names none: read as a command is,
@@ -1281,9 +1297,7 @@ public final class Main {
   /// A file as the person would type it from where mutastic ran: relative if it's below, else
   /// absolute.
   private static String shown(Path file) {
-    var here = Path.of("").toAbsolutePath().normalize();
-    var absolute = file.toAbsolutePath().normalize();
-    return absolute.startsWith(here) ? slashed(here.relativize(absolute)) : absolute.toString();
+    return Here.shown(file);
   }
 
   /// A relative path with `/` between its parts, as every platform's shells take it, so what
@@ -1724,7 +1738,7 @@ public final class Main {
   /// Prints a finished run's result.
   @FunctionalInterface
   private interface Printer {
-    void print(Report report, Optional<Comparison> comparison, List<String> written);
+    void print(Report report, Optional<Comparison> comparison, List<Path> written);
   }
 
   /// For one format: what hears about mutants as they finish, and what prints the result.
@@ -1766,7 +1780,7 @@ public final class Main {
 
   /// What the summary says of the run beyond its result: when and how long, the reports it wrote,
   /// and the tests it was told to leave out.
-  private static HumanText.Run run(Command command, Prepared prepared, List<String> written) {
+  private static HumanText.Run run(Command command, Prepared prepared, List<Path> written) {
     return new HumanText.Run(
         prepared.startedAt().toLocalTime(),
         prepared.setup(),
@@ -1794,13 +1808,20 @@ public final class Main {
           output.progress(),
           (report, comparison, written) -> {
             report.results().forEach(events::mutantFinished);
-            events.runFinished(report, comparison, written, !command.only().isEmpty());
+            events.runFinished(
+                report, comparison, listed(prepared, written), !command.only().isEmpty());
           });
     }
     return new Display(
         progressAndEvents(output.progress(), events),
         (report, comparison, written) ->
-            events.runFinished(report, comparison, written, !command.only().isEmpty()));
+            events.runFinished(
+                report, comparison, listed(prepared, written), !command.only().isEmpty()));
+  }
+
+  /// The files written, as `run-finished` lists them: from the project where they're in it.
+  private static List<String> listed(Prepared prepared, List<Path> written) {
+    return written.stream().map(file -> shownFrom(prepared.directory(), file)).toList();
   }
 
   private static Listener progressAndEvents(Progress progress, JsonEvents events) {
@@ -1820,7 +1841,7 @@ public final class Main {
   }
 
   /// What a full run keeps: its comparison with the last run, and the report files it wrote.
-  private record Kept(Optional<Comparison> comparison, List<String> written) {
+  private record Kept(Optional<Comparison> comparison, List<Path> written) {
     static final Kept NOTHING = new Kept(Optional.empty(), List.of());
   }
 
@@ -1842,7 +1863,7 @@ public final class Main {
             measured || !command.reports().equals(DEFAULT_REPORTS)
                 ? writeReports(command, prepared, report, judged)
                 : List.of());
-    share.ifPresent(file -> written.add(shownFrom(prepared.directory(), file)));
+    share.ifPresent(file -> written.add(file.toAbsolutePath().normalize()));
     var kept = new Kept(comparison, List.copyOf(written));
     if (share.isPresent()) {
       keepShare(command, prepared, report, kept);
@@ -1865,7 +1886,7 @@ public final class Main {
                   operatorDocs());
           events.runStarted(prepared.project().name());
           report.results().forEach(events::mutantFinished);
-          events.runFinished(report, kept.comparison(), kept.written(), false);
+          events.runFinished(report, kept.comparison(), listed(prepared, kept.written()), false);
         });
   }
 
@@ -1918,8 +1939,8 @@ public final class Main {
     return shard.map(share -> Shares.folder(prepared.work(), share)).orElse(prepared.work());
   }
 
-  /// The report files asked for, as they're written: relative to the project where they're in it.
-  private static List<String> writeReports(
+  /// The report files asked for, each whole, as they're written.
+  private static List<Path> writeReports(
       Command command, Prepared prepared, Report report, Optional<FailOnNew> judged) {
     var directory = prepared.directory();
     var passed =
@@ -1930,7 +1951,7 @@ public final class Main {
         new ReportFiles(
                 directory, prepared.sources(), command.threshold(), version(), operatorDocs())
             .withRun(new ReportFiles.Run(prepared.startedAt().toInstant(), passed));
-    var written = new ArrayList<String>();
+    var written = new ArrayList<Path>();
     for (var requested : command.reports()) {
       var file =
           requested
@@ -1938,7 +1959,7 @@ public final class Main {
               .map(directory::resolve)
               .orElse(prepared.work().resolve(defaultName(requested.kind())));
       files.write(requested.kind(), report, file);
-      written.add(shownFrom(directory, file));
+      written.add(file.toAbsolutePath().normalize());
     }
     return written;
   }

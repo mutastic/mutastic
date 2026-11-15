@@ -134,6 +134,14 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **The summary's report files open from where you ran mutastic.** Run from `samples` on
+  `testng`, the `Reports` row said `build/mutastic/mutation.html`, which is there only from
+  `testng`, and isn't a link: a terminal that guessed one from the text opened
+  `/build/mutastic/mutation.html`. Each file is now shown from the directory you ran in
+  (`testng/build/mutastic/mutation.html`), whole when it's outside it, and with links on it links
+  to the file itself. The logs a failure names (`worker.log`, `gradle.log`) are shown and linked
+  the same way. `run-finished`'s `reports` are unchanged: relative to the project. The Rust
+  edition does the same.
 - **`verify` doesn't say it found no test to suggest.** It looks for none, so its `checked` line
   ended in a misleading `no test found to suggest`; that clause is left out now, in `verify` and
   with `--no-suggestions`.
