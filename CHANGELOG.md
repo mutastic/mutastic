@@ -260,7 +260,7 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   by then, a pass says the check compared the annotations only, as before. When the last check's
   own run took longer than the whole budget, the next hands over before it runs and says so: run
   `mutastic gate check` yourself. A check run by a person has no budget. Both variables are in
-  help now, and the editions' contract holds them (decision 16).
+  help now, and the editions' contract holds them (decision 17).
 - **The gate keeps the baseline as it was when it opened.** Where git ignores `.mutastic/`, the
   start commit has no baseline, so every entry of a local one counted as the task's own and held
   the gate however the task did. Only an entry added since `gate open` holds it now.
