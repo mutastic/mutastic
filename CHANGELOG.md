@@ -95,6 +95,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **A run under other operators than the last says it isn't compared.** A score is a share of
+  what its operators make, so a run is compared only with the last under the same set; with none,
+  the score line said nothing. It now says `not compared with the last run, which used other
+  operators (defaults)`, in the summary and the agent format; the `run-finished` event has no
+  comparison, as before.
 - **Copy as prompt, in the HTML report.** Beside each Copy, on the tests to write, a folder or
   file's side card and each mutant, it puts those tests on the clipboard as a prompt for any coding
   agent, in the agent format's shape: mutastic's rules first, then the mutants fenced off as data on
@@ -134,6 +139,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **`baseline --prune` doesn't drop what another set of operators would make.** A mutant only the
+  baseline's operators make wasn't found by a run under others, and looked gone, so pruning after
+  `operators:` changed dropped it. `.mutastic/baseline.yaml` now keeps the operators it was taken
+  under, `operators: defaults`, and `--prune` under others says so and drops nothing; `run` no
+  longer counts the baseline's mutants caught under others. A baseline written before keeps
+  working as it did.
 - **A class file from a newer JDK says so.** mutastic reads class files with the JDK it runs on,
   and JDK 25 reads none newer than its own: code compiled on JDK 26 or 27 stopped the run with
   `internal error: … Unsupported class file version: 70`. Now it names the class file and the JDK

@@ -460,10 +460,39 @@ public final class Main {
   private static int baseline(Command command, Prepared prepared, Passes passes, PrintStream out) {
     var directory = prepared.directory();
     boolean prune = command.ignore().map(Ignoring::prune).orElse(false);
+    var operators = String.join(",", chosenOperators(command, prepared));
+    if (prune) {
+      underTheBaselinesOperators(directory, operators);
+    }
     var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
-    out.print((prune ? pruned(directory, report) : baselined(prepared, report)) + "\n");
+    out.print((prune ? pruned(directory, report) : baselined(prepared, operators, report)) + "\n");
     return PASSED;
+  }
+
+  /// A baseline is pruned only under the operators it was taken under: a mutant only those make
+  /// would look gone under others, and be dropped.
+  private static void underTheBaselinesOperators(Path directory, String operators) {
+    var taken = Baseline.operators(directory);
+    if (taken.isPresent() && !taken.get().equals(operators)) {
+      throw new ConfigException(
+          ("the baseline was taken under operators: %s, and this run chooses %s, so a mutant"
+                  + " only the baseline's operators make would look gone: prune it under %s, or"
+                  + " take it again")
+              .formatted(taken.get(), operators, taken.get()));
+    }
+  }
+
+  /// The operators a run chooses, as it chose them: the command's `--operators`, else
+  /// `mutastic.yaml`'s `operators:`, else the defaults.
+  private static List<String> chosenOperators(Command command, Prepared prepared) {
+    if (!command.operators().isEmpty()) {
+      return command.operators();
+    }
+    var configured =
+        Configuration.read(
+            Configuration.nearest(prepared.project().workingDirectory(), prepared.directory()));
+    return configured.operators().isEmpty() ? List.of("defaults") : configured.operators();
   }
 
   private static String pruned(Path directory, Report report) {
@@ -472,9 +501,9 @@ public final class Main {
         .formatted(dropped, Baseline.FILE);
   }
 
-  private static String baselined(Prepared prepared, Report report) {
+  private static String baselined(Prepared prepared, String operators, Report report) {
     var entries = Baseline.entries(report.results(), prepared.sources());
-    Baseline.write(prepared.directory(), entries);
+    Baseline.write(prepared.directory(), operators, entries);
     int size = entries.size();
     return ("mutastic: %d %s no test catches %s in %s: commit it. A miss that isn't in it is new:"
             + " the gate holds only new misses, and next offers them first")
@@ -494,7 +523,12 @@ public final class Main {
   private static void baselineNote(
       Command command, Prepared prepared, Report report, Output output) {
     var baseline = Baseline.ids(prepared.directory());
+    var taken = Baseline.operators(prepared.directory());
     if (baseline.isEmpty()
+        // Under other operators, a mutant only the baseline's make would look caught: not counted.
+        || taken
+            .filter(set -> !set.equals(String.join(",", chosenOperators(command, prepared))))
+            .isPresent()
         || report.scope().isPresent()
         || !command.only().isEmpty()
         || output.format().equals("jsonl")) {
@@ -572,10 +606,7 @@ public final class Main {
   private static String nextKey(Command command, Prepared prepared) {
     return NextRun.keyOf(
         RunRecord.classesOf(prepared.project()),
-        OperatorSet.active(policy(command, prepared)).stream()
-            .map(io.mutastic.api.Operator::id)
-            .sorted()
-            .collect(java.util.stream.Collectors.joining(",")),
+        operatorIds(policy(command, prepared)),
         command.since().orElse("-"),
         RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())));
   }
@@ -1928,10 +1959,44 @@ public final class Main {
                 report)
             .under(OperatorSet.active(policy(command, prepared)));
     // Only an earlier run of the same project, in the same place, under the same operators, says
-    // anything about this one.
-    var comparison = records.comparableTo(record).map(record::against);
+    // anything about this one. When the last run used others, it's said so instead.
+    var comparison =
+        records
+            .comparableTo(record)
+            .map(record::against)
+            .or(() -> underOtherOperators(records, record, command, prepared));
     records.keep(record);
     return comparison;
+  }
+
+  /// The last run of this project, when it used other operators than `record`'s: by the set's name,
+  /// `defaults`, when it was one.
+  private static Optional<Comparison> underOtherOperators(
+      RunRecords records, RunRecord record, Command command, Prepared prepared) {
+    return records.newestFirst().stream()
+        .findFirst()
+        .filter(record::sameProjectAs)
+        .filter(last -> !last.operators().isEmpty() && !last.operators().equals(record.operators()))
+        .map(last -> Comparison.underOtherOperators(setNamed(last.operators(), command, prepared)));
+  }
+
+  /// The named set whose operators are `ids`, `defaults`, or how many there are.
+  private static String setNamed(String ids, Command command, Prepared prepared) {
+    var policy = policy(command, prepared);
+    for (var set : List.of("defaults", "stronger", "extended", "all")) {
+      if (ids.equals(operatorIds(policy.withOperators(List.of(set), policy.mutators())))) {
+        return set;
+      }
+    }
+    return "%d operators".formatted(ids.split(",", -1).length);
+  }
+
+  /// The ids of the operators a policy runs, sorted, as a run record keeps them.
+  private static String operatorIds(Policy policy) {
+    return OperatorSet.active(policy).stream()
+        .map(io.mutastic.api.Operator::id)
+        .sorted()
+        .collect(Collectors.joining(","));
   }
 
   /// Where a run's records are kept: a share's apart, compared only with the same share's, so a

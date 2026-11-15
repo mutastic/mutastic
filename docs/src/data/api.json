@@ -1072,7 +1072,7 @@
           "name": "Comparison",
           "slug": "comparison",
           "kind": "record",
-          "signature": "@Internal record Comparison(\n    OptionalDouble previousScore,\n    boolean sameCode,\n    boolean sameTool,\n    List<Comparison.Flip> flips)",
+          "signature": "@Internal record Comparison(\n    OptionalDouble previousScore,\n    boolean sameCode,\n    boolean sameTool,\n    List<Comparison.Flip> flips,\n    Optional<String> otherOperators)",
           "summary": "This run against the last one.",
           "doc": "This run against the last one.\n\nWith the code and mutastic unchanged, a mutant is caught or missed the same way every time\nunless a test behaves differently between runs. So a mutant that was caught last run and is\nmissed now, or the other way round, points at the test that caught it: likely flaky. With either\nchanged, a flip is just the change at work.",
           "params": [
@@ -1091,9 +1091,53 @@
             {
               "name": "flips",
               "doc": "mutants caught in one run and not the other"
+            },
+            {
+              "name": "otherOperators",
+              "doc": "the operators the last run used, `defaults`, when they weren't this run's: then nothing is compared, as a score is a share of what its operators make, and it's said so"
             }
           ],
           "members": [
+            {
+              "kind": "constructor",
+              "name": "Comparison",
+              "anchor": "comparison",
+              "signature": "Comparison(OptionalDouble previousScore, boolean sameCode, boolean sameTool, List<Comparison.Flip> flips)",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "underOtherOperators",
+              "anchor": "underotheroperators",
+              "signature": "static Comparison underOtherOperators(String last)",
+              "doc": "No comparison: the last run used other operators, `last`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "compared",
+              "anchor": "compared",
+              "signature": "boolean compared()",
+              "doc": "Whether this run was compared with the last: it was unless the last used other operators.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "notCompared",
+              "anchor": "notcompared",
+              "signature": "Optional<String> notCompared()",
+              "doc": "`not compared with the last run, which used other operators (defaults)`, when it wasn't.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
             {
               "kind": "method",
               "name": "sameness",

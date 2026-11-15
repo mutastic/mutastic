@@ -98,6 +98,9 @@ class NextTest {
     var noneToPrune = mutastic("baseline", project.toString(), "--prune");
     var taken = mutastic("baseline", project.toString());
     var again = mutastic("baseline", project.toString());
+    Files.writeString(project.resolve("mutastic.yaml"), "operators:\n  - stronger\n");
+    var pruneUnderAnotherSet = mutastic("baseline", project.toString(), "--prune");
+    Files.delete(project.resolve("mutastic.yaml"));
     var next = mutastic("next", project.toString(), "--top=5", "--color=never");
     commit("baseline");
     mutastic("gate", "open", project.toString());
@@ -115,7 +118,13 @@ class NextTest {
         .isEqualTo("mutastic: there's no baseline to prune: `mutastic baseline` writes one\n");
     assertThat(taken.exit()).isEqualTo(Main.PASSED);
     assertThat(taken.out()).contains("1 mutant no test catches is in .mutastic/baseline.yaml");
-    assertThat(Files.readString(baseline)).contains("  - id: m").contains("Pricing#discount");
+    assertThat(Files.readString(baseline))
+        .contains("operators: defaults\nbaseline:\n  - id: m")
+        .contains("Pricing#discount");
+    assertThat(pruneUnderAnotherSet.exit()).isEqualTo(Main.USAGE);
+    assertThat(pruneUnderAnotherSet.err())
+        .contains("the baseline was taken under operators: defaults, and this run chooses stronger")
+        .contains("prune it under defaults, or take it again");
     assertThat(again.exit()).isEqualTo(Main.FAILED);
     assertThat(again.out()).isEmpty();
     assertThat(again.err()).contains("there's a baseline already");
