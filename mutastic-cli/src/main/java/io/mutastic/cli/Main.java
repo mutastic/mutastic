@@ -213,6 +213,7 @@ public final class Main {
   }
 
   private static int run(Command command, PrintStream out, PrintStream err, Terminal terminal) {
+    long started = System.nanoTime(); // a hooked gate check's budget counts from here
     var directory = command.directory().toAbsolutePath().normalize();
     noBaselineToFailOn(command, directory);
     var tool = BuildTools.of(directory);
@@ -229,7 +230,7 @@ public final class Main {
     }
     var lock = WorkLock.hold(tool.workDirectory(directory, command.module()), err);
     try (var output = output(command, out, err, terminal)) {
-      return held(command, output, tool, terminal);
+      return held(command, output, tool, terminal, started);
     } catch (Engine.BaselineFailed e) {
       throw rerun(e, command, tool, directory);
     } finally {
@@ -303,7 +304,8 @@ public final class Main {
   }
 
   /// A run, holding its module's work directory: see [WorkLock].
-  private static int held(Command command, Output output, BuildTool tool, Terminal terminal) {
+  private static int held(
+      Command command, Output output, BuildTool tool, Terminal terminal, long started) {
     // Shares that can't be put together are refused before the build is read.
     var shares = command.fromShards().map(directory -> Shares.read(directory, version()));
     var progress = output.progress();
@@ -324,7 +326,7 @@ public final class Main {
     var passes = new Passes(engine, options, progress, tool, shares);
     if (command.subcommand() != Subcommand.RUN) {
       return command.subcommand().gate()
-          ? gated(new Gated(command, prepared, passes, output, terminal))
+          ? gated(new Gated(command, prepared, passes, output, terminal, started))
           : single(command, prepared, passes, output);
     }
     return fullRun(command, prepared, passes, output);
@@ -637,14 +639,30 @@ public final class Main {
   }
 
   /// A `gate` command, with what running it needs.
+  ///
+  /// @param started when the command started, by [System#nanoTime]
   private record Gated(
-      Command command, Prepared prepared, Passes passes, Output output, Terminal terminal) {
+      Command command,
+      Prepared prepared,
+      Passes passes,
+      Output output,
+      Terminal terminal,
+      long started) {
     boolean hooked() {
       return !command.gating().hook().isEmpty();
     }
 
     Path work() {
       return prepared.work();
+    }
+
+    /// How long the command has run.
+    java.time.Duration elapsed() {
+      return java.time.Duration.ofNanos(System.nanoTime() - started);
+    }
+
+    GateBudget budget() {
+      return GateBudget.of(terminal.env(), work());
     }
   }
 
@@ -823,11 +841,21 @@ public final class Main {
     // tests, or files outside the module's sources, has no mutant to gate, but its tests run.
     var sources = gated.prepared().project().sources();
     return fewerTests(gated, state)
+        .or(() -> overrun(gated))
         .orElseGet(
             () ->
                 new Git(directory).changedSince(state.base()).within(sources).lines().isEmpty()
                     ? testsVerdict(gated, state)
                     : mutantsVerdict(gated, state));
+  }
+
+  /// As a hook, a check whose last run took longer than the hook allows hands over before it runs:
+  /// stopped by the hook, it would say nothing, and gate nothing.
+  private static Optional<Gate.Verdict> overrun(Gated gated) {
+    var budget = gated.budget();
+    return gated.hooked() && budget.overruns()
+        ? Optional.of(new Gate.Verdict(true, true, budget.overrun()))
+        : Optional.empty();
   }
 
   /// A task that changed no line mutastic mutates, but changed something: passed, once the tests
@@ -863,22 +891,15 @@ public final class Main {
     }
   }
 
-  /// How long a check waits for the count of the task's start ([GateCount]): within a hook's ten
-  /// minutes, with the check's own run.
-  private static final java.time.Duration COUNT_WAIT = java.time.Duration.ofMinutes(4);
-
   /// The verdict, unless fewer test cases ran in the check's run than at the task's start, or more
   /// were skipped: rows a `@MethodSource` makes taken away, a test a condition turned off, a case
   /// an assumption aborts. Then it's held. When the start couldn't be counted, a pass says it
   /// compared what the annotations say alone.
   private static Gate.Verdict counted(Gated gated, HeardCoverage heard, Gate.Verdict verdict) {
-    var wait =
-        gated
-            .terminal()
-            .env()
-            .getOrDefault("MUTASTIC_GATE_COUNT_WAIT", String.valueOf(COUNT_WAIT.toSeconds()));
-    var before =
-        GateCount.waitFor(gated.work(), java.time.Duration.ofSeconds(Long.parseLong(wait)));
+    var budget = gated.budget();
+    // The check's own run is done: as a hook, it waits only for what the budget has left.
+    var wait = gated.hooked() ? budget.countWaitAfter(gated.elapsed()) : budget.countWait();
+    var before = GateCount.waitFor(gated.work(), wait);
     var now = heard.pass.filter(pass -> pass.cases() >= 0);
     if (!before.counted() || now.isEmpty()) {
       return uncounted(verdict, before.counted() ? "this run didn't count them" : before.why());
@@ -1145,12 +1166,17 @@ public final class Main {
     var run = gated.command().runSince(base);
     var passes = gated.passes();
     var options = options(run, gated.terminal(), gated.prepared());
-    var report =
-        new Passes(passes.engine(), options, passes.progress(), passes.tool(), Optional.empty())
-            .run(run, gated.prepared(), listener)
-            .report();
-    passes.progress().finished();
-    return report;
+    try {
+      var report =
+          new Passes(passes.engine(), options, passes.progress(), passes.tool(), Optional.empty())
+              .run(run, gated.prepared(), listener)
+              .report();
+      passes.progress().finished();
+      return report;
+    } finally {
+      // Red or not, it ran: how long it took is the next check's estimate of its own.
+      GateBudget.ran(gated.work(), gated.elapsed());
+    }
   }
 
   /// What a pass says: how many the tests catch, and any proposals waiting for a person.

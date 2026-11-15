@@ -93,6 +93,17 @@ final class Help {
                   + " its first ten misses and adds a summary to the job's page. `off` leaves them"
                   + " out."),
           new Entry(
+              "MUTASTIC_GATE_BUDGET",
+              "Seconds a hooked gate check may take",
+              "600 unless set: what the agents' plugins' Stop hook allows. The check waits for the"
+                  + " count of the task's start only as long as this leaves, and hands over before"
+                  + " it runs when its last run took longer."),
+          new Entry(
+              "MUTASTIC_GATE_COUNT_WAIT",
+              "Seconds gate check waits for the count of the task's start",
+              "240 unless set. A count not done by then is left, and a pass says the check"
+                  + " compared the tests' annotations only."),
+          new Entry(
               "NO_COLOR",
               "No colour",
               "Set to anything, it turns colour off, as it does for many tools."),

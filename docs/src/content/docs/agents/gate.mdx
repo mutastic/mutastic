@@ -86,6 +86,23 @@ you what's still missed:
 The count starts again when a check passes. "Nothing changed" is the working tree as git sees it,
 so a project whose build output git doesn't ignore always looks changed, and gets only the tries.
 
+## Within the hook's time
+
+The plugins run `gate check` from a Stop hook that's stopped after ten minutes, and a check that's
+stopped gates nothing. So as a hook, a check keeps within a budget, `MUTASTIC_GATE_BUDGET` seconds
+(600 unless set, what the hook allows):
+
+- **it waits for the count `gate open` started** only as long as the budget has left once its own
+  run is done, and never longer than `MUTASTIC_GATE_COUNT_WAIT` seconds (240 unless set). A count
+  that isn't done by then is left, and a pass says the check compared the annotations only;
+- **it hands over before it runs** when the last check's own run took longer than the whole
+  budget: "this project's gate check takes longer than the hook allows", so run
+  `mutastic gate check` yourself. Your own check has no budget, and once it's quicker than the
+  budget, the hook checks again.
+
+An agent whose hook allows more or less time (opencode sets none) can set `MUTASTIC_GATE_BUDGET`
+to match.
+
 ## As a hook
 
 With `--hook=claude`, `open` and `check` read the hook's input on stdin and answer as Claude Code's

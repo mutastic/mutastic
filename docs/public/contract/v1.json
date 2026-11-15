@@ -345,6 +345,8 @@
     "MUTASTIC_PILLS",
     "MUTASTIC_ARID",
     "MUTASTIC_GITHUB",
+    "MUTASTIC_GATE_BUDGET",
+    "MUTASTIC_GATE_COUNT_WAIT",
     "MUTASTIC_PROGRESS",
     "MUTASTIC_TERM_PROGRESS",
     "MUTASTIC_HEARTBEAT",
@@ -1325,6 +1327,10 @@
     {
       "id": 15,
       "rule": "The gate passes \"changed no lines\" when no changed line is in a file the edition mutates, once the tests pass and after the checks for ignores and baseline entries the task made itself and for tests taken away; only a tree untouched since the task's start commit skips the tests and the check for tests taken away."
+    },
+    {
+      "id": 16,
+      "rule": "`gate check` waits for the count `gate open` started at most `MUTASTIC_GATE_COUNT_WAIT` seconds (240 unless set). With `--hook`, it keeps within `MUTASTIC_GATE_BUDGET` seconds (600 unless set): it never waits so long that the wait and its own run pass the budget, taking a run still to come to be as long as the last check's, kept from task to task; a count not done by then is left, and a pass says so, as for any count that failed. When the last check's own run took longer than the budget, it hands over before it runs, with \"this project's gate check takes longer than the hook allows (Ns last time; MUTASTIC_GATE_BUDGET allows Ns), so it's over to you: run `mutastic gate check` yourself\". A value that isn't a whole number of seconds, or a budget of 0, is refused (decision 5)."
     }
   ],
   "differences": [
@@ -1863,6 +1869,21 @@
       "summary": "Codes worked out from the message's words (Java's `usageCode`) rather than set where the error is raised",
       "issue": "https://github.com/mutastic/mutastic/issues/61",
       "decision": 13
+    },
+    {
+      "id": "D16",
+      "kind": "pending",
+      "editions": [
+        "rust"
+      ],
+      "surface": "gate",
+      "summary": "No budget for a hooked gate check: no `MUTASTIC_GATE_BUDGET`, and the count's wait isn't `MUTASTIC_GATE_COUNT_WAIT`",
+      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
+      "decision": 16,
+      "items": [
+        "env:MUTASTIC_GATE_BUDGET",
+        "env:MUTASTIC_GATE_COUNT_WAIT"
+      ]
     },
     {
       "id": "G3",
