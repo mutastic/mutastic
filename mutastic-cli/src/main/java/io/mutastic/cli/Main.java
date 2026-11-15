@@ -693,6 +693,16 @@ public final class Main {
     Path work() {
       return prepared.work();
     }
+
+    /// How long the command has run, from when it started reading the build: a hooked check's
+    /// budget counts from there.
+    Duration elapsed() {
+      return Duration.between(prepared.startedAt().toInstant(), java.time.Instant.now());
+    }
+
+    GateBudget budget() {
+      return GateBudget.of(terminal.env(), work());
+    }
   }
 
   /// `gate open`, `gate check` or `gate close` (see [Gate]).
@@ -872,11 +882,21 @@ public final class Main {
     // tests, or files outside the module's sources, has no mutant to gate, but its tests run.
     var sources = gated.prepared().project().sources();
     return fewerTests(gated, state)
+        .or(() -> overrun(gated))
         .orElseGet(
             () ->
                 new Git(directory).changedSince(state.base()).within(sources).lines().isEmpty()
                     ? testsVerdict(gated, state)
                     : mutantsVerdict(gated, state));
+  }
+
+  /// As a hook, a check whose last run took longer than the hook allows hands over before it runs:
+  /// stopped by the hook, it would say nothing, and gate nothing.
+  private static Optional<Gate.Verdict> overrun(Gated gated) {
+    var budget = gated.budget();
+    return gated.hooked() && budget.overruns()
+        ? Optional.of(new Gate.Verdict(true, true, budget.overrun()))
+        : Optional.empty();
   }
 
   /// A task that changed no line mutastic mutates, but changed something: passed, once the tests
@@ -912,22 +932,15 @@ public final class Main {
     }
   }
 
-  /// How long a check waits for the count of the task's start ([GateCount]): within a hook's ten
-  /// minutes, with the check's own run.
-  private static final java.time.Duration COUNT_WAIT = java.time.Duration.ofMinutes(4);
-
   /// The verdict, unless fewer test cases ran in the check's run than at the task's start, or more
   /// were skipped: rows a `@MethodSource` makes taken away, a test a condition turned off, a case
   /// an assumption aborts. Then it's held. When the start couldn't be counted, a pass says it
   /// compared what the annotations say alone.
   private static Gate.Verdict counted(Gated gated, HeardCoverage heard, Gate.Verdict verdict) {
-    var wait =
-        gated
-            .terminal()
-            .env()
-            .getOrDefault("MUTASTIC_GATE_COUNT_WAIT", String.valueOf(COUNT_WAIT.toSeconds()));
-    var before =
-        GateCount.waitFor(gated.work(), java.time.Duration.ofSeconds(Long.parseLong(wait)));
+    var budget = gated.budget();
+    // The check's own run is done: as a hook, it waits only for what the budget has left.
+    var wait = gated.hooked() ? budget.countWaitAfter(gated.elapsed()) : budget.countWait();
+    var before = GateCount.waitFor(gated.work(), wait);
     var now = heard.pass.filter(pass -> pass.cases() >= 0);
     if (!before.counted() || now.isEmpty()) {
       return uncounted(verdict, before.counted() ? "this run didn't count them" : before.why());
@@ -1196,12 +1209,17 @@ public final class Main {
     var run = gated.command().runSince(base);
     var passes = gated.passes();
     var options = options(run, gated.terminal(), gated.prepared());
-    var report =
-        new Passes(passes.engine(), options, passes.progress(), passes.tool(), Optional.empty())
-            .run(run, gated.prepared(), listener)
-            .report();
-    passes.progress().finished();
-    return report;
+    try {
+      var report =
+          new Passes(passes.engine(), options, passes.progress(), passes.tool(), Optional.empty())
+              .run(run, gated.prepared(), listener)
+              .report();
+      passes.progress().finished();
+      return report;
+    } finally {
+      // Red or not, it ran: how long it took is the next check's estimate of its own.
+      GateBudget.ran(gated.work(), gated.elapsed());
+    }
   }
 
   /// What a pass says: how many the tests catch, and any proposals waiting for a person.
@@ -1822,7 +1840,10 @@ public final class Main {
         written,
         !command.only().isEmpty(),
         command.excludeTests(),
-        prepared.build());
+        prepared.build(),
+        command.shard().isEmpty()
+            ? html(command, written).map(ReportFiles::pagesFolder)
+            : Optional.empty());
   }
 
   /// JSON Lines: the run's start now, each mutant as it finishes, and the result at the end.
@@ -2030,7 +2051,24 @@ public final class Main {
       files.write(requested.kind(), report, file);
       written.add(file.toAbsolutePath().normalize());
     }
+    // The ids the output shows open the HTML report on their mutant, but not from a share's own
+    // folder: its report is only part of the run.
+    if (command.shard().isEmpty()) {
+      html(command, written).ifPresent(html -> ReportFiles.writePages(report, html));
+    }
     return written;
+  }
+
+  /// The HTML report among the files written, the last asked for, when one was.
+  private static Optional<Path> html(Command command, List<Path> written) {
+    Optional<Path> found = Optional.empty();
+    var asked = command.reports();
+    for (int at = 0; at < Math.min(asked.size(), written.size()); at++) {
+      if (asked.get(at).kind().equals("html")) {
+        found = Optional.of(written.get(at));
+      }
+    }
+    return found;
   }
 
   private static int exitCode(Command command, Report report, Optional<FailOnNew> judged) {

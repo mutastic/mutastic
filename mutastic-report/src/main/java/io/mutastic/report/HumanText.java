@@ -44,16 +44,30 @@ public final class HumanText {
   ///
   /// @param leftOut the test classes `--exclude-tests` left out, which the summary names
   /// @param build how long the build tool took building what the run needs, of `setup`
+  /// @param pages beside the HTML report the run wrote, the folder of a page for each mutant it
+  ///   didn't catch, which opens the report on it: what the ids link to
   public record Run(
       LocalTime startedAt,
       Duration setup,
       List<Path> reports,
       boolean oneMutant,
       List<String> leftOut,
-      Duration build) {
+      Duration build,
+      Optional<Path> pages) {
     public Run {
       reports = List.copyOf(reports);
       leftOut = List.copyOf(leftOut);
+    }
+
+    /// A run with no mutant pages.
+    public Run(
+        LocalTime startedAt,
+        Duration setup,
+        List<Path> reports,
+        boolean oneMutant,
+        List<String> leftOut,
+        Duration build) {
+      this(startedAt, setup, reports, oneMutant, leftOut, build, Optional.empty());
     }
 
     /// A run whose build wasn't timed apart from its setup.
@@ -159,8 +173,44 @@ public final class HumanText {
     }
     warnings(report, comparison, out);
     summary(report, comparison, run, out);
-    return out.toString();
+    // Each id opens the HTML report on its mutant.
+    return run.pages()
+        .map(pages -> linkIds(out.toString(), pages, ReportFiles.paged(report)))
+        .orElseGet(out::toString);
   }
+
+  /// `text` with each id in `ids` linked to its page in `pages`, as a word of its own. A link
+  /// already there is left as it is, its address and all.
+  private String linkIds(String text, Path pages, java.util.Set<String> ids) {
+    var out = new StringBuilder();
+    var escapes = LINK_ESCAPE.matcher(text);
+    int from = 0;
+    while (escapes.find()) {
+      out.append(linkIdsIn(text.substring(from, escapes.start()), pages, ids));
+      out.append(escapes.group());
+      from = escapes.end();
+    }
+    return out.append(linkIdsIn(text.substring(from), pages, ids)).toString();
+  }
+
+  private String linkIdsIn(String text, Path pages, java.util.Set<String> ids) {
+    return ID_WORD
+        .matcher(text)
+        .replaceAll(
+            found ->
+                java.util.regex.Matcher.quoteReplacement(
+                    ids.contains(found.group())
+                        ? style.link(pages.resolve(found.group() + ".html"), found.group())
+                        : found.group()));
+  }
+
+  /// A link's opening or closing sequence, `ESC ] 8 ; ; address ESC \`.
+  private static final java.util.regex.Pattern LINK_ESCAPE =
+      java.util.regex.Pattern.compile("\u001b]8;;[^\u001b]*\u001b\\\\");
+
+  /// An id, a word of its own.
+  private static final java.util.regex.Pattern ID_WORD =
+      java.util.regex.Pattern.compile("(?<![0-9A-Za-z])m[0-9a-f]{8}(?![0-9A-Za-z])");
 
   /// The first [#CARDS] findings as cards under their files, and how many more missed mutants there
   /// are.

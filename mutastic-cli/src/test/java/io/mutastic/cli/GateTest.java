@@ -189,6 +189,51 @@ class GateTest {
         .isEqualTo("mutastic gate: none open here: `mutastic gate open` starts one\n");
   }
 
+  /// As a hook, a check keeps within what the hook allows (`MUTASTIC_GATE_BUDGET`, a second here):
+  /// a count of the task's start still running when its run is done isn't waited for, and the pass
+  /// says so; and once a check's run took longer than the budget, the next hands over before it
+  /// runs. A person's own check is held to no budget.
+  @Test
+  void asAHookItKeepsWithinTheBudget() throws Exception {
+    var session = "{\"session_id\":\"s1\"}";
+    var env = java.util.Map.of("MUTASTIC_GATE_BUDGET", "1", "MUTASTIC_GATE_COUNT_WAIT", "600");
+    hooked(session, "gate", "open", "--hook=claude");
+    var gateWork = project.resolve("build/mutastic");
+    var slow = GateBudgetTest.neverFinishing(gateWork);
+    try {
+      var test = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
+      Files.writeString(test, Files.readString(test) + "// a test file's change, run\n");
+
+      long before = System.nanoTime();
+      var left = hooked(env, session, "gate", "check", "--hook=claude");
+      var took = java.time.Duration.ofNanos(System.nanoTime() - before);
+      assertThat(GateBudget.of(java.util.Map.of(), gateWork).lastRun()).isPresent();
+      // A run longer than the budget, whatever this machine takes.
+      GateBudget.ran(gateWork, java.time.Duration.ofSeconds(5));
+      var handedOver = hooked(env, session, "gate", "check", "--hook=claude");
+      slow.destroyForcibly().waitFor(); // a person's check would wait the count's 600s for it
+      var own = mutastic(env, "gate", "check", project.toString());
+
+      assertThat(left.out())
+          .startsWith("{\"systemMessage\": \"mutastic gate: passed: the tests pass")
+          .contains("couldn't be counted (the count didn't finish in 0s)");
+      assertThat(took).isLessThan(java.time.Duration.ofMinutes(5)); // not the count's 600s
+      assertThat(handedOver.out())
+          .startsWith(
+              "{\"systemMessage\": \"mutastic gate: this project's gate check takes longer than"
+                  + " the hook allows (")
+          .contains("(5s last time; MUTASTIC_GATE_BUDGET allows 1s), so it's over to you: run")
+          .doesNotContain("passed");
+      assertThat(own.exit()).as(own.out()).isEqualTo(Main.PASSED);
+      assertThat(own.out()).startsWith("mutastic gate: passed: the tests pass");
+      assertThat(GateBudget.of(java.util.Map.of(), gateWork).lastRun())
+          .as("the person's run is kept")
+          .hasValueSatisfying(run -> assertThat(run).isNotEqualTo(java.time.Duration.ofSeconds(5)));
+    } finally {
+      slow.destroyForcibly();
+    }
+  }
+
   /// An ignore the person accepts between turns, after the gate let the agent stop and before their
   /// next prompt, is the task's to start from: the next check passes. One the agent accepts in its
   /// turn, or writes into `.mutastic/ignores.yaml` itself, stays the agent's, after the person's
@@ -652,10 +697,14 @@ class GateTest {
   }
 
   private Samples.Result hooked(String input, String... args) {
+    return hooked(java.util.Map.of(), input, args);
+  }
+
+  private Samples.Result hooked(java.util.Map<String, String> env, String input, String... args) {
     System.setIn(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)));
     var all = new java.util.ArrayList<>(java.util.List.of(args));
     all.add(2, project.toString());
-    return mutastic(all.toArray(String[]::new));
+    return mutastic(env, all.toArray(String[]::new));
   }
 
   private static String[] missedIds(String out) {

@@ -100,6 +100,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   the score line said nothing. It now says `not compared with the last run, which used other
   operators (defaults)`, in the summary and the agent format; the `run-finished` event has no
   comparison, as before.
+- **A mutant's id opens the HTML report on it.** With links on, each id the terminal shows, on a
+  card, in the misses list or in a command, links to a page beside the report,
+  `mutation-mutants/<id>.html`, which opens `mutation.html` on that mutant. A link straight to
+  `mutation.html#/m/<id>` loses its `#…` on macOS, whose opener drops it from a `file:` URL, and
+  on Linux and Windows by reports; the page's own address has nothing to lose. Only a run that
+  wrote the HTML report links its ids: not with `--report=none`, nor a share's. The Rust edition
+  does the same.
 - **Copy as prompt, in the HTML report.** Beside each Copy, on the tests to write, a folder or
   file's side card and each mutant, it puts those tests on the clipboard as a prompt for any coding
   agent, in the agent format's shape: mutastic's rules first, then the mutants fenced off as data on
@@ -271,6 +278,15 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Agents
 
+- **A hooked gate check keeps within the hook's time.** The plugins run `gate check` from a Stop
+  hook that's stopped after ten minutes, and a hook stopped gates nothing; on a slow project the
+  wait for the count of the task's start, up to four minutes, and the check's own run could pass
+  that. As a hook, a check now waits for the count only as long as its budget has left once its
+  run is done (`MUTASTIC_GATE_BUDGET`, in seconds, 600 unless set), and when the count isn't done
+  by then, a pass says the check compared the annotations only, as before. When the last check's
+  own run took longer than the whole budget, the next hands over before it runs and says so: run
+  `mutastic gate check` yourself. A check run by a person has no budget. Both variables are in
+  help now, and the editions' contract holds them (decision 17).
 - **The gate keeps the baseline as it was when it opened.** Where git ignores `.mutastic/`, the
   start commit has no baseline, so every entry of a local one counted as the task's own and held
   the gate however the task did. Only an entry added since `gate open` holds it now.

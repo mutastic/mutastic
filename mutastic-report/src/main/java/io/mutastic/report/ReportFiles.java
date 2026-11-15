@@ -92,6 +92,83 @@ public final class ReportFiles {
     }
   }
 
+  /// The folder of mutant pages beside an HTML report: `mutation-mutants/` beside `mutation.html`.
+  public static Path pagesFolder(Path html) {
+    var name = html.getFileName().toString();
+    var stem = name.endsWith(".html") ? name.substring(0, name.length() - ".html".length()) : name;
+    return html.resolveSibling(stem + "-mutants");
+  }
+
+  /// Writes, beside the HTML report at `html`, a page for each mutant the run didn't catch,
+  /// `mutation-mutants/m855c8e3c.html`, that opens the report on it, and gives their folder. The
+  /// output's ids link to these: a link to `mutation.html#/m/<id>` itself loses its `#…` on the way
+  /// to the browser on macOS (and on Linux and Windows by reports), as the system's opener takes a
+  /// `file:` URL for a file and drops the rest. A page's own address has nothing to lose, and the
+  /// browser keeps the `#…` it then goes to. Pages a run before left are taken away first.
+  public static Path writePages(Report report, Path html) {
+    var folder = pagesFolder(html);
+    try {
+      Files.createDirectories(folder);
+      try (var old = Files.list(folder)) {
+        for (Path page :
+            old.filter(file -> PAGE.matcher(file.getFileName().toString()).matches()).toList()) {
+          Files.delete(page);
+        }
+      }
+      var name = encoded(html.getFileName().toString());
+      for (String id : paged(report)) {
+        Files.writeString(folder.resolve(id + ".html"), page(name, id));
+      }
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    return folder;
+  }
+
+  /// The ids of the mutants the run didn't catch, each of which gets a page.
+  public static java.util.SortedSet<String> paged(Report report) {
+    var ids = new java.util.TreeSet<String>();
+    report.results().stream()
+        .filter(result -> result.status() != Status.CAUGHT)
+        .forEach(result -> ids.add(result.mutant().id()));
+    return ids;
+  }
+
+  /// `m855c8e3c.html`: a mutant's page, which a run may take away.
+  private static final Pattern PAGE = Pattern.compile("m[0-9a-fA-F]{8}\\.html");
+
+  /// A page that opens the report `html`, beside its folder, on mutant `id`, as the Rust edition
+  /// writes it: at once with a script, by refresh without one, and by its link if neither runs.
+  private static String page(String html, String id) {
+    var target = "../" + html + "#/m/" + id;
+    return """
+        <!doctype html>
+        <meta charset="utf-8">
+        <title>%s · mutastic report</title>
+        <meta http-equiv="refresh" content="0; url=%s">
+        <script>location.replace('%s')</script>
+        <a href="%s">%s in the report</a>
+        """
+        .formatted(id, target, target, target, id);
+  }
+
+  /// `text` with all but letters, digits and `-._~` percent-encoded: a file's name in a relative
+  /// URL.
+  private static String encoded(String text) {
+    var out = new StringBuilder();
+    for (byte b : text.getBytes(StandardCharsets.UTF_8)) {
+      if ((b >= 'a' && b <= 'z')
+          || (b >= 'A' && b <= 'Z')
+          || (b >= '0' && b <= '9')
+          || "-._~".indexOf(b) >= 0) {
+        out.append((char) b);
+      } else {
+        out.append('%').append(String.format(java.util.Locale.ROOT, "%02X", b & 0xff));
+      }
+    }
+    return out.toString();
+  }
+
   /// A source file's entry: its text and the mutants in it.
   private record SourceFile(String source, List<Map<String, Object>> mutants) {
     Map<String, Object> json() {

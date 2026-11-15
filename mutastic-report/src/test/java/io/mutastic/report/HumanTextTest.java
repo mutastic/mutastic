@@ -402,6 +402,39 @@ class HumanTextTest {
                 + "\u001b\\pricing/build/mutastic/mutation.json\u001b]8;;\u001b\\");
   }
 
+  /// With links on and mutant pages written, each id the output shows links to its page, which
+  /// opens the HTML report on it; one in a link's address is left alone. Rust's `report.rs` has the
+  /// same test.
+  @Test
+  void idsLinkToTheirPagesWhenThereAreSome() {
+    var pages = project.resolve("build/mutastic/mutation-mutants").toAbsolutePath();
+    var result = missed(boundary(), Map.of());
+    var id = result.mutant().id();
+    var run =
+        new HumanText.Run(
+            LocalTime.of(9, 30, 5),
+            Duration.ofMillis(500),
+            List.of(),
+            false,
+            List.of(),
+            Duration.ZERO,
+            Optional.of(pages));
+    var linked =
+        new HumanText(sources, 80, Style.PLAIN.withLinks(), HumanText.Detail.FULL, Vocabulary.PLAIN)
+            .render(report(result), Optional.empty(), run);
+    var plain =
+        text(HumanText.Detail.FULL, Vocabulary.PLAIN).render(report(result), Optional.empty(), run);
+
+    assertThat(linked)
+        .contains(
+            "verify \u001b]8;;"
+                + pages.resolve(id + ".html").toUri()
+                + "\u001b\\"
+                + id
+                + "\u001b]8;;\u001b\\ ");
+    assertThat(plain).contains("verify " + id + " ").doesNotContain("\u001b");
+  }
+
   /// With links on, the change marked under its line opens its operator's row in the docs; with
   /// them off the card is as it was.
   @Test
