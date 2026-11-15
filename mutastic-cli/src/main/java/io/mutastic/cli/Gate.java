@@ -135,21 +135,25 @@ final class Gate {
       } catch (IOException e) {
         throw new UncheckedIOException(e);
       }
+      return Optional.of(of(properties));
+    }
+
+    /// The state [#FILE] holds.
+    private static State of(Properties properties) {
       var stopped = Optional.ofNullable(properties.getProperty("stopped")).map(State::ids);
       var baselined = Optional.ofNullable(properties.getProperty("baselined")).map(State::ids);
-      return Optional.of(
-          new State(
-              properties.getProperty("session", ""),
-              properties.getProperty("base", ""),
-              ids(properties.getProperty("ignored", "")),
-              baselined,
-              new Shape(
-                  Integer.parseInt(properties.getProperty("tests", "0")),
-                  Integer.parseInt(properties.getProperty("disabled", "0"))),
-              Integer.parseInt(properties.getProperty("blocks", "0")),
-              properties.getProperty("tree", ""),
-              redIn(properties),
-              stopped));
+      return new State(
+          properties.getProperty("session", ""),
+          properties.getProperty("base", ""),
+          ids(properties.getProperty("ignored", "")),
+          baselined,
+          new Shape(
+              Integer.parseInt(properties.getProperty("tests", "0")),
+              Integer.parseInt(properties.getProperty("disabled", "0"))),
+          Integer.parseInt(properties.getProperty("blocks", "0")),
+          properties.getProperty("tree", ""),
+          redIn(properties),
+          stopped);
     }
 
     /// Ids as [#FILE] keeps them: separated by commas.
