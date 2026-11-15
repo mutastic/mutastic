@@ -152,6 +152,18 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   runs the tests anyway, as before, to check or time the suite. See [When there's nothing to
   run](https://docs.mutastic.io/concepts/how-a-run-works/#when-theres-nothing-to-run).
 
+### Scoring changes
+
+No operator joins or leaves the default set, and no filter skips more or less. Two fixes change
+what a run counts:
+
+- **A case an assumption aborts isn't a failure.** `assumeTrue(false)` failed the test as far as
+  mutastic was concerned: a red baseline, or a mutant caught. It's skipped now, as JUnit says, so a
+  mutant only an aborted case caught is missed. Scores can go down; no id changes.
+- **`--since` sees Kotlin.** A Kotlin change had no changed lines, so `--since` ran none of its
+  mutants. Now they run, and a `--since` run's score counts them. No id changes. See the gate's
+  fix under *Agents*.
+
 ### Fixes
 
 - **`baseline --prune` doesn't drop what another set of operators would make.** A mutant only the
@@ -312,8 +324,6 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   the tree, and returns at once; a check waits for it, up to four minutes
   (`MUTASTIC_GATE_COUNT_WAIT`, in seconds), and holds a task whose own run has fewer cases or more
   skipped. If it couldn't count, a pass says so. `gate close` stops it. Comments don't count.
-- **A case an assumption aborts isn't a failure.** `assumeTrue(false)` failed the test as far as
-  mutastic was concerned: a red baseline, or a mutant caught. It's skipped now, as JUnit says.
 - **The gate and `--since` see Kotlin.** Git's diff and its new-file listing took only `*.java`,
   so a Kotlin task's changed lines were none: `--since` mutated nothing, and the gate passed a
   task that changed `.kt` code with no mutant run. Its test count read only `.java` files too, so
