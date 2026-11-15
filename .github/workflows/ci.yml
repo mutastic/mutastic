@@ -7,6 +7,14 @@
 # in parallel jobs, a share of the test classes each (`-Pmutastic.shard`), beside the rest of the
 # build. The coverage floor is over every module's tests at once, so it's checked last, from what
 # each job measured.
+#
+# On a pull request that changes nothing the build reads (the repository's own Markdown pages, the
+# issue and pull request templates, workflows other than this one, the hooks), the jobs that build
+# and test are skipped, as `changes` decides: a skipped job counts as passed for branch protection,
+# and the CLI's shards, whose checks are named for their share, run with nothing to do instead,
+# since a matrix skipped whole reports one check under the job's bare name. docs/ is read by the
+# build, so a change there runs everything. The merge queue, main and a run by hand always run
+# everything: main is always fully tested.
 name: CI
 
 on:
@@ -21,9 +29,52 @@ on:
 permissions:
   contents: read
 
+# A pull request's new push cancels the run for its last one, which no one will read. Every other
+# run has a group of its own, so a run of the merge queue or main is never cancelled, nor kept
+# waiting behind another.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # Whether to build and test: on a pull request, unless every file it changes is one the build
+  # doesn't read; otherwise always. The list comes from the API, so nothing is checked out, and if
+  # it can't be had in full, everything runs.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    outputs:
+      code: ${{ steps.files.outputs.code }}
+    steps:
+      - id: files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          COUNT: ${{ github.event.pull_request.changed_files }}
+          # What the build never reads: the top-level Markdown pages, the citation, the templates
+          # and picture under .github, the workflows other than this one, and the hooks.
+          UNREAD: '^([^/]+\.md|CITATION\.cff|\.github/(ISSUE_TEMPLATE/.*|PULL_REQUEST_TEMPLATE\.md|pip\.webp|workflows/(commits|docs|nightly|portal|release)\.yml)|\.githooks/.*)$'
+        run: |
+          code=true
+          if [ "$EVENT" = pull_request ] &&
+            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$NUMBER/files" --jq '.[].filename' > files.txt &&
+            [ "$(wc -l < files.txt)" -eq "$COUNT" ]; then
+            if ! grep -qvE "$UNREAD" files.txt; then
+              code=false
+            fi
+            echo "The pull request changes:"
+            sed 's/^/  /' files.txt
+          fi
+          echo "Build and test: $code"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
   # Everything but the CLI's end-to-end tests and the coverage floor.
   build:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -54,6 +105,7 @@ jobs:
 
   # The CLI's end-to-end tests, a quarter of the test classes each.
   cli:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -61,15 +113,21 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     steps:
+      - if: needs.changes.outputs.code != 'true'
+        run: echo "Nothing the build reads changed, so there is nothing to test."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.code == 'true'
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        if: needs.changes.outputs.code == 'true'
         with:
           distribution: temurin
           java-version: |
             17
             25
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        if: needs.changes.outputs.code == 'true'
       - run: ./gradlew :mutastic-cli:test -Pmutastic.shard=${{ matrix.shard }}/4
+        if: needs.changes.outputs.code == 'true'
       # These tests build a copy of a sample project, and each copy is a new directory, so Gradle
       # forks a javac worker for it rather than reusing the identical one it forked for the copy
       # before. A worker belongs to the daemon that forked it and outlives the build with it, for
@@ -90,7 +148,7 @@ jobs:
       # given a minute to settle. The pattern is written `Mai[n]`, and the processes filtered to
       # those running a JVM, so this step's own command line isn't counted as one of them.
       - name: the sample builds left nothing running
-        if: always()
+        if: always() && needs.changes.outputs.code == 'true'
         run: |
           before=mutastic-cli/build/gradle-workers-before.txt
           if [ ! -f $before ]; then
@@ -114,11 +172,12 @@ jobs:
           echo "The samples' builds left nothing running."
       # What the tests measured, in their JVM and outside it (the worker, Maven, Gradle).
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: needs.changes.outputs.code == 'true'
         with:
           name: coverage-cli-${{ matrix.shard }}
           path: mutastic-cli/build/jacoco/
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
+        if: always() && needs.changes.outputs.code == 'true'
         with:
           name: reports-cli-${{ matrix.shard }}-${{ github.run_attempt }}
           path: mutastic-cli/build/reports/
@@ -129,6 +188,8 @@ jobs:
   # Windows, in two shares to stay under 30 minutes each: the cards and both build tools' samples,
   # then the Gradle plugin, the gate and a Quarkus build.
   windows-share:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: windows-latest
     timeout-minutes: 30
     strategy:
@@ -182,18 +243,28 @@ jobs:
             mutastic-cli/build/reports/
             mutastic-cli/build/test-results/
 
-  # The check branch protection names: passes when both Windows shares do.
+  # The check branch protection names: passes when both Windows shares do, or when they were
+  # skipped because nothing the build reads changed. If `changes` itself failed, every job after
+  # it was skipped, so this fails: a skip passes only when `changes` said so.
   windows:
-    needs: windows-share
+    needs: [changes, windows-share]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - run: test "${{ needs.windows-share.result }}" = success
+      - env:
+          CHANGES: ${{ needs.changes.result }}
+          CODE: ${{ needs.changes.outputs.code }}
+          SHARES: ${{ needs.windows-share.result }}
+        run: |
+          test "$CHANGES" = success
+          test "$SHARES" = success || { test "$SHARES" = skipped && test "$CODE" = false; }
 
   # The HTML report page both editions embed (report-ui/): report.html is the build of its sources,
   # and renders each view, in Chrome (the runner's own), from reports written to test it.
   report-ui:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -206,7 +277,8 @@ jobs:
 
   # The coverage floor, over what every job measured.
   coverage:
-    needs: [build, cli]
+    needs: [changes, build, cli]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
