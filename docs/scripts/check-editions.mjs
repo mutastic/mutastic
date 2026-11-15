@@ -15,6 +15,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  AWAITING_PAIRS,
   AWAITING_RUST,
   JAVA_ONLY_WAY,
   JAVA_OPERATORS,
@@ -94,6 +95,12 @@ export async function checkEditions(
   }
   for (const page of unlisted) {
     problems.push(`the shared page '/${page}' isn't in the Rust sidebar: add '/${page}' to LAYOUT in scripts/rust-docs.mjs, where the Java sidebar has it`);
+  }
+  for (const [j, r, ref] of AWAITING_PAIRS) {
+    need(java, j, 'Java', `(waiting for '/${r}' in AWAITING_PAIRS in src/edition-pages.mjs)`);
+    if (ref !== pinnedRef()) {
+      problems.push(`'/${j}' waits in AWAITING_PAIRS (src/edition-pages.mjs) for '/${r}' in the Rust release after ${ref}, and the pin is ${pinnedRef()} now: move the pair into PAIRS`);
+    }
   }
   for (const [page, ref] of AWAITING_RUST) {
     if (ref !== pinnedRef()) {

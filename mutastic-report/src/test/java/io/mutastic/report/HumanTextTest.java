@@ -378,6 +378,30 @@ class HumanTextTest {
                 + "\u001b\\src/main/java/com/example/Pricing.java:5\u001b]8;;\u001b\\");
   }
 
+  /// Each report file is shown as typed from where mutastic ran, here the tests' directory, and
+  /// with links on opens the file itself, wherever that is.
+  @Test
+  void reportsAreTypedFromHereAndLinkedWhole() {
+    var here = Path.of("").toAbsolutePath();
+    var below = here.resolve("pricing/build/mutastic/mutation.json");
+    var elsewhere = project.resolve("build/mutastic/mutation.html").toAbsolutePath();
+    var run =
+        new HumanText.Run(
+            LocalTime.of(9, 30, 5), Duration.ofMillis(500), List.of(below, elsewhere));
+    var report = report(missed(boundary(), Map.of()));
+
+    assertThat(text(HumanText.Detail.FULL, Vocabulary.PLAIN).render(report, Optional.empty(), run))
+        .contains("  Reports  pricing/build/mutastic/mutation.json · " + elsewhere + "\n");
+    assertThat(
+            new HumanText(
+                    sources, 80, Style.PLAIN.withLinks(), HumanText.Detail.FULL, Vocabulary.PLAIN)
+                .render(report, Optional.empty(), run))
+        .contains(
+            "\u001b]8;;"
+                + below.toUri()
+                + "\u001b\\pricing/build/mutastic/mutation.json\u001b]8;;\u001b\\");
+  }
+
   /// With links on, the change marked under its line opens its operator's row in the docs; with
   /// them off the card is as it was.
   @Test

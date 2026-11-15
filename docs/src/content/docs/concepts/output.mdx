@@ -14,6 +14,8 @@ import brief from '../../../data/output/format-brief.ansi?raw';
 import concise from '../../../data/output/format-concise.ansi?raw';
 import grouped from '../../../data/output/format-grouped.ansi?raw';
 import jsonl from '../../../data/output/format-jsonl.ansi?raw';
+import live from '../../../data/output/run-live.ansi?raw';
+import log from '../../../data/output/run-log.ansi?raw';
 import full from '../../../data/output/run.ansi?raw';
 import shared from '../../../data/output/shared-card.ansi?raw';
 
@@ -137,6 +139,63 @@ misses both its boundary and the condition always being true. A test at `balance
 ## Streams
 
 The result goes to stdout and progress to stderr, so `mutastic run > result.txt` keeps only the result.
+
+## While it runs
+
+A long run that prints nothing looks the same as one that's stuck. So mutastic says what it's
+doing, on stderr, for the whole run.
+
+At a terminal, a live block sits under the lines the run has printed, and is redrawn ten times a
+second. Its first line has the phase, a bar, what's caught and missed so far, the phase's clock
+and, once it can tell, about how long is left. Under it is a line for each worker, with what it's
+running and for how long. A mutant that runs well past what its tests took is marked `SLOW`, so a
+hang is plain to see.
+
+Here's a courier's round, run with one worker. Its test takes a while, and one mutant makes the
+courier wait at a door for longer still. This is the terminal while that mutant runs:
+
+<EditionTabs>
+<div slot="java">
+
+The test takes a second, and the wait three more:
+
+<Code code={live.replace(/\n$/, '')} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+The test takes a second and a half, and the wait six more:
+
+<RustOutput name="concepts/run-live" awaiting="v1.1.0" />
+
+</div>
+</EditionTabs>
+
+In CI, a pipe or a coding agent's harness, a block redrawn in place would only be noise. There,
+mutastic prints a plain line with the same fields whenever a while passes with nothing else said:
+30 seconds, or what `MUTASTIC_HEARTBEAT` sets. So a harness that stops a quiet process won't stop a
+slow run. The same run in a log, from its first file on:
+
+<EditionTabs>
+<div slot="java">
+
+With `MUTASTIC_HEARTBEAT=3.25`:
+
+<Code code={log.replace(/\n$/, '')} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+With `MUTASTIC_HEARTBEAT=6.5`:
+
+<RustOutput name="concepts/run-log" awaiting="v1.1.0" />
+
+</div>
+</EditionTabs>
+
+`--progress` chooses: `bar` for the live block, `counter` for the lines, or `none`. `auto`, the
+default, draws the block where stderr is a terminal that isn't `TERM=dumb`, and no CI or coding
+agent is detected.
 
 ## The commands it offers
 

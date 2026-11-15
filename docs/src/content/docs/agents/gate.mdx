@@ -3,6 +3,8 @@ title: The gate
 description: "How mutastic gate decides whether a coding agent's task is done: where a task starts, what holds it, and when it hands over to you."
 ---
 
+import EditionTabs from '../../../components/EditionTabs.astro';
+
 `mutastic gate` holds an agent's "done" to what mutastic says of the lines it changed. A plugin runs
 it from the agent's hooks ([Claude Code](/agents/claude-code/), [Codex](/agents/codex/)); anything else can run the same
 three commands.
@@ -15,22 +17,50 @@ mutastic gate close    # forget the task
 
 ## Where a task starts
 
-`gate open` keeps the commit the task starts from, the ignores there are, and how many tests there
-are and how many are disabled, each row of a parameterized test counted as a test. Rows a static
-source holds are counted from its annotations: a `@CsvSource`'s entries and `textBlock` lines, a
-`@ValueSource`'s values, an `@EnumSource`'s names, a `@CsvFileSource`'s lines. What only running
-says (rows a `@MethodSource`, `@ArgumentsSource` or `@FieldSource` makes, a test a condition such
-as `@DisabledOnOs` turns off, a case an assumption aborts) is counted by a run of the tests that
-`gate open` starts in the background, on a copy of the tree as it is then, so the agent needn't
-wait. It tells the agent how to check its own work as it goes:
+`gate open` keeps where the task starts: the commit, the ignores there are, and how many tests there
+are and how many are turned off. An agent that can't make a test pass can delete it, or turn it
+off, and the tests would then pass. Comparing the counts at the end catches that. `gate open` also
+tells the agent how to check its own work as it goes:
 `mutastic run --since=<that commit> --format=agent`. Uncommitted changes count as the task's, so
 start from a clean tree to gate only what the agent does.
+
+### Tests over a table of cases
+
+Many tests run the same check over a table of cases, a row each. Taking a row away loses a case as
+surely as deleting a test does, so the gate counts each row as a test.
+
+<EditionTabs>
+<div slot="java">
+
+In JUnit, such a test is a parameterized test, `@ParameterizedTest`, with a source of rows. Rows a
+static source holds are counted from its annotations: a `@CsvSource`'s entries and `textBlock`
+lines, a `@ValueSource`'s values, an `@EnumSource`'s names, a `@CsvFileSource`'s lines. What only
+running says (rows a `@MethodSource`, `@ArgumentsSource` or `@FieldSource` makes, a test a
+condition such as `@DisabledOnOs` turns off, a case an assumption aborts) is counted by a run of the
+tests that `gate open` starts in the background, on a copy of the tree as it is then, so the agent
+needn't wait.
+
+</div>
+<div slot="rust">
+
+Each rstest `#[case]`, test-case row and `#[values]` cell is a test of its own, as the test
+binaries list them with `--list`, and a test turned off is one marked `#[ignore]`. `gate open`
+lists them in the background, on a copy of the tree as it is then, so the agent needn't wait, and a
+check waits for the list. Where the list failed, as for a package that doesn't build when the task
+starts, or isn't done in four minutes, the gate counts the test functions in `src` and `tests`
+instead, and a pass says so. A loop over rows inside one `#[test]` is one test, however many rows
+it has.
+
+</div>
+</EditionTabs>
 
 ## When it's done
 
 `gate check` runs the tests, and mutastic on the lines changed since the task started, committed
 or not. It runs the tests even when no mutant is on those lines: a constant, an import or a log
-line can break a test too. The task is done when:
+line can break a test too. Since only the mutants on those lines run, a stronger operator set in
+`mutastic.yaml` stays cheap in an agent's loop: see
+[Choosing operators](/concepts/operators/#choosing-operators). The task is done when:
 
 - **each mutant on those lines is caught, or proposed** for a person to ignore. A proposed mutant
   still counts as missed in the score, but it doesn't hold the gate: deciding it is yours. With a
@@ -44,10 +74,10 @@ line can break a test too. The task is done when:
   the turn, with `ignore --accept` or by editing `.mutastic/ignores.yaml`, does, after your next
   prompt too;
 - **no test was taken away**: there are no fewer tests than when the task started, and no more
-  disabled, counting each row of a parameterized test. The check's own run counts what only
-  running says, and compares it with the count `gate open` started: fewer cases run, or more
-  skipped, holds the task. If that count couldn't finish (the tests failed at the start, or it was
-  stopped), the check says so when it passes, and compares the annotations only;
+  turned off, each row of a table of cases counted as a test. The check counts them again and
+  compares them with the count `gate open` started: fewer cases run, or more skipped, holds the
+  task. If that count couldn't finish (the tests failed at the start, or it was stopped), the check
+  says so when it passes, and counts from the source instead;
 - **the tests pass.** When a test that was there when the task started fails, the gate says so,
   and tells the agent to find out whether the change or the test is wrong, and to ask you if it
   isn't sure, rather than rewrite what the test expects. Every mutant is caught by a test made to

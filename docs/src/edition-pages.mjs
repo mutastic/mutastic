@@ -78,6 +78,14 @@ export const PAIRS = [
   ['guides/troubleshooting', 'rust/troubleshooting'],
 ];
 
+/**
+ * Pairs whose Rust page comes with a Rust release newer than the one docs/rust-edition.json pins,
+ * each with that pin: `[java, rust, pin]`. Until then the switch treats the Java page as having no
+ * Rust page, and the build doesn't ask for it. Once the pin moves on, the build says to move the
+ * pair into PAIRS.
+ */
+export const AWAITING_PAIRS = [['guides/scoping', 'rust/scoping', 'v1.1.0']];
+
 /** Topics whose nearest counterpart is a page that maps back somewhere else. */
 export const JAVA_ONLY_WAY = [];
 export const RUST_ONLY_WAY = [

@@ -120,6 +120,9 @@ operators:
   - -stream/swap-match
 ```
 
+A coding agent's [gate](/agents/gate/) runs only the mutants on the lines a task changed, so a
+stronger set there stays cheap in an agent's loop.
+
 A run of one mutant, by id (`verify`, `explain`, `run --only`), looks among every operator, so a
 mutant any run found can always be checked again.
 

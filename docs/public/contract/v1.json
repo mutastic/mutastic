@@ -932,7 +932,8 @@
         },
         {
           "label": "Reports",
-          "optional": true
+          "optional": true,
+          "note": "Each file as typed from where mutastic runs: relative when it's below there, else absolute; with links on, an OSC 8 link to its absolute file:// URI. Shared by both editions; run-finished's reports stay relative to the project"
         },
         {
           "label": "Left out",
@@ -1053,7 +1054,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "e72d3c2056e063e22237ffda6b1da307bac3917e607ff66fa304e21fff875a33"
+      "sha256": "a4348cd6723170c627b75df64ae3044b64a3f882c831b0604baee35a2908412f"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",

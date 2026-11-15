@@ -8,6 +8,7 @@ import static io.mutastic.cli.Main.Subcommand.VERIFY;
 
 import io.mutastic.cli.Option.Group;
 import io.mutastic.cli.Option.Kind;
+import io.mutastic.report.ReportFiles;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -43,6 +44,10 @@ final class Options {
   private static final Set<Main.Subcommand> SHOWN = EnumSet.of(RUN, EXPLAIN, NEXT);
 
   private static final Set<Main.Subcommand> IGNORES = EnumSet.of(IGNORE);
+
+  /// The report files `--report` names, and `none`: help and the docs list them from here.
+  static final List<String> REPORT_KINDS = withNone(ReportFiles.KINDS);
+
   private static final Set<Main.Subcommand> GATES =
       EnumSet.of(Main.Subcommand.GATE_OPEN, Main.Subcommand.GATE_CHECK, Main.Subcommand.GATE_CLOSE);
   private static final Set<Main.Subcommand> EVERY = EnumSet.allOf(Main.Subcommand.class);
@@ -259,9 +264,9 @@ final class Options {
               Kind.REPEATED,
               Group.RUNNING,
               "KIND[:PATH]",
-              List.of(),
-              "A report file a full run writes: json, html, xml or sarif, or none; json and html"
-                  + " unless set",
+              REPORT_KINDS,
+              "A report file a full run writes, at PATH if given, or none; json and html unless"
+                  + " set",
               RUNS,
               "reports",
               true,
@@ -577,5 +582,11 @@ final class Options {
       arguments.add(option.name() + "=none");
     }
     return arguments;
+  }
+
+  private static List<String> withNone(List<String> kinds) {
+    var all = new ArrayList<>(kinds);
+    all.add("none");
+    return List.copyOf(all);
   }
 }
