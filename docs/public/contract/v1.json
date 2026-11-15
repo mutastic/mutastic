@@ -1326,6 +1326,10 @@
     {
       "id": 15,
       "rule": "The gate passes \"changed no lines\" when no changed line is in a file the edition mutates, once the tests pass and after the checks for ignores and baseline entries the task made itself and for tests taken away; only a tree untouched since the task's start commit skips the tests and the check for tests taken away."
+    },
+    {
+      "id": 16,
+      "rule": "An ignore or baseline entry is the task's own when it wasn't there at `gate open`: the gate keeps both lists when it opens, since git may ignore `.mutastic/` and the start commit can't say. Ignores a person accepts between hooked turns join the opening list."
     }
   ],
   "differences": [
