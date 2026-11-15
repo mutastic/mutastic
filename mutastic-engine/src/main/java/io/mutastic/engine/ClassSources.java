@@ -1,7 +1,5 @@
 package io.mutastic.engine;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.lang.classfile.Attributes;
 import java.lang.classfile.ClassFile;
 import java.nio.file.Files;
@@ -40,14 +38,9 @@ public final class ClassSources implements Function<String, Optional<String>> {
     for (var classes : classDirectories) {
       var file = classes.resolve(internalName + ".class");
       if (Files.isRegularFile(file)) {
-        try {
-          return ClassFile.of()
-              .parse(Files.readAllBytes(file))
-              .findAttribute(Attributes.sourceFile())
-              .map(attribute -> directory + attribute.sourceFile().stringValue());
-        } catch (IOException e) {
-          throw new UncheckedIOException(e);
-        }
+        return ClassFileVersion.parse(ClassFile.of(), file)
+            .findAttribute(Attributes.sourceFile())
+            .map(attribute -> directory + attribute.sourceFile().stringValue());
       }
     }
     return Optional.empty();

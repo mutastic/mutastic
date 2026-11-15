@@ -14,6 +14,7 @@ import org.gradle.api.attributes.Usage;
 import org.gradle.api.attributes.java.TargetJvmVersion;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.JavaPlugin;
+import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.jvm.toolchain.JavaLanguageVersion;
 import org.gradle.jvm.toolchain.JavaToolchainService;
 
@@ -22,7 +23,7 @@ import org.gradle.jvm.toolchain.JavaToolchainService;
 /// `mutasticVerify`, `mutasticExplain` and `mutasticIgnore`, set up by the `mutastic { }` extension
 /// and each task's own properties, with `-Pmutastic.<name>` over both for one run.
 public abstract class MutasticPlugin implements Plugin<Project> {
-  /// The JDK mutastic runs on, for the ClassFile API; a Gradle toolchain, so Gradle finds or
+  /// The oldest JDK mutastic runs on, for the ClassFile API; a Gradle toolchain, so Gradle finds or
   /// fetches it. The tests still run on the JDK the `test` task uses.
   static final int ENGINE_JDK = 25;
 
@@ -89,8 +90,21 @@ public abstract class MutasticPlugin implements Plugin<Project> {
     extension
         .getJavaLauncher()
         .convention(
-            toolchains.launcherFor(
-                spec -> spec.getLanguageVersion().set(JavaLanguageVersion.of(ENGINE_JDK))));
+            toolchains.launcherFor(spec -> spec.getLanguageVersion().set(engineJdk(project))));
+  }
+
+  /// The JDK mutastic runs on: 25, or the project's own JDK when it's newer. A JDK reads class
+  /// files only as new as itself, so code compiled on JDK 26 needs mutastic on 26 or later. The
+  /// project's is its toolchain's, or without one Gradle's own JDK, which then compiles it.
+  static org.gradle.api.provider.Provider<JavaLanguageVersion> engineJdk(Project project) {
+    var java = project.getExtensions().getByType(JavaPluginExtension.class);
+    var gradles =
+        project.provider(
+            () -> JavaLanguageVersion.of(org.gradle.api.JavaVersion.current().getMajorVersion()));
+    return java.getToolchain()
+        .getLanguageVersion()
+        .orElse(gradles)
+        .map(own -> own.asInt() > ENGINE_JDK ? own : JavaLanguageVersion.of(ENGINE_JDK));
   }
 
   /// `mutastic`: the `mutastic` command's jars, of the extension's `toolVersion`, from the

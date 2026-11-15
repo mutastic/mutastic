@@ -72,6 +72,15 @@ public final class Engine {
     }
   }
 
+  /// A class file from a newer JDK than the one mutastic runs on, which can't read it.
+  public static final class ClassFileTooNew extends CantRun {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    ClassFileTooNew(String message) {
+      super(message);
+    }
+  }
+
   /// `--only` named a mutant the project doesn't have.
   public static final class UnknownMutant extends CantRun {
     @java.io.Serial private static final long serialVersionUID = 1L;
@@ -1816,12 +1825,8 @@ public final class Engine {
   private static Map<String, ClassModel> classesIn(List<Path> roots, ClassFile context) {
     var models = new java.util.TreeMap<String, ClassModel>();
     for (Path file : classFiles(roots)) {
-      try {
-        var model = context.parse(Files.readAllBytes(file));
-        models.put(model.thisClass().asInternalName().replace('/', '.'), model);
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
+      var model = ClassFileVersion.parse(context, file);
+      models.put(model.thisClass().asInternalName().replace('/', '.'), model);
     }
     return models;
   }
