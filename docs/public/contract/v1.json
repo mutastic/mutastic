@@ -931,7 +931,7 @@
         {
           "label": "Reports",
           "optional": true,
-          "note": "Each file as typed from where mutastic runs: relative when it's below there, else absolute; with links on, an OSC 8 link to its absolute file:// URI. Shared by both editions; run-finished's reports stay relative to the project"
+          "note": "Each file as typed from where mutastic runs: relative when it's below there, else absolute; with links on, an OSC 8 link to its absolute file:// URI. Shared by both editions; run-finished's reports stay relative to the project. With links on and an HTML report written (not a share's), each mutant id in the human output links to <stem>-mutants/<id>.html beside it, a page that opens the report at #/m/<id>: the fragment itself is lost by macOS's opener"
         },
         {
           "label": "Left out",
