@@ -933,7 +933,7 @@
         {
           "label": "Reports",
           "optional": true,
-          "note": "Each file as typed from where mutastic runs: relative when it's below there, else absolute; with links on, an OSC 8 link to its absolute file:// URI. Shared by both editions; run-finished's reports stay relative to the project"
+          "note": "Each file as typed from where mutastic runs: relative when it's below there, else absolute; with links on, an OSC 8 link to its absolute file:// URI. Shared by both editions; run-finished's reports stay relative to the project. With links on and an HTML report written (not a share's), each mutant id in the human output links to <stem>-mutants/<id>.html beside it, a page that opens the report at #/m/<id>: the fragment itself is lost by macOS's opener"
         },
         {
           "label": "Left out",
@@ -1880,21 +1880,6 @@
       "summary": "Codes worked out from the message's words (Java's `usageCode`) rather than set where the error is raised",
       "issue": "https://github.com/mutastic/mutastic/issues/61",
       "decision": 13
-    },
-    {
-      "id": "D17",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "gate",
-      "summary": "No budget for a hooked gate check: no `MUTASTIC_GATE_BUDGET`, and the count's wait isn't `MUTASTIC_GATE_COUNT_WAIT`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "decision": 17,
-      "items": [
-        "env:MUTASTIC_GATE_BUDGET",
-        "env:MUTASTIC_GATE_COUNT_WAIT"
-      ]
     },
     {
       "id": "G3",

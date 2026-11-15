@@ -65,6 +65,38 @@ class ReportPathsTest {
         .containsExactly("build/mutastic/mutation.json", "build/mutastic/mutation.html");
   }
 
+  /// With links on and the HTML report written, each id the output shows opens the report on its
+  /// mutant, through a page beside the report: a link to `mutation.html#/m/<id>` itself loses its
+  /// `#…` on the way to a browser on macOS. With no HTML report, no id is linked. Rust's samples
+  /// test the same.
+  @Test
+  void withLinksOnAnIdOpensTheReportOnItsMutant() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+
+    var said = mutastic(project, "run", "--workers=1", "--hyperlinks=always", "--format=full");
+
+    var id =
+        LINK.matcher(said)
+            .results()
+            .filter(link -> link.group("text").matches("m[0-9a-f]{8}"))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError(said));
+    var page = Path.of(URI.create(id.group("uri")));
+    assertThat(page.toRealPath())
+        .isEqualTo(
+            project
+                .resolve("build/mutastic/mutation-mutants/" + id.group("text") + ".html")
+                .toRealPath());
+    assertThat(page)
+        .content()
+        .contains("location.replace('../mutation.html#/m/" + id.group("text") + "')");
+
+    var none =
+        mutastic(
+            project, "run", "--workers=1", "--hyperlinks=always", "--format=full", "--report=none");
+    assertThat(none).contains(id.group("text")).doesNotContain("mutation-mutants");
+  }
+
   /// `text` linked to `uri`, as OSC 8 writes it.
   private static final Pattern LINK =
       Pattern.compile(

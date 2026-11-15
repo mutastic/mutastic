@@ -1930,7 +1930,10 @@ public final class Main {
         written,
         !command.only().isEmpty(),
         command.excludeTests(),
-        prepared.build());
+        prepared.build(),
+        command.shard().isEmpty()
+            ? html(command, written).map(ReportFiles::pagesFolder)
+            : Optional.empty());
   }
 
   /// JSON Lines: the run's start now, each mutant as it finishes, and the result at the end.
@@ -2138,7 +2141,24 @@ public final class Main {
       files.write(requested.kind(), report, file);
       written.add(file.toAbsolutePath().normalize());
     }
+    // The ids the output shows open the HTML report on their mutant, but not from a share's own
+    // folder: its report is only part of the run.
+    if (command.shard().isEmpty()) {
+      html(command, written).ifPresent(html -> ReportFiles.writePages(report, html));
+    }
     return written;
+  }
+
+  /// The HTML report among the files written, the last asked for, when one was.
+  private static Optional<Path> html(Command command, List<Path> written) {
+    Optional<Path> found = Optional.empty();
+    var asked = command.reports();
+    for (int at = 0; at < Math.min(asked.size(), written.size()); at++) {
+      if (asked.get(at).kind().equals("html")) {
+        found = Optional.of(written.get(at));
+      }
+    }
+    return found;
   }
 
   private static int exitCode(Command command, Report report, Optional<FailOnNew> judged) {

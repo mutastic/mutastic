@@ -108,6 +108,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   the score line said nothing. It now says `not compared with the last run, which used other
   operators (defaults)`, in the summary and the agent format; the `run-finished` event has no
   comparison, as before.
+- **A mutant's id opens the HTML report on it.** With links on, each id the terminal shows, on a
+  card, in the misses list or in a command, links to a page beside the report,
+  `mutation-mutants/<id>.html`, which opens `mutation.html` on that mutant. A link straight to
+  `mutation.html#/m/<id>` loses its `#…` on macOS, whose opener drops it from a `file:` URL, and
+  on Linux and Windows by reports; the page's own address has nothing to lose. Only a run that
+  wrote the HTML report links its ids: not with `--report=none`, nor a share's. The Rust edition
+  does the same.
 - **Copy as prompt, in the HTML report.** Beside each Copy, on the tests to write, a folder or
   file's side card and each mutant, it puts those tests on the clipboard as a prompt for any coding
   agent, in the agent format's shape: mutastic's rules first, then the mutants fenced off as data on
