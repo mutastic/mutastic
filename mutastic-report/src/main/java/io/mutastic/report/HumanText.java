@@ -1381,8 +1381,13 @@ public final class HumanText {
         .orElse("ignored");
   }
 
-  /// ` ▲ 2.0 vs last run (same code)`, when there was one.
+  /// ` ▲ 2.0 vs last run (same code)`, when there was one; or that it wasn't compared, as the last
+  /// run used other operators.
   private String delta(Report report, Optional<Comparison> comparison) {
+    var notCompared = comparison.flatMap(Comparison::notCompared);
+    if (notCompared.isPresent()) {
+      return style.dim("  · " + notCompared.get());
+    }
     var now = report.score();
     return comparison
         .filter(found -> now.isPresent() && found.previousScore().isPresent())

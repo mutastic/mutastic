@@ -95,6 +95,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **A run under other operators than the last says it isn't compared.** A score is a share of
+  what its operators make, so a run is compared only with the last under the same set; with none,
+  the score line said nothing. It now says `not compared with the last run, which used other
+  operators (defaults)`, in the summary and the agent format; the `run-finished` event has no
+  comparison, as before.
 - **A mutant's id opens the HTML report on it.** With links on, each id the terminal shows, on a
   card, in the misses list or in a command, links to a page beside the report,
   `mutation-mutants/<id>.html`, which opens `mutation.html` on that mutant. A link straight to
@@ -141,6 +146,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **`baseline --prune` doesn't drop what another set of operators would make.** A mutant only the
+  baseline's operators make wasn't found by a run under others, and looked gone, so pruning after
+  `operators:` changed dropped it. `.mutastic/baseline.yaml` now keeps the operators it was taken
+  under, `operators: defaults`, and `--prune` under others says so and drops nothing; `run` no
+  longer counts the baseline's mutants caught under others. A baseline written before keeps
+  working as it did.
 - **The summary's report files open from where you ran mutastic.** Run from `samples` on
   `testng`, the `Reports` row said `build/mutastic/mutation.html`, which is there only from
   `testng`, and isn't a link: a terminal that guessed one from the text opened

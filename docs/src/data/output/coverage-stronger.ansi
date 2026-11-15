@@ -31,4 +31,4 @@
  [2m Duration[0m  1.9s [2m(setup 0ms, build 433ms, coverage 209ms, mutants 294ms, checking 975ms)[0m
  [2m    Tests[0m  4 on JDK 17 · 1 worker
  [2m  Reports[0m  samples/checkout/build/mutastic/mutation.json[2m · [0msamples/checkout/build/mutastic/mutation.html
- [2m    Score[0m  [32m[1m97.6%[0m[0m  [42;30;1m PASS [0m [32m1 missed, above the threshold of 80.[0m
+ [2m    Score[0m  [32m[1m97.6%[0m[0m  [42;30;1m PASS [0m [32m1 missed, above the threshold of 80.[0m[2m  · not compared with the last run, which used other operators (defaults)[0m

@@ -17,9 +17,15 @@ import java.util.OptionalDouble;
 /// @param sameCode whether the code and tests are byte for byte what the last run had
 /// @param sameTool whether the same mutastic ran
 /// @param flips mutants caught in one run and not the other
+/// @param otherOperators the operators the last run used, `defaults`, when they weren't this run's:
+///   then nothing is compared, as a score is a share of what its operators make, and it's said so
 @Internal
 public record Comparison(
-    OptionalDouble previousScore, boolean sameCode, boolean sameTool, List<Flip> flips) {
+    OptionalDouble previousScore,
+    boolean sameCode,
+    boolean sameTool,
+    List<Flip> flips,
+    Optional<String> otherOperators) {
 
   /// A mutant caught in one run and not the other.
   ///
@@ -28,6 +34,27 @@ public record Comparison(
 
   public Comparison {
     flips = List.copyOf(flips);
+  }
+
+  public Comparison(
+      OptionalDouble previousScore, boolean sameCode, boolean sameTool, List<Flip> flips) {
+    this(previousScore, sameCode, sameTool, flips, Optional.empty());
+  }
+
+  /// No comparison: the last run used other operators, `last`.
+  public static Comparison underOtherOperators(String last) {
+    return new Comparison(OptionalDouble.empty(), false, false, List.of(), Optional.of(last));
+  }
+
+  /// Whether this run was compared with the last: it was unless the last used other operators.
+  public boolean compared() {
+    return otherOperators.isEmpty();
+  }
+
+  /// `not compared with the last run, which used other operators (defaults)`, when it wasn't.
+  public Optional<String> notCompared() {
+    return otherOperators.map(
+        last -> "not compared with the last run, which used other operators (%s)".formatted(last));
   }
 
   /// `same code`, `code changed` or `mutastic changed`: what explains a difference.

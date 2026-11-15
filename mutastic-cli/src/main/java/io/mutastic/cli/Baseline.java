@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.SequencedSet;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -23,6 +24,7 @@ import java.util.regex.Pattern;
 /// mutants, and is never rewritten to take in new misses, or it would hide them.
 ///
 /// ```yaml
+/// operators: defaults
 /// baseline:
 ///   - id: m855c8e3c
 ///     at: com.example.pricing.Pricing#discount, line 17
@@ -33,6 +35,10 @@ import java.util.regex.Pattern;
 /// while code around it moves (`StableIdsTest`). `at` and `change` are for whoever reads a diff of
 /// it. YAML, as the ignores and proposals are, one entry an id, in order of class and method and
 /// then id, so a line moving doesn't reorder it.
+///
+/// `operators:` is the set the run that took it chose, as `--operators` or `mutastic.yaml` chose
+/// it: a mutant only another set makes isn't in a baseline taken without it, so `--prune` under
+/// another set would take it for gone. A baseline from before it was written has none.
 final class Baseline {
   static final Path FILE = Path.of(".mutastic", "baseline.yaml");
 
@@ -41,10 +47,14 @@ final class Baseline {
           "# The mutants this project missed when its baseline was taken, written by `mutastic"
               + " baseline`.",
           "# Commit it. A miss that isn't here is new: the gate holds only new misses. As tests",
-          "# catch these, `mutastic baseline --prune` drops them; it never takes in new misses.",
-          "baseline:");
+          "# catch these, `mutastic baseline --prune` drops them; it never takes in new misses.");
+
+  private static final String LIST = "baseline:";
 
   private static final Pattern ID = Pattern.compile("^\\s*+- id: (?<id>m[0-9a-f]{8})\\s*+$");
+
+  private static final Pattern OPERATORS =
+      Pattern.compile("^operators: (?<operators>\\S.*?)\\s*+$");
 
   /// One mutant, with where it is and what it changes, for the reader.
   record Entry(String id, String at, String change) {}
@@ -70,6 +80,21 @@ final class Baseline {
   /// The baseline as it was at a commit: what a gated task started from.
   static SequencedSet<String> idsAt(Path directory, String commit) {
     return new Git(directory).at(commit, FILE).map(Baseline::idsIn).orElseGet(LinkedHashSet::new);
+  }
+
+  /// The operators the baseline was taken under, `defaults` or `stronger,-stream`: empty for a
+  /// baseline from before they were written, or none.
+  static Optional<String> operators(Path directory) {
+    var file = directory.resolve(FILE);
+    if (!Files.isRegularFile(file)) {
+      return Optional.empty();
+    }
+    return read(file)
+        .lines()
+        .map(OPERATORS::matcher)
+        .filter(Matcher::matches)
+        .map(found -> found.group("operators"))
+        .findFirst();
   }
 
   static boolean exists(Path directory) {
@@ -100,9 +125,11 @@ final class Baseline {
         .formatted(mutant.className().replace('/', '.'), mutant.methodName(), mutant.line());
   }
 
-  /// Writes the entries, replacing the file.
-  static void write(Path directory, List<Entry> entries) {
+  /// Writes the entries, taken under `operators`, replacing the file.
+  static void write(Path directory, String operators, List<Entry> entries) {
     var lines = new ArrayList<>(HEADER);
+    lines.add("operators: " + operators);
+    lines.add(LIST);
     for (var entry : entries) {
       lines.add("  - id: " + entry.id());
       lines.add("    at: " + quoted(entry.at()));
