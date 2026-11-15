@@ -151,10 +151,17 @@ public static class MutasticDump {
     if ($windows -match 'SharedSection=([\d,]+)') { "Desktop heap (SharedSection, KB): $($Matches[1])" } else { 'No SharedSection' }
   }
 
+  # Get-WinEvent throws when nothing matches, which is the answer hoped for.
+  function Get-Events($filter, $most) {
+    try { Get-WinEvent -FilterHashtable $filter -MaxEvents $most -ErrorAction Stop }
+    catch { if ($_.FullyQualifiedErrorId -like 'NoMatchingEventsFound*') { 'None.' } else { throw } }
+  }
+
   Section 'System log: warnings and worse, the past hour (newest 20)'
   $since = (Get-Date).AddHours(-1)
   Try-Run 'Get-WinEvent' {
-    $events = Get-WinEvent -FilterHashtable @{ LogName = 'System'; Level = 1, 2, 3; StartTime = $since } -MaxEvents 20 -ErrorAction Stop
+    $events = Get-Events @{ LogName = 'System'; Level = 1, 2, 3; StartTime = $since } 20
+    if ($events -is [string]) { return $events }
     $events | Format-Table TimeCreated, Id, LevelDisplayName, ProviderName,
       @{n = 'Message'; e = { $m = "$($_.Message)" -replace '\s+', ' '; $m.Substring(0, [math]::Min(160, $m.Length)) } } -AutoSize -Wrap |
       Out-String -Width 300
@@ -163,7 +170,8 @@ public static class MutasticDump {
   Section 'System log: Resource-Exhaustion-Detector, Win32k and Application Popup, the past hour'
   Try-Run 'Get-WinEvent' {
     $providers = 'Microsoft-Windows-Resource-Exhaustion-Detector', 'Microsoft-Windows-Win32k', 'Application Popup'
-    $events = Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = $providers; StartTime = $since } -MaxEvents 10 -ErrorAction Stop
+    $events = Get-Events @{ LogName = 'System'; ProviderName = $providers; StartTime = $since } 10
+    if ($events -is [string]) { return $events }
     $events | Format-Table TimeCreated, Id, ProviderName,
       @{n = 'Message'; e = { $m = "$($_.Message)" -replace '\s+', ' '; $m.Substring(0, [math]::Min(200, $m.Length)) } } -AutoSize -Wrap |
       Out-String -Width 300
