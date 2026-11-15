@@ -61,6 +61,8 @@ final class Gate {
   /// @param stopped the ignores when a hooked check last let the agent stop, until the next prompt:
   ///   empty while the agent has the turn. What's ignored after it is the person's, made between
   ///   turns
+  /// @param operators the operators the open chose, as it chose them (`stronger`), which every
+  ///   check runs: empty in a file an older gate wrote, whose checks choose as `gate open` would
   record State(
       String session,
       String base,
@@ -70,8 +72,10 @@ final class Gate {
       int blocks,
       String tree,
       Map<String, String> red,
-      Optional<Set<String>> stopped) {
+      Optional<Set<String>> stopped,
+      List<String> operators) {
     State {
+      operators = List.copyOf(operators);
       ignored = Set.copyOf(ignored);
       baselined = baselined.map(Set::copyOf);
       red = Map.copyOf(red);
@@ -81,24 +85,34 @@ final class Gate {
     /// Sent back: the agent has the turn, so what it ignores now is its own.
     State blockedOnce(String now) {
       return new State(
-          session, base, ignored, baselined, shape, blocks + 1, now, red, Optional.empty());
+          session,
+          base,
+          ignored,
+          baselined,
+          shape,
+          blocks + 1,
+          now,
+          red,
+          Optional.empty(),
+          operators);
     }
 
     State passed() {
-      return new State(session, base, ignored, baselined, shape, 0, "", red, stopped);
+      return new State(session, base, ignored, baselined, shape, 0, "", red, stopped, operators);
     }
 
     /// The agent let stop, with what's ignored `now`.
     State stoppedWith(Set<String> now) {
       return new State(
-          session, base, ignored, baselined, shape, blocks, tree, red, Optional.of(now));
+          session, base, ignored, baselined, shape, blocks, tree, red, Optional.of(now), operators);
     }
 
     /// These, and the tests that failed at this check too.
     State remembering(Map<String, String> failed) {
       var all = new TreeMap<>(red);
       all.putAll(failed);
-      return new State(session, base, ignored, baselined, shape, blocks, tree, all, stopped);
+      return new State(
+          session, base, ignored, baselined, shape, blocks, tree, all, stopped, operators);
     }
 
     /// A new prompt, with what's ignored `now`: the ignores the person made between turns, after
@@ -116,7 +130,8 @@ final class Gate {
           kept.add(id);
         }
       }
-      return new State(session, base, kept, baselined, shape, blocks, tree, red, Optional.empty());
+      return new State(
+          session, base, kept, baselined, shape, blocks, tree, red, Optional.empty(), operators);
     }
 
     /// Whether the agent was sent back, and has changed nothing since.
@@ -153,7 +168,13 @@ final class Gate {
           Integer.parseInt(properties.getProperty("blocks", "0")),
           properties.getProperty("tree", ""),
           redIn(properties),
-          stopped);
+          stopped,
+          operatorsIn(properties.getProperty("operators", "")));
+    }
+
+    /// Operators as [#FILE] keeps them, `stronger,-stream`: none in a file an older gate wrote.
+    private static List<String> operatorsIn(String value) {
+      return value.isEmpty() ? List.of() : List.of(value.split(",", -1));
     }
 
     /// Ids as [#FILE] keeps them: separated by commas.
@@ -185,6 +206,9 @@ final class Gate {
       stopped.ifPresent(
           ids -> properties.setProperty("stopped", String.join(",", new TreeSet<>(ids))));
       red.forEach((test, body) -> properties.setProperty(RED + test, body));
+      if (!operators.isEmpty()) {
+        properties.setProperty("operators", String.join(",", operators));
+      }
       try {
         Files.createDirectories(work);
         try (var out = Files.newBufferedWriter(work.resolve(FILE))) {

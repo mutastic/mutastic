@@ -74,7 +74,7 @@ class GateOperatorsTest {
     assertThat(onStronger.exit()).as(onStronger.out()).isEqualTo(Main.FAILED);
     assertThat(onStronger.out())
         .contains("holds it, so it isn't done (missed: " + KEEP_OPERAND + "; operators: stronger)")
-        .contains("`quantity * price` becomes `price`");
+        .contains("no test needs `quantity` in `quantity * price` in `pay()`");
   }
 
   /// The open's set is kept with the task: a check given another is refused, and one that changes
