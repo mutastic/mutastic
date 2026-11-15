@@ -156,8 +156,9 @@ jobs:
       # stays that way after every java process is stopped. Free memory and disk are normal. From
       # then on every mutastic run fails (CardsTest's cards come out empty, Gradle and Maven don't
       # start), and so does every step after this one, the reports' upload included, since actions
-      # run on node. So this step prints what it can itself: whether Java still starts, and the
-      # failures in full (the test task logs them, CardsTest as a diff).
+      # run on node. So this step prints what it can itself: whether Java still starts, the
+      # failures in full (the test task logs them, CardsTest as a diff), and the runner's state
+      # (windows-dump.ps1), on every share so a failure has a healthy share to compare with.
       - shell: pwsh
         run: |
           # A failing native command mustn't end the script: what follows has to run.
@@ -167,9 +168,12 @@ jobs:
           $tests = $LASTEXITCODE
           Get-PSDrive C, D | Format-Table Name, @{n='FreeGB'; e={[math]::Round($_.Free / 1GB, 1)}}
           & "$env:JAVA_HOME\bin\java.exe" -version 2>$null
+          $state = 'baseline'
           if ($LASTEXITCODE -ne 0) {
             Write-Host "::error::This runner can no longer start java.exe (exit $LASTEXITCODE, 0xC0000142 is STATUS_DLL_INIT_FAILED): the failures above are the runner's, and the steps after this one can't run. Rerun the job."
+            $state = 'failure'
           }
+          try { & .\.github\windows-dump.ps1 $state } catch { Write-Host "The runner's state couldn't be dumped: $_" }
           .\gradlew.bat --stop
           Get-Process java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           exit $tests
