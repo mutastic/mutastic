@@ -146,9 +146,10 @@ jobs:
       #
       # A daemon takes a moment to go and the samples' waits for its timeout, so the difference is
       # given a minute to settle. The pattern is written `Mai[n]`, and the processes filtered to
-      # those running a JVM, so this step's own command line isn't counted as one of them.
+      # those running a JVM, so this step's own command line isn't counted as one of them. Not
+      # when the run is cancelled: no one reads it, and the minute holds up the run replacing it.
       - name: the sample builds left nothing running
-        if: always() && needs.changes.outputs.code == 'true'
+        if: ${{ !cancelled() && needs.changes.outputs.code == 'true' }}
         run: |
           before=mutastic-cli/build/gradle-workers-before.txt
           if [ ! -f $before ]; then
@@ -245,10 +246,11 @@ jobs:
 
   # The check branch protection names: passes when both Windows shares do, or when they were
   # skipped because nothing the build reads changed. If `changes` itself failed, every job after
-  # it was skipped, so this fails: a skip passes only when `changes` said so.
+  # it was skipped, so this fails: a skip passes only when `changes` said so. A cancelled run
+  # skips it, rather than wait for a runner to fail it while the run replacing it waits.
   windows:
     needs: [changes, windows-share]
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
