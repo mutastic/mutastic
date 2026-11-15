@@ -946,7 +946,7 @@
       "head": [
         {
           "name": "verdict",
-          "pattern": "^mutastic: (PASS|FAIL) · score \\d+(\\.\\d)?% \\(threshold \\d+\\) · \\d+ missed, \\d+ not covered, \\d+ caught of \\d+ mutants$"
+          "pattern": "^mutastic: (PASS|FAIL) · score \\d+(\\.\\d)?% \\(threshold \\d+\\) · \\d+ missed, \\d+ not covered, \\d+ caught of \\d+ mutants?$"
         },
         {
           "name": "vs-last-run",

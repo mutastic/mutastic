@@ -180,7 +180,7 @@
     {
       "kind": "result",
       "id": "toolu_01CwGCsabywNBEoiMoBaezY5",
-      "text": "mutastic: PASS · score 100.0% (threshold 80) · 0 missed, 0 not covered, 1 caught of 1 mutants",
+      "text": "mutastic: PASS · score 100.0% (threshold 80) · 0 missed, 0 not covered, 1 caught of 1 mutant",
       "error": false
     },
     {

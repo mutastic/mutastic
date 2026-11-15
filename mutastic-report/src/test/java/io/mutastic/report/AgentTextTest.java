@@ -70,6 +70,17 @@ class AgentTextTest {
   }
 
   @Test
+  void oneMutantIsSingular() {
+    var output =
+        text.render(report(List.of(result(boundary(0), Status.CAUGHT)), List.of(), List.of()));
+
+    assertThat(output.lines().findFirst())
+        .contains(
+            "mutastic: PASS · score 100.0% (threshold 80) · 0 missed, 0 not covered, 1 caught of"
+                + " 1 mutant");
+  }
+
+  @Test
   void nothingToScorePasses() {
     var output = text.render(report(List.of(), List.of(), List.of()));
 
