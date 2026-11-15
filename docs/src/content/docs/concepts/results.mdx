@@ -3,9 +3,21 @@ title: Results and the score
 description: What happens to each mutant, how the score is worked out, and why some mutants are skipped.
 ---
 
+import { Code } from '@astrojs/starlight/components';
 import EditionOnly from '../../../components/EditionOnly.astro';
 import EditionTabs from '../../../components/EditionTabs.astro';
 import RustOutput from '../../../components/RustOutput.astro';
+import brief from '../../../data/output/format-brief.ansi?raw';
+import caught from '../../../data/output/verify.ansi?raw';
+import timedOut from '../../../data/output/timed-out.ansi?raw';
+import uncovered from '../../../data/output/configured-without.ansi?raw';
+import skipped from '../../../data/output/configured-explain.ansi?raw';
+
+export const upTo = (output, line) => {
+  const lines = output.split('\n');
+  const end = lines.findIndex((each) => each.replace(/\x1b\[[0-9;]*m/g, '').startsWith(line));
+  return lines.slice(0, end < 0 ? lines.length : end).join('\n').replace(/\n+$/, '');
+};
 
 A **mutant** is your code with one small change in it, `>=` becoming `>` say. mutastic runs the
 tests that reach the change. If one fails, the tests noticed: the mutant is **caught**. If they all
@@ -36,6 +48,54 @@ the event stream always use the standard names: `Killed`, `Survived`, `Timeout`,
 `Ignored`, and the Rust edition's `RuntimeError` for a crash that proves nothing.
 `--vocabulary=classic` (or `MUTASTIC_VOCABULARY=classic`) says *killed* and *survived* instead of
 caught and missed.
+
+## What each one looks like
+
+<EditionTabs>
+<div slot="java">
+
+A **missed** mutant gets a card: the line with the change marked, and what the tests did there.
+This is the pricing sample's, in the brief format:
+
+<Code code={upTo(brief, ' Next:')} lang="ansi" />
+
+A **caught** one names the test that caught it, as `verify` says:
+
+<Code code={caught.replace(/\n$/, '')} lang="ansi" />
+
+A **timed-out** one changed a loop so that it never ends. Here `left -= load` became `left += load`
+in a loop that counts a van's trips:
+
+<Code code={timedOut.replace(/\n$/, '')} lang="ansi" />
+
+Code **no test reaches** is listed once per method, with its lines and how many mutants are on
+them:
+
+<Code code={upTo(uncovered, '   Classes')} lang="ansi" />
+
+A **skipped** one is never run, and says why, its kind first:
+
+<Code code={upTo(skipped, '    reproduce')} lang="ansi" />
+
+</div>
+<div slot="rust">
+
+A **missed** mutant gets a card: the line with the change marked, and what the tests did there.
+This is the pricing fixture's, in the brief format:
+
+<RustOutput name="concepts/format-brief" until="     Files" />
+
+A **caught** one names the test that caught it, as `verify` says:
+
+<RustOutput name="getting-started/verify" />
+
+A **timed-out** one changed a loop so that it never ends. The loops fixture counts digits, and
+some of its mutants keep the loop going until the time is up:
+
+<RustOutput name="troubleshooting/loops" />
+
+</div>
+</EditionTabs>
 
 ## How a test catches a mutant
 
@@ -118,6 +178,26 @@ That holds everywhere a test is named or counted:
   `a = 1, 2; b = 1` doesn't say which values came in one row.
 - **A suggested test** is a new plain test, not a new row. It compiles as pasted, in a class of only
   parameterised tests too, which imports no `@Test`, and in a JUnit 4 class it's `public`.
+
+</EditionOnly>
+
+<EditionOnly edition="rust">
+
+## Tables of cases and property tests
+
+A test often runs one check over a table of cases. What mutastic makes of it depends on how the
+table is written:
+
+- **Each rstest `#[case]` and test-case row is a test of its own,** as libtest lists it:
+  `rstest_tests::discounts::case_2_at_the_edge`. A card says which case caught a mutant, or reached
+  it and let it through, and the gate counts each case, so taking a row away is taking a test away.
+  The number in a name is the row's place, so name your cases, `#[case::at_the_edge(100, 10)]`, and
+  a row put in above doesn't rename the others.
+- **A loop over rows in one `#[test]` is one test,** however many rows it has, and a card can't say
+  which row failed. Put the row in the assertion's message,
+  `assert_eq!(subtract(a, b), difference, "subtract({a}, {b})")`, so the test's own output does.
+- **A proptest property draws the same cases every run,** as mutastic seeds it, so it catches a
+  mutant in every run or in none. A card's `inputs seen` shows its smallest and largest few values.
 
 </EditionOnly>
 

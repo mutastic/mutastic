@@ -2805,10 +2805,8 @@ public final class Main {
       private void report(String value) {
         int colon = value.indexOf(':');
         var kind = colon < 0 ? value : value.substring(0, colon);
-        var kinds = new ArrayList<>(ReportFiles.KINDS);
-        kinds.add("none");
-        if (!kinds.contains(kind)) {
-          throw notOneOf("--report", kind, kinds, value.substring(kind.length()));
+        if (!Options.REPORT_KINDS.contains(kind)) {
+          throw notOneOf("--report", kind, Options.REPORT_KINDS, value.substring(kind.length()));
         }
         if (reports == null) {
           reports = new ArrayList<>(); // the first --report replaces the defaults
