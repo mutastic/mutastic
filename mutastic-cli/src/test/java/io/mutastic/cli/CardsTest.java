@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.opentest4j.AssertionFailedError;
 
 /// Every card mutastic gives on the samples, kept in src/test/cards: one for each missed mutant, as
 /// an agent reads it and as a person does, and `explain` for each missed mutant of two samples.
@@ -122,8 +123,58 @@ class CardsTest {
       Files.writeString(file, text, StandardCharsets.UTF_8);
     }
     var written = Files.exists(file) ? Files.readString(file, StandardCharsets.UTF_8) : "";
-    assertThat(text)
-        .as("src/test/cards/%s/%s: ./gradlew :mutastic-cli:exportCards%s", sample, name, said)
-        .isEqualTo(written);
+    if (!text.equals(written)) {
+      // The diff in the message, so a CI log shows what changed without the test reports.
+      throw new AssertionFailedError(
+          "src/test/cards/%s/%s: ./gradlew :mutastic-cli:exportCards%n%s%s"
+              .formatted(sample, name, diff(written, text), said),
+          written,
+          text);
+    }
   }
+
+  /// The lines that differ, as a unified diff of one hunk: from the first line that differs to the
+  /// last, with a few lines around them, and at most [#DIFF_LINES] of them.
+  static String diff(String expected, String actual) {
+    var kept = expected.lines().toList();
+    var ran = actual.lines().toList();
+    int start = 0;
+    while (start < kept.size() && start < ran.size() && kept.get(start).equals(ran.get(start))) {
+      start++;
+    }
+    int keptEnd = kept.size();
+    int ranEnd = ran.size();
+    while (keptEnd > start && ranEnd > start && kept.get(keptEnd - 1).equals(ran.get(ranEnd - 1))) {
+      keptEnd--;
+      ranEnd--;
+    }
+    if (start == keptEnd && start == ranEnd) {
+      // The same lines: only the line endings or a final newline differ.
+      return "(the lines are the same: line endings or a final newline differ)\n";
+    }
+    int from = Math.max(0, start - CONTEXT);
+    var out = new StringBuilder();
+    out.append("--- kept\n+++ ran\n");
+    out.append(
+        "@@ -%d,%d +%d,%d @@%n"
+            .formatted(
+                from + 1,
+                Math.min(kept.size(), keptEnd + CONTEXT) - from,
+                from + 1,
+                Math.min(ran.size(), ranEnd + CONTEXT) - from));
+    var lines = new java.util.ArrayList<String>();
+    kept.subList(from, start).forEach(line -> lines.add(" " + line));
+    kept.subList(start, keptEnd).forEach(line -> lines.add("-" + line));
+    ran.subList(start, ranEnd).forEach(line -> lines.add("+" + line));
+    kept.subList(keptEnd, Math.min(kept.size(), keptEnd + CONTEXT))
+        .forEach(line -> lines.add(" " + line));
+    lines.stream().limit(DIFF_LINES).forEach(line -> out.append(line).append('\n'));
+    if (lines.size() > DIFF_LINES) {
+      out.append("… and %d more lines%n".formatted(lines.size() - DIFF_LINES));
+    }
+    return out.toString();
+  }
+
+  private static final int CONTEXT = 3;
+  private static final int DIFF_LINES = 40;
 }

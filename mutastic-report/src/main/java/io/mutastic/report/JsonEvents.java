@@ -359,8 +359,8 @@ public final class JsonEvents {
   /// The last event: the totals, the score and verdict, and how this run compares with the last.
   ///
   /// @param reports the report files written
-  /// @param oneMutant the run was mutants asked for by id: `passed` says whether each is caught,
-  ///   not whether a score reaches the threshold
+  /// @param oneMutant the run was mutants asked for by id: `passed` says whether each is caught or
+  ///   skipped, not whether a score reaches the threshold
   public void runFinished(
       Report report, Optional<Comparison> comparison, List<String> reports, boolean oneMutant) {
     var fields = new LinkedHashMap<String, Object>();
@@ -526,9 +526,15 @@ public final class JsonEvents {
 
   private boolean passed(Report report, boolean oneMutant) {
     if (oneMutant) {
-      return report.results().stream().allMatch(result -> result.status().detected());
+      // As the exit code has it: a skipped mutant leaves nothing to catch, so it passes too.
+      return report.results().stream().allMatch(JsonEvents::settled);
     }
     return failOnNew.map(judged -> judged.passes(report)).orElseGet(() -> report.passes(threshold));
+  }
+
+  /// Whether a mutant asked for by id passes: caught, or skipped, with nothing to catch.
+  private static boolean settled(MutantResult result) {
+    return result.status().detected() || result.status() == Status.SKIPPED;
   }
 
   /// To one decimal place; null when there was nothing to score.

@@ -113,6 +113,11 @@ tasks.withType<Test>().configureEach {
 
 tasks.test {
     useJUnitPlatform()
+    // A failure's message in the log, not only in the report: CardsTest's is a diff of the card,
+    // and a Windows job's reports have not always been uploaded.
+    testLogging {
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
     // The end-to-end tests run mutastic against the sample projects, each its own Gradle build.
     systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
     // DocsCommandsTest parses every command the docs show.

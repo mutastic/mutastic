@@ -190,7 +190,7 @@ public final class AgentText {
   private void appendVerdict(StringBuilder out, Report report, int missed, int notCovered) {
     var skipped = report.count(Status.SKIPPED);
     out.append(
-        "mutastic: %s · score %s (%s%s) · %d %s, %d %s, %d %s of %d mutants%s\n"
+        "mutastic: %s · score %s (%s%s) · %d %s, %d %s, %d %s of %d mutant%s%s\n"
             .formatted(
                 verdict(report),
                 report.score().isPresent() ? percent(report.score()) : "none (no mutants to score)",
@@ -205,6 +205,7 @@ public final class AgentText {
                 report.count(Status.CAUGHT) + report.count(Status.TIMED_OUT),
                 words.detected,
                 report.scored(),
+                report.scored() == 1 ? "" : "s",
                 skipped == 0 ? "" : " (%d more skipped)".formatted(skipped)));
   }
 

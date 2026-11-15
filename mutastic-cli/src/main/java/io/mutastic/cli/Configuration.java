@@ -4,6 +4,7 @@ import io.mutastic.api.ClassMutator;
 import io.mutastic.api.Filter;
 import io.mutastic.api.Mutator;
 import io.mutastic.api.Policy;
+import io.mutastic.api.RealPath;
 import io.mutastic.api.Rule;
 import io.mutastic.engine.CallRules;
 import java.io.IOException;
@@ -99,8 +100,9 @@ record Configuration(
   /// directory, which may have none.
   static Path nearest(Path module, Path run) {
     var from = module.toAbsolutePath().normalize();
-    var top = repository(from).orElse(run.toAbsolutePath().normalize());
-    for (Path at = from; at != null && at.startsWith(top); at = at.getParent()) {
+    // Compared as real paths: a build tool reports `/private/var/…` for a run in `/var/…`.
+    var top = RealPath.of(repository(from).orElse(run));
+    for (Path at = from; at != null && RealPath.of(at).startsWith(top); at = at.getParent()) {
       if (Files.isRegularFile(at.resolve(FILE))) {
         return at;
       }

@@ -394,6 +394,19 @@ class JsonEventsTest {
         .contains("\"coveredScore\":null");
   }
 
+  /// A skipped mutant asked for by id passes, as the exit code says: there's nothing to catch.
+  @Test
+  void oneSkippedMutantPasses() {
+    var skipped = boundary(0).skippedFor("arid: only logs");
+    events.runFinished(
+        report(List.of(result(skipped, Status.SKIPPED)), List.of(), List.of()),
+        Optional.empty(),
+        List.of(),
+        true);
+
+    assertThat(lines().get(0)).contains("\"passed\":true,\"only\":\"" + skipped.id() + "\"");
+  }
+
   @Test
   void aScopedRunSaysWhatItIsSince() {
     var file = project.resolve("src/main/java/com/example/Pricing.java");

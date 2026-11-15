@@ -30,6 +30,15 @@ final class GateCount {
 
   private static final String COMMENT = "mutastic gate: the count of the task's start";
 
+  /// What each count's copy is called, before the temporary directory's own suffix.
+  private static final String COPY = "mutastic-gate-start";
+
+  /// In a copy: the count's process that owns it, by its id and when it started.
+  private static final String OWNER = "owner.properties";
+
+  /// How old a copy is before a gate opening takes it for left behind.
+  static final Duration LEFT_BEHIND = Duration.ofDays(1);
+
   private GateCount() {}
 
   /// The module counted, as the gate's command names it.
@@ -54,10 +63,11 @@ final class GateCount {
   /// start, its result says why, which a check says.
   static void start(Path work, Path directory, String tree, Module module) {
     stop(work);
+    sweep(Path.of(System.getProperty("java.io.tmpdir")), java.time.Instant.now());
     try {
       var top = new Git(directory).toplevel();
       var project = top.relativize(directory.toRealPath()).toString();
-      var copy = Files.createTempDirectory("mutastic-gate-start");
+      var copy = Files.createTempDirectory(COPY);
       var token = UUID.randomUUID().toString();
       var arguments =
           List.of(
@@ -84,6 +94,55 @@ final class GateCount {
     started.setProperty("copy", copy.toString());
     started.setProperty("token", token);
     write(work.resolve(STARTED), started);
+  }
+
+  /// A process, as a copy's owner: its id, and when it started, so an id used again since isn't
+  /// taken for it.
+  static Properties owner(ProcessHandle process) {
+    var owner = new Properties();
+    owner.setProperty("pid", String.valueOf(process.pid()));
+    process
+        .info()
+        .startInstant()
+        .ifPresent(start -> owner.setProperty("started", String.valueOf(start.toEpochMilli())));
+    return owner;
+  }
+
+  /// Removes the copies in `temp` that counts left behind: older than [#LEFT_BEHIND] at `now`, and
+  /// owned by no count still running. A count removes its own copy when it ends, but one stopped
+  /// hard, as when its build's daemon is killed, can't.
+  static void sweep(Path temp, java.time.Instant now) {
+    try (var copies = Files.newDirectoryStream(temp, COPY + "*")) {
+      for (var copy : copies) {
+        if (leftBehind(copy, now)) {
+          delete(copy);
+        }
+      }
+    } catch (IOException | UncheckedIOException e) {
+      // only tidying: a gate opens without it
+    }
+  }
+
+  private static boolean leftBehind(Path copy, java.time.Instant now) throws IOException {
+    return Files.isDirectory(copy)
+        && Files.getLastModifiedTime(copy).toInstant().isBefore(now.minus(LEFT_BEHIND))
+        && read(copy.resolve(OWNER)).filter(GateCount::running).isEmpty();
+  }
+
+  /// Whether a copy's owner is still running: the same process, not another given its id since.
+  private static boolean running(Properties owner) {
+    var started = owner.getProperty("started", "");
+    return process(owner)
+        .filter(ProcessHandle::isAlive)
+        .filter(
+            process ->
+                started.isEmpty()
+                    || process
+                        .info()
+                        .startInstant()
+                        .map(start -> String.valueOf(start.toEpochMilli()).equals(started))
+                        .orElse(true))
+        .isPresent();
   }
 
   /// This class's [#main] in a JVM of its own, as this one runs, its output in the work directory.
@@ -210,6 +269,7 @@ final class GateCount {
     var copy = Path.of(args[4]);
     var result = new Properties();
     try {
+      write(copy.resolve(OWNER), owner(ProcessHandle.current()));
       var root = copied(Path.of(args[1]), args[2], copy);
       var counted = Main.countCases(root.resolve(args[3]).normalize(), args[6], args[7]);
       result.setProperty("cases", String.valueOf(counted[0]));

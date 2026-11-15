@@ -8,8 +8,11 @@ import { release } from '../../../components/versions';
 
 {/* Every version on this page is `release`, the newest release tag's: none is typed in. */}
 
-For a Java or Kotlin project, mutastic runs on JDK 25. The project it tests can be on JDK 17 or
-later, with JUnit or TestNG tests.[^tests]
+For a Java or Kotlin project, mutastic runs on JDK 25 or later. The project it tests can be on JDK
+17 or later, with JUnit or TestNG tests.[^tests] A JDK reads class files only as new as itself, so
+for code compiled on JDK 26 or later mutastic runs on that JDK too: the Gradle plugin picks it, and
+otherwise `JAVA_HOME` or Maven's `-Dmutastic.jdk` names it. On an older one, mutastic says which
+class file is too new.
 
 <Tabs syncKey="runner">
 <TabItem label="Command line">

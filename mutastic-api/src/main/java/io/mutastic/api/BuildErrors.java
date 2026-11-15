@@ -173,16 +173,16 @@ public final class BuildErrors {
   /// where it is or the one on the PATH; the build's directory, after `flag` (`-p`, `-f`), unless
   /// it's `here`; then `rest`.
   public static String command(String tool, Path build, String flag, List<String> rest) {
-    var here = real(here());
+    var here = RealPath.of(here());
     var words = new ArrayList<String>();
     var program = Path.of(tool);
     if (!program.isAbsolute()) {
       words.add(tool);
     } else {
-      var parent = real(program.toAbsolutePath().normalize()).getParent();
+      var parent = RealPath.of(program).getParent();
       words.add(here.equals(parent) ? "./" + program.getFileName() : shown(program, here));
     }
-    if (!real(build.toAbsolutePath().normalize()).equals(here)) {
+    if (!RealPath.of(build).equals(here)) {
       words.add(flag);
       words.add(shown(build, here));
     }
@@ -203,20 +203,10 @@ public final class BuildErrors {
 
   /// `path` from `here`, when it's inside it; else as it is.
   private static String shown(Path path, Path here) {
-    var absolute = real(path.toAbsolutePath().normalize());
-    var from = real(here.toAbsolutePath().normalize());
+    var absolute = RealPath.of(path);
+    var from = RealPath.of(here);
     return absolute.startsWith(from) && !absolute.equals(from)
         ? from.relativize(absolute).toString()
         : absolute.toString();
-  }
-
-  /// `path` with its links resolved, so `/var` and `/private/var` compare equal; as it is when it
-  /// isn't there.
-  private static Path real(Path path) {
-    try {
-      return path.toRealPath();
-    } catch (java.io.IOException e) {
-      return path;
-    }
   }
 }

@@ -79,7 +79,8 @@ Rust project needs no JDK. Or from the build:
 - **Maven:** add `io.mutastic:mutastic-maven-plugin` to the build, then `mvn mutastic:run`.
 
 The [Install](https://docs.mutastic.io/getting-started/install/) page has the setup for the current
-release. The project mutastic tests can be on JDK 17 or later.
+release. The project mutastic tests can be on JDK 17 or later; code compiled on a JDK newer than
+25 needs mutastic on that JDK too, which the Gradle plugin picks for itself.
 
 ## Status
 
