@@ -15,13 +15,13 @@ import java.util.regex.Pattern;
 
 /// `mutastic gate`: a coding agent's task, held to what mutastic says of the lines it changed.
 ///
-/// `gate open` keeps where the task starts: the commit, the ignores, and how many tests run and how
-/// many are disabled. `gate check` asks whether it's done: the mutants on the lines changed since
-/// are each caught or proposed for a person to ignore, no ignore was added, no test was taken away
-/// or disabled, and no test that failed at an earlier check is gone ([RedTests]). If not, it says
-/// what's left, as the agent format does, so an agent can carry on; after `--tries` of those, it
-/// lets the agent stop and says what's still missed, rather than loop. `gate close` forgets the
-/// task.
+/// `gate open` keeps where the task starts: the commit, the ignores, the baseline's mutants, and
+/// how many tests run and how many are disabled. `gate check` asks whether it's done: the mutants
+/// on the lines changed since are each caught or proposed for a person to ignore, no ignore was
+/// added, no test was taken away or disabled, and no test that failed at an earlier check is gone
+/// ([RedTests]). If not, it says what's left, as the agent format does, so an agent can carry on;
+/// after `--tries` of those, it lets the agent stop and says what's still missed, rather than loop.
+/// `gate close` forgets the task.
 ///
 /// With `--hook=claude`, each reads a Claude Code hook's input on stdin and answers as a hook does:
 /// `open` once per session, `check` with a block and its reason, or a message for the person. An
@@ -52,6 +52,8 @@ final class Gate {
   /// Where a task started, and how often the gate has sent the agent back since it last passed.
   ///
   /// @param session the agent's session that opened it, when a hook did: empty otherwise
+  /// @param baselined the baseline's mutants when it opened, kept since git may not see
+  ///   `.mutastic/`: empty in a file an older gate wrote, which has only the start commit's
   /// @param tree the working tree when the gate last sent the agent back, as [Git#tree] gives it:
   ///   empty when it hasn't since it last passed
   /// @param red the tests that failed at a check since the gate opened, each with its body's
@@ -63,6 +65,7 @@ final class Gate {
       String session,
       String base,
       Set<String> ignored,
+      Optional<Set<String>> baselined,
       Shape shape,
       int blocks,
       String tree,
@@ -70,29 +73,32 @@ final class Gate {
       Optional<Set<String>> stopped) {
     State {
       ignored = Set.copyOf(ignored);
+      baselined = baselined.map(Set::copyOf);
       red = Map.copyOf(red);
       stopped = stopped.map(Set::copyOf);
     }
 
     /// Sent back: the agent has the turn, so what it ignores now is its own.
     State blockedOnce(String now) {
-      return new State(session, base, ignored, shape, blocks + 1, now, red, Optional.empty());
+      return new State(
+          session, base, ignored, baselined, shape, blocks + 1, now, red, Optional.empty());
     }
 
     State passed() {
-      return new State(session, base, ignored, shape, 0, "", red, stopped);
+      return new State(session, base, ignored, baselined, shape, 0, "", red, stopped);
     }
 
     /// The agent let stop, with what's ignored `now`.
     State stoppedWith(Set<String> now) {
-      return new State(session, base, ignored, shape, blocks, tree, red, Optional.of(now));
+      return new State(
+          session, base, ignored, baselined, shape, blocks, tree, red, Optional.of(now));
     }
 
     /// These, and the tests that failed at this check too.
     State remembering(Map<String, String> failed) {
       var all = new TreeMap<>(red);
       all.putAll(failed);
-      return new State(session, base, ignored, shape, blocks, tree, all, stopped);
+      return new State(session, base, ignored, baselined, shape, blocks, tree, all, stopped);
     }
 
     /// A new prompt, with what's ignored `now`: the ignores the person made between turns, after
@@ -110,7 +116,7 @@ final class Gate {
           kept.add(id);
         }
       }
-      return new State(session, base, kept, shape, blocks, tree, red, Optional.empty());
+      return new State(session, base, kept, baselined, shape, blocks, tree, red, Optional.empty());
     }
 
     /// Whether the agent was sent back, and has changed nothing since.
@@ -130,11 +136,13 @@ final class Gate {
         throw new UncheckedIOException(e);
       }
       var stopped = Optional.ofNullable(properties.getProperty("stopped")).map(State::ids);
+      var baselined = Optional.ofNullable(properties.getProperty("baselined")).map(State::ids);
       return Optional.of(
           new State(
               properties.getProperty("session", ""),
               properties.getProperty("base", ""),
               ids(properties.getProperty("ignored", "")),
+              baselined,
               new Shape(
                   Integer.parseInt(properties.getProperty("tests", "0")),
                   Integer.parseInt(properties.getProperty("disabled", "0"))),
@@ -164,6 +172,8 @@ final class Gate {
       properties.setProperty("session", session);
       properties.setProperty("base", base);
       properties.setProperty("ignored", String.join(",", new TreeSet<>(ignored)));
+      baselined.ifPresent(
+          ids -> properties.setProperty("baselined", String.join(",", new TreeSet<>(ids))));
       properties.setProperty("tests", String.valueOf(shape.tests()));
       properties.setProperty("disabled", String.valueOf(shape.disabled()));
       properties.setProperty("blocks", String.valueOf(blocks));

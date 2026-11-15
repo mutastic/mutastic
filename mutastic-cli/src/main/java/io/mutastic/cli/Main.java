@@ -701,7 +701,9 @@ public final class Main {
   private static void started(Gated gated, String session, String base) {
     var directory = gated.prepared().directory();
     var shape = Gate.Shape.of(gated.prepared().project().testSources());
-    new Gate.State(session, base, ignored(directory), shape, 0, "", Map.of(), Optional.empty())
+    var baselined = Optional.<java.util.Set<String>>of(Baseline.ids(directory));
+    new Gate.State(
+            session, base, ignored(directory), baselined, shape, 0, "", Map.of(), Optional.empty())
         .write(gated.work());
     var module = new GateCount.Module(gated.command().module(), gated.command().suite());
     GateCount.start(gated.work(), directory, new Git(directory).tree(), module);
@@ -952,10 +954,12 @@ public final class Main {
                                 .collect(Collectors.joining("\n"))))));
   }
 
-  /// A mutant the task added to the baseline itself: like an ignore, a person's call.
+  /// A mutant the task added to the baseline itself: like an ignore, a person's call. Compared with
+  /// the baseline when the gate opened, not the start commit's: where git ignores `.mutastic/`, the
+  /// commit has none, and every older entry would look like the task's.
   private static Optional<Gate.Verdict> selfBaselined(Path directory, Gate.State state) {
     var added = new java.util.TreeSet<>(Baseline.ids(directory));
-    added.removeAll(Baseline.idsAt(directory, state.base()));
+    added.removeAll(state.baselined().orElseGet(() -> Baseline.idsAt(directory, state.base())));
     return added.isEmpty()
         ? Optional.empty()
         : Optional.of(
