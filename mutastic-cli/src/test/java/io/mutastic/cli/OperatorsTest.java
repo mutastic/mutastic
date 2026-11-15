@@ -41,11 +41,18 @@ class OperatorsTest {
     var anotherSet = Samples.mutastic(stronger);
     var sameSet = Samples.mutastic(stronger);
     var backToTheFirst = Samples.mutastic(defaults);
+    var aThirdSet =
+        Samples.mutastic("run", project.toString(), "--format=agent", "--operators=extended");
 
     assertThat(anotherSet.out()).doesNotContain("previousScore", "changedSinceLastRun");
     assertThat(sameSet.out()).contains("previousScore", "changedSinceLastRun");
     // The run under the other set in between doesn't cost this one its comparison.
     assertThat(backToTheFirst.out()).contains("previousScore", "changedSinceLastRun");
+    // With no earlier run under its own set, it says why it isn't compared.
+    assertThat(aThirdSet.out())
+        .contains(
+            "vs last run: not compared with the last run, which used other operators"
+                + " (defaults)");
   }
 
   @Test

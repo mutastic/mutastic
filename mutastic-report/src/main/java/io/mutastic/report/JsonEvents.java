@@ -372,7 +372,9 @@ public final class JsonEvents {
     putTests(fields, report);
     fields.put("flaky", report.flaky());
     fields.put("flakyEvidence", flakyEvidence(report));
-    comparison.ifPresent(found -> putComparison(fields, found));
+    // Under other operators, nothing was compared: the event has no comparison, as with no last
+    // run.
+    comparison.filter(Comparison::compared).ifPresent(found -> putComparison(fields, found));
     fields.put("likelyFlaky", Suspects.json(comparison, report));
     fields.put("unrelatedCatches", unrelatedCatches(report));
     fields.put("reports", reports);

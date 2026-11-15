@@ -120,6 +120,10 @@ public final class AgentText {
   }
 
   private static void appendVsLastRun(StringBuilder out, Report report, Comparison found) {
+    if (found.notCompared().isPresent()) {
+      out.append("vs last run: %s\n".formatted(found.notCompared().get()));
+      return;
+    }
     out.append(
         "vs last run: %s → %s (%s)\n"
             .formatted(percent(found.previousScore()), percent(report.score()), found.sameness()));
