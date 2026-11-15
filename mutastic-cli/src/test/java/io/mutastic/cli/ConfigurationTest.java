@@ -226,6 +226,21 @@ class ConfigurationTest {
     assertThat(Configuration.nearest(api, api)).isEqualTo(project);
   }
 
+  /// The module's directory as the build tool reports it and the run's as the person typed it may
+  /// name one directory two ways, as `/private/var/…` and `/var/…` do on macOS: the module's file
+  /// is still found. Once it wasn't, and a module's rules were dropped in a temp directory.
+  @Test
+  void aModuleIsFoundThroughALink() throws Exception {
+    var build = Files.createDirectories(project.resolve("private/build-top"));
+    var core = Files.createDirectories(build.resolve("core"));
+    Files.writeString(core.resolve("mutastic.yaml"), "rules:\n");
+    var typed = Files.createSymbolicLink(project.resolve("build-top"), build);
+
+    assertThat(Configuration.nearest(core, typed)).isEqualTo(core);
+    assertThat(Configuration.nearest(typed.resolve("core"), build))
+        .isEqualTo(typed.resolve("core"));
+  }
+
   /// Outside a repository, no higher than the run's own directory: a stray file above the build is
   /// never read.
   @Test

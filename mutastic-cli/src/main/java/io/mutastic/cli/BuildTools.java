@@ -2,6 +2,7 @@ package io.mutastic.cli;
 
 import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
+import io.mutastic.api.RealPath;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -89,12 +90,13 @@ final class BuildTools {
   /// other, as `..`, and nothing for `here` itself.
   private static List<String> typed(Path here, BuildTool.Address address) {
     var words = new ArrayList<String>();
-    var build = address.directory();
-    if (!build.equals(here)) {
+    var build = RealPath.of(address.directory());
+    var from = RealPath.of(here);
+    if (!build.equals(from)) {
       words.add(
-          here.startsWith(build) || build.startsWith(here)
-              ? Main.slashed(here.relativize(build))
-              : build.toString());
+          from.startsWith(build) || build.startsWith(from)
+              ? Main.slashed(from.relativize(build))
+              : address.directory().toString());
     }
     if (!address.module().equals(":")) {
       words.add(address.module());
