@@ -142,10 +142,6 @@ final class InlineBodies implements Filter {
   }
 
   private static ClassModel parsed(Path file) {
-    try {
-      return ClassFile.of().parse(Files.readAllBytes(file));
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
+    return ClassFileVersion.parse(ClassFile.of(), file);
   }
 }

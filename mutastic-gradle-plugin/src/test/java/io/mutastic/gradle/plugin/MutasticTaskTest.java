@@ -47,6 +47,28 @@ class MutasticTaskTest {
     assertThat(task("mutasticVerify").configured()).containsEntry("threshold", "60");
   }
 
+  /// mutastic runs on JDK 25, or on the project's JDK when that's newer: a JDK reads class files
+  /// only as new as itself.
+  @Test
+  void mutasticRunsOnTheProjectsJdkWhenItsNewer() {
+    var toolchain =
+        project
+            .getExtensions()
+            .getByType(org.gradle.api.plugins.JavaPluginExtension.class)
+            .getToolchain()
+            .getLanguageVersion();
+    var gradles = Integer.parseInt(org.gradle.api.JavaVersion.current().getMajorVersion());
+    var unset = MutasticPlugin.engineJdk(project).get().asInt();
+    toolchain.set(org.gradle.jvm.toolchain.JavaLanguageVersion.of(17));
+    var older = MutasticPlugin.engineJdk(project).get().asInt();
+    toolchain.set(org.gradle.jvm.toolchain.JavaLanguageVersion.of(27));
+    var newer = MutasticPlugin.engineJdk(project).get().asInt();
+
+    assertThat(unset).isEqualTo(Math.max(25, gradles));
+    assertThat(older).isEqualTo(25);
+    assertThat(newer).isEqualTo(27);
+  }
+
   /// A list on the command line replaces the build file's, rather than adding to it.
   @Test
   void theCommandLineOverBoth() {

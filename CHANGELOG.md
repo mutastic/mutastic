@@ -134,6 +134,18 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **A class file from a newer JDK says so.** mutastic reads class files with the JDK it runs on,
+  and JDK 25 reads none newer than its own: code compiled on JDK 26 or 27 stopped the run with
+  `internal error: … Unsupported class file version: 70`. Now it names the class file and the JDK
+  that wrote it, and says to run mutastic on that JDK or later, with exit status 2. The Gradle
+  plugin runs mutastic on the project's JDK when it's newer than 25, so there it just works.
+- **`run --only` on a skipped mutant passes in `run-finished` too.** The exit status counted it
+  as passing, as there's nothing to catch, but the event said `"passed": false`.
+- **The agent format says `of 1 mutant`**, not `of 1 mutants`.
+- **A module's own `mutastic.yaml` is read in a temporary directory on macOS.** There `/var` and
+  `/tmp` are links into `/private`, so a module the build reported as `/private/var/…` looked
+  outside a run typed as `/var/…`, and its rules were dropped. Paths are compared as the file
+  system has them now, which also keeps `--tests-from` from taking a module for a library there.
 - **`verify` doesn't say it found no test to suggest.** It looks for none, so its `checked` line
   ended in a misleading `no test found to suggest`; that clause is left out now, in `verify` and
   with `--no-suggestions`.
@@ -240,6 +252,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Agents
 
+- **The gate keeps the baseline as it was when it opened.** Where git ignores `.mutastic/`, the
+  start commit has no baseline, so every entry of a local one counted as the task's own and held
+  the gate however the task did. Only an entry added since `gate open` holds it now.
+- **`gate open` clears out copies older counts left behind.** The background count works in a
+  copy of the tree in the temporary directory; one stopped hard, or its build's daemon writing on,
+  could leave it there. Copies over a day old that no running count owns are removed.
 - **The gate counts a parameterized test's rows.** It counted test methods, so a task that took a
   row out of a `@CsvSource` or `Arguments.of(…)`, or turned a parameterized test off, passed. Now
   rows a static source holds are counted from its annotations, at `gate open` and at each check:
