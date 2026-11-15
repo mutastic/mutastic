@@ -43,6 +43,22 @@
         "minLength": 1,
         "examples": ["defaults", "stronger", "extended", "all", "annotations", "-stream/swap-match"]
       }
+    },
+    "gate": {
+      "type": ["object", "null"],
+      "description": "What `mutastic gate` holds an agent's task to, apart from everyday runs.",
+      "additionalProperties": false,
+      "properties": {
+        "operators": {
+          "type": ["array", "null"],
+          "description": "Which operators the gate runs, in place of `operators:`, as `gate open --operators` chooses, which replaces this. The set is fixed when the gate opens, so a check runs what the open chose.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "examples": ["stronger", "extended", "-stream/swap-match"]
+          }
+        }
+      }
     }
   },
   "$defs": {

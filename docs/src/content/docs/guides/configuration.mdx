@@ -109,6 +109,9 @@ filters:
 operators:
   - defaults                         # which operators run, as --operators chooses
   - -stream/swap-match
+gate:
+  operators:
+    - stronger                       # what the gate holds an agent's task to
 ```
 
 `plugins:` lists jars and rules files, relative to the project: see [Plugins](/guides/plugins/).
@@ -118,7 +121,9 @@ which replaces it for one run. The sets are `defaults` (what runs unless told ot
 operators on modern APIs and language features, such as `Optional`, more of streams, `switch` arms, regular expressions, exceptions and whole method bodies,
 added to another set:
 `defaults,extended`) and `all` (every operator); see [Choosing
-operators](/concepts/operators/#choosing-operators).
+operators](/concepts/operators/#choosing-operators). `gate:`'s `operators:` chooses for
+[the gate](/agents/gate/#which-operators) alone, in its place, so an agent's tasks can be held to
+more than everyday runs: [`gate open --operators`](/reference/gate-open/#operators) replaces it.
 
 mutastic reads the file strictly, and a line it doesn't understand is an error that names it. [Its
 JSON Schema](https://docs.mutastic.io/schemas/mutastic-yaml/v1.json) says the same, so an editor
