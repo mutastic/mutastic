@@ -7,6 +7,8 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ## Unreleased
 
+## 1.2.0 (15 Nov 2026)
+
 ### HTML report
 
 - **`mutation.html` is mutastic's own report page.** It replaces the generic viewer it embedded,

@@ -266,16 +266,17 @@ what they run, apart from what they don't. The threshold is always on the whole 
 test reaches is listed once per method, with the lines its mutants are on, since one test that calls
 the method reaches them all. In the Java edition, `--each-mutant` lists each line.
 
-<EditionOnly edition="java">
-
 ## When a catch isn't the mutant's
 
+<span id="a-test-that-fails-on-its-own"></span>
+
 A catch only counts if the mutant made the test fail. So once every mutant has its result, each
-test that caught one runs again, once, on your code as it is, with no mutant in: on its own, in a
-new worker, after the mutants. A test that fails there didn't need a mutant to fail. It passed when the whole suite
+test that caught one runs again, once, on your code as it is, with no mutant in: on its own, after
+the mutants. A test that fails there didn't need a mutant to fail. It passed when the whole suite
 ran first, so it likely depends on something another test or the run sets up or leaves behind: a
-static another test sets, a file in the build directory, a database row. A test that runs out of
-time there, or fails on a port in use, isn't counted: load or another process can do that.
+file in the build directory, a database row, or in Java a static another test sets. A test that
+runs out of time there isn't counted, as load can do that; in the Java edition, nor is one that
+fails on a port in use, which another process can cause.
 
 Its catches don't count. It's left out, as a [flaky test](/concepts/flaky-tests/) is, and each
 mutant it reached runs again without it: the other tests that reach the mutant decide whether it's
@@ -283,9 +284,22 @@ caught or missed, and if none does, it's not covered. The mutant keeps its id, a
 which test's catch didn't count (`… fails on its own with no mutant in too: that catch doesn't
 count`).
 
+<EditionTabs>
+<div slot="java">
+
 The run doesn't pass while such a test is there, whatever the score, and exits with status 3, as
-for tests that fail before any mutant: see [Troubleshooting](/guides/troubleshooting/). `verify`
-and `gate check` check their catches the same way, so neither passes on a false catch.
+for tests that fail before any mutant: see [Troubleshooting](/guides/troubleshooting/).
+
+</div>
+<div slot="rust">
+
+The run doesn't pass while such a test is there, whatever the score, and exits with status 2, as
+for a test that fails with no mutant in: see [Troubleshooting](/rust/troubleshooting/).
+
+</div>
+</EditionTabs>
+
+`verify` and `gate check` check their catches the same way, so neither passes on a false catch.
 
 The output names each test as [flaky](/concepts/flaky-tests/#a-test-that-fails-on-its-own), as
 one that `passes among the others but fails on its own`, with what it failed with, and says the run
@@ -295,6 +309,8 @@ event with its final result, which replaces its `mutant-finished` one, and one w
 count names the test as `falseCatchBy`.
 
 When every catch holds, nothing changes but the time: one run of each test that caught something.
+
+<EditionOnly edition="java">
 
 ## When a miss is a registration another test made
 
@@ -413,6 +429,6 @@ See [`mutastic verify`](/rust/reference/verify/) for the command itself.
 |---|---|
 | 0 | The run passed, or every mutant `verify` named is caught, skipped, or crashed where a crash proves nothing |
 | 1 | The score is under the threshold, or a mutant `verify` named is missed or not covered |
-| 2 | mutastic couldn't run: not a Cargo package, a test that fails with no mutant in, a build that fails for a reason no mutant explains |
+| 2 | mutastic couldn't run: not a Cargo package, a test that fails with no mutant in, a build that fails for a reason no mutant explains; or a test that caught mutants fails on its own, with no mutant in, so its catches can't be trusted |
 
 </EditionOnly>

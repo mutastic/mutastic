@@ -206,7 +206,7 @@ const LAYOUT = [
   // (AWAITING_RUST in src/edition-pages.mjs): '/concepts/flaky-tests'.
   ['Concepts', [
     ['concepts/results', 'Results and the score'],
-    ['/concepts/coverage-and-mutants', 'Coverage and mutants'],
+    ['coverage-and-mutants', 'Coverage and mutants'],
     ['concepts/suggested-tests', 'Suggested tests'],
     ['/concepts/equivalence', 'Equivalent mutants'],
     ['/concepts/flaky-tests', 'Flaky tests'],
@@ -232,8 +232,8 @@ const LAYOUT = [
   ]],
   // A page for each command from commands.json comes first, then Environment and exit codes: see
   // reference() below.
-  ['Reference', [['reference/reports', 'Report files'], ['reference/events', 'Events'], ['reference/configuration', 'Configuration'], ['reference/compatibility', 'Compatibility']]],
-  ['Guides', [['scoping', 'Changed lines, members and shares'], ['/guides/test-first', 'Working test-first'], ['/guides/test-first-refactor', 'Working test-first: the refactor'], ['/guides/test-first-agent', 'Working test-first: with an agent'], ['/guides/ci', 'Running in CI']]],
+  ['Reference', [['reference/errors', 'Errors'], ['reference/reports', 'Report files'], ['reference/events', 'Events'], ['reference/configuration', 'Configuration'], ['reference/compatibility', 'Compatibility']]],
+  ['Guides', [['scoping', 'Changed lines, members and shares'], ['test-first', 'Working test-first'], ['test-first-refactor', 'Working test-first: the refactor'], ['test-first-agent', 'Working test-first: with an agent'], ['/guides/ci', 'Running in CI']]],
   ['Help', [['troubleshooting', 'Troubleshooting'], ['differences-from-java', 'Differences from Java']]],
 ];
 

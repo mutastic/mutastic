@@ -39,6 +39,12 @@ goes, on `fixtures/pricing`:
 
 <RustOutput name="concepts/run-progress" />
 
+Each phase says when it ends. While one runs, a terminal shows a line under these, redrawn every
+tenth of a second with the phase's own clock: the crate Cargo is on while it builds, how many tests
+the coverage pass has run, the mutants' counts so far. In a log, in CI or under a coding agent, the
+same line is printed instead whenever 30 seconds pass without one, so a run is never quiet for
+longer. `--progress` chooses: see [While it runs](/concepts/output/#while-it-runs).
+
 ## One copy, one build
 
 mutastic never touches your source, your `Cargo.toml` or your `target/`. It copies the workspace to
@@ -148,21 +154,44 @@ time to see how it died. What that means depends on where the mutant is: see
 </div>
 </EditionTabs>
 
-<EditionOnly edition="java">
+Once every mutant has its result, each test that caught one runs again, on its own with no mutant
+in. One that fails there didn't need a mutant to fail: its catches don't count, and each mutant it
+reached runs again without it. See [A test that fails on its
+own](/concepts/flaky-tests/#a-test-that-fails-on-its-own).
 
 ## When there's nothing to run
 
 A run of a change that touched no mutant's line, of skipped mutants only, or of a share that holds
 none has nothing to measure, and running every test would take minutes to find that out. So
 mutastic runs no test: it finds the mutants, lists the skipped ones with their reasons, and passes
-with nothing to measure, saying `Tests  none ran: no mutant to run`. Your build still compiles the
-code, as the mutants are found in its class files, so such a run takes about as long as the build.
-It leaves the last run's record and report files as they were. `--force-coverage` runs the tests
-anyway, to check that they pass or to time them. [The gate](/agents/gate/#when-its-done) always
-does: a change to a line with no mutant can still break a test, so it runs the tests unless the
-task changed nothing.
+with nothing to measure, saying `Tests  none ran: no mutant to run`. It leaves the last run's
+record and report files as they were.
 
-</EditionOnly>
+<EditionTabs>
+<div slot="java">
+
+Your build still compiles the code, as the mutants are found in its class files, so such a run
+takes about as long as the build. `--force-coverage` runs the tests anyway, to check that they pass
+or to time them. [The gate](/agents/gate/#when-its-done) always does: a change to a line with no
+mutant can still break a test, so it runs the tests unless the task changed nothing.
+
+</div>
+<div slot="rust">
+
+mutastic builds nothing either, so such a run takes a second or so. On a clean tree:
+
+```sh
+mutastic run fixtures/pricing --since=HEAD
+```
+
+<RustOutput name="concepts/nothing-to-run" />
+
+`--force-coverage` builds the crate and runs the tests anyway, to check that they pass or to time
+them. [The gate](/guides/test-first-agent/#when-it-says-its-done) always does: a change to a line
+with no mutant can still break a test, so it runs the tests unless the task changed nothing.
+
+</div>
+</EditionTabs>
 
 <EditionOnly edition="rust">
 
@@ -189,9 +218,16 @@ changed, a different result is just the change at work, and nothing is named. A 
 skipped, or that crashed where a crash proves nothing, is out of the score in either run, so a
 change to or from one isn't counted.
 
+A run of mutants asked for by id (`--only`) is judged on each one, as `verify` judges it, not on a
+score: it passes when each is caught, skipped, or crashed where a crash proves nothing, whatever
+the threshold. Its summary has no Score row and no `Next:`, and ends on each mutant's fate, such as
+`[MISSED] mb2f8ae57 is still missed · done when mutastic verify mb2f8ae57 fixtures/pricing passes`;
+in `--format=jsonl`, `run-finished` has `passed` judged the same way, and `only`, the first mutant
+it ran.
+
 Only a full run compares and records: a run of one mutant (`--only`, `verify`, `explain`) says
-nothing about the others, and a run of a change (`--since`) has a different score by design. A
-share (`--shard`) keeps its record in a folder of its own, so a whole run is never compared with
+nothing about the others, and a run of a change (`--since`) has a different score by design. A run
+with no mutant to run measured nothing, so it isn't kept either. A share (`--shard`) keeps its record in a folder of its own, so a whole run is never compared with
 part of one.
 
 </EditionOnly>

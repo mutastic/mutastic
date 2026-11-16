@@ -239,6 +239,31 @@ passes at once.
 When something's missed, the gate sends the agent back with the cards, as the run above shows
 them. When it can't get there, the gate lets it stop and tells you what's left.
 
+The plugins run the check from a Stop hook that's stopped after ten minutes, so as a hook it keeps
+within `MUTASTIC_GATE_BUDGET` seconds (600 unless set). When the last check's own run took longer
+than the whole budget, it lets the agent stop before it runs and says so: "this project's gate
+check takes longer than the hook allows", so run `mutastic gate check` yourself. Set
+`MUTASTIC_GATE_BUDGET` to what your agent's hook allows, if that isn't ten minutes.
+
+### Which operators
+
+The gate runs the operators a run would: `operators:` in `mutastic.yaml`, or the defaults. To hold
+the agent to more than your everyday runs, gate it on the stronger set. Give the gate its own set
+in `mutastic.yaml`, and the plugin's hooks pick it up with nothing else to change:
+
+```yaml
+gate:
+  operators:
+    - stronger
+```
+
+`gate open --operators=stronger` does the same for one task. The set is chosen when the gate opens
+and kept with the task: every check runs it, and a check given another set is refused rather than
+run on fewer operators than the task opened with. Each verdict on the mutants names it:
+`(operators: stronger)`. A task can pass on the defaults and be held on stronger: a test that buys
+one item catches `quantity * price` becoming `quantity / price`, but not becoming `price`. See
+[the gate](/agents/gate/#which-operators).
+
 ### What the gate can't check
 
 The gate checks results, not order. It can't tell whether a test came first: an agent that
