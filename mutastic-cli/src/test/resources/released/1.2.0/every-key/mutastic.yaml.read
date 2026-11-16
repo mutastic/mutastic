@@ -5,3 +5,4 @@ plugin: mutiny.yaml
 filter: acme:no-metrics
 operator: defaults
 operator: -stream/swap-match
+gate operator: stronger

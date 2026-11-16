@@ -151,8 +151,6 @@ version can never be changed or removed.
    cp $C/*/every-key/mutastic.yaml $C/$V/every-key/
    git rm -rq $(ls -d $C/*/ | grep -v "/$V/$")
    ./gradlew :mutastic-cli:exportIds   # writes each rules file's and mutastic.yaml's .read beside it
-   # The baseline jar is locked too: point the lock at the new release.
-   ./gradlew :mutastic-api:dependencies --configuration apiBaseline --update-locks io.mutastic:mutastic-api
    ```
    Commit them together. Until a release does, a field added since the last one can still change
    or go.
