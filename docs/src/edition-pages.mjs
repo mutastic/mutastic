@@ -36,12 +36,7 @@ export const SHARED = [
  * build doesn't ask for that page or its sources. Once the pin moves on, the page and its captures
  * must be there, and the build says to take the entry out.
  */
-export const AWAITING_RUST = [
-  ['concepts/coverage-and-mutants', 'v1.1.0'],
-  ['guides/test-first', 'v1.1.0'],
-  ['guides/test-first-refactor', 'v1.1.0'],
-  ['guides/test-first-agent', 'v1.1.0'],
-];
+export const AWAITING_RUST = [];
 
 /** The same topic in both editions. Each pair works both ways. */
 export const PAIRS = [
@@ -74,7 +69,9 @@ export const PAIRS = [
   ['reference/environment', 'rust/reference/environment'],
   ['reference/reports', 'rust/reference/reports'],
   ['reference/schemas', 'rust/reference/events'],
+  ['reference/errors', 'rust/reference/errors'],
   ['guides/configuration', 'rust/reference/configuration'],
+  ['guides/scoping', 'rust/scoping'],
   ['guides/troubleshooting', 'rust/troubleshooting'],
 ];
 
@@ -84,7 +81,7 @@ export const PAIRS = [
  * Rust page, and the build doesn't ask for it. Once the pin moves on, the build says to move the
  * pair into PAIRS.
  */
-export const AWAITING_PAIRS = [['guides/scoping', 'rust/scoping', 'v1.1.0']];
+export const AWAITING_PAIRS = [];
 
 /** Topics whose nearest counterpart is a page that maps back somewhere else. */
 export const JAVA_ONLY_WAY = [];

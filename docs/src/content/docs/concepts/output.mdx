@@ -77,8 +77,10 @@ in each:
   It shows the misses most worth a test first, then each line no test reaches, with its mutants'
   ids to propose.
 - **`jsonl`** writes `mutastic.events/v1` events, described field by field by [their JSON
-  Schema](https://docs.mutastic.io/schemas/events/v1.json). Progress is off, so stdout is only the
-  events. Statuses follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`,
+  Schema](https://docs.mutastic.io/schemas/events/v1.json). stdout is only the events, and progress
+  goes to stderr as lines. As the run goes it says each phase's start and end (`phase-started`,
+  `phase-finished`), `run-started` once the build is done, each mutant's result as it finishes,
+  and a `progress` event every 30 seconds; then `run-finished`. Statuses follow the mutation-testing report schema: `Killed`, `Survived`, `Timeout`,
   `NoCoverage`, `Ignored`, and the Rust edition's `RuntimeError`.
 - **A mutant's id** comes from what the mutant is, not its line number, so it stays the same while
   code around it moves: see [Mutant ids](/concepts/ids/).
@@ -153,7 +155,7 @@ At a terminal, a live block sits under the lines the run has printed, and is red
 second. Its first line has the phase, a bar, what's caught and missed so far, the phase's clock
 and, once it can tell, about how long is left. Under it is a line for each worker, with what it's
 running and for how long. A mutant that runs well past what its tests took is marked `SLOW`, so a
-hang is plain to see.
+hang is plain to see. `t` prints what each worker is running, and so does `kill -USR1` on Unix.
 
 Here's a courier's round, run with one worker. Its test takes a while, and one mutant makes the
 courier wait at a door for longer still. This is the terminal while that mutant runs:
@@ -170,7 +172,7 @@ The test takes a second, and the wait three more:
 
 The test takes a second and a half, and the wait six more:
 
-<RustOutput name="concepts/run-live" awaiting="v1.1.0" />
+<RustOutput name="concepts/run-live" />
 
 </div>
 </EditionTabs>
@@ -192,7 +194,7 @@ With `MUTASTIC_HEARTBEAT=3.25`:
 
 With `MUTASTIC_HEARTBEAT=6.5`:
 
-<RustOutput name="concepts/run-log" awaiting="v1.1.0" />
+<RustOutput name="concepts/run-log" />
 
 </div>
 </EditionTabs>
@@ -225,14 +227,14 @@ directory is the package's: a workspace member's, in a workspace.
 
 ## One mutant, explained
 
-`mutastic explain ID [dir]` runs that one mutant and shows its card, whatever became of it, then
+`mutastic explain ID [DIR]` runs that one mutant and shows its card, whatever became of it, then
 what it is. On the pricing sample, after a run:
 
 <EditionTabs>
 <div slot="java">
 
 The summary's `Next:` line offers it, for the one-line formats. In a multi-module build, the module
-comes after the directory: `mutastic explain ID [dir] [:module]`.
+comes after the directory: `mutastic explain ID [DIR] [:MODULE]`.
 
 <Code code={explain} lang="ansi" />
 

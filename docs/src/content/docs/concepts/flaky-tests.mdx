@@ -34,7 +34,8 @@ A test that passes among the others but fails on its own is found after the muta
 <div slot="rust">
 
 The Rust edition looks [before any mutant](#before-any-mutant), on every run, at no cost but a
-failing test's reruns.
+failing test's reruns. A test that caught mutants and fails on its own is found after the mutants:
+see [A test that fails on its own](#a-test-that-fails-on-its-own).
 
 </div>
 </EditionTabs>
@@ -65,8 +66,9 @@ They have to pass then: a mutant is only caught when a test that passed fails.
 - **A test that fails is run again on its own, a few times.** If it passes, it's flaky: the run
   goes on without it, and names it (`! flaky: …`, and a `Flaky` row in the summary). Its catches
   would be luck, so none count.
-- **A test that fails every time stops the run,** with its name: the tests fail without any
-  mutant, and nothing can be judged against them. The exit status is 3 in the Java edition (see
+- **A test that fails every time stops the run,** with how it failed, where its output is, and
+  the command that runs it alone: the tests fail without any mutant, and nothing can be judged
+  against them. The exit status is 3 in the Java edition (see
   [Troubleshooting](/guides/troubleshooting/)), and 2 in the Rust edition.
 - **In the Java edition, a test class that fails as a whole,** in its setup or teardown (a `@BeforeAll`, JUnit 4's or
   TestNG's `@BeforeClass`, a class rule, a static initialiser), is run again as a class, all its
@@ -140,19 +142,39 @@ changed, a different result is just the change at work, and nothing is named.
 Only a full run compares and records: a run of one mutant (`--only`, `verify`, `explain`) says
 nothing about the others, and a run of a change (`--since`) has a different score by design.
 
+</EditionOnly>
+
 ## A test that fails on its own
 
 A test that passes among the others but fails when run on its own, with no mutant in, counts on
-something another test leaves behind, such as a field one test sets and the next reads. mutastic
-runs each test on its own against a mutant, so that test would fail against every mutant it met.
-So once the mutants have run, each test that caught one runs again, once, on its own with no
-mutant in, in a new worker, at no cost to tests that never catch one. Running after the mutants
-also finds a test that trips on what the run itself left behind, a file in the build directory or
-a database row. One that fails is named (`! flaky: … passes among the others but fails on its
-own`), none of its catches count, and the mutants it reached run again without it. Unlike the
-other flaky tests, it fails the run, with exit status 3, until it passes on its own: see
-[When a catch isn't the mutant's](/concepts/results/#when-a-catch-isnt-the-mutants). Make it set up
-what it needs itself.
+something another test or the run leaves behind. Once the mutants have run, each test that caught
+one runs again, once, on its own with no mutant in, at no cost to tests that never catch one. One
+that fails is named (`! flaky: … passes among the others but fails on its own`), none of its
+catches count, and the mutants it reached run again without it. Unlike the other flaky tests, it
+fails the run until it passes on its own: see [When a catch isn't the
+mutant's](/concepts/results/#when-a-catch-isnt-the-mutants). Make it set up what it needs itself.
+
+<EditionTabs>
+<div slot="java">
+
+mutastic runs each test on its own against a mutant, so a test that counts on a field another test
+sets would fail against every mutant it met. Running after the mutants, in a new worker, also finds
+a test that trips on what the run itself left behind, a file in the build directory or a database
+row. The run exits with status 3.
+
+</div>
+<div slot="rust">
+
+The coverage pass already runs each test in a process of its own, so a test that needs another
+test to set it up stops the run there, before any mutant. What's left to find afterwards is what
+the mutants' runs left behind, most often a file a test writes and never removes: give it a file or
+directory of its own, and clean up what it leaves. The run exits with status 2, as for a test that
+fails with no mutant in.
+
+</div>
+</EditionTabs>
+
+<EditionOnly edition="java">
 
 ## Confirming catches
 
