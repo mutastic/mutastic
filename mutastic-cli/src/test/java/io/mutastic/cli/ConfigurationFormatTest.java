@@ -69,7 +69,13 @@ class ConfigurationFormatTest {
     }
 
     assertThat(read.toString())
-        .contains("rule: skip ", "rule: mutate ", "plugin: ", "filter: ", "operator: ");
+        .contains(
+            "rule: skip ",
+            "rule: mutate ",
+            "plugin: ",
+            "filter: ",
+            "operator: ",
+            "gate operator: ");
   }
 
   /// How a file reads, a line to each thing read from it.
@@ -86,6 +92,7 @@ class ConfigurationFormatTest {
             plugin -> lines.add("plugin: " + plugin.toString().replace(File.separatorChar, '/')));
     configuration.filters().forEach(filter -> lines.add("filter: " + filter));
     configuration.operators().forEach(operator -> lines.add("operator: " + operator));
+    configuration.gateOperators().forEach(operator -> lines.add("gate operator: " + operator));
     return String.join("\n", lines) + "\n";
   }
 }

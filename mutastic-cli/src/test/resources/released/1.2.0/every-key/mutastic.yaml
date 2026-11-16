@@ -11,3 +11,6 @@ filters:
 operators:
   - defaults                         # which operators run, as --operators chooses
   - -stream/swap-match
+gate:
+  operators:
+    - stronger                       # what the gate holds an agent's task to
