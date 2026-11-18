@@ -415,7 +415,7 @@ final class Mutations {
     }
 
     private void scan(Instruction instruction, int at) {
-      var workedOn = operandsOf(instruction);
+      var workedOn = operandsOf(instruction, at);
       if (isSwitch(instruction) && isCall(previous, "java/lang/String", "hashCode")) {
         stringSwitchLines.add(line); // javac's switch on a String: hashCode, then equals
       }
@@ -439,8 +439,13 @@ final class Mutations {
     }
 
     /// What the instruction works on, as the source names it.
-    private List<String> operandsOf(Instruction instruction) {
+    private List<String> operandsOf(Instruction instruction, int at) {
       var found = operands.of(instruction);
+      // A for-each loop's test compares two locals javac made: the loop is what the source has.
+      var array = ArrayForEach.arraySlot(code, at);
+      if (array.isPresent()) {
+        return List.of(ArrayForEach.operand(operands.storedIn(array.getAsInt())));
+      }
       return KotlinGenerated.isKotlin(model) ? KotlinNames.operands(found) : found;
     }
 

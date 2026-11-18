@@ -138,6 +138,14 @@ found it. It's skipped for `indexOf` and `lastIndexOf` on a `String`, `StringBui
 runs, since a class of yours can implement it, and so does `-1 == name.indexOf('@')`, written the
 other way round.
 
+**A for-each loop's index never passes the end.** javac compiles `for (int x : items)` to an index
+counted up from 0 to `items.length`, in variables of its own, and the element is read before the
+body runs. So the index is never past the length where it's tested, and a change that differs only
+there is skipped: the test made `index != length` changes nothing. The other changes do one of
+three things to the loop: read past the last element, never run the body, or never run it and read
+past the end of an empty array. They run, and the card says which, in the loop's terms: the for-each
+loop over `items` reads past its last element, an ArrayIndexOutOfBoundsException.
+
 **A value your code says can't be negative.** The same change is skipped for a value annotated as
 never negative by an annotation a tool checks when the code compiles. This skip rests on your
 code's word, not on mutastic's proof, so the reason names the annotation: `equivalent: differs only
