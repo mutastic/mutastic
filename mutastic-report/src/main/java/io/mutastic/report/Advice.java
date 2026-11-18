@@ -93,7 +93,8 @@ public record Advice(
     return switch (mutant.operator()) {
       case Mutator mutator -> added(mutator.words(mutant), seen);
       case ClassMutator mutator -> added(mutator.words(mutant), seen);
-      case BuiltIn builtIn -> ofBuiltIn(builtIn, mutant, seen, written);
+      case BuiltIn builtIn ->
+          ArrayLoops.of(mutant, seen).orElseGet(() -> ofBuiltIn(builtIn, mutant, seen, written));
     };
   }
 
@@ -935,7 +936,7 @@ public record Advice(
         .orElse("`%s()`".formatted(where.method()));
   }
 
-  private static List<String> inputsSeen(Inputs seen) {
+  static List<String> inputsSeen(Inputs seen) {
     // A parameter the source doesn't have, as the Compose compiler's `$changed` mask, isn't an
     // input.
     var named =
