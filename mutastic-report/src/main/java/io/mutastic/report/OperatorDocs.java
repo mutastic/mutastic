@@ -62,6 +62,7 @@ public record OperatorDocs(String base) {
               "indexof-swap",
               "math-method-swap",
               "reverse-ordering",
+              "swap-ends",
               "string-constant",
               "regex-constant"),
           "optional",
@@ -78,7 +79,11 @@ public record OperatorDocs(String base) {
   /// The shipped rules whose row is named as mutastic's own operators' are: the id's name, after
   /// its namespace.
   private static final Set<String> NAMED_FOR_THEIR_ID =
-      Set.of("library/omit-argument", "library/unchecked-arithmetic", "library/reverse-ordering");
+      Set.of(
+          "library/omit-argument",
+          "library/unchecked-arithmetic",
+          "library/reverse-ordering",
+          "library/swap-ends");
 
   /// The rows named otherwise: for what the operator changes, as they were before the ids were
   /// settled, and kept so that links to them hold. `predicate/remove-not` and `optional/no-default`

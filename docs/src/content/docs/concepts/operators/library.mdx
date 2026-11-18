@@ -8,6 +8,7 @@ import swapString from '../../../../data/output/operators/library/swap-string.an
 import swapIndexOf from '../../../../data/output/operators/library/swap-index-of.ansi?raw';
 import swapMath from '../../../../data/output/operators/library/swap-math.ansi?raw';
 import reverseOrdering from '../../../../data/output/operators/library/reverse-ordering.ansi?raw';
+import swapEnds from '../../../../data/output/operators/library/swap-ends.ansi?raw';
 import stringConstant from '../../../../data/output/operators/library/string-constant.ansi?raw';
 import regexConstant from '../../../../data/output/operators/library/regex-constant.ansi?raw';
 
@@ -21,6 +22,7 @@ difference would show.
 | [`library/swap-index-of`](#indexof-swap) | `indexOf` and `lastIndexOf` | stronger |
 | [`library/swap-math`](#math-method-swap) | `min` and `max`, of `Math`, a stream or a collection; `Math.floor` and `Math.ceil` | defaults |
 | [`library/reverse-ordering`](#reverse-ordering) | `a.compareTo(b)` to `b.compareTo(a)`; `reversed()` and `reverseOrder` left out | stronger |
+| [`library/swap-ends`](#swap-ends) | the first of a list, deque, sorted set or map and its last: `getFirst` and `getLast`, `peekFirst` and `peekLast` | stronger |
 | [`mutastic/string-constant`](#string-constant) | a string in the code, to `""` | stronger |
 | [`mutastic/regex-constant`](#regex-constant) | a regular expression, to one that differs and still compiles | extended |
 
@@ -213,6 +215,58 @@ made where both values are of one type, or the call is `Comparable`'s own, so `c
 whose argument is a supertype, such as `LocalDate`'s, is left alone. The Rust edition has this
 operator too, `library/reverse-ordering`, which turns `a.cmp(&b)` into `b.cmp(&a)`, `partial_cmp`
 too, and leaves out an ordering's `.reverse()`.
+
+## Swap ends
+
+`library/swap-ends`, in the `stronger` set. One end of a collection becomes the other: `getFirst` and
+`getLast`, a `Deque`'s `peekFirst` and `peekLast` and `pollFirst` and `pollLast`, a `SortedSet`'s
+`first` and `last`, and a `SortedMap`'s `firstKey` and `lastKey` and `firstEntry` and `lastEntry`.
+
+**The bug it stands for:** the wrong end: the oldest entry where the newest was meant, the head of a
+queue for its tail. With one element both ends are the same, and one element is what tests often
+have.
+
+{/* from: samples/operator-docs/src/main/java/com/example/library/History.java */}
+```java
+  /// The page the tab is on: the last one visited.
+  public String current() {
+    return pages.peekLast();
+  }
+```
+
+The test visits one page, which is both the first and the last:
+
+{/* from: samples/operator-docs/src/test/java/com/example/library/HistoryTest.java */}
+```java
+  @Test
+  void aVisitedPageIsCurrent() {
+    var history = new History();
+    history.visit("home");
+    assertEquals("home", history.current());
+  }
+```
+
+<Code code={swapEnds} lang="ansi" />
+
+**The test that catches it:** one with a collection whose ends differ, asserting which end comes
+back.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/library/HistoryTest.java */}
+```java
+  @Test
+  void theLastPageVisitedIsCurrent() {
+    var history = new History();
+    history.visit("home");
+    history.visit("search");
+    assertEquals("search", history.current());
+  }
+```
+
+**Edition notes:** run it with `--operators=stronger`. Each pair is swapped on the JDK's own
+collection types, as the call names them: `List`, `Deque`, `SortedSet`, `SortedMap` and the classes
+that implement them, `ArrayDeque` and `TreeMap` say. The Rust edition has this operator too,
+`library/swap-ends`, for `first` and `last`, `front` and `back`, and a `BTreeMap`'s and a
+`BTreeSet`'s first and last.
 
 ## String constant
 

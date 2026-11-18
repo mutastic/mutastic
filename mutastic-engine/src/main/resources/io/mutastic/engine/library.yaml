@@ -72,3 +72,15 @@
   changed: no longer throws on overflow
   headline: no test makes `{name}` overflow in {method}
   help: add a test whose result doesn't fit its type, and assert it throws `ArithmeticException`
+
+# The first and the last of an ordered collection, as javac names the type the call is on: each
+# pair came in the same release, so a class that calls one can call the other.
+- id: library/swap-ends
+  explanation: One end of a collection becomes the other: `getFirst` and `getLast`, a `Deque`'s `peekFirst` and `peekLast` and `pollFirst` and `pollLast`, a `SortedSet`'s `first` and `last`, and a `SortedMap`'s `firstKey` and `lastKey` and `firstEntry` and `lastEntry`. It goes unnoticed when no test has a collection whose ends differ.
+  tier: stronger
+  owners: java.util.List, java.util.ArrayList, java.util.LinkedList, java.util.SequencedCollection, java.util.SequencedSet, java.util.LinkedHashSet, java.util.Deque, java.util.ArrayDeque, java.util.concurrent.ConcurrentLinkedDeque, java.util.concurrent.LinkedBlockingDeque, java.util.concurrent.BlockingDeque, java.util.SortedSet, java.util.NavigableSet, java.util.TreeSet, java.util.concurrent.ConcurrentSkipListSet, java.util.SortedMap, java.util.NavigableMap, java.util.TreeMap, java.util.concurrent.ConcurrentSkipListMap, java.util.SequencedMap, java.util.LinkedHashMap
+  methods: getFirst, getLast, peekFirst, peekLast, pollFirst, pollLast, first, last, firstKey, lastKey, firstEntry, lastEntry
+  rewrite: rename getFirst->getLast, getLast->getFirst, peekFirst->peekLast, peekLast->peekFirst, pollFirst->pollLast, pollLast->pollFirst, first->last, last->first, firstKey->lastKey, lastKey->firstKey, firstEntry->lastEntry, lastEntry->firstEntry
+  changed: "{name} changed to {to}"
+  headline: no test tells `{name}` from `{to}` in {method}
+  help: use a collection whose first and last differ, and assert which one comes back
