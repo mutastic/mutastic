@@ -700,4 +700,133 @@ public final class Shapes {
     }
     return 2 + b;
   }
+
+  /// The numbers 1 to `a`, for a for-each loop to go over.
+  static int[] upTo(int a) {
+    int[] items = new int[Math.max(0, a)];
+    for (int i = 0; i < items.length; i++) {
+      items[i] = i + 1;
+    }
+    return items;
+  }
+
+  /// The numbers 1 to `a` as objects, and no array at all for the lowest `a`.
+  static Integer[] boxedUpTo(int a) {
+    if (a < -3) {
+      return null;
+    }
+    Integer[] boxes = new Integer[Math.max(0, a)];
+    for (int i = 0; i < boxes.length; i++) {
+      boxes[i] = i + 1;
+    }
+    return boxes;
+  }
+
+  static long[] longsUpTo(int a) {
+    long[] longs = new long[Math.max(0, a)];
+    for (int i = 0; i < longs.length; i++) {
+      longs[i] = i + 1;
+    }
+    return longs;
+  }
+
+  static final int[] DIGITS = {1, 2, 3};
+
+  /// A for-each loop over an array: javac writes it as an index counted up to the array's length.
+  static int forEachInts(int a, int b) {
+    int sum = 0;
+    int[] items = upTo(a);
+    for (int x : items) {
+      sum += x + b;
+    }
+    return sum;
+  }
+
+  static int forEachObjects(int a, int b) {
+    int sum = 0;
+    Integer[] boxes = boxedUpTo(a);
+    for (Integer x : boxes) {
+      sum += x * b;
+    }
+    return sum;
+  }
+
+  /// Over the array a call gives, of longs, which take two slots.
+  static int forEachLongs(int a, int b) {
+    long sum = 0;
+    for (long x : longsUpTo(a)) {
+      sum += x - b;
+    }
+    return (int) sum;
+  }
+
+  static int forEachField(int a, int b) {
+    int sum = b;
+    for (int digit : DIGITS) {
+      if (digit <= a) {
+        sum += digit;
+      }
+    }
+    return sum;
+  }
+
+  static int forEachChars(int a, int b) {
+    int sum = 0;
+    for (char c : Integer.toString(a * b).toCharArray()) {
+      sum += c == '-' ? 10 : 1;
+    }
+    return sum;
+  }
+
+  static int forEachNested(int a, int b) {
+    int sum = 0;
+    int[] rows = upTo(a);
+    int[] columns = upTo(b);
+    for (int row : rows) {
+      for (int column : columns) {
+        sum += row * column;
+      }
+    }
+    return sum;
+  }
+
+  static int forEachBreak(int a, int b) {
+    int last = 0;
+    for (int x : upTo(a)) {
+      if (x > b) {
+        break;
+      }
+      last = x;
+    }
+    return last;
+  }
+
+  static int forEachContinue(int a, int b) {
+    int sum = 0;
+    for (int x : upTo(a)) {
+      if (x == b) {
+        continue;
+      }
+      sum += x;
+    }
+    return sum;
+  }
+
+  static int forEachReturn(int a, int b) {
+    for (int x : upTo(a)) {
+      if (x == b) {
+        return x * 10;
+      }
+    }
+    return -1;
+  }
+
+  /// A loop whose element isn't used: javac still reads it.
+  static int forEachUnused(int a, int b) {
+    int count = b;
+    for (int unused : upTo(a)) {
+      count++;
+    }
+    return count;
+  }
 }

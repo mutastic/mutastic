@@ -13,6 +13,7 @@ import java.lang.classfile.instruction.LoadInstruction;
 import java.lang.classfile.instruction.NewObjectInstruction;
 import java.lang.classfile.instruction.NewReferenceArrayInstruction;
 import java.lang.classfile.instruction.OperatorInstruction;
+import java.lang.classfile.instruction.StoreInstruction;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -114,6 +115,11 @@ final class Operands {
   private final List<Local> locals = new ArrayList<>();
   private final IdentityHashMap<Instruction, Integer> positions = new IdentityHashMap<>();
   private final List<Instruction> recent = new ArrayList<>();
+
+  /// What each slot was last given, as the source writes it, where it can be read back: what a
+  /// for-each loop goes over, which javac copies to a local of its own.
+  private final java.util.Map<Integer, String> stored = new java.util.HashMap<>();
+
   private int position;
 
   /// The class the code is in, as `com/example/Rates`: its own statics, the source names bare.
@@ -149,10 +155,24 @@ final class Operands {
   /// What `instruction` works on, before adding it to what's been seen.
   List<String> of(Instruction instruction) {
     var operands = operands(instruction);
+    if (instruction instanceof StoreInstruction store) {
+      var value = endingAt(recent, recent.size());
+      if (value == null || value.start() < 0) {
+        stored.remove(store.slot());
+      } else {
+        stored.put(store.slot(), value.text());
+      }
+    }
     positions.put(instruction, position);
     position += instruction.sizeInBytes();
     recent.add(instruction);
     return operands;
+  }
+
+  /// What `slot` was last given, as the source writes it: `items`, `upTo(a)`. Null when that can't
+  /// be read back.
+  @Nullable String storedIn(int slot) {
+    return stored.get(slot);
   }
 
   private List<String> operands(Instruction instruction) {
