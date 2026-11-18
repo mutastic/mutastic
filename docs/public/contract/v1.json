@@ -1883,6 +1883,17 @@
       "reason": "Each language's collections."
     },
     {
+      "id": "N47",
+      "kind": "engine",
+      "editions": [
+        "java",
+        "rust"
+      ],
+      "surface": "operators",
+      "summary": "`library/plain-division` makes `Math.floorDiv` and `floorMod` `/` and `%`, skipping a JDK length or count by a constant that isn't negative; or `div_euclid` and `rem_euclid`, skipping an unsigned value",
+      "reason": "Each language's rounding-down division, and what each can prove isn't negative."
+    },
+    {
       "id": "A6",
       "kind": "engine",
       "editions": [

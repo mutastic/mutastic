@@ -48,7 +48,16 @@ public final class CallRules {
           "changed");
 
   private static final Set<String> FIXED_REWRITES =
-      Set.of("remove", CallRule.OMIT_LAST, CallRule.UNCHECKED, CallRule.KEEP_ARGUMENT);
+      Set.of(
+          "remove",
+          CallRule.OMIT_LAST,
+          CallRule.UNCHECKED,
+          CallRule.KEEP_ARGUMENT,
+          CallRule.PLAIN_DIVISION);
+
+  /// The rewrites only mutastic's own rules use: not part of the rules file format, so a plugin's
+  /// file that names one is refused.
+  private static final Set<String> OWN_REWRITES = Set.of(CallRule.PLAIN_DIVISION);
 
   private static final List<String> REQUIRED =
       List.of("id", "explanation", "owners", "methods", "rewrite", "headline", "help");
@@ -65,7 +74,15 @@ public final class CallRules {
   /// A plugin's rules file.
   public static List<CallRule> read(Path file) {
     try {
-      return parse(Files.readString(file), file.toString());
+      var rules = parse(Files.readString(file), file.toString());
+      for (var rule : rules) {
+        if (OWN_REWRITES.contains(rule.rewrite())) {
+          throw new IllegalArgumentException(
+              "%s: %s's rewrite, %s, is mutastic's own, not one a rules file can use"
+                  .formatted(file, rule.id(), rule.rewrite()));
+        }
+      }
+      return rules;
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }

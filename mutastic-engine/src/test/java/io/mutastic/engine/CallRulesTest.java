@@ -84,6 +84,17 @@ class CallRulesTest {
   }
 
   @Test
+  void aRulesFileCantUseMutasticsOwnRewrites(
+      @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+    var file = dir.resolve("a.yaml");
+    java.nio.file.Files.writeString(file, rule("acme/x", "plain division", "defaults"));
+
+    assertThatThrownBy(() -> CallRules.read(file))
+        .hasMessageEndingWith(
+            "acme/x's rewrite, plain division, is mutastic's own, not one a rules file can use");
+  }
+
+  @Test
   void quotedValuesAndCommentsAreRead() {
     var rules =
         CallRules.parse(

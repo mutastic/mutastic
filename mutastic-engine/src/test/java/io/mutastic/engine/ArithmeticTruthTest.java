@@ -24,6 +24,8 @@ class ArithmeticTruthTest {
       new ClaimFixture("arithmetic/ConstantValues.java", "mutastic/constant-value", Inputs.NUMBERS);
   private final ClaimFixture checked =
       new ClaimFixture("arithmetic/Checked.java", "library/unchecked-arithmetic", Inputs.NUMBERS);
+  private final ClaimFixture divisions =
+      new ClaimFixture("arithmetic/Divisions.java", "library/plain-division", Inputs.NUMBERS);
 
   private static SourceView sources() {
     return new SourceView(ClaimFixture.ROOT, List.of(ClaimFixture.ROOT));
@@ -419,5 +421,37 @@ class ArithmeticTruthTest {
       assertThat(advice.headline()).startsWith("no test makes `%s` overflow in ".formatted(called));
       assertThat(advice.fix()).contains("doesn't fit its type").contains("ArithmeticException");
     }
+  }
+
+  @Test
+  void aFloorDivisionIsThePlainOperatorAndRoundsTowardsZero() throws Exception {
+    assertThat(divisions.running()).as("the cards checked").hasSize(8);
+    assertThat(divisions.claimsThatLie()).isEmpty();
+  }
+
+  @Test
+  void aFloorDivisionsCardAsksForANegativeNumber() {
+    var sources = sources();
+    for (var mutant : divisions.running()) {
+      var called = CallRule.calledName(mutant.original());
+      var advice = sources.advice(mutant);
+      assertThat(advice.change()).isEqualTo("rounds towards zero");
+      assertThat(advice.headline())
+          .startsWith("no test gives `%s` a negative number in ".formatted(called));
+      assertThat(advice.fix()).contains("negative number that doesn't divide exactly");
+    }
+  }
+
+  @Test
+  void aLengthDividedByAConstantIsSkippedAsEquivalent() throws Exception {
+    var why =
+        " (equivalent: `%s` rounds differently from `%s` only for a negative number. That can't"
+            + " happen because it divides a length or count by a constant that isn't negative.)";
+    assertThat(divisions.changesIn("aLengthByAConstant"))
+        .containsExactly("plain division" + why.formatted("floorMod", "%"));
+    assertThat(divisions.changesIn("anArraysLengthByAConstant"))
+        .containsExactly("plain division" + why.formatted("floorDiv", "/"));
+    assertThat(divisions.changesIn("byANegativeConstant")).containsExactly("plain division");
+    assertThat(divisions.skippedThatDiffer()).isEmpty();
   }
 }

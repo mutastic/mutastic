@@ -39,6 +39,7 @@ example with the card mutastic prints for it, and the test that catches it.
 | <span id="flip-increment"></span>[`mutastic/flip-increment`](/concepts/operators/arithmetic/#flip-increment) | `i++` and `i--`, `i += 2` and `i -= 2` | stronger | Arithmetic | — |
 | <span id="remove-negation"></span>[`mutastic/remove-negation`](/concepts/operators/arithmetic/#remove-negation) | `-x` to `x` | stronger | Arithmetic | the same |
 | <span id="unchecked-arithmetic"></span>[`library/unchecked-arithmetic`](/concepts/operators/arithmetic/#unchecked-arithmetic) | `Math.addExact` and the like to the plain operation, which overflows | stronger | Arithmetic | the same |
+| <span id="plain-division"></span>[`library/plain-division`](/concepts/operators/arithmetic/#plain-division) | `Math.floorDiv` and `floorMod` to `/` and `%`, which round towards zero | stronger | Arithmetic | the same |
 | <span id="return-value"></span>[`mutastic/return-value`](/concepts/operators/returns/#return-value) | a returned value to the other `boolean`, `0`, an empty one or `null` | defaults | Returns and errors | the same |
 | <span id="replace-body"></span>[`mutastic/replace-body`](/concepts/operators/returns/#replace-body) | a method's whole body, to returning one value or nothing | extended | Returns and errors | the same |
 | <span id="remove-throw"></span>[`mutastic/remove-throw`](/concepts/operators/returns/#remove-throw) | a `throw`, removed, and the code carries on | extended | Returns and errors | the same |
