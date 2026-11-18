@@ -2490,6 +2490,354 @@ mf8e53f3e	observable	com/example/observable/Person#setName(Ljava/lang/String;)V	
 m339d0a9e	observable	com/example/observable/Person#setNickname(Ljava/lang/String;)V	mutastic/null-parameter	44	ALOAD_0 → null parameter 1 nickname
 m9fcaab31	observable	com/example/observable/Person#setNickname(Ljava/lang/String;)V	mutastic/remove-field-write	44	PUTFIELD → remove write to nickname
 m624d7e13	observable	com/example/observable/Person#setNickname(Ljava/lang/String;)V	mutastic/replace-body	44	ALOAD_0 → body emptied
+mc1aed591	operator-docs	com/example/arguments/Bookings#book(Ljava/lang/String;Ljava/lang/String;)Lcom/example/arguments/Bookings$Booking;	mutastic/null-parameter	7	NEW → null parameter 0 guest
+me9704166	operator-docs	com/example/arguments/Bookings#book(Ljava/lang/String;Ljava/lang/String;)Lcom/example/arguments/Bookings$Booking;	mutastic/null-parameter	7	NEW → null parameter 1 room
+m85be926a	operator-docs	com/example/arguments/Bookings#book(Ljava/lang/String;Ljava/lang/String;)Lcom/example/arguments/Bookings$Booking;	mutastic/replace-body	7	NEW → body return null
+m98e9b85e	operator-docs	com/example/arguments/Bookings#book(Ljava/lang/String;Ljava/lang/String;)Lcom/example/arguments/Bookings$Booking;	mutastic/return-value	7	ARETURN → return null
+mf35a5287	operator-docs	com/example/arguments/Bookings#book(Ljava/lang/String;Ljava/lang/String;)Lcom/example/arguments/Bookings$Booking;	mutastic/swap-arguments	7	INVOKESPECIAL com/example/arguments/Bookings$Booking.<init>(Ljava/lang/String;Ljava/lang/String;)V → swap last two arguments
+m62254054	operator-docs	com/example/arguments/Bookings$Booking#guest()Ljava/lang/String;	mutastic/replace-body	4	ALOAD_0 → body return ""
+mb94966b9	operator-docs	com/example/arguments/Bookings$Booking#guest()Ljava/lang/String;	mutastic/return-value	4	ARETURN → return ""
+mbaa41816	operator-docs	com/example/arguments/Bookings$Booking#room()Ljava/lang/String;	mutastic/replace-body	4	ALOAD_0 → body return ""
+maeb0709c	operator-docs	com/example/arguments/Bookings$Booking#room()Ljava/lang/String;	mutastic/return-value	4	ARETURN → return ""
+macc6b02b	operator-docs	com/example/arguments/Csv#nextComma(Ljava/lang/String;I)I	library/omit-argument	6	INVOKEVIRTUAL java/lang/String.indexOf(II)I → omit last argument
+mea4d96bf	operator-docs	com/example/arguments/Csv#nextComma(Ljava/lang/String;I)I	mutastic/constant-value	6	BIPUSH → constant 44 to 0
+m1a332007	operator-docs	com/example/arguments/Csv#nextComma(Ljava/lang/String;I)I	mutastic/constant-value	6	BIPUSH → constant 44 to 1
+m0510da39	operator-docs	com/example/arguments/Csv#nextComma(Ljava/lang/String;I)I	mutastic/constant-value	6	BIPUSH → constant 44 to 43
+md69ad022	operator-docs	com/example/arguments/Csv#nextComma(Ljava/lang/String;I)I	mutastic/constant-value	6	BIPUSH → constant 44 to 45
+me40abfa9	operator-docs	com/example/arguments/Csv#nextComma(Ljava/lang/String;I)I	mutastic/null-parameter	6	ALOAD_0 → null parameter 0 line
+m50c9568a	operator-docs	com/example/arguments/Csv#nextComma(Ljava/lang/String;I)I	mutastic/replace-body	6	ALOAD_0 → body return 0
+m755cb577	operator-docs	com/example/arguments/Csv#nextComma(Ljava/lang/String;I)I	mutastic/return-value	6	IRETURN → return 0
+m4eb4540b	operator-docs	com/example/arguments/Csv#nextComma(Ljava/lang/String;I)I	mutastic/swap-arguments	6	INVOKEVIRTUAL java/lang/String.indexOf(II)I → swap last two arguments
+ma937d5ca	operator-docs	com/example/arguments/Scores#bestOfThree(III)I	library/swap-math	8	INVOKESTATIC java/util/Collections.max(Ljava/util/Collection;)Ljava/lang/Object; → min
+mdc01ea8c	operator-docs	com/example/arguments/Scores#bestOfThree(III)I	mutastic/drop-vararg	8	INVOKESTATIC java/util/Arrays.asList([Ljava/lang/Object;)Ljava/util/List; → drop last element
+m0b3ceb8f	operator-docs	com/example/arguments/Scores#bestOfThree(III)I	mutastic/replace-body	8	ICONST_3 → body return 0
+m01e5519e	operator-docs	com/example/arguments/Scores#bestOfThree(III)I	mutastic/return-value	8	IRETURN → return 0
+m022fbdee	operator-docs	com/example/arguments/Users#username(Ljava/lang/String;)Ljava/lang/String;	library/swap-string	5	INVOKEVIRTUAL java/lang/String.toLowerCase()Ljava/lang/String; → toUpperCase
+mda33a5c6	operator-docs	com/example/arguments/Users#username(Ljava/lang/String;)Ljava/lang/String;	mutastic/null-parameter	5	ALOAD_0 → null parameter 0 input
+maa5d9e7e	operator-docs	com/example/arguments/Users#username(Ljava/lang/String;)Ljava/lang/String;	mutastic/omit-call	5	INVOKEVIRTUAL java/lang/String.strip()Ljava/lang/String; → keep receiver
+mf05fae9d	operator-docs	com/example/arguments/Users#username(Ljava/lang/String;)Ljava/lang/String;	mutastic/omit-call	5	INVOKEVIRTUAL java/lang/String.toLowerCase()Ljava/lang/String; → keep receiver
+mc2f81549	operator-docs	com/example/arguments/Users#username(Ljava/lang/String;)Ljava/lang/String;	mutastic/replace-body	5	ALOAD_0 → body return ""
+mcf1f6281	operator-docs	com/example/arguments/Users#username(Ljava/lang/String;)Ljava/lang/String;	mutastic/return-value	5	ARETURN → return ""
+mb363734a	operator-docs	com/example/arguments/Volume#clamp(III)I	library/swap-math	18	INVOKESTATIC java/lang/Math.max(II)I → min
+mafef84bc	operator-docs	com/example/arguments/Volume#clamp(III)I	library/swap-math	18	INVOKESTATIC java/lang/Math.min(II)I → max
+m76385986	operator-docs	com/example/arguments/Volume#clamp(III)I	mutastic/replace-body	18	ILOAD_1 → body return 0
+m3c4ae5f9	operator-docs	com/example/arguments/Volume#clamp(III)I	mutastic/return-value	18	IRETURN → return 0
+m13ecbef2	operator-docs	com/example/arguments/Volume#clamp(III)I	mutastic/swap-arguments	18	INVOKESTATIC java/lang/Math.max(II)I → swap last two arguments
+m63d9a45a	operator-docs	com/example/arguments/Volume#clamp(III)I	mutastic/swap-arguments	18	INVOKESTATIC java/lang/Math.min(II)I → swap last two arguments
+mcf513cf2	operator-docs	com/example/arguments/Volume#set(I)I	mutastic/replace-body	14	ILOAD_1 → body return 0
+me6898e0f	operator-docs	com/example/arguments/Volume#set(I)I	mutastic/return-value	14	IRETURN → return 0
+m973063e5	operator-docs	com/example/arguments/Volume#set(I)I	mutastic/swap-arguments	14	INVOKESTATIC com/example/arguments/Volume.clamp(III)I → swap last two arguments
+mf53076e7	operator-docs	com/example/arithmetic/Account#overdrawn(I)Z	mutastic/boundary	12	IF_ICMPGE → IF_ICMPGT
+m5f9c192b	operator-docs	com/example/arithmetic/Account#overdrawn(I)Z	mutastic/comparison	12	IF_ICMPGE → IF_ICMPEQ
+mb2608f4c	operator-docs	com/example/arithmetic/Account#overdrawn(I)Z	mutastic/other-comparison	12	IF_ICMPGE → IF_ICMPLE
+m661b7b9d	operator-docs	com/example/arithmetic/Account#overdrawn(I)Z	mutastic/other-comparison	12	IF_ICMPGE → IF_ICMPLT
+med47dd39	operator-docs	com/example/arithmetic/Account#overdrawn(I)Z	mutastic/other-comparison	12	IF_ICMPGE → IF_ICMPNE
+mcee70c35	operator-docs	com/example/arithmetic/Account#overdrawn(I)Z	mutastic/remove-conditional	12	IF_ICMPGE → always jump
+mf7d9cea0	operator-docs	com/example/arithmetic/Account#overdrawn(I)Z	mutastic/remove-conditional	12	IF_ICMPGE → never jump
+mf71d3780	operator-docs	com/example/arithmetic/Account#overdrawn(I)Z	mutastic/remove-negation	12	INEG → remove negation
+m49184542	operator-docs	com/example/arithmetic/Account#overdrawn(I)Z	mutastic/replace-body	12	ILOAD_1 → body return false
+m806137ac	operator-docs	com/example/arithmetic/Account#overdrawn(I)Z	mutastic/replace-body	12	ILOAD_1 → body return true
+m3513c744	operator-docs	com/example/arithmetic/Account#overdrawn(I)Z	mutastic/return-value	12	IRETURN → return false
+mf00052f0	operator-docs	com/example/arithmetic/Account#overdrawn(I)Z	mutastic/return-value	12	IRETURN → return true
+m0da58524	operator-docs	com/example/arithmetic/Bill#perPerson(II)I	mutastic/keep-operand	6	IDIV → keep first
+m80fd701e	operator-docs	com/example/arithmetic/Bill#perPerson(II)I	mutastic/keep-operand	6	IDIV → keep second
+m620c343e	operator-docs	com/example/arithmetic/Bill#perPerson(II)I	mutastic/math	6	IDIV → IMUL
+maaf32151	operator-docs	com/example/arithmetic/Bill#perPerson(II)I	mutastic/other-arithmetic	6	IDIV → IADD
+mfced7dd2	operator-docs	com/example/arithmetic/Bill#perPerson(II)I	mutastic/other-arithmetic	6	IDIV → IREM
+me0fc0c36	operator-docs	com/example/arithmetic/Bill#perPerson(II)I	mutastic/other-arithmetic	6	IDIV → ISUB
+maaa9bc04	operator-docs	com/example/arithmetic/Bill#perPerson(II)I	mutastic/replace-body	6	ILOAD_0 → body return 0
+m6971f9b3	operator-docs	com/example/arithmetic/Bill#perPerson(II)I	mutastic/return-value	6	IRETURN → return 0
+md5ce0d0c	operator-docs	com/example/arithmetic/Checkout#total(II)I	mutastic/arithmetic-replacement	5	IADD → IMUL
+m46de907a	operator-docs	com/example/arithmetic/Checkout#total(II)I	mutastic/keep-operand	5	IADD → keep first
+mcd6bd11a	operator-docs	com/example/arithmetic/Checkout#total(II)I	mutastic/keep-operand	5	IADD → keep second
+macafa41b	operator-docs	com/example/arithmetic/Checkout#total(II)I	mutastic/math	5	IADD → ISUB
+m6aafe176	operator-docs	com/example/arithmetic/Checkout#total(II)I	mutastic/other-arithmetic	5	IADD → IDIV
+m4779f4a4	operator-docs	com/example/arithmetic/Checkout#total(II)I	mutastic/other-arithmetic	5	IADD → IREM
+me9cb61e0	operator-docs	com/example/arithmetic/Checkout#total(II)I	mutastic/replace-body	5	ILOAD_0 → body return 0
+m235aae94	operator-docs	com/example/arithmetic/Checkout#total(II)I	mutastic/return-value	5	IRETURN → return 0
+m0e6040fe	operator-docs	com/example/arithmetic/Permissions#grant(II)I	mutastic/bitwise	6	IOR → IAND
+me2065481	operator-docs	com/example/arithmetic/Permissions#grant(II)I	mutastic/bitwise	6	IOR → IXOR
+mad9f4bc0	operator-docs	com/example/arithmetic/Permissions#grant(II)I	mutastic/replace-body	6	ILOAD_0 → body return 0
+m51b13c57	operator-docs	com/example/arithmetic/Permissions#grant(II)I	mutastic/return-value	6	IRETURN → return 0
+m9972224c	operator-docs	com/example/arithmetic/Points#add(II)I	library/unchecked-arithmetic	6	INVOKESTATIC java/lang/Math.addExact(II)I → unchecked arithmetic
+mb0151824	operator-docs	com/example/arithmetic/Points#add(II)I	mutastic/replace-body	6	ILOAD_0 → body return 0
+maa8e5b7f	operator-docs	com/example/arithmetic/Points#add(II)I	mutastic/return-value	6	IRETURN → return 0
+m37a517f2	operator-docs	com/example/arithmetic/Points#add(II)I	mutastic/swap-arguments	6	INVOKESTATIC java/lang/Math.addExact(II)I → swap last two arguments
+md372d14d	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/boundary	6	IF_ICMPLE → IF_ICMPLT
+mc60673d3	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/comparison	6	IF_ICMPLE → IF_ICMPEQ
+me89cc93f	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/constant-value	6	SIPUSH → constant 500 to -1
+m1bbaac7e	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/constant-value	6	SIPUSH → constant 500 to 0
+m179c8190	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/constant-value	6	SIPUSH → constant 500 to 1
+m42ad6653	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/constant-value	6	SIPUSH → constant 500 to 499
+m783ff84d	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/constant-value	6	SIPUSH → constant 500 to 501
+mfa4545b7	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/other-comparison	6	IF_ICMPLE → IF_ICMPGE
+m365ffa1b	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/other-comparison	6	IF_ICMPLE → IF_ICMPGT
+m4a1f8027	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/other-comparison	6	IF_ICMPLE → IF_ICMPNE
+mfe9e0ff9	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/remove-conditional	6	IF_ICMPLE → always jump
+m9c775fda	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/remove-conditional	6	IF_ICMPLE → never jump
+mb6bcc448	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/replace-body	6	ILOAD_0 → body return false
+m9c0d8bf6	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/replace-body	6	ILOAD_0 → body return true
+m962cb380	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/return-value	6	IRETURN → return false
+m9e35fe39	operator-docs	com/example/arithmetic/Postage#isHeavy(I)Z	mutastic/return-value	6	IRETURN → return true
+m6048b95b	operator-docs	com/example/arithmetic/Tickets#seats(II)I	mutastic/arithmetic-replacement	5	IADD → IMUL
+mb15991df	operator-docs	com/example/arithmetic/Tickets#seats(II)I	mutastic/keep-operand	5	IADD → keep first
+m1c1cd8d3	operator-docs	com/example/arithmetic/Tickets#seats(II)I	mutastic/keep-operand	5	IADD → keep second
+mbf4db68f	operator-docs	com/example/arithmetic/Tickets#seats(II)I	mutastic/math	5	IADD → ISUB
+mc277f0e5	operator-docs	com/example/arithmetic/Tickets#seats(II)I	mutastic/other-arithmetic	5	IADD → IDIV
+m49badb3f	operator-docs	com/example/arithmetic/Tickets#seats(II)I	mutastic/other-arithmetic	5	IADD → IREM
+mf66bc3e5	operator-docs	com/example/arithmetic/Tickets#seats(II)I	mutastic/replace-body	5	ILOAD_0 → body return 0
+m937abd23	operator-docs	com/example/arithmetic/Tickets#seats(II)I	mutastic/return-value	5	IRETURN → return 0
+m7088ebb8	operator-docs	com/example/arithmetic/Wheel#slotAfter(I)I	mutastic/keep-operand	12	IREM → keep first
+mf532ec82	operator-docs	com/example/arithmetic/Wheel#slotAfter(I)I	mutastic/keep-operand	12	IREM → keep second
+m25e50031	operator-docs	com/example/arithmetic/Wheel#slotAfter(I)I	mutastic/other-arithmetic	12	IREM → IADD
+m77bfc53f	operator-docs	com/example/arithmetic/Wheel#slotAfter(I)I	mutastic/other-arithmetic	12	IREM → IDIV
+m1c79fd3f	operator-docs	com/example/arithmetic/Wheel#slotAfter(I)I	mutastic/other-arithmetic	12	IREM → IMUL
+m89d8bb62	operator-docs	com/example/arithmetic/Wheel#slotAfter(I)I	mutastic/other-arithmetic	12	IREM → ISUB
+m43f55e84	operator-docs	com/example/arithmetic/Wheel#slotAfter(I)I	mutastic/replace-body	12	ILOAD_1 → body return 0
+m2c412b99	operator-docs	com/example/arithmetic/Wheel#slotAfter(I)I	mutastic/return-value	12	IRETURN → return 0
+m511af805	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/comparison	12	IF_ICMPNE → IF_ICMPGT
+m75642325	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/comparison	12	IF_ICMPNE → IF_ICMPLT
+m64ceee39	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/constant-value	10	ICONST_0 → constant 0 to -1
+mbc3a6d31	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/constant-value	10	ICONST_0 → constant 0 to 1
+ma294e600	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/flip-increment	16	IINC → count by -1
+mb4fb8329	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/null-parameter	9	NEW → null parameter 0 words
+m43ab62cd	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/other-comparison	11	IFEQ → IFNE
+mf4915adc	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/other-comparison	12	IF_ICMPNE → IF_ICMPEQ
+maab9a2c5	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/other-comparison	12	IF_ICMPNE → IF_ICMPGE
+m29da9e74	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/other-comparison	12	IF_ICMPNE → IF_ICMPLE
+m633b8470	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/remove-conditional	11	IFEQ → always jump
+m13b1fb15	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/remove-conditional	11	IFEQ → never jump
+me75f46f7	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/remove-conditional	12	IF_ICMPNE → always jump
+mb82e518f	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/remove-conditional	12	IF_ICMPNE → never jump
+m1d2aeee9	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/remove-discarded-call	15	INVOKEVIRTUAL java/util/ArrayList.add(Ljava/lang/Object;)Z → remove call
+m76b3e546	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/replace-body	9	NEW → body return List.of()
+m4872488a	operator-docs	com/example/arithmetic/Words#upTo(Ljava/util/List;I)Ljava/util/List;	mutastic/return-value	18	ARETURN → return List.of()
+meb02622a	operator-docs	com/example/calls/Names#sorted(Ljava/util/List;)Ljava/util/List;	mutastic/null-parameter	9	NEW → null parameter 0 names
+m6e073afd	operator-docs	com/example/calls/Names#sorted(Ljava/util/List;)Ljava/util/List;	mutastic/remove-void-call	10	INVOKESTATIC java/util/Collections.sort(Ljava/util/List;)V → remove call
+m49496039	operator-docs	com/example/calls/Names#sorted(Ljava/util/List;)Ljava/util/List;	mutastic/replace-body	9	NEW → body return List.of()
+m40d05ec3	operator-docs	com/example/calls/Names#sorted(Ljava/util/List;)Ljava/util/List;	mutastic/return-value	11	ARETURN → return List.of()
+mc5e70b9f	operator-docs	com/example/calls/Order#isPaid()Z	mutastic/replace-body	18	ALOAD_0 → body return false
+m2edb573b	operator-docs	com/example/calls/Order#isPaid()Z	mutastic/replace-body	18	ALOAD_0 → body return true
+mf305363f	operator-docs	com/example/calls/Order#isPaid()Z	mutastic/return-value	18	IRETURN → return false
+m1035535c	operator-docs	com/example/calls/Order#isPaid()Z	mutastic/return-value	18	IRETURN → return true
+md94e0e3d	operator-docs	com/example/calls/Order#pay()I	mutastic/remove-field-write	13	PUTFIELD → remove write to paid
+mbc07da71	operator-docs	com/example/calls/Order#pay()I	mutastic/replace-body	13	ALOAD_0 → body return 0
+me780ac92	operator-docs	com/example/calls/Order#pay()I	mutastic/return-value	14	IRETURN → return 0
+m7fd7e613	operator-docs	com/example/calls/Receipts#text(Ljava/util/List;)Ljava/lang/String;	mutastic/null-parameter	8	NEW → null parameter 0 items
+md6cae619	operator-docs	com/example/calls/Receipts#text(Ljava/util/List;)Ljava/lang/String;	mutastic/other-comparison	9	IFEQ → IFNE
+ma92149a7	operator-docs	com/example/calls/Receipts#text(Ljava/util/List;)Ljava/lang/String;	mutastic/remove-conditional	9	IFEQ → always jump
+m38c5f06c	operator-docs	com/example/calls/Receipts#text(Ljava/util/List;)Ljava/lang/String;	mutastic/remove-conditional	9	IFEQ → never jump
+m0217f80d	operator-docs	com/example/calls/Receipts#text(Ljava/util/List;)Ljava/lang/String;	mutastic/remove-discarded-call	10	INVOKEVIRTUAL java/lang/StringBuilder.append(Ljava/lang/String;)Ljava/lang/StringBuilder; → remove call
+md837696f	operator-docs	com/example/calls/Receipts#text(Ljava/util/List;)Ljava/lang/String;	mutastic/remove-discarded-call	11	INVOKEVIRTUAL java/lang/StringBuilder.append(Ljava/lang/String;)Ljava/lang/StringBuilder; → remove call
+ma9b5893f	operator-docs	com/example/calls/Receipts#text(Ljava/util/List;)Ljava/lang/String;	mutastic/replace-body	8	NEW → body return ""
+m32dea975	operator-docs	com/example/calls/Receipts#text(Ljava/util/List;)Ljava/lang/String;	mutastic/return-value	13	ARETURN → return ""
+mf91dcac2	operator-docs	com/example/calls/Tips#withTip(II)I	mutastic/arithmetic-replacement	6	IADD → IMUL
+m5a450f64	operator-docs	com/example/calls/Tips#withTip(II)I	mutastic/keep-operand	6	IADD → keep first
+mac2ca0c2	operator-docs	com/example/calls/Tips#withTip(II)I	mutastic/keep-operand	6	IADD → keep second
+md535f9c9	operator-docs	com/example/calls/Tips#withTip(II)I	mutastic/math	6	IADD → ISUB
+ma633abbc	operator-docs	com/example/calls/Tips#withTip(II)I	mutastic/other-arithmetic	6	IADD → IDIV
+mb94d54f4	operator-docs	com/example/calls/Tips#withTip(II)I	mutastic/other-arithmetic	6	IADD → IREM
+m3befb2c0	operator-docs	com/example/calls/Tips#withTip(II)I	mutastic/remove-assignment	6	ISTORE_2 → remove assignment to total
+mfb731265	operator-docs	com/example/calls/Tips#withTip(II)I	mutastic/replace-body	5	ILOAD_0 → body return 0
+m62f019ae	operator-docs	com/example/calls/Tips#withTip(II)I	mutastic/return-value	7	IRETURN → return 0
+m6c808715	operator-docs	com/example/conditions/Delivery#isFree(I)Z	mutastic/boundary	12	IF_ICMPLT → IF_ICMPLE
+mb45b4ee9	operator-docs	com/example/conditions/Delivery#isFree(I)Z	mutastic/comparison	12	IF_ICMPLT → IF_ICMPNE
+m773a8d83	operator-docs	com/example/conditions/Delivery#isFree(I)Z	mutastic/other-comparison	12	IF_ICMPLT → IF_ICMPEQ
+mdaf8756d	operator-docs	com/example/conditions/Delivery#isFree(I)Z	mutastic/other-comparison	12	IF_ICMPLT → IF_ICMPGE
+mda6a5866	operator-docs	com/example/conditions/Delivery#isFree(I)Z	mutastic/other-comparison	12	IF_ICMPLT → IF_ICMPGT
+me4ba0629	operator-docs	com/example/conditions/Delivery#isFree(I)Z	mutastic/remove-conditional	12	IF_ICMPLT → always jump
+m94b8ce27	operator-docs	com/example/conditions/Delivery#isFree(I)Z	mutastic/remove-conditional	12	IF_ICMPLT → never jump
+m078266f5	operator-docs	com/example/conditions/Delivery#isFree(I)Z	mutastic/replace-body	12	ILOAD_1 → body return false
+m0e04f73b	operator-docs	com/example/conditions/Delivery#isFree(I)Z	mutastic/replace-body	12	ILOAD_1 → body return true
+m684f6f20	operator-docs	com/example/conditions/Delivery#isFree(I)Z	mutastic/return-value	12	IRETURN → return false
+m4f209c9d	operator-docs	com/example/conditions/Delivery#isFree(I)Z	mutastic/return-value	12	IRETURN → return true
+m28cdcd28	operator-docs	com/example/conditions/Fields#filled(Ljava/util/List;)J	mutastic/null-parameter	9	ALOAD_0 → null parameter 0 values
+m5229cc47	operator-docs	com/example/conditions/Fields#filled(Ljava/util/List;)J	mutastic/replace-body	9	ALOAD_0 → body return 0L
+md69bbd32	operator-docs	com/example/conditions/Fields#filled(Ljava/util/List;)J	mutastic/return-value	9	LRETURN → return 0L
+m73ac6755	operator-docs	com/example/conditions/Fields#filled(Ljava/util/List;)J	predicate/remove-not	9	INVOKESTATIC java/util/function/Predicate.not(Ljava/util/function/Predicate;)Ljava/util/function/Predicate; → keep argument
+mab55a435	operator-docs	com/example/conditions/Fields#filled(Ljava/util/List;)J	stream/remove-stage	9	INVOKEINTERFACE java/util/stream/Stream.filter(Ljava/util/function/Predicate;)Ljava/util/stream/Stream; → remove
+mfa153330	operator-docs	com/example/conditions/Greetings#greeting(Z)Ljava/lang/String;	mutastic/other-comparison	5	IFEQ → IFNE
+m02587076	operator-docs	com/example/conditions/Greetings#greeting(Z)Ljava/lang/String;	mutastic/remove-conditional	5	IFEQ → always jump
+m2ebb995b	operator-docs	com/example/conditions/Greetings#greeting(Z)Ljava/lang/String;	mutastic/remove-conditional	5	IFEQ → never jump
+m87b56328	operator-docs	com/example/conditions/Greetings#greeting(Z)Ljava/lang/String;	mutastic/replace-body	5	ILOAD_0 → body return ""
+m5834f50f	operator-docs	com/example/conditions/Greetings#greeting(Z)Ljava/lang/String;	mutastic/return-value	6	ARETURN → return ""
+m99a934c4	operator-docs	com/example/conditions/Greetings#greeting(Z)Ljava/lang/String;	mutastic/return-value	8	ARETURN → return ""
+mb0277edc	operator-docs	com/example/conditions/Greetings#greeting(Z)Ljava/lang/String;	mutastic/string-constant	6	LDC → string "welcome back" to ""
+m53d9cf85	operator-docs	com/example/conditions/Greetings#greeting(Z)Ljava/lang/String;	mutastic/string-constant	8	LDC → string "welcome" to ""
+mee6c1b5b	operator-docs	com/example/conditions/Lines#written(Ljava/util/List;)J	mutastic/null-parameter	11	ALOAD_0 → null parameter 0 lines
+m5c29f2e3	operator-docs	com/example/conditions/Lines#written(Ljava/util/List;)J	mutastic/replace-body	11	ALOAD_0 → body return 0L
+mc3bb91ce	operator-docs	com/example/conditions/Lines#written(Ljava/util/List;)J	mutastic/return-value	11	LRETURN → return 0L
+mbcae9b5a	operator-docs	com/example/conditions/Lines#written(Ljava/util/List;)J	predicate/remove-negate	11	INVOKEINTERFACE java/util/function/Predicate.negate()Ljava/util/function/Predicate; → remove
+m3d914f18	operator-docs	com/example/conditions/Lines#written(Ljava/util/List;)J	stream/remove-stage	11	INVOKEINTERFACE java/util/stream/Stream.filter(Ljava/util/function/Predicate;)Ljava/util/stream/Stream; → remove
+m3b72c4d9	operator-docs	com/example/conditions/Moderation#held(Ljava/util/function/Predicate;Ljava/util/function/Predicate;)Ljava/util/function/Predicate;	mutastic/null-parameter	8	ALOAD_0 → null parameter 0 shouted
+mb364436e	operator-docs	com/example/conditions/Moderation#held(Ljava/util/function/Predicate;Ljava/util/function/Predicate;)Ljava/util/function/Predicate;	mutastic/null-parameter	8	ALOAD_0 → null parameter 1 isLong
+m468bfca3	operator-docs	com/example/conditions/Moderation#held(Ljava/util/function/Predicate;Ljava/util/function/Predicate;)Ljava/util/function/Predicate;	mutastic/replace-body	8	ALOAD_0 → body return null
+mef9e95cd	operator-docs	com/example/conditions/Moderation#held(Ljava/util/function/Predicate;Ljava/util/function/Predicate;)Ljava/util/function/Predicate;	mutastic/return-value	8	ARETURN → return null
+mc194dcd9	operator-docs	com/example/conditions/Moderation#held(Ljava/util/function/Predicate;Ljava/util/function/Predicate;)Ljava/util/function/Predicate;	predicate/swap-connector	8	INVOKEINTERFACE java/util/function/Predicate.and(Ljava/util/function/Predicate;)Ljava/util/function/Predicate; → or
+mf79dc8de	operator-docs	com/example/conditions/Shipping#canShip(ZZ)Z	mutastic/logical-connector	5	IFEQ → && and || swapped
+mc5559ce0	operator-docs	com/example/conditions/Shipping#canShip(ZZ)Z	mutastic/other-comparison	5	IFEQ → IFNE
+mf6836a65	operator-docs	com/example/conditions/Shipping#canShip(ZZ)Z	mutastic/other-comparison	5	IFEQ → IFNE
+m1611514d	operator-docs	com/example/conditions/Shipping#canShip(ZZ)Z	mutastic/remove-conditional	5	IFEQ → always jump
+m68f84f53	operator-docs	com/example/conditions/Shipping#canShip(ZZ)Z	mutastic/remove-conditional	5	IFEQ → always jump
+m43949e81	operator-docs	com/example/conditions/Shipping#canShip(ZZ)Z	mutastic/remove-conditional	5	IFEQ → never jump
+mf006c884	operator-docs	com/example/conditions/Shipping#canShip(ZZ)Z	mutastic/remove-conditional	5	IFEQ → never jump
+m398153cc	operator-docs	com/example/conditions/Shipping#canShip(ZZ)Z	mutastic/replace-body	5	ILOAD_0 → body return false
+mdb0daaee	operator-docs	com/example/conditions/Shipping#canShip(ZZ)Z	mutastic/replace-body	5	ILOAD_0 → body return true
+m511e99ac	operator-docs	com/example/conditions/Shipping#canShip(ZZ)Z	mutastic/return-value	5	IRETURN → return false
+m47d1abed	operator-docs	com/example/conditions/Shipping#canShip(ZZ)Z	mutastic/return-value	5	IRETURN → return true
+m98528401	operator-docs	com/example/conditions/Stock#needsRestock(I)Z	mutastic/boundary	12	IF_ICMPGE → IF_ICMPGT
+md89cd49a	operator-docs	com/example/conditions/Stock#needsRestock(I)Z	mutastic/comparison	12	IF_ICMPGE → IF_ICMPEQ
+md07c890b	operator-docs	com/example/conditions/Stock#needsRestock(I)Z	mutastic/other-comparison	12	IF_ICMPGE → IF_ICMPLE
+ma5ab628d	operator-docs	com/example/conditions/Stock#needsRestock(I)Z	mutastic/other-comparison	12	IF_ICMPGE → IF_ICMPLT
+m735e3da7	operator-docs	com/example/conditions/Stock#needsRestock(I)Z	mutastic/other-comparison	12	IF_ICMPGE → IF_ICMPNE
+m6994c499	operator-docs	com/example/conditions/Stock#needsRestock(I)Z	mutastic/remove-conditional	12	IF_ICMPGE → always jump
+mc0e262c2	operator-docs	com/example/conditions/Stock#needsRestock(I)Z	mutastic/remove-conditional	12	IF_ICMPGE → never jump
+me3856875	operator-docs	com/example/conditions/Stock#needsRestock(I)Z	mutastic/replace-body	12	ILOAD_1 → body return false
+m8f040617	operator-docs	com/example/conditions/Stock#needsRestock(I)Z	mutastic/replace-body	12	ILOAD_1 → body return true
+mfd7b3bf8	operator-docs	com/example/conditions/Stock#needsRestock(I)Z	mutastic/return-value	12	IRETURN → return false
+m25674cf1	operator-docs	com/example/conditions/Stock#needsRestock(I)Z	mutastic/return-value	12	IRETURN → return true
+mb6d3d15c	operator-docs	com/example/conditions/Warehouse#toShip(Ljava/util/List;)Ljava/util/List;	mutastic/null-parameter	11	NEW → null parameter 0 orders
+m1f032604	operator-docs	com/example/conditions/Warehouse#toShip(Ljava/util/List;)Ljava/util/List;	mutastic/other-comparison	12	IFEQ → IFNE
+m5f1f4e60	operator-docs	com/example/conditions/Warehouse#toShip(Ljava/util/List;)Ljava/util/List;	mutastic/other-comparison	13	IFEQ → IFNE
+m1fc6744e	operator-docs	com/example/conditions/Warehouse#toShip(Ljava/util/List;)Ljava/util/List;	mutastic/remove-conditional	12	IFEQ → always jump
+m91404ec5	operator-docs	com/example/conditions/Warehouse#toShip(Ljava/util/List;)Ljava/util/List;	mutastic/remove-conditional	12	IFEQ → never jump
+m533f86cb	operator-docs	com/example/conditions/Warehouse#toShip(Ljava/util/List;)Ljava/util/List;	mutastic/remove-conditional	13	IFEQ → always jump
+m9ade26dc	operator-docs	com/example/conditions/Warehouse#toShip(Ljava/util/List;)Ljava/util/List;	mutastic/remove-conditional	13	IFEQ → never jump
+mcdc6710d	operator-docs	com/example/conditions/Warehouse#toShip(Ljava/util/List;)Ljava/util/List;	mutastic/remove-discarded-call	14	INVOKEVIRTUAL java/util/ArrayList.add(Ljava/lang/Object;)Z → remove call
+mb1f8a2fe	operator-docs	com/example/conditions/Warehouse#toShip(Ljava/util/List;)Ljava/util/List;	mutastic/replace-body	11	NEW → body return List.of()
+m6bf6c95a	operator-docs	com/example/conditions/Warehouse#toShip(Ljava/util/List;)Ljava/util/List;	mutastic/return-value	17	ARETURN → return List.of()
+ma6b120f5	operator-docs	com/example/conditions/Warehouse$Order#id()Ljava/lang/String;	mutastic/replace-body	8	ALOAD_0 → body return ""
+meec85cef	operator-docs	com/example/conditions/Warehouse$Order#id()Ljava/lang/String;	mutastic/return-value	8	ARETURN → return ""
+mb2686746	operator-docs	com/example/conditions/Warehouse$Order#paid()Z	mutastic/replace-body	8	ALOAD_0 → body return false
+m4450ad3a	operator-docs	com/example/conditions/Warehouse$Order#paid()Z	mutastic/replace-body	8	ALOAD_0 → body return true
+ma77c00fa	operator-docs	com/example/conditions/Warehouse$Order#paid()Z	mutastic/return-value	8	IRETURN → return false
+mc0de7b27	operator-docs	com/example/conditions/Warehouse$Order#paid()Z	mutastic/return-value	8	IRETURN → return true
+med523c6d	operator-docs	com/example/control/Reader#load(Lcom/example/control/Reader$Source;Ljava/lang/String;)Ljava/lang/String;	mutastic/drop-catch-type	16	catch → no catch of java/io/IOException
+m548495eb	operator-docs	com/example/control/Reader#load(Lcom/example/control/Reader$Source;Ljava/lang/String;)Ljava/lang/String;	mutastic/drop-catch-type	16	catch → no catch of java/util/concurrent/TimeoutException
+ma68f2cfe	operator-docs	com/example/control/Reader#load(Lcom/example/control/Reader$Source;Ljava/lang/String;)Ljava/lang/String;	mutastic/null-parameter	15	ALOAD_0 → null parameter 0 source
+mb9409a46	operator-docs	com/example/control/Reader#load(Lcom/example/control/Reader$Source;Ljava/lang/String;)Ljava/lang/String;	mutastic/null-parameter	15	ALOAD_0 → null parameter 1 cached
+m884d7f8a	operator-docs	com/example/control/Reader#load(Lcom/example/control/Reader$Source;Ljava/lang/String;)Ljava/lang/String;	mutastic/replace-body	15	ALOAD_0 → body return ""
+m34b3532c	operator-docs	com/example/control/Reader#load(Lcom/example/control/Reader$Source;Ljava/lang/String;)Ljava/lang/String;	mutastic/return-value	15	ARETURN → return ""
+m17b6e0e6	operator-docs	com/example/control/Reader#load(Lcom/example/control/Reader$Source;Ljava/lang/String;)Ljava/lang/String;	mutastic/return-value	17	ARETURN → return ""
+m9fe966c9	operator-docs	com/example/control/Zones#days(I)I	mutastic/remove-switch-arm	17	LOOKUPSWITCH → arm 1 1
+mc76ca574	operator-docs	com/example/control/Zones#days(I)I	mutastic/remove-switch-arm	18	LOOKUPSWITCH → arm 2 2
+mcfa32bc6	operator-docs	com/example/control/Zones#days(I)I	mutastic/replace-body	16	ILOAD_1 → body return 0
+m38fde59b	operator-docs	com/example/control/Zones#days(I)I	mutastic/return-value	16	IRETURN → return 0
+m7d64aafa	operator-docs	com/example/library/Comments#isComment(Ljava/lang/String;)Z	library/swap-string	5	INVOKEVIRTUAL java/lang/String.startsWith(Ljava/lang/String;)Z → endsWith
+m627a97d8	operator-docs	com/example/library/Comments#isComment(Ljava/lang/String;)Z	mutastic/null-parameter	5	ALOAD_0 → null parameter 0 line
+m02019e18	operator-docs	com/example/library/Comments#isComment(Ljava/lang/String;)Z	mutastic/replace-body	5	ALOAD_0 → body return false
+m0df6f4fd	operator-docs	com/example/library/Comments#isComment(Ljava/lang/String;)Z	mutastic/replace-body	5	ALOAD_0 → body return true
+m70578147	operator-docs	com/example/library/Comments#isComment(Ljava/lang/String;)Z	mutastic/return-value	5	IRETURN → return false
+m0fc05705	operator-docs	com/example/library/Comments#isComment(Ljava/lang/String;)Z	mutastic/return-value	5	IRETURN → return true
+m18031c87	operator-docs	com/example/library/Comments#isComment(Ljava/lang/String;)Z	mutastic/string-constant	5	LDC → string "#" to ""
+m70b89aa9	operator-docs	com/example/library/Discounts#capped(I)I	library/swap-math	12	INVOKESTATIC java/lang/Math.min(II)I → max
+m44bd11a0	operator-docs	com/example/library/Discounts#capped(I)I	mutastic/replace-body	12	ILOAD_1 → body return 0
+m858f50f5	operator-docs	com/example/library/Discounts#capped(I)I	mutastic/return-value	12	IRETURN → return 0
+me939e983	operator-docs	com/example/library/Discounts#capped(I)I	mutastic/swap-arguments	12	INVOKESTATIC java/lang/Math.min(II)I → swap last two arguments
+m486323be	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	library/swap-index-of	5	INVOKEVIRTUAL java/lang/String.indexOf(I)I → lastIndexOf
+mb9a88474	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/arithmetic-replacement	5	IADD → IMUL
+m7a81201b	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/constant-value	5	BIPUSH → constant 46 to -1
+m51a065bf	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/constant-value	5	BIPUSH → constant 46 to 0
+mce20a525	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/constant-value	5	BIPUSH → constant 46 to 1
+ma5959ebd	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/constant-value	5	BIPUSH → constant 46 to 45
+m1e449e19	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/constant-value	5	BIPUSH → constant 46 to 47
+m79353605	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/constant-value	5	ICONST_1 → constant 1 to -1
+ma37e0ed3	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/constant-value	5	ICONST_1 → constant 1 to 0
+m5b5be947	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/constant-value	5	ICONST_1 → constant 1 to 2
+ma94d64e8	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/keep-operand	5	IADD → keep first
+mf78b8160	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/math	5	IADD → ISUB
+mbb6e9a50	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/null-parameter	5	ALOAD_0 → null parameter 0 file
+mb071b751	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/omit-call	5	INVOKEVIRTUAL java/lang/String.substring(I)Ljava/lang/String; → keep receiver
+m3a340a22	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/other-arithmetic	5	IADD → IDIV
+mc64a2c77	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/other-arithmetic	5	IADD → IREM
+ma681c1c1	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/replace-body	5	ALOAD_0 → body return ""
+madb46e95	operator-docs	com/example/library/Files#extension(Ljava/lang/String;)Ljava/lang/String;	mutastic/return-value	5	ARETURN → return ""
+m263bce9e	operator-docs	com/example/library/Headers#header(Ljava/util/List;)Ljava/lang/String;	mutastic/null-parameter	7	LDC → null parameter 0 columns
+m51cc54af	operator-docs	com/example/library/Headers#header(Ljava/util/List;)Ljava/lang/String;	mutastic/replace-body	7	LDC → body return ""
+m518fcbd0	operator-docs	com/example/library/Headers#header(Ljava/util/List;)Ljava/lang/String;	mutastic/return-value	7	ARETURN → return ""
+m0d61f3d0	operator-docs	com/example/library/Headers#header(Ljava/util/List;)Ljava/lang/String;	mutastic/string-constant	7	LDC → string ", " to ""
+m8d47a622	operator-docs	com/example/library/OrderNumbers#<clinit>()V	mutastic/regex-constant	7	LDC → regex "^\\d+$" to "\\d+$"
+m3349287f	operator-docs	com/example/library/OrderNumbers#<clinit>()V	mutastic/regex-constant	7	LDC → regex "^\\d+$" to "^\\D+$"
+maeb2c32c	operator-docs	com/example/library/OrderNumbers#<clinit>()V	mutastic/regex-constant	7	LDC → regex "^\\d+$" to "^\\d$"
+mda52fc08	operator-docs	com/example/library/OrderNumbers#<clinit>()V	mutastic/regex-constant	7	LDC → regex "^\\d+$" to "^\\d+"
+mb443ae50	operator-docs	com/example/library/OrderNumbers#isValid(Ljava/lang/String;)Z	mutastic/null-parameter	10	GETSTATIC → null parameter 0 text
+mb495c8d0	operator-docs	com/example/library/OrderNumbers#isValid(Ljava/lang/String;)Z	mutastic/replace-body	10	GETSTATIC → body return false
+m980495a9	operator-docs	com/example/library/OrderNumbers#isValid(Ljava/lang/String;)Z	mutastic/replace-body	10	GETSTATIC → body return true
+m61c0b01f	operator-docs	com/example/library/OrderNumbers#isValid(Ljava/lang/String;)Z	mutastic/return-value	10	IRETURN → return false
+m2846e1eb	operator-docs	com/example/library/OrderNumbers#isValid(Ljava/lang/String;)Z	mutastic/return-value	10	IRETURN → return true
+m1976841e	operator-docs	com/example/optional/Badges#badge(Ljava/lang/String;Ljava/util/Optional;)Lcom/example/optional/Badges$Badge;	mutastic/null-parameter	10	NEW → null parameter 0 name
+m82e8d444	operator-docs	com/example/optional/Badges#badge(Ljava/lang/String;Ljava/util/Optional;)Lcom/example/optional/Badges$Badge;	mutastic/null-parameter	10	NEW → null parameter 1 nickname
+mc1676be2	operator-docs	com/example/optional/Badges#badge(Ljava/lang/String;Ljava/util/Optional;)Lcom/example/optional/Badges$Badge;	mutastic/replace-body	10	NEW → body return null
+m45dba264	operator-docs	com/example/optional/Badges#badge(Ljava/lang/String;Ljava/util/Optional;)Lcom/example/optional/Badges$Badge;	mutastic/return-value	10	ARETURN → return null
+m75624b90	operator-docs	com/example/optional/Badges#badge(Ljava/lang/String;Ljava/util/Optional;)Lcom/example/optional/Badges$Badge;	optional/always-default	10	INVOKEVIRTUAL java/util/Optional.orElse(Ljava/lang/Object;)Ljava/lang/Object; → keep argument
+m1bedb638	operator-docs	com/example/optional/Badges#badge(Ljava/lang/String;Ljava/util/Optional;)Lcom/example/optional/Badges$Badge;	optional/no-default	10	INVOKEVIRTUAL java/util/Optional.orElse(Ljava/lang/Object;)Ljava/lang/Object; → get()
+m82cb842a	operator-docs	com/example/optional/Badges#badge(Ljava/lang/String;Ljava/util/Optional;)Lcom/example/optional/Badges$Badge;	optional/swap-present	10	INVOKEVIRTUAL java/util/Optional.isPresent()Z → isEmpty
+m250558bc	operator-docs	com/example/optional/Badges$Badge#nickname()Z	mutastic/replace-body	7	ALOAD_0 → body return false
+mef0abb0c	operator-docs	com/example/optional/Badges$Badge#nickname()Z	mutastic/replace-body	7	ALOAD_0 → body return true
+md23c7401	operator-docs	com/example/optional/Badges$Badge#nickname()Z	mutastic/return-value	7	IRETURN → return false
+m734b08ad	operator-docs	com/example/optional/Badges$Badge#nickname()Z	mutastic/return-value	7	IRETURN → return true
+m20b8f37b	operator-docs	com/example/optional/Badges$Badge#shown()Ljava/lang/String;	mutastic/replace-body	7	ALOAD_0 → body return ""
+m89b73e54	operator-docs	com/example/optional/Badges$Badge#shown()Ljava/lang/String;	mutastic/return-value	7	ARETURN → return ""
+mbb297d53	operator-docs	com/example/optional/Nicknames#claim(Ljava/util/Optional;)Ljava/util/Optional;	mutastic/null-parameter	15	ALOAD_1 → null parameter 1 asked
+m650ad337	operator-docs	com/example/optional/Nicknames#claim(Ljava/util/Optional;)Ljava/util/Optional;	mutastic/replace-body	15	ALOAD_1 → body return Optional.empty()
+m5f894d26	operator-docs	com/example/optional/Nicknames#claim(Ljava/util/Optional;)Ljava/util/Optional;	mutastic/return-value	15	ARETURN → return Optional.empty()
+m34668ba0	operator-docs	com/example/optional/Nicknames#claim(Ljava/util/Optional;)Ljava/util/Optional;	optional/remove-filter	15	INVOKEVIRTUAL java/util/Optional.filter(Ljava/util/function/Predicate;)Ljava/util/Optional; → remove
+ma1b52ff1	operator-docs	com/example/optional/Numbers#largest(Ljava/util/List;I)I	library/swap-math	8	INVOKEINTERFACE java/util/stream/Stream.max(Ljava/util/Comparator;)Ljava/util/Optional; → min
+mae7c6c94	operator-docs	com/example/optional/Numbers#largest(Ljava/util/List;I)I	mutastic/null-parameter	8	ALOAD_0 → null parameter 0 values
+mf45ed79f	operator-docs	com/example/optional/Numbers#largest(Ljava/util/List;I)I	mutastic/replace-body	8	ALOAD_0 → body return 0
+m8c7824b9	operator-docs	com/example/optional/Numbers#largest(Ljava/util/List;I)I	mutastic/return-value	8	IRETURN → return 0
+m6f3fb4bc	operator-docs	com/example/optional/Numbers#largest(Ljava/util/List;I)I	optional/always-default	8	INVOKEVIRTUAL java/util/Optional.orElse(Ljava/lang/Object;)Ljava/lang/Object; → keep argument
+m232b5b62	operator-docs	com/example/optional/Numbers#largest(Ljava/util/List;I)I	optional/no-default	8	INVOKEVIRTUAL java/util/Optional.orElse(Ljava/lang/Object;)Ljava/lang/Object; → get()
+m528413d3	operator-docs	com/example/optional/Pages#size(Ljava/lang/Integer;)I	mutastic/null-parameter	14	ALOAD_1 → null parameter 1 chosen
+m2a8b6b29	operator-docs	com/example/optional/Pages#size(Ljava/lang/Integer;)I	mutastic/replace-body	14	ALOAD_1 → body return 0
+m792dfc52	operator-docs	com/example/optional/Pages#size(Ljava/lang/Integer;)I	mutastic/return-value	15	IRETURN → return 0
+mab09dc50	operator-docs	com/example/optional/Pages#size(Ljava/lang/Integer;)I	optional/always-default	15	INVOKEVIRTUAL java/util/Optional.orElse(Ljava/lang/Object;)Ljava/lang/Object; → keep argument
+m02d5e708	operator-docs	com/example/optional/Pages#size(Ljava/lang/Integer;)I	optional/empty	14	INVOKESTATIC java/util/Optional.ofNullable(Ljava/lang/Object;)Ljava/util/Optional; → empty()
+m4cfdaae2	operator-docs	com/example/optional/Pages#size(Ljava/lang/Integer;)I	optional/no-default	15	INVOKEVIRTUAL java/util/Optional.orElse(Ljava/lang/Object;)Ljava/lang/Object; → get()
+mbcd20d7b	operator-docs	com/example/optional/Server#port(Ljava/util/Optional;)I	mutastic/null-parameter	13	ALOAD_1 → null parameter 1 configured
+m62f1c351	operator-docs	com/example/optional/Server#port(Ljava/util/Optional;)I	mutastic/replace-body	13	ALOAD_1 → body return 0
+m9dcf4dae	operator-docs	com/example/optional/Server#port(Ljava/util/Optional;)I	mutastic/return-value	13	IRETURN → return 0
+md962bd31	operator-docs	com/example/optional/Server#port(Ljava/util/Optional;)I	optional/always-default	13	INVOKEVIRTUAL java/util/Optional.orElse(Ljava/lang/Object;)Ljava/lang/Object; → keep argument
+m67ce48aa	operator-docs	com/example/optional/Server#port(Ljava/util/Optional;)I	optional/no-default	13	INVOKEVIRTUAL java/util/Optional.orElse(Ljava/lang/Object;)Ljava/lang/Object; → get()
+m83bc6db6	operator-docs	com/example/returns/Loyalty#points(I)I	mutastic/keep-operand	12	IDIV → keep first
+m1100d8e1	operator-docs	com/example/returns/Loyalty#points(I)I	mutastic/keep-operand	12	IDIV → keep second
+mc810ff51	operator-docs	com/example/returns/Loyalty#points(I)I	mutastic/math	12	IDIV → IMUL
+mcca487e1	operator-docs	com/example/returns/Loyalty#points(I)I	mutastic/other-arithmetic	12	IDIV → IADD
+m91b84711	operator-docs	com/example/returns/Loyalty#points(I)I	mutastic/other-arithmetic	12	IDIV → IREM
+mf0c5502f	operator-docs	com/example/returns/Loyalty#points(I)I	mutastic/other-arithmetic	12	IDIV → ISUB
+m829aa2d2	operator-docs	com/example/returns/Loyalty#points(I)I	mutastic/replace-body	12	ILOAD_1 → body return 0
+m9e9ca7ae	operator-docs	com/example/returns/Loyalty#points(I)I	mutastic/return-value	13	IRETURN → return 0
+me9b86020	operator-docs	com/example/returns/Quantities#parse(Ljava/lang/String;)I	mutastic/null-parameter	5	ALOAD_0 → null parameter 0 text
+ma759b238	operator-docs	com/example/returns/Quantities#parse(Ljava/lang/String;)I	mutastic/other-comparison	5	IFEQ → IFNE
+m495af6bc	operator-docs	com/example/returns/Quantities#parse(Ljava/lang/String;)I	mutastic/remove-conditional	5	IFEQ → always jump
+mc77cc042	operator-docs	com/example/returns/Quantities#parse(Ljava/lang/String;)I	mutastic/remove-conditional	5	IFEQ → never jump
+mf69bfac0	operator-docs	com/example/returns/Quantities#parse(Ljava/lang/String;)I	mutastic/remove-throw	5	ATHROW → remove throw IllegalArgumentException
+m15b47533	operator-docs	com/example/returns/Quantities#parse(Ljava/lang/String;)I	mutastic/replace-body	5	ALOAD_0 → body return 0
+m19fd0218	operator-docs	com/example/returns/Quantities#parse(Ljava/lang/String;)I	mutastic/return-value	6	IRETURN → return 0
+m9cd8d789	operator-docs	com/example/returns/Quantities#parse(Ljava/lang/String;)I	mutastic/string-constant	5	LDC → string "no quantity given" to ""
+md615dccf	operator-docs	com/example/streams/Forms#anyBlank(Ljava/util/List;)Z	mutastic/null-parameter	8	ALOAD_0 → null parameter 0 answers
+m7bb9f157	operator-docs	com/example/streams/Forms#anyBlank(Ljava/util/List;)Z	mutastic/replace-body	8	ALOAD_0 → body return false
+m0a95a8aa	operator-docs	com/example/streams/Forms#anyBlank(Ljava/util/List;)Z	mutastic/replace-body	8	ALOAD_0 → body return true
+me14005cb	operator-docs	com/example/streams/Forms#anyBlank(Ljava/util/List;)Z	mutastic/return-value	8	IRETURN → return false
+m893d43df	operator-docs	com/example/streams/Forms#anyBlank(Ljava/util/List;)Z	mutastic/return-value	8	IRETURN → return true
+mabbdad22	operator-docs	com/example/streams/Forms#anyBlank(Ljava/util/List;)Z	stream/swap-match	8	INVOKEINTERFACE java/util/stream/Stream.anyMatch(Ljava/util/function/Predicate;)Z → allMatch
+ma7542f96	operator-docs	com/example/streams/Forms#anyBlank(Ljava/util/List;)Z	stream/swap-match	8	INVOKEINTERFACE java/util/stream/Stream.anyMatch(Ljava/util/function/Predicate;)Z → noneMatch
+ma8004bc4	operator-docs	com/example/streams/Orders#paidTotal(Ljava/util/List;)I	mutastic/null-parameter	10	ALOAD_0 → null parameter 0 orders
+m0be9bce7	operator-docs	com/example/streams/Orders#paidTotal(Ljava/util/List;)I	mutastic/replace-body	10	ALOAD_0 → body return 0
+m6acd175b	operator-docs	com/example/streams/Orders#paidTotal(Ljava/util/List;)I	mutastic/return-value	10	IRETURN → return 0
+m6d3805c8	operator-docs	com/example/streams/Orders#paidTotal(Ljava/util/List;)I	stream/remove-stage	10	INVOKEINTERFACE java/util/stream/Stream.filter(Ljava/util/function/Predicate;)Ljava/util/stream/Stream; → remove
+mb153ba25	operator-docs	com/example/streams/Orders$Order#paid()Z	mutastic/replace-body	6	ALOAD_0 → body return false
+m1545d016	operator-docs	com/example/streams/Orders$Order#paid()Z	mutastic/replace-body	6	ALOAD_0 → body return true
+md47d4c37	operator-docs	com/example/streams/Orders$Order#paid()Z	mutastic/return-value	6	IRETURN → return false
+m601353fc	operator-docs	com/example/streams/Orders$Order#paid()Z	mutastic/return-value	6	IRETURN → return true
+m0bcefcc4	operator-docs	com/example/streams/Orders$Order#total()I	mutastic/replace-body	6	ALOAD_0 → body return 0
+m105d1a10	operator-docs	com/example/streams/Orders$Order#total()I	mutastic/return-value	6	IRETURN → return 0
+m99240bde	operator-docs	com/example/streams/Totals#logged(Ljava/util/List;Ljava/util/List;)I	mutastic/null-parameter	8	ALOAD_0 → null parameter 0 values
+mf1036a8c	operator-docs	com/example/streams/Totals#logged(Ljava/util/List;Ljava/util/List;)I	mutastic/null-parameter	8	ALOAD_0 → null parameter 1 log
+mcd4ade2a	operator-docs	com/example/streams/Totals#logged(Ljava/util/List;Ljava/util/List;)I	mutastic/remove-discarded-call	8	INVOKESTATIC java/util/Objects.requireNonNull(Ljava/lang/Object;)Ljava/lang/Object; → remove call
+mf93ba24f	operator-docs	com/example/streams/Totals#logged(Ljava/util/List;Ljava/util/List;)I	mutastic/replace-body	8	ALOAD_0 → body return 0
+mfdb7e798	operator-docs	com/example/streams/Totals#logged(Ljava/util/List;Ljava/util/List;)I	mutastic/return-value	8	IRETURN → return 0
+m2d698876	operator-docs	com/example/streams/Totals#logged(Ljava/util/List;Ljava/util/List;)I	stream/remove-other-stage	8	INVOKEINTERFACE java/util/stream/Stream.peek(Ljava/util/function/Consumer;)Ljava/util/stream/Stream; → remove
 mcb1f0a6a	operators	com/example/orders/Orders#code(Ljava/lang/String;)Ljava/lang/String;	library/swap-string	18	INVOKEVIRTUAL java/lang/String.toUpperCase()Ljava/lang/String; → toLowerCase
 md9a0e4a3	operators	com/example/orders/Orders#code(Ljava/lang/String;)Ljava/lang/String;	mutastic/null-parameter	18	ALOAD_1 → null parameter 1 typed
 m2b42861e	operators	com/example/orders/Orders#code(Ljava/lang/String;)Ljava/lang/String;	mutastic/omit-call	18	INVOKEVIRTUAL java/lang/String.strip()Ljava/lang/String; → keep receiver

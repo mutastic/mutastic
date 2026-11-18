@@ -1,7 +1,15 @@
 package library;
 
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 /// Each method's change, written out: `xClaim` is `x` as its card says the mutant makes it.
 class Swaps {
@@ -164,6 +172,78 @@ class Swaps {
 
   static double ceilClaim(String a, String b) {
     return Math.floor(a.length() / 2.0) + b.length();
+  }
+
+  static String minOfAStream(String a, String b) {
+    return Stream.of(a, b).min(Comparator.naturalOrder()).orElseThrow();
+  }
+
+  static String minOfAStreamClaim(String a, String b) {
+    return Stream.of(a, b).max(Comparator.naturalOrder()).orElseThrow();
+  }
+
+  static String longestInAStream(String a, String b) {
+    return Stream.of(a, b).max(Comparator.comparing(String::length)).orElseThrow();
+  }
+
+  static String longestInAStreamClaim(String a, String b) {
+    return Stream.of(a, b).min(Comparator.comparing(String::length)).orElseThrow();
+  }
+
+  static String maxOfACollection(String a, String b) {
+    return Collections.max(List.of(a, b));
+  }
+
+  static String maxOfACollectionClaim(String a, String b) {
+    return Collections.min(List.of(a, b));
+  }
+
+  static String shortestInACollection(String a, String b) {
+    return Collections.min(List.of(a, b), Comparator.comparing(String::length));
+  }
+
+  static String shortestInACollectionClaim(String a, String b) {
+    return Collections.max(List.of(a, b), Comparator.comparing(String::length));
+  }
+
+  static int minOfAnIntStream(String a, String b) {
+    return IntStream.of(a.length(), b.length()).min().orElseThrow();
+  }
+
+  static int minOfAnIntStreamClaim(String a, String b) {
+    return IntStream.of(a.length(), b.length()).max().orElseThrow();
+  }
+
+  static long maxOfALongStream(String a, String b) {
+    return LongStream.of(a.length(), b.length()).max().orElseThrow();
+  }
+
+  static long maxOfALongStreamClaim(String a, String b) {
+    return LongStream.of(a.length(), b.length()).min().orElseThrow();
+  }
+
+  static double minOfADoubleStream(String a, String b) {
+    return DoubleStream.of(a.length() / 2.0, b.length() / 2.0).min().orElseThrow();
+  }
+
+  static double minOfADoubleStreamClaim(String a, String b) {
+    return DoubleStream.of(a.length() / 2.0, b.length() / 2.0).max().orElseThrow();
+  }
+
+  static String minBy(String a, String b) {
+    return Stream.of(a, b).collect(Collectors.minBy(Comparator.naturalOrder())).orElseThrow();
+  }
+
+  static String minByClaim(String a, String b) {
+    return Stream.of(a, b).collect(Collectors.maxBy(Comparator.naturalOrder())).orElseThrow();
+  }
+
+  static String maxBy(String a, String b) {
+    return Stream.of(a, b).collect(Collectors.maxBy(Comparator.naturalOrder())).orElseThrow();
+  }
+
+  static String maxByClaim(String a, String b) {
+    return Stream.of(a, b).collect(Collectors.minBy(Comparator.naturalOrder())).orElseThrow();
   }
 
   // Can't change the result: both agree on whether it's there.
