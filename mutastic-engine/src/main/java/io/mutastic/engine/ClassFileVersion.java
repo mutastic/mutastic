@@ -34,8 +34,8 @@ final class ClassFileVersion {
     if (major > latest) {
       throw new Engine.ClassFileTooNew(
           ("%s is from JDK %d (class file version %d), and mutastic is running on JDK %d, which"
-                  + " reads class files up to JDK %d. Run mutastic on JDK %d or later: point"
-                  + " JAVA_HOME at one, or name one to the build plugin (Gradle's javaLauncher,"
+                  + " reads class files up to JDK %d. Run mutastic on JDK %d or later: install"
+                  + " one, or point MUTASTIC_JAVA_HOME at it, or name one to the build plugin (Gradle's javaLauncher,"
                   + " Maven's -Dmutastic.jdk)")
               .formatted(
                   shown(file),

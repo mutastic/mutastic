@@ -104,6 +104,12 @@ final class Help {
               "240 unless set. A count not done by then is left, and a pass says the check"
                   + " compared the tests' annotations only."),
           new Entry(
+              "MUTASTIC_JAVA_HOME",
+              "The JDK mutastic runs on, 25 or later",
+              "Unless set, the newest JDK 25 or later of `JAVA_HOME` and those installed where"
+                  + " SDKMAN, asdf, mise, Gradle, IntelliJ, Homebrew, macOS and Linux keep them."
+                  + " Your build and its tests keep the `JAVA_HOME` and `PATH` you gave them."),
+          new Entry(
               "NO_COLOR",
               "No colour",
               "Set to anything, it turns colour off, as it does for many tools."),

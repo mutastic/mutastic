@@ -2,6 +2,7 @@ package io.mutastic.engine;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import io.mutastic.api.BuildJava;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Project;
 import io.mutastic.api.Status;
@@ -635,6 +636,8 @@ final class TestWorker implements AutoCloseable {
     try {
       var builder =
           new ProcessBuilder(command(temp)).directory(project.workingDirectory().toFile());
+      // The environment the build's tests get: its JAVA_HOME, not mutastic's, then the task's own.
+      BuildJava.restore(builder.environment());
       builder.environment().putAll(project.environment());
       return builder.redirectError(ProcessBuilder.Redirect.appendTo(log.toFile())).start();
     } catch (IOException e) {

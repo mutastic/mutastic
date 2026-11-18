@@ -73,8 +73,8 @@ should treat each pair below as one kind:
 | `module-missing` | `no-directory`, for a workspace member | The module (package) named isn't in the build |
 | `build-failed` | `build-failed`, `copy-build-failed` | The project doesn't build; the Rust edition says too when only its copy with the mutants in fails |
 
-These are only the Java edition's: `unknown-suite`, `tests-stopped`, `tests-timed-out`, `no-tests`,
-`nothing-covered` and `disk`. These are only the Rust edition's: `both-editions`, `java-edition`
+These are only the Java edition's: `unknown-suite`, `build-jdk`, `tests-stopped`, `tests-timed-out`,
+`no-tests`, `nothing-covered` and `disk`. These are only the Rust edition's: `both-editions`, `java-edition`
 and `proc-macro`. A code an edition doesn't have comes out there as `other`, or as the nearest it
 has. Both editions keep these names for 1.x. A new edition uses the general name of each pair:
 `no-build-tool`, and `build-root` for the root of a build of modules.
@@ -204,6 +204,20 @@ at your files' lines, or what the build tool says went wrong, and ends in the co
 it as mutastic did. Fix the build first.
 
 <Code code={buildFailed} lang="ansi" />
+
+### `build-jdk`
+
+The build runs on a JDK newer than its Gradle can run on, so it stopped before it read the build:
+Gradle 8.10 runs on JDK 23 at most. mutastic names the build's JDK, its Gradle and the newest JDK
+that Gradle runs on, and the two ways out: set `JAVA_HOME` to that JDK or an older one, as mutastic
+finds a JDK 25 for itself; or upgrade the wrapper to a Gradle that runs on the build's JDK, with the
+command that does it. See [Troubleshooting](/guides/troubleshooting/#the-builds-gradle-cant-run-on-its-jdk).
+
+```
+mutastic: shop's build runs on JDK 25, and its Gradle, 8.10.2, runs on JDK 23 at most.
+Set JAVA_HOME to a JDK 23 or older, and mutastic still finds its own JDK 25. Or upgrade the wrapper to Gradle 9.1.0 or later. Gradle's output is in build/mutastic/gradle.log. To upgrade, with JAVA_HOME at the older JDK:
+  ./gradlew wrapper --gradle-version 9.1.0
+```
 
 ## The tests
 

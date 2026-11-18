@@ -48,6 +48,7 @@ record Failure(int exit, String code, String said) {
           "no-build-tool",
           "unknown-suite",
           "build-failed",
+          "build-jdk",
           "red-baseline",
           "tests-stopped",
           "tests-timed-out",

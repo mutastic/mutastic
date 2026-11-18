@@ -1,6 +1,7 @@
 package io.mutastic.gradle;
 
 import io.mutastic.api.BuildErrors;
+import io.mutastic.api.BuildJava;
 import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
 import io.mutastic.api.Modules;
@@ -13,7 +14,9 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 /// A Gradle module's setup, read by running its build with mutastic's init script: compiles the
@@ -73,7 +76,10 @@ final class GradleSetup {
     int exit =
         gradle(build, out, log(workDirectory), task(build.directory(), module, "mutasticSetup"));
     if (exit != 0 || !Files.exists(out)) {
-      throw failed(build, request);
+      // A Gradle too old for the build's JDK stops before it reads the build, in words that don't
+      // say why.
+      var tooOld = tooOldFor(build.directory(), request);
+      throw tooOld.isPresent() ? tooOld.get() : failed(build, request);
     }
     return ProjectSetup.read(name(build.directory(), module), out);
   }
@@ -105,6 +111,36 @@ final class GradleSetup {
                             log(workDirectory),
                             built(build.directory(), request)),
                         output.lines().toList())));
+  }
+
+  /// Said when the build's Gradle can't run on its JDK: which is why it failed.
+  private static Optional<SetupFailed> tooOldFor(Path directory, BuildTool.Request request) {
+    return tooOld(directory, BuildJava.environment())
+        .map(
+            tooOld -> {
+              var program =
+                  gradle(directory, Objects.requireNonNullElse(System.getenv("PATH"), ""));
+              var build =
+                  new BuildErrors.Build(
+                      "Gradle",
+                      name(directory, request.module()),
+                      log(request.workDirectory()),
+                      GradleJdks.upgrade(tooOld, program, directory));
+              return new SetupFailed("build-jdk", GradleJdks.said(tooOld, build));
+            });
+  }
+
+  /// The build's wrapper's Gradle, when it can't run on the JDK a build with `environment` runs on:
+  /// asked only once the build has failed, as a Gradle may run on a JDK newer than it supports.
+  static Optional<GradleJdks.TooOld> tooOld(Path directory, Map<String, String> environment) {
+    var root = Wrappers.root(directory, GradleSetup::hasSettings);
+    var wrapper = Wrappers.wrapper(directory, root, Wrappers.WINDOWS ? "gradlew.bat" : "gradlew");
+    var gradle = wrapper.flatMap(GradleJdks::wrapped);
+    var jdk = BuildJava.feature(environment);
+    if (gradle.isEmpty() || jdk.isEmpty()) {
+      return Optional.empty();
+    }
+    return GradleJdks.tooOld(gradle.get(), jdk.getAsInt());
   }
 
   /// `./gradlew :core:test --tests 'com.example.PricingTest.bigOrders'`: the suite's task, filtered
@@ -217,16 +253,17 @@ final class GradleSetup {
         : List.<String>of();
   }
 
-  /// Runs the build's own Gradle with mutastic's init script; its output goes to `log`, the tasks
-  /// it runs among it, so that progress can show the latest.
+  /// Runs the build's own Gradle with mutastic's init script, on the JDK the build was given; its
+  /// output goes to `log`, the tasks it runs among it, so that progress can show the latest.
   private static int gradle(Build build, Path out, Path log, String task)
       throws IOException, InterruptedException {
-    return new ProcessBuilder(gradleCommand(build, out, task))
-        .directory(build.directory().toFile())
-        .redirectOutput(log.toFile())
-        .redirectErrorStream(true)
-        .start()
-        .waitFor();
+    var builder =
+        new ProcessBuilder(gradleCommand(build, out, task))
+            .directory(build.directory().toFile())
+            .redirectOutput(log.toFile())
+            .redirectErrorStream(true);
+    BuildJava.restore(builder.environment());
+    return builder.start().waitFor();
   }
 
   private static List<String> gradleCommand(Build build, Path out, String task) {
