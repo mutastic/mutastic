@@ -89,6 +89,7 @@ final class Mutations {
           BuiltIn.NULL_PARAMETER,
           BuiltIn.FLIP_INCREMENT,
           BuiltIn.CONSTANT_VALUE,
+          BuiltIn.BOOLEAN_CONSTANT,
           BuiltIn.REMOVE_SWITCH_ARM,
           BuiltIn.REPLACE_BODY,
           BuiltIn.DROP_CATCH_TYPE,
@@ -593,6 +594,8 @@ final class Mutations {
         case STRING_CONSTANT ->
             addChanges(builtIn, TextConstants.strings(code, at, stores, supertypes), found);
         case REGEX_CONSTANT -> addChanges(builtIn, TextConstants.regexes(code, at), found);
+        case BOOLEAN_CONSTANT ->
+            addChanges(builtIn, BooleanConstants.change(code, at, stores).stream().toList(), found);
         case DROP_CATCH_TYPE -> {
           for (String label : Exceptions.droppedCatches(code, at)) {
             found.add(new Found(builtIn, index, label, Optional.empty()));
@@ -1139,6 +1142,8 @@ final class Mutations {
           // A comparison's change is the jump it takes instead, by name.
           builder.with(BranchInstruction.of(Opcode.valueOf(mutant.replacement()), branch.target()));
       case OperatorInstruction arithmetic -> Arithmetic.write(builder, arithmetic, mutant);
+      case ConstantInstruction constant when operator == io.mutastic.api.BuiltIn.BOOLEAN_CONSTANT ->
+          BooleanConstants.write(builder, constant);
       case ConstantInstruction constant -> Constants.write(builder, constant, mutant);
       case IncrementInstruction step -> builder.iinc(step.slot(), -step.constant());
       case ReturnInstruction returning -> ReturnValues.write(builder, returning, mutant);

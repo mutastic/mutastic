@@ -764,6 +764,16 @@
               "throws": []
             },
             {
+              "kind": "enum constant",
+              "name": "BOOLEAN_CONSTANT",
+              "anchor": "boolean_constant",
+              "signature": "BOOLEAN_CONSTANT",
+              "doc": "A `true` or `false` passed to a method, or stored in a field or a local `boolean`, the other\nway round. A returned one is [`RETURN_VALUE`](#return_value)'s, and one in a condition isn't a value at all.\nIn `stronger`: many are switches no test needs to throw, a flag set the way it always is.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
               "kind": "method",
               "name": "id",
               "anchor": "id",
