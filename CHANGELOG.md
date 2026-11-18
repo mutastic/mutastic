@@ -9,6 +9,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Scoring changes
 
+- **`library/swap-math` swaps a stream's and a collection's `min` and `max` too.** `Stream.min`
+  and `max` with a comparator, `IntStream`'s, `LongStream`'s and `DoubleStream`'s, `Collections.min`
+  and `max`, and `Collectors.minBy` and `maxBy` swap places, as `Math.min` and `max` already did,
+  and as the Rust edition does for an iterator's. It's in the defaults, so runs get more mutants
+  and scores move with them; no existing id changes. See [Math method
+  swap](https://docs.mutastic.io/concepts/operators/library/#math-method-swap).
 - **A for-each loop's test made `!=` is skipped as equivalent (stronger).** javac counts the
   loop's index up from 0 to the array's length and no further, so `mutastic/comparison` changing
   `index < length` to `index != length` changes nothing, and no test could catch it. `stronger`

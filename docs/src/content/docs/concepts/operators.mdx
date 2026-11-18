@@ -53,7 +53,7 @@ example with the card mutastic prints for it, and the test that catches it.
 | <span id="omit-argument"></span>[`library/omit-argument`](/concepts/operators/arguments/#omit-argument) | the JDK's overloads, without their last argument: `indexOf(x, from)` to `indexOf(x)` | stronger | Arguments | — |
 | <span id="string-method-swap"></span>[`library/swap-string`](/concepts/operators/library/#string-method-swap) | a `String` method and the similar one: `startsWith` and `endsWith`, `toUpperCase` and `toLowerCase` | defaults | Library methods | the same |
 | <span id="indexof-swap"></span>[`library/swap-index-of`](/concepts/operators/library/#indexof-swap) | `indexOf` and `lastIndexOf` | stronger | Library methods | the same |
-| <span id="math-method-swap"></span>[`library/swap-math`](/concepts/operators/library/#math-method-swap) | `Math.min` and `Math.max`, `Math.floor` and `Math.ceil` | defaults | Library methods | the same |
+| <span id="math-method-swap"></span>[`library/swap-math`](/concepts/operators/library/#math-method-swap) | `min` and `max`, of `Math`, a stream or a collection; `Math.floor` and `Math.ceil` | defaults | Library methods | the same |
 | <span id="string-constant"></span>[`mutastic/string-constant`](/concepts/operators/library/#string-constant) | a string in the code, to `""` | stronger | Library methods | the same |
 | <span id="regex-constant"></span>[`mutastic/regex-constant`](/concepts/operators/library/#regex-constant) | a regular expression, to one that differs and still compiles | extended | Library methods | the same |
 | <span id="stream-stage-removal"></span>[`stream/remove-stage`](/concepts/operators/streams/#stream-stage-removal) | a stream stage, removed | defaults | Streams | the same, on iterators |
