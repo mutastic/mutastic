@@ -2086,16 +2086,6 @@
       ]
     },
     {
-      "id": "G28",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "reports",
-      "summary": "With `--kill-matrix`, `killedBy` lists only the first test",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "G30",
       "kind": "pending",
       "editions": [
@@ -2244,7 +2234,7 @@
         "java"
       ],
       "surface": "command line",
-      "summary": "commands.json lists no choices for `--report`",
+      "summary": "commands.json lists `xml` among `--report`'s choices",
       "issue": "https://github.com/mutastic/mutastic/issues/61",
       "items": [
         "option:--report:choice:*"
@@ -2592,16 +2582,6 @@
       "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
-      "id": "A4",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "gate",
-      "summary": "`gate check` with no gate prints on stdout (D4)",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "A5",
       "kind": "pending",
       "editions": [
@@ -2609,16 +2589,6 @@
       ],
       "surface": "gate",
       "summary": "`doesn't run anyway` only for generated and equivalent skips",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "A7",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "gate",
-      "summary": "`--remove` on an id that isn't ignored, and baseline refusals, go to stdout after reading the build (D4)",
       "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
