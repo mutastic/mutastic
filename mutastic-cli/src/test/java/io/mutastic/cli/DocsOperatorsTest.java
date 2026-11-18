@@ -118,6 +118,7 @@ class DocsOperatorsTest {
           new Example("library/swap-string", "library", "Comments"),
           new Example("library/swap-index-of", "library", "Files"),
           new Example("library/swap-math", "library", "Discounts"),
+          new Example("library/reverse-ordering", "library", "Leaderboard"),
           new Example("mutastic/string-constant", "library", "Headers"),
           new Example("mutastic/regex-constant", "library", "OrderNumbers"),
           new Example("stream/remove-stage", "streams", "Orders"),

@@ -7,6 +7,7 @@ import { Code } from '@astrojs/starlight/components';
 import swapString from '../../../../data/output/operators/library/swap-string.ansi?raw';
 import swapIndexOf from '../../../../data/output/operators/library/swap-index-of.ansi?raw';
 import swapMath from '../../../../data/output/operators/library/swap-math.ansi?raw';
+import reverseOrdering from '../../../../data/output/operators/library/reverse-ordering.ansi?raw';
 import stringConstant from '../../../../data/output/operators/library/string-constant.ansi?raw';
 import regexConstant from '../../../../data/output/operators/library/regex-constant.ansi?raw';
 
@@ -19,6 +20,7 @@ difference would show.
 | [`library/swap-string`](#string-method-swap) | a `String` method and the similar one: `startsWith` and `endsWith`, `toUpperCase` and `toLowerCase` | defaults |
 | [`library/swap-index-of`](#indexof-swap) | `indexOf` and `lastIndexOf` | stronger |
 | [`library/swap-math`](#math-method-swap) | `min` and `max`, of `Math`, a stream or a collection; `Math.floor` and `Math.ceil` | defaults |
+| [`library/reverse-ordering`](#reverse-ordering) | `a.compareTo(b)` to `b.compareTo(a)`; `reversed()` and `reverseOrder` left out | stronger |
 | [`mutastic/string-constant`](#string-constant) | a string in the code, to `""` | stronger |
 | [`mutastic/regex-constant`](#regex-constant) | a regular expression, to one that differs and still compiles | extended |
 
@@ -158,7 +160,59 @@ and `max`, and a value with a fraction for `floor` and `ceil`.
 **Edition notes:** rounding a whole number, `Math.floor((double) count)`, is skipped as equivalent,
 as it rounds to itself either way. The Rust edition has this operator too, `library/swap-math`, for
 `min` and `max` on numbers and iterators, `cmp::min` and `cmp::max`, `min_by` and `max_by`, and
-`floor` and `ceil`, and adds `library/reverse-ordering`, which turns `a.cmp(&b)` into `b.cmp(&a)`.
+`floor` and `ceil`.
+
+## Reverse ordering
+
+`library/reverse-ordering`, in the `stronger` set. An order turns round: `a.compareTo(b)` becomes
+`b.compareTo(a)`, a comparator's or a list's `reversed()` is left out, `Collections.reverseOrder(c)`
+becomes `c`, and `Comparator.reverseOrder()` becomes `naturalOrder()`.
+
+**The bug it stands for:** a sort the wrong way round: oldest first where newest was meant, a
+ranking upside down. Tests whose input is already in order, or that only count what comes back,
+can't tell.
+
+{/* from: samples/operator-docs/src/main/java/com/example/library/Leaderboard.java */}
+```java
+  /// The names, highest score first.
+  public static List<String> ranking(List<Player> players) {
+    return players.stream()
+        .sorted(Comparator.comparingInt(Player::score).reversed())
+        .map(Player::name)
+        .toList();
+  }
+```
+
+The test counts the names, which come back whatever their order:
+
+{/* from: samples/operator-docs/src/test/java/com/example/library/LeaderboardTest.java */}
+```java
+  @Test
+  void everyPlayerIsRanked() {
+    var players = List.of(new Player("ann", 3), new Player("bo", 1));
+    assertEquals(2, Leaderboard.ranking(players).size());
+  }
+```
+
+<Code code={reverseOrdering} lang="ansi" />
+
+**The test that catches it:** one with input out of order, asserting the order that comes out.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/library/LeaderboardTest.java */}
+```java
+  @Test
+  void theHighestScoreComesFirst() {
+    var players = List.of(new Player("bo", 1), new Player("ann", 3));
+    assertEquals(List.of("ann", "bo"), Leaderboard.ranking(players));
+  }
+```
+
+**Edition notes:** run it with `--operators=stronger`. A `compareTo` whose result is only tested for
+`0`, `a.compareTo(b) == 0`, is skipped as equivalent, as both are `0` for the same values. The swap is
+made where both values are of one type, or the call is `Comparable`'s own, so `compareTo` on a type
+whose argument is a supertype, such as `LocalDate`'s, is left alone. The Rust edition has this
+operator too, `library/reverse-ordering`, which turns `a.cmp(&b)` into `b.cmp(&a)`, `partial_cmp`
+too, and leaves out an ordering's `.reverse()`.
 
 ## String constant
 
