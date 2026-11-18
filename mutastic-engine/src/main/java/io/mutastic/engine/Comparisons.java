@@ -276,7 +276,7 @@ final class Comparisons {
 
   /// A value proved to be zero or above: an array's length, or a call in [#NEVER_NEGATIVE_CALLS]
   /// made with the instruction it's listed with.
-  private static boolean neverNegative(Instruction instruction) {
+  static boolean neverNegative(Instruction instruction) {
     if (instruction.opcode() == Opcode.ARRAYLENGTH) {
       return true;
     }

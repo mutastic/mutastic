@@ -84,3 +84,16 @@
   changed: "{name} changed to {to}"
   headline: no test tells `{name}` from `{to}` in {method}
   help: use a collection whose first and last differ, and assert which one comes back
+
+# The rounding-down forms of division as the plain operators, which round towards zero: the bug of
+# not having used them. Two numbers that are never negative divide the same either way.
+- id: library/plain-division
+  explanation: `Math.floorDiv` and `Math.floorMod` become `/` and `%`, which round towards zero instead of down. It goes unnoticed when no test divides a negative number that doesn't divide exactly.
+  tier: stronger
+  owners: java.lang.Math, java.lang.StrictMath
+  methods: floorDiv, floorMod
+  descriptors: (II)I, (JJ)J, (JI)J, (JI)I
+  rewrite: plain division
+  changed: rounds towards zero
+  headline: no test gives `{name}` a negative number in {method}
+  help: add a test with a negative number that doesn't divide exactly, and assert the result

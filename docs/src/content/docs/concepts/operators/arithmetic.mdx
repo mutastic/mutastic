@@ -13,6 +13,7 @@ import constantValue from '../../../../data/output/operators/arithmetic/constant
 import flipIncrement from '../../../../data/output/operators/arithmetic/flip-increment.ansi?raw';
 import removeNegation from '../../../../data/output/operators/arithmetic/remove-negation.ansi?raw';
 import uncheckedArithmetic from '../../../../data/output/operators/arithmetic/unchecked-arithmetic.ansi?raw';
+import plainDivision from '../../../../data/output/operators/arithmetic/plain-division.ansi?raw';
 
 Operators that change a calculation: its operator, one of its values, a number in the code, or a
 bit. Together they ask whether your tests' values are ones where getting the arithmetic wrong would
@@ -29,6 +30,7 @@ show.
 | [`mutastic/flip-increment`](#flip-increment) | `i++` and `i--`, `i += 2` and `i -= 2` | stronger |
 | [`mutastic/remove-negation`](#remove-negation) | `-x` to `x` | stronger |
 | [`library/unchecked-arithmetic`](#unchecked-arithmetic) | `Math.addExact` and the like to the plain operation, which overflows | stronger |
+| [`library/plain-division`](#plain-division) | `Math.floorDiv` and `floorMod` to `/` and `%`, which round towards zero | stronger |
 
 Each example is a class in `samples/operator-docs` with a test that misses its mutant, and each card
 is what `mutastic run samples/operator-docs --operators=all` prints for it.
@@ -447,3 +449,50 @@ that the check is still there.
 `multiplyExact`, `incrementExact`, `decrementExact`, `negateExact` and `toIntExact`, on `Math` and
 `StrictMath`. The Rust edition has this operator too, `library/unchecked-arithmetic`:
 `a.checked_add(b)` becomes `Some(a.wrapping_add(b))`, and `saturating_sub` becomes `wrapping_sub`.
+
+## Plain division
+
+`library/plain-division`, in the `stronger` set. `Math.floorDiv` and `Math.floorMod` become `/` and
+`%`, which round towards zero instead of down.
+
+**The bug it stands for:** a division or remainder that's wrong for negative numbers: `-1 % 3` is
+`-1`, where `Math.floorMod(-1, 3)` is `2`. It costs wherever a number can go below zero: an index
+that wraps round a ring backwards, a day of the week before the epoch, a bucket for a negative hash.
+Someone chose `floorMod` for that, and if no test has a negative number, nothing shows it's still
+needed.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arithmetic/Carousel.java */}
+```java
+  /// The slide shown after moving `steps` from the first, either way.
+  public static int slide(int steps, int count) {
+    return Math.floorMod(steps, count);
+  }
+```
+
+The test only moves forwards, where both agree:
+
+{/* from: samples/operator-docs/src/test/java/com/example/arithmetic/CarouselTest.java */}
+```java
+  @Test
+  void movingPastTheLastSlideWrapsRound() {
+    assertEquals(1, Carousel.slide(4, 3));
+  }
+```
+
+<Code code={plainDivision} lang="ansi" />
+
+**The test that catches it:** one with a negative number that doesn't divide exactly.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arithmetic/CarouselTest.java */}
+```java
+  @Test
+  void movingBackFromTheFirstSlideWrapsRound() {
+    assertEquals(2, Carousel.slide(-1, 3));
+  }
+```
+
+**Edition notes:** run it with `--operators=stronger`. It covers `floorDiv` and `floorMod`, on `Math`
+and `StrictMath`. A length or count divided by a constant that isn't negative,
+`Math.floorMod(text.length(), 3)`, is skipped as equivalent, as neither can be negative. The Rust
+edition has this operator too, `library/plain-division`: `a.div_euclid(b)` becomes `a / b`, and
+`rem_euclid` becomes `%`.

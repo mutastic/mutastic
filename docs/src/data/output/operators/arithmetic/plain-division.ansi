@@ -1,0 +1,24 @@
+ [41;30;1m ✗ MISSED [0m no test gives [1mfloorMod[0m a negative number in slide()
+    [2m┌─[0m src/main/java/com/example/arithmetic/Carousel.java:9
+    [2m│[0m
+ [2m 8[0m [2m│[0m   public static int slide(int steps, int count) {
+ [2m 9[0m [2m│[0m     return Math.floorMod(steps, count);
+    [2m│[0m                 [1;31m^^^^^^^^ rounds towards zero[0m
+ [2m10[0m [2m│[0m   }
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mreturn Math.floorMod(steps, count);
+              [32m+ [0mreturn steps % count;
+    [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: steps = 4; count = 3
+            [2mcovered by CarouselTest#movingPastTheLastSlideWrapsRound (its 1 covering test still passes)[0m
+    [2m=[0m [32m[1mhelp[0m[0m: add a test with a negative number that doesn't divide exactly, and assert the result
+
+            [2m// in CarouselTest[0m
+            @Test
+            void slideWithStepsMinus1AndCount4() {
+            [32m  assertEquals(3, Carousel.slide(-1, 4)); // today 3 · with this mutant -1[0m
+            }
+            [2mcheck today's value is the one you intend: the test pins what the code does now[0m
+
+    [2mdone when [0m mutastic verify mccd267de samples/operator-docs[2m passes[0m
+    [2mreproduce [0m mutastic run --only=mccd267de samples/operator-docs
+    [2mor ignore [0m mutastic ignore mccd267de --reason="<why>" samples/operator-docs

@@ -32,6 +32,8 @@ import java.util.Set;
 ///   `descriptors` lists, each of which must have that shorter one.
 /// - `unchecked arithmetic`: `Math.addExact` and the like as the plain operation, which overflows
 ///   rather than throwing.
+/// - `plain division`: `Math.floorDiv` and `floorMod` as `/` and `%`, which round towards zero
+///   rather than down.
 /// - `keep argument`: what the call was given goes on in its place, what it was called on dropped.
 ///   Only for a call of one argument of the type it returns: `opt.orElse(x)` becomes `x`.
 /// - `call name(ARGS) with A, B`: drop the arguments and call another method on the same receiver
@@ -62,6 +64,7 @@ public record CallRule(
     implements Mutator {
   static final String OMIT_LAST = "omit last argument";
   static final String UNCHECKED = "unchecked arithmetic";
+  static final String PLAIN_DIVISION = "plain division";
   static final String KEEP_ARGUMENT = "keep argument";
 
   /// What a class file's major version is more than the Java release it's for.
@@ -109,13 +112,7 @@ public record CallRule(
   private List<Change> rewritten(InvokeInstruction call, Site site) {
     var name = call.name().stringValue();
     if (rewrite.equals("remove")) {
-      if (!call.typeSymbol().returnType().equals(call.owner().asSymbol())) {
-        return List.of(); // nothing to leave in its place
-      }
-      var skipped =
-          equivalent(call, site.code(), site.index())
-              .or(() -> EndlessStreams.whyNotRemoved(call, site.code(), site.index()));
-      return List.of(new Change("remove", skipped));
+      return removed(call, site);
     }
     if (rewrite.startsWith("rename ")) {
       return renames().stream()
@@ -126,10 +123,26 @@ public record CallRule(
                       pair[1], LibrarySwaps.equivalent(call, pair[1], site.code(), site.index())))
           .toList();
     }
+    if (rewrite.equals(PLAIN_DIVISION)) {
+      return List.of(
+          new Change(rewrite, PlainDivision.equivalent(call, site.code(), site.index())));
+    }
     if (rewrite.equals(OMIT_LAST) || rewrite.equals(UNCHECKED) || rewrite.equals(KEEP_ARGUMENT)) {
       return List.of(Change.of(rewrite));
     }
     return List.of(Change.of(source.isEmpty() ? rewrite.substring("call ".length()) : source));
+  }
+
+  /// The call left out, its receiver in its place: none when the receiver isn't of the type it
+  /// returns, so there's nothing to leave.
+  private static List<Change> removed(InvokeInstruction call, Site site) {
+    if (!call.typeSymbol().returnType().equals(call.owner().asSymbol())) {
+      return List.of();
+    }
+    var skipped =
+        equivalent(call, site.code(), site.index())
+            .or(() -> EndlessStreams.whyNotRemoved(call, site.code(), site.index()));
+    return List.of(new Change("remove", skipped));
   }
 
   private boolean matches(InvokeInstruction call) {
@@ -201,6 +214,7 @@ public record CallRule(
     }
     switch (rewrite) {
       case UNCHECKED -> UncheckedArithmetic.write(builder, call);
+      case PLAIN_DIVISION -> PlainDivision.write(builder, call);
       case OMIT_LAST -> omitLast(builder, call);
       case KEEP_ARGUMENT -> keepArgument(builder, call);
       default -> dropArguments(builder, call);
@@ -322,6 +336,7 @@ public record CallRule(
       case "remove" -> "{receiver}";
       case KEEP_ARGUMENT -> "{arg1}";
       case UNCHECKED -> UncheckedArithmetic.written(name, mutant.original());
+      case PLAIN_DIVISION -> PlainDivision.written(name, mutant.original());
       case OMIT_LAST ->
           "{receiver}.%s(%s)"
               .formatted(

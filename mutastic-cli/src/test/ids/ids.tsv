@@ -2547,6 +2547,10 @@ mfced7dd2	operator-docs	com/example/arithmetic/Bill#perPerson(II)I	mutastic/othe
 me0fc0c36	operator-docs	com/example/arithmetic/Bill#perPerson(II)I	mutastic/other-arithmetic	6	IDIV → ISUB
 maaa9bc04	operator-docs	com/example/arithmetic/Bill#perPerson(II)I	mutastic/replace-body	6	ILOAD_0 → body return 0
 m6971f9b3	operator-docs	com/example/arithmetic/Bill#perPerson(II)I	mutastic/return-value	6	IRETURN → return 0
+mccd267de	operator-docs	com/example/arithmetic/Carousel#slide(II)I	library/plain-division	9	INVOKESTATIC java/lang/Math.floorMod(II)I → plain division
+me22d268e	operator-docs	com/example/arithmetic/Carousel#slide(II)I	mutastic/replace-body	9	ILOAD_0 → body return 0
+m7e73df7e	operator-docs	com/example/arithmetic/Carousel#slide(II)I	mutastic/return-value	9	IRETURN → return 0
+mbd5c41ed	operator-docs	com/example/arithmetic/Carousel#slide(II)I	mutastic/swap-arguments	9	INVOKESTATIC java/lang/Math.floorMod(II)I → swap last two arguments
 md5ce0d0c	operator-docs	com/example/arithmetic/Checkout#total(II)I	mutastic/arithmetic-replacement	5	IADD → IMUL
 m46de907a	operator-docs	com/example/arithmetic/Checkout#total(II)I	mutastic/keep-operand	5	IADD → keep first
 mcd6bd11a	operator-docs	com/example/arithmetic/Checkout#total(II)I	mutastic/keep-operand	5	IADD → keep second
