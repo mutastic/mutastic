@@ -7,8 +7,18 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ## Unreleased
 
+### Scoring changes
+
+- **A for-each loop's test made `!=` is skipped as equivalent (stronger).** javac counts the
+  loop's index up from 0 to the array's length and no further, so `mutastic/comparison` changing
+  `index < length` to `index != length` changes nothing, and no test could catch it. `stronger`
+  runs have one mutant fewer to run for each such loop, and scores go up a little; no id changes.
+
 ### Fixes
 
+- **A for-each loop over an array is told as the loop.** Its card said what javac compiles it to,
+  `local4 < local3` is always true. It now says what the loop does: the for-each loop over `items`
+  reads past its last element, an ArrayIndexOutOfBoundsException, or never runs its body.
 - **Your build keeps its own JDK.** mutastic needs JDK 25, so the command line had you set
   `JAVA_HOME` to one, and then ran your build and its tests on it too: an older Gradle can't run
   on JDK 25, and an older Mockito can't mock there. The start script now finds a JDK for mutastic

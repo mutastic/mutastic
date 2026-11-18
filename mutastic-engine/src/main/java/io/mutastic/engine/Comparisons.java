@@ -158,27 +158,59 @@ final class Comparisons {
     var jump = Jump.of(branch.opcode());
     var before = ImpliedOr.instructionsBefore(code, at, 4);
     var site = new Site(jump, before, code);
-    var reason = noLowerThanItsEdge(jump, before);
-    boolean neverNegative = reason.isPresent();
+    var reach = reach(jump, before, code, at);
     var changes = new ArrayList<Mutator.Change>();
     for (Relation change : relations(operator, site)) {
       var label = jump.family().opcode(change).name();
-      if (neverNegative && sameFromZero(jump.relation(), change)) {
-        changes.add(new Mutator.Change(label, reason));
-      } else if (!neverNegative || madeHere(operator, site, change)) {
+      if (reach.isEmpty()) {
+        changes.add(Mutator.Change.of(label));
+      } else if (reach.get().same(jump.relation(), change)) {
+        changes.add(new Mutator.Change(label, Optional.of(reach.get().reason())));
+      } else if (!reach.get().once() || madeHere(operator, site, change, reach.get())) {
         changes.add(Mutator.Change.of(label));
       }
     }
     return changes;
   }
 
-  /// For a value that's never negative, whether `operator` is the one to make `change`: not when,
-  /// for zero and above, the changed jump always goes one way, as remove-conditional's mutants do,
-  /// or goes as an earlier change's does (boundary's first, then comparison's, then the others), so
-  /// no jump gets the same change twice. Which one makes it doesn't depend on the operators a run
-  /// uses, so an id found by one run is found by any.
-  private static boolean madeHere(BuiltIn operator, Site site, Relation change) {
-    if (change.holds(0) == change.holds(1)) {
+  /// The two signs `a - b` can have where a jump compares them, when it can't have all three, and
+  /// why: zero and above for a length or count compared with 0 ([#NEVER_NEGATIVE]), or an index
+  /// with -1; zero and below for a for-each loop's index compared with the array's length
+  /// ([#FOR_EACH_INDEX]). `once` when each change that differs is made only once: a for-each loop's
+  /// changes that do the same to the loop are each still made, as their ids were kept before its
+  /// test was known, and an id once kept names its mutant for good.
+  private record Reach(String reason, int low, int high, boolean once) {
+    /// Whether the two relations give the same answer for both signs.
+    boolean same(Relation one, Relation other) {
+      return one.holds(low) == other.holds(low) && one.holds(high) == other.holds(high);
+    }
+
+    /// Whether the relation gives one answer for both: the condition always true or false.
+    boolean constant(Relation relation) {
+      return relation.holds(low) == relation.holds(high);
+    }
+  }
+
+  static final String FOR_EACH_INDEX =
+      "equivalent: differs only when a for-each loop's index is past the array's length. That"
+          + " can't happen because the loop counts it up from 0 by one, and reads the element at"
+          + " the index before the body runs.";
+
+  private static Optional<Reach> reach(
+      Jump jump, List<Instruction> before, List<CodeElement> code, int at) {
+    if (ArrayForEach.arraySlot(code, at).isPresent()) {
+      return Optional.of(new Reach(FOR_EACH_INDEX, -1, 0, false));
+    }
+    return noLowerThanItsEdge(jump, before).map(reason -> new Reach(reason, 0, 1, true));
+  }
+
+  /// For a jump whose signs are only two, whether `operator` is the one to make `change`: not when,
+  /// for those, the changed jump always goes one way, as remove-conditional's mutants do, or goes
+  /// as an earlier change's does (boundary's first, then comparison's, then the others), so no jump
+  /// gets the same change twice. Which one makes it doesn't depend on the operators a run uses, so
+  /// an id found by one run is found by any.
+  private static boolean madeHere(BuiltIn operator, Site site, Relation change, Reach reach) {
+    if (reach.constant(change)) {
       return false; // remove-conditional's
     }
     for (BuiltIn earlier :
@@ -187,9 +219,8 @@ final class Comparisons {
         if (earlier == operator && made == change) {
           return true;
         }
-        boolean madeEarlier =
-            !sameFromZero(site.jump().relation(), made) && made.holds(0) != made.holds(1);
-        if (madeEarlier && sameFromZero(made, change)) {
+        boolean madeEarlier = !reach.same(site.jump().relation(), made) && !reach.constant(made);
+        if (madeEarlier && reach.same(made, change)) {
           return false;
         }
       }

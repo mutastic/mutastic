@@ -57,7 +57,7 @@ class CardTruthTest {
 
   /// The predicates the conditions call: not conditions of their own.
   private static final Set<String> HELPERS =
-      Set.of("even", "small", "atLeastOne", "isAbove", "counted");
+      Set.of("even", "small", "atLeastOne", "isAbove", "counted", "upTo", "boxedUpTo", "longsUpTo");
 
   private static final Set<BuiltIn> CONDITIONS =
       Set.of(
@@ -66,6 +66,22 @@ class CardTruthTest {
           BuiltIn.REMOVE_CONDITIONAL,
           BuiltIn.OTHER_COMPARISON,
           BuiltIn.LOGICAL_CONNECTOR);
+
+  /// A for-each loop's card, which says what the loop does: the array it goes over, and what.
+  private static final Pattern FOR_EACH =
+      Pattern.compile(
+          "the for-each loop over `(?<array>[^`]+)` (?<what>reads past its last element"
+              + "|never runs its body, and reads past the end of an empty array"
+              + "|never runs its body)");
+
+  /// Each thing a for-each loop's card can say it does, as the test of an index loop over the array
+  /// in `array$`: going on past the last element, never starting, and starting only for an empty
+  /// array. Each reads the length, as the loop does, so a null array throws there too.
+  private static final Map<String, String> LOOP_TESTS =
+      Map.of(
+          "reads past its last element", "array$.length >= 0",
+          "never runs its body", "array$.length < 0",
+          "never runs its body, and reads past the end of an empty array", "array$.length == 0");
 
   private static final Pattern ALWAYS =
       Pattern.compile("`(?<condition>[^`]+)` is always (?<value>true|false)");
@@ -184,6 +200,31 @@ class CardTruthTest {
     assertThat(claims.stream().map(claim -> claim.mutant().methodName()))
         .contains(
             "namedText", "namedTextFirst", "finalLocalText", "classLiteral", "primitiveClass");
+    // A for-each loop over an array is claimed as the loop, over the array as the source writes
+    // it, for every kind of array, nested, and left by `break`, `continue` or `return`.
+    assertThat(claims)
+        .filteredOn(claim -> claim.advice().change().startsWith("the for-each loop over `"))
+        .extracting(claim -> claim.mutant().methodName())
+        .contains(
+            "forEachInts",
+            "forEachObjects",
+            "forEachLongs",
+            "forEachField",
+            "forEachChars",
+            "forEachNested",
+            "forEachBreak",
+            "forEachContinue",
+            "forEachReturn",
+            "forEachUnused");
+    assertThat(claims.stream().map(claim -> claim.advice().change()))
+        .contains(
+            "the for-each loop over `rows` reads past its last element, an"
+                + " ArrayIndexOutOfBoundsException",
+            "the for-each loop over `columns` never runs its body",
+            "the for-each loop over `longsUpTo(a)` never runs its body, and reads past the end of"
+                + " an empty array",
+            "the for-each loop over `Integer.toString(a * b).toCharArray()` never runs its body")
+        .noneMatch(change -> change.contains("local"));
   }
 
   /// A mutant skipped as equivalent behaves as the code does on every input: a skip rule that's
@@ -616,6 +657,10 @@ class CardTruthTest {
   /// The source with the card's claim written into the mutant's method.
   private static Optional<String> claim(
       String text, String withValues, Mutant mutant, Advice advice) {
+    var loop = match(FOR_EACH, advice.change());
+    if (loop.isPresent()) {
+      return forEach(withValues, mutant, loop.get());
+    }
     Optional<String[]> edit =
         switch ((BuiltIn) mutant.operator()) {
           case REMOVE_CONDITIONAL ->
@@ -634,6 +679,32 @@ class CardTruthTest {
           default -> Optional.empty();
         };
     return edit.flatMap(found -> replaceIn(withValues, mutant, found[0], found[1]));
+  }
+
+  /// What a for-each loop's card says it does, written in: the loop on the mutant's line, over the
+  /// array the card names, as an index loop whose test does what the card says, `for (int x :
+  /// items) {` as `var array$ = items; for (int index$ = 0; array$.length >= 0; index$++) { int x =
+  /// array$[index$];`, on the same line.
+  private static Optional<String> forEach(
+      String withValues, Mutant mutant, java.util.regex.Matcher card) {
+    var lines = new ArrayList<>(withValues.lines().toList());
+    var line = lines.get(mutant.line() - 1);
+    var header =
+        Pattern.compile(
+                "for \\((?<declaration>[^:()]+) : "
+                    + Pattern.quote(card.group("array"))
+                    + "\\) \\{")
+            .matcher(line);
+    if (!header.find()) {
+      return Optional.empty();
+    }
+    var test = LOOP_TESTS.get(card.group("what"));
+    var loop =
+        "var array$ = %s; for (int index$ = 0; %s; index$++) { %s = array$[index$];"
+            .formatted(card.group("array"), test, header.group("declaration"));
+    lines.set(
+        mutant.line() - 1, line.substring(0, header.start()) + loop + line.substring(header.end()));
+    return Optional.of(String.join("\n", lines) + "\n");
   }
 
   /// A comparison's headline, that the mutant differs only where `a > b`, written in: the condition
