@@ -9,6 +9,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`library/swap-ends`, in `stronger`: one end of a collection for the other.** `getFirst` and
+  `getLast`, a `Deque`'s `peekFirst` and `peekLast` and `pollFirst` and `pollLast`, a `SortedSet`'s
+  `first` and `last`, and a `SortedMap`'s `firstKey` and `lastKey` and `firstEntry` and `lastEntry`
+  swap places. It finds the newest taken where the oldest was meant, which tests with one element
+  can't see. The Rust edition has it too, for `first` and `last` and `front` and `back`. See [Swap
+  ends](https://docs.mutastic.io/concepts/operators/library/#swap-ends).
 - **`library/reverse-ordering`, in `stronger`: an order turned round.** `a.compareTo(b)` becomes
   `b.compareTo(a)`, a comparator's or a list's `reversed()` is left out, `Collections.reverseOrder(c)`
   becomes `c`, and `Comparator.reverseOrder()` becomes `naturalOrder()`. It finds a sort the wrong

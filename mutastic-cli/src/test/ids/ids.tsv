@@ -2756,6 +2756,12 @@ m263bce9e	operator-docs	com/example/library/Headers#header(Ljava/util/List;)Ljav
 m51cc54af	operator-docs	com/example/library/Headers#header(Ljava/util/List;)Ljava/lang/String;	mutastic/replace-body	7	LDC → body return ""
 m518fcbd0	operator-docs	com/example/library/Headers#header(Ljava/util/List;)Ljava/lang/String;	mutastic/return-value	7	ARETURN → return ""
 m0d61f3d0	operator-docs	com/example/library/Headers#header(Ljava/util/List;)Ljava/lang/String;	mutastic/string-constant	7	LDC → string ", " to ""
+m8e8547fe	operator-docs	com/example/library/History#current()Ljava/lang/String;	library/swap-ends	16	INVOKEINTERFACE java/util/Deque.peekLast()Ljava/lang/Object; → peekFirst
+m2e83231d	operator-docs	com/example/library/History#current()Ljava/lang/String;	mutastic/replace-body	16	ALOAD_0 → body return ""
+m9557b050	operator-docs	com/example/library/History#current()Ljava/lang/String;	mutastic/return-value	16	ARETURN → return ""
+mce9ccf48	operator-docs	com/example/library/History#visit(Ljava/lang/String;)V	mutastic/null-parameter	11	ALOAD_0 → null parameter 1 page
+m6bcaa796	operator-docs	com/example/library/History#visit(Ljava/lang/String;)V	mutastic/remove-void-call	11	INVOKEINTERFACE java/util/Deque.addLast(Ljava/lang/Object;)V → remove call
+ma817b40c	operator-docs	com/example/library/History#visit(Ljava/lang/String;)V	mutastic/replace-body	11	ALOAD_0 → body emptied
 m4f5fa815	operator-docs	com/example/library/Leaderboard#ranking(Ljava/util/List;)Ljava/util/List;	library/reverse-ordering	12	INVOKEINTERFACE java/util/Comparator.reversed()Ljava/util/Comparator; → remove
 m36643ffe	operator-docs	com/example/library/Leaderboard#ranking(Ljava/util/List;)Ljava/util/List;	mutastic/null-parameter	11	ALOAD_0 → null parameter 0 players
 m6d0302d5	operator-docs	com/example/library/Leaderboard#ranking(Ljava/util/List;)Ljava/util/List;	mutastic/replace-body	11	ALOAD_0 → body return List.of()
