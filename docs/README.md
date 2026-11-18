@@ -41,7 +41,8 @@ Code is set in JetBrains Mono with its ligatures off: these pages are about tell
 
 Every recent release's docs stay published, each built from its own tag:
 `docs.mutastic.io/` is the latest release, `docs.mutastic.io/v0.3/` the newest 0.3 release, kept for
-the last five release lines. `scripts/build-versions.mjs` builds them all at each release; older
+the last five release lines. `docs.mutastic.io/v1/` redirects to the newest 1.x line's, and so on
+for each major version, written into `_redirects` with the rest so it moves at each release. `scripts/build-versions.mjs` builds them all at each release; older
 releases show a banner pointing at the latest, a version switcher sits beside the title, and only
 the latest at the root is indexed. A release's `mutastic --help` links to its own line's docs.
 

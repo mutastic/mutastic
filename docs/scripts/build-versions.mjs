@@ -2,15 +2,16 @@
 // reference is written from its own release's CLI:
 //
 //   node scripts/build-versions.mjs --release   the latest release at the root and under
-//                                               /v<line>/, and each earlier release line under
-//                                               its own /v<line>/
+//                                               /v<line>/, each earlier release line under its
+//                                               own /v<line>/, and /v<major>/ redirected to the
+//                                               newest line of each major version
 //   node scripts/build-versions.mjs --next      this checkout alone, as main's docs: "next"
 //
 // Run from docs/, with the repository's tags fetched; the docs workflow does both. A release line
 // is the newest patch of each minor version, 0.3 for 0.3.0 and 0.3.1. Older lines whose build
 // fails are left out, and said so, rather than holding up a release; the latest must build.
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -92,6 +93,31 @@ function checkout(tag) {
   return worktree;
 }
 
+/**
+ * The redirects from each major version to its newest published line, `/v1/` to `/v1.2/`, so a
+ * link to a major version's docs keeps working as its lines come and go. Temporary (302), as the
+ * next 1.x release moves it. `published` is the latest first.
+ */
+function majorRedirects(published) {
+  const newest = new Map();
+  for (const { line } of published) {
+    const major = line.split('.')[0];
+    if (!newest.has(major)) newest.set(major, line);
+  }
+  return [...newest].flatMap(([major, line]) => [
+    `/v${major} /v${line}/ 302`,
+    `/v${major}/* /v${line}/:splat 302`,
+  ]);
+}
+
+/** The major versions' redirects, after the latest release's own in Cloudflare Pages' _redirects. */
+function writeMajorRedirects(published) {
+  const file = join(out, '_redirects');
+  const own = existsSync(file) ? readFileSync(file, 'utf8').replace(/\n*$/, '\n') : '';
+  const major = majorRedirects(published).join('\n');
+  writeFileSync(file, `${own}# Each major version, to its newest release line's docs.\n${major}\n`);
+}
+
 function release() {
   const lines = releaseLines();
   if (lines.length === 0) throw new Error('no release has docs that can be versioned yet');
@@ -118,6 +144,7 @@ function release() {
       git('worktree', 'remove', '--force', worktree);
     }
   }
+  writeMajorRedirects(published);
   writeFileSync(join(out, 'versions.json'), JSON.stringify({ latest, published }, null, 2) + '\n');
   console.log(`mutastic docs: ${published.map((each) => each.tag).join(', ')}; ${latest} at the root`);
 }
