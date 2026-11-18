@@ -2756,6 +2756,11 @@ m263bce9e	operator-docs	com/example/library/Headers#header(Ljava/util/List;)Ljav
 m51cc54af	operator-docs	com/example/library/Headers#header(Ljava/util/List;)Ljava/lang/String;	mutastic/replace-body	7	LDC → body return ""
 m518fcbd0	operator-docs	com/example/library/Headers#header(Ljava/util/List;)Ljava/lang/String;	mutastic/return-value	7	ARETURN → return ""
 m0d61f3d0	operator-docs	com/example/library/Headers#header(Ljava/util/List;)Ljava/lang/String;	mutastic/string-constant	7	LDC → string ", " to ""
+m4f5fa815	operator-docs	com/example/library/Leaderboard#ranking(Ljava/util/List;)Ljava/util/List;	library/reverse-ordering	12	INVOKEINTERFACE java/util/Comparator.reversed()Ljava/util/Comparator; → remove
+m36643ffe	operator-docs	com/example/library/Leaderboard#ranking(Ljava/util/List;)Ljava/util/List;	mutastic/null-parameter	11	ALOAD_0 → null parameter 0 players
+m6d0302d5	operator-docs	com/example/library/Leaderboard#ranking(Ljava/util/List;)Ljava/util/List;	mutastic/replace-body	11	ALOAD_0 → body return List.of()
+mb665981b	operator-docs	com/example/library/Leaderboard#ranking(Ljava/util/List;)Ljava/util/List;	mutastic/return-value	11	ARETURN → return List.of()
+mea2dece6	operator-docs	com/example/library/Leaderboard#ranking(Ljava/util/List;)Ljava/util/List;	stream/remove-stage	12	INVOKEINTERFACE java/util/stream/Stream.sorted(Ljava/util/Comparator;)Ljava/util/stream/Stream; → remove
 m8d47a622	operator-docs	com/example/library/OrderNumbers#<clinit>()V	mutastic/regex-constant	7	LDC → regex "^\\d+$" to "\\d+$"
 m3349287f	operator-docs	com/example/library/OrderNumbers#<clinit>()V	mutastic/regex-constant	7	LDC → regex "^\\d+$" to "^\\D+$"
 maeb2c32c	operator-docs	com/example/library/OrderNumbers#<clinit>()V	mutastic/regex-constant	7	LDC → regex "^\\d+$" to "^\\d$"
@@ -2765,6 +2770,10 @@ mb495c8d0	operator-docs	com/example/library/OrderNumbers#isValid(Ljava/lang/Stri
 m980495a9	operator-docs	com/example/library/OrderNumbers#isValid(Ljava/lang/String;)Z	mutastic/replace-body	10	GETSTATIC → body return true
 m61c0b01f	operator-docs	com/example/library/OrderNumbers#isValid(Ljava/lang/String;)Z	mutastic/return-value	10	IRETURN → return false
 m2846e1eb	operator-docs	com/example/library/OrderNumbers#isValid(Ljava/lang/String;)Z	mutastic/return-value	10	IRETURN → return true
+mfe5a7142	operator-docs	com/example/library/Player#name()Ljava/lang/String;	mutastic/replace-body	3	ALOAD_0 → body return ""
+mdfffc16d	operator-docs	com/example/library/Player#name()Ljava/lang/String;	mutastic/return-value	3	ARETURN → return ""
+ma4931a7d	operator-docs	com/example/library/Player#score()I	mutastic/replace-body	3	ALOAD_0 → body return 0
+m47f2412d	operator-docs	com/example/library/Player#score()I	mutastic/return-value	3	IRETURN → return 0
 m1976841e	operator-docs	com/example/optional/Badges#badge(Ljava/lang/String;Ljava/util/Optional;)Lcom/example/optional/Badges$Badge;	mutastic/null-parameter	10	NEW → null parameter 0 name
 m82e8d444	operator-docs	com/example/optional/Badges#badge(Ljava/lang/String;Ljava/util/Optional;)Lcom/example/optional/Badges$Badge;	mutastic/null-parameter	10	NEW → null parameter 1 nickname
 mc1676be2	operator-docs	com/example/optional/Badges#badge(Ljava/lang/String;Ljava/util/Optional;)Lcom/example/optional/Badges$Badge;	mutastic/replace-body	10	NEW → body return null
