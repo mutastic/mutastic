@@ -1872,6 +1872,17 @@
       "reason": "Each language's ways of ordering."
     },
     {
+      "id": "N46",
+      "kind": "engine",
+      "editions": [
+        "java",
+        "rust"
+      ],
+      "surface": "operators",
+      "summary": "`library/swap-ends` swaps `getFirst`, `peekFirst`, `pollFirst`, `first`, `firstKey` and `firstEntry` with their last; or `first`, `front`, `first_key_value`, `first_entry` and `pop_first` with theirs, and leaves an iterator's `last` alone",
+      "reason": "Each language's collections."
+    },
+    {
       "id": "A6",
       "kind": "engine",
       "editions": [

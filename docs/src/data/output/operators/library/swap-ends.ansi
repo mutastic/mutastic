@@ -1,0 +1,16 @@
+ [41;30;1m ✗ MISSED [0m no test tells [1mpeekLast[0m from [1mpeekFirst[0m in current()
+    [2m┌─[0m src/main/java/com/example/library/History.java:16
+    [2m│[0m
+ [2m15[0m [2m│[0m   public String current() {
+ [2m16[0m [2m│[0m     return pages.peekLast();
+    [2m│[0m                  [1;31m^^^^^^^^ peekLast changed to peekFirst[0m
+ [2m17[0m [2m│[0m   }
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mreturn pages.peekLast();
+              [32m+ [0mreturn pages.peekFirst();
+    [2m=[0m [1;34m[1mnote[0m[0m: covered by HistoryTest#aVisitedPageIsCurrent (its 1 covering test still passes)
+    [2m=[0m [32m[1mhelp[0m[0m: use a collection whose first and last differ, and assert which one comes back
+
+    [2mdone when [0m mutastic verify m8e8547fe samples/operator-docs[2m passes[0m
+    [2mreproduce [0m mutastic run --only=m8e8547fe samples/operator-docs
+    [2mor ignore [0m mutastic ignore m8e8547fe --reason="<why>" samples/operator-docs

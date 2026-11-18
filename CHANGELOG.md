@@ -9,6 +9,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`library/swap-ends`, in `stronger`: one end of a collection for the other.** `getFirst` and
+  `getLast`, a `Deque`'s `peekFirst` and `peekLast` and `pollFirst` and `pollLast`, a `SortedSet`'s
+  `first` and `last`, and a `SortedMap`'s `firstKey` and `lastKey` and `firstEntry` and `lastEntry`
+  swap places. It finds the newest taken where the oldest was meant, which tests with one element
+  can't see. The Rust edition has it too, for `first` and `last` and `front` and `back`. See [Swap
+  ends](https://docs.mutastic.io/concepts/operators/library/#swap-ends).
 - **`library/reverse-ordering`, in `stronger`: an order turned round.** `a.compareTo(b)` becomes
   `b.compareTo(a)`, a comparator's or a list's `reversed()` is left out, `Collections.reverseOrder(c)`
   becomes `c`, and `Comparator.reverseOrder()` becomes `naturalOrder()`. It finds a sort the wrong
@@ -24,16 +30,6 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   and as the Rust edition does for an iterator's. It's in the defaults, so runs get more mutants
   and scores move with them; no existing id changes. See [Math method
   swap](https://docs.mutastic.io/concepts/operators/library/#math-method-swap).
-- **A for-each loop's test made `!=` is skipped as equivalent (stronger).** javac counts the
-  loop's index up from 0 to the array's length and no further, so `mutastic/comparison` changing
-  `index < length` to `index != length` changes nothing, and no test could catch it. `stronger`
-  runs have one mutant fewer to run for each such loop, and scores go up a little; no id changes.
-
-### Fixes
-
-- **A for-each loop over an array is told as the loop.** Its card said what javac compiles it to,
-  `local4 < local3` is always true. It now says what the loop does: the for-each loop over `items`
-  reads past its last element, an ArrayIndexOutOfBoundsException, or never runs its body.
 
 ## 1.2.1 (18 Nov 2026)
 
