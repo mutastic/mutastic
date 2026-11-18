@@ -339,7 +339,8 @@ final class Options {
               Group.OUTPUT,
               "STYLE",
               ProgressChoice.CHOICES,
-              "Progress on stderr: a live line on a terminal, else a line at least every 30s",
+              "Progress on stderr: a live line on a terminal, else a line at least every 30s, as"
+                  + " always for the agent and jsonl formats",
               MUTANTS_RUN,
               "progress",
               false,

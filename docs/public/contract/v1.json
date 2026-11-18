@@ -2544,16 +2544,6 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "C2",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "configuration",
-      "summary": "`--progress` doesn't say its default for agent and jsonl",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "F1",
       "kind": "pending",
       "editions": [
@@ -2612,19 +2602,6 @@
       "surface": "gate",
       "summary": "`doesn't run anyway` only for generated and equivalent skips",
       "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "K1",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "help",
-      "summary": "The help's exit-code table isn't wrapped: lines up to 153 columns (D10 wraps to the terminal)",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "items": [
-        "help:*:width"
-      ]
     },
     {
       "id": "K3",

@@ -429,7 +429,7 @@
       "group": "Output",
       "value": "STYLE",
       "choices": ["auto", "bar", "counter", "none"],
-      "help": "Progress on stderr: a live line on a terminal, else a line at least every 30s",
+      "help": "Progress on stderr: a live line on a terminal, else a line at least every 30s, as always for the agent and jsonl formats",
       "commands": ["baseline", "explain", "next", "run", "verify"],
       "environment": "MUTASTIC_PROGRESS",
       "maven": { "property": "-Dmutastic.progress", "setting": null },
