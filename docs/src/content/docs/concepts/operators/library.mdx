@@ -18,7 +18,7 @@ difference would show.
 |---|---|---|
 | [`library/swap-string`](#string-method-swap) | a `String` method and the similar one: `startsWith` and `endsWith`, `toUpperCase` and `toLowerCase` | defaults |
 | [`library/swap-index-of`](#indexof-swap) | `indexOf` and `lastIndexOf` | stronger |
-| [`library/swap-math`](#math-method-swap) | `Math.min` and `Math.max`, `Math.floor` and `Math.ceil` | defaults |
+| [`library/swap-math`](#math-method-swap) | `min` and `max`, of `Math`, a stream or a collection; `Math.floor` and `Math.ceil` | defaults |
 | [`mutastic/string-constant`](#string-constant) | a string in the code, to `""` | stronger |
 | [`mutastic/regex-constant`](#regex-constant) | a regular expression, to one that differs and still compiles | extended |
 
@@ -116,7 +116,8 @@ for `find` and `rfind`, `position` and `rposition`, `split_once` and `rsplit_onc
 ## Math method swap
 
 `library/swap-math`, in the defaults. `Math.min` and `Math.max` swap places, and so do `Math.floor`
-and `Math.ceil`.
+and `Math.ceil`, a stream's `min` and `max` (on `IntStream`, `LongStream` and `DoubleStream` too),
+`Collections.min` and `max`, and `Collectors.minBy` and `maxBy`.
 
 **The bug it stands for:** `min` where `max` was meant, a limit that's a floor instead of a ceiling,
 or rounding the wrong way. Each reads right at a glance, and tests whose values are all on one side of
@@ -156,8 +157,8 @@ and `max`, and a value with a fraction for `floor` and `ceil`.
 
 **Edition notes:** rounding a whole number, `Math.floor((double) count)`, is skipped as equivalent,
 as it rounds to itself either way. The Rust edition has this operator too, `library/swap-math`, for
-`min` and `max`, `cmp::min` and `cmp::max`, `min_by` and `max_by`, and `floor` and `ceil`, and adds
-`library/reverse-ordering`, which turns `a.cmp(&b)` into `b.cmp(&a)`.
+`min` and `max` on numbers and iterators, `cmp::min` and `cmp::max`, `min_by` and `max_by`, and
+`floor` and `ceil`, and adds `library/reverse-ordering`, which turns `a.cmp(&b)` into `b.cmp(&a)`.
 
 ## String constant
 

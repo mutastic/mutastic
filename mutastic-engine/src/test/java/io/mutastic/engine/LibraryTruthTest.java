@@ -115,6 +115,22 @@ class LibraryTruthTest {
   }
 
   @Test
+  void aStreamsACollectionsAndACollectorsMinAndMaxAreSwapped() {
+    assertThat(running())
+        .extracting(Mutant::methodName)
+        .contains(
+            "minOfAStream",
+            "longestInAStream",
+            "maxOfACollection",
+            "shortestInACollection",
+            "minOfAnIntStream",
+            "maxOfALongStream",
+            "minOfADoubleStream",
+            "minBy",
+            "maxBy");
+  }
+
+  @Test
   void onlyTheOverloadsTheOtherMethodHasAreSwapped() throws Exception {
     assertThat(mutants())
         .extracting(Mutant::methodName)
