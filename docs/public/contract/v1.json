@@ -1861,6 +1861,17 @@
       "reason": "Assertion idioms."
     },
     {
+      "id": "N45",
+      "kind": "engine",
+      "editions": [
+        "java",
+        "rust"
+      ],
+      "surface": "operators",
+      "summary": "`library/reverse-ordering` swaps `compareTo`'s operands and leaves out `reversed()` and `reverseOrder`; or swaps `cmp`'s and `partial_cmp`'s and leaves out an ordering's `.reverse()`",
+      "reason": "Each language's ways of ordering."
+    },
+    {
       "id": "A6",
       "kind": "engine",
       "editions": [

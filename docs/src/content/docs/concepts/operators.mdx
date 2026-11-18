@@ -54,6 +54,7 @@ example with the card mutastic prints for it, and the test that catches it.
 | <span id="string-method-swap"></span>[`library/swap-string`](/concepts/operators/library/#string-method-swap) | a `String` method and the similar one: `startsWith` and `endsWith`, `toUpperCase` and `toLowerCase` | defaults | Library methods | the same |
 | <span id="indexof-swap"></span>[`library/swap-index-of`](/concepts/operators/library/#indexof-swap) | `indexOf` and `lastIndexOf` | stronger | Library methods | the same |
 | <span id="math-method-swap"></span>[`library/swap-math`](/concepts/operators/library/#math-method-swap) | `min` and `max`, of `Math`, a stream or a collection; `Math.floor` and `Math.ceil` | defaults | Library methods | the same |
+| <span id="reverse-ordering"></span>[`library/reverse-ordering`](/concepts/operators/library/#reverse-ordering) | `a.compareTo(b)` to `b.compareTo(a)`; `reversed()` and `reverseOrder` left out | stronger | Library methods | the same |
 | <span id="string-constant"></span>[`mutastic/string-constant`](/concepts/operators/library/#string-constant) | a string in the code, to `""` | stronger | Library methods | the same |
 | <span id="regex-constant"></span>[`mutastic/regex-constant`](/concepts/operators/library/#regex-constant) | a regular expression, to one that differs and still compiles | extended | Library methods | the same |
 | <span id="stream-stage-removal"></span>[`stream/remove-stage`](/concepts/operators/streams/#stream-stage-removal) | a stream stage, removed | defaults | Streams | the same, on iterators |
@@ -81,8 +82,7 @@ math's), `library/omit-argument` (no overloading), the three `predicate/*` ids (
 combinators) and `mutastic/drop-catch-type` (no multi-catch). The Rust edition adds a few of its own,
 each in the family it fits: `mutastic/unwrap-try` in returns and errors,
 `mutastic/remove-struct-field` in calls and writes, `mutastic/default-parameter` in arguments,
-`library/reverse-ordering` and `bigdecimal/remove-step` in library methods, and `mutastic/swap-break`
-in control flow.
+`bigdecimal/remove-step` in library methods, and `mutastic/swap-break` in control flow.
 
 Some ids sit in another set there: the four `optional/*` ids above and `remove-switch-arm` are in
 `stronger`, since `Option`, `Result` and `match` are everyday Rust rather than modern APIs; and

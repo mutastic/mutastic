@@ -32,10 +32,11 @@ public final class OperatorSet {
   private OperatorSet() {}
 
   /// Every operator there is for this project, in a fixed order: mutastic's own, then its rules,
-  /// then the project's.
+  /// then its operators written as code, then the project's.
   public static List<Operator> available(List<? extends Operator> added) {
     var all = new ArrayList<Operator>(Arrays.asList(BuiltIn.values()));
     all.addAll(CallRules.BUILT_IN);
+    all.add(ReverseOrdering.INSTANCE);
     all.addAll(added);
     return List.copyOf(all);
   }

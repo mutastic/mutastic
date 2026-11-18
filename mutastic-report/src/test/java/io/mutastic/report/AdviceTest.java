@@ -52,6 +52,47 @@ class AdviceTest {
             "add a test where `inCredit(b)` is true, and assert what `discount()` does then");
   }
 
+  /// A for-each loop over an array has a test of javac's own locals: the card says what the loop
+  /// does instead, over the array the source names, or an array when it can't be read back.
+  @Test
+  void saysWhatAForEachLoopDoes() {
+    var pastTheEnd = loop("never jump", "items");
+    assertThat(pastTheEnd.change())
+        .isEqualTo(
+            "the for-each loop over `items` reads past its last element, an"
+                + " ArrayIndexOutOfBoundsException");
+    assertThat(pastTheEnd.headline())
+        .isEqualTo("no test runs the for-each loop over `items` to its end in `discount()`");
+    var neverRuns = loop("always jump", "…");
+    assertThat(neverRuns.change()).isEqualTo("the for-each loop over an array never runs its body");
+    assertThat(neverRuns.fix())
+        .isEqualTo(
+            "add a test where the array has an element, and assert what `discount()` does then");
+    assertThat(Advice.of(forEach(BuiltIn.OTHER_COMPARISON, "IF_ICMPLT", "items")).fix())
+        .isEqualTo("add a test where `items` is empty, and assert what `discount()` does then");
+    assertThat(Advice.of(forEach(BuiltIn.COMPARISON, "IF_ICMPEQ", "items")).change())
+        .isEqualTo("the for-each loop over `items` tests for its end another way");
+  }
+
+  private static Advice loop(String replacement, String array) {
+    return Advice.of(forEach(BuiltIn.REMOVE_CONDITIONAL, replacement, array));
+  }
+
+  private static Mutant forEach(Operator operator, String replacement, String array) {
+    return new Mutant(
+        "com/example/Pricing",
+        "discount",
+        "(I)I",
+        0,
+        5,
+        operator,
+        "IF_ICMPGE",
+        replacement,
+        Optional.empty(),
+        List.of(),
+        List.of("for (… : %s)".formatted(array)));
+  }
+
   /// `if (count != 0)` compiles to IFEQ past the body; `if (count == 0)` to IFNE.
   @Test
   void readsAComparisonWithZeroAsTheSourceWritesIt() {
