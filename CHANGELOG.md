@@ -16,6 +16,8 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   and scores move with them; no existing id changes. See [Math method
   swap](https://docs.mutastic.io/concepts/operators/library/#math-method-swap).
 
+## 1.2.1 (18 Nov 2026)
+
 ### Fixes
 
 - **Your build keeps its own JDK.** mutastic needs JDK 25, so the command line had you set
@@ -23,8 +25,9 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   on JDK 25, and an older Mockito can't mock there. The start script now finds a JDK for mutastic
   alone, `MUTASTIC_JAVA_HOME` or else the newest JDK 25 or later of `JAVA_HOME` and those installed
   (SDKMAN, asdf, mise, Gradle's, IntelliJ's, Homebrew's, macOS's and Linux's), and the build and
-  its tests run on the `JAVA_HOME` and `PATH` you gave. With none, it says where it looked. The
-  build plugins already chose apart. See [Which JDK runs
+  its tests run on the `JAVA_HOME` and `PATH` you gave. With none, it says where it looked and how
+  to name one. On Windows, `mutastic.bat` takes `MUTASTIC_JAVA_HOME`, else `JAVA_HOME`. The build
+  plugins already ran mutastic on a JDK of its own. See [Which JDK runs
   what](https://docs.mutastic.io/getting-started/install/#which-jdk-runs-what).
 - **A Gradle too old for the build's JDK says so.** Gradle 8.10 on JDK 25 stopped with only
   `25.0.1`. mutastic now names the JDK, the Gradle and the newest JDK it runs on, and the two ways
