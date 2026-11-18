@@ -1,6 +1,7 @@
 package io.mutastic.maven;
 
 import io.mutastic.api.BuildErrors;
+import io.mutastic.api.BuildJava;
 import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
 import io.mutastic.api.Modules;
@@ -232,12 +233,14 @@ final class MavenSetup {
 
   private static int mvn(Path directory, List<String> command, Path log)
       throws IOException, InterruptedException {
-    return new ProcessBuilder(command)
-        .directory(directory.toFile())
-        .redirectErrorStream(true)
-        .redirectOutput(log.toFile())
-        .start()
-        .waitFor();
+    var builder =
+        new ProcessBuilder(command)
+            .directory(directory.toFile())
+            .redirectErrorStream(true)
+            .redirectOutput(log.toFile());
+    // On the JDK the build was given, not mutastic's.
+    BuildJava.restore(builder.environment());
+    return builder.start().waitFor();
   }
 
   private static String mvn(Path directory) {

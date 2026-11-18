@@ -54,7 +54,11 @@ public final class Engine {
   public Engine(Path workerJar, Path log) {
     this.workerJar = workerJar;
     this.log = log;
+    this.logFrom = ByteBuddyJdk.size(log);
   }
+
+  /// Where this run's output starts in `log`, which earlier runs' output comes before.
+  private final long logFrom;
 
   /// Workers to run side by side when not told: half the cores, as tests often use more than one
   /// thread, and at most 4, since each worker holds its own copy of the app.
@@ -195,6 +199,15 @@ public final class Engine {
     ///   likely reason tests that pass in the build fail here
     BaselineFailed(
         List<String> failing, TestWorker.Baseline baseline, Path log, List<String> services) {
+      this(failing, baseline, new ByteBuddyJdk.Written(log, 0), services);
+    }
+
+    /// @param log the tests' log, and where this run's output starts in it
+    BaselineFailed(
+        List<String> failing,
+        TestWorker.Baseline baseline,
+        ByteBuddyJdk.Written log,
+        List<String> services) {
       this("red-baseline", said(failing, baseline, log, services), failing);
     }
 
@@ -246,10 +259,14 @@ public final class Engine {
     }
 
     private static String said(
-        List<String> failing, TestWorker.Baseline baseline, Path log, List<String> services) {
+        List<String> failing,
+        TestWorker.Baseline baseline,
+        ByteBuddyJdk.Written written,
+        List<String> services) {
       var failures = baseline.failures();
       var messages = baseline.messages();
-      var where = loadedElsewhere(failing, services);
+      var log = written.log();
+      var where = loadedElsewhere(failing, services) + ByteBuddyJdk.said(written);
       if (failing.size() == 1) {
         var test = failing.getFirst();
         var said = messages.getOrDefault(test, "");
@@ -1118,7 +1135,11 @@ public final class Engine {
     var failing = Reruns.withoutTheirClasses(baseline.failing());
     var stillFailing = failing.stream().filter(test -> !reruns.passesAgain(test)).toList();
     if (!stillFailing.isEmpty()) {
-      throw new BaselineFailed(stillFailing, baseline, log, SystemServices.providedBy(project));
+      throw new BaselineFailed(
+          stillFailing,
+          baseline,
+          new ByteBuddyJdk.Written(log, logFrom),
+          SystemServices.providedBy(project));
     }
     return failing;
   }

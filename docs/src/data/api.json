@@ -126,6 +126,57 @@
           "members": []
         },
         {
+          "name": "BuildJava",
+          "slug": "buildjava",
+          "kind": "class",
+          "signature": "@Internal class BuildJava",
+          "summary": "The JDK the project's own build runs on, apart from mutastic's.",
+          "doc": "The JDK the project's own build runs on, apart from mutastic's.\n\nmutastic runs on JDK 25 or later, and a project's build often can't: an older Gradle, or a\nMockito, that doesn't know JDK 25. So the start script, or the native `mutastic` through it,\nfinds a JDK for mutastic alone, and keeps the `JAVA_HOME` it was given in\n`MUTASTIC_BUILD_JAVA_HOME`, blank for none. The build, and the tests mutastic runs for it, get\nthat one back, so they run on the JDK they'd run on without mutastic. A build plugin runs\nmutastic inside the build, which has its own already, so nothing is kept.",
+          "params": [],
+          "members": [
+            {
+              "kind": "field",
+              "name": "KEPT",
+              "anchor": "kept",
+              "signature": "static final String KEPT",
+              "doc": "Where the start script keeps the `JAVA_HOME` it was given.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "restore",
+              "anchor": "restore",
+              "signature": "static void restore(Map<String, String> environment)",
+              "doc": "A process's `environment` made the build's own: `JAVA_HOME` as it was given, when the start\nscript kept it, and the kept copy taken out, so a mutastic the build runs starts afresh.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "environment",
+              "anchor": "environment",
+              "signature": "static Map<String, String> environment()",
+              "doc": "This process's environment as the build gets it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "feature",
+              "anchor": "feature",
+              "signature": "static OptionalInt feature(Map<String, String> environment)",
+              "doc": "The feature version of the JDK a build started with `environment` runs on, 25 for 25.0.1: its\n`JAVA_HOME`'s, else the `java` on its `PATH`'s. Empty when there's none, or it can't be told.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
           "name": "BuildTool",
           "slug": "buildtool",
           "kind": "interface",

@@ -349,6 +349,7 @@
     "MUTASTIC_GITHUB",
     "MUTASTIC_GATE_BUDGET",
     "MUTASTIC_GATE_COUNT_WAIT",
+    "MUTASTIC_JAVA_HOME",
     "MUTASTIC_PROGRESS",
     "MUTASTIC_TERM_PROGRESS",
     "MUTASTIC_HEARTBEAT",
@@ -1711,7 +1712,7 @@
         "rust"
       ],
       "surface": "errors",
-      "summary": "Codes `module-missing`, `module-without-java`, `unknown-suite` (Java); `no-cargo`, `workspace-root`, `proc-macro`, `copy-build-failed`, `java-edition`, `both-editions` (Rust)",
+      "summary": "Codes `module-missing`, `module-without-java`, `unknown-suite`, `build-jdk` (Java); `no-cargo`, `workspace-root`, `proc-macro`, `copy-build-failed`, `java-edition`, `both-editions` (Rust)",
       "reason": "Build tool and test runner. See `errorPairs` for the codes that pair."
     },
     {

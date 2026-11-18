@@ -67,6 +67,35 @@ reason.
 For a build, mutastic must be run in, or pointed at, a Gradle or Maven build's directory, and a
 module named as the build names it: `:app` for Gradle, a directory as `-pl` takes it for Maven.
 
+### mutastic finds no JDK 25
+
+mutastic runs on JDK 25 or later, and your build needn't. From the command line it looks in
+`MUTASTIC_JAVA_HOME`, `JAVA_HOME`, the `java` on the `PATH`, and where SDKMAN, asdf, mise, Gradle,
+IntelliJ, Homebrew, macOS and Linux keep JDKs. When none is 25 or later, it says where it looked.
+Install a JDK 25, or point mutastic at one you have:
+
+```sh
+export MUTASTIC_JAVA_HOME=/path/to/jdk-25
+```
+
+Leave `JAVA_HOME` where your build wants it. See [Which JDK runs
+what](/getting-started/install/#which-jdk-runs-what).
+
+### The build's Gradle can't run on its JDK
+
+Each Gradle runs on the JDKs of its day and before: Gradle 8.10 runs on JDK 23 at most, and JDK 25
+needs Gradle 9.1. When the build runs on a newer JDK than its Gradle can, the build stops before it
+starts, and mutastic says so (`build-jdk`), with the Gradle, the JDK and the newest JDK that Gradle
+runs on.
+
+There are two ways out. Set `JAVA_HOME` to a JDK that Gradle runs on, as you would for `./gradlew`
+itself: mutastic still finds a JDK 25 for itself. Or upgrade the wrapper, running it on that older
+JDK:
+
+```sh
+./gradlew wrapper --gradle-version 9.1.0
+```
+
 ### A build of modules
 
 mutastic tests one module at a time. Run at the top of a build whose Java code is all in its
@@ -151,6 +180,23 @@ task's JVM arguments (`-Djava.io.tmpdir=...`), and mutastic uses that instead.
 
 A process a test starts and leaves running ends with its worker too. One that has detached itself,
 as a Gradle daemon or a container under Docker's own daemon has, is left alone.
+
+### Mockito can't mock on a newer JDK
+
+Mockito makes its mocks with Byte Buddy, and each Byte Buddy knows the JDKs of its day. On a newer
+JDK, a test that mocks a class fails with "Mockito cannot mock this class", and Byte Buddy's own
+words in the log: `Java 25 (69) is not supported by the current version of Byte Buddy`. mutastic
+names that cause in its message.
+
+Upgrade Mockito, or Byte Buddy if your build names it, to a version that supports the JDK. Or run
+the tests on an older JDK: a toolchain in the build, or `JAVA_HOME` at it. From the command line,
+mutastic runs your tests on the JDK your build gives them, so they fail under mutastic only where
+they fail in your build.
+
+mutastic doesn't turn on Byte Buddy's `net.bytebuddy.experimental` for you. Your tests would pass
+under mutastic and fail in your build, and every mutant would be judged by mocks made from class
+files Byte Buddy doesn't know. If you want it, set it in your test task's JVM arguments, where your
+build uses it too; mutastic runs your tests with those.
 
 ### A test that caught mutants fails on the unmutated code
 

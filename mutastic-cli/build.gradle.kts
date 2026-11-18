@@ -61,13 +61,36 @@ tasks.startScripts {
         fi
 
         """.trimIndent()
+    // mutastic runs on JDK 25, the project's build on the JDK it was given (src/scripts): each
+    // script picks mutastic's before it works out the java to run.
+    val findJava = "# Determine the Java command to use to start the JVM."
+    val findJavaExe = "@rem Find java.exe"
+    val engineJdk = layout.projectDirectory.file("src/scripts/engine-jdk.sh")
+    val engineJdkBat = layout.projectDirectory.file("src/scripts/engine-jdk.bat")
+    inputs.files(engineJdk, engineJdkBat).withPathSensitivity(PathSensitivity.RELATIVE)
     doLast {
-        val script = (this as CreateStartScripts).unixScript
+        val scripts = this as CreateStartScripts
+        val script = scripts.unixScript
         val text = script.readText()
-        if (!text.contains(exec)) {
-            throw GradleException("the start script no longer ends with `$exec`")
+        if (!text.contains(exec) || !text.contains(findJava)) {
+            throw GradleException("the start script no longer has `$findJava` and `$exec`")
         }
-        script.writeText(text.replace(exec, stderr + "\n" + exec))
+        script.writeText(
+            text
+                .replace(findJava, engineJdk.asFile.readText() + "\n" + findJava)
+                .replace(exec, stderr + "\n" + exec),
+        )
+        val bat = scripts.windowsScript
+        val batText = bat.readText()
+        if (!batText.contains(findJavaExe)) {
+            throw GradleException("the Windows start script no longer has `$findJavaExe`")
+        }
+        val snippet =
+            engineJdkBat.asFile
+                .readText()
+                .replace("\r\n", "\n")
+                .replace("\n", "\r\n")
+        bat.writeText(batText.replace(findJavaExe, snippet + findJavaExe))
     }
 }
 

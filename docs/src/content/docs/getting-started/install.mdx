@@ -9,10 +9,10 @@ import { release } from '../../../components/versions';
 {/* Every version on this page is `release`, the newest release tag's: none is typed in. */}
 
 For a Java or Kotlin project, mutastic runs on JDK 25 or later. The project it tests can be on JDK
-17 or later, with JUnit or TestNG tests.[^tests] A JDK reads class files only as new as itself, so
-for code compiled on JDK 26 or later mutastic runs on that JDK too: the Gradle plugin picks it, and
-otherwise `JAVA_HOME` or Maven's `-Dmutastic.jdk` names it. On an older one, mutastic says which
-class file is too new.
+17 or later, with JUnit or TestNG tests.[^tests] You don't have to move your build to JDK 25 for
+it: an older Gradle can't run on 25, and nor can an older Mockito mock there. So mutastic finds a
+JDK 25 for itself, and runs your build and its tests on the JDK they already use. See [Which JDK
+runs what](#which-jdk-runs-what).
 
 <Tabs syncKey="runner">
 <TabItem label="Command line">
@@ -30,8 +30,8 @@ repository, to read before you run it.
 
 The first time `mutastic` runs in a Gradle or Maven project, it fetches the Java edition, checks
 it against its release's checksums, and keeps it in `~/.mutastic`; after that it runs straight
-away. The Java edition runs on the `java` in `JAVA_HOME`, or on the `PATH`, which must be JDK 25 or
-later, and `mutastic` checks for one before it downloads anything. A Rust project needs no JDK.
+away. It needs a JDK 25 or later installed, and finds one before it downloads anything: you don't
+set `JAVA_HOME` to it. A Rust project needs no JDK.
 
 Running the installer again updates the native `mutastic`. From 1.0.0 the Rust and Java editions
 release each minor version together, and either may ship a patch alone, so `mutastic` uses the
@@ -109,6 +109,34 @@ Maven can run on JDK 17. mutastic finds a JDK 25 for itself: a JDK 25 toolchain 
 
 </TabItem>
 </Tabs>
+
+## Which JDK runs what
+
+Your build stays on the JDK it uses today. mutastic needs JDK 25 or later for itself, and keeps the
+two apart.
+
+| What | Runs on |
+|---|---|
+| Your build: Gradle or Maven, compiling the code and tests | `JAVA_HOME`, or the `java` on the `PATH`, as you gave them |
+| Your tests, in mutastic's test workers | The JDK your build's `test` task, or Surefire, uses: its toolchain, else the build's own JDK |
+| mutastic itself, from the command line | `MUTASTIC_JAVA_HOME` when it's set; else the newest JDK 25 or later of `JAVA_HOME` and those installed |
+| mutastic itself, from the Gradle plugin | A JDK 25 toolchain, or the project's own JDK when it's newer (`javaLauncher`) |
+| mutastic itself, from the Maven plugin | A JDK 25 toolchain, else Maven's JDK if it's new enough, else `-Dmutastic.jdk` |
+
+From the command line, mutastic looks for a JDK 25 or later in `JAVA_HOME`, then where SDKMAN,
+asdf, mise, Gradle (`~/.gradle/jdks`), IntelliJ (`~/.jdks`), Homebrew, macOS
+(`/usr/libexec/java_home`) and Linux (`/usr/lib/jvm`) keep JDKs, and takes the newest. A JDK reads
+class files only as new as itself, so the newest reads the most: code compiled for JDK 26 needs
+mutastic on 26 or later, and mutastic says which class file is too new when it isn't. The `java` on
+the `PATH` is asked last. To choose one yourself:
+
+```sh
+export MUTASTIC_JAVA_HOME=/path/to/jdk-25
+```
+
+mutastic takes it as it is, and says so when it isn't a JDK 25 or later. On Windows, the native
+`mutastic` looks in the usual places too; the Java edition's own `mutastic.bat` takes
+`MUTASTIC_JAVA_HOME`, else `JAVA_HOME`.
 
 Next: the [Quickstart](/getting-started/quickstart/) runs mutastic on a small sample and closes the
 gap it finds.
