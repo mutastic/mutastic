@@ -32,6 +32,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   way round that tests with input already in order can't see. A `compareTo` only tested for `0` is
   skipped as equivalent. The Rust edition has had it, for `cmp`. See [Reverse
   ordering](https://docs.mutastic.io/concepts/operators/library/#reverse-ordering).
+- **The summary says when the machine slept during the run.** Duration counts the time the
+  machine was awake, so a run a Mac slept through for four minutes said 15.4s. When the clock ran
+  at least 5 seconds and a tenth of its time more, a line under Duration says `The machine slept
+  for 3m49s during the run, which Duration leaves out.`, and `run-finished` has it as `sleptMs`,
+  else 0. The Rust edition says it too. See [When the machine
+  sleeps](https://docs.mutastic.io/concepts/output/#when-the-machine-sleeps).
 
 ### Scoring changes
 
