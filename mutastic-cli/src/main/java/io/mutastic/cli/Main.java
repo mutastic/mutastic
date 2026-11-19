@@ -30,6 +30,7 @@ import io.mutastic.report.NextText;
 import io.mutastic.report.OperatorDocs;
 import io.mutastic.report.Queue;
 import io.mutastic.report.ReportFiles;
+import io.mutastic.report.Slept;
 import io.mutastic.report.SourceView;
 import io.mutastic.report.Style;
 import io.mutastic.report.Untrusted;
@@ -1698,18 +1699,24 @@ public final class Main {
 
   /// A project read through its Gradle build: where it is, where mutastic keeps its files, its code
   /// as the output shows it, and when and how long reading it took.
+  ///
+  /// @param clocks both clocks when the run started: when, and how long the machine slept since
   private record Prepared(
       Path directory,
       Path work,
       Project project,
       SourceView sources,
-      ZonedDateTime startedAt,
       Duration setup,
-      Duration build) {}
+      Duration build,
+      Slept clocks) {
+    /// When the run started, on the reader's clock.
+    ZonedDateTime startedAt() {
+      return clocks.clock().atZone(java.time.ZoneId.systemDefault());
+    }
+  }
 
   private static Prepared prepare(Command command, BuildTool tool, Progress progress) {
-    long start = System.nanoTime();
-    var startedAt = ZonedDateTime.now(java.time.ZoneId.systemDefault()); // the reader's clock
+    var clocks = Slept.now();
     var directory = command.directory().toAbsolutePath().normalize();
     var work = workDirectory(tool, directory, command.module(), command.suite());
     var request =
@@ -1718,12 +1725,12 @@ public final class Main {
     progress.findingMutants();
     var project =
         built.project().withTests(built.project().tests().leavingOut(command.excludeTests()));
-    var setup = Duration.ofNanos(System.nanoTime() - start);
+    var setup = Duration.ofNanos(System.nanoTime() - clocks.awake());
     var sources =
         new SourceView(directory, project.sources(), project.testSources())
             .withClassSources(new ClassSources(project.classes()))
             .withInvocation(invocation(command, directory));
-    return new Prepared(directory, work, project, sources, startedAt, setup, built.took());
+    return new Prepared(directory, work, project, sources, setup, built.took(), clocks);
   }
 
   /// A module read, and how long its build tool took building what the run needs.
@@ -1948,7 +1955,8 @@ public final class Main {
         prepared.build(),
         command.shard().isEmpty()
             ? html(command, written).map(ReportFiles::pagesFolder)
-            : Optional.empty());
+            : Optional.empty(),
+        prepared.clocks().untilNow());
   }
 
   /// JSON Lines: the run's start now, each mutant as it finishes, and the result at the end.
@@ -1961,7 +1969,7 @@ public final class Main {
             command.threshold(),
             shareOf(command, prepared),
             operatorDocs());
-    var events = judged.map(shown::failingOnNew).orElse(shown);
+    var events = judged.map(shown::failingOnNew).orElse(shown).sleptFrom(prepared.clocks());
     events.runStarted(prepared.project().name());
     if (!command.testsFrom().isEmpty()) {
       // Each mutant's result is known only once every module's tests have run: all at the end.

@@ -240,6 +240,32 @@ class HumanTextTest {
                 + " checking 50ms)\n");
   }
 
+  /// When the machine slept during the run, a line under Duration says how long: the time awake
+  /// leaves it out.
+  @Test
+  void theDurationSaysWhenTheMachineSlept() {
+    var slept =
+        new HumanText.Run(
+            LocalTime.of(9, 30, 5),
+            Duration.ofMillis(500),
+            List.of(),
+            false,
+            List.of(),
+            Duration.ZERO,
+            Optional.empty(),
+            Duration.ofSeconds(233));
+    var text = text(HumanText.Detail.FULL, Vocabulary.PLAIN);
+    var report = report(missed(boundary(), Map.of()));
+
+    assertThat(text.render(report, Optional.empty(), slept))
+        .contains(
+            "  Duration  900ms (setup 500ms, coverage 200ms, mutants 200ms)\n"
+                + "            The machine slept for 3m53s during the run, which Duration leaves"
+                + " out.\n"
+                + "     Tests  ");
+    assertThat(text.render(report, Optional.empty(), RUN)).doesNotContain("slept");
+  }
+
   /// `--only=a,b` ends on each mutant's fate, not the first one's alone.
   @Test
   void mutantsAskedForByIdEachEndOnTheirFate() {
