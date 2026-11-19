@@ -229,15 +229,17 @@ public record Advice(
     boolean forced = always == asWritten;
     var truth = forced ? "true" : "false";
     var other = forced ? "false" : "true";
-    return new Advice(
-        token,
-        Optional.empty(),
-        "%s is always %s".formatted(condition, truth),
-        "now always " + truth,
-        "no test needs %s to be %s in %s".formatted(condition, other, method),
-        inputsSeen(seen),
-        "add a test where %s is %s, and assert what %s does then"
-            .formatted(condition, other, method));
+    var advice =
+        new Advice(
+            token,
+            Optional.empty(),
+            "%s is always %s".formatted(condition, truth),
+            "now always " + truth,
+            "no test needs %s to be %s in %s".formatted(condition, other, method),
+            inputsSeen(seen),
+            "add a test where %s is %s, and assert what %s does then"
+                .formatted(condition, other, method));
+    return ThreadCalls.awaited(mutant, advice, condition, forced);
   }
 
   /// A comparison changed, by where the two comparisons give different answers: only where its two
@@ -831,8 +833,18 @@ public record Advice(
   }
 
   private static Advice removeVoidCall(Mutant mutant, Inputs seen) {
+    return removedCall(mutant, seen, "");
+  }
+
+  /// A call taken away, its statement as the source has it, or empty: a thread's call says which
+  /// test catches it.
+  static Advice removedCall(Mutant mutant, Inputs seen, String statement) {
     if (mutant.original().contains("kotlin/jvm/internal/Intrinsics.checkNotNull(")) {
       return kotlinNullCheck(mutant, seen);
+    }
+    var threads = ThreadCalls.removed(mutant, seen, statement);
+    if (threads.isPresent()) {
+      return threads.get();
     }
     var called = "`%s()`".formatted(SourceView.calledName(mutant.original()));
     return new Advice(

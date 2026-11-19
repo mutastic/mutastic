@@ -1,6 +1,7 @@
 package text;
 
 import java.util.Objects;
+import java.util.logging.Level;
 
 /// Each string's change, written out: `xClaim` is `x` as its card says the mutant makes it.
 class Strings {
@@ -98,6 +99,15 @@ class Strings {
     return new ConfigError("").key;
   }
 
+  /// Worked out as a log line's values are, and returned: its text is a value.
+  static String computedAndReturned(String a, String b) {
+    return String.format("%d!", a.length() - b.length());
+  }
+
+  static String computedAndReturnedClaim(String a, String b) {
+    return String.format("", a.length() - b.length());
+  }
+
   /// A helper's text, on its way to an exception the walk can't see from here.
   static ParseFailure failure(String message) {
     return new ParseFailure(message);
@@ -149,6 +159,43 @@ class Strings {
 
   static void logged(String a, String b) {
     System.out.println("seen");
+  }
+
+  private static final System.Logger LOG = System.getLogger("text");
+
+  private static final java.util.logging.Logger JUL = java.util.logging.Logger.getLogger("text");
+
+  // A format string with values worked out after it, on their way to the same call.
+
+  static void timed(String a, String b) {
+    long start = System.nanoTime();
+    LOG.log(System.Logger.Level.INFO, "took {0} ns", System.nanoTime() - start);
+  }
+
+  static void severalArguments(String a, String b) {
+    JUL.log(Level.INFO, "{0} of {1}", new Object[] {a.length(), b.strip()});
+  }
+
+  static void printed(String a, String b) {
+    System.out.printf("%s and %d%n", a.strip(), a.length() + b.length());
+  }
+
+  static void formattedThenPrinted(String a, String b) {
+    System.out.println("%d chars".formatted(a.length() * 2L));
+  }
+
+  static void concatenatedAfter(String a, String b) {
+    LOG.log(System.Logger.Level.INFO, "seen {0}", a + "!" + b);
+  }
+
+  static void chosenAfter(String a, String b) {
+    JUL.log(Level.INFO, "chose {0}", a.isEmpty() ? "none" : a);
+  }
+
+  static void computedIntoAnException(String a, String b) {
+    if (a.equals(b)) {
+      throw new IllegalStateException("%d left".formatted(a.length() - 1));
+    }
   }
 
   static void thrown(String a, String b) {
