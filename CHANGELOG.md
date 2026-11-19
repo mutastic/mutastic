@@ -96,6 +96,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   the build's JDK is named as `build-jdk` too. The commands mutastic prints start with the same
   Gradle or Maven. See [Which Gradle and Maven
   run](https://docs.mutastic.io/getting-started/install/#which-gradle-and-maven-run).
+- **The HTML report offers those commands to copy.** A mutant's commands that start with the
+  wrapper by its path (`sh ./gradlew`, `../gradlew`, `/repo/mvnw`), Gradle or Maven by an absolute
+  path, or `.\gradlew.bat` on Windows were left out of the report's page, as it took only
+  `./gradlew`, `gradle` and `mvn`. It still offers nothing else: a path is plain names between its
+  separators, ending in the wrapper's or the tool's name.
 - **An error ends in the one command to run, in the Rust edition's words.** A mistake in the
   command line no longer ends in a `usage:` line. With no close name, it ends in the command that
   lists what there is, `mutastic run --help`, or in yours with a `<…>` to fill in: a missing value
