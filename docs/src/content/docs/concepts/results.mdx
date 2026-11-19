@@ -350,8 +350,9 @@ first, and the summary counts them by kind (`2 skipped (1 arid, 1 unviable)`):
 | `unviable:` | The change wouldn't load, can't reach what it's for, or would never finish | `limit` removed from a stream only it ends, a plugin's rewrite that doesn't fit the call it met, a `throw` removed with nothing after it to run, `isEmpty` in a class for a Java older than 11, [a proposed rewrite](/guides/operator-plugins/#proposed-rewrites) that doesn't compile, an annotation removed where a framework loads the app itself |
 | `user:` | Your decision | `@DoNotMutate`, a rule in `mutastic.yaml`, or `mutastic ignore` |
 
-`@DoMutate` on a method or class brings back what the arid filters skip there, and
-`MUTASTIC_ARID=audit` runs every arid mutant anyway, to check the filters.
+Where a log line or a wait is part of what the code promises, `@DoMutate` on a method or class, or
+a [`mutate:` rule](/guides/configuration/#mutasticyaml), brings back every arid skip there, and
+nothing else. `MUTASTIC_ARID=audit` runs every arid mutant anyway, to check the filters.
 
 mutastic never mutates constructors, static initialisers, an enum's `values()`, or a record's
 generated `equals`, `hashCode` and `toString`. The `defaults` set also leaves `float` and `double`

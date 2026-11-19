@@ -77,14 +77,18 @@ towards the score.
   `toString()` is a debug representation, and `hashCode()` may return any value consistent with
   `equals()`.
 
-`@DoMutate` on a method or class brings back what mutastic would skip there as trivial: its
-accessors, or a `toString()` or `hashCode()` that's a contract.
+Sometimes what mutastic skips is part of what the code promises: a `toString()` customers see, a
+getter that's an API, a log line an alert watches. `@DoMutate` on a method or class brings back
+every mutant mutastic would skip there as [arid](/concepts/results/#skipped-mutants): a whole
+accessor or `toString()`, and each call that only writes output, each wait, capacity or message in
+the code. Code the compiler wrote and equivalent changes stay skipped, and so does a method's own
+`@DoNotMutate`.
 
 ### Annotations
 
 - `@DoNotMutate` or `@CoverageIgnore` skips a method or class, with its `value()` or `reason()` as
   the reason.
-- `@DoMutate` brings back trivial code, as above.
+- `@DoMutate` brings back what mutastic would skip as arid, as above.
 - `@Generated` marks code a tool wrote.
 
 Annotations are matched by simple name, so your own work. Or depend on
@@ -161,7 +165,7 @@ A file names one other, which may extend another in turn.
 Ignores are the run's: `.mutastic/` beside the directory the run is on, the top's for `mutastic run
 :core` there and `core/.mutastic/` for a run in `core/`.
 
-An annotation on the code comes first, then a rule, then mutastic's own filters. A `mutate:` rule, like `@DoMutate`, brings back only what mutastic would call arid, never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
+An annotation on the code comes first, then a rule, then mutastic's own filters. A `mutate:` rule, like `@DoMutate`, brings back every mutant mutastic would call arid in the code it covers, a whole method or one call in it, and never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
 
 ## Ignoring one mutant
 
