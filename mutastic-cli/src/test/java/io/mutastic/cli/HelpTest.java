@@ -38,6 +38,27 @@ class HelpTest {
         .doesNotContain("--threshold");
   }
 
+  /// Help fits 100 columns: the exit codes and commands wrap under their first line, and a long
+  /// example breaks before an option, as a shell takes it.
+  @Test
+  void helpFitsOneHundredColumns() {
+    for (Main.Subcommand command : Main.Subcommand.values()) {
+      assertThat(Help.of(command, "dev").lines()).allMatch(line -> line.length() <= 100);
+    }
+    assertThat(Help.general("dev")).contains("\n     is still missed; for gate check");
+
+    assertThat(Help.example("mutastic run --since=main"))
+        .containsExactly("  mutastic run --since=main");
+    assertThat(
+            Help.example(
+                "mutastic ignore m855c8e3c --propose --as=unreachable --reason=\"Differs only when"
+                    + " total is 100. That can't happen because prices end in 9.\""))
+        .containsExactly(
+            "  mutastic ignore m855c8e3c --propose --as=unreachable \\",
+            "      --reason=\"Differs only when total is 100. That can't happen because prices end"
+                + " in 9.\"");
+  }
+
   /// A release's help links to its own release line's docs, so an older install reads what it does;
   /// a build from source, to the latest release's.
   @Test

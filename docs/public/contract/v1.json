@@ -2130,16 +2130,6 @@
       ]
     },
     {
-      "id": "G28",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "reports",
-      "summary": "With `--kill-matrix`, `killedBy` lists only the first test",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "G30",
       "kind": "pending",
       "editions": [
@@ -2288,7 +2278,7 @@
         "java"
       ],
       "surface": "command line",
-      "summary": "commands.json lists no choices for `--report`",
+      "summary": "commands.json lists `xml` among `--report`'s choices",
       "issue": "https://github.com/mutastic/mutastic/issues/61",
       "items": [
         "option:--report:choice:*"
@@ -2576,16 +2566,6 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "C2",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "configuration",
-      "summary": "`--progress` doesn't say its default for agent and jsonl",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "F1",
       "kind": "pending",
       "editions": [
@@ -2636,16 +2616,6 @@
       "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
-      "id": "A4",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "gate",
-      "summary": "`gate check` with no gate prints on stdout (D4)",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "A5",
       "kind": "pending",
       "editions": [
@@ -2654,29 +2624,6 @@
       "surface": "gate",
       "summary": "`doesn't run anyway` only for generated and equivalent skips",
       "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "A7",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "gate",
-      "summary": "`--remove` on an id that isn't ignored, and baseline refusals, go to stdout after reading the build (D4)",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "K1",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "help",
-      "summary": "The help's exit-code table isn't wrapped: lines up to 153 columns (D10 wraps to the terminal)",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "items": [
-        "help:*:width"
-      ]
     },
     {
       "id": "K3",

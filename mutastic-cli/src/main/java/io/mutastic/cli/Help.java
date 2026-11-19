@@ -145,7 +145,10 @@ final class Help {
     out.add("");
     out.add("Usage:");
     for (Main.Subcommand command : Main.Subcommand.values()) {
-      out.add("  " + padded("mutastic " + command.synopsis, 49) + command.summary);
+      var first = "  " + padded("mutastic " + command.synopsis, 49);
+      var lines = wrapped(command.summary, WIDTH - first.length());
+      out.add(first + lines.getFirst());
+      lines.stream().skip(1).forEach(line -> out.add(" ".repeat(first.length()) + line));
     }
     out.add("");
     out.add("Examples:");
@@ -166,7 +169,7 @@ final class Help {
     out.addAll(wrapped("Exits " + command.exits, WIDTH));
     out.add("");
     out.add("Examples:");
-    command.examples.forEach(example -> out.add("  " + example));
+    command.examples.forEach(example -> out.addAll(example(example)));
     var options = Options.shownFor(command);
     if (!options.isEmpty()) {
       out.add("");
@@ -214,12 +217,39 @@ final class Help {
     return out;
   }
 
+  /// An example, broken before an option where it's wider than help: each line but the last ends in
+  /// ` \`, and the rest is indented under it, as a shell takes it.
+  static List<String> example(String example) {
+    var out = new ArrayList<String>();
+    var line = new StringBuilder("  ");
+    boolean empty = true;
+    for (String part : example.split(" (?=--)", -1)) {
+      if (!empty && line.length() + 1 + part.length() + 2 > WIDTH) {
+        out.add(line.append(" \\").toString());
+        line.setLength(0);
+        line.append("      ");
+      } else if (!empty) {
+        line.append(' ');
+      }
+      line.append(part);
+      empty = false;
+    }
+    out.add(line.toString());
+    return out;
+  }
+
+  /// A heading and its entries, each meaning wrapped under its first line.
   private static List<String> section(String heading, List<Entry> entries) {
     int width = entries.stream().mapToInt(entry -> entry.name().length()).max().orElse(0) + 2;
+    var indent = " ".repeat(2 + width);
     var out = new ArrayList<String>();
     out.add("");
     out.add(heading);
-    entries.forEach(entry -> out.add("  " + padded(entry.name(), width) + entry.meaning()));
+    for (Entry entry : entries) {
+      var lines = wrapped(entry.meaning(), WIDTH - indent.length());
+      out.add("  " + padded(entry.name(), width) + lines.getFirst());
+      lines.stream().skip(1).forEach(line -> out.add(indent + line));
+    }
     return out;
   }
 
