@@ -45,6 +45,15 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   loop's index up from 0 to the array's length and no further, so `mutastic/comparison` changing
   `index < length` to `index != length` changes nothing, and no test could catch it. `stronger`
   runs have one mutant fewer to run for each such loop, and scores go up a little; no id changes.
+- **A log call's format string is arid with worked-out values after it (stronger).**
+  `log.info("took {} ms", System.currentTimeMillis() - start)` kept a `mutastic/string-constant`
+  mutant on `"took {} ms"`: the walk from the string to the logger stopped at the subtraction, a
+  call, boxing, a varargs array, a `+` or a `? :` on the way. It now follows the string through
+  them to the call that takes it, so the string is skipped as arid, as one with nothing after it
+  was; one that may reach anything else on any path still counts. `stronger` runs have fewer
+  mutants, and scores move a little. `mutastic/regex-constant` follows an expression the same
+  way, so one with a worked-out replacement after it, `a.replaceAll("a+", b + "!")`, is now
+  changed. No id changes.
 
 ### Fixes
 
