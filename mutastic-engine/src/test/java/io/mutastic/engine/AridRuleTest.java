@@ -25,7 +25,8 @@ class AridRuleTest {
           "arithmetic/ConstantValues.java",
           "exceptions/Throws.java",
           "discards/Discards.java",
-          "text/Strings.java");
+          "text/Strings.java",
+          "threads/Settings.java");
 
   private static List<String> lines = List.of();
   private static List<Mutant> mutants = List.of();
