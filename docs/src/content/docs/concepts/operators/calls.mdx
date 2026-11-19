@@ -63,6 +63,14 @@ than only that the method returned.
   }
 ```
 
+**A thread's call:** when the call starts a thread, hands a pool its work, interrupts a thread,
+lets go of a lock, makes a thread a daemon or gives it a handler for exceptions, the card names the
+test that catches it. That test has the same shape every time: wait for the thread, then look. A
+removed `start()` wants a test that joins the thread and checks what its task did. A removed
+`unlock()` wants another thread to take the lock. The same goes for `submit()` with its result
+thrown away, and for a pool's `awaitTermination` made always true, whose card asks for a task still
+running when the wait ends.
+
 **Edition notes:** the Rust edition has this operator too, `mutastic/remove-void-call`, for a call
 the crate declares with no return, or one of std's (`push`, `sort`, `clear`, `extend`, `drop` and
 the like).

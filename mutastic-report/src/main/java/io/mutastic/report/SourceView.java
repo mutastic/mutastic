@@ -229,6 +229,8 @@ public final class SourceView {
           Advice.constant(mutant, Inputs.of(mutant, seen), charactersOn(mutant));
       case BuiltIn.REMOVE_SWITCH_ARM ->
           Advice.switchArm(mutant, Inputs.of(mutant, seen), charactersOn(mutant));
+      case BuiltIn.REMOVE_VOID_CALL, BuiltIn.REMOVE_DISCARDED_CALL ->
+          Advice.removedCall(mutant, Inputs.of(mutant, seen), String.join("\n", statement(mutant)));
       default -> Advice.of(mutant, seen, asWritten(mutant));
     };
   }
