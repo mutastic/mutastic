@@ -56,7 +56,6 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   their first line, and the example breaks before an option with ` \`, as the Rust edition's
   help does. `--progress` also says that the agent and jsonl formats always get a line at least
   every 30s.
-
 - **A module runs with its repository's Gradle wrapper.** A module with a `settings.gradle` of
   its own, the wrapper only at the top of the repository, ran with the `gradle` on the `PATH`
   instead, and an older Gradle failed while it read the build file. mutastic now looks for
