@@ -381,6 +381,11 @@ class MutationsTest {
         .filteredOn(mutant -> mutant.methodName().equals("pause"))
         .extracting(mutant -> mutant.skipped().orElse(""))
         .containsExactlyInAnyOrder("arid: only sets how long to wait", "arid: only waits");
+    // A `join` with a time limit is a wait for its time, but removing it is a race: that runs.
+    assertThat(mutations.find(model(Sites.class)))
+        .filteredOn(mutant -> mutant.methodName().equals("joined"))
+        .extracting(mutant -> mutant.skipped().orElse(""))
+        .containsExactlyInAnyOrder("arid: only sets how long to wait", "");
   }
 
   /// Each boundary's skip reason in `method`, in order, "" for one that runs.

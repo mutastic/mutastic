@@ -45,6 +45,10 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   loop's index up from 0 to the array's length and no further, so `mutastic/comparison` changing
   `index < length` to `index != length` changes nothing, and no test could catch it. `stronger`
   runs have one mutant fewer to run for each such loop, and scores go up a little; no id changes.
+- **A removed `join` with a time limit runs again.** It was skipped as `arid: only waits`, but
+  without it the code reads what the thread does before it's done: the same race a removed
+  `join()` with no limit shows, which ran. How long it waits stays arid. Code that joins with a
+  time limit gets a mutant more, and its score can fall.
 
 ### Fixes
 
