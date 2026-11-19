@@ -10,7 +10,9 @@ import io.mutastic.api.Rule;
 import io.mutastic.engine.fixture.Accessors;
 import io.mutastic.engine.fixture.Annotated;
 import io.mutastic.engine.fixture.Board;
+import io.mutastic.engine.fixture.Chores;
 import io.mutastic.engine.fixture.Kept;
+import io.mutastic.engine.fixture.KeptChores;
 import io.mutastic.engine.fixture.OwnAnnotations;
 import io.mutastic.engine.fixture.Point;
 import io.mutastic.engine.fixture.Pricing;
@@ -160,6 +162,34 @@ class MutationsTest {
   @Test
   void doMutateBringsTrivialAccessorsBack() throws Exception {
     assertThat(skipsIn(Kept.class)).containsEntry("getName", "");
+  }
+
+  /// `@DoMutate` and a `mutate:` rule bring back every arid skip in their code, not only a whole
+  /// method's: a log call, a wait and a capacity run. A method's own `@DoNotMutate` still skips.
+  @Test
+  void doMutateAndMutateRulesBringBackEveryAridSkip() throws Exception {
+    var arid = reasonsIn(mutations, Chores.class);
+    assertThat(arid).containsOnlyKeys("logged", "pause", "sized");
+    assertThat(arid.values())
+        .allSatisfy(reasons -> assertThat(reasons).anyMatch(why -> why.startsWith("arid:")));
+
+    var ruled =
+        new Mutations(
+            ClassFile.of(),
+            new Policy(
+                List.of(new Rule(true, "io.mutastic.engine.fixture.Chores", "worth a test")),
+                List.of()));
+    assertThat(reasonsIn(ruled, Chores.class).values())
+        .allSatisfy(reasons -> assertThat(reasons).isNotEmpty().allMatch(String::isEmpty));
+
+    var kept = reasonsIn(mutations, KeptChores.class);
+    assertThat(kept).containsOnlyKeys("logged", "pause", "sized", "skipped");
+    for (var method : List.of("logged", "pause", "sized")) {
+      assertThat(kept.get(method)).as(method).isNotEmpty().allMatch(String::isEmpty);
+    }
+    assertThat(kept.get("skipped"))
+        .isNotEmpty()
+        .allMatch(why -> why.equals("user: @DoNotMutate on `skipped()`: tested elsewhere"));
   }
 
   @Test
@@ -499,6 +529,20 @@ class MutationsTest {
       skips.merge(mutant.methodName(), mutant.skipped().orElse(""), (kept, ignored) -> kept);
     }
     return skips;
+  }
+
+  /// Each method's skip reasons, one for each of its mutants ("" for one that runs).
+  private static Map<String, List<String>> reasonsIn(Mutations mutations, Class<?> type)
+      throws Exception {
+    var model = model(type);
+    mutations.prepare(List.of(model));
+    var reasons = new java.util.TreeMap<String, List<String>>();
+    for (Mutant mutant : mutations.find(model)) {
+      reasons
+          .computeIfAbsent(mutant.methodName(), name -> new java.util.ArrayList<>())
+          .add(mutant.skipped().orElse(""));
+    }
+    return reasons;
   }
 
   private List<String> operandsIn(Class<?> type, String method, Operator operator)

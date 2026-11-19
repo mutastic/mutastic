@@ -121,7 +121,7 @@ final class ClaimFixture {
 
   /// Stack maps and verifying need supertypes, and a fixture's nested classes aren't on any
   /// classpath, as a project's classes are found in a real run.
-  private static ClassFile resolvingNested(Map<String, byte[]> classes) {
+  static ClassFile resolvingNested(Map<String, byte[]> classes) {
     var resolver =
         ClassHierarchyResolver.defaultResolver()
             .orElse(
@@ -133,7 +133,7 @@ final class ClaimFixture {
     return ClassFile.of(ClassFile.ClassHierarchyResolverOption.of(resolver));
   }
 
-  private static java.io.InputStream fixtureOrJdkClass(Map<String, byte[]> classes, String name) {
+  static java.io.InputStream fixtureOrJdkClass(Map<String, byte[]> classes, String name) {
     var bytes = classes.get(name.replace('/', '.'));
     return bytes != null
         ? new java.io.ByteArrayInputStream(bytes)

@@ -94,7 +94,7 @@
           "properties": {
             "mutate": {
               "$ref": "#/$defs/pattern",
-              "description": "Mutate what mutastic would skip in this code as arid, such as a `toString()` that's a contract. Never brings back generated or equivalent code."
+              "description": "Mutate everything mutastic would skip in this code as arid, such as a `toString()` or a log call that's a contract: a whole method, or one call in it. Never brings back generated or equivalent code."
             },
             "reason": { "$ref": "#/$defs/reason" }
           }
