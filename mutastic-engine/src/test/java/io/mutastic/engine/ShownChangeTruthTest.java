@@ -25,6 +25,7 @@ class ShownChangeTruthTest {
           new Fixture("arithmetic/Bitwise.java", "mutastic/bitwise", Inputs.NUMBERS),
           new Fixture("arithmetic/KeptOperands.java", "mutastic/keep-operand", Inputs.NUMBERS),
           new Fixture("arithmetic/ConstantValues.java", "mutastic/constant-value", Inputs.NUMBERS),
+          new Fixture("constants/Booleans.java", "mutastic/boolean-constant", Inputs.NUMBERS),
           new Fixture(
               "arithmetic/OtherArithmetic.java", "mutastic/other-arithmetic", Inputs.NUMBERS),
           new Fixture("arithmetic/Checked.java", "library/unchecked-arithmetic", Inputs.NUMBERS),

@@ -116,6 +116,7 @@ class DocsOperatorsTest {
           new Example("mutastic/null-parameter", "arguments", "Bookings"),
           new Example("mutastic/drop-vararg", "arguments", "Scores"),
           new Example("library/omit-argument", "arguments", "Csv"),
+          new Example("mutastic/boolean-constant", "arguments", "Prices"),
           new Example("library/swap-string", "library", "Comments"),
           new Example("library/swap-index-of", "library", "Files"),
           new Example("library/swap-math", "library", "Discounts"),

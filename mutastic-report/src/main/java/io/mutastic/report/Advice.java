@@ -114,7 +114,7 @@ public record Advice(
       case NULL_PARAMETER -> nullParameter(mutant, seen);
       case DROP_VARARG -> droppedElement(mutant, seen);
       case FLIP_INCREMENT -> flippedIncrement(mutant, seen);
-      case CONSTANT_VALUE -> constant(mutant, seen, UnaryOperator.identity());
+      case CONSTANT_VALUE, BOOLEAN_CONSTANT -> constant(mutant, seen, UnaryOperator.identity());
       case REMOVE_NEGATION -> removedNegation(mutant, seen);
       case REMOVE_SWITCH_ARM, REPLACE_BODY, DROP_CATCH_TYPE, REMOVE_THROW ->
           wholeCode(builtIn, mutant, seen);

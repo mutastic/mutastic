@@ -1,0 +1,16 @@
+ [41;30;1m ✗ MISSED [0m no test tells [1mtrue[0m from [1mfalse[0m in [1mreceipt()[0m
+   [2m┌─[0m src/main/java/com/example/arguments/Prices.java:8
+   [2m│[0m
+ [2m7[0m [2m│[0m   public static String receipt(double amount) {
+ [2m8[0m [2m│[0m     return Amounts.shown(amount, true);
+   [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ true changed to false[0m
+ [2m9[0m [2m│[0m   }
+   [2m│[0m
+   [2m=[0m mutant  [1;31m- [0mreturn Amounts.shown(amount, true);
+             [32m+ [0mreturn Amounts.shown(amount, false);
+   [2m=[0m [1;34m[1mnote[0m[0m: covered by PricesTest#aPriceInPence (its 1 covering test still passes)
+   [2m=[0m [32m[1mhelp[0m[0m: add a test near where [1mtrue[0m takes effect, whose result would differ with [1mfalse[0m, and assert it
+
+   [2mdone when [0m mutastic verify m2f96461b samples/operator-docs[2m passes[0m
+   [2mreproduce [0m mutastic run --only=m2f96461b samples/operator-docs
+   [2mor ignore [0m mutastic ignore m2f96461b --reason="<why>" samples/operator-docs

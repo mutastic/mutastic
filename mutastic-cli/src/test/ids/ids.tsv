@@ -2490,6 +2490,13 @@ mf8e53f3e	observable	com/example/observable/Person#setName(Ljava/lang/String;)V	
 m339d0a9e	observable	com/example/observable/Person#setNickname(Ljava/lang/String;)V	mutastic/null-parameter	44	ALOAD_0 → null parameter 1 nickname
 m9fcaab31	observable	com/example/observable/Person#setNickname(Ljava/lang/String;)V	mutastic/remove-field-write	44	PUTFIELD → remove write to nickname
 m624d7e13	observable	com/example/observable/Person#setNickname(Ljava/lang/String;)V	mutastic/replace-body	44	ALOAD_0 → body emptied
+m29173e39	operator-docs	com/example/arguments/Amounts#shown(DZ)Ljava/lang/String;	mutastic/drop-vararg	10	INVOKESTATIC java/lang/String.format(Ljava/util/Locale;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String; → drop last element
+m1b64ed7c	operator-docs	com/example/arguments/Amounts#shown(DZ)Ljava/lang/String;	mutastic/other-comparison	10	IFEQ → IFNE
+mb52af555	operator-docs	com/example/arguments/Amounts#shown(DZ)Ljava/lang/String;	mutastic/remove-conditional	10	IFEQ → always jump
+m89f56c74	operator-docs	com/example/arguments/Amounts#shown(DZ)Ljava/lang/String;	mutastic/remove-conditional	10	IFEQ → never jump
+mcb6ccff7	operator-docs	com/example/arguments/Amounts#shown(DZ)Ljava/lang/String;	mutastic/replace-body	10	ILOAD_2 → body return ""
+m7593332a	operator-docs	com/example/arguments/Amounts#shown(DZ)Ljava/lang/String;	mutastic/return-value	10	ARETURN → return ""
+m7279675b	operator-docs	com/example/arguments/Amounts#shown(DZ)Ljava/lang/String;	mutastic/string-constant	10	LDC → string "%.2f" to ""
 mc1aed591	operator-docs	com/example/arguments/Bookings#book(Ljava/lang/String;Ljava/lang/String;)Lcom/example/arguments/Bookings$Booking;	mutastic/null-parameter	7	NEW → null parameter 0 guest
 me9704166	operator-docs	com/example/arguments/Bookings#book(Ljava/lang/String;Ljava/lang/String;)Lcom/example/arguments/Bookings$Booking;	mutastic/null-parameter	7	NEW → null parameter 1 room
 m85be926a	operator-docs	com/example/arguments/Bookings#book(Ljava/lang/String;Ljava/lang/String;)Lcom/example/arguments/Bookings$Booking;	mutastic/replace-body	7	NEW → body return null
@@ -2508,6 +2515,9 @@ me40abfa9	operator-docs	com/example/arguments/Csv#nextComma(Ljava/lang/String;I)
 m50c9568a	operator-docs	com/example/arguments/Csv#nextComma(Ljava/lang/String;I)I	mutastic/replace-body	6	ALOAD_0 → body return 0
 m755cb577	operator-docs	com/example/arguments/Csv#nextComma(Ljava/lang/String;I)I	mutastic/return-value	6	IRETURN → return 0
 m4eb4540b	operator-docs	com/example/arguments/Csv#nextComma(Ljava/lang/String;I)I	mutastic/swap-arguments	6	INVOKEVIRTUAL java/lang/String.indexOf(II)I → swap last two arguments
+m2f96461b	operator-docs	com/example/arguments/Prices#receipt(D)Ljava/lang/String;	mutastic/boolean-constant	8	ICONST_1 → constant true to false
+mf5aa3cf7	operator-docs	com/example/arguments/Prices#receipt(D)Ljava/lang/String;	mutastic/replace-body	8	DLOAD_0 → body return ""
+mdc5a6b84	operator-docs	com/example/arguments/Prices#receipt(D)Ljava/lang/String;	mutastic/return-value	8	ARETURN → return ""
 ma937d5ca	operator-docs	com/example/arguments/Scores#bestOfThree(III)I	library/swap-math	8	INVOKESTATIC java/util/Collections.max(Ljava/util/Collection;)Ljava/lang/Object; → min
 mdc01ea8c	operator-docs	com/example/arguments/Scores#bestOfThree(III)I	mutastic/drop-vararg	8	INVOKESTATIC java/util/Arrays.asList([Ljava/lang/Object;)Ljava/util/List; → drop last element
 m0b3ceb8f	operator-docs	com/example/arguments/Scores#bestOfThree(III)I	mutastic/replace-body	8	ICONST_3 → body return 0
@@ -2624,6 +2634,7 @@ mc5e70b9f	operator-docs	com/example/calls/Order#isPaid()Z	mutastic/replace-body	
 m2edb573b	operator-docs	com/example/calls/Order#isPaid()Z	mutastic/replace-body	18	ALOAD_0 → body return true
 mf305363f	operator-docs	com/example/calls/Order#isPaid()Z	mutastic/return-value	18	IRETURN → return false
 m1035535c	operator-docs	com/example/calls/Order#isPaid()Z	mutastic/return-value	18	IRETURN → return true
+md1c51f0e	operator-docs	com/example/calls/Order#pay()I	mutastic/boolean-constant	13	ICONST_1 → constant true to false
 md94e0e3d	operator-docs	com/example/calls/Order#pay()I	mutastic/remove-field-write	13	PUTFIELD → remove write to paid
 mbc07da71	operator-docs	com/example/calls/Order#pay()I	mutastic/replace-body	13	ALOAD_0 → body return 0
 me780ac92	operator-docs	com/example/calls/Order#pay()I	mutastic/return-value	14	IRETURN → return 0
