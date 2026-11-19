@@ -55,6 +55,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **A count of one reads as one.** The gate's pass said the tests `catch 1 of the 1 mutants`; it
+  now says they `catch the only mutant`, `catch all 6 mutants` when they catch every one, and
+  `catch 4 of the 6 mutants` otherwise. `1 of the baseline's mutants is caught now`, from a run
+  and from `baseline --prune`, and `removed 1 ignore that no longer holds`, from `ignore
+  --prune`, take their verb from the count too, as does the `shares` line's `1 mutant`. The Rust
+  edition says the same.
 - **A for-each loop over an array is told as the loop.** Its card said what javac compiles it to,
   `local4 < local3` is always true. It now says what the loop does: the for-each loop over `items`
   reads past its last element, an ArrayIndexOutOfBoundsException, or never runs its body.

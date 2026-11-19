@@ -41,7 +41,7 @@ class IgnoreTest {
     assertThat(stale.out())
         .doesNotContain("(ignored)")
         .contains("\"staleIgnores\":[\"" + ID + "\"]");
-    assertThat(pruned.out()).contains("removed 1 ignore that no longer hold: " + ID);
+    assertThat(pruned.out()).contains("removed 1 ignore that no longer holds: " + ID);
     assertThat(Files.readString(project.resolve(".mutastic/ignores.yaml"))).doesNotContain(ID);
   }
 
@@ -73,7 +73,7 @@ class IgnoreTest {
     assertThat(underDefaults.out()).contains("\"staleIgnores\":[]");
     assertThat(kept.out()).contains("every ignore still holds");
     assertThat(keptFile).contains("- id: " + stronger);
-    assertThat(gone.out()).contains("removed 1 ignore that no longer hold: " + stronger);
+    assertThat(gone.out()).contains("removed 1 ignore that no longer holds: " + stronger);
   }
 
   private static String firstMatch(String regex, String text) {

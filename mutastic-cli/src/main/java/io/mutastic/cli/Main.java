@@ -513,8 +513,13 @@ public final class Main {
 
   private static String pruned(Path directory, Report report) {
     int dropped = Baseline.prune(directory, caughtNow(report, Baseline.ids(directory)));
-    return "mutastic: %d of the baseline's mutants are caught now, and are dropped from %s"
-        .formatted(dropped, Baseline.FILE);
+    return "mutastic: %s, and %s dropped from %s"
+        .formatted(caughtNow(dropped), dropped == 1 ? "is" : "are", Baseline.FILE);
+  }
+
+  /// `1 of the baseline's mutants is caught now`, `2 of the baseline's mutants are caught now`.
+  static String caughtNow(int count) {
+    return "%d of the baseline's mutants %s caught now".formatted(count, count == 1 ? "is" : "are");
   }
 
   private static String baselined(Prepared prepared, String operators, Report report) {
@@ -555,9 +560,8 @@ public final class Main {
       output
           .out()
           .printf(
-              "note: %d of the baseline's mutants are caught now: `mutastic baseline --prune` drops"
-                  + " them\n",
-              caught);
+              "note: %s: `mutastic baseline --prune` drops %s\n",
+              caughtNow(caught), caught == 1 ? "it" : "them");
     }
   }
 
@@ -1317,11 +1321,11 @@ public final class Main {
               + " to run (operators: %s)")
           .formatted(operators);
     }
-    return ("mutastic gate: passed: the tests catch %d of the %d mutants on the lines the task"
-            + " changed (operators: %s)%s%s")
+    return "mutastic gate: passed: the tests %s on the lines the task changed (operators: %s)%s%s"
         .formatted(
-            report.count(Status.CAUGHT) + report.count(Status.TIMED_OUT),
-            report.results().size() - report.count(Status.SKIPPED),
+            caught(
+                report.count(Status.CAUGHT) + report.count(Status.TIMED_OUT),
+                report.results().size() - report.count(Status.SKIPPED)),
             operators,
             waiting.isEmpty()
                 ? ""
@@ -1331,6 +1335,17 @@ public final class Main {
                 ? ""
                 : "; %d, missed before the task and in %s, %s the project's backlog, not the task's"
                     .formatted(older, Baseline.FILE, older == 1 ? "is" : "are"));
+  }
+
+  /// How many of the mutants the tests catch, as people say it: `catch the only mutant`, `catch all
+  /// 6 mutants`, `catch 4 of the 6 mutants`.
+  static String caught(long caught, long scored) {
+    if (scored == 1) {
+      return caught == 1 ? "catch the only mutant" : "don't catch the only mutant";
+    }
+    return caught == scored
+        ? "catch all %d mutants".formatted(scored)
+        : "catch %d of the %d mutants".formatted(caught, scored);
   }
 
   /// The missed mutants' cards, as the agent format has them, without its verdict line.
