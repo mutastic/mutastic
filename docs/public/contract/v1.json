@@ -957,7 +957,15 @@
           "shape": "^\\d\\d:\\d\\d:\\d\\d$"
         },
         {
-          "label": "Duration"
+          "label": "Duration",
+          "under": [
+            {
+              "name": "slept",
+              "rule": "Duration counts the time the machine was awake. When the wall clock, read over the same stretch from the start of the run, ran at least 5 s and a tenth of its own time more, this line says how long the machine slept, and run-finished's sleptMs has it in milliseconds, else 0",
+              "pattern": "^The machine slept for (\\d+ms|\\d+\\.\\ds|\\d+m\\d\\ds) during the run, which Duration leaves out\\.$",
+              "example": "The machine slept for 3m53s during the run, which Duration leaves out."
+            }
+          ]
         },
         {
           "label": "Tests",
@@ -1087,7 +1095,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "a4348cd6723170c627b75df64ae3044b64a3f882c831b0604baee35a2908412f"
+      "sha256": "6bfc004f65de1ba6c7fed89af5260ddefa2e7f4c913e5474569bdef4620449a4"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1199,6 +1207,7 @@
         "sameMutasticAsLastRun",
         "schema",
         "score",
+        "sleptMs",
         "staleIgnores",
         "survived",
         "tests",
@@ -1375,6 +1384,10 @@
     {
       "id": 18,
       "rule": "The gate's operators are fixed at `gate open` and kept with the task: `--operators`, else mutastic.yaml's `gate:` `operators:`, else its `operators:`, else the defaults. `gate check` runs that set; given `--operators` that resolves to another, it refuses (option-value) rather than run it. The open's message and each verdict on the mutants name the set as `(operators: <set>)`. baseline.yaml keeps the set it was taken under as `operators: <set>`."
+    },
+    {
+      "id": 19,
+      "rule": "A count of one reads as one. The gate's pass says the tests `catch the only mutant`, `don't catch the only mutant`, `catch all N mutants` or `catch M of the N mutants` on the lines the task changed; a run's note and `baseline --prune` say `1 of the baseline's mutants is caught now`, and `ignore --prune` says it `removed 1 ignore that no longer holds`."
     }
   ],
   "differences": [

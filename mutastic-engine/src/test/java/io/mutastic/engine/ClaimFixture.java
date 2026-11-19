@@ -383,6 +383,23 @@ final class ClaimFixture {
     return outcome(method, a, b);
   }
 
+  /// Whether the test a card names, written as the method's claim, passes on the mutant: `true`, or
+  /// `false`, or what it threw. Kept, as every class's outcome is.
+  String testedOn(Mutant mutant) throws ReflectiveOperationException {
+    return tested(mutatedBytes(mutant), sourceMethod(mutant) + "Claim");
+  }
+
+  /// The same, for the fixture as it's written, where the test must pass.
+  String testedOnOriginal(String method) throws ReflectiveOperationException {
+    return tested(originalBytes(), method + "Claim");
+  }
+
+  private String tested(byte[] bytes, String claim) throws ReflectiveOperationException {
+    return Kept.outcomes(
+            keyFor(bytes, claim, "tested"), () -> List.of(outcome(load(bytes), claim, "a", "b")))
+        .getFirst();
+  }
+
   /// The skipped mutants that don't behave as the original does.
   List<String> skippedThatDiffer() throws ReflectiveOperationException {
     var failures = new ArrayList<String>();

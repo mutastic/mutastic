@@ -32,6 +32,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   way round that tests with input already in order can't see. A `compareTo` only tested for `0` is
   skipped as equivalent. The Rust edition has had it, for `cmp`. See [Reverse
   ordering](https://docs.mutastic.io/concepts/operators/library/#reverse-ordering).
+- **The summary says when the machine slept during the run.** Duration counts the time the
+  machine was awake, so a run a Mac slept through for four minutes said 15.4s. When the clock ran
+  at least 5 seconds and a tenth of its time more, a line under Duration says `The machine slept
+  for 3m49s during the run, which Duration leaves out.`, and `run-finished` has it as `sleptMs`,
+  else 0. The Rust edition says it too. See [When the machine
+  sleeps](https://docs.mutastic.io/concepts/output/#when-the-machine-sleeps).
 
 ### Scoring changes
 
@@ -63,9 +69,34 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   `LinkedBlockingQueue` made with no bound never is, so changing its largest size to another no
   smaller than the core size changes nothing. A class that changes or reads a pool's sizes keeps
   them.
+- **A log call's format string is arid with worked-out values after it (stronger).**
+  `log.info("took {} ms", System.currentTimeMillis() - start)` kept a `mutastic/string-constant`
+  mutant on `"took {} ms"`: the walk from the string to the logger stopped at the subtraction, a
+  call, boxing, a varargs array, a `+` or a `? :` on the way. It now follows the string through
+  them to the call that takes it, so the string is skipped as arid, as one with nothing after it
+  was; one that may reach anything else on any path still counts. `stronger` runs have fewer
+  mutants, and scores move a little. `mutastic/regex-constant` follows an expression the same
+  way, so one with a worked-out replacement after it, `a.replaceAll("a+", b + "!")`, is now
+  changed. No id changes.
 
 ### Fixes
 
+- **A thread's card names the test that catches it.** A missed `start()`, `execute()` or
+  `submit()` said only that no test checked the effect of calling it. Its card now says no test
+  waits for the work and checks what it did, and to join the thread or wait on a latch first. A
+  removed `interrupt()` asks for a test that has a waiting thread stop; one that sets the flag
+  again after an `InterruptedException` asks for the flag to be checked. A removed `unlock()` asks
+  for another thread to take the lock, `setDaemon(true)` for `isDaemon()`, and a handler for
+  exceptions for a task that throws, run with `start()` or `execute()`, as one from `submit()`
+  never reaches it. A pool's `awaitTermination` that's always true asks for a task still running
+  when the wait ends. Each card's test was run against its mutant, in every shape javac compiles
+  the call to. The Rust edition's card for a removed `thread::spawn` says the same.
+- **A count of one reads as one.** The gate's pass said the tests `catch 1 of the 1 mutants`; it
+  now says they `catch the only mutant`, `catch all 6 mutants` when they catch every one, and
+  `catch 4 of the 6 mutants` otherwise. `1 of the baseline's mutants is caught now`, from a run
+  and from `baseline --prune`, and `removed 1 ignore that no longer holds`, from `ignore
+  --prune`, take their verb from the count too, as does the `shares` line's `1 mutant`. The Rust
+  edition says the same.
 - **A for-each loop over an array is told as the loop.** Its card said what javac compiles it to,
   `local4 < local3` is always true. It now says what the loop does: the for-each loop over `items`
   reads past its last element, an ArrayIndexOutOfBoundsException, or never runs its body.

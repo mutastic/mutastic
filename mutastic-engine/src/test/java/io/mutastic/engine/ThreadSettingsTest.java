@@ -68,7 +68,7 @@ class ThreadSettingsTest {
 
   @Test
   void whatOnlyNamesAThreadIsArid() throws Exception {
-    var found = found(read("threads/Threads.java"));
+    var found = found(read("threads/Settings.java"));
 
     assertThat(in(found, "named"))
         .contains(
@@ -96,7 +96,7 @@ class ThreadSettingsTest {
   /// Text made of a parameter is `"null-1"` when it's `null`; a `null` name itself throws.
   @Test
   void aParameterIsAridOnlyWhereItsMadeIntoAName() throws Exception {
-    var found = found(read("threads/Threads.java"));
+    var found = found(read("threads/Settings.java"));
 
     assertThat(in(found, "lambdaFactory"))
         .contains("null-parameter null parameter 0 prefix" + NAMES);
@@ -107,7 +107,7 @@ class ThreadSettingsTest {
   /// In range, a priority is a hint; out of range, it throws, and that runs.
   @Test
   void aPriorityInRangeIsArid() throws Exception {
-    var found = found(read("threads/Threads.java"));
+    var found = found(read("threads/Settings.java"));
 
     assertThat(in(found, "urgent"))
         .contains(
@@ -126,7 +126,7 @@ class ThreadSettingsTest {
 
   @Test
   void aKeepAliveAndAStackThatStayAboveZeroAreArid() throws Exception {
-    var found = found(read("threads/Threads.java"));
+    var found = found(read("threads/Settings.java"));
 
     assertThat(in(found, "bounded"))
         .contains(
@@ -153,7 +153,7 @@ class ThreadSettingsTest {
   /// `1`, the constructor throws.
   @Test
   void aLargestPoolSizeBesideAQueueWithNoLimitIsEquivalent() throws Exception {
-    var found = found(read("threads/Threads.java"));
+    var found = found(read("threads/Settings.java"));
 
     assertThat(in(found, "unbounded"))
         .contains(
@@ -176,7 +176,7 @@ class ThreadSettingsTest {
   /// work runs, and whether the JVM can exit: their mutants run. A sleep stays arid.
   @Test
   void whatDecidesWhetherWorkRunsStillRuns() throws Exception {
-    var found = found(read("threads/Threads.java"));
+    var found = found(read("threads/Settings.java"));
 
     assertThat(in(found, "fireAndForget"))
         .contains(
@@ -201,7 +201,7 @@ class ThreadSettingsTest {
           .anyMatch(each -> each.contains("setName"))
           .noneMatch(each -> each.endsWith(NAMES));
     }
-    assertThat(in(found(read("threads/Threads.java")), "named"))
+    assertThat(in(found(read("threads/Settings.java")), "named"))
         .contains("remove-void-call remove call to setName" + NAMES);
   }
 
