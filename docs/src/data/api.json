@@ -397,6 +397,16 @@
               "params": [],
               "returns": "",
               "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "typed",
+              "anchor": "typed",
+              "signature": "static String typed(String path)",
+              "doc": "A path as a command mutastic prints types it, so a shell reads it as one word: as it is when\nit's plain, `/work/app/gradlew`; else in quotes, `'/Users/me/My Projects/gradlew'`. A shell's\nsingle quotes run nothing in them. For cmd, on Windows or for a `.bat` or `.cmd` file, double\nquotes: `\"C:\\My Projects\\gradlew.bat\"`.",
+              "params": [],
+              "returns": "",
+              "throws": []
             }
           ]
         },
