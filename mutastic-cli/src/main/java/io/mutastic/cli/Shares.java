@@ -303,7 +303,8 @@ final class Shares {
   /// How many shares there are, and how many mutants they ran.
   String summary() {
     long mutants = shares.stream().mapToLong(read -> read.events().ids().size()).sum();
-    return "shares    %d from %s · %d mutants".formatted(shares.size(), directory, mutants);
+    return "shares    %d from %s · %s"
+        .formatted(shares.size(), directory, Frames.count(mutants, "mutant"));
   }
 
   /// Shares that can't be put together as one run, and why: a usage error, as the command's input
