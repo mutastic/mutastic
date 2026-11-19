@@ -7,6 +7,7 @@ import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ public final class JsonEvents {
   private final Optional<Share> share;
   private final Optional<FailOnNew> failOnNew;
   private final OperatorDocs docs;
+  private final Optional<Slept> clocks;
 
   public JsonEvents(PrintStream out, SourceView sources, int threshold) {
     this(out, sources, threshold, Optional.empty());
@@ -49,7 +51,7 @@ public final class JsonEvents {
       int threshold,
       Optional<Share> share,
       OperatorDocs docs) {
-    this(out, sources, threshold, share, docs, Optional.empty());
+    this(out, sources, threshold, share, docs, Optional.empty(), Optional.empty());
   }
 
   private JsonEvents(
@@ -58,7 +60,8 @@ public final class JsonEvents {
       int threshold,
       Optional<Share> share,
       OperatorDocs docs,
-      Optional<FailOnNew> failOnNew) {
+      Optional<FailOnNew> failOnNew,
+      Optional<Slept> clocks) {
     this.out = out;
     this.sources = sources;
     this.text = new AgentText(sources, threshold);
@@ -66,12 +69,19 @@ public final class JsonEvents {
     this.share = share;
     this.docs = docs;
     this.failOnNew = failOnNew;
+    this.clocks = clocks;
   }
 
   /// The same, passing a run on its misses the baseline doesn't hold, not on its score
   /// (`--fail-on-new`): `run-finished` says so, with the new misses by id.
   public JsonEvents failingOnNew(FailOnNew judged) {
-    return new JsonEvents(out, sources, threshold, share, docs, Optional.of(judged));
+    return new JsonEvents(out, sources, threshold, share, docs, Optional.of(judged), clocks);
+  }
+
+  /// The same, for a run whose clocks read these when it started: `run-finished`'s `sleptMs` says
+  /// how long the machine slept since, when it's worth saying (see [Slept]).
+  public JsonEvents sleptFrom(Slept started) {
+    return new JsonEvents(out, sources, threshold, share, docs, failOnNew, Optional.of(started));
   }
 
   /// Which share of a split run this is, and what it ran on: the shares of one run are of the same
@@ -387,6 +397,7 @@ public final class JsonEvents {
     fields.put(
         "staleIgnores", report.staleIgnores().stream().map(io.mutastic.api.Ignore::id).toList());
     fields.put("durationMs", report.took().toMillis());
+    fields.put("sleptMs", clocks.map(Slept::untilNow).orElse(Duration.ZERO).toMillis());
     emit("run-finished", fields);
   }
 

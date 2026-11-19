@@ -247,12 +247,13 @@ final class IgnoreCommand {
     int removed = entries.size() - kept.size();
     out.printf(
         """
-        mutastic: removed %d ignore%s that no longer hold: %s
+        mutastic: removed %d ignore%s that no longer %s: %s
           from %s
           to undo: git checkout -- %s
         """,
         removed,
         removed == 1 ? "" : "s",
+        removed == 1 ? "holds" : "hold",
         Untrusted.values(stale.stream().sorted().toList()),
         where.shownFile(),
         MutantCommand.shell(where.shownFile()));

@@ -32,6 +32,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   way round that tests with input already in order can't see. A `compareTo` only tested for `0` is
   skipped as equivalent. The Rust edition has had it, for `cmp`. See [Reverse
   ordering](https://docs.mutastic.io/concepts/operators/library/#reverse-ordering).
+- **The summary says when the machine slept during the run.** Duration counts the time the
+  machine was awake, so a run a Mac slept through for four minutes said 15.4s. When the clock ran
+  at least 5 seconds and a tenth of its time more, a line under Duration says `The machine slept
+  for 3m49s during the run, which Duration leaves out.`, and `run-finished` has it as `sleptMs`,
+  else 0. The Rust edition says it too. See [When the machine
+  sleeps](https://docs.mutastic.io/concepts/output/#when-the-machine-sleeps).
 
 ### Scoring changes
 
@@ -56,9 +62,24 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   loop's index up from 0 to the array's length and no further, so `mutastic/comparison` changing
   `index < length` to `index != length` changes nothing, and no test could catch it. `stronger`
   runs have one mutant fewer to run for each such loop, and scores go up a little; no id changes.
+- **A log call's format string is arid with worked-out values after it (stronger).**
+  `log.info("took {} ms", System.currentTimeMillis() - start)` kept a `mutastic/string-constant`
+  mutant on `"took {} ms"`: the walk from the string to the logger stopped at the subtraction, a
+  call, boxing, a varargs array, a `+` or a `? :` on the way. It now follows the string through
+  them to the call that takes it, so the string is skipped as arid, as one with nothing after it
+  was; one that may reach anything else on any path still counts. `stronger` runs have fewer
+  mutants, and scores move a little. `mutastic/regex-constant` follows an expression the same
+  way, so one with a worked-out replacement after it, `a.replaceAll("a+", b + "!")`, is now
+  changed. No id changes.
 
 ### Fixes
 
+- **A count of one reads as one.** The gate's pass said the tests `catch 1 of the 1 mutants`; it
+  now says they `catch the only mutant`, `catch all 6 mutants` when they catch every one, and
+  `catch 4 of the 6 mutants` otherwise. `1 of the baseline's mutants is caught now`, from a run
+  and from `baseline --prune`, and `removed 1 ignore that no longer holds`, from `ignore
+  --prune`, take their verb from the count too, as does the `shares` line's `1 mutant`. The Rust
+  edition says the same.
 - **A for-each loop over an array is told as the loop.** Its card said what javac compiles it to,
   `local4 < local3` is always true. It now says what the loop does: the for-each loop over `items`
   reads past its last element, an ArrayIndexOutOfBoundsException, or never runs its body.

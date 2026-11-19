@@ -92,6 +92,21 @@ in each:
 The agent format is for a coding agent to read as text, and both editions write it the same way.
 From 1.0.0 its structure is fixed and its words are not. What stays: the verdict is the first line, starting `mutastic: PASS` or `mutastic: FAIL`, then the `rules:` and `decline:` lines, and with two or more mutants to write a test for a `tasks:` line (make a task list, one item per mutant grouped by file, and prove each with its `mutastic verify` before the next); then the fence, `<<mutastic-data TOKEN>>` to `<<end mutastic-data TOKEN>>`, around what quotes the project ([Agent output and untrusted text](/agents/#agent-output-and-untrusted-text)); each missed line is an entry of its own, starting `N. missed <id>:`, numbered from 1, with its lines indented under it: `at` and the place, the change as `-` and `+` lines, and each command on a line of its own after its label (`done when:`, `reproduce:`, `or propose:`), whole, so it can be run as shown. What may change in any release: the words of a headline, the evidence, a fix and the rules; which other labelled lines an entry has; and how many entries are shown. A tool that needs fields reads `jsonl`, where each missed mutant's `rendered` is its entry in these words.
 
+### When the machine sleeps
+
+A laptop can sleep in the middle of a run, and Duration counts only the time it was awake. A run
+that took four minutes by the clock can say 15.4s. When the clock ran at least 5 seconds, and a
+tenth of its time, more than that, a line under Duration says how long the machine slept:
+
+```text
+  Duration  15.4s (setup 1.2s, coverage 2.1s, mutants 12.1s)
+            The machine slept for 3m49s during the run, which Duration leaves out.
+```
+
+`run-finished`'s `sleptMs` has the same time in milliseconds, and is 0 when there's no line.
+Under 5 seconds, a correction to the clock is as likely the cause; under a tenth, Duration still
+reads about right.
+
 <EditionOnly edition="java">
 
 - **Cards** are grouped by file, and in each file the method with the most misses comes first. A file shows at most seven cards, and counts the rest (`--each-mutant` shows them all): more than a few at once go unread. On a terminal, file locations are links (`--hyperlinks`) that terminals supporting OSC 8 open; others show the text. The summary's report files are shown from where you ran mutastic, and link to the files themselves. When the run wrote `mutation.html`, each mutant's id links to a page beside it, `mutation-mutants/<id>.html`, that opens the report on that mutant: a link straight to `mutation.html#/m/<id>` loses its `#…` on macOS, whose opener drops it from a `file:` URL, and on Linux and Windows by reports.
