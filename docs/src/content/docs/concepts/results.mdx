@@ -145,6 +145,14 @@ A test that passes among the others but fails on its own, because it counts on w
 left behind, would fail against every mutant it met: see
 [When a catch isn't the mutant's](#when-a-catch-isnt-the-mutants).
 
+A test that starts a JVM of its own, to run the project's `main` as a person would, runs it outside
+the tests' JVM. Neither mutants nor the record of what each test runs reach that JVM. So a test
+there can't catch a mutant, and code only that JVM runs reads as reached by no test. After its
+`coverage` line, the run says so for each test class it finds that starts a process and names a
+class with a `main`. To check that code, call what `main` calls from a test, in the tests' own JVM.
+That JVM still runs: a test that starts it on `java.class.path` finds the project there, as it does
+in the build.
+
 </div>
 <div slot="rust">
 
