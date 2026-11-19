@@ -84,6 +84,9 @@ it on docs.mutastic.io. It holds what the editions must agree on:
   (its head, each entry, and the tail that closes the fence around the project's text);
 - the events' key paths per event type and their order, and mutation.json's key paths;
 - the events, report and SARIF schemas, by sha256;
+- mutastic's own arid rules (`arid`): each id, the editions that have it, whether it judges a
+  whole method or one site, the reasons it gives as each edition prints them, and a line of code
+  it skips; the docs' list of them (`docs/src/data/arid.json`) is written from it;
 - the decisions taken since 13 Nov 2026 (`decisions`), each a shared rule;
 - `differences`: every known way an edition differs, each one of three kinds:
   - `engine`: permanent, with a `reason` another edition would share (Gradle modules, `unsafe`);
@@ -114,6 +117,13 @@ the entry out. So the list only shrinks when the editions really meet. A differe
 An option only one edition will ever have, for a reason of its engine, is an `engine` difference
 with its reason. A change to shared output (a summary row, an agent line) goes the same way: the
 contract first, then each edition.
+
+**Adding an arid rule:** give it an id in `AridRule` (`mutastic-api`), short and as people say
+it, `mutastic:` and a plural noun where one fits; add it to the contract's `arid` with the edition
+that has it, and its example to the engine's `truth/arid/Examples.java` in a method named for it.
+`./gradlew :mutastic-cli:exportDocsOutput` writes the docs' list. Another edition joins the rule
+by adding itself to the rule's `editions`, `reasons` and `examples`, in a mutastic PR merged
+back to back with its own. An id never changes once released.
 
 **A new edition** (Swift, say) adopts the contract on its first day:
 

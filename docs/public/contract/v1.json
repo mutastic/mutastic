@@ -1312,6 +1312,215 @@
       "thresholds.low"
     ]
   },
+  "arid": [
+    {
+      "id": "mutastic:trivial-accessors",
+      "editions": [
+        "java"
+      ],
+      "scope": "method",
+      "description": "A getter or setter that only reads or writes one of its class's fields.",
+      "reasons": {
+        "java": [
+          "arid: trivial getter of <field>",
+          "arid: trivial setter of <field>"
+        ]
+      },
+      "examples": {
+        "java": "String getName() { return name; }"
+      }
+    },
+    {
+      "id": "mutastic:debug-representations",
+      "editions": [
+        "java"
+      ],
+      "scope": "method",
+      "description": "`toString()` and `hashCode()`, the lambdas they define and the helpers only they call.",
+      "reasons": {
+        "java": [
+          "arid: `toString()` is a debug representation",
+          "arid: `hashCode()` may return any value consistent with `equals()`",
+          "arid: a lambda in `<method>()`",
+          "arid: `<helper>()` only serves `<method>()`"
+        ]
+      },
+      "examples": {
+        "java": "public String toString() { return \"Order \" + id; }"
+      }
+    },
+    {
+      "id": "mutastic:output",
+      "editions": [
+        "java",
+        "rust"
+      ],
+      "scope": "site",
+      "description": "Code that only writes output: a log line, or text printed to the console.",
+      "reasons": {
+        "java": [
+          "arid: only writes output"
+        ],
+        "rust": [
+          "arid: only writes output"
+        ]
+      },
+      "examples": {
+        "java": "System.out.println(\"Saved \" + id);",
+        "rust": "println!(\"saved {id}\");"
+      }
+    },
+    {
+      "id": "mutastic:messages",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "The text of an exception's message, or of a failed check's.",
+      "reasons": {
+        "java": [
+          "arid: only an exception's message",
+          "arid: only a failed check's message"
+        ]
+      },
+      "examples": {
+        "java": "throw new IllegalArgumentException(\"amount must be positive\");"
+      }
+    },
+    {
+      "id": "mutastic:failed-asserts",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "The `throw` of an `assert` that fails.",
+      "reasons": {
+        "java": [
+          "arid: only says an assert failed"
+        ]
+      },
+      "examples": {
+        "java": "assert total >= 0 : \"negative total\";"
+      }
+    },
+    {
+      "id": "mutastic:capacity",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "The size a collection or a buffer starts with.",
+      "reasons": {
+        "java": [
+          "arid: only sizes a collection's first allocation"
+        ]
+      },
+      "examples": {
+        "java": "new ArrayList<>(orders.size() * 2)"
+      }
+    },
+    {
+      "id": "mutastic:wait-times",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "How long a sleep, or a `join` with a time limit, waits.",
+      "reasons": {
+        "java": [
+          "arid: only sets how long to wait"
+        ]
+      },
+      "examples": {
+        "java": "Thread.sleep(seconds * 1000L);"
+      }
+    },
+    {
+      "id": "mutastic:waits",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "A sleep, or a `join` with a time limit, removed.",
+      "reasons": {
+        "java": [
+          "arid: only waits"
+        ]
+      },
+      "examples": {
+        "java": "Thread.sleep(100);"
+      }
+    },
+    {
+      "id": "mutastic:null-checks",
+      "editions": [
+        "java",
+        "rust"
+      ],
+      "scope": "site",
+      "description": "A call that only checks a value is there, its result unused, removed: `Objects.requireNonNull(x)` or `x.getClass()` in Java, `x.unwrap()` or `x.expect(…)` in Rust.",
+      "reasons": {
+        "java": [
+          "arid: only checks the value isn't null"
+        ],
+        "rust": [
+          "arid: only checks the value is there"
+        ]
+      },
+      "examples": {
+        "java": "Objects.requireNonNull(order);",
+        "rust": "order.unwrap();"
+      }
+    },
+    {
+      "id": "mutastic:array-sizes",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "The size of a new array, written as a number.",
+      "reasons": {
+        "java": [
+          "arid: only sizes an array"
+        ]
+      },
+      "examples": {
+        "java": "byte[] buffer = new byte[8192];"
+      }
+    },
+    {
+      "id": "mutastic:first-values",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "A variable's first value of 0 or 1, where a counter or a total starts.",
+      "reasons": {
+        "java": [
+          "arid: a variable's first value of 0 or 1"
+        ]
+      },
+      "examples": {
+        "java": "int count = 0;"
+      }
+    },
+    {
+      "id": "mutastic:split-limits",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "The limit of a `String.split`.",
+      "reasons": {
+        "java": [
+          "arid: only limits a split"
+        ]
+      },
+      "examples": {
+        "java": "line.split(\",\", 2)"
+      }
+    }
+  ],
   "decisions": [
     {
       "id": 1,
@@ -1388,6 +1597,10 @@
     {
       "id": 19,
       "rule": "A count of one reads as one. The gate's pass says the tests `catch the only mutant`, `don't catch the only mutant`, `catch all N mutants` or `catch M of the N mutants` on the lines the task changed; a run's note and `baseline --prune` say `1 of the baseline's mutants is caught now`, and `ignore --prune` says it `removed 1 ignore that no longer holds`."
+    },
+    {
+      "id": 20,
+      "rule": "Each of mutastic's own arid rules has one id (`arid`), the same in every edition that has the rule and never changed once shipped. Its docs are one section of one page for both editions, `/reference/arid/#<name>`, `<name>` the id after `mutastic:`, under the docs of the release running, as operators' are (decision 9)."
     }
   ],
   "differences": [
