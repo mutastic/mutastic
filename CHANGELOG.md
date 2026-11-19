@@ -69,6 +69,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   `LinkedBlockingQueue` made with no bound never is, so changing its largest size to another no
   smaller than the core size changes nothing. A class that changes or reads a pool's sizes keeps
   them.
+- **`@DoMutate` and a `mutate:` rule bring back every arid skip in their code.** They brought
+  back only a whole method a filter skips, a trivial accessor or a `toString()`, and still
+  skipped a log call, a `Thread.sleep`, a capacity, an exception's message and the other arid
+  sites inside it. Now each of those runs too, so code under `@DoMutate` or `mutate:` gets more
+  mutants, and its score can fall. What's generated, equivalent or unviable, and a `@DoNotMutate`
+  or `skip:` rule's skip, still stand; no id changes. The Rust edition's `mutate:` already worked
+  this way.
 - **A log call's format string is arid with worked-out values after it (stronger).**
   `log.info("took {} ms", System.currentTimeMillis() - start)` kept a `mutastic/string-constant`
   mutant on `"took {} ms"`: the walk from the string to the logger stopped at the subtraction, a
@@ -114,6 +121,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   the build's JDK is named as `build-jdk` too. The commands mutastic prints start with the same
   Gradle or Maven. See [Which Gradle and Maven
   run](https://docs.mutastic.io/getting-started/install/#which-gradle-and-maven-run).
+- **The HTML report offers those commands to copy.** A mutant's commands that start with the
+  wrapper by its path (`sh ./gradlew`, `../gradlew`, `/repo/mvnw`), Gradle or Maven by an absolute
+  path, or `.\gradlew.bat` on Windows were left out of the report's page, as it took only
+  `./gradlew`, `gradle` and `mvn`. It still offers nothing else: a path is plain names between its
+  separators, ending in the wrapper's or the tool's name.
 - **An error ends in the one command to run, in the Rust edition's words.** A mistake in the
   command line no longer ends in a `usage:` line. With no close name, it ends in the command that
   lists what there is, `mutastic run --help`, or in yours with a `<…>` to fill in: a missing value

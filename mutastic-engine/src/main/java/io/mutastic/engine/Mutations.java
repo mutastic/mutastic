@@ -191,6 +191,7 @@ final class Mutations {
             method,
             code.elementList(),
             filtered(model, method),
+            kept(model, method),
             here,
             new Wrappers(module),
             supertypes,
@@ -334,7 +335,8 @@ final class Mutations {
                     Skip.Kind.USER, "%s (rule `%s`)".formatted(rule.reason(), rule.written())));
   }
 
-  /// Whether the project keeps the method's mutants even if a filter calls the code arid.
+  /// Whether the project keeps the method's mutants even where mutastic would call them arid: a
+  /// whole method a filter judges, or one site in it, a log call or a wait.
   private boolean kept(ClassModel model, MethodModel method) {
     return Annotations.has(model, method, "DoMutate")
         || rule(model, method.methodName().stringValue(), true).isPresent();
@@ -362,6 +364,7 @@ final class Mutations {
     private final Operands operands;
     private final Stores stores;
     private final Optional<String> filtered;
+    private final boolean kept;
     private final List<Operator> operators;
     private final Wrappers wrappers;
     private final Supertypes supertypes;
@@ -383,6 +386,7 @@ final class Mutations {
         MethodModel method,
         List<CodeElement> code,
         Optional<String> filtered,
+        boolean kept,
         List<Operator> operators,
         Wrappers wrappers,
         Supertypes supertypes,
@@ -395,6 +399,7 @@ final class Mutations {
       this.method = method;
       this.code = code;
       this.filtered = filtered;
+      this.kept = kept;
       this.operators = operators;
       this.tryWithResources = tryWithResources(code);
       this.cleanups = LombokCode.cleanups(code);
@@ -719,7 +724,8 @@ final class Mutations {
     }
 
     /// Why a mutant shouldn't run, if it shouldn't: code the compiler or Lombok wrote, then what
-    /// the code shows, then the filters'.
+    /// the code shows, then the filters'. In code the project keeps (`@DoMutate`, a `mutate:` rule)
+    /// an arid reason doesn't count, and the next reason, if any, does.
     private Optional<String> skipped(
         Found found, Instruction instruction, int at, List<String> workedOn) {
       if (tryWithResources.contains(instruction)) {
@@ -728,11 +734,29 @@ final class Mutations {
       if (cleanups.contains(at)) {
         return Optional.of(LombokCode.CLEANUP);
       }
-      return machinery(found.operator(), at)
-          .or(found::skippedByOperator)
-          .or(() -> skipReason(instruction, at))
-          .or(() -> atTheSite(found, at, workedOn))
-          .or(() -> filteredHere(at));
+      return java.util.stream.Stream.<java.util.function.Supplier<Optional<String>>>of(
+              () -> machinery(found.operator(), at),
+              found::skippedByOperator,
+              () -> stringSwitch(instruction),
+              () -> writesOutput(instruction),
+              () -> KotlinChecks.reason(code, at),
+              () -> aroundTheSite(found, at),
+              () ->
+                  ImpliedOr.reason(
+                      found.operator(), found.label(), new ImpliedOr.Site(model, code, at)),
+              () -> GuardedEdge.reason(found.operator(), found.label(), code, at),
+              () -> claimed(found, at, workedOn),
+              () -> filteredHere(at))
+          .map(java.util.function.Supplier::get)
+          .flatMap(Optional::stream)
+          .filter(reason -> !(kept && reason.startsWith("arid:")))
+          .findFirst();
+    }
+
+    /// What the code right around the site shows: a capacity, a wait, a thread's settings.
+    private Optional<String> aroundTheSite(Found found, int at) {
+      return SiteSkips.reason(found.operator(), code, at)
+          .or(() -> threads.reason(found.operator(), found.label(), at));
     }
 
     /// The filters' reason, but for a `@NonNull` check in a member Lombok wrote: the person asked
@@ -741,19 +765,6 @@ final class Mutations {
       return nonNullChecks.contains(at)
           ? filtered.filter(reason -> !reason.startsWith("generated:"))
           : filtered;
-    }
-
-    /// Why a mutant shouldn't run, judged by the code around it: its own, an `||`'s, an `if` that
-    /// its two sides differ, and what the code says of the value it compares.
-    private Optional<String> atTheSite(Found found, int at, List<String> workedOn) {
-      return SiteSkips.reason(found.operator(), code, at)
-          .or(() -> threads.reason(found.operator(), found.label(), at))
-          .or(
-              () ->
-                  ImpliedOr.reason(
-                      found.operator(), found.label(), new ImpliedOr.Site(model, code, at)))
-          .or(() -> GuardedEdge.reason(found.operator(), found.label(), code, at))
-          .or(() -> claimed(found, at, workedOn));
     }
 
     /// A comparison's change that differs only below zero, of a value the code says isn't.
@@ -771,18 +782,21 @@ final class Mutations {
           : Optional.ofNullable(module.get(name));
     }
 
-    /// Why a mutant shouldn't run, if it shouldn't: the reason's first word is its kind.
-    private Optional<String> skipReason(Instruction instruction, int at) {
-      if (instruction instanceof BranchInstruction
-          && stringSwitchLines.contains(line)
-          && isCall(previous, "java/lang/String", "equals")) {
-        return Optional.of("generated: part of a switch on a String");
-      }
-      if (instruction instanceof InvokeInstruction call
-          && OUTPUT_OWNERS.contains(call.owner().asInternalName())) {
-        return Optional.of("arid: only writes output");
-      }
-      return KotlinChecks.reason(code, at);
+    /// javac's hashing in a `switch` on a `String`.
+    private Optional<String> stringSwitch(Instruction instruction) {
+      return instruction instanceof BranchInstruction
+              && stringSwitchLines.contains(line)
+              && isCall(previous, "java/lang/String", "equals")
+          ? Optional.of("generated: part of a switch on a String")
+          : Optional.empty();
+    }
+
+    /// A call to a logger or a print stream.
+    private static Optional<String> writesOutput(Instruction instruction) {
+      return instruction instanceof InvokeInstruction call
+              && OUTPUT_OWNERS.contains(call.owner().asInternalName())
+          ? Optional.of("arid: only writes output")
+          : Optional.empty();
     }
 
     private Optional<String> machinery(Operator operator, int at) {
