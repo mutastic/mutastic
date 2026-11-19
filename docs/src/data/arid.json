@@ -161,17 +161,22 @@
       "anchor": "null-checks",
       "url": "https://docs.mutastic.io/reference/arid/#null-checks",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
-      "description": "A call that only checks a value isn't null, `Objects.requireNonNull` or `getClass()`, its result unused, removed.",
+      "description": "A call that only checks a value is there, its result unused, removed: `Objects.requireNonNull(x)` or `x.getClass()` in Java, `x.unwrap()` or `x.expect(…)` in Rust.",
       "reasons": {
         "java": [
           "arid: only checks the value isn't null"
+        ],
+        "rust": [
+          "arid: only checks the value is there"
         ]
       },
       "examples": {
-        "java": "Objects.requireNonNull(order);"
+        "java": "Objects.requireNonNull(order);",
+        "rust": "order.unwrap();"
       }
     },
     {

@@ -70,8 +70,9 @@ public enum AridRule {
   NULL_CHECKS(
       "mutastic:null-checks",
       Scope.SITE,
-      "A call that only checks a value isn't null, `Objects.requireNonNull` or `getClass()`, its"
-          + " result unused, removed.",
+      "A call that only checks a value is there, its result unused, removed:"
+          + " `Objects.requireNonNull(x)` or `x.getClass()` in Java, `x.unwrap()` or"
+          + " `x.expect(…)` in Rust.",
       "Objects.requireNonNull(order);",
       "arid: only checks the value isn't null"),
   ARRAY_SIZES(
