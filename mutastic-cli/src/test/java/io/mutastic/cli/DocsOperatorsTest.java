@@ -103,6 +103,7 @@ class DocsOperatorsTest {
           new Example("mutastic/flip-increment", "arithmetic", "Words"),
           new Example("mutastic/remove-negation", "arithmetic", "Account"),
           new Example("library/unchecked-arithmetic", "arithmetic", "Points"),
+          new Example("library/plain-division", "arithmetic", "Carousel"),
           new Example("mutastic/return-value", "returns", "Loyalty"),
           new Example("mutastic/replace-body", "returns", "Loyalty"),
           new Example("mutastic/remove-throw", "returns", "Quantities"),

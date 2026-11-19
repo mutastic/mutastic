@@ -28,6 +28,7 @@ class ShownChangeTruthTest {
           new Fixture(
               "arithmetic/OtherArithmetic.java", "mutastic/other-arithmetic", Inputs.NUMBERS),
           new Fixture("arithmetic/Checked.java", "library/unchecked-arithmetic", Inputs.NUMBERS),
+          new Fixture("arithmetic/Divisions.java", "library/plain-division", Inputs.NUMBERS),
           new Fixture("switches/Arms.java", "mutastic/remove-switch-arm", Inputs.NUMBERS),
           new Fixture("discards/Discards.java", "mutastic/remove-discarded-call", Inputs.NUMBERS),
           new Fixture("discards/Discards.java", "mutastic/remove-void-call", Inputs.NUMBERS),

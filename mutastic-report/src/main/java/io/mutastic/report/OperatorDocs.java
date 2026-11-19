@@ -38,7 +38,8 @@ public record OperatorDocs(String base) {
               "constant-value",
               "flip-increment",
               "remove-negation",
-              "unchecked-arithmetic"),
+              "unchecked-arithmetic",
+              "plain-division"),
           "calls",
           List.of(
               "remove-void-call",
@@ -83,7 +84,8 @@ public record OperatorDocs(String base) {
           "library/omit-argument",
           "library/unchecked-arithmetic",
           "library/reverse-ordering",
-          "library/swap-ends");
+          "library/swap-ends",
+          "library/plain-division");
 
   /// The rows named otherwise: for what the operator changes, as they were before the ids were
   /// settled, and kept so that links to them hold. `predicate/remove-not` and `optional/no-default`
