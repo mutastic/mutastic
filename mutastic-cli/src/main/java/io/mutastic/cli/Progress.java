@@ -261,6 +261,7 @@ final class Progress implements Listener, AutoCloseable {
       counts.clear();
       results.clear();
       say(coverageLine(pass));
+      pass.separateJvms().forEach(note -> say("note      %s\n".formatted(note)));
     }
   }
 

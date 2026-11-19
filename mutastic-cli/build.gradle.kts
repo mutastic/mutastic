@@ -150,6 +150,8 @@ tasks.test {
     // DocsOutputTest checks the output the docs show is what mutastic prints.
     systemProperty("mutastic.docsOutput", docsOutput.absolutePath)
     inputs.dir(docsOutput).withPathSensitivity(PathSensitivity.RELATIVE)
+    // AridRulesTest checks the docs' list of arid rules is the engine's and the contract's.
+    inputs.file(rootDir.resolve("docs/src/data/arid.json")).withPathSensitivity(PathSensitivity.RELATIVE)
     // CardsTest checks every card on the samples is the one kept.
     systemProperty("mutastic.cards", cards.absolutePath)
     inputs.dir(cards).withPathSensitivity(PathSensitivity.RELATIVE)
@@ -355,6 +357,8 @@ tasks.register<Test>("exportDocsOutput") {
         includeTestsMatching("io.mutastic.cli.ErrorsPageTest")
         // The cards on the operator pages.
         includeTestsMatching("io.mutastic.cli.DocsOperatorsTest")
+        // The arid rules' page's list.
+        includeTestsMatching("io.mutastic.cli.AridRulesTest")
     }
     systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
     systemProperty("mutastic.docs", rootDir.resolve("docs/src/content/docs").absolutePath)

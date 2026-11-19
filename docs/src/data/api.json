@@ -53,6 +53,288 @@
       "doc": "",
       "types": [
         {
+          "name": "AridRule",
+          "slug": "aridrule",
+          "kind": "enum",
+          "signature": "@Internal enum AridRule",
+          "summary": "mutastic's own arid rules: each a kind of code a test could check but shouldn't have to, by the id that output, `mutastic.yaml` and the docs name it by.",
+          "doc": "mutastic's own arid rules: each a kind of code a test could check but shouldn't have to, by the\nid that output, `mutastic.yaml` and the docs name it by. An id never changes once shipped: a\n`mutate:` rule's `arid:` list names it, and docs.mutastic.io has a section for it at\n[`anchor()`](#anchor). Both editions share the ids (`docs/public/contract/v1.json`, `arid`).\n\nA rule is known by the reasons it gives, as a skipped mutant shows them: `arid: only waits`.",
+          "params": [],
+          "members": [
+            {
+              "kind": "enum constant",
+              "name": "TRIVIAL_ACCESSORS",
+              "anchor": "trivial_accessors",
+              "signature": "TRIVIAL_ACCESSORS",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "DEBUG_REPRESENTATIONS",
+              "anchor": "debug_representations",
+              "signature": "DEBUG_REPRESENTATIONS",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "OUTPUT",
+              "anchor": "output",
+              "signature": "OUTPUT",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "MESSAGES",
+              "anchor": "messages",
+              "signature": "MESSAGES",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "FAILED_ASSERTS",
+              "anchor": "failed_asserts",
+              "signature": "FAILED_ASSERTS",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "CAPACITY",
+              "anchor": "capacity",
+              "signature": "CAPACITY",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "WAIT_TIMES",
+              "anchor": "wait_times",
+              "signature": "WAIT_TIMES",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "WAITS",
+              "anchor": "waits",
+              "signature": "WAITS",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "NULL_CHECKS",
+              "anchor": "null_checks",
+              "signature": "NULL_CHECKS",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "ARRAY_SIZES",
+              "anchor": "array_sizes",
+              "signature": "ARRAY_SIZES",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "FIRST_VALUES",
+              "anchor": "first_values",
+              "signature": "FIRST_VALUES",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "SPLIT_LIMITS",
+              "anchor": "split_limits",
+              "signature": "SPLIT_LIMITS",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "field",
+              "name": "PAGE",
+              "anchor": "page",
+              "signature": "static final String PAGE",
+              "doc": "The path of the docs page with a section for each rule, under the docs' base.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "id",
+              "anchor": "id",
+              "signature": "String id()",
+              "doc": "`mutastic:waits`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "anchor",
+              "anchor": "anchor",
+              "signature": "String anchor()",
+              "doc": "`waits`: the id's name, after its namespace, which is the id of its section on the docs page,\nas an operator's section is named.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "url",
+              "anchor": "url",
+              "signature": "String url(String docs)",
+              "doc": "`https://docs.mutastic.io/reference/arid/#waits`, under the docs of the mutastic running.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "scope",
+              "anchor": "scope",
+              "signature": "AridRule.Scope scope()",
+              "doc": "Whether it judges a whole method or one site.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "description",
+              "anchor": "description",
+              "signature": "String description()",
+              "doc": "What it skips, in a sentence.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "example",
+              "anchor": "example",
+              "signature": "String example()",
+              "doc": "A line of Java it skips a mutant of.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "reasons",
+              "anchor": "reasons",
+              "signature": "List<String> reasons()",
+              "doc": "The reasons it gives, as a skipped mutant shows them, a name in the code as `<field>`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "of",
+              "anchor": "of",
+              "signature": "static Optional<AridRule> of(String reason)",
+              "doc": "The rule that gives `reason` (`arid: only waits`), if one of mutastic's own does.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "named",
+              "anchor": "named",
+              "signature": "static Optional<AridRule> named(String id)",
+              "doc": "The rule with id `id`, `mutastic:waits`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "ids",
+              "anchor": "ids",
+              "signature": "static List<String> ids()",
+              "doc": "Every rule's id, in order.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "AridRule.Scope",
+          "slug": "aridrule-scope",
+          "kind": "enum",
+          "signature": "enum Scope",
+          "summary": "What a rule judges: a whole method, every mutant in it, or one site, a call or a value.",
+          "doc": "What a rule judges: a whole method, every mutant in it, or one site, a call or a value.",
+          "params": [],
+          "members": [
+            {
+              "kind": "enum constant",
+              "name": "METHOD",
+              "anchor": "method",
+              "signature": "METHOD",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "SITE",
+              "anchor": "site",
+              "signature": "SITE",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "written",
+              "anchor": "written",
+              "signature": "String written()",
+              "doc": "`method`, `site`: as the contract and the docs' data say it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
           "name": "BuildErrors",
           "slug": "builderrors",
           "kind": "class",
@@ -1276,7 +1558,7 @@
           "name": "CoveragePass",
           "slug": "coveragepass",
           "kind": "record",
-          "signature": "@Internal record CoveragePass(\n    int jdk,\n    int tests,\n    Duration took,\n    int mutants,\n    List<String> flaky,\n    List<FlakyTest> flakyEvidence,\n    int cases,\n    int skippedCases)",
+          "signature": "@Internal record CoveragePass(\n    int jdk,\n    int tests,\n    Duration took,\n    int mutants,\n    List<String> flaky,\n    List<FlakyTest> flakyEvidence,\n    int cases,\n    int skippedCases,\n    List<String> separateJvms)",
           "summary": "What the coverage pass found, before any mutant runs.",
           "doc": "What the coverage pass found, before any mutant runs.",
           "params": [
@@ -1311,6 +1593,10 @@
             {
               "name": "skippedCases",
               "doc": "the tests and cases skipped: turned off, or aborted by an assumption; -1 when not counted"
+            },
+            {
+              "name": "separateJvms",
+              "doc": "a note for each test class that runs one of the project's `main` classes in a JVM of its own, which neither mutants nor coverage reach"
             }
           ],
           "members": [
@@ -1318,6 +1604,16 @@
               "kind": "constructor",
               "name": "CoveragePass",
               "anchor": "coveragepass",
+              "signature": "CoveragePass(int jdk, int tests, Duration took, int mutants, List<String> flaky, List<FlakyTest> flakyEvidence, int cases, int skippedCases)",
+              "doc": "A pass that found no test running the project in a JVM of its own.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "CoveragePass",
+              "anchor": "coveragepass-2",
               "signature": "CoveragePass(int jdk, int tests, Duration took, int mutants, List<String> flaky, List<FlakyTest> flakyEvidence)",
               "doc": "A pass whose cases weren't counted.",
               "params": [],
@@ -1327,7 +1623,7 @@
             {
               "kind": "constructor",
               "name": "CoveragePass",
-              "anchor": "coveragepass-2",
+              "anchor": "coveragepass-3",
               "signature": "CoveragePass(int jdk, int tests, Duration took, int mutants, List<String> flaky)",
               "doc": "A pass with nothing known of why its flaky tests are flaky.",
               "params": [],
@@ -1340,6 +1636,16 @@
               "anchor": "withcases",
               "signature": "CoveragePass withCases(int ran, int skipped)",
               "doc": "This pass, with the cases it counted.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withSeparateJvms",
+              "anchor": "withseparatejvms",
+              "signature": "CoveragePass withSeparateJvms(List<String> notes)",
+              "doc": "This pass, with a note for each test class that runs the project in a JVM of its own.",
               "params": [],
               "returns": "",
               "throws": []
