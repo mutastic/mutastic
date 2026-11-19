@@ -43,7 +43,7 @@ record ChangedSource(String text, int from, boolean kotlin) {
 
   private Optional<String> builtIn(BuiltIn operator, Mutant mutant, Advice advice) {
     return switch (operator) {
-      case CONSTANT_VALUE -> constant(advice);
+      case CONSTANT_VALUE, BOOLEAN_CONSTANT -> constant(advice);
       case REMOVE_CONDITIONAL -> conditionReplaced(advice).map(ChangedSource::simplified);
       case REMOVE_VOID_CALL, REMOVE_DISCARDED_CALL ->
           callNamed(mutant).flatMap(call -> call.removedStatement(kotlin));

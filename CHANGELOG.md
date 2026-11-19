@@ -9,6 +9,11 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **`mutastic/boolean-constant`, in `stronger`: a flag set the other way.** A `true` or `false` the
+  code passes to a method, or stores in a field or a variable, becomes the other, where only a
+  returned one did. A condition's own value isn't one, and a variable nothing reads is skipped as
+  equivalent. The Rust edition has it too. See [Boolean
+  constant](https://docs.mutastic.io/concepts/operators/arguments/#boolean-constant).
 - **`library/plain-division`, in `stronger`: division that rounds towards zero.** `Math.floorDiv`
   and `Math.floorMod` become `/` and `%`, so a remainder that's wrong for negative numbers, `-1 %
   3` being `-1` where `floorMod` gives `2`, shows unless a test has one. A JDK length or count
@@ -36,6 +41,21 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   and as the Rust edition does for an iterator's. It's in the defaults, so runs get more mutants
   and scores move with them; no existing id changes. See [Math method
   swap](https://docs.mutastic.io/concepts/operators/library/#math-method-swap).
+- **A for-each loop's test made `!=` is skipped as equivalent (stronger).** javac counts the
+  loop's index up from 0 to the array's length and no further, so `mutastic/comparison` changing
+  `index < length` to `index != length` changes nothing, and no test could catch it. `stronger`
+  runs have one mutant fewer to run for each such loop, and scores go up a little; no id changes.
+
+### Fixes
+
+- **A for-each loop over an array is told as the loop.** Its card said what javac compiles it to,
+  `local4 < local3` is always true. It now says what the loop does: the for-each loop over `items`
+  reads past its last element, an ArrayIndexOutOfBoundsException, or never runs its body.
+- **Help fits 100 columns.** The exit codes, `--help`'s list of commands and the long `ignore`
+  example ran to 150 columns and more, so a terminal broke them mid-word. They now wrap under
+  their first line, and the example breaks before an option with ` \`, as the Rust edition's
+  help does. `--progress` also says that the agent and jsonl formats always get a line at least
+  every 30s.
 
 ### Fixes
 

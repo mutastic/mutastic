@@ -200,7 +200,16 @@ public enum BuiltIn implements Operator {
       "A regular expression changes: an anchor goes, a character class or `\\d` turns the other way"
           + " round, or a quantifier goes. It goes unnoticed when no test has text only one of the"
           + " two matches.",
-      Tier.EXTENDED);
+      Tier.EXTENDED),
+
+  /// A `true` or `false` passed to a method, or stored in a field or a local `boolean`, the other
+  /// way round. A returned one is [#RETURN_VALUE]'s, and one in a condition isn't a value at all.
+  /// In `stronger`: many are switches no test needs to throw, a flag set the way it always is.
+  BOOLEAN_CONSTANT(
+      "A `true` or `false` the code passes to a method, or stores in a field or a variable, becomes"
+          + " the other: `setVisible(true)` becomes `setVisible(false)`. It goes unnoticed when no"
+          + " test depends on which it is.",
+      Tier.STRONGER);
 
   private final String explanation;
   private final Tier tier;

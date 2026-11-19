@@ -1894,6 +1894,17 @@
       "reason": "Each language's rounding-down division, and what each can prove isn't negative."
     },
     {
+      "id": "N48",
+      "kind": "engine",
+      "editions": [
+        "java",
+        "rust"
+      ],
+      "surface": "operators",
+      "summary": "`mutastic/boolean-constant` changes an argument, a field or a local `boolean`, outside constructors, skipping a variable nothing reads; or an argument, a `let`, an assignment or a struct field's value",
+      "reason": "What the bytecode or the syntax shows of where a value goes."
+    },
+    {
       "id": "A6",
       "kind": "engine",
       "editions": [
@@ -2555,16 +2566,6 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "C2",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "configuration",
-      "summary": "`--progress` doesn't say its default for agent and jsonl",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "F1",
       "kind": "pending",
       "editions": [
@@ -2623,19 +2624,6 @@
       "surface": "gate",
       "summary": "`doesn't run anyway` only for generated and equivalent skips",
       "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "K1",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "help",
-      "summary": "The help's exit-code table isn't wrapped: lines up to 153 columns (D10 wraps to the terminal)",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "items": [
-        "help:*:width"
-      ]
     },
     {
       "id": "K3",
