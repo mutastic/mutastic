@@ -141,25 +141,29 @@ public final class Engine {
   public static final class NothingCovered extends CantRun {
     @java.io.Serial private static final long serialVersionUID = 1L;
 
-    NothingCovered(Project project, int tests, int classes, Path log) {
+    NothingCovered(Project project, int tests, int classes, Path log, List<String> separate) {
       super(
           ("%d test%s ran and passed in %s, but the coverage pass recorded no line of the %d"
                   + " class%s with mutants, so a score would measure nothing: every mutant would"
-                  + " read as reached by no test. Most likely mutastic's coverage never reached"
-                  + " the code the tests ran: an agent in the tests' JVM arguments that rewrites"
-                  + " classes as they load, as another coverage tool's does (%s); a test"
-                  + " framework or class loader that loads the code outside mutastic's (%s); or"
-                  + " tests that reach none of this code (the build's test filters). The"
-                  + " worker's output is in %s")
+                  + " read as reached by no test. %s The worker's output is in %s")
               .formatted(
                   tests,
                   tests == 1 ? "" : "s",
                   project.name(),
                   classes,
                   classes == 1 ? "" : "es",
-                  agents(project.jvmArgs()),
-                  framework(project),
+                  separate.isEmpty() ? likely(project) : String.join(". ", separate) + ".",
                   log));
+    }
+
+    /// Why coverage may have seen none of the code, when no test runs it in a JVM of its own.
+    private static String likely(Project project) {
+      return ("Most likely mutastic's coverage never reached the code the tests ran: an agent in"
+              + " the tests' JVM arguments that rewrites classes as they load, as another coverage"
+              + " tool's does (%s); a test framework or class loader that loads the code outside"
+              + " mutastic's (%s); or tests that reach none of this code (the build's test"
+              + " filters).")
+          .formatted(agents(project.jvmArgs()), framework(project));
     }
 
     /// The agents mutastic left in the tests' JVM arguments: it leaves out the coverage agents it
@@ -936,10 +940,13 @@ public final class Engine {
             .about(flaky, baseline.failures());
     coverage.exclude(flaky);
     var coverageTook = Duration.ofNanos(System.nanoTime() - coverageStart);
-    measured(project, plan, recordedNothing);
+    var separate =
+        SeparateJvms.notes(SeparateJvms.in(project.testClasses(), plan.mutantRun().models()));
+    measured(project, plan, recordedNothing, separate);
     return new CoveragePass(
             first.jdk(), coverage.testCount(), coverageTook, plan.mutants().size(), flaky, evidence)
-        .withCases(coverage.casesRan(), coverage.casesSkipped());
+        .withCases(coverage.casesRan(), coverage.casesSkipped())
+        .withSeparateJvms(separate);
   }
 
   /// The coverage pass's tests run on `first`: a test that stops its JVM, or keeps it past the
@@ -958,13 +965,17 @@ public final class Engine {
   /// a 0% that reads as tests that don't reach the code, when it's mutastic that didn't see them. A
   /// run of only some mutants, or on only some tests, is let through, as there the tests may well
   /// reach none of the classes.
-  private void measured(Project project, Plan plan, boolean recordedNothing) {
+  ///
+  /// @param separate a note for each test class that runs the code in a JVM of its own, which the
+  ///   coverage pass can't see
+  private void measured(
+      Project project, Plan plan, boolean recordedNothing, List<String> separate) {
     int tests = plan.mutantRun().coverage().testCount();
     if (tests == 0) {
       throw new NoTestsRan(project);
     }
     if (recordedNothing && plan.whole()) {
-      throw new NothingCovered(project, tests, plan.instrumented().size(), log);
+      throw new NothingCovered(project, tests, plan.instrumented().size(), log, separate);
     }
   }
 

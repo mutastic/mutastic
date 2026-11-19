@@ -464,6 +464,80 @@ class AdviceTest {
         .isEqualTo("no test checks the effect of calling `record()` in `discount()`");
   }
 
+  @Test
+  void aThreadsCallSaysWhichTestCatchesItsRemoval() {
+    var started =
+        Advice.of(
+            mutant(
+                BuiltIn.REMOVE_VOID_CALL,
+                "INVOKEVIRTUAL java/lang/Thread.start()V",
+                "remove call",
+                "(I)I"));
+    assertThat(started.headline())
+        .isEqualTo("no test waits for the thread started in `discount()` and checks what it did");
+
+    var pooled =
+        Advice.of(
+            mutant(
+                BuiltIn.REMOVE_DISCARDED_CALL,
+                "INVOKEINTERFACE java/util/concurrent/ExecutorService.submit(Ljava/lang/Runnable;)"
+                    + "Ljava/util/concurrent/Future;",
+                "remove call",
+                "(I)I"));
+    assertThat(pooled.headline()).startsWith("no test waits for the task handed to the pool");
+  }
+
+  /// Which way an interrupt goes, and what a daemon flag is set to, the source says: without it,
+  /// the card is any call's.
+  @Test
+  void anInterruptOrADaemonFlagNeedsItsStatement() {
+    for (var call :
+        List.of(
+            "INVOKEVIRTUAL java/lang/Thread.interrupt()V",
+            "INVOKEVIRTUAL java/lang/Thread.setDaemon(Z)V",
+            "INVOKEVIRTUAL java/lang/Thread.setName(Ljava/lang/String;)V",
+            "INVOKEVIRTUAL com/example/Pool.execute(Ljava/lang/Runnable;)V")) {
+      var advice = Advice.of(mutant(BuiltIn.REMOVE_VOID_CALL, call, "remove call", "(I)I"));
+      assertThat(advice.headline()).as(call).startsWith("no test checks the effect of calling");
+    }
+  }
+
+  @Test
+  void onlyAWaitThatsAlwaysTrueAsksForATimeout() {
+    var wait = "pool.awaitTermination(5, TimeUnit.SECONDS)";
+    var headlines = new java.util.TreeMap<String, String>();
+    for (var replacement : List.of("always jump", "never jump")) {
+      var advice = Advice.of(on(BuiltIn.REMOVE_CONDITIONAL, "IFNE", replacement, wait));
+      headlines.put(advice.change(), advice.headline());
+    }
+    var other = on(BuiltIn.REMOVE_CONDITIONAL, "IFNE", "never jump", "pool.isShutdown()");
+
+    assertThat(headlines)
+        .containsEntry(
+            "`%s` is always true".formatted(wait),
+            "no test has `%s` time out in `discount()`".formatted(wait))
+        .containsEntry(
+            "`%s` is always false".formatted(wait),
+            "no test needs `%s` to be true in `discount()`".formatted(wait));
+    assertThat(Advice.of(other).headline()).startsWith("no test needs `pool.isShutdown()`");
+  }
+
+  /// A mutant of a jump on one value, a `boolean` call's.
+  private static Mutant on(Operator operator, String original, String replacement, String operand) {
+    return new Mutant(
+        "com/example/Pricing",
+        "discount",
+        "(I)I",
+        0,
+        5,
+        operator,
+        original,
+        replacement,
+        Optional.empty(),
+        List.of(),
+        List.of(operand));
+  }
+
   private static Mutant mutant(
       Operator operator, String original, String replacement, String descriptor) {
     return new Mutant(

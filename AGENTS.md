@@ -84,7 +84,9 @@ applied by google-java-format through Spotless: that is the spec, not taste.
 - **A command the output offers exists.** Per-mutant commands come from `MutantCommand`, and
   `MutantCommandTest` checks each one parses; add a command to both sides or neither.
 - **Ids never change.** A mutant's fingerprint is its class, method, site and replacement. A new
-  operator, filter or output must not move an existing id.
+  operator, filter or output must not move an existing id. An arid rule's id (`mutastic:waits`,
+  in `io.mutastic.api.AridRule` and the contract's `arid`) is named in users' `mutastic.yaml` and
+  in the docs' anchors, so it never changes either.
 - **A false catch is worse than a miss.** Anything that can make a mutant look caught when the
   tests didn't catch it (a flaky test, a port clash, a mutant that doesn't load) is treated as
   not caught, and said so.

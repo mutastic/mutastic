@@ -4,7 +4,7 @@
   "title": "mutastic.contract/v1",
   "description": "What every edition of mutastic must agree on, and each known difference with its kind. Each edition's CI runs its own binary on its own pricing fixture and checks what it does against this file: a difference that isn't recorded fails, and so does a recorded one that has gone. CONTRIBUTING.md says how to use it.",
   "type": "object",
-  "required": ["schema", "version", "editions", "reference", "engineSlots", "commands", "options", "environment", "exitCodes", "errors", "errorPairs", "errorCases", "help", "output", "schemas", "events", "report", "twins", "decisions", "differences"],
+  "required": ["schema", "version", "editions", "reference", "engineSlots", "commands", "options", "environment", "exitCodes", "errors", "errorPairs", "errorCases", "help", "output", "schemas", "events", "report", "twins", "arid", "decisions", "differences"],
   "additionalProperties": false,
   "properties": {
     "$schema": { "type": "string" },
@@ -174,6 +174,23 @@
         "explain": { "type": "string", "description": "A pattern the first line of explain for a twin matches." },
         "ignore": { "type": "string", "description": "A pattern the first line of ignore for a twin matches." },
         "shapes": { "type": "object", "description": "Where each edition finds twins, by edition.", "additionalProperties": { "type": "array", "items": { "type": "string" } } }
+      }
+    },
+    "arid": {
+      "type": "array",
+      "description": "mutastic's own arid rules, by id (decision 20): what each skips, the reasons it gives as a skipped mutant shows them, a name in the code as `<field>`, and the editions that have it. A rule's id never changes once shipped.",
+      "items": {
+        "type": "object",
+        "required": ["id", "editions", "scope", "description", "reasons", "examples"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^mutastic:[a-z]+(-[a-z]+)*$" },
+          "editions": { "type": "array", "items": { "$ref": "#/$defs/edition" }, "minItems": 1, "uniqueItems": true },
+          "scope": { "enum": ["method", "site"], "description": "`method`: it skips every mutant of a whole method; `site`: one call or value." },
+          "description": { "type": "string" },
+          "reasons": { "type": "object", "propertyNames": { "$ref": "#/$defs/edition" }, "additionalProperties": { "type": "array", "items": { "type": "string", "pattern": "^arid: " }, "minItems": 1 }, "description": "Each edition's reasons, by edition: one for each edition in `editions`." },
+          "examples": { "type": "object", "propertyNames": { "$ref": "#/$defs/edition" }, "additionalProperties": { "type": "string" }, "description": "A line of each edition's code that the rule skips a mutant of." }
+        }
       }
     },
     "decisions": {

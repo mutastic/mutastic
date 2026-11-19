@@ -121,7 +121,7 @@ final class ClaimFixture {
 
   /// Stack maps and verifying need supertypes, and a fixture's nested classes aren't on any
   /// classpath, as a project's classes are found in a real run.
-  private static ClassFile resolvingNested(Map<String, byte[]> classes) {
+  static ClassFile resolvingNested(Map<String, byte[]> classes) {
     var resolver =
         ClassHierarchyResolver.defaultResolver()
             .orElse(
@@ -133,7 +133,7 @@ final class ClaimFixture {
     return ClassFile.of(ClassFile.ClassHierarchyResolverOption.of(resolver));
   }
 
-  private static java.io.InputStream fixtureOrJdkClass(Map<String, byte[]> classes, String name) {
+  static java.io.InputStream fixtureOrJdkClass(Map<String, byte[]> classes, String name) {
     var bytes = classes.get(name.replace('/', '.'));
     return bytes != null
         ? new java.io.ByteArrayInputStream(bytes)
@@ -381,6 +381,23 @@ final class ClaimFixture {
         mutated(mutant).getDeclaredMethod(sourceMethod(mutant), inputs.type(), inputs.type());
     method.setAccessible(true);
     return outcome(method, a, b);
+  }
+
+  /// Whether the test a card names, written as the method's claim, passes on the mutant: `true`, or
+  /// `false`, or what it threw. Kept, as every class's outcome is.
+  String testedOn(Mutant mutant) throws ReflectiveOperationException {
+    return tested(mutatedBytes(mutant), sourceMethod(mutant) + "Claim");
+  }
+
+  /// The same, for the fixture as it's written, where the test must pass.
+  String testedOnOriginal(String method) throws ReflectiveOperationException {
+    return tested(originalBytes(), method + "Claim");
+  }
+
+  private String tested(byte[] bytes, String claim) throws ReflectiveOperationException {
+    return Kept.outcomes(
+            keyFor(bytes, claim, "tested"), () -> List.of(outcome(load(bytes), claim, "a", "b")))
+        .getFirst();
   }
 
   /// The skipped mutants that don't behave as the original does.
