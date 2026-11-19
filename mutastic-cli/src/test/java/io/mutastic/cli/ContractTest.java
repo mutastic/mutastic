@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.mutastic.cli.EditionContract.Found;
 import io.mutastic.report.Schemas;
+import io.mutastic.report.Slept;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -13,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
@@ -516,6 +518,24 @@ class ContractTest {
   }
 
   private static Samples.@Nullable Result full;
+
+  /// The line under Duration when the machine slept: no run here sleeps, so its words are checked
+  /// as the summary would say them.
+  @Test
+  void theMachineSleptAsTheContractSaysIt() {
+    var duration =
+        StreamSupport.stream(
+                CONTRACT.get("output").get("summary").get("rows").values().spliterator(), false)
+            .filter(row -> row.get("label").asString().equals("Duration"))
+            .findFirst()
+            .orElseThrow();
+    var slept = duration.get("under").get(0);
+
+    assertThat(slept.get("example").asString()).isEqualTo(Slept.line(Duration.ofSeconds(233)));
+    for (var took : List.of(Duration.ofSeconds(5), Duration.ofSeconds(59), Duration.ofHours(2))) {
+      assertThat(Slept.line(took)).matches(slept.get("pattern").asString());
+    }
+  }
 
   @Test
   void theSummaryHasTheContractsRows() {
