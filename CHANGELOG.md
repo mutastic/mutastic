@@ -9,6 +9,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Additions
 
+- **Every arid rule has an id.** Each kind of code mutastic skips as arid has a short, stable name,
+  shared by both editions where both have the rule: `mutastic:output`, `mutastic:messages`,
+  `mutastic:failed-asserts`, `mutastic:capacity`, `mutastic:wait-times`, `mutastic:waits`,
+  `mutastic:null-checks`, `mutastic:array-sizes`, `mutastic:first-values` and
+  `mutastic:split-limits`, beside `mutastic:trivial-accessors` and
+  `mutastic:debug-representations`. The editions' contract lists each with the reasons it gives,
+  and each has a section on the [Arid rules](https://docs.mutastic.io/reference/arid/) page.
 - **`mutastic/boolean-constant`, in `stronger`: a flag set the other way.** A `true` or `false` the
   code passes to a method, or stores in a field or a variable, becomes the other, where only a
   returned one did. A condition's own value isn't one, and a variable nothing reads is skipped as

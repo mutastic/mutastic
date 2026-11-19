@@ -1,0 +1,232 @@
+{
+  "schema": "mutastic.arid/v1",
+  "page": "https://docs.mutastic.io/reference/arid/",
+  "rules": [
+    {
+      "id": "mutastic:trivial-accessors",
+      "anchor": "trivial-accessors",
+      "url": "https://docs.mutastic.io/reference/arid/#trivial-accessors",
+      "editions": [
+        "java"
+      ],
+      "scope": "method",
+      "description": "A getter or setter that only reads or writes one of its class's fields.",
+      "reasons": {
+        "java": [
+          "arid: trivial getter of <field>",
+          "arid: trivial setter of <field>"
+        ]
+      },
+      "examples": {
+        "java": "String getName() { return name; }"
+      }
+    },
+    {
+      "id": "mutastic:debug-representations",
+      "anchor": "debug-representations",
+      "url": "https://docs.mutastic.io/reference/arid/#debug-representations",
+      "editions": [
+        "java"
+      ],
+      "scope": "method",
+      "description": "`toString()` and `hashCode()`, the lambdas they define and the helpers only they call.",
+      "reasons": {
+        "java": [
+          "arid: `toString()` is a debug representation",
+          "arid: `hashCode()` may return any value consistent with `equals()`",
+          "arid: a lambda in `<method>()`",
+          "arid: `<helper>()` only serves `<method>()`"
+        ]
+      },
+      "examples": {
+        "java": "public String toString() { return \"Order \" + id; }"
+      }
+    },
+    {
+      "id": "mutastic:output",
+      "anchor": "output",
+      "url": "https://docs.mutastic.io/reference/arid/#output",
+      "editions": [
+        "java",
+        "rust"
+      ],
+      "scope": "site",
+      "description": "Code that only writes output: a log line, or text printed to the console.",
+      "reasons": {
+        "java": [
+          "arid: only writes output"
+        ],
+        "rust": [
+          "arid: only writes output"
+        ]
+      },
+      "examples": {
+        "java": "System.out.println(\"Saved \" + id);",
+        "rust": "println!(\"saved {id}\");"
+      }
+    },
+    {
+      "id": "mutastic:messages",
+      "anchor": "messages",
+      "url": "https://docs.mutastic.io/reference/arid/#messages",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "The text of an exception's message, or of a failed check's.",
+      "reasons": {
+        "java": [
+          "arid: only an exception's message",
+          "arid: only a failed check's message"
+        ]
+      },
+      "examples": {
+        "java": "throw new IllegalArgumentException(\"amount must be positive\");"
+      }
+    },
+    {
+      "id": "mutastic:failed-asserts",
+      "anchor": "failed-asserts",
+      "url": "https://docs.mutastic.io/reference/arid/#failed-asserts",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "The `throw` of an `assert` that fails.",
+      "reasons": {
+        "java": [
+          "arid: only says an assert failed"
+        ]
+      },
+      "examples": {
+        "java": "assert total >= 0 : \"negative total\";"
+      }
+    },
+    {
+      "id": "mutastic:capacity",
+      "anchor": "capacity",
+      "url": "https://docs.mutastic.io/reference/arid/#capacity",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "The size a collection or a buffer starts with.",
+      "reasons": {
+        "java": [
+          "arid: only sizes a collection's first allocation"
+        ]
+      },
+      "examples": {
+        "java": "new ArrayList<>(orders.size() * 2)"
+      }
+    },
+    {
+      "id": "mutastic:wait-times",
+      "anchor": "wait-times",
+      "url": "https://docs.mutastic.io/reference/arid/#wait-times",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "How long a sleep, or a `join` with a time limit, waits.",
+      "reasons": {
+        "java": [
+          "arid: only sets how long to wait"
+        ]
+      },
+      "examples": {
+        "java": "Thread.sleep(seconds * 1000L);"
+      }
+    },
+    {
+      "id": "mutastic:waits",
+      "anchor": "waits",
+      "url": "https://docs.mutastic.io/reference/arid/#waits",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "A sleep, or a `join` with a time limit, removed.",
+      "reasons": {
+        "java": [
+          "arid: only waits"
+        ]
+      },
+      "examples": {
+        "java": "Thread.sleep(100);"
+      }
+    },
+    {
+      "id": "mutastic:null-checks",
+      "anchor": "null-checks",
+      "url": "https://docs.mutastic.io/reference/arid/#null-checks",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "A call that only checks a value isn't null, `Objects.requireNonNull` or `getClass()`, its result unused, removed.",
+      "reasons": {
+        "java": [
+          "arid: only checks the value isn't null"
+        ]
+      },
+      "examples": {
+        "java": "Objects.requireNonNull(order);"
+      }
+    },
+    {
+      "id": "mutastic:array-sizes",
+      "anchor": "array-sizes",
+      "url": "https://docs.mutastic.io/reference/arid/#array-sizes",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "The size of a new array, written as a number.",
+      "reasons": {
+        "java": [
+          "arid: only sizes an array"
+        ]
+      },
+      "examples": {
+        "java": "byte[] buffer = new byte[8192];"
+      }
+    },
+    {
+      "id": "mutastic:first-values",
+      "anchor": "first-values",
+      "url": "https://docs.mutastic.io/reference/arid/#first-values",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "A variable's first value of 0 or 1, where a counter or a total starts.",
+      "reasons": {
+        "java": [
+          "arid: a variable's first value of 0 or 1"
+        ]
+      },
+      "examples": {
+        "java": "int count = 0;"
+      }
+    },
+    {
+      "id": "mutastic:split-limits",
+      "anchor": "split-limits",
+      "url": "https://docs.mutastic.io/reference/arid/#split-limits",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "The limit of a `String.split`.",
+      "reasons": {
+        "java": [
+          "arid: only limits a split"
+        ]
+      },
+      "examples": {
+        "java": "line.split(\",\", 2)"
+      }
+    }
+  ]
+}
