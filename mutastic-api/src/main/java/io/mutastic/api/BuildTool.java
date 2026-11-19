@@ -72,7 +72,13 @@ public interface BuildTool {
 
   /// What reading a module builds, for progress to show while it does: the tool's task as a person
   /// would name it (`gradle testClasses`), and the log the tool writes as it goes.
-  record Building(String task, Path log) {}
+  ///
+  /// @param note said before it builds: which tool runs, when it isn't the build's own wrapper
+  record Building(String task, Path log, java.util.Optional<String> note) {
+    public Building(String task, Path log) {
+      this(task, log, java.util.Optional.empty());
+    }
+  }
 
   /// What [#read(Request)] will build, and where its log is; empty for a tool that says nothing as
   /// it goes.

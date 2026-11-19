@@ -124,10 +124,12 @@ record Failure(int exit, String code, String said) {
     return correction.flatMap(each -> each.in(args)).map(fixed -> "  mutastic " + fixed + "\n");
   }
 
-  /// How a line that is a command starts: mutastic's, a build tool's, or the look at a log.
+  /// How a line that is a command starts: mutastic's, a build tool's (a wrapper that isn't
+  /// executable after `sh`), or the look at a log.
   private static final Pattern COMMAND =
       Pattern.compile(
-          "^  (?:mutastic |\\S*gradlew(?:\\.bat)? |gradle |\\S*mvnw(?:\\.cmd)? |mvn |tail )");
+          "^  (?:mutastic |(?:sh )?\\S*gradlew(?:\\.bat)? |gradle |(?:sh )?\\S*mvnw(?:\\.cmd)? |mvn"
+              + " |tail )");
 
   /// A close name the message offers: `There's one called --format.`
   private static final Pattern OFFERED =

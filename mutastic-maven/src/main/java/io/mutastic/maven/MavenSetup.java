@@ -16,6 +16,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 /// A Maven module's setup: compiles the code and tests with `mvn test-compile` and mutastic's
 /// extension loaded (`-Dmaven.ext.class.path`), which writes what Surefire's `test` would use.
@@ -37,7 +39,54 @@ final class MavenSetup {
 
   /// What reading the request's module builds, and the log Maven's output goes to.
   static BuildTool.Building building(BuildTool.Request request) {
-    return new BuildTool.Building("mvn test-compile", log(request.workDirectory()));
+    return new BuildTool.Building(
+        "mvn test-compile", log(request.workDirectory()), note(request.directory()));
+  }
+
+  /// Which Maven runs, when it isn't the build's wrapper.
+  private static Optional<String> note(Path directory) {
+    try {
+      var tool = mvn(directory, path());
+      return tool.onPath() ? Optional.of(onPath(tool)) : Optional.empty();
+    } catch (SetupFailed e) {
+      return Optional.empty(); // reading the build says so
+    }
+  }
+
+  /// `no Maven wrapper (mvnw) here or above: running Maven 3.9.11 from the PATH,
+  /// /opt/maven/bin/mvn`.
+  static String onPath(Wrappers.Tool tool) {
+    return "no Maven wrapper (mvnw) here or above: running %s from the PATH, %s"
+        .formatted(version(tool).map(version -> "Maven " + version).orElse("Maven"), tool.file());
+  }
+
+  /// The Maven on the PATH's version, from its distribution's jars.
+  private static Optional<String> version(Wrappers.Tool tool) {
+    return Wrappers.version(tool.file(), CORE);
+  }
+
+  /// A Maven distribution's core, `maven-core-3.9.11.jar`.
+  private static final Pattern CORE =
+      Pattern.compile("maven-core-(?<version>\\d+(?:\\.\\d+)*(?:-[\\w.-]*)?)\\.jar");
+
+  /// Why a build run with the Maven on the PATH likely failed: it may not be the Maven the build
+  /// was made for.
+  private static Optional<String> likely(Path directory) {
+    var tool = mvn(directory, path());
+    if (!tool.onPath()) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        ("It ran with %s from the PATH, %s, as the build has no wrapper (mvnw) here or above. A"
+                + " build made for another Maven fails this way: add the wrapper it expects, or"
+                + " put the Maven it needs first on the PATH.")
+            .formatted(
+                version(tool).map(version -> "Maven " + version).orElse("the Maven"), tool.file()));
+  }
+
+  /// The PATH variable's value.
+  private static String path() {
+    return Objects.requireNonNullElse(System.getenv("PATH"), "");
   }
 
   private static Path log(Path workDirectory) {
@@ -81,7 +130,7 @@ final class MavenSetup {
     if (!module.equals(":")) {
       rest.addAll(List.of("-pl", module.substring(1), "-am"));
     }
-    var built = BuildErrors.command(mvn(directory), directory, "-f", rest);
+    var built = BuildErrors.command(mvn(directory).command(), directory, "-f", rest);
     return SetupFailed.noSuite(output.stream())
         .orElseGet(
             () ->
@@ -89,7 +138,8 @@ final class MavenSetup {
                     "build-failed",
                     BuildErrors.failed(
                         new BuildErrors.Build("Maven", name(directory, module), log, built),
-                        output)));
+                        output,
+                        likely(directory))));
   }
 
   /// `mvn test -Dtest='PricingTest#bigOrders'`, or Failsafe's `verify -Dit.test=` for its suite;
@@ -116,7 +166,7 @@ final class MavenSetup {
                   : "-Dsurefire.failIfNoSpecifiedTests=false"));
     }
     rest.add((failsafe ? "-Dit.test=" : "-Dtest=") + "'" + simple + "'");
-    return BuildErrors.command(mvn(directory), directory, "-f", rest);
+    return BuildErrors.command(mvn(directory).command(), directory, "-f", rest);
   }
 
   /// What Maven says when `-pl` names a module its reactor hasn't got.
@@ -151,8 +201,8 @@ final class MavenSetup {
     var listed = work.resolve("java-modules.txt");
     Files.deleteIfExists(listed);
     var command =
-        List.of(
-            mvn(directory),
+        commandOf(
+            directory,
             "-q",
             "-B",
             "validate",
@@ -204,8 +254,8 @@ final class MavenSetup {
 
   /// `mvn validate` with the extension asked for `module`'s dependents, into `listed`.
   private static List<String> dependentsCommand(Path directory, String module, Path listed) {
-    return List.of(
-        mvn(directory),
+    return commandOf(
+        directory,
         "-q",
         "-B",
         "validate",
@@ -218,8 +268,8 @@ final class MavenSetup {
   private static List<String> command(Path directory, String module, Path out, String suite) {
     var command =
         new ArrayList<>(
-            List.of(
-                mvn(directory),
+            commandOf(
+                directory,
                 "-B",
                 "test-compile",
                 "-Dmaven.ext.class.path=" + extensionJar(),
@@ -243,20 +293,24 @@ final class MavenSetup {
     return builder.start().waitFor();
   }
 
-  private static String mvn(Path directory) {
-    return mvn(directory, Objects.requireNonNullElse(System.getenv("PATH"), ""));
+  private static Wrappers.Tool mvn(Path directory) {
+    return mvn(directory, path());
+  }
+
+  /// The build's Maven, then `arguments`.
+  private static List<String> commandOf(Path directory, String... arguments) {
+    var command = new ArrayList<>(mvn(directory).command());
+    command.addAll(List.of(arguments));
+    return List.copyOf(command);
   }
 
   /// The build's wrapper, as its own build runs: the nearest from `directory` up to the top of its
-  /// build, where `.mvn` is, so a module directory runs its build's. Else `mvn` on `path`, the
-  /// PATH.
-  static String mvn(Path directory, String path) {
+  /// build, where `.mvn` is, so a module directory runs its build's; or above that, in the same
+  /// repository. Else `mvn` on `path`, the PATH.
+  static Wrappers.Tool mvn(Path directory, String path) {
     var root = Wrappers.root(directory, at -> Files.isDirectory(at.resolve(".mvn")));
-    var found = Wrappers.wrapper(directory, root, Wrappers.WINDOWS ? "mvnw.cmd" : "mvnw");
-    if (found.isPresent()) {
-      return found.get().toString();
-    }
-    return Wrappers.program("mvn", path)
+    var wrapper = Wrappers.wrapper(directory, root, Wrappers.WINDOWS ? "mvnw.cmd" : "mvnw");
+    return Wrappers.tool(wrapper, "mvn", path)
         .orElseThrow(
             () ->
                 new SetupFailed(

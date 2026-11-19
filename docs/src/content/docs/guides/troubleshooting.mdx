@@ -96,6 +96,20 @@ JDK:
 ./gradlew wrapper --gradle-version 9.1.0
 ```
 
+### The build fails with the Gradle on the PATH
+
+A build is made for the Gradle its wrapper names. When mutastic finds no wrapper, from the
+directory you ran it on up to the top of the repository, it runs the `gradle` on your `PATH`, and
+says so with its path and version. An older Gradle can fail while it reads the build file, on a
+method it hasn't got. The failure says which Gradle ran.
+
+Give the build the wrapper it expects, or put the Gradle it needs first on your `PATH`. With a
+Gradle that reads the build:
+
+```sh
+gradle wrapper --gradle-version 9.2.1
+```
+
 ### A build of modules
 
 mutastic tests one module at a time. Run at the top of a build whose Java code is all in its
