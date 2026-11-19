@@ -179,6 +179,7 @@ public final class JsonEvents {
     if (colon > 0 && SKIP_KINDS.contains(reason.substring(0, colon))) {
       fields.put("skipKind", reason.substring(0, colon));
     }
+    io.mutastic.api.AridRule.of(reason).ifPresent(rule -> fields.put("skipRule", rule.id()));
   }
 
   /// Which test caught it, with what, from where; or whose catch didn't repeat.
@@ -277,6 +278,16 @@ public final class JsonEvents {
     fields.put("idDescription", id.getFirst());
     fields.put("idNote", id.getLast());
     fields.put("site", site(mutant));
+    Explanation.arid(mutant, docs)
+        .ifPresent(
+            arid -> {
+              var rule = new LinkedHashMap<String, Object>();
+              rule.put("id", arid.rule().id());
+              rule.put("description", arid.rule().description());
+              rule.put("docs", arid.docs());
+              rule.put("bringBack", arid.bringBack());
+              fields.put("arid", rule);
+            });
     lastRun.ifPresent(found -> fields.put("lastRun", lastRun(found)));
     emit("mutant-explained", fields);
   }
@@ -503,6 +514,9 @@ public final class JsonEvents {
       found.put("missed", audit.missed());
       found.put("notCovered", audit.notCovered());
       found.put("checkedIn", audit.caughtIn());
+      if (!audit.rules().isEmpty()) {
+        found.put("bringBack", String.join("\n", audit.rules()) + "\n");
+      }
       fields.put("aridAudit", found);
     }
   }

@@ -408,6 +408,13 @@ public final class ReportFiles {
     SuggestedTest.of(result, sources)
         .ifPresent(test -> fields.put("suggestedTest", suggestedTest(test, result)));
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
+    Explanation.arid(result.mutant(), docs)
+        .ifPresent(
+            arid -> {
+              fields.put("skipRule", arid.rule().id());
+              fields.put("skipDocs", arid.docs());
+              fields.put("bringBack", arid.bringBack());
+            });
     return fields;
   }
 

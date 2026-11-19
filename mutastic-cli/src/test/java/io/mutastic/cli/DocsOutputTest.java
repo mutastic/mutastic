@@ -52,6 +52,9 @@ class DocsOutputTest {
   /// A mutant of the configured sample's generated code, which its rule skips.
   private static final String GENERATED = "m6393711d";
 
+  /// A mutant of the configured sample's `Customer.toString()`, which mutastic skips as arid.
+  private static final String ARID = "mb7fe9c69";
+
   /// A marked code block in a page: `{/* from: path */}` quotes a file; `{/* added to: path */}` is
   /// code the page adds to one.
   private static final Pattern MARKED =
@@ -810,6 +813,7 @@ class DocsOutputTest {
     shown("configured-without.ansi", project, without);
     shown("configured.ansi", project, with);
     shown("configured-explain.ansi", project, mutastic("explain", GENERATED, project.toString()));
+    shown("configured-arid-explain.ansi", project, mutastic("explain", ARID, project.toString()));
   }
 
   /// The Equivalent mutants page's pair: a comparison's change that differs only below zero,

@@ -300,6 +300,13 @@ record Configuration(
     private boolean gateKey;
     private @Nullable String pendingVerb;
     private @Nullable String pendingTarget;
+    private @Nullable String pendingReason;
+    private final List<String> pendingArid = new ArrayList<>();
+    private boolean aridGiven;
+
+    /// The indent of an `arid:` with its list under it, while that list is read; else -1.
+    private int aridIndent = -1;
+
     private int number;
 
     Reader(Path file, Path shown) {
@@ -332,7 +339,7 @@ record Configuration(
       }
       var item = line.strip();
       switch (section) {
-        case "rules:" -> rule(item);
+        case "rules:" -> rule(item, line.length() - line.stripLeading().length());
         case "plugins:" -> plugins.add(Path.of(placed(item)));
         case "filters:" -> filters.add(placed(item));
         case "operators:" -> operators.add(placed(item));
@@ -403,14 +410,21 @@ record Configuration(
       extended = named;
     }
 
-    private void rule(String item) {
-      if (item.startsWith("reason:") && pendingVerb != null) {
-        rules.add(
-            new Rule(
-                pendingVerb.equals("mutate"),
-                java.util.Objects.requireNonNull(pendingTarget),
-                value(item.substring("reason:".length()))));
-        pendingVerb = null;
+    private void rule(String item, int indent) {
+      if (aridIndent >= 0 && indent > aridIndent && item.startsWith("- ")) {
+        aridId(value(item.substring(2)));
+        return;
+      }
+      aridIndent = -1;
+      if (pendingVerb != null && item.startsWith("reason:")) {
+        if (pendingReason != null) {
+          throw error("the rule `%s: %s` has one `reason:`".formatted(pendingVerb, pendingTarget));
+        }
+        pendingReason = value(item.substring("reason:".length()));
+        return;
+      }
+      if (pendingVerb != null && item.startsWith("arid:")) {
+        arid(value(item.substring("arid:".length())), indent);
         return;
       }
       var listed = listed(item);
@@ -429,12 +443,75 @@ record Configuration(
       pendingTarget = value(listed.substring(colon + 1));
     }
 
-    /// Every skip says why: a rule without a reason is an error, not "no reason given".
+    /// A `mutate:` rule's `arid:`: a list on its line, `[mutastic:waits, mutastic:output]`, one id,
+    /// or nothing, and its list on the lines under it.
+    private void arid(String value, int indent) {
+      if (!"mutate".equals(pendingVerb)) {
+        throw error(
+            "`arid:` goes on a `mutate:` rule: it says which arid skips to bring back, and a"
+                + " `skip:` rule skips everything it covers");
+      }
+      if (aridGiven) {
+        throw error("the rule `mutate: %s` has one `arid:` list".formatted(pendingTarget));
+      }
+      aridGiven = true;
+      if (value.isEmpty()) {
+        aridIndent = indent;
+        return;
+      }
+      var list = value.startsWith("[") && value.endsWith("]");
+      var items = list ? value.substring(1, value.length() - 1) : value;
+      if (items.isBlank()) {
+        return;
+      }
+      for (var id : items.split(",", -1)) {
+        aridId(value(id));
+      }
+    }
+
+    /// One id in an `arid:` list, which must be one of mutastic's arid rules.
+    private void aridId(String id) {
+      if (io.mutastic.api.AridRule.named(id).isEmpty()) {
+        var close = io.mutastic.api.Nearest.name(id, io.mutastic.api.AridRule.ids());
+        throw error(
+            close
+                .map(rule -> "%s isn't an arid rule. There's one called %s.".formatted(id, rule))
+                .orElse(
+                    "%s isn't an arid rule; the rules are %s"
+                        .formatted(
+                            id.isEmpty() ? "\"\"" : id,
+                            Options.listed(io.mutastic.api.AridRule.ids(), "and"))));
+      }
+      pendingArid.add(id);
+    }
+
+    /// Every skip says why: a rule without a reason is an error, not "no reason given". The rule
+    /// read so far is complete, and kept.
     private void requireReason() {
-      if (pendingVerb != null) {
+      aridIndent = -1;
+      if (pendingVerb == null) {
+        return;
+      }
+      if (pendingReason == null) {
         throw error(
             "the rule `%s: %s` needs a `reason:` under it".formatted(pendingVerb, pendingTarget));
       }
+      if (aridGiven && pendingArid.isEmpty()) {
+        throw error(
+            "the rule `mutate: %s` has an empty `arid:` list: name the rules to bring back, or"
+                    .formatted(pendingTarget)
+                + " leave `arid:` out to bring back every arid skip");
+      }
+      rules.add(
+          new Rule(
+              pendingVerb.equals("mutate"),
+              java.util.Objects.requireNonNull(pendingTarget),
+              pendingReason,
+              pendingArid));
+      pendingVerb = null;
+      pendingReason = null;
+      pendingArid.clear();
+      aridGiven = false;
     }
 
     private String listed(String item) {

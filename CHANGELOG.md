@@ -17,6 +17,18 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   `mutastic:trivial-accessors` and `mutastic:debug-representations`. The editions' contract lists
   each with the reasons it gives, and each has a section on the [Arid
   rules](https://docs.mutastic.io/reference/arid/) page.
+- **Bring back one arid rule: `arid:` on a `mutate:` rule.** `arid: [mutastic:waits]` under a
+  `mutate:` rule in `mutastic.yaml` brings back only that rule's skips in the code it covers, and
+  `@DoMutate(arid = "mutastic:waits")` does the same in the code (`mutastic-annotations` gains
+  `arid()`). Without it a `mutate:` rule brings back every arid skip, as before. An id mutastic
+  doesn't have is refused, with the one meant when it's close: `mutastic:wait isn't an arid rule.
+  There's one called mutastic:waits.` The `mutastic.yaml` schema has the key and its ids.
+- **A skip says which arid rule made it, and how to undo it.** `explain` on a mutant an arid rule
+  skipped has an `arid` row: the rule's id, what it skips, a link to its docs and the
+  `mutastic.yaml` rule to copy that runs it. The HTML report's "Why it was skipped" says the same,
+  with a copy button. Events carry the id as `skipRule` (`mutant-finished`) and the row as `arid`
+  (`mutant-explained`), mutation.json as `mutastic.skipRule`, and an arid audit gives the rule to
+  copy for each method where a test's assertion caught an arid mutant.
 - **`mutastic/boolean-constant`, in `stronger`: a flag set the other way.** A `true` or `false` the
   code passes to a method, or stores in a field or a variable, becomes the other, where only a
   returned one did. A condition's own value isn't one, and a variable nothing reads is skipped as

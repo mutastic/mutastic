@@ -151,7 +151,7 @@ final class Mutations {
                 new KotlinGenerated(),
                 inlineBodies,
                 new TrivialAccessors(),
-                new DebugRepresentations(this::kept)));
+                new DebugRepresentations(this::keptDebugRepresentation)));
     all.addAll(policy.filters());
     this.judges = List.copyOf(all);
     this.wholeClasses = new WholeClasses(chosen, this::decidedByTheProject);
@@ -304,13 +304,13 @@ final class Mutations {
     if (decided.isPresent()) {
       return decided.map(Skip::toString);
     }
-    boolean kept = kept(model, method);
+    var kept = kept(model, method);
     return judges.stream()
         .map(filter -> filter.skip(model, method))
         .flatMap(Optional::stream)
-        .filter(skip -> !(kept && skip.kind() == Skip.Kind.ARID))
-        .findFirst()
-        .map(Skip::toString);
+        .map(Skip::toString)
+        .filter(reason -> !kept.keeps(reason))
+        .findFirst();
   }
 
   /// A `skip:` rule's, unless the code itself says `@DoMutate`.
@@ -329,11 +329,27 @@ final class Mutations {
                     Skip.Kind.USER, "%s (rule `%s`)".formatted(rule.reason(), rule.written())));
   }
 
-  /// Whether the project keeps the method's mutants even where mutastic would call them arid: a
-  /// whole method a filter judges, or one site in it, a log call or a wait.
-  private boolean kept(ClassModel model, MethodModel method) {
-    return Annotations.has(model, method, "DoMutate")
-        || rule(model, method.methodName().stringValue(), true).isPresent();
+  /// What the project keeps of the method's mutants where mutastic would call them arid: a whole
+  /// method a filter judges, or one site in it, a log call or a wait. Every arid skip, or only the
+  /// rules an `arid:` list names, of `@DoMutate` and of every `mutate:` rule that covers it.
+  private KeptArid kept(ClassModel model, MethodModel method) {
+    var kept =
+        Annotations.find(model, method, Set.of("DoMutate"))
+            .map(found -> KeptArid.of(found.arid()))
+            .orElse(KeptArid.NONE);
+    var className = model.thisClass().asInternalName().replace('/', '.');
+    var member = method.methodName().stringValue();
+    for (var rule : policy.rules()) {
+      if (rule.mutate() && rule.covers(className, member)) {
+        kept = kept.and(KeptArid.of(rule.arid()));
+      }
+    }
+    return kept;
+  }
+
+  /// Whether the project keeps the method's `toString()` or `hashCode()`, or a helper of theirs.
+  private boolean keptDebugRepresentation(ClassModel model, MethodModel method) {
+    return kept(model, method).keeps(io.mutastic.api.AridRule.DEBUG_REPRESENTATIONS);
   }
 
   private Optional<Rule> rule(ClassModel model, String member, boolean mutate) {
@@ -358,7 +374,7 @@ final class Mutations {
     private final Operands operands;
     private final Stores stores;
     private final Optional<String> filtered;
-    private final boolean kept;
+    private final KeptArid kept;
     private final List<Operator> operators;
     private final Wrappers wrappers;
     private final Supertypes supertypes;
@@ -379,7 +395,7 @@ final class Mutations {
         MethodModel method,
         List<CodeElement> code,
         Optional<String> filtered,
-        boolean kept,
+        KeptArid kept,
         List<Operator> operators,
         Wrappers wrappers,
         Supertypes supertypes,
@@ -740,7 +756,7 @@ final class Mutations {
               () -> filteredHere(at))
           .map(java.util.function.Supplier::get)
           .flatMap(Optional::stream)
-          .filter(reason -> !(kept && reason.startsWith("arid:")))
+          .filter(reason -> !kept.keeps(reason))
           .findFirst();
     }
 

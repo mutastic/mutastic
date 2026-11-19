@@ -94,7 +94,14 @@
           "properties": {
             "mutate": {
               "$ref": "#/$defs/pattern",
-              "description": "Mutate everything mutastic would skip in this code as arid, such as a `toString()` or a log call that's a contract: a whole method, or one call in it. Never brings back generated or equivalent code."
+              "description": "Mutate what mutastic would skip in this code as arid, such as a `toString()` or a log call that's a contract: a whole method, or one call in it. Without `arid:`, every arid skip; never generated or equivalent code."
+            },
+            "arid": {
+              "type": "array",
+              "items": { "enum": ["mutastic:trivial-accessors", "mutastic:debug-representations", "mutastic:output", "mutastic:messages", "mutastic:failed-asserts", "mutastic:capacity", "mutastic:wait-times", "mutastic:waits", "mutastic:null-checks", "mutastic:array-sizes", "mutastic:first-values", "mutastic:split-limits"] },
+              "minItems": 1,
+              "uniqueItems": true,
+              "description": "Bring back only these arid rules' skips, by id: `[mutastic:waits]`. Each rule's docs: https://docs.mutastic.io/reference/arid/"
             },
             "reason": { "$ref": "#/$defs/reason" }
           }

@@ -12,17 +12,56 @@ import java.util.List;
 ///
 /// @param byAssertion the catches where a test's own check failed
 /// @param caughtIn the methods of the catches by an assertion, `Board.toString()`, in order found
+/// @param bringBack for each of those, the `mutastic.yaml` rule that runs the arid rule's mutants
+///   there, `- mutate: com.example.Board#toString`, its `arid:` and `reason:` under it
 record AridAudit(
-    int ran, long caught, long byAssertion, long missed, long notCovered, List<String> caughtIn) {
+    int ran,
+    long caught,
+    long byAssertion,
+    long missed,
+    long notCovered,
+    List<String> caughtIn,
+    List<String> bringBack) {
+  /// How many methods the summary names, and gives a rule for.
+  private static final int SHOWN = 3;
+
   static AridAudit of(Report report) {
     var audited = report.audited();
+    var checked = audited.stream().filter(AridAudit::byAssertion).toList();
+    // An audited mutant runs without its reason: the run's own result for it has it.
+    var skipped =
+        report.results().stream()
+            .map(MutantResult::mutant)
+            .filter(mutant -> mutant.skipped().isPresent())
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    io.mutastic.api.Mutant::fingerprint, mutant -> mutant, (a, b) -> a));
     return new AridAudit(
         audited.size(),
         audited.stream().filter(result -> result.status().detected()).count(),
-        audited.stream().filter(AridAudit::byAssertion).count(),
+        checked.size(),
         count(audited, Status.MISSED),
         count(audited, Status.NOT_COVERED),
-        audited.stream().filter(AridAudit::byAssertion).map(AridAudit::method).distinct().toList());
+        checked.stream().map(AridAudit::method).distinct().toList(),
+        checked.stream()
+            .map(result -> skipped.getOrDefault(result.mutant().fingerprint(), result.mutant()))
+            .map(mutant -> Explanation.arid(mutant, OperatorDocs.LATEST))
+            .flatMap(java.util.Optional::stream)
+            .map(arid -> arid.bringBack().substring(arid.bringBack().indexOf('\n') + 1))
+            .distinct()
+            .toList());
+  }
+
+  /// What to put in `mutastic.yaml` to run the arid mutants a test checks, in the first methods the
+  /// summary names: a `rules:` list, a line each.
+  List<String> rules() {
+    if (bringBack.isEmpty()) {
+      return List.of();
+    }
+    var lines = new java.util.ArrayList<String>();
+    lines.add("rules:");
+    bringBack.stream().limit(SHOWN).flatMap(String::lines).forEach(line -> lines.add(line));
+    return lines;
   }
 
   boolean happened() {
@@ -38,7 +77,7 @@ record AridAudit(
     if (caughtIn.isEmpty()) {
       return counts;
     }
-    var shown = caughtIn.subList(0, Math.min(3, caughtIn.size()));
+    var shown = caughtIn.subList(0, Math.min(SHOWN, caughtIn.size()));
     return counts
         + "; checked in "
         + String.join(", ", shown)

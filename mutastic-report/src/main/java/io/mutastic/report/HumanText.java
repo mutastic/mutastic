@@ -1071,7 +1071,14 @@ public final class HumanText {
   private static void putRunsAnyway(Map<String, String> rows, Report report) {
     var audit = AridAudit.of(report);
     if (audit.happened()) {
-      rows.put("Arid audit", audit.summary());
+      var rules = audit.rules();
+      rows.put(
+          "Arid audit",
+          rules.isEmpty()
+              ? audit.summary()
+              : audit.summary()
+                  + "\na test checks what they do: to run them, add to mutastic.yaml\n  "
+                  + String.join("\n  ", rules));
     }
     if (GhostCards.lookedFor(report)) {
       rows.put("Ghosts", GhostCards.summary(report));
@@ -1087,11 +1094,15 @@ public final class HumanText {
   private void appendRows(StringBuilder out, Map<String, String> rows) {
     int width = rows.keySet().stream().mapToInt(String::length).max().orElse(0);
     out.append('\n');
+    // A value of more than one line goes on under the first, as far in.
+    var under = "\n" + " ".repeat(width + 3);
     rows.forEach(
         (label, value) ->
             out.append(
                 " %s  %s\n"
-                    .formatted(style.dim(" ".repeat(width - label.length()) + label), value)));
+                    .formatted(
+                        style.dim(" ".repeat(width - label.length()) + label),
+                        value.replace("\n", under))));
   }
 
   private String classesRow(Report report) {
