@@ -86,10 +86,9 @@ class RunningElsewhereTest {
     assertThat(run.exit()).isEqualTo(Main.USAGE);
     assertThat(run.err())
         .contains(
-            empty
-                + " isn't a Gradle or Maven build: it has no settings.gradle(.kts) or build.gradle(.kts) or pom.xml",
-            "mutastic run --only=<id> <project directory> [:module]",
-            "A mutant's id belongs to the project its run was on.");
+            "there's no project in " + empty + " for mutastic to test.",
+            "for settings.gradle(.kts), build.gradle(.kts) or pom.xml.",
+            "  mutastic run --only=" + ID + " <project directory>\n");
     try (var files = Files.list(empty)) {
       assertThat(files).isEmpty(); // no build/mutastic left behind
     }

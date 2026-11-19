@@ -10,7 +10,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
-import java.util.stream.Collectors;
 
 /// The build tools mutastic ships with ([BuildTool]s, found with [ServiceLoader]), and which one a
 /// directory is a build of.
@@ -104,15 +103,18 @@ final class BuildTools {
     return words;
   }
 
+  /// No build in `directory` or above it: where mutastic looked, and for what. The command to run
+  /// on the project instead follows, from the command line ([Failure]).
   private static String nowhere(Path directory, List<BuildTool> tools) {
-    var kinds = tools.stream().map(BuildTool::name).collect(Collectors.joining(" or "));
-    var files = tools.stream().map(BuildTool::buildFiles).collect(Collectors.joining(" or "));
+    var files =
+        tools.stream()
+            .flatMap(tool -> java.util.Arrays.stream(tool.buildFiles().split(" or ", -1)))
+            .toList();
+    var place = directory.toString().equals(".") ? "here" : "in " + directory;
     return """
-        %s isn't a %s build: it has no %s.
-        Run mutastic on a %s project, naming it if it's not where you are:
-          mutastic run <project directory> [:module]
-          mutastic run --only=<id> <project directory> [:module]
-        %s"""
-        .formatted(directory, kinds, files, kinds, SetupFailed.ID_HINT);
+        there's no project %s for mutastic to test.
+        It looked in %s and every directory above it, for %s.
+        Go to your project, or name its directory:"""
+        .formatted(place, directory.toAbsolutePath().normalize(), Options.listed(files, "or"));
   }
 }

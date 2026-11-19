@@ -425,17 +425,39 @@ class ContractTest {
     if (errorCase.has("code")) {
       errorCode(found, item, errorCase.get("code").asString(), run);
     }
+    if (errorCase.has("message")) {
+      errorMessage(found, item, errorCase.get("message").asString(), run, dir);
+    }
+  }
+
+  /// The error's first line, the event's `message`, with the fixture's directory as `{dir}`, the
+  /// empty one as `{empty}` and the missed mutant as `{id}`.
+  private static void errorMessage(
+      List<Found> found, String item, String message, Samples.Result run, Path dir) {
+    var said =
+        failed(run)
+            .map(event -> event.get("message").asString())
+            .orElse("no run-failed event")
+            .replace(work.resolve("empty").toString(), "{empty}")
+            .replace(dir.toString(), "{dir}")
+            .replace(ID, "{id}");
+    if (!said.equals(message)) {
+      found.add(new Found(item + ":message", "it says \"%s\"".formatted(said)));
+    }
+  }
+
+  /// The last `run-failed` event on stdout.
+  private static java.util.Optional<JsonNode> failed(Samples.Result run) {
+    return run.out()
+        .lines()
+        .filter(line -> line.startsWith("{"))
+        .map(JsonMapper.shared()::readTree)
+        .filter(event -> event.get("reason").asString().equals("run-failed"))
+        .reduce((first, second) -> second);
   }
 
   private static void errorCode(List<Found> found, String item, String code, Samples.Result run) {
-    var failed =
-        run.out()
-            .lines()
-            .filter(line -> line.startsWith("{"))
-            .map(JsonMapper.shared()::readTree)
-            .filter(event -> event.get("reason").asString().equals("run-failed"))
-            .reduce((first, second) -> second);
-    var said = failed.map(event -> event.get("code").asString()).orElse("no run-failed event");
+    var said = failed(run).map(event -> event.get("code").asString()).orElse("no run-failed event");
     if (!said.equals(code)) {
       found.add(new Found(item + ":code", "%s, the contract's %s".formatted(said, code)));
     }

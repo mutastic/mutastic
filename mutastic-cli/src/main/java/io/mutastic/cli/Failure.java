@@ -68,7 +68,11 @@ record Failure(int exit, String code, String said) {
       case Engine.UnknownMutant unknown ->
           new Failure(Main.USAGE, "unknown-id", headline + closeId(unknown, args));
       case BuildTool.SetupFailed setup ->
-          withHint(setup.code().equals("setup") ? OTHER : setup.code(), message, setup, env);
+          withHint(
+              setup.code().equals("setup") ? OTHER : setup.code(),
+              message + elsewhere(setup, message, args),
+              setup,
+              env);
       case Engine.NoTestsRan none -> withHint("no-tests", message, none, env);
       case Engine.NothingCovered nothing -> withHint("nothing-covered", message, nothing, env);
       case Engine.CantRun cantRun -> withHint(OTHER, message, cantRun, env);
@@ -80,18 +84,77 @@ record Failure(int exit, String code, String said) {
     };
   }
 
-  /// A mistake in the command line: the command corrected, else the command's usage.
+  /// A mistake in the command line: the command corrected, when it's a close name; else the message
+  /// ends in what to run, if anything.
   private static Failure usage(Main.UsageException usage, String headline, List<String> args) {
     var message = String.valueOf(usage.getMessage());
     return new Failure(
         Main.USAGE,
         usage.code().equals(USAGE) ? usageCode(message) : usage.code(),
-        headline + corrected(usage.correction(), args).orElseGet(() -> Help.usage(args)));
+        headline + corrected(usage.correction(), args).orElse(""));
   }
 
-  /// The command with the id a slip away from the one asked for, if there's one.
+  /// The command with the id a slip away from the one asked for, if there's one; else the command
+  /// that lists the project's mutants.
   private static String closeId(Engine.UnknownMutant unknown, List<String> args) {
+    if (unknown.closest().isEmpty()) {
+      return "  mutastic " + String.join(" ", with("mutants", where(args))) + "\n";
+    }
     return corrected(unknown.closest().map(id -> Correction.of(unknown.id(), id)), args).orElse("");
+  }
+
+  /// A directory with no build in it or above it: the command again, on the project's directory.
+  private static String elsewhere(BuildTool.SetupFailed setup, String message, List<String> args) {
+    if (!setup.code().equals("no-project") || !message.endsWith(":") || args.isEmpty()) {
+      return "";
+    }
+    var words = new ArrayList<String>();
+    var directory = false;
+    for (String arg : args) {
+      if (!directory && !arg.startsWith("-") && !arg.startsWith(":") && !named(arg, args)) {
+        words.add("<project directory>");
+        directory = true;
+      } else {
+        words.add(Correction.quoted(arg));
+      }
+    }
+    if (!directory) {
+      words.add(command(args).size(), "<project directory>");
+    }
+    return "\n  mutastic " + String.join(" ", words);
+  }
+
+  /// Whether `arg` is one of the command's own words, or a mutant's id.
+  private static boolean named(String arg, List<String> args) {
+    return command(args).contains(arg) || arg.matches("m[0-9a-f]{8}(,m[0-9a-f]{8})*");
+  }
+
+  /// The words that name the command and the mutants it's on: `verify m855c8e3c`, `gate open`.
+  private static List<String> command(List<String> args) {
+    int words = Main.Subcommand.at(args).map(command -> Main.Subcommand.length(args)).orElse(1);
+    var named = new ArrayList<>(args.subList(0, Math.min(words, args.size())));
+    for (String arg : args.subList(named.size(), args.size())) {
+      if (!arg.matches("m[0-9a-f]{8}(,m[0-9a-f]{8})*")) {
+        break;
+      }
+      named.add(arg);
+    }
+    return named;
+  }
+
+  /// The directory and module the command line names, as typed, quoted for a shell.
+  private static List<String> where(List<String> args) {
+    return args.subList(command(args).size(), args.size()).stream()
+        .filter(arg -> !arg.startsWith("-"))
+        .map(Correction::quoted)
+        .toList();
+  }
+
+  private static List<String> with(String first, List<String> rest) {
+    var words = new ArrayList<String>();
+    words.add(first);
+    words.addAll(rest);
+    return words;
   }
 
   /// A usage error's status, and the Codex sandbox's hint when the sandbox is why.
