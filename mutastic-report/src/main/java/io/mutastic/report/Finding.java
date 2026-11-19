@@ -14,7 +14,8 @@ import java.util.stream.Collectors;
 /// still counted, and named, on its own.
 ///
 /// @param mutants the lead first, the one its card is written about: one with a suggested test if
-///   any has one, then a boundary, whose edge is the most exact thing to test
+///   any has one, then a boundary, whose edge is the most exact thing to test; a `true` or `false`
+///   turned round last, as what's done with it (a write, a call) says more about the gap
 record Finding(List<MutantResult> mutants) {
   Finding {
     mutants = List.copyOf(mutants);
@@ -48,7 +49,9 @@ record Finding(List<MutantResult> mutants) {
         onLine.stream()
             .sorted(
                 Comparator.comparing((MutantResult result) -> result.suggestion().isEmpty())
-                    .thenComparing(result -> result.mutant().operator() != BuiltIn.BOUNDARY))
+                    .thenComparing(result -> result.mutant().operator() != BuiltIn.BOUNDARY)
+                    .thenComparing(
+                        result -> result.mutant().operator() == BuiltIn.BOOLEAN_CONSTANT))
             .toList());
   }
 

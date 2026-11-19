@@ -1926,6 +1926,17 @@
       "reason": "Each language's rounding-down division, and what each can prove isn't negative."
     },
     {
+      "id": "N48",
+      "kind": "engine",
+      "editions": [
+        "java",
+        "rust"
+      ],
+      "surface": "operators",
+      "summary": "`mutastic/boolean-constant` changes an argument, a field or a local `boolean`, outside constructors, skipping a variable nothing reads; or an argument, a `let`, an assignment or a struct field's value",
+      "reason": "What the bytecode or the syntax shows of where a value goes."
+    },
+    {
       "id": "A6",
       "kind": "engine",
       "editions": [

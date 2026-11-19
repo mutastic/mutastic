@@ -9,6 +9,7 @@ import swapArguments from '../../../../data/output/operators/arguments/swap-argu
 import nullParameter from '../../../../data/output/operators/arguments/null-parameter.ansi?raw';
 import dropVararg from '../../../../data/output/operators/arguments/drop-vararg.ansi?raw';
 import omitArgument from '../../../../data/output/operators/arguments/omit-argument.ansi?raw';
+import booleanConstant from '../../../../data/output/operators/arguments/boolean-constant.ansi?raw';
 
 Operators that change what passes between calls: a call left out of the way, arguments swapped, a
 parameter or an argument gone. Together they ask whether your tests' values are ones each input makes
@@ -21,6 +22,7 @@ a difference to.
 | [`mutastic/null-parameter`](#null-parameter) | a parameter holding an object, `null` from the start of the method | stronger |
 | [`mutastic/drop-vararg`](#drop-vararg) | the last value in an array built for a call, left out | stronger |
 | [`library/omit-argument`](#omit-argument) | the JDK's overloads, without their last argument: `indexOf(x, from)` to `indexOf(x)` | stronger |
+| [`mutastic/boolean-constant`](#boolean-constant) | a `true` or `false` passed to a method, or stored, to the other | stronger |
 
 Each example is a class in `samples/operator-docs` with a test that misses its mutant, and each card
 is what `mutastic run samples/operator-docs --operators=all` prints for it.
@@ -261,3 +263,51 @@ match.
 `substring` on a `String` or `StringBuilder`, `parseInt`, `parseLong` and `toString` with a radix,
 `Pattern.compile` with flags, and `Objects.toString` with a default. It leaves out a charset, a
 locale and a `split` limit, whose absence rarely shows.
+
+## Boolean constant
+
+`mutastic/boolean-constant`, in the `stronger` set. A `true` or `false` the code passes to a method,
+or stores in a field or a variable, becomes the other: `setVisible(true)` becomes
+`setVisible(false)`.
+
+**The bug it stands for:** a flag set the wrong way: a call that should have asked for strict
+parsing, a cache turned on where it should be off, a field that starts `true` when it should start
+`false`. The compiler can't tell, and when the tests' values come out the same either way, nor can
+they.
+
+{/* from: samples/operator-docs/src/main/java/com/example/arguments/Prices.java */}
+```java
+  /// The amount as a receipt shows it: always two decimal places.
+  public static String receipt(double amount) {
+    return Amounts.shown(amount, true);
+  }
+```
+
+`Amounts.shown` has tests of its own, both ways. The receipt's test has a price with two decimal
+places already, so it reads the same whichever way the flag is:
+
+{/* from: samples/operator-docs/src/test/java/com/example/arguments/PricesTest.java */}
+```java
+  @Test
+  void aPriceInPence() {
+    assertEquals("2.25", Prices.receipt(2.25));
+  }
+```
+
+<Code code={booleanConstant} lang="ansi" />
+
+**The test that catches it:** one whose result depends on which way the flag is.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/arguments/PricesTest.java */}
+```java
+  @Test
+  void aWholeNumberOfPoundsShowsItsPence() {
+    assertEquals("2.50", Prices.receipt(2.5));
+  }
+```
+
+**Edition notes:** run it with `--operators=stronger`. A returned `true` or `false` is return value's,
+and a condition's own value, `boolean bigger = a > b`, isn't a constant. A variable's value that
+nothing reads is skipped as equivalent. Constructors and static initialisers are left alone, as for
+every operator, so a field's starting value isn't changed. The Rust edition has this operator too,
+`mutastic/boolean-constant`.

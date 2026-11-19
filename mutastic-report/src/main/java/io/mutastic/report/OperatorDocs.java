@@ -27,7 +27,13 @@ public record OperatorDocs(String base) {
   private static final Map<String, List<String>> FAMILIES =
       Map.of(
           "arguments",
-          List.of("omit-call", "swap-arguments", "null-parameter", "drop-vararg", "omit-argument"),
+          List.of(
+              "omit-call",
+              "swap-arguments",
+              "null-parameter",
+              "drop-vararg",
+              "omit-argument",
+              "boolean-constant"),
           "arithmetic",
           List.of(
               "math",
