@@ -44,7 +44,8 @@ public final class BuildErrors {
   }
 
   /// As [#failed(Build, List)], with what likely made it fail said after what went wrong: a build
-  /// run with the tool on the PATH, for want of a wrapper, may be one made for another version.
+  /// run with the tool on the PATH, for want of a wrapper, may be one made for another version. Not
+  /// after a compiler's errors, which are the code's.
   public static String failed(Build build, List<String> log, Optional<String> likely) {
     var here = here();
     var tool = build.tool();
@@ -64,7 +65,8 @@ public final class BuildErrors {
               .map(lines -> "%s %s says:\n%s".formatted(headline, tool, lines))
               .orElse(headline);
     }
-    return said + "\n" + likely.map(why -> why + "\n").orElse("") + seeing(build, here);
+    var why = errors.isEmpty() ? likely.map(cause -> cause + "\n").orElse("") : "";
+    return said + "\n" + why + seeing(build, here);
   }
 
   /// Where the build's output is, and the command that builds it as mutastic did.

@@ -202,7 +202,8 @@ The build has no wrapper (`gradlew`, `mvnw`), and there's no `gradle` or `mvn` o
 The project doesn't build, before any mutant is in it. mutastic quotes the compiler's first errors
 at your files' lines, or what the build tool says went wrong, and ends in the command that builds
 it as mutastic did. Fix the build first. A build with no wrapper ran with the Gradle or Maven on
-the `PATH`, and the message says which: a build made for another version fails this way.
+the `PATH`. When the failure isn't a compiler error, the message says which ran: a build made for
+another version fails this way.
 
 <Code code={buildFailed} lang="ansi" />
 

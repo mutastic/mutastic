@@ -169,5 +169,11 @@ class BuildErrorsTest {
         .contains("Could not find method x()")
         .contains("x()\nIt ran with Gradle 8.2.1 from the PATH.\nGradle's output is in ")
         .endsWith("To see it in full:\n  gradle build");
+    assertThat(
+            BuildErrors.failed(
+                build,
+                List.of("/abs/Pricing.java:18: error: ';' expected"),
+                java.util.Optional.of("It ran with Gradle 8.2.1 from the PATH.")))
+        .doesNotContain("It ran with");
   }
 }

@@ -91,7 +91,7 @@
               "name": "failed",
               "anchor": "failed-2",
               "signature": "static String failed(BuildErrors.Build build, List<String> log, Optional<String> likely)",
-              "doc": "As [`failed(Build, List)`](#failed), with what likely made it fail said after what went wrong: a build\nrun with the tool on the PATH, for want of a wrapper, may be one made for another version.",
+              "doc": "As [`failed(Build, List)`](#failed), with what likely made it fail said after what went wrong: a build\nrun with the tool on the PATH, for want of a wrapper, may be one made for another version. Not\nafter a compiler's errors, which are the code's.",
               "params": [],
               "returns": "",
               "throws": []
