@@ -144,7 +144,7 @@
     },
     "arid": {
       "type": "array",
-      "description": "mutastic's own arid rules, by id (decision 19): what each skips, the reasons it gives as a skipped mutant shows them, a name in the code as `<field>`, and the editions that have it. A rule's id never changes once shipped.",
+      "description": "mutastic's own arid rules, by id (decision 20): what each skips, the reasons it gives as a skipped mutant shows them, a name in the code as `<field>`, and the editions that have it. A rule's id never changes once shipped.",
       "items": {
         "type": "object",
         "required": ["id", "editions", "scope", "description", "reasons", "examples"],
