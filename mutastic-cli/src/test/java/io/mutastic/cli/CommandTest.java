@@ -153,7 +153,7 @@ class CommandTest {
     assertThat(command.threshold()).isEqualTo(60);
     assertThat(command.testsFrom()).containsExactly(":app");
     assertThat(command.directory()).isEqualTo(Path.of("../app"));
-    assertThatThrownBy(() -> parse("run", "--only")).hasMessage("--only needs a value: --only=ID");
+    assertThatThrownBy(() -> parse("run", "--only")).hasMessage("--only needs a value.");
   }
 
   /// An empty id is said to be one, not looked for as a mutant with no name.
@@ -270,14 +270,14 @@ class CommandTest {
   @Test
   void rejectsWhatItDoesntKnow() {
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--fast"}))
-        .hasMessage("run has no option --fast");
+        .hasMessage("run has no option --fast. To see its options:%n  mutastic run --help", "");
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--format=xml"}))
         .hasMessage("--format takes full, brief, concise, grouped, agent or jsonl, not xml");
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"verify"}))
         .hasMessageStartingWith("verify needs a mutant id first")
-        .hasMessageEndingWith("mutastic verify m855c8e3c <directory>");
+        .hasMessageEndingWith("mutastic verify <id>");
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--workers=0"}))
-        .hasMessage("--workers must be at least 1");
+        .hasMessage("--workers is at least 1, not 0");
     assertThatThrownBy(() -> Main.Command.parse(new String[] {"run", "--threshold=high"}))
         .hasMessage("--threshold needs a whole number, not high");
   }
@@ -289,14 +289,14 @@ class CommandTest {
     assertThatThrownBy(() -> parse("explain", "src"))
         .hasMessage(
             "src is a directory, not a mutant id. explain needs a mutant id first, an m and eight"
-                + " hex digits as a run prints them:%n  mutastic explain m855c8e3c src",
+                + " hex digits as a run prints them:%n  mutastic explain <id> src",
             "");
     assertThatThrownBy(() -> parse("verify", "m855c8e3c,price"))
         .hasMessageStartingWith("m855c8e3c,price isn't a mutant id. verify needs")
-        .hasMessageEndingWith("mutastic verify m855c8e3c <directory>");
+        .hasMessageEndingWith("mutastic verify <id>");
     assertThatThrownBy(() -> parse("ignore", ":core", "--reason=x"))
         .hasMessageStartingWith(":core is a module, not a mutant id. ignore needs")
-        .hasMessageEndingWith("mutastic ignore m855c8e3c <directory> :core");
+        .hasMessageEndingWith("mutastic ignore <id> :core --reason=\"<why>\"");
     assertThat(parse("verify", "m855c8e3c,m0d5b4a21", "src").only())
         .containsExactly("m855c8e3c", "m0d5b4a21");
   }

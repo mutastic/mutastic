@@ -213,7 +213,8 @@ mutant's id belongs to its project.
 
 `mutastic verify m855c8e3c samples/pricing`. Run in a directory with no Java code, or one that
 isn't a Gradle or Maven build, mutastic says so, and ends with the commands to run instead: one for
-each module with Java code, or one for the build the directory is inside. A Maven module is named
+each module with Java code, one for the build the directory is inside, or yours with the project's
+directory to fill in. A Maven module is named
 by its directory, as `-pl` takes it: `mutastic run . :services/api`.
 
 </div>

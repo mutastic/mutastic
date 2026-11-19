@@ -81,8 +81,9 @@ has. Both editions keep these names for 1.x. A new edition uses the general name
 
 ## Mistakes in the command line
 
-These exit with 2. When nothing is close to what you typed, one line of the command's usage
-follows; `mutastic <command> --help` says the rest.
+These exit with 2. A close name is offered, never run, in your command with only that word changed.
+With none close, the error ends in the command to run next: the one that lists what there is, such
+as `mutastic run --help`, or yours with a `<…>` to fill in.
 
 ### `unknown-command`
 
@@ -105,15 +106,16 @@ properties are the exception, as a plugin passes its settings to each of its goa
 ### `option-value`
 
 An option's value mutastic can't use: one of a list it isn't, a number out of range, a missing
-value. The corrected command writes the value after an `=`, as help does; a space works too, but for
-`--since`.
+value. The message says what the option takes. The corrected command writes the value after an `=`,
+as help does; a space works too, but for `--since`.
 
 <Code code={optionValue} lang="ansi" />
 
 ### `needs-id`
 
 `verify`, `explain` and `ignore` take a mutant's id first, as a run prints it, and `ignore` a
-reason. The message says what was in the id's place: a directory, a module, or something else.
+reason. The message says what was in the id's place: a directory, a module, or something else. It
+ends in your command with the `<id>`, or the `<why>`, to fill in.
 
 ### `extra-words`
 
@@ -133,13 +135,14 @@ that didn't finish; or it was given with an option a share decides.
 ### `unknown-id`
 
 No mutant of the project has that id. An id belongs to the project its run was on, so run the
-command as that run printed it. One a slip away from an id of the project is named:
+command as that run printed it. With none close, the error ends in the command that lists the
+project's mutants. One a slip away from an id of the project is named:
 
 <Code code={unknownId} lang="ansi" />
 
 ## Mistakes in a file or the environment
 
-These exit with 2, and print no usage: the command line wasn't the problem.
+These exit with 2. The command line wasn't the problem: the message names what was.
 
 ### `config`
 
@@ -171,7 +174,8 @@ The directory named isn't there.
 ### `no-project`
 
 The directory isn't a Gradle or Maven build: it has no `settings.gradle(.kts)`, `build.gradle(.kts)`
-or `pom.xml`, nor does any directory above it. In a directory below a build's own, such as its
+or `pom.xml`, nor does any directory above it. The message says where it looked, and ends in your
+command with the project's directory to fill in. In a directory below a build's own, such as its
 `src`, mutastic runs the build, or the Maven module, the directory is in; in a build of modules but
 in none of them, it's the build's root, below.
 

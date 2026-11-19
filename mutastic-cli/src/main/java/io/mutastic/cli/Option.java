@@ -94,6 +94,11 @@ record Option(
     };
   }
 
+  /// The option with its value to fill in, as an error's command writes it: `--format=<format>`.
+  String placeholder() {
+    return name + "=<" + value.toLowerCase(java.util.Locale.ROOT) + ">";
+  }
+
   /// Whether it's set by turning a property off: `--no-suggestions` is `suggestions=false`.
   boolean negated() {
     return name.startsWith("--no-");

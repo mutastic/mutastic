@@ -24,8 +24,8 @@ class FailureTest {
             Main.USAGE,
             "no-project",
             """
-            mutastic: x isn't a Gradle or Maven build.
-              mutastic run <project directory> [:module]
+            mutastic: there's no project in x for mutastic to test.
+              mutastic run <project directory>
             """);
     var exact =
         new Failure(

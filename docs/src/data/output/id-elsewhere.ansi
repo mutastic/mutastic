@@ -1,1 +1,2 @@
-mutastic: no mutant m6393711d in pricing. A mutant's id belongs to the project its run was on: run the command as that run printed it, with the project's directory and module
+mutastic: m6393711d isn't a mutant of pricing. To see its mutants:
+  mutastic mutants samples/pricing
