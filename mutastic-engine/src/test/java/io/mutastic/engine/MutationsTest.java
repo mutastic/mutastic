@@ -348,7 +348,8 @@ class MutationsTest {
   }
 
   /// A boundary where both sides give the same value at the edge is equivalent; one where they
-  /// don't, or the body does more, is mutated. Its other mutants always run.
+  /// don't, or the body does more, is mutated. Its other mutants always run, or are the twin of one
+  /// that does: the for-each loop's test always true is `<` made `<=`.
   @Test
   void aBoundaryThatGivesTheSameValueAtTheEdgeIsEquivalent() throws Exception {
     var found = mutations.find(model(Sites.class));
@@ -365,7 +366,10 @@ class MutationsTest {
                 mutant.methodName().equals("largest")
                     && mutant.operator() == BuiltIn.REMOVE_CONDITIONAL)
         .isNotEmpty()
-        .allSatisfy(mutant -> assertThat(mutant.skipped()).isEmpty());
+        .allSatisfy(
+            mutant ->
+                assertThat(mutant.skipped().filter(skip -> !skip.startsWith(Mutant.SAME_AS)))
+                    .isEmpty());
   }
 
   /// Arithmetic that only sizes a collection or sets a wait is arid, as is removing a sleep; the

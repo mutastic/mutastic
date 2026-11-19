@@ -118,6 +118,13 @@ command that lists the mutants as they are now.
 
 </EditionOnly>
 
+## Twins keep their ids
+
+Two mutants at one place may turn out to always do the same, as a for-each loop's `<` made `<=`
+and its test made always true do. Both keep their ids. Only one runs, and the other says it's the
+same as that one ([Twins](/concepts/results/#twins)). Either id works with `verify`, `explain`,
+`ignore` and `run --only`, so an id you kept from before still names its mutant.
+
 ## Ids in the two editions
 
 Both editions make an id from what the mutant is, and the operator ids are shared:

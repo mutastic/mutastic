@@ -41,6 +41,7 @@ import java.lang.classfile.instruction.ReturnInstruction;
 import java.lang.classfile.instruction.StoreInstruction;
 import java.lang.reflect.AccessFlag;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -166,9 +167,10 @@ final class Mutations {
             .code()
             .ifPresent(
                 code -> {
-                  var found = scanned(model, method, code, here);
-                  mutants.addAll(
-                      viable(model, located(model, method, mergeFinallyCopies(found, code))));
+                  var scan = scan(model, method, code, here);
+                  var found = scan.mutants(); // before its twin keys, which it finds
+                  var made = viable(model, located(model, method, mergeFinallyCopies(found, code)));
+                  mutants.addAll(Twins.marked(made, scan.twinKeys()));
                 });
       }
     }
@@ -176,21 +178,20 @@ final class Mutations {
     return mutants;
   }
 
-  private List<Mutant> scanned(
+  private MethodScan scan(
       ClassModel model,
       MethodModel method,
       java.lang.classfile.CodeModel code,
       List<Operator> here) {
     return new MethodScan(
-            model,
-            method,
-            code.elementList(),
-            filtered(model, method),
-            here,
-            new Wrappers(module),
-            supertypes,
-            module)
-        .mutants();
+        model,
+        method,
+        code.elementList(),
+        filtered(model, method),
+        here,
+        new Wrappers(module),
+        supertypes,
+        module);
   }
 
   /// The mutants at where their code really is, and those in code copied in from outside the module
@@ -365,6 +366,11 @@ final class Mutations {
 
     private final Set<Integer> stringSwitchLines = new HashSet<>();
     private final List<Mutant> mutants = new ArrayList<>();
+
+    /// What each mutant found does, by id, for [Twins]: only those of a shape twins are known in,
+    /// once [#mutants] has found them.
+    private final Map<String, Set<String>> twinKeys = new HashMap<>();
+
     private int line = -1;
     private int ordinal;
     private int callOrdinal;
@@ -399,6 +405,10 @@ final class Mutations {
       this.stores = new Stores(code);
     }
 
+    Map<String, Set<String>> twinKeys() {
+      return twinKeys;
+    }
+
     List<Mutant> mutants() {
       for (int at = 0; at < code.size(); at++) {
         switch (code.get(at)) {
@@ -428,7 +438,14 @@ final class Mutations {
               throw new IllegalStateException("changes a class as a whole: see WholeClasses");
         }
       }
-      found.forEach(each -> mutants.add(mutant(each, instruction, at, workedOn)));
+      for (Found each : found) {
+        var mutant = mutant(each, instruction, at, workedOn);
+        mutants.add(mutant);
+        var keys = Twins.keys(code, at, each.operator(), each.label());
+        if (!keys.isEmpty()) {
+          twinKeys.computeIfAbsent(mutant.id(), id -> new HashSet<>()).addAll(keys);
+        }
+      }
       if (instruction instanceof InvokeInstruction) {
         callOrdinal++;
       } else if (isSite(instruction)) {

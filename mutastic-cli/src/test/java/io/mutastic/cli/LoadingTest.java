@@ -21,7 +21,7 @@ class LoadingTest {
     var events = Samples.mutastic("run", project.toString(), "--format=jsonl", "--report=none");
 
     assertThat(events.out())
-        .contains("\"killed\":7,\"survived\":0")
+        .contains("\"killed\":6,\"survived\":0")
         .contains("\"coveredBy\":[\"com.example.loading.RatesTest#");
     assertThat(events.exit()).as(events.out()).isEqualTo(Main.PASSED);
   }

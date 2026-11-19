@@ -1,4 +1,4 @@
-mutastic: FAIL · score 50.0% (threshold 80) · 21 missed, 0 not covered, 21 caught of 42 mutants (2 more skipped)
+mutastic: FAIL · score 50.0% (threshold 80) · 19 missed, 0 not covered, 19 caught of 38 mutants (6 more skipped)
 rules: add or change tests only; never change production code to make a mutant go away: tell the person; a fix counts when `mutastic verify <id> samples/suggestions` passes
 decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: propose ignoring it, for a person to accept, as the kind it is (equivalent, unreachable, telemetry, deprecated or accepted-risk), with the reason in two sentences: the one case where it differs, and why that can't happen (`mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions`)
 tasks: first make a task list with one item per mutant, grouped by file; then take them one at a time: write its test, run `mutastic verify <id> samples/suggestions`, and mark it done before starting the next
@@ -41,26 +41,7 @@ tasks: first make a task list with one item per mutant, grouped by file; then ta
    reproduce: mutastic run --only=m43173676 samples/suggestions
    or propose: mutastic ignore m43173676 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
-3. missed m2e5ded43: no test checks `isFree()` returning `false` here
-   at src/main/java/com/example/rates/Delivery.java:12
-   - return total >= freeFrom;
-   + return true;
-   covered by: DeliveryTest#bigOrdersGoFree; all still pass with the change
-   evidence: tests reach this return, but none fails when it returns `true`
-   evidence: inputs seen: total = 50
-   fix: add a test where `isFree()` returns `false` here, and assert it
-   test to add in DeliveryTest:
-     @Test
-     void isFreeWithTotal0ForFreeFrom20() {
-       var delivery = new Delivery(20); // as DeliveryTest#bigOrdersGoFree builds it
-       assertThat(delivery.isFree(0)).isFalse(); // today false · with this mutant true
-     }
-     // check today's value is the one you intend: the test pins what the code does now
-   done when: mutastic verify m2e5ded43 samples/suggestions passes
-   reproduce: mutastic run --only=m2e5ded43 samples/suggestions
-   or propose: mutastic ignore m2e5ded43 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
-
-4. missed m56784e43: no test checks `discount()` at `total == 100`
+3. missed m56784e43: no test checks `discount()` at `total == 100`
    at src/main/java/com/example/rates/Discounts.java:11
    - return total >= FREE_FROM ? 10 : 0;
    + return total > FREE_FROM ? 10 : 0;
@@ -79,7 +60,7 @@ tasks: first make a task list with one item per mutant, grouped by file; then ta
    reproduce: mutastic run --only=m56784e43 samples/suggestions
    or propose: mutastic ignore m56784e43 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
-5. missed m209a60d0: no test needs `total >= 100` to be false in `discount()`
+4. missed m209a60d0: no test needs `total >= 100` to be false in `discount()`
    at src/main/java/com/example/rates/Discounts.java:11
    - return total >= FREE_FROM ? 10 : 0;
    + return true ? 10 : 0;
@@ -96,7 +77,7 @@ tasks: first make a task list with one item per mutant, grouped by file; then ta
    reproduce: mutastic run --only=m209a60d0 samples/suggestions
    or propose: mutastic ignore m209a60d0 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
-6. missed m63f5f45e: no test checks `bulk()` at `count == 50`
+5. missed m63f5f45e: no test checks `bulk()` at `count == 50`
    at src/main/java/com/example/rates/Discounts.java:15
    - return BULK_FROM <= count ? 5 : 0;
    + return BULK_FROM < count ? 5 : 0;
@@ -115,7 +96,7 @@ tasks: first make a task list with one item per mutant, grouped by file; then ta
    reproduce: mutastic run --only=m63f5f45e samples/suggestions
    or propose: mutastic ignore m63f5f45e --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
-7. missed m2b0d1651: no test needs `50 <= count` to be false in `bulk()`
+6. missed m2b0d1651: no test needs `50 <= count` to be false in `bulk()`
    at src/main/java/com/example/rates/Discounts.java:15
    - return BULK_FROM <= count ? 5 : 0;
    + return true ? 5 : 0;
@@ -132,7 +113,7 @@ tasks: first make a task list with one item per mutant, grouped by file; then ta
    reproduce: mutastic run --only=m2b0d1651 samples/suggestions
    or propose: mutastic ignore m2b0d1651 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
-8. missed m49a00b3f: no test checks `columns()` at `chosen == 3`
+7. missed m49a00b3f: no test checks `columns()` at `chosen == 3`
    at src/main/java/com/example/rates/Discounts.java:20
    - return chosen > 3 ? 2 : 1;
    + return chosen >= 3 ? 2 : 1;
@@ -148,7 +129,7 @@ tasks: first make a task list with one item per mutant, grouped by file; then ta
    reproduce: mutastic run --only=m49a00b3f samples/suggestions
    or propose: mutastic ignore m49a00b3f --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
-9. missed m111a435d: no test needs `chosen > 3` to be false in `columns()`
+8. missed m111a435d: no test needs `chosen > 3` to be false in `columns()`
    at src/main/java/com/example/rates/Discounts.java:20
    - return chosen > 3 ? 2 : 1;
    + return true ? 2 : 1;
@@ -164,7 +145,7 @@ tasks: first make a task list with one item per mutant, grouped by file; then ta
    reproduce: mutastic run --only=m111a435d samples/suggestions
    or propose: mutastic ignore m111a435d --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
-10. missed m2e491c40: no test checks `lateFee()` at `daysLate == 7`
+9. missed m2e491c40: no test checks `lateFee()` at `daysLate == 7`
    at src/main/java/com/example/rates/Rates.java:10
    - if (daysLate <= 7) {
    + if (daysLate < 7) {
@@ -182,5 +163,23 @@ tasks: first make a task list with one item per mutant, grouped by file; then ta
    reproduce: mutastic run --only=m2e491c40 samples/suggestions
    or propose: mutastic ignore m2e491c40 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
 
-11 more missed mutants: run again after fixing these
+10. missed md4db94d8: no test checks `inCredit()` at `balance == 0`
+   at src/main/java/com/example/rates/Rates.java:18
+   - return balance > 0;
+   + return balance >= 0;
+   covered by: RatesTest#aPositiveBalanceIsInCredit; all still pass with the change
+   evidence: every test calls `inCredit()` away from the boundary
+   evidence: inputs seen: 50 (none is 0)
+   fix: test `inCredit()` with `balance = 0` and assert the result
+   test to add in RatesTest:
+     @Test
+     void inCreditWhenBalanceIsZero() {
+       assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
+     }
+     // check today's value is the one you intend: the test pins what the code does now
+   done when: mutastic verify md4db94d8 samples/suggestions passes
+   reproduce: mutastic run --only=md4db94d8 samples/suggestions
+   or propose: mutastic ignore md4db94d8 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/suggestions
+
+9 more missed mutants: run again after fixing these
 <<end mutastic-data 3f9a0c1e>>

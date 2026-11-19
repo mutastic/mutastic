@@ -1,58 +1,7 @@
 
  Missed ────────────────────────────────────────────────────────────
 
- ❯ src/main/java/com/example/calc/Calculator.java  5 missed in 4 methods
-
- [✗ MISSED] no test needs n % 2 == 0 to be false in isEven()
-    ┌─ src/main/java/com/example/calc/Calculator.java:24
-    │
- 23 │   public boolean isEven(int n) {
- 24 │     return n % 2 == 0;
-    │                  ^^ now always true
- 25 │   }
-    │
-    = mutant  - return n % 2 == 0;
-              + return true;
-    = note: inputs seen: n = 2, 4
-            covered by CalculatorTest#evens(int) (its 1 covering test still passes)
-    = help: add a test where n % 2 == 0 is false, and assert what isEven() does then
-
-            // in CalculatorTest
-            @org.junit.jupiter.api.Test
-            void isEvenWithN1() {
-              org.junit.jupiter.api.Assertions.assertFalse(new Calculator().isEven(1)); // today false · with this mutant true
-            }
-            check today's value is the one you intend: the test pins what the code does now
-
-    done when  mutastic verify m8bfed71b samples/parameterized passes
-    reproduce  mutastic run --only=m8bfed71b samples/parameterized
-    or ignore  mutastic ignore m8bfed71b --reason="<why>" samples/parameterized
-
- [✗ MISSED] no test checks isEven() returning false here
-    ┌─ src/main/java/com/example/calc/Calculator.java:24
-    │
- 23 │   public boolean isEven(int n) {
- 24 │     return n % 2 == 0;
-    │     ^^^^^^^^^^^^^^^^^^ now returns true
- 25 │   }
-    │
-    = mutant  - return n % 2 == 0;
-              + return true;
-    = note: tests reach this return, but none fails when it returns true
-            inputs seen: n = 2, 4
-            covered by CalculatorTest#evens(int) (its 1 covering test still passes)
-    = help: add a test where isEven() returns false here, and assert it
-
-            // in CalculatorTest
-            @org.junit.jupiter.api.Test
-            void isEvenWhenNIsNegative() {
-              org.junit.jupiter.api.Assertions.assertFalse(new Calculator().isEven(-1)); // today false · with this mutant true
-            }
-            check today's value is the one you intend: the test pins what the code does now
-
-    done when  mutastic verify m07b20be8 samples/parameterized passes
-    reproduce  mutastic run --only=m07b20be8 samples/parameterized
-    or ignore  mutastic ignore m07b20be8 --reason="<why>" samples/parameterized
+ ❯ src/main/java/com/example/calc/Calculator.java  4 missed in 4 methods
 
  [✗ MISSED] tests pass even when - becomes + in subtract()
     ┌─ src/main/java/com/example/calc/Calculator.java:9
@@ -130,13 +79,38 @@
     reproduce  mutastic run --only=m0a12880e samples/parameterized
     or ignore  mutastic ignore m0a12880e --reason="<why>" samples/parameterized
 
+ [✗ MISSED] no test needs n % 2 == 0 to be false in isEven()
+    ┌─ src/main/java/com/example/calc/Calculator.java:24
+    │
+ 23 │   public boolean isEven(int n) {
+ 24 │     return n % 2 == 0;
+    │                  ^^ now always true
+ 25 │   }
+    │
+    = mutant  - return n % 2 == 0;
+              + return true;
+    = note: inputs seen: n = 2, 4
+            covered by CalculatorTest#evens(int) (its 1 covering test still passes)
+    = help: add a test where n % 2 == 0 is false, and assert what isEven() does then
+
+            // in CalculatorTest
+            @org.junit.jupiter.api.Test
+            void isEvenWithN1() {
+              org.junit.jupiter.api.Assertions.assertFalse(new Calculator().isEven(1)); // today false · with this mutant true
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify m8bfed71b samples/parameterized passes
+    reproduce  mutastic run --only=m8bfed71b samples/parameterized
+    or ignore  mutastic ignore m8bfed71b --reason="<why>" samples/parameterized
+
  Next: mutastic verify <id> samples/parameterized · mutastic run --only=<id> samples/parameterized · mutastic explain <id> samples/parameterized
 
    Classes  0 clean | 1 with misses (1)
-   Mutants  ✓ 11 caught · ✗ 5 missed (16)
-  Worst at  Calculator.isEven() 2 ✗ · Calculator.subtract() 1 ✗ · Calculator.multiply() 1 ✗
- Test runs  16 (96 without coverage selection)
+   Mutants  ✓ 10 caught · ✗ 4 missed · 2 skipped (2 twin) (16)
+  Worst at  Calculator.subtract() 1 ✗ · Calculator.multiply() 1 ✗ · Calculator.discount() 1 ✗
+ Test runs  14 (84 without coverage selection)
   Start at  …
   Duration  … (setup …, build …, coverage …, mutants …, checking …)
      Tests  6 on JDK 17 · … workers
-     Score  68.8%  [FAIL] Below the threshold of 80: 5 missed, 0 not covered.  = vs last run (same code)
+     Score  71.4%  [FAIL] Below the threshold of 80: 4 missed, 0 not covered.  = vs last run (same code)

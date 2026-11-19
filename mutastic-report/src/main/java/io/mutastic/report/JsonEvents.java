@@ -124,6 +124,7 @@ public final class JsonEvents {
     fields.put("location", location(mutant));
     fields.put("mutation", mutation(mutant));
     mutant.skipped().ifPresent(reason -> putSkipReason(fields, reason));
+    mutant.sameAs().ifPresent(partner -> fields.put("sameAs", partner));
     fields.put("coveredBy", result.coveredBy());
     putCatch(fields, result);
     if (!result.inputs().isEmpty()) {
@@ -169,7 +170,7 @@ public final class JsonEvents {
 
   /// The kinds `skipKind` may be, as the events schema lists them.
   private static final Set<String> SKIP_KINDS =
-      Set.of("generated", "equivalent", "unviable", "arid", "user");
+      Set.of("generated", "equivalent", "unviable", "arid", "user", "twin");
 
   /// Why it was skipped, and the kind of reason, its first word, when that's one of the kinds: a
   /// plugin's reason may have none, and then `statusReason` says it all.

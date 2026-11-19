@@ -4,7 +4,7 @@
   "title": "mutastic.contract/v1",
   "description": "What every edition of mutastic must agree on, and each known difference with its kind. Each edition's CI runs its own binary on its own pricing fixture and checks what it does against this file: a difference that isn't recorded fails, and so does a recorded one that has gone. CONTRIBUTING.md says how to use it.",
   "type": "object",
-  "required": ["schema", "version", "editions", "reference", "engineSlots", "commands", "options", "environment", "exitCodes", "errors", "errorPairs", "errorCases", "help", "output", "schemas", "events", "report", "decisions", "differences"],
+  "required": ["schema", "version", "editions", "reference", "engineSlots", "commands", "options", "environment", "exitCodes", "errors", "errorPairs", "errorCases", "help", "output", "schemas", "events", "report", "twins", "decisions", "differences"],
   "additionalProperties": false,
   "properties": {
     "$schema": { "type": "string" },
@@ -141,6 +141,25 @@
       "type": "object",
       "required": ["keyPaths"],
       "properties": { "keyPaths": { "type": "array", "items": { "type": "string" }, "description": "mutation.json's key paths, a file's name under files and testFiles as `*`." } }
+    },
+    "twins": {
+      "type": "object",
+      "description": "Mutants at one place that always do the same, which run once: how both editions say so. A pattern's named groups are ids.",
+      "required": ["rule", "runs", "skip", "events", "report", "summary", "verify", "verifyNote", "explain", "ignore", "shapes"],
+      "additionalProperties": false,
+      "properties": {
+        "rule": { "type": "string" },
+        "runs": { "type": "string", "description": "Which of the twins runs." },
+        "skip": { "type": "string", "description": "A pattern a twin's skip reason matches." },
+        "events": { "type": "string" },
+        "report": { "type": "string" },
+        "summary": { "type": "string" },
+        "verify": { "type": "string", "description": "A pattern verify's line for a twin matches." },
+        "verifyNote": { "type": "string" },
+        "explain": { "type": "string", "description": "A pattern the first line of explain for a twin matches." },
+        "ignore": { "type": "string", "description": "A pattern the first line of ignore for a twin matches." },
+        "shapes": { "type": "object", "description": "Where each edition finds twins, by edition.", "additionalProperties": { "type": "array", "items": { "type": "string" } } }
+      }
     },
     "decisions": {
       "type": "array",
