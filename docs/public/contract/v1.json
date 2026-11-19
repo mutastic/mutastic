@@ -2163,6 +2163,16 @@
       "reason": "What the bytecode or the syntax shows of where a value goes."
     },
     {
+      "id": "N49",
+      "kind": "engine",
+      "editions": [
+        "java"
+      ],
+      "surface": "human output",
+      "summary": "A `note` line after `coverage`, and the cause in `nothing-covered`, for each test class that runs a `main` class in a JVM of its own",
+      "reason": "A JVM a test starts loads the classes as built, so neither the worker's mutants nor its coverage reach it. A Rust binary a test runs has every mutant built in and takes the one to run, and where to record coverage, from the environment the test process passes on."
+    },
+    {
       "id": "A6",
       "kind": "engine",
       "editions": [

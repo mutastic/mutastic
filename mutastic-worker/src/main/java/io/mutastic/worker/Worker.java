@@ -148,13 +148,18 @@ public final class Worker {
     var protocol = new PrintStream(new FileOutputStream(FileDescriptor.out), true, UTF_8);
     System.setOut(System.err);
     ResourceCopy.at(roots(args, "--resource-copy=").stream().findFirst().orElse(null));
+    boolean framework = Arrays.asList(args).contains("--framework");
+    if (!framework) {
+      System.setProperty(
+          "java.class.path", BuildClassPath.of(args, System.getProperty("java.class.path", "")));
+    }
     var worker =
         new Worker(
             roots(args, "--production="),
             roots(args, "--tests="),
             Tags.of(args),
             protocol,
-            Arrays.asList(args).contains("--framework"));
+            framework);
     var commands = readCommands();
     protocol.println("READY\t" + Runtime.version().feature());
     for (String line = commands.take(); !line.equals("EXIT"); line = commands.take()) {
