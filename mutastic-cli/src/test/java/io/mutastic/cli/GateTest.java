@@ -693,7 +693,7 @@ class GateTest {
       assertThat(hook.err()).isEmpty();
     }
     assertThat(person.exit()).isEqualTo(Main.USAGE);
-    assertThat(person.err()).contains("isn't a Gradle or Maven build");
+    assertThat(person.err()).contains("there's no project");
   }
 
   private Samples.Result hooked(String input, String... args) {

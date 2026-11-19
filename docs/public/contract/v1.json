@@ -509,6 +509,7 @@
       ],
       "exit": 2,
       "code": "unknown-command",
+      "message": "mutastic has no command verfiy. There's one called verify.",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       }
@@ -520,6 +521,7 @@
       ],
       "exit": 2,
       "code": "unknown-command",
+      "message": "mutastic has no command frobnicate. To see its commands:",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       }
@@ -532,6 +534,7 @@
       ],
       "exit": 2,
       "code": "needs-id",
+      "message": "{dir} is a directory, not a mutant id. verify needs a mutant id first, an m and eight hex digits as a run prints them:",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       }
@@ -544,6 +547,7 @@
       ],
       "exit": 2,
       "code": "no-project",
+      "message": "there's no project in {empty} for mutastic to test.",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       },
@@ -556,10 +560,11 @@
       ],
       "exit": 2,
       "code": "unknown-command",
+      "message": "gate needs what to do: open, check or close. To see what each does:",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       },
-      "note": "gate with no action (X11)"
+      "note": "gate with no action"
     },
     {
       "id": "gate2",
@@ -569,6 +574,7 @@
       ],
       "exit": 2,
       "code": "unknown-command",
+      "message": "gate has no command opn. There's one called open.",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       },
@@ -593,6 +599,7 @@
       ],
       "exit": 2,
       "code": "needs-id",
+      "message": "verify needs a mutant id first, an m and eight hex digits as a run prints them:",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       }
@@ -621,6 +628,7 @@
       ],
       "exit": 2,
       "code": "no-project",
+      "message": "there's no project in {empty} for mutastic to test.",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       },
@@ -635,6 +643,7 @@
       ],
       "exit": 2,
       "code": "option-value",
+      "message": "--format needs a value, one of full, brief, concise, grouped, agent or jsonl.",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       }
@@ -648,6 +657,7 @@
       ],
       "exit": 2,
       "code": "unknown-option",
+      "message": "run has no option --verbose. To see its options:",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       }
@@ -661,6 +671,7 @@
       ],
       "exit": 2,
       "code": "unknown-option",
+      "message": "run has no option --thresold. There's one called --threshold.",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       }
@@ -677,6 +688,21 @@
         "MUTASTIC_FORMAT": "jsonl"
       },
       "note": "The directory before the command (G34)"
+    },
+    {
+      "id": "reason",
+      "args": [
+        "ignore",
+        "{id}",
+        "{dir}"
+      ],
+      "exit": 2,
+      "code": "needs-id",
+      "message": "ignore needs a reason, for whoever reviews it:",
+      "env": {
+        "MUTASTIC_FORMAT": "jsonl"
+      },
+      "note": "ignore with no reason"
     },
     {
       "id": "red",
@@ -745,6 +771,7 @@
       ],
       "exit": 2,
       "code": "option-value",
+      "message": "--threshold is from 0 to 100, not 150",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       },
@@ -759,6 +786,7 @@
       ],
       "exit": 2,
       "code": "option-value",
+      "message": "--threshold needs a whole number, not 72.5",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       },
@@ -774,6 +802,7 @@
       ],
       "exit": 2,
       "code": "option-value",
+      "message": "--tries is from 1 to 100, not 0",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       }
@@ -813,6 +842,7 @@
       ],
       "exit": 2,
       "code": "option-value",
+      "message": "--format has no value agnt. There's one called agent.",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       }
@@ -826,6 +856,7 @@
       ],
       "exit": 2,
       "code": "option-value",
+      "message": "--format takes full, brief, concise, grouped, agent or jsonl, not xyz",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       }
@@ -839,6 +870,7 @@
       ],
       "exit": 2,
       "code": "option-value",
+      "message": "--workers is at least 1, not 0",
       "env": {
         "MUTASTIC_FORMAT": "jsonl"
       }
@@ -2388,151 +2420,6 @@
       "surface": "reports",
       "summary": "SARIF rule `shortDescription` isn't the operator explanation's first sentence",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "X",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "errors",
-      "summary": "An error is followed by `usage: … (… --help says more)`, not a statement and the one command to run",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "items": [
-        "error:*:usage-line"
-      ]
-    },
-    {
-      "id": "X1",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "The words for unknown command differ; unified one case at a time once the shape is shared",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "X2",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "The words for unknown option differ; unified one case at a time once the shape is shared",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "X3",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "The words for close value differ; unified one case at a time once the shape is shared",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "X4",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "The words for wrong value differ; unified one case at a time once the shape is shared",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "X5",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "The words for missing value differ; unified one case at a time once the shape is shared",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "X6",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "The words for no id differ; unified one case at a time once the shape is shared",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "X7",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "The words for a directory in the id's place differ; unified one case at a time once the shape is shared",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "X8",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "The words for unknown id differ; unified one case at a time once the shape is shared",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "X9",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "The words for not a project differ; unified one case at a time once the shape is shared",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "X10",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "The words for out of range differ; unified one case at a time once the shape is shared",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "X11",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "The words for gate with no action differ; unified one case at a time once the shape is shared",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "X12",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "The words for missing reason differ; unified one case at a time once the shape is shared",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
       "id": "T1",

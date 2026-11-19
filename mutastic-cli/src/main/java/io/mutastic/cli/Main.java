@@ -2743,7 +2743,10 @@ public final class Main {
       boolean gate = words.getFirst().equals("gate");
       if (gate && words.size() == 1) {
         return new UsageException(
-            "unknown-command", "gate needs what to do: open, check or close", null);
+            "unknown-command",
+            "gate needs what to do: open, check or close. To see what each does:\n"
+                + "  mutastic --help",
+            null);
       }
       var typed = words.get(gate ? 1 : 0);
       var commands = commandWords(gate);
@@ -2757,8 +2760,7 @@ public final class Main {
       }
       return new UsageException(
           "unknown-command",
-          "%s has no command %s; its commands are %s"
-              .formatted(owner, typed, Options.listed(commands, "and")),
+          "%s has no command %s. To see its commands:\n  mutastic --help".formatted(owner, typed),
           null);
     }
 
@@ -2905,7 +2907,14 @@ public final class Main {
         var close = io.mutastic.api.Nearest.name(name, names, io.mutastic.api.Nearest::bare);
         var unknown = "%s has no option %s".formatted(subcommand.word(), name);
         if (close.isEmpty()) {
-          return new UsageException("unknown-option", unknown, null);
+          return new UsageException(
+              "unknown-option",
+              (name.startsWith("--")
+                      ? "%s. To see its options:\n  mutastic %s --help"
+                      : "%s.\nmutastic's options are long ones, such as --format=full. To see them"
+                          + " all:\n  mutastic %s --help")
+                  .formatted(unknown, subcommand.word()),
+              null);
         }
         return new UsageException(
             "unknown-option",
@@ -2927,12 +2936,29 @@ public final class Main {
           case FLAG, OPTIONAL_VALUE -> null;
           case VALUE, REPEATED -> {
             if (rest.isEmpty()) {
-              throw new UsageException(
-                  "%s needs a value: %s".formatted(option.name(), option.synopsis()));
+              // An ignore's reason, missing, is said as an ignore without one.
+              if (option.name().equals("--reason")) {
+                yield "";
+              }
+              throw missing(option, arg);
             }
             yield rest.removeFirst();
           }
         };
+      }
+
+      /// `option`, typed as `arg`, has no value: the values it takes, if only some, and the line
+      /// with one to fill in.
+      private static UsageException missing(Option option, String arg) {
+        return new UsageException(
+            "option-value",
+            "%s needs a value%s."
+                .formatted(
+                    option.name(),
+                    option.choices().isEmpty()
+                        ? ""
+                        : ", one of " + Options.listed(option.choices(), "or")),
+            Correction.of(arg, option.placeholder()));
       }
 
       private void set(Option option, @Nullable String value) {
@@ -3123,7 +3149,8 @@ public final class Main {
           only = List.of(mutantId("ignore"));
           if (!remove && !accept && reason.isBlank()) {
             throw new UsageException(
-                "ignore needs a reason, which every ignore says: --reason=\"…\"");
+                "ignore needs a reason, for whoever reviews it:\n  mutastic ignore %s%s"
+                    .formatted(only.getFirst(), withReason()));
           }
         }
         if (propose && (accept || remove || prune)) {
@@ -3170,7 +3197,7 @@ public final class Main {
       /// current directory as the project, and say it isn't a build.
       private String mutantId(String subcommand) {
         if (positional.isEmpty()) {
-          throw new UsageException(needsAnId(subcommand, "<directory>"));
+          throw new UsageException(needsAnId(subcommand, ""));
         }
         var given = positional.getFirst();
         for (String id : given.split(",", -1)) {
@@ -3185,20 +3212,40 @@ public final class Main {
       private static String notAnId(String subcommand, String given) {
         if (given.startsWith(":")) {
           return "%s is a module, not a mutant id. %s"
-              .formatted(given, needsAnId(subcommand, "<directory> " + given));
+              .formatted(given, needsAnId(subcommand, given));
         }
         if (Files.isDirectory(Path.of(given))) {
           return "%s is a directory, not a mutant id. %s"
               .formatted(given, needsAnId(subcommand, given));
         }
-        return "%s isn't a mutant id. %s".formatted(given, needsAnId(subcommand, "<directory>"));
+        return "%s isn't a mutant id. %s".formatted(given, needsAnId(subcommand, ""));
       }
 
-      /// What `subcommand` needs first, as a run names a mutant, with `after` after it.
+      /// What `subcommand` needs first, as a run names a mutant, with `after`, the directory or
+      /// module given, after it, and for `ignore` its reason.
       private static String needsAnId(String subcommand, String after) {
         return ("%s needs a mutant id first, an m and eight hex digits as a run prints them:\n"
-                + "  mutastic %s m855c8e3c %s")
-            .formatted(subcommand, subcommand, after);
+                + "  mutastic %s <id>%s%s")
+            .formatted(
+                subcommand,
+                subcommand,
+                after.isEmpty() ? "" : " " + Correction.quoted(after),
+                subcommand.equals("ignore") ? " --reason=\"<why>\"" : "");
+      }
+
+      /// The rest of an ignore's command line, its directory and module as given, and its options,
+      /// with a reason to fill in.
+      private String withReason() {
+        var words = new ArrayList<String>();
+        positional.forEach(word -> words.add(" " + Correction.quoted(word)));
+        words.add(" --reason=\"<why>\"");
+        if (!kind.isEmpty()) {
+          words.add(" --as=" + kind);
+        }
+        if (propose) {
+          words.add(" --propose");
+        }
+        return String.join("", words);
       }
 
       /// What's left once the ids are taken is a directory and a `:module`, each at most once: any
@@ -3333,7 +3380,7 @@ public final class Main {
       if (number < min || number > max) {
         throw new UsageException(
             max == Integer.MAX_VALUE
-                ? "%s must be at least %d".formatted(option.name(), min)
+                ? "%s is at least %d, not %d".formatted(option.name(), min, number)
                 : "%s is from %d to %d, not %d".formatted(option.name(), min, max, number));
       }
       return number;

@@ -57,8 +57,13 @@ record Correction(List<String> typed, String instead) {
     return false;
   }
 
-  /// `word` as a shell reads it back: in single quotes unless it needs none.
+  /// A word with a part to fill in, `--format=<format>`: shown as it is, to be written over.
+  private static final Pattern PLACEHOLDER = Pattern.compile("[\\w./:=,@%+-]*<[\\w ]+>");
+
+  /// `word` as a shell reads it back: in single quotes unless it needs none, or is to be filled in.
   static String quoted(String word) {
-    return PLAIN.matcher(word).matches() ? word : "'" + word.replace("'", "'\\''") + "'";
+    return PLAIN.matcher(word).matches() || PLACEHOLDER.matcher(word).matches()
+        ? word
+        : "'" + word.replace("'", "'\\''") + "'";
   }
 }

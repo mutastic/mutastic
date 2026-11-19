@@ -854,7 +854,7 @@ class DocsOutputTest {
     assertThat(elsewhere.exit()).isEqualTo(Main.USAGE);
     assertThat(failing.exit()).isEqualTo(Main.TESTS_FAIL);
     shown("below-threshold.ansi", project, below);
-    shown("id-elsewhere.ansi", project, itsMessage(elsewhere));
+    shown("id-elsewhere.ansi", project, fromItsMessage(elsewhere));
     shown("tests-fail.ansi", project, fromItsMessage(failing));
   }
 

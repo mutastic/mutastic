@@ -78,7 +78,8 @@ it on docs.mutastic.io. It holds what the editions must agree on:
 - the command line: commands, synopses, the options each takes and in what order, kinds, value
   names, choices, defaults, environment variables and exit codes;
 - every error code with its exit code, the pairs that mean the same thing (`errorPairs`), and a
-  table of error cases (`errorCases`) with the code and exit code each must end with;
+  table of error cases (`errorCases`) with the code and exit code each must end with, and the
+  first line each says, word for word, where both editions say it alike;
 - help's layout, the human summary's rows and their order, and the agent format's line shapes
   (its head, each entry, and the tail that closes the fence around the project's text);
 - the events' key paths per event type and their order, and mutation.json's key paths;

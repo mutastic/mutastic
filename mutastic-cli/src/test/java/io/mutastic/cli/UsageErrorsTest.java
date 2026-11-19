@@ -37,7 +37,7 @@ class UsageErrorsTest {
     var run = Samples.mutastic(Map.of("MUTASTIC_FORMAT", "jsonl"), "run", "--top=3");
 
     assertThat(verify.exit()).isEqualTo(Main.USAGE);
-    assertThat(verify.err()).startsWith("mutastic: verify doesn't take --threshold\nusage: ");
+    assertThat(verify.err()).isEqualTo("mutastic: verify doesn't take --threshold\n");
     assertThat(run.out()).contains("\"code\":\"option-not-taken\"");
   }
 
@@ -70,22 +70,67 @@ class UsageErrorsTest {
             """);
   }
 
-  /// With no close name, one line of the command's usage follows, not every command's.
+  /// With no close name, the error ends in the one command that lists what there is: no usage line,
+  /// which the Rust edition never had.
   @Test
-  void withoutOneTheUsageIsOneLine() {
+  void withoutOneItEndsInTheHelpToRead() {
     assertThat(Samples.mutastic("run", "--fast").err())
         .isEqualTo(
             """
-            mutastic: run has no option --fast
-            usage: mutastic run [DIR] [:MODULE] [OPTIONS]  (mutastic run --help says more)
+            mutastic: run has no option --fast. To see its options:
+              mutastic run --help
+            """);
+    assertThat(Samples.mutastic("run", "-v").err())
+        .isEqualTo(
+            """
+            mutastic: run has no option -v.
+            mutastic's options are long ones, such as --format=full. To see them all:
+              mutastic run --help
             """);
     assertThat(Samples.mutastic("frobnicate").err())
         .isEqualTo(
             """
-            mutastic: mutastic has no command frobnicate; its commands are run, verify, explain,\
-             ignore, next, baseline, gate and mutants
-            usage: mutastic COMMAND [DIR] [:MODULE] [OPTIONS]  (mutastic --help says more)
+            mutastic: mutastic has no command frobnicate. To see its commands:
+              mutastic --help
             """);
+    assertThat(Samples.mutastic("gate").err())
+        .isEqualTo(
+            """
+            mutastic: gate needs what to do: open, check or close. To see what each does:
+              mutastic --help
+            """);
+  }
+
+  /// A missing value is said with the values it takes, if it takes only some, and the command with
+  /// one to fill in.
+  @Test
+  void aMissingValueEndsInTheCommandToFillIn() {
+    assertThat(Samples.mutastic("next", "--format").err())
+        .isEqualTo(
+            """
+            mutastic: --format needs a value, one of full, brief, concise, grouped, agent or jsonl.
+              mutastic next --format=<format>
+            """);
+    assertThat(Samples.mutastic("run", "--threshold").err())
+        .isEqualTo(
+            """
+            mutastic: --threshold needs a value.
+              mutastic run --threshold=<n>
+            """);
+  }
+
+  /// An ignore with no reason ends in its command with one to fill in, its directory and options
+  /// kept.
+  @Test
+  void anIgnoreWithoutAReasonEndsInOneToFillIn() {
+    assertThat(Samples.mutastic("ignore", "m855c8e3c", "samples/pricing", "--propose").err())
+        .isEqualTo(
+            """
+            mutastic: ignore needs a reason, for whoever reviews it:
+              mutastic ignore m855c8e3c samples/pricing --reason="<why>" --propose
+            """);
+    assertThat(Samples.mutastic("ignore", "m855c8e3c", "--reason").err())
+        .startsWith("mutastic: ignore needs a reason, for whoever reviews it:\n");
   }
 
   /// A word quoted as typed is quoted in the command offered, so it can be pasted back.
@@ -140,7 +185,7 @@ class UsageErrorsTest {
     assertThat(run.exit()).isEqualTo(Main.USAGE);
     assertThat(run.err())
         .endsWith(
-            "mutastic: no mutant m855c83ec in pricing. There's one called m855c8e3c.\n"
+            "mutastic: m855c83ec isn't a mutant of pricing. There's one called m855c8e3c.\n"
                 + "  mutastic verify m855c8e3c "
                 + project
                 + "\n");

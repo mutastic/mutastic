@@ -97,14 +97,10 @@ public final class Engine {
           closest
               .map(
                   close ->
-                      "no mutant %s in %s. There's one called %s."
+                      "%s isn't a mutant of %s. There's one called %s."
                           .formatted(id, projectName, close))
               .orElseGet(
-                  () ->
-                      ("no mutant %s in %s. A mutant's id belongs to the project its run was on: "
-                              + "run the command as that run printed it, with the project's"
-                              + " directory and module")
-                          .formatted(id, projectName)));
+                  () -> "%s isn't a mutant of %s. To see its mutants:".formatted(id, projectName)));
       this.id = id;
       this.closest = closest.orElse(null);
     }

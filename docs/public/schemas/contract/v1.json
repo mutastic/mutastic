@@ -75,6 +75,7 @@
           "args": { "type": "array", "items": { "type": "string" } },
           "exit": { "type": "integer" },
           "code": { "type": "string", "description": "The last run-failed event's code; none when the case runs." },
+          "message": { "type": "string", "description": "The error's first line, the run-failed event's message, with `{dir}`, `{empty}` and `{id}` as in `args`: each edition says it in these words." },
           "env": { "type": "object", "additionalProperties": { "type": "string" } },
           "setup": { "enum": ["red-baseline"], "description": "red-baseline: one of the fixture's tests is made to fail first, with no mutant in." },
           "note": { "type": "string" }
