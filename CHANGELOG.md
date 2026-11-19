@@ -22,7 +22,9 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   `@DoMutate(arid = "mutastic:waits")` does the same in the code (`mutastic-annotations` gains
   `arid()`). Without it a `mutate:` rule brings back every arid skip, as before. An id mutastic
   doesn't have is refused, with the one meant when it's close: `mutastic:wait isn't an arid rule.
-  There's one called mutastic:waits.` The `mutastic.yaml` schema has the key and its ids.
+  There's one called mutastic:waits.` The `mutastic.yaml` schema has the key and its ids, with
+  the Rust edition's thread settings' rules: `mutastic:thread-names`, `mutastic:stack-sizes` and
+  `mutastic:keep-alive`.
 - **A skip says which arid rule made it, and how to undo it.** `explain` on a mutant an arid rule
   skipped has an `arid` row: the rule's id, what it skips, a link to its docs and the
   `mutastic.yaml` rule to copy that runs it. The HTML report's "Why it was skipped" says the same,

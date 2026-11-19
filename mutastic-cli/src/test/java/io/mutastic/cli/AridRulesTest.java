@@ -90,7 +90,8 @@ class AridRulesTest {
         .isEqualTo(written);
   }
 
-  /// The `mutastic.yaml` schema's `arid:` takes every edition's ids, the contract's, and only those.
+  /// The `mutastic.yaml` schema's `arid:` takes every edition's ids, the contract's, and only
+  /// those.
   @Test
   void theSchemaHasTheIds() throws IOException {
     var schema =

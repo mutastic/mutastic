@@ -256,6 +256,66 @@
       },
       "mutate": "arid: [mutastic:split-limits]",
       "annotation": "@DoMutate(arid = \"mutastic:split-limits\")"
+    },
+    {
+      "id": "mutastic:thread-names",
+      "anchor": "thread-names",
+      "url": "https://docs.mutastic.io/reference/arid/#thread-names",
+      "editions": [
+        "rust"
+      ],
+      "scope": "site",
+      "description": "A thread's name, or the names a pool gives its threads: they show in thread dumps and logs, not in what runs or when.",
+      "reasons": {
+        "rust": [
+          "arid: only names a thread"
+        ]
+      },
+      "examples": {
+        "rust": "let builder = thread::Builder::new().name(\"squarer\".into());"
+      },
+      "mutate": "arid: [mutastic:thread-names]",
+      "annotation": "@DoMutate(arid = \"mutastic:thread-names\")"
+    },
+    {
+      "id": "mutastic:stack-sizes",
+      "anchor": "stack-sizes",
+      "url": "https://docs.mutastic.io/reference/arid/#stack-sizes",
+      "editions": [
+        "rust"
+      ],
+      "scope": "site",
+      "description": "The size of a new thread's stack, while it stays above zero.",
+      "reasons": {
+        "rust": [
+          "arid: only sizes a thread's stack"
+        ]
+      },
+      "examples": {
+        "rust": "let builder = thread::Builder::new().stack_size(64 * 1024);"
+      },
+      "mutate": "arid: [mutastic:stack-sizes]",
+      "annotation": "@DoMutate(arid = \"mutastic:stack-sizes\")"
+    },
+    {
+      "id": "mutastic:keep-alive",
+      "anchor": "keep-alive",
+      "url": "https://docs.mutastic.io/reference/arid/#keep-alive",
+      "editions": [
+        "rust"
+      ],
+      "scope": "site",
+      "description": "How long a pool's idle threads live before they end, while it stays above zero.",
+      "reasons": {
+        "rust": [
+          "arid: only sets how long idle threads live"
+        ]
+      },
+      "examples": {
+        "rust": "let runtime = Builder::new_multi_thread().thread_keep_alive(Duration::from_secs(5 * 60));"
+      },
+      "mutate": "arid: [mutastic:keep-alive]",
+      "annotation": "@DoMutate(arid = \"mutastic:keep-alive\")"
     }
   ]
 }
