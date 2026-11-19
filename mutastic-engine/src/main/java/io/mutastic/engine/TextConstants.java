@@ -6,21 +6,38 @@ import io.mutastic.api.Mutator.Change;
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.CodeElement;
 import java.lang.classfile.Instruction;
+import java.lang.classfile.Label;
 import java.lang.classfile.Opcode;
+import java.lang.classfile.instruction.ArrayLoadInstruction;
 import java.lang.classfile.instruction.ArrayStoreInstruction;
+import java.lang.classfile.instruction.BranchInstruction;
 import java.lang.classfile.instruction.ConstantInstruction;
 import java.lang.classfile.instruction.ConvertInstruction;
 import java.lang.classfile.instruction.FieldInstruction;
+import java.lang.classfile.instruction.IncrementInstruction;
+import java.lang.classfile.instruction.InvokeDynamicInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.LabelTarget;
 import java.lang.classfile.instruction.LoadInstruction;
+import java.lang.classfile.instruction.MonitorInstruction;
+import java.lang.classfile.instruction.NewMultiArrayInstruction;
+import java.lang.classfile.instruction.NewObjectInstruction;
+import java.lang.classfile.instruction.NewPrimitiveArrayInstruction;
 import java.lang.classfile.instruction.NewReferenceArrayInstruction;
+import java.lang.classfile.instruction.NopInstruction;
+import java.lang.classfile.instruction.OperatorInstruction;
 import java.lang.classfile.instruction.StackInstruction;
+import java.lang.classfile.instruction.StoreInstruction;
 import java.lang.classfile.instruction.TypeCheckInstruction;
 import java.lang.constant.ConstantDescs;
+import java.lang.constant.MethodTypeDesc;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -186,44 +203,10 @@ final class TextConstants {
         || (from.endsWith("$") && to.equals(from.substring(0, from.length() - 1)));
   }
 
-  /// Follows the value at `code[at]` along straight code to the call that takes it; none if a label
-  /// comes first, or an instruction that does anything else to it.
+  /// Follows the value at `code[at]` to the call that takes it, on every path the code can take
+  /// while the value is on the stack; none if any path does anything else with it.
   private static Optional<Consumer> consumer(List<CodeElement> code, int at) {
-    int depth = 1;
-    for (int index = at + 1; index < code.size() && depth > 0; index++) {
-      var element = code.get(index);
-      if (element instanceof LabelTarget) {
-        return Optional.empty();
-      }
-      if (element instanceof InvokeInstruction call) {
-        int taken =
-            call.typeSymbol().parameterCount() + (call.opcode() == Opcode.INVOKESTATIC ? 0 : 1);
-        if (taken >= depth) {
-          return Optional.of(new Consumer(call, taken - depth, index));
-        }
-        boolean returns = !call.typeSymbol().returnType().equals(ConstantDescs.CD_void);
-        depth += (returns ? 1 : 0) - taken;
-      } else if (element instanceof Instruction instruction) {
-        depth = depthAfter(instruction, depth);
-      }
-    }
-    return Optional.empty();
-  }
-
-  /// How many values are on the stack from ours up, after an instruction that leaves ours where it
-  /// is; `0` for one that doesn't, or that this doesn't follow.
-  private static int depthAfter(Instruction instruction, int depth) {
-    return switch (instruction) {
-      case LoadInstruction _, ConstantInstruction _ -> depth + 1;
-      case FieldInstruction field when field.opcode() == Opcode.GETSTATIC -> depth + 1;
-      case FieldInstruction field when field.opcode() == Opcode.GETFIELD && depth > 1 -> depth;
-      case NewReferenceArrayInstruction _ when depth > 1 -> depth;
-      case ConvertInstruction _ when depth > 1 -> depth;
-      case TypeCheckInstruction _ when depth > 1 -> depth;
-      case ArrayStoreInstruction _ when depth > 3 -> depth - 3;
-      case StackInstruction dup when dup.opcode() == Opcode.DUP && depth > 1 -> depth + 1;
-      default -> 0;
-    };
+    return new Follow().from(code, at);
   }
 
   /// What a regular expression can become: each compiles, and each is different.
@@ -334,5 +317,154 @@ final class TextConstants {
             .findFirst()
             .orElseThrow(
                 () -> new IllegalStateException("no such change: " + mutant.replacement())));
+  }
+
+  /// A walk along the code after a value, counting what's on the stack from it up. A jump ahead
+  /// carries the count to its label, and code no path reaches with the value is passed over. The
+  /// walk stops where something other than a call takes the value, where a jump goes back or past
+  /// the call, or at an instruction it doesn't know: the value may go somewhere else then.
+  private static final class Follow {
+    /// What an instruction takes off the stack and leaves on it, in values: a `long` is one.
+    private record Effect(int takes, int leaves) {}
+
+    /// An instruction the walk doesn't follow, as if it took the whole stack.
+    private static final Effect UNKNOWN = new Effect(Integer.MAX_VALUE, 0);
+
+    private final Set<Label> passed = new HashSet<>();
+    private final Map<Label, Integer> ahead = new HashMap<>();
+    private int depth = 1;
+    private boolean reached = true;
+
+    Optional<Consumer> from(List<CodeElement> code, int at) {
+      for (int index = at + 1; index < code.size(); index++) {
+        var element = code.get(index);
+        if (reached && element instanceof InvokeInstruction call && takes(call) >= depth) {
+          return ahead.isEmpty()
+              ? Optional.of(new Consumer(call, takes(call) - depth, index))
+              : Optional.empty();
+        }
+        if (!pass(element)) {
+          return Optional.empty();
+        }
+      }
+      return Optional.empty();
+    }
+
+    /// Whether the value can still be followed past this element.
+    private boolean pass(CodeElement element) {
+      return switch (element) {
+        case LabelTarget target -> arrive(target.label());
+        case Instruction instruction when reached -> step(instruction);
+        default -> true;
+      };
+    }
+
+    /// At a label, what a jump to it carries is what falls through to it, and code after a `goto`
+    /// is reached again with the value only by a jump that carried it.
+    private boolean arrive(Label label) {
+      passed.add(label);
+      var carried = ahead.remove(label);
+      if (reached) {
+        return carried == null || carried == depth;
+      }
+      if (carried != null) {
+        depth = carried;
+        reached = true;
+      }
+      return true;
+    }
+
+    private boolean step(Instruction instruction) {
+      if (instruction instanceof BranchInstruction branch) {
+        return jump(branch);
+      }
+      var effect = effect(instruction);
+      if (effect.takes() >= depth) {
+        return false;
+      }
+      depth += effect.leaves() - effect.takes();
+      return true;
+    }
+
+    private boolean jump(BranchInstruction branch) {
+      int taken =
+          switch (branch.opcode()) {
+            case GOTO, GOTO_W -> 0;
+            case IF_ICMPEQ,
+                IF_ICMPNE,
+                IF_ICMPLT,
+                IF_ICMPGE,
+                IF_ICMPGT,
+                IF_ICMPLE,
+                IF_ACMPEQ,
+                IF_ACMPNE ->
+                2;
+            default -> 1;
+          };
+      if (taken >= depth || passed.contains(branch.target())) {
+        return false;
+      }
+      depth -= taken;
+      var before = ahead.putIfAbsent(branch.target(), depth);
+      reached = taken > 0;
+      return before == null || before == depth;
+    }
+
+    private static int takes(InvokeInstruction call) {
+      return call.typeSymbol().parameterCount() + (call.opcode() == Opcode.INVOKESTATIC ? 0 : 1);
+    }
+
+    private static Effect effect(Instruction instruction) {
+      return switch (instruction) {
+        case LoadInstruction _, ConstantInstruction _, NewObjectInstruction _ -> new Effect(0, 1);
+        case StoreInstruction _, MonitorInstruction _ -> new Effect(1, 0);
+        case IncrementInstruction _, NopInstruction _ -> new Effect(0, 0);
+        case ConvertInstruction _,
+            TypeCheckInstruction _,
+            NewReferenceArrayInstruction _,
+            NewPrimitiveArrayInstruction _ ->
+            new Effect(1, 1);
+        case NewMultiArrayInstruction array -> new Effect(array.dimensions(), 1);
+        case ArrayLoadInstruction _ -> new Effect(2, 1);
+        case ArrayStoreInstruction _ -> new Effect(3, 0);
+        case OperatorInstruction operator -> new Effect(unary(operator.opcode()) ? 1 : 2, 1);
+        case FieldInstruction field -> field(field.opcode());
+        case InvokeInstruction call -> new Effect(takes(call), returns(call.typeSymbol()));
+        case InvokeDynamicInstruction call ->
+            new Effect(call.typeSymbol().parameterCount(), returns(call.typeSymbol()));
+        case StackInstruction stack -> stack(stack.opcode());
+        default -> UNKNOWN;
+      };
+    }
+
+    private static boolean unary(Opcode opcode) {
+      return switch (opcode) {
+        case INEG, LNEG, FNEG, DNEG, ARRAYLENGTH -> true;
+        default -> false;
+      };
+    }
+
+    private static int returns(MethodTypeDesc type) {
+      return type.returnType().equals(ConstantDescs.CD_void) ? 0 : 1;
+    }
+
+    private static Effect field(Opcode opcode) {
+      return switch (opcode) {
+        case GETSTATIC -> new Effect(0, 1);
+        case GETFIELD, PUTSTATIC -> new Effect(1, opcode == Opcode.GETFIELD ? 1 : 0);
+        default -> new Effect(2, 0);
+      };
+    }
+
+    /// Only what moves single values: the rest work in slots, and a `long` takes two of those.
+    private static Effect stack(Opcode opcode) {
+      return switch (opcode) {
+        case POP -> new Effect(1, 0);
+        case DUP -> new Effect(1, 2);
+        case DUP_X1 -> new Effect(2, 3);
+        case SWAP -> new Effect(2, 2);
+        default -> UNKNOWN;
+      };
+    }
   }
 }

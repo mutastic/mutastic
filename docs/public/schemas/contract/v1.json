@@ -103,7 +103,22 @@
                   "pattern": { "type": "string", "description": "A slot: any label this matches, that no other row names." },
                   "optional": { "type": "boolean" },
                   "shape": { "type": "string", "description": "A regular expression the row's value must match." },
-                  "note": { "type": "string" }
+                  "note": { "type": "string" },
+                  "under": {
+                    "type": "array",
+                    "description": "Lines the row's value may have under it, in the values' column, each when its rule says.",
+                    "items": {
+                      "type": "object",
+                      "required": ["name", "rule", "pattern"],
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": { "type": "string" },
+                        "rule": { "type": "string" },
+                        "pattern": { "type": "string", "description": "A regular expression the line, without its indent, must match." },
+                        "example": { "type": "string" }
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -144,7 +159,7 @@
     },
     "arid": {
       "type": "array",
-      "description": "mutastic's own arid rules, by id (decision 19): what each skips, the reasons it gives as a skipped mutant shows them, a name in the code as `<field>`, and the editions that have it. A rule's id never changes once shipped.",
+      "description": "mutastic's own arid rules, by id (decision 20): what each skips, the reasons it gives as a skipped mutant shows them, a name in the code as `<field>`, and the editions that have it. A rule's id never changes once shipped.",
       "items": {
         "type": "object",
         "required": ["id", "editions", "scope", "description", "reasons", "examples"],

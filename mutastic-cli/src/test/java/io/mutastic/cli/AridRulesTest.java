@@ -90,7 +90,7 @@ class AridRulesTest {
         .isEqualTo(written);
   }
 
-  /// The `mutastic.yaml` schema's `arid:` takes the engine's ids, and only those.
+  /// The `mutastic.yaml` schema's `arid:` takes every edition's ids, the contract's, and only those.
   @Test
   void theSchemaHasTheIds() throws IOException {
     var schema =
@@ -103,7 +103,8 @@ class AridRulesTest {
             .map(node -> strings(node.get("items").get("enum")))
             .toList();
 
-    assertThat(ids).containsExactly(AridRule.ids());
+    assertThat(ids)
+        .containsExactly(rules().stream().map(rule -> rule.get("id").asString()).toList());
   }
 
   /// What the docs render: each rule, the contract's, with its anchor and its section's address.

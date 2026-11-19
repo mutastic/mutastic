@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -275,8 +276,18 @@ class JsonEventsTest {
         .contains("\"tests\":2,\"workers\":1,\"workersStarted\":1,\"coverageMs\":100")
         .contains("\"flaky\":[\"com.example.PricingTest#f\"]")
         .contains("\"reports\":[\"build/mutastic/mutation.json\"]")
-        .contains("\"staleIgnores\":[\"m1\"],\"durationMs\":300")
+        .contains("\"staleIgnores\":[\"m1\"],\"durationMs\":300,\"sleptMs\":0}")
         .doesNotContain("previousScore", "\"only\"", "aridAudit", "scope");
+  }
+
+  /// `sleptMs` says how long the machine slept, which `durationMs` leaves out, as the summary does.
+  @Test
+  void theRunFinishedSaysHowLongTheMachineSlept() {
+    events
+        .sleptFrom(new Slept(Instant.now().minusSeconds(233), System.nanoTime()))
+        .runFinished(report(List.of(), List.of(), List.of()));
+
+    assertThat(lines().getFirst()).containsPattern("\"durationMs\":300,\"sleptMs\":23[23]\\d{3}}");
   }
 
   @Test

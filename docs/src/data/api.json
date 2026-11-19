@@ -1568,7 +1568,7 @@
           "name": "CoveragePass",
           "slug": "coveragepass",
           "kind": "record",
-          "signature": "@Internal record CoveragePass(\n    int jdk,\n    int tests,\n    Duration took,\n    int mutants,\n    List<String> flaky,\n    List<FlakyTest> flakyEvidence,\n    int cases,\n    int skippedCases)",
+          "signature": "@Internal record CoveragePass(\n    int jdk,\n    int tests,\n    Duration took,\n    int mutants,\n    List<String> flaky,\n    List<FlakyTest> flakyEvidence,\n    int cases,\n    int skippedCases,\n    List<String> separateJvms)",
           "summary": "What the coverage pass found, before any mutant runs.",
           "doc": "What the coverage pass found, before any mutant runs.",
           "params": [
@@ -1603,6 +1603,10 @@
             {
               "name": "skippedCases",
               "doc": "the tests and cases skipped: turned off, or aborted by an assumption; -1 when not counted"
+            },
+            {
+              "name": "separateJvms",
+              "doc": "a note for each test class that runs one of the project's `main` classes in a JVM of its own, which neither mutants nor coverage reach"
             }
           ],
           "members": [
@@ -1610,6 +1614,16 @@
               "kind": "constructor",
               "name": "CoveragePass",
               "anchor": "coveragepass",
+              "signature": "CoveragePass(int jdk, int tests, Duration took, int mutants, List<String> flaky, List<FlakyTest> flakyEvidence, int cases, int skippedCases)",
+              "doc": "A pass that found no test running the project in a JVM of its own.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "CoveragePass",
+              "anchor": "coveragepass-2",
               "signature": "CoveragePass(int jdk, int tests, Duration took, int mutants, List<String> flaky, List<FlakyTest> flakyEvidence)",
               "doc": "A pass whose cases weren't counted.",
               "params": [],
@@ -1619,7 +1633,7 @@
             {
               "kind": "constructor",
               "name": "CoveragePass",
-              "anchor": "coveragepass-2",
+              "anchor": "coveragepass-3",
               "signature": "CoveragePass(int jdk, int tests, Duration took, int mutants, List<String> flaky)",
               "doc": "A pass with nothing known of why its flaky tests are flaky.",
               "params": [],
@@ -1632,6 +1646,16 @@
               "anchor": "withcases",
               "signature": "CoveragePass withCases(int ran, int skipped)",
               "doc": "This pass, with the cases it counted.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withSeparateJvms",
+              "anchor": "withseparatejvms",
+              "signature": "CoveragePass withSeparateJvms(List<String> notes)",
+              "doc": "This pass, with a note for each test class that runs the project in a JVM of its own.",
               "params": [],
               "returns": "",
               "throws": []

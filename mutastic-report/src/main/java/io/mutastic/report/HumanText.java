@@ -46,6 +46,8 @@ public final class HumanText {
   /// @param build how long the build tool took building what the run needs, of `setup`
   /// @param pages beside the HTML report the run wrote, the folder of a page for each mutant it
   ///   didn't catch, which opens the report on it: what the ids link to
+  /// @param slept how long the machine slept during the run, which Duration leaves out, when it's
+  ///   worth saying (see [Slept]); else zero
   public record Run(
       LocalTime startedAt,
       Duration setup,
@@ -53,10 +55,23 @@ public final class HumanText {
       boolean oneMutant,
       List<String> leftOut,
       Duration build,
-      Optional<Path> pages) {
+      Optional<Path> pages,
+      Duration slept) {
     public Run {
       reports = List.copyOf(reports);
       leftOut = List.copyOf(leftOut);
+    }
+
+    /// A run the machine didn't sleep through.
+    public Run(
+        LocalTime startedAt,
+        Duration setup,
+        List<Path> reports,
+        boolean oneMutant,
+        List<String> leftOut,
+        Duration build,
+        Optional<Path> pages) {
+      this(startedAt, setup, reports, oneMutant, leftOut, build, pages, Duration.ZERO);
     }
 
     /// A run with no mutant pages.
@@ -1094,7 +1109,7 @@ public final class HumanText {
   private void appendRows(StringBuilder out, Map<String, String> rows) {
     int width = rows.keySet().stream().mapToInt(String::length).max().orElse(0);
     out.append('\n');
-    // A value of more than one line goes on under the first, as far in.
+    // A value's later lines sit under its first, in the values' column.
     var under = "\n" + " ".repeat(width + 3);
     rows.forEach(
         (label, value) ->
@@ -1153,11 +1168,15 @@ public final class HumanText {
     return runs + style.dim(" (%d without coverage selection)".formatted(ran * report.tests()));
   }
 
+  /// The run's time and its phases; and under them, when the machine slept for long enough during
+  /// the run, how long: the time awake leaves it out, and the clock doesn't.
   private String durationRow(Report report, Run run) {
-    return "%s %s"
-        .formatted(
-            seconds(run.setup().plus(report.took())),
-            style.dim("(" + String.join(", ", phases(report, run)) + ")"));
+    var row =
+        "%s %s"
+            .formatted(
+                seconds(run.setup().plus(report.took())),
+                style.dim("(" + String.join(", ", phases(report, run)) + ")"));
+    return run.slept().isZero() ? row : row + "\n" + Slept.line(run.slept());
   }
 
   /// The run's time by phase, `setup 3.5s, build 9m41s, coverage 7m23s, mutants 34m12s, checking

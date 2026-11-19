@@ -957,7 +957,15 @@
           "shape": "^\\d\\d:\\d\\d:\\d\\d$"
         },
         {
-          "label": "Duration"
+          "label": "Duration",
+          "under": [
+            {
+              "name": "slept",
+              "rule": "Duration counts the time the machine was awake. When the wall clock, read over the same stretch from the start of the run, ran at least 5 s and a tenth of its own time more, this line says how long the machine slept, and run-finished's sleptMs has it in milliseconds, else 0",
+              "pattern": "^The machine slept for (\\d+ms|\\d+\\.\\ds|\\d+m\\d\\ds) during the run, which Duration leaves out\\.$",
+              "example": "The machine slept for 3m53s during the run, which Duration leaves out."
+            }
+          ]
         },
         {
           "label": "Tests",
@@ -1087,7 +1095,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "ce1d28697b90bfb3e2c6a3982a4f00e5133be9a9561f8078674ae0e69c60b377"
+      "sha256": "8b9b5deadeb5dc7c4e7fe309cec7d8ea4202adeb2a776c4a54555e97211736e0"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1199,6 +1207,7 @@
         "sameMutasticAsLastRun",
         "schema",
         "score",
+        "sleptMs",
         "staleIgnores",
         "survived",
         "tests",
@@ -1510,6 +1519,54 @@
       "examples": {
         "java": "line.split(\",\", 2)"
       }
+    },
+    {
+      "id": "mutastic:thread-names",
+      "editions": [
+        "rust"
+      ],
+      "scope": "site",
+      "description": "A thread's name, or the names a pool gives its threads: they show in thread dumps and logs, not in what runs or when.",
+      "reasons": {
+        "rust": [
+          "arid: only names a thread"
+        ]
+      },
+      "examples": {
+        "rust": "let builder = thread::Builder::new().name(\"squarer\".into());"
+      }
+    },
+    {
+      "id": "mutastic:stack-sizes",
+      "editions": [
+        "rust"
+      ],
+      "scope": "site",
+      "description": "The size of a new thread's stack, while it stays above zero.",
+      "reasons": {
+        "rust": [
+          "arid: only sizes a thread's stack"
+        ]
+      },
+      "examples": {
+        "rust": "let builder = thread::Builder::new().stack_size(64 * 1024);"
+      }
+    },
+    {
+      "id": "mutastic:keep-alive",
+      "editions": [
+        "rust"
+      ],
+      "scope": "site",
+      "description": "How long a pool's idle threads live before they end, while it stays above zero.",
+      "reasons": {
+        "rust": [
+          "arid: only sets how long idle threads live"
+        ]
+      },
+      "examples": {
+        "rust": "let runtime = Builder::new_multi_thread().thread_keep_alive(Duration::from_secs(5 * 60));"
+      }
     }
   ],
   "decisions": [
@@ -1587,6 +1644,10 @@
     },
     {
       "id": 19,
+      "rule": "A count of one reads as one. The gate's pass says the tests `catch the only mutant`, `don't catch the only mutant`, `catch all N mutants` or `catch M of the N mutants` on the lines the task changed; a run's note and `baseline --prune` say `1 of the baseline's mutants is caught now`, and `ignore --prune` says it `removed 1 ignore that no longer holds`."
+    },
+    {
+      "id": 20,
       "rule": "Each of mutastic's own arid rules has one id (`arid`), the same in every edition that has the rule and never changed once shipped. Its docs are one section of one page for both editions, `/reference/arid/#<name>`, `<name>` the id after `mutastic:`, under the docs of the release running, as operators' are (decision 9)."
     },
     {
@@ -2152,6 +2213,16 @@
       "surface": "operators",
       "summary": "`mutastic/boolean-constant` changes an argument, a field or a local `boolean`, outside constructors, skipping a variable nothing reads; or an argument, a `let`, an assignment or a struct field's value",
       "reason": "What the bytecode or the syntax shows of where a value goes."
+    },
+    {
+      "id": "N49",
+      "kind": "engine",
+      "editions": [
+        "java"
+      ],
+      "surface": "human output",
+      "summary": "A `note` line after `coverage`, and the cause in `nothing-covered`, for each test class that runs a `main` class in a JVM of its own",
+      "reason": "A JVM a test starts loads the classes as built, so neither the worker's mutants nor its coverage reach it. A Rust binary a test runs has every mutant built in and takes the one to run, and where to record coverage, from the environment the test process passes on."
     },
     {
       "id": "A6",

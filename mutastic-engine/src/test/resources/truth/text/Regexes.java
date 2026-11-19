@@ -104,6 +104,15 @@ class Regexes {
     return String.join("|", a.split(regex, 2));
   }
 
+  /// A replacement worked out after the expression.
+  static String aComputedReplacement(String a, String b) {
+    return a.replaceAll("a+", b + "!");
+  }
+
+  static String aComputedReplacementClaim(String a, String b, String regex) {
+    return a.replaceAll(regex, b + "!");
+  }
+
   static boolean wholeText(String a, String b) {
     return a.matches("a+");
   }

