@@ -438,14 +438,7 @@ final class Mutations {
               throw new IllegalStateException("changes a class as a whole: see WholeClasses");
         }
       }
-      for (Found each : found) {
-        var mutant = mutant(each, instruction, at, workedOn);
-        mutants.add(mutant);
-        var keys = Twins.keys(code, at, each.operator(), each.label());
-        if (!keys.isEmpty()) {
-          twinKeys.computeIfAbsent(mutant.id(), id -> new HashSet<>()).addAll(keys);
-        }
-      }
+      found.forEach(each -> add(each, instruction, at, workedOn));
       if (instruction instanceof InvokeInstruction) {
         callOrdinal++;
       } else if (isSite(instruction)) {
@@ -453,6 +446,16 @@ final class Mutations {
       }
       index++;
       previous = instruction;
+    }
+
+    /// The mutant of a change found, and what it does, for [Twins].
+    private void add(Found found, Instruction instruction, int at, List<String> workedOn) {
+      var mutant = mutant(found, instruction, at, workedOn);
+      mutants.add(mutant);
+      var keys = Twins.keys(code, at, found.operator(), found.label());
+      if (!keys.isEmpty()) {
+        twinKeys.computeIfAbsent(mutant.id(), id -> new HashSet<>()).addAll(keys);
+      }
     }
 
     /// What the instruction works on, as the source names it.

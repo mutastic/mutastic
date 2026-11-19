@@ -36,11 +36,14 @@ final class IgnoreCommand {
     }
   }
 
-  static int run(Main.Ignoring how, Where where, String id, Engine.Mutants found, PrintStream out) {
+  /// The mutants found for an ignore, and the id it names: none for `--prune`.
+  record Named(String id, Engine.Mutants found) {}
+
+  static int run(Main.Ignoring how, Where where, Named named, PrintStream out) {
     if (how.prune()) {
-      return prune(where, found, out);
+      return prune(where, named.found(), out);
     }
-    var mutant = decidedFor(id, found.all(), out);
+    var mutant = decidedFor(named.id(), named.found().all(), out);
     return how.propose() ? propose(mutant, how, where, out) : ignore(mutant, how, where, out);
   }
 

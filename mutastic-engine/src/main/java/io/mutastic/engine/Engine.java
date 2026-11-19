@@ -734,15 +734,7 @@ public final class Engine {
     mutations.prepare(models.values());
     mutations.prepareFor(project);
     var all = models.values().stream().flatMap(model -> mutations.find(model).stream()).toList();
-    var every = named(all, options.only(), project.name());
-    var mutants =
-        withPartners(
-            every.stream()
-                .filter(
-                    mutant -> options.among().isEmpty() || options.among().contains(mutant.id()))
-                .filter(inScope(models, project, options.changed()))
-                .toList(),
-            every);
+    var mutants = chosen(all, project, options, models);
     var ignored = new Ignored(options.policy().ignores(), models, project, all);
     boolean complete =
         options.only().isEmpty() && options.among().isEmpty() && options.changed().isEmpty();
@@ -754,6 +746,19 @@ public final class Engine {
     // A share is taken last, so the ignores are judged as in the whole run.
     var shared = applied.stream().filter(mutant -> options.shard().holds(mutant.id())).toList();
     return new Found(shared, mutations, ignored.stale());
+  }
+
+  /// The mutants a run chose from `all`: those `--only` names, of an earlier run's queue, on the
+  /// changed lines; and the mutant each twin among them is the same as.
+  private static List<Mutant> chosen(
+      List<Mutant> all, Project project, Options options, Map<String, ClassModel> models) {
+    var every = named(all, options.only(), project.name());
+    return withPartners(
+        every.stream()
+            .filter(mutant -> options.among().isEmpty() || options.among().contains(mutant.id()))
+            .filter(inScope(models, project, options.changed()))
+            .toList(),
+        every);
   }
 
   /// Every mutant the project has, whichever operators this run chose.

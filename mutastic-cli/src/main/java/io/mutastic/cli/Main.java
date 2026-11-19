@@ -679,8 +679,9 @@ public final class Main {
         : IgnoreCommand.run(
             command.ignore().get(),
             where,
-            command.only().stream().findFirst().orElse(""), // none for --prune
-            passes.engine().find(prepared.project(), passes.options()),
+            new IgnoreCommand.Named(
+                command.only().stream().findFirst().orElse(""), // none for --prune
+                passes.engine().find(prepared.project(), passes.options())),
             out);
   }
 
@@ -1396,9 +1397,8 @@ public final class Main {
     passes.progress().finished();
     var named = resultOf(report, command.only().getFirst());
     // A twin didn't run: the one it's the same as ran for it, and is what there is to explain.
-    var partner = named.mutant().sameAs().map(id -> resultOf(report, id));
-    var result = partner.orElse(named);
-    var twin = partner.map(ran -> named);
+    var result = named.mutant().sameAs().map(id -> resultOf(report, id)).orElse(named);
+    var twin = Optional.of(named).filter(it -> !it.mutant().id().equals(result.mutant().id()));
     var lastRun = lastRun(prepared, result.mutant().id());
     if (output.format().equals("jsonl")) {
       var events = new JsonEvents(output.out(), prepared.sources(), command.threshold());
@@ -1409,14 +1409,7 @@ public final class Main {
       events.mutantExplained(result.mutant(), lastRun);
       return PASSED;
     }
-    twin.ifPresent(
-        it ->
-            output
-                .out()
-                .printf(
-                    "mutastic: %s is the same as %s, which runs for it: what follows is that"
-                        + " one's\n",
-                    it.mutant().id(), result.mutant().id()));
+    twin.ifPresent(it -> output.out().print(sameAs(it, result)));
     output.out().print(humanText(command, output, prepared.sources()).explained(result));
     output
         .out()
@@ -1424,6 +1417,12 @@ public final class Main {
             new Explanation(prepared.sources(), output.style(), operatorDocs())
                 .render(result.mutant(), lastRun));
     return PASSED;
+  }
+
+  /// What `explain` says first of a twin: which mutant ran for it, and is explained.
+  private static String sameAs(MutantResult twin, MutantResult ran) {
+    return "mutastic: %s is the same as %s, which runs for it: what follows is that one's\n"
+        .formatted(twin.mutant().id(), ran.mutant().id());
   }
 
   /// The result of the mutant `id`, which the run had: the first one's if not.

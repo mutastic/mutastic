@@ -83,22 +83,7 @@ final class Twins {
   /// The sets of twins, each in the order found: mutants that would run and share a key, or share
   /// one with a mutant that shares one with them.
   private static List<List<Mutant>> sets(List<Mutant> mutants, Map<String, Set<String>> keys) {
-    var byKey = new LinkedHashMap<String, List<Mutant>>();
-    for (Mutant mutant : mutants) {
-      if (mutant.skipped().isEmpty()) {
-        for (String key : keys.getOrDefault(mutant.id(), Set.of())) {
-          byKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(mutant);
-        }
-      }
-    }
-    var setOf = new HashMap<String, SequencedSet<Mutant>>();
-    for (var sharing : byKey.values()) {
-      var joined = new LinkedHashSet<Mutant>();
-      for (Mutant mutant : sharing) {
-        joined.addAll(setOf.getOrDefault(mutant.id(), new LinkedHashSet<>(List.of(mutant))));
-      }
-      joined.forEach(mutant -> setOf.put(mutant.id(), joined));
-    }
+    var setOf = joined(byKey(mutants, keys));
     var sets = new ArrayList<List<Mutant>>();
     var seen = new java.util.HashSet<String>();
     for (Mutant mutant : mutants) {
@@ -110,6 +95,31 @@ final class Twins {
       }
     }
     return sets;
+  }
+
+  /// The mutants that would run, by each key they have.
+  private static Map<String, List<Mutant>> byKey(
+      List<Mutant> mutants, Map<String, Set<String>> keys) {
+    var byKey = new LinkedHashMap<String, List<Mutant>>();
+    for (Mutant mutant : mutants.stream().filter(mutant -> mutant.skipped().isEmpty()).toList()) {
+      for (String key : keys.getOrDefault(mutant.id(), Set.of())) {
+        byKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(mutant);
+      }
+    }
+    return byKey;
+  }
+
+  /// Each mutant's set, by id: the mutants that share a key with it, joined with theirs.
+  private static Map<String, SequencedSet<Mutant>> joined(Map<String, List<Mutant>> byKey) {
+    var setOf = new HashMap<String, SequencedSet<Mutant>>();
+    for (var sharing : byKey.values()) {
+      var joined = new LinkedHashSet<Mutant>();
+      for (Mutant mutant : sharing) {
+        joined.addAll(setOf.getOrDefault(mutant.id(), new LinkedHashSet<>(List.of(mutant))));
+      }
+      joined.forEach(mutant -> setOf.put(mutant.id(), joined));
+    }
+    return setOf;
   }
 
   /// The value a mutant makes a returned comparison's method return, as a key: the test always true
@@ -160,40 +170,65 @@ final class Twins {
     }
 
     static Optional<ReturnedTest> from(List<CodeElement> code, int at) {
-      if (!(code.get(at) instanceof BranchInstruction test)
-          || !Operators.isConditional(test)
-          || code.size() <= at + 1) {
+      if (!(code.get(at) instanceof BranchInstruction test) || !Operators.isConditional(test)) {
         return Optional.empty();
       }
-      var walk = new Walk(code, at + 1);
-      var fallsTo = walk.constant();
-      int exitAt = walk.at();
-      var exit =
-          walk.instruction() instanceof BranchInstruction jump && jump.opcode() == Opcode.GOTO
-              ? jump
-              : null;
-      var jumpedTo = walk.labels();
-      var jumpsTo = walk.constant();
-      var joined = walk.labels();
-      int returnAt = walk.at();
-      var returns = walk.instruction();
-      if (fallsTo.isEmpty()
-          || exit == null
-          || jumpsTo.isEmpty()
-          || fallsTo.getAsInt() == jumpsTo.getAsInt()
-          || returns == null
-          || returns.opcode() != Opcode.IRETURN
-          || !jumpedTo.contains(test.target())
-          || !joined.contains(exit.target())) {
+      var shape = Shape.after(code, at);
+      if (!shape.returnsAConstant() || !shape.joins(test)) {
         return Optional.empty();
       }
       var into = targets(code);
       boolean onlyWays =
-          jumpedTo.stream().allMatch(label -> only(into, label, at))
-              && joined.stream().allMatch(label -> only(into, label, exitAt));
+          shape.jumpedTo().stream().allMatch(label -> only(into, label, at))
+              && shape.joined().stream().allMatch(label -> only(into, label, shape.exitAt()));
       return onlyWays
-          ? Optional.of(new ReturnedTest(fallsTo.getAsInt(), jumpsTo.getAsInt(), returnAt))
+          ? Optional.of(
+              new ReturnedTest(
+                  shape.fallsTo().getAsInt(), shape.jumpsTo().getAsInt(), shape.returnAt()))
           : Optional.empty();
+    }
+
+    /// The code after a test, read as javac's returned test would be: a constant, a `goto`, the
+    /// labels the test can jump to, the other constant, the labels the `goto` can go to, and an
+    /// `ireturn`; each part empty or null where the code isn't that.
+    private record Shape(
+        OptionalInt fallsTo,
+        int exitAt,
+        @Nullable BranchInstruction exit,
+        List<Label> jumpedTo,
+        OptionalInt jumpsTo,
+        List<Label> joined,
+        int returnAt,
+        @Nullable Instruction returns) {
+      static Shape after(List<CodeElement> code, int at) {
+        var walk = new Walk(code, at + 1);
+        var fallsTo = walk.constant();
+        int exitAt = walk.at();
+        var exit =
+            walk.instruction() instanceof BranchInstruction jump && jump.opcode() == Opcode.GOTO
+                ? jump
+                : null;
+        var jumpedTo = walk.labels();
+        var jumpsTo = walk.constant();
+        var joined = walk.labels();
+        int returnAt = walk.at();
+        return new Shape(
+            fallsTo, exitAt, exit, jumpedTo, jumpsTo, joined, returnAt, walk.instruction());
+      }
+
+      /// Whether each way pushes a different one of `0` and `1` and returns it.
+      boolean returnsAConstant() {
+        return fallsTo.isPresent()
+            && jumpsTo.isPresent()
+            && fallsTo.getAsInt() != jumpsTo.getAsInt()
+            && returns != null
+            && returns.opcode() == Opcode.IRETURN;
+      }
+
+      /// Whether `test` jumps to the second constant, and the `goto` after the first to the return.
+      boolean joins(BranchInstruction test) {
+        return exit != null && jumpedTo.contains(test.target()) && joined.contains(exit.target());
+      }
     }
 
     /// Whether `label` is jumped to only from `code[from]`, or from nowhere.
