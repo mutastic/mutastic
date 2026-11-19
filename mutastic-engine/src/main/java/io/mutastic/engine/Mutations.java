@@ -159,6 +159,7 @@ final class Mutations {
 
   List<Mutant> find(ClassModel model) {
     var mutants = new ArrayList<Mutant>();
+    var threads = ThreadSettings.Facts.of(model);
     for (MethodModel method : model.methods()) {
       var here = operatorsIn(model, method);
       if (!here.isEmpty()) {
@@ -166,7 +167,7 @@ final class Mutations {
             .code()
             .ifPresent(
                 code -> {
-                  var found = scanned(model, method, code, here);
+                  var found = scanned(new Scanned(model, threads), method, code, here);
                   mutants.addAll(
                       viable(model, located(model, method, mergeFinallyCopies(found, code))));
                 });
@@ -176,11 +177,15 @@ final class Mutations {
     return mutants;
   }
 
+  /// The class a method's in, and what it shows of how it treats its threads.
+  private record Scanned(ClassModel model, ThreadSettings.Facts threads) {}
+
   private List<Mutant> scanned(
-      ClassModel model,
+      Scanned scanned,
       MethodModel method,
       java.lang.classfile.CodeModel code,
       List<Operator> here) {
+    var model = scanned.model();
     return new MethodScan(
             model,
             method,
@@ -189,7 +194,8 @@ final class Mutations {
             here,
             new Wrappers(module),
             supertypes,
-            module)
+            module,
+            scanned.threads())
         .mutants();
   }
 
@@ -359,6 +365,7 @@ final class Mutations {
     private final List<Operator> operators;
     private final Wrappers wrappers;
     private final Supertypes supertypes;
+    private final ThreadSettings threads;
 
     /// The module's classes by internal name: empty until [Mutations#prepare] has seen them.
     private final Map<String, ClassModel> module;
@@ -379,7 +386,8 @@ final class Mutations {
         List<Operator> operators,
         Wrappers wrappers,
         Supertypes supertypes,
-        Map<String, ClassModel> module) {
+        Map<String, ClassModel> module,
+        ThreadSettings.Facts threads) {
       this.model = model;
       this.module = module;
       this.wrappers = wrappers;
@@ -397,6 +405,7 @@ final class Mutations {
       this.defaultStandIns = kotlin ? KotlinDefaults.places(code) : Set.of();
       this.operands = method.code().map(Operands::new).orElseThrow();
       this.stores = new Stores(code);
+      this.threads = new ThreadSettings(code, threads);
     }
 
     List<Mutant> mutants() {
@@ -738,6 +747,7 @@ final class Mutations {
     /// its two sides differ, and what the code says of the value it compares.
     private Optional<String> atTheSite(Found found, int at, List<String> workedOn) {
       return SiteSkips.reason(found.operator(), code, at)
+          .or(() -> threads.reason(found.operator(), found.label(), at))
           .or(
               () ->
                   ImpliedOr.reason(
