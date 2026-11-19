@@ -88,10 +88,30 @@
             },
             {
               "kind": "method",
+              "name": "failed",
+              "anchor": "failed-2",
+              "signature": "static String failed(BuildErrors.Build build, List<String> log, Optional<String> likely)",
+              "doc": "As [`failed(Build, List)`](#failed), with what likely made it fail said after what went wrong: a build\nrun with the tool on the PATH, for want of a wrapper, may be one made for another version. Not\nafter a compiler's errors, which are the code's.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
               "name": "command",
               "anchor": "command",
               "signature": "static String command(String tool, Path build, String flag, List<String> rest)",
               "doc": "A build tool's command as the person would type it from `here`: the tool, `./gradlew` from\nwhere it is or the one on the PATH; the build's directory, after `flag` (`-p`, `-f`), unless\nit's `here`; then `rest`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "command",
+              "anchor": "command-2",
+              "signature": "static String command(List<String> tool, Path build, String flag, List<String> rest)",
+              "doc": "As [`command(String, Path, String, List)`](#command), for a tool whose command has words before its\nprogram: `sh ./gradlew`, a wrapper that isn't executable.",
               "params": [],
               "returns": "",
               "throws": []
@@ -369,11 +389,27 @@
           "name": "BuildTool.Building",
           "slug": "buildtool-building",
           "kind": "record",
-          "signature": "record Building(String task, Path log)",
+          "signature": "record Building(String task, Path log, Optional<String> note)",
           "summary": "What reading a module builds, for progress to show while it does: the tool's task as a person would name it (`gradle testClasses`), and the log the tool writes as it goes.",
           "doc": "What reading a module builds, for progress to show while it does: the tool's task as a person\nwould name it (`gradle testClasses`), and the log the tool writes as it goes.",
-          "params": [],
-          "members": []
+          "params": [
+            {
+              "name": "note",
+              "doc": "said before it builds: which tool runs, when it isn't the build's own wrapper"
+            }
+          ],
+          "members": [
+            {
+              "kind": "constructor",
+              "name": "Building",
+              "anchor": "building",
+              "signature": "Building(String task, Path log)",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
         },
         {
           "name": "BuildTool.Request",
@@ -3273,10 +3309,20 @@
             },
             {
               "kind": "method",
+              "name": "tool",
+              "anchor": "tool",
+              "signature": "static Optional<Wrappers.Tool> tool(Optional<Path> wrapper, String name, String path)",
+              "doc": "The command a build runs with: its `wrapper`, found by [`wrapper(Path, Path, String)`](#wrapper), else\n`name` on `path` (the PATH variable's value).",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
               "name": "wrapper",
               "anchor": "wrapper",
               "signature": "static Optional<Path> wrapper(Path directory, Path root, String wrapper)",
-              "doc": "The executable `wrapper` nearest `directory`, looking in it and each directory above it up to\n`root`: a module's own, else the one at the top of its build.",
+              "doc": "The `wrapper` nearest `directory`, looking in it and each directory above it: up to `root`,\nthe top of its build; and past that up to the top of the repository it's in, where a build\nnested in another (with settings of its own) finds the wrapper they share. A wrapper run from\na nested build's directory builds that build, as it finds its own files beside itself. Outside\na repository, no further than `root`: one above that belongs to something else.",
               "params": [],
               "returns": "",
               "throws": []
@@ -3297,6 +3343,55 @@
               "anchor": "program",
               "signature": "static Optional<String> program(String name, String path)",
               "doc": "`name` as a process is started with it when it's in one of `path`'s directories: `mvn`, or on\nWindows the file that's there, `mvn.cmd`, since Windows only adds `.exe` to a name itself. A\ndirectory's own `mvn`, a script for other systems, isn't one Windows can run.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "version",
+              "anchor": "version",
+              "signature": "static Optional<String> version(Path program, Pattern jar)",
+              "doc": "The version of the tool `program` starts, from the name of one of its distribution's jars,\nwhen that's where it is: `lib/gradle-launcher-8.2.1.jar` beside `bin/gradle`, past links, or\nunder `libexec` as Homebrew keeps it. Empty for a launcher elsewhere (asdf's or SDKMAN's\nshims, say): finding out otherwise means running the tool, which takes seconds.",
+              "params": [
+                {
+                  "name": "jar",
+                  "doc": "a jar's name, with the version as its `version` group"
+                }
+              ],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Wrappers.Tool",
+          "slug": "wrappers-tool",
+          "kind": "record",
+          "signature": "record Tool(List<String> command, Path file, boolean onPath)",
+          "summary": "The command a build runs with.",
+          "doc": "The command a build runs with.",
+          "params": [
+            {
+              "name": "command",
+              "doc": "the words a process starts with: the wrapper's file, after `sh` when it isn't executable (a checkout can lose the bit); else the tool's name on the PATH, `gradle`"
+            },
+            {
+              "name": "file",
+              "doc": "the wrapper, or the tool's file on the PATH"
+            },
+            {
+              "name": "onPath",
+              "doc": "whether it's the tool on the PATH, as the build has no wrapper"
+            }
+          ],
+          "members": [
+            {
+              "kind": "method",
+              "name": "wrapper",
+              "anchor": "wrapper",
+              "signature": "static Wrappers.Tool wrapper(Path file)",
+              "doc": "The wrapper at `file`: run as it is when it's executable, else with `sh`. On Windows a\nwrapper (`gradlew.bat`) runs as it is.",
               "params": [],
               "returns": "",
               "throws": []

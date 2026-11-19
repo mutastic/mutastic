@@ -63,15 +63,39 @@ class GradleJdksTest {
             "Gradle",
             "shop",
             Path.of("build/mutastic/gradle.log"),
-            GradleJdks.upgrade(tooOld, "gradle", here));
+            GradleJdks.upgrade(tooOld, java.util.List.of("./gradlew"), here));
 
-    assertThat(GradleJdks.said(tooOld, build))
+    assertThat(GradleJdks.said(tooOld, build, false))
         .isEqualTo(
             """
             shop's build runs on JDK 25, and its Gradle, 8.10.2, runs on JDK 23 at most.
             Set JAVA_HOME to a JDK 23 or older, and mutastic still finds its own JDK 25. Or\
              upgrade the wrapper to Gradle 9.1.0 or later. Gradle's output is in\
              build/mutastic/gradle.log. To upgrade, with JAVA_HOME at the older JDK:
+              ./gradlew wrapper --gradle-version 9.1.0""");
+  }
+
+  /// A Gradle on the PATH, for want of a wrapper, is said as one: the way out is a wrapper.
+  @Test
+  void aGradleOnThePathIsSaidAsOne() {
+    var tooOld = GradleJdks.tooOld(Version.of("8.2.1"), 25).orElseThrow();
+    var here = Path.of("").toAbsolutePath();
+
+    var build =
+        new BuildErrors.Build(
+            "Gradle",
+            "shop",
+            Path.of("build/mutastic/gradle.log"),
+            GradleJdks.upgrade(tooOld, java.util.List.of("gradle"), here));
+
+    assertThat(GradleJdks.said(tooOld, build, true))
+        .isEqualTo(
+            """
+            shop's build runs on JDK 25, and its Gradle, 8.2.1 from the PATH, runs on JDK 19\
+             at most.
+            Set JAVA_HOME to a JDK 19 or older, and mutastic still finds its own JDK 25. Or\
+             give the build a wrapper for Gradle 9.1.0 or later. Gradle's output is in\
+             build/mutastic/gradle.log. To make one, with JAVA_HOME at the older JDK:
               gradle wrapper --gradle-version 9.1.0""");
   }
 
@@ -91,9 +115,31 @@ class GradleJdksTest {
     var jdk21 = Files.createDirectories(work.resolve("jdk-21"));
     Files.writeString(jdk21.resolve("release"), "JAVA_VERSION=\"21.0.9\"\n");
 
-    assertThat(GradleSetup.tooOld(build, Map.of("JAVA_HOME", jdk25.toString())))
+    assertThat(GradleSetup.tooOld(build, Map.of("JAVA_HOME", jdk25.toString()), ""))
         .map(TooOld::newest)
         .contains(23);
-    assertThat(GradleSetup.tooOld(build, Map.of("JAVA_HOME", jdk21.toString()))).isEmpty();
+    assertThat(GradleSetup.tooOld(build, Map.of("JAVA_HOME", jdk21.toString()), "")).isEmpty();
+  }
+
+  /// The Gradle on the PATH is asked too, by the version its distribution's jars name.
+  @Test
+  void aGradleOnThePathIsAskedWhetherItRunsOnTheJdk(@TempDir Path work) throws Exception {
+    var build = Files.createDirectories(work.resolve("shop"));
+    Files.writeString(build.resolve("settings.gradle"), "");
+    var home = Files.createDirectories(work.resolve("gradle-8.2.1"));
+    var gradle =
+        Files.createDirectories(home.resolve("bin"))
+            .resolve(Wrappers.WINDOWS ? "gradle.bat" : "gradle");
+    Files.writeString(gradle, "");
+    gradle.toFile().setExecutable(true);
+    Files.writeString(
+        Files.createDirectories(home.resolve("lib")).resolve("gradle-launcher-8.2.1.jar"), "");
+    var jdk21 = Files.createDirectories(work.resolve("jdk-21"));
+    Files.writeString(jdk21.resolve("release"), "JAVA_VERSION=\"21.0.9\"\n");
+    var path = home.resolve("bin").toString();
+
+    assertThat(GradleSetup.tooOld(build, Map.of("JAVA_HOME", jdk21.toString()), path))
+        .map(TooOld::newest)
+        .contains(19);
   }
 }

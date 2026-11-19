@@ -44,6 +44,10 @@ class FailureTest {
     assertThat(exact.help())
         .containsExactly(
             Map.of("applicability", "exact", "command", "./gradlew test --tests 'a.BTest.c'"));
+    assertThat(
+            new Failure(Main.TESTS_FAIL, "red-baseline", "mutastic: x\n  sh ./gradlew test\n")
+                .help())
+        .containsExactly(Map.of("applicability", "exact", "command", "sh ./gradlew test"));
     assertThat(exact.message())
         .isEqualTo("a.BTest#c fails without any mutant, so mutastic can't judge one.");
   }

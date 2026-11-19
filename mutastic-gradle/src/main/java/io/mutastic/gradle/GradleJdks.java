@@ -83,16 +83,17 @@ final class GradleJdks {
       Pattern.compile("gradle-(?<version>\\d+(?:\\.\\d+)*)(?:-[\\w.-]*)?-(?:bin|all)\\.zip");
 
   /// The command that upgrades the wrapper to the first Gradle that runs on the JDK, from
-  /// `directory`, as the person would type it with `wrapper`.
-  static String upgrade(TooOld tooOld, String wrapper, Path directory) {
+  /// `directory`, as the person would type it with `wrapper`: or makes one, with the Gradle on the
+  /// PATH.
+  static String upgrade(TooOld tooOld, List<String> wrapper, Path directory) {
     var version = tooOld.first().map(Version::toString).orElse("<version>");
     return BuildErrors.command(
         wrapper, directory, "-p", List.of("wrapper", "--gradle-version", version));
   }
 
   /// What mutastic says: the build's JDK and its Gradle, the two ways out, and `build`'s command,
-  /// which upgrades the wrapper.
-  static String said(TooOld tooOld, BuildErrors.Build build) {
+  /// which upgrades the wrapper; or, for the Gradle on the PATH (`onPath`), makes one.
+  static String said(TooOld tooOld, BuildErrors.Build build, boolean onPath) {
     var upgrade =
         tooOld
             .first()
@@ -100,17 +101,18 @@ final class GradleJdks {
             .orElse("a Gradle that runs on JDK " + tooOld.jdk());
     return ("%s's build runs on JDK %d, and its Gradle, %s, runs on JDK %d at most.\n"
             + "Set JAVA_HOME to a JDK %d or older, and mutastic still finds its own JDK 25. Or"
-            + " upgrade the wrapper to %s. %s's output is in %s. To upgrade, with JAVA_HOME at the"
-            + " older JDK:\n  %s")
+            + " %s %s. %s's output is in %s. To %s, with JAVA_HOME at the older JDK:\n  %s")
         .formatted(
             build.project(),
             tooOld.jdk(),
-            tooOld.gradle(),
+            onPath ? tooOld.gradle() + " from the PATH" : tooOld.gradle(),
             tooOld.newest(),
             tooOld.newest(),
+            onPath ? "give the build a wrapper for" : "upgrade the wrapper to",
             upgrade,
             build.tool(),
             shown(build.log()),
+            onPath ? "make one" : "upgrade",
             build.command());
   }
 

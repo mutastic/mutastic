@@ -40,6 +40,13 @@ public final class BuildErrors {
   ///
   /// @param log what the build said, a line at a time
   public static String failed(Build build, List<String> log) {
+    return failed(build, log, Optional.empty());
+  }
+
+  /// As [#failed(Build, List)], with what likely made it fail said after what went wrong: a build
+  /// run with the tool on the PATH, for want of a wrapper, may be one made for another version. Not
+  /// after a compiler's errors, which are the code's.
+  public static String failed(Build build, List<String> log, Optional<String> likely) {
     var here = here();
     var tool = build.tool();
     var errors = compilerErrors(log, here);
@@ -58,8 +65,14 @@ public final class BuildErrors {
               .map(lines -> "%s %s says:\n%s".formatted(headline, tool, lines))
               .orElse(headline);
     }
-    return "%s\n%s's output is in %s. To see it in full:\n  %s"
-        .formatted(said, tool, shown(build.log(), here), build.command());
+    var why = errors.isEmpty() ? likely.map(cause -> cause + "\n").orElse("") : "";
+    return said + "\n" + why + seeing(build, here);
+  }
+
+  /// Where the build's output is, and the command that builds it as mutastic did.
+  private static String seeing(Build build, Path here) {
+    return "%s's output is in %s. To see it in full:\n  %s"
+        .formatted(build.tool(), shown(build.log(), here), build.command());
   }
 
   /// A build that failed.
@@ -173,11 +186,17 @@ public final class BuildErrors {
   /// where it is or the one on the PATH; the build's directory, after `flag` (`-p`, `-f`), unless
   /// it's `here`; then `rest`.
   public static String command(String tool, Path build, String flag, List<String> rest) {
+    return command(List.of(tool), build, flag, rest);
+  }
+
+  /// As [#command(String, Path, String, List)], for a tool whose command has words before its
+  /// program: `sh ./gradlew`, a wrapper that isn't executable.
+  public static String command(List<String> tool, Path build, String flag, List<String> rest) {
     var here = RealPath.of(here());
-    var words = new ArrayList<String>();
-    var program = Path.of(tool);
+    var words = new ArrayList<>(tool.subList(0, tool.size() - 1));
+    var program = Path.of(tool.getLast());
     if (!program.isAbsolute()) {
-      words.add(tool);
+      words.add(tool.getLast());
     } else {
       var parent = RealPath.of(program).getParent();
       words.add(here.equals(parent) ? "./" + program.getFileName() : shown(program, here));

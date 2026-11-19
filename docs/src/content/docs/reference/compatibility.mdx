@@ -129,7 +129,10 @@ editions read and write them the same way.
 
 mutastic runs a Gradle or Maven build as its own developers do: with the build's wrapper
 (`gradlew`, `mvnw`) whenever it has one, including from a module's directory, where the wrapper is
-at the top of the build. A build without a wrapper runs with the `gradle` or `mvn` on the `PATH`.
+at the top of the build, or at the top of the repository for a build nested in another. A wrapper
+that isn't executable runs with `sh`. A build without a wrapper runs with the `gradle` or `mvn` on
+the `PATH`, and mutastic says which. See [Which Gradle and Maven
+run](/getting-started/install/#which-gradle-and-maven-run).
 
 ## What's experimental
 

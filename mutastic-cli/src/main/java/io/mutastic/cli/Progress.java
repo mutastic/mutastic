@@ -203,6 +203,7 @@ final class Progress implements Listener, AutoCloseable {
   /// The build tool is building what the run needs, and saying so in its log.
   void building(Optional<BuildTool.Building> building) {
     synchronized (lock) {
+      building.flatMap(BuildTool.Building::note).ifPresent(note -> say(note + "\n"));
       enter(Phase.BUILDING, building.map(BuildTool.Building::task).orElse("reading the build"));
       log = building.map(BuildTool.Building::log).map(LogTail::new).orElse(null);
     }

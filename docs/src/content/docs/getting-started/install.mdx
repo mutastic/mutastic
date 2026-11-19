@@ -49,7 +49,8 @@ mutastic run
 ```
 
 mutastic builds the project the way you do: with its wrapper, `gradlew` or `mvnw`, whenever the
-build has one, and with the `gradle` or `mvn` on your `PATH` when it doesn't.
+build has one, and with the `gradle` or `mvn` on your `PATH` when it doesn't. See [Which Gradle
+and Maven run](#which-gradle-and-maven-run).
 
 Or the Java edition by hand: download <code>mutastic-{release}.zip</code> from the{' '}
 <a href={`https://github.com/mutastic/mutastic/releases/tag/v${release}`}>{release} release</a>,
@@ -137,6 +138,29 @@ export MUTASTIC_JAVA_HOME=/path/to/jdk-25
 mutastic takes it as it is, and says so when it isn't a JDK 25 or later. On Windows, the native
 `mutastic` looks in the usual places too; the Java edition's own `mutastic.bat` takes
 `MUTASTIC_JAVA_HOME`, else `JAVA_HOME`.
+
+## Which Gradle and Maven run
+
+A build is made for one Gradle or Maven, the one its wrapper downloads. Another may not read it: a
+build file that calls something only newer Gradle has fails before anything is built. So mutastic
+runs the wrapper whenever there is one.
+
+It looks for `gradlew` or `mvnw` in the directory you run it on, then in each directory above, up
+to the top of the repository. A module with settings of its own still finds the wrapper at the
+top, and that wrapper builds the module. A wrapper that has lost its executable bit, as a checkout
+can leave it, runs with `sh`. On Windows, it's `gradlew.bat` or `mvnw.cmd`.
+
+With no wrapper, mutastic runs the `gradle` or `mvn` on your `PATH`, and says so before it builds,
+with that tool's path and version:
+
+```
+no Gradle wrapper (gradlew) here or above: running Gradle 8.2.1 from the PATH, /opt/gradle/bin/gradle
+```
+
+If the build then fails, the message says that a build made for another Gradle fails this way. Add
+the wrapper the build expects, or put the Gradle it needs first on your `PATH`. The commands
+mutastic prints, to run a test alone or to see a failed build in full, start with the same Gradle
+or Maven.
 
 Next: the [Quickstart](/getting-started/quickstart/) runs mutastic on a small sample and closes the
 gap it finds.

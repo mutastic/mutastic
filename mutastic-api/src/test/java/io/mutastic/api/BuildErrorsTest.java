@@ -150,5 +150,30 @@ class BuildErrorsTest {
         .isEqualTo("a/gradlew -p a testClasses");
     assertThat(BuildErrors.command("mvn", Path.of(HERE, "m"), "-f", List.of("test")))
         .isEqualTo("mvn -f m test");
+    assertThat(
+            BuildErrors.command(
+                List.of("sh", HERE + "/gradlew"), Path.of(HERE), "-p", List.of("testClasses")))
+        .isEqualTo("sh ./gradlew testClasses");
+  }
+
+  /// What likely made the build fail comes after what went wrong, before where its output is.
+  @Test
+  void whatLikelyMadeItFailIsSaidBeforeTheLog() {
+    var build = new BuildErrors.Build("Gradle", "shop", Path.of("w/gradle.log"), "gradle build");
+
+    assertThat(
+            BuildErrors.failed(
+                build,
+                List.of("* What went wrong:", "Could not find method x()", "", "* Try:"),
+                java.util.Optional.of("It ran with Gradle 8.2.1 from the PATH.")))
+        .contains("Could not find method x()")
+        .contains("x()\nIt ran with Gradle 8.2.1 from the PATH.\nGradle's output is in ")
+        .endsWith("To see it in full:\n  gradle build");
+    assertThat(
+            BuildErrors.failed(
+                build,
+                List.of("/abs/Pricing.java:18: error: ';' expected"),
+                java.util.Optional.of("It ran with Gradle 8.2.1 from the PATH.")))
+        .doesNotContain("It ran with");
   }
 }

@@ -7,6 +7,8 @@ import io.mutastic.api.BuildTool.SetupFailed;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 class MavenTest {
@@ -38,12 +40,13 @@ class MavenTest {
     Files.createDirectories(directory.resolve(".mvn/wrapper"));
     var wrapper = executable(directory.resolve("mvnw"));
 
-    assertThat(MavenSetup.mvn(directory, onPath(directory))).isEqualTo(wrapper.toString());
+    assertThat(MavenSetup.mvn(directory, onPath(directory)).command())
+        .containsExactly(wrapper.toString());
   }
 
   @Test
   void aBuildWithoutAWrapperRunsWithTheMvnOnThePath(@TempDir Path directory) throws Exception {
-    assertThat(MavenSetup.mvn(directory, onPath(directory))).isEqualTo("mvn");
+    assertThat(MavenSetup.mvn(directory, onPath(directory)).command()).containsExactly("mvn");
   }
 
   @Test
@@ -64,11 +67,51 @@ class MavenTest {
     var wrapper = executable(root.resolve("mvnw"));
     var module = Files.createDirectories(root.resolve("services/api"));
 
-    assertThat(MavenSetup.mvn(module, onPath(directory))).isEqualTo(wrapper.toString());
+    assertThat(MavenSetup.mvn(module, onPath(directory)).command())
+        .containsExactly(wrapper.toString());
 
     Files.delete(wrapper);
 
-    assertThat(MavenSetup.mvn(module, onPath(directory))).isEqualTo("mvn");
+    assertThat(MavenSetup.mvn(module, onPath(directory)).command()).containsExactly("mvn");
+  }
+
+  /// A module with a `.mvn` of its own (for its `jvm.config`, say) still runs the repository's
+  /// wrapper, and not an `mvn` on the PATH.
+  @Test
+  void aModuleWithItsOwnMvnRunsTheRepositorysWrapper(@TempDir Path directory) throws Exception {
+    Files.createDirectories(directory.resolve(".git"));
+    Files.createDirectories(directory.resolve(".mvn/wrapper"));
+    var wrapper = executable(directory.resolve("mvnw"));
+    var module = Files.createDirectories(directory.resolve("services/api/.mvn")).getParent();
+
+    assertThat(MavenSetup.mvn(module, onPath(directory)).command())
+        .containsExactly(wrapper.toString());
+  }
+
+  /// A checkout can lose a wrapper's executable bit: it runs with `sh`.
+  @Test
+  @DisabledOnOs(value = OS.WINDOWS, disabledReason = "Windows runs mvnw.cmd as it is")
+  void aWrapperThatIsntExecutableRunsWithSh(@TempDir Path directory) throws Exception {
+    Files.createDirectories(directory.resolve(".mvn/wrapper"));
+    var wrapper = Files.writeString(directory.resolve("mvnw"), "#!/bin/sh\n");
+
+    assertThat(MavenSetup.mvn(directory, onPath(directory)).command())
+        .containsExactly("sh", wrapper.toString());
+  }
+
+  /// With no wrapper, mutastic says which Maven runs, and its version when its jars say.
+  @Test
+  void theMvnOnThePathIsSaidWithItsVersion(@TempDir Path directory) throws Exception {
+    var home = Files.createDirectories(directory.resolve("apache-maven-3.9.11"));
+    var mvn = executable(Files.createDirectories(home.resolve("bin")).resolve("mvn"));
+    Files.writeString(
+        Files.createDirectories(home.resolve("lib")).resolve("maven-core-3.9.11.jar"), "");
+
+    var tool = MavenSetup.mvn(directory, home.resolve("bin").toString());
+
+    assertThat(MavenSetup.onPath(tool))
+        .isEqualTo(
+            "no Maven wrapper (mvnw) here or above: running Maven 3.9.11 from the PATH, " + mvn);
   }
 
   /// A PATH with an `mvn` on it, in `directory/bin`.

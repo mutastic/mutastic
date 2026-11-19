@@ -152,20 +152,47 @@ public abstract class MutasticPlugin implements Plugin<Project> {
   }
 
   /// `./gradlew` as typed from `here` when the build has a wrapper, else `gradle`; on Windows
-  /// `.\gradlew.bat`, which cmd runs as PowerShell does, where `./gradlew` is a cmd error.
+  /// `.\gradlew.bat`, which cmd runs as PowerShell does, where `./gradlew` is a cmd error. The
+  /// wrapper is the nearest from `root` up to the top of its repository, as mutastic's command line
+  /// finds it: a build nested in another shares its wrapper. One that isn't executable, as a
+  /// checkout can leave it, is run with `sh`.
   static String gradle(File root, File here) {
     return gradle(root, here, File.separatorChar == '\\');
   }
 
   static String gradle(File root, File here, boolean windows) {
-    var wrapper = new File(root, windows ? "gradlew.bat" : "gradlew");
-    if (!wrapper.isFile()) {
+    var wrapper = wrapper(root, windows ? "gradlew.bat" : "gradlew");
+    if (wrapper.isEmpty()) {
       return "gradle";
     }
-    var relative = here.toPath().relativize(wrapper.toPath()).toString();
+    var found = wrapper.get();
+    var sh = !windows && !found.canExecute() ? "sh " : "";
+    var relative = here.toPath().relativize(found.toPath()).toString();
     if (relative.startsWith("..")) {
-      return wrapper.getPath();
+      return sh + found.getPath();
     }
-    return (windows ? ".\\" : "./") + relative;
+    return sh + (windows ? ".\\" : "./") + relative;
+  }
+
+  /// The nearest `name` from `root` up: no further than the top of the repository `root` is in,
+  /// where `.git` is, and no further than `root` outside one.
+  private static java.util.Optional<File> wrapper(File root, String name) {
+    var top = root.getAbsoluteFile();
+    for (var at = top; at != null; at = at.getParentFile()) {
+      if (new File(at, ".git").exists()) {
+        top = at;
+        break;
+      }
+    }
+    for (var at = root.getAbsoluteFile(); at != null; at = at.getParentFile()) {
+      var candidate = new File(at, name);
+      if (candidate.isFile()) {
+        return java.util.Optional.of(candidate);
+      }
+      if (at.equals(top)) {
+        break;
+      }
+    }
+    return java.util.Optional.empty();
   }
 }
