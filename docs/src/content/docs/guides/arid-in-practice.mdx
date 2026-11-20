@@ -43,8 +43,7 @@ are counted, how to check the skips, and how to bring back the one your tests re
       total += amount;
     }
     text.append("total ").append(total);
-    log.info(
-        "summed {} amounts in {} ms", amounts.size(), (System.nanoTime() - start) / 1_000_000);
+    log.info("summed {} amounts in {} ms", amounts.size(), (System.nanoTime() - start) / 1_000_000);
     return text.toString();
   }
 ```
@@ -57,7 +56,8 @@ does:
   @Test
   void printsEachAmountThenTheTotal() throws Exception {
     var printed = new ByteArrayOutputStream();
-    Summary.print(new PrintStream(printed, true, StandardCharsets.UTF_8), slowly(List.of(12L, 30L)));
+    Summary.print(
+        new PrintStream(printed, true, StandardCharsets.UTF_8), slowly(List.of(12L, 30L)));
     assertEquals(
         "12\n30\ntotal 42" + System.lineSeparator(), printed.toString(StandardCharsets.UTF_8));
   }

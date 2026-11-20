@@ -33,8 +33,7 @@ public final class Summary {
       total += amount;
     }
     text.append("total ").append(total);
-    log.info(
-        "summed {} amounts in {} ms", amounts.size(), (System.nanoTime() - start) / 1_000_000);
+    log.info("summed {} amounts in {} ms", amounts.size(), (System.nanoTime() - start) / 1_000_000);
     return text.toString();
   }
 }
