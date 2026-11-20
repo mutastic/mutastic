@@ -107,8 +107,8 @@ public enum AridRule {
           + " thread always does.",
       "thread.setPriority(Thread.MAX_PRIORITY);",
       "arid: only sets a priority hint"),
-  KEEP_ALIVE_TIMES(
-      "mutastic:keep-alive-times",
+  KEEP_ALIVE(
+      "mutastic:keep-alive",
       Scope.SITE,
       "How long a pool's idle threads live before they stop, while it stays above zero.",
       "pool.setKeepAliveTime(30, TimeUnit.SECONDS);",

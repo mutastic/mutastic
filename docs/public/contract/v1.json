@@ -1553,7 +1553,7 @@
       }
     },
     {
-      "id": "mutastic:keep-alive-times",
+      "id": "mutastic:keep-alive",
       "editions": [
         "java"
       ],

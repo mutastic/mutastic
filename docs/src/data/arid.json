@@ -270,9 +270,9 @@
       }
     },
     {
-      "id": "mutastic:keep-alive-times",
-      "anchor": "keep-alive-times",
-      "url": "https://docs.mutastic.io/reference/arid/#keep-alive-times",
+      "id": "mutastic:keep-alive",
+      "anchor": "keep-alive",
+      "url": "https://docs.mutastic.io/reference/arid/#keep-alive",
       "editions": [
         "java"
       ],
