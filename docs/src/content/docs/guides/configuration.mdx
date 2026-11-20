@@ -105,6 +105,9 @@ rules:
     reason: protobuf output
   - mutate: com.acme.Money#toString  # brings back what mutastic would skip as arid
     reason: shown to customers
+  - mutate: com.acme.Worker#run      # only what one arid rule skips: its waits
+    arid: [mutastic:waits]
+    reason: callers rely on run() returning once the work is done
 plugins:
   - build/libs/acme-filters.jar      # a jar: filters and operators of your own
   - mutiny.yaml                      # a rules file: call operators, as data
@@ -166,6 +169,8 @@ Ignores are the run's: `.mutastic/` beside the directory the run is on, the top'
 :core` there and `core/.mutastic/` for a run in `core/`.
 
 An annotation on the code comes first, then a rule, then mutastic's own filters. A `mutate:` rule, like `@DoMutate`, brings back every mutant mutastic would call arid in the code it covers, a whole method or one call in it, and never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
+
+Every arid skip is one rule's, by an id that never changes: `mutastic:output`, `mutastic:waits`, `mutastic:capacity` and the rest. An `arid:` list on a `mutate:` rule brings back only those rules' skips, so a team that relies on a worker's join can count its waits and still leave its log lines out. `@DoMutate(arid = "mutastic:waits")` does the same in the code. `mutastic explain` on a skipped mutant names its rule, links to its docs and prints the rule to copy.
 
 ## Ignoring one mutant
 

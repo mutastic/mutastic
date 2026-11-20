@@ -1095,7 +1095,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "6bfc004f65de1ba6c7fed89af5260ddefa2e7f4c913e5474569bdef4620449a4"
+      "sha256": "8b9b5deadeb5dc7c4e7fe309cec7d8ea4202adeb2a776c4a54555e97211736e0"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1110,7 +1110,7 @@
     "reportAdditions": {
       "id": "mutastic.report/v1",
       "url": "https://docs.mutastic.io/schemas/report/v1.json",
-      "sha256": "05b1463d79cc28fc517a9b97306716ac94cfed57d1cf4317a9e75c49394c39dd"
+      "sha256": "e8b4c1c3bfa693cf4cc1627cc566dd002160398f2d6cec40900fa5cbb126c5a3"
     }
   },
   "events": {
@@ -1523,17 +1523,22 @@
     {
       "id": "mutastic:thread-names",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
       "description": "A thread's or a pool's name, which only people and their tools read: a thread dump, a profiler, a log pattern.",
       "reasons": {
         "java": [
           "arid: only names a thread"
+        ],
+        "rust": [
+          "arid: only names a thread"
         ]
       },
       "examples": {
-        "java": "thread.setName(\"background-task\");"
+        "java": "thread.setName(\"background-task\");",
+        "rust": "let builder = thread::Builder::new().name(\"squarer\".into());"
       }
     },
     {
@@ -1555,33 +1560,43 @@
     {
       "id": "mutastic:keep-alive",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
       "description": "How long a pool's idle threads live before they stop, while it stays above zero.",
       "reasons": {
         "java": [
           "arid: only sets how long idle threads live"
+        ],
+        "rust": [
+          "arid: only sets how long idle threads live"
         ]
       },
       "examples": {
-        "java": "pool.setKeepAliveTime(30, TimeUnit.SECONDS);"
+        "java": "pool.setKeepAliveTime(30, TimeUnit.SECONDS);",
+        "rust": "let runtime = Builder::new_multi_thread().thread_keep_alive(Duration::from_secs(5 * 60));"
       }
     },
     {
       "id": "mutastic:stack-sizes",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
       "description": "The size of a thread's stack, while it stays above zero.",
       "reasons": {
         "java": [
           "arid: only sizes a thread's stack"
+        ],
+        "rust": [
+          "arid: only sizes a thread's stack"
         ]
       },
       "examples": {
-        "java": "Thread.ofPlatform().stackSize(1 << 20).unstarted(task);"
+        "java": "Thread.ofPlatform().stackSize(1 << 20).unstarted(task);",
+        "rust": "let builder = thread::Builder::new().stack_size(64 * 1024);"
       }
     }
   ],
@@ -1665,6 +1680,10 @@
     {
       "id": 20,
       "rule": "Each of mutastic's own arid rules has one id (`arid`), the same in every edition that has the rule and never changed once shipped. Its docs are one section of one page for both editions, `/reference/arid/#<name>`, `<name>` the id after `mutastic:`, under the docs of the release running, as operators' are (decision 9)."
+    },
+    {
+      "id": 21,
+      "rule": "A mutant one of mutastic's own arid rules skipped names the rule: `skipRule` in `mutant-finished`, `mutastic.skipRule` in mutation.json, and in `explain` and the HTML report with its docs section (decision 20) and the `mutastic.yaml` rule that runs it, `- mutate: <its method>` with `arid: [<id>]` and `reason: <why a test should check it>`. A `mutate:` rule's optional `arid:` list, of known ids only (an unknown one is refused, with a close one when there is one), brings back only those rules' skips; without it, every arid skip in the code it covers."
     }
   ],
   "differences": [

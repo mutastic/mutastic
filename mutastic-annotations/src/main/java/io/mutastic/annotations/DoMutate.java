@@ -19,4 +19,9 @@ import java.lang.annotation.Target;
 public @interface DoMutate {
   /// Why it matters: for the reader.
   String value() default "";
+
+  /// Only these arid rules' skips come back, by id: `@DoMutate(value = "callers wait for it", arid
+  /// = "mutastic:waits")`. Empty, every arid skip. Each rule is on [Arid
+  /// rules](https://docs.mutastic.io/reference/arid/).
+  String[] arid() default {};
 }
