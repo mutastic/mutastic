@@ -2,11 +2,11 @@
     [2m┌─[0m src/main/java/com/example/sales/Summary.java:19
     [2m│[0m
  [2m18[0m [2m│[0m       throws InterruptedException {
- [2m19[0m [2m│[0m     out.println(of(sales));
+ [2m19[0m [2m│[0m     out.println(of(sales, metrics));
     [2m│[0m         [1;31m^^^^^^^ call removed[0m
  [2m20[0m [2m│[0m   }
     [2m│[0m
-    [2m=[0m mutant  [1;31m- [0mout.println(of(sales));
-              [32m+ [0mof(sales);
+    [2m=[0m mutant  [1;31m- [0mout.println(of(sales, metrics));
+              [32m+ [0mof(sales, metrics);
 
-    [2mreproduce [0m mutastic run --only=m32bd4ead samples/sales
+    [2mreproduce [0m mutastic run --only=m15502e60 samples/sales

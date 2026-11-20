@@ -104,7 +104,7 @@ class DocsAridTest {
   }
 
   /// The guide: the run, the format string and the output explained, the audit, an ignore of a
-  /// value only logged, and the run after the page's `mutate:` rule.
+  /// value logged and recorded as a metric, and the run after the page's `mutate:` rule.
   @Test
   void theGuidesClass() throws Exception {
     var project = Samples.copy(SAMPLES.resolve("sales"), work.resolve("sales"));
@@ -115,7 +115,9 @@ class DocsAridTest {
     var join = theMutant(events, "the call to `join()` is removed");
     var printed = theMutant(events, "the call to `println()` is removed");
     var format = theMutant(events, "the string `\"summed {} amounts in {} ms\"` becomes `\"\"`");
-    var logged = theMutants(events, "`-` becomes `+`", "`/` becomes `*`");
+    var logged =
+        theMutants(
+            events, "`-` becomes `+`", "`/` becomes `*`", "the call to `record()` is removed");
 
     assertThat(join.reason()).as("a removed timed join counts").isEmpty();
     assertThat(printed.reason()).isEqualTo("arid: only writes output");
@@ -151,7 +153,7 @@ class DocsAridTest {
 
   /// Each mutant ignored as the page ignores the first, with its reason; what the first said.
   private static Samples.Result ignoredAsTelemetry(Path project, String page, List<Mutant> logged) {
-    var reason = "only how long the summary took, for the log";
+    var reason = "timing only, checked in dashboards";
     assertThat(page).contains("--as=telemetry --reason=\"" + reason + "\"");
     var said = new ArrayList<Samples.Result>();
     for (Mutant mutant : logged) {
