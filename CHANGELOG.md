@@ -125,6 +125,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **`baseline` takes `--operators`.** A baseline is taken under the operators it names, as the
+  Rust edition's is, where only `mutastic.yaml`'s `operators:` could choose them.
+- **`gate --help` is the gate's help.** Without its action, it shows the help of `gate open`,
+  `gate check` and `gate close`, where it showed every command's.
+- **Help lists every variable mutastic reads.** `MUTASTIC_PROGRESS`, `MUTASTIC_TERM_PROGRESS`,
+  `MUTASTIC_HEARTBEAT`, `TERM=dumb`, `CI` and `CLAUDECODE` were read but not listed. `--workers`
+  says it's how many mutants run side by side.
 - **A file one mutant's tests leave in the temporary directory can't change the next mutant's
   result.** Each worker had a temporary directory of its own, but one worker runs many mutants,
   so a mutant that removes a `Files.delete` left its file there, and a test of another mutant that
