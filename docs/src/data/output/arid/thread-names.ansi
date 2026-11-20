@@ -10,3 +10,12 @@
               [32m+ [0mvar thread = new Thread(work, "");
 
     [2mreproduce [0m mutastic run --only=m1db0b439 samples/arid
+
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:thread-names: A thread's or a pool's name, which only people and their
+                tools read: a thread dump, a profiler, a log pattern.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#thread-names[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.arid.Workers#background
+                      arid: [mutastic:thread-names]
+                      reason: <why a test should check it>

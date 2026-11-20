@@ -9,3 +9,12 @@
     [2m=[0m change  [1msetName()[0m does nothing (not shown in the source)
 
     [2mreproduce [0m mutastic run --only=mb008a64d samples/arid
+
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:trivial-accessors: A getter or setter that only reads or writes one of its
+                class's fields.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#trivial-accessors[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.arid.Customer#setName
+                      arid: [mutastic:trivial-accessors]
+                      reason: <why a test should check it>
