@@ -100,25 +100,28 @@ final class CleanupCalls {
   private static Optional<Gap> gap(
       String owner, String name, String descriptor, boolean inFinally) {
     if (name.equals("close") && descriptor.equals("()V")) {
-      if (owner.equals("java/sql/Connection")) {
-        return Optional.of(CONNECTION);
-      }
-      if (STATEMENTS.contains(owner)) {
-        return Optional.of(STATEMENT);
-      }
-      return Optional.of(inFinally ? CLOSED_FINALLY : CLOSED);
+      return Optional.of(closed(owner, inFinally));
     }
     if (name.equals("closeQuietly") && descriptor.endsWith(")V")) {
       return Optional.of(CLOSED_QUIETLY);
     }
-    if (ThreadCalls.isPool(owner) && (name.equals("shutdown") || name.equals("shutdownNow"))) {
-      return Optional.of(SHUTDOWN);
+    return Optional.ofNullable(
+        switch (name) {
+          case "shutdown", "shutdownNow" -> ThreadCalls.isPool(owner) ? SHUTDOWN : null;
+          case "addShutdownHook" -> owner.equals("java/lang/Runtime") ? HOOKED : null;
+          case "clean" -> owner.equals("java/lang/ref/Cleaner$Cleanable") ? CLEANED : null;
+          default -> null;
+        });
+  }
+
+  /// A `close()`'s card: a JDBC connection's, a statement's, or any other resource's.
+  private static Gap closed(String owner, boolean inFinally) {
+    if (owner.equals("java/sql/Connection")) {
+      return CONNECTION;
     }
-    if (owner.equals("java/lang/Runtime") && name.equals("addShutdownHook")) {
-      return Optional.of(HOOKED);
+    if (STATEMENTS.contains(owner)) {
+      return STATEMENT;
     }
-    return owner.equals("java/lang/ref/Cleaner$Cleanable") && name.equals("clean")
-        ? Optional.of(CLEANED)
-        : Optional.empty();
+    return inFinally ? CLOSED_FINALLY : CLOSED;
   }
 }
