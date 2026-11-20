@@ -42,6 +42,7 @@ class KeptAridTest {
     assertThat(reasons)
         .containsExactlyInAnyOrder(
             "arid: only writes output",
+            "arid: only feeds a log line",
             "arid: only an exception's message",
             "arid: only a failed check's message",
             "arid: only says an assert failed",

@@ -182,6 +182,34 @@ final class Stores {
     return false;
   }
 
+  /// Where each read of the value the slot holds just after `at` is, on every path from there,
+  /// through jumps and exception handlers, before another store to it; none if an `iinc` steps it,
+  /// which reads it and leaves a value of its own.
+  Optional<List<Integer>> readsOf(int slot, int at) {
+    var handlers = handlers();
+    var found = new ArrayList<Integer>();
+    var seen = new BitSet();
+    var waiting = new ArrayDeque<Integer>(List.of(at + 1));
+    while (!waiting.isEmpty()) {
+      int here = waiting.pop();
+      if (here < code.size() && !seen.get(here)) {
+        seen.set(here);
+        var element = code.get(here);
+        if (element instanceof IncrementInstruction step && step.slot() == slot) {
+          return Optional.empty();
+        }
+        found.addAll(reads(element, slot) ? List.of(here) : List.of());
+        handlers.stream()
+            .filter(handler -> handler.covers(here))
+            .forEach(handler -> waiting.push(handler.at()));
+        if (!(element instanceof StoreInstruction store && store.slot() == slot)) {
+          next(element, here).forEach(waiting::push);
+        }
+      }
+    }
+    return Optional.of(found);
+  }
+
   private static boolean reads(CodeElement element, int slot) {
     return (element instanceof LoadInstruction load && load.slot() == slot)
         || (element instanceof IncrementInstruction increment && increment.slot() == slot);

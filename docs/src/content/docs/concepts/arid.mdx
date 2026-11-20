@@ -74,7 +74,9 @@ with a way to check it.
   edition, a rule matches the syntax: an output macro such as `info!` used as a statement.
 - **Only where the value goes nowhere else.** Text that goes straight into a log call is arid; the
   same text returned, stored or compared is counted. Arithmetic that only sizes a new
-  `ArrayList` is arid; the same arithmetic used as a loop's bound is counted.
+  `ArrayList` is arid; the same arithmetic used as a loop's bound is counted. A value worked out
+  only for a log line, `(System.nanoTime() - start) / 1_000_000`, is arid, through a local too,
+  but only when every use of it on every path is the log's.
 - **Skipped, never hidden.** An arid mutant is still made, keeps its id, and says why it was
   skipped, kind first: `arid: only waits`. The summary counts it (`4 skipped (4 arid)`), it's in the
   report and the events, and `mutastic explain` shows it. It just isn't in the score.
@@ -97,10 +99,10 @@ Some code looks like plumbing and decides what the program does. mutastic counts
   capacity. A thread's name, its priority and its stack size are arid: they change how threads look
   or what they cost, not whether, when or how often work runs.
 - **What the code returns, stores or compares,** however it got there.
-- **A value only a log line uses.** In this release, `(System.nanoTime() - start) / 1_000_000`
-  passed to `log.info` keeps its mutants; only removing the call, and its format string, are arid.
-  [Arid rules in practice](/guides/arid-in-practice/#a-value-only-logged) shows what to do with
-  them.
+- **A value a log line uses, and something else too.** An elapsed time that's logged and also
+  recorded as a metric, compared with a limit or returned keeps its mutants: one of its uses is
+  behaviour. [Arid rules in practice](/guides/arid-in-practice/#a-value-logged-and-recorded) shows
+  what to do when nobody tests that other use.
 
 ## What it can cost
 

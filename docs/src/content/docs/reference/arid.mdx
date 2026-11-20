@@ -190,8 +190,10 @@ its id.
 <AridRule id="mutastic:output" />
 
 A removed call to a logger (SLF4J, Log4j 2, `java.util.logging`, `System.Logger`, Commons
-Logging) or to a `PrintStream`, `System.out` included; every other mutant of such a call; and a
-string that only goes into one, its format string included.
+Logging) or to a `PrintStream`, `System.out` included; every other mutant of such a call; a
+string that only goes into one, its format string included; and a value worked out only for one,
+`arid: only feeds a log line`: `log.info("took {} ms", now - start)`, or the same through a local
+that nothing else reads.
 
 {/* from: samples/arid/src/main/java/com/example/arid/Totals.java */}
 ```java
@@ -206,8 +208,10 @@ reads log text breaks the next time someone rewords it, and says nothing about t
 <Aside type="caution" title="What it can hide">
 Output that is the product: a command-line tool's output, an audit log. Every `PrintStream` counts
 as output, not only `System.out`, so a stream the code is given, that a test reads, is skipped too:
-here the removed `println` leaves nothing printed, and `TotalsTest` catches it. A value worked out
-only to be logged isn't skipped: see [A value only logged](/guides/arid-in-practice/#a-value-only-logged).
+here the removed `println` leaves nothing printed, and `TotalsTest` catches it. A value is skipped
+only when every use of it, on every path, is a log call's or a print's argument; one that's also
+returned, compared, stored or passed to another method, a metric's say, is counted: see [A value
+logged and recorded](/guides/arid-in-practice/#a-value-logged-and-recorded).
 </Aside>
 
 **When to bring it back:** the output is what the code is for, and your tests read it.
@@ -242,12 +246,16 @@ public final class Totals {
 **In the Rust edition:** a removed output macro used as a statement (`println!`, `eprintln!`,
 `dbg!`, and the `log` and `tracing` macros such as `info!`) is made and skipped with the same
 reason, and a `mutate:` rule takes it back. A `write!` goes to a writer the code chose, which a test
-may read, so it counts. Nothing inside a macro's arguments gets a mutant.
+may read, so it counts. Nothing inside a macro's arguments gets a mutant, and a value a `let`
+works out only for output macros to read, `let took = a - b; info!("{took}");`, is skipped as
+`arid: only feeds a log line`, by syntax: every read of the name in the function is an output
+macro's argument, and no other binding has that name.
 </EditionOnly>
 
 **Changed in:** 0.1.0, the first release. 1.0.0: a string that only goes into output. 1.3.0: its id;
 `mutate:` and `@DoMutate` bring it back, by its id; a format string followed by a value worked out
-in the call (`log.info("took {} ms", now - start)`) is skipped as well.
+in the call (`log.info("took {} ms", now - start)`) is skipped as well; follows a value worked out
+for a log call, in both editions.
 
 ## Messages
 
