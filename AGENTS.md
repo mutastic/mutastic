@@ -107,3 +107,7 @@ applied by google-java-format through Spotless: that is the spec, not taste.
   once, however many claims are made about it; and find a fixture's mutants once in a test.
 - **Check claims against real projects,** not only the samples: the bugs that mattered were found
   there.
+- **The changelog is files until a release.** An entry is `changes/<section>/<slug>.md`, the
+  entry exactly as `CHANGELOG.md` will show it ([changes/README.md](changes/README.md)); never edit
+  `CHANGELOG.md` outside a `chore(release)` commit. A change that adds mutants to the default set
+  moves scores, so it needs a `changes/scoring-changes/` entry.
