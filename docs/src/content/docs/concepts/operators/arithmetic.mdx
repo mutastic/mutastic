@@ -301,8 +301,10 @@ the card names the value, as the line may only have the name. `0` and `1` are ch
 what uses them shows they're numbers, as in the bytecode they could be `false` and `true`, and a
 number that isn't shown to be plain stays in the range of a `byte`, `short` or `char`. The size and
 indexes of an array's `{…}`, the `-1` in `~x`, and what javac stores in temporaries of its own have
-no mutants. Some are skipped as arid: an array's size, a capacity, a wait, a `split`'s limit, and a
-variable's first value of `0` or `1`, where a counter or a total starts. The Rust edition has this
+no mutants. Some are skipped as arid: [an array's size](/reference/arid/#array-sizes), a
+[capacity](/reference/arid/#capacity), [a wait](/reference/arid/#wait-times), [a `split`'s
+limit](/reference/arid/#split-limits), and [a variable's first value](/reference/arid/#first-values)
+of `0` or `1`, where a counter or a total starts. The Rust edition has this
 operator too, `mutastic/constant-value`, and gives `-1` only where a number is visibly signed.
 
 ## Flip increment

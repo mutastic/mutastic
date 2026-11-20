@@ -1,0 +1,12 @@
+ [46;30;1m SKIPPED [0m [1marid: only names a thread[0m
+    [2m┌─[0m src/main/java/com/example/arid/Workers.java:12
+    [2m│[0m
+ [2m11[0m [2m│[0m   public static Thread background(Runnable work) {
+ [2m12[0m [2m│[0m     var thread = new Thread(work, "report-worker");
+    [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ "report-worker" changed to ""[0m
+ [2m13[0m [2m│[0m     thread.setPriority(Thread.MIN_PRIORITY);
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mvar thread = new Thread(work, "report-worker");
+              [32m+ [0mvar thread = new Thread(work, "");
+
+    [2mreproduce [0m mutastic run --only=m1db0b439 samples/arid
