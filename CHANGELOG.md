@@ -125,6 +125,15 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **A file one mutant's tests leave in the temporary directory can't change the next mutant's
+  result.** Each worker had a temporary directory of its own, but one worker runs many mutants,
+  so a mutant that removes a `Files.delete` left its file there, and a test of another mutant that
+  removes the write could read that file and pass: missed in one run, caught in the next. Now what
+  each run's tests add to the worker's temporary directory is deleted once they've answered, so
+  the next mutant's tests find it as the last ones did. What was there before stays, as a server
+  the coverage pass started can hold on to a directory there. The Rust edition gives each test
+  process an empty temporary directory of its own. See [How a run
+  works](https://docs.mutastic.io/concepts/how-a-run-works/#each-mutant-against-the-tests-that-reach-it).
 - **A test that runs `main` in a JVM of its own is said to reach no mutant.** A test that starts
   `java` on `java.class.path` to run the project's `main`, as a person would, found none of the
   project there and failed, so mutastic said the tests fail without any mutant, though they pass

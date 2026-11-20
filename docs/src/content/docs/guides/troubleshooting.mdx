@@ -187,10 +187,13 @@ around them did, in a `@BeforeAll`, `@AfterAll`, `@BeforeClass`, a class rule or
 initialiser. The exception it failed with, and its output, are in the log the message names. A
 class whose setup passes when run again is left out as flaky instead, with all its tests.
 
-Tests run with a temporary directory of their own, deleted when their worker ends. A test that
-counts on finding something already in `java.io.tmpdir`, such as a file it shares with another
-process or a download cached between runs, won't find it there: name a directory in the test
-task's JVM arguments (`-Djava.io.tmpdir=...`), and mutastic uses that instead.
+Tests run with a temporary directory of their own, deleted when their worker ends. What one
+mutant's tests add to it is deleted before the next mutant runs. A test that counts on finding
+something already in `java.io.tmpdir`, such as a file it shares with another process, a download
+cached between runs or a file another test left, won't find it there: name a directory in the
+test task's JVM arguments (`-Djava.io.tmpdir=...`), and mutastic uses that instead, and leaves
+what's in it alone. A file a test writes to a fixed path elsewhere, in the project or `build/`, is
+beyond mutastic's reach, so clean that up in the test.
 
 A process a test starts and leaves running ends with its worker too. One that has detached itself,
 as a Gradle daemon or a container under Docker's own daemon has, is left alone.
