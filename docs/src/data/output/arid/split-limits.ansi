@@ -1,0 +1,12 @@
+ [46;30;1m SKIPPED [0m [1marid: only limits a split[0m
+   [2m┌─[0m src/main/java/com/example/arid/Headers.java:8
+   [2m│[0m
+ [2m7[0m [2m│[0m   public static String value(String line) {
+ [2m8[0m [2m│[0m     return line.split(":", 2)[1].strip();
+   [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 2 changed to 3[0m
+ [2m9[0m [2m│[0m   }
+   [2m│[0m
+   [2m=[0m mutant  [1;31m- [0mreturn line.split(":", 2)[1].strip();
+             [32m+ [0mreturn line.split(":", 3)[1].strip();
+
+   [2mreproduce [0m mutastic run --only=m34ba4295 samples/arid

@@ -1,0 +1,11 @@
+ [46;30;1m SKIPPED [0m [1marid: only says an assert failed[0m
+   [2m┌─[0m src/main/java/com/example/arid/Ledger.java:8
+   [2m│[0m
+ [2m7[0m [2m│[0m   public static long settle(long balance) {
+ [2m8[0m [2m│[0m     assert balance >= 0 : "negative balance";
+   [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ throw removed[0m
+ [2m9[0m [2m│[0m     return balance;
+   [2m│[0m
+   [2m=[0m change  the [1mthrow[0m of [1mAssertionError[0m is removed, so the code carries on (not shown in the source)
+
+   [2mreproduce [0m mutastic run --only=m9e76abb7 samples/arid

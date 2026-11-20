@@ -1,0 +1,12 @@
+ [46;30;1m SKIPPED [0m [1marid: [1mtoString()[0m is a debug representation[0m
+    [2m┌─[0m src/main/java/com/example/arid/Money.java:13
+    [2m│[0m
+ [2m12[0m [2m│[0m   public String toString() {
+ [2m13[0m [2m│[0m     return "£" + pence / 100 + "." + String.format("%02d", pence % 100);
+    [2m│[0m                        [1;31m^ / changed to *[0m
+ [2m14[0m [2m│[0m   }
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mreturn "£" + pence / 100 + "." + String.format("%02d", pence % 100);
+              [32m+ [0mreturn "£" + pence * 100 + "." + String.format("%02d", pence % 100);
+
+    [2mreproduce [0m mutastic run --only=ma68347d0 samples/arid
