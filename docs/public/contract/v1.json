@@ -1095,7 +1095,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "147b5e9cf7e682ab54d5fb3af9c6ef4aeb79a27e0c703873478d0ee06719f0a4"
+      "sha256": "24a625e8dd65dfc40e873391f4e60a6f46d6673c342038ef4f51726aba80833e"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1110,7 +1110,7 @@
     "reportAdditions": {
       "id": "mutastic.report/v1",
       "url": "https://docs.mutastic.io/schemas/report/v1.json",
-      "sha256": "e8b4c1c3bfa693cf4cc1627cc566dd002160398f2d6cec40900fa5cbb126c5a3"
+      "sha256": "fa833754331f81a4c7024e88ea5c0c6179fdacc474731f715a0ccad5f2fa8fc4"
     }
   },
   "events": {
@@ -1355,20 +1355,26 @@
     {
       "id": "mutastic:debug-representations",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "method",
-      "description": "`toString()` and `hashCode()`, the lambdas they define and the helpers only they call.",
+      "description": "`toString()` and `hashCode()`, the lambdas they define and the helpers only they call; in Rust, a `Debug` or a `Hash` impl.",
       "reasons": {
         "java": [
           "arid: `toString()` is a debug representation",
           "arid: `hashCode()` may return any value consistent with `equals()`",
           "arid: a lambda in `<method>()`",
           "arid: `<helper>()` only serves `<method>()`"
+        ],
+        "rust": [
+          "arid: `Debug::fmt` is a debug representation",
+          "arid: `Hash::hash` may give any value consistent with `Eq`"
         ]
       },
       "examples": {
-        "java": "public String toString() { return \"Order \" + id; }"
+        "java": "public String toString() { return \"Order \" + id; }",
+        "rust": "impl fmt::Debug for Order { fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { f.write_str(\"Order\") } }"
       }
     },
     {
@@ -1395,18 +1401,24 @@
     {
       "id": "mutastic:messages",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
-      "description": "The text of an exception's message, or of a failed check's.",
+      "description": "The text of an exception's or an error's message, or of a failed check's.",
       "reasons": {
         "java": [
           "arid: only an exception's message",
           "arid: only a failed check's message"
+        ],
+        "rust": [
+          "arid: only an error's message",
+          "arid: only a failed check's message"
         ]
       },
       "examples": {
-        "java": "throw new IllegalArgumentException(\"amount must be positive\");"
+        "java": "throw new IllegalArgumentException(\"amount must be positive\");",
+        "rust": "let order = order.expect(\"an order to ship\");"
       }
     },
     {
@@ -1428,49 +1440,65 @@
     {
       "id": "mutastic:capacity",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
-      "description": "The size a collection or a buffer starts with.",
+      "description": "The room a collection or a buffer starts with or makes, and how full a hash table gets before it grows, while it stays above zero.",
       "reasons": {
         "java": [
+          "arid: only sizes a collection's first allocation",
+          "arid: only sets when a hash table grows"
+        ],
+        "rust": [
           "arid: only sizes a collection's first allocation"
         ]
       },
       "examples": {
-        "java": "new ArrayList<>(orders.size() * 2)"
+        "java": "new ArrayList<>(orders.size() * 2)",
+        "rust": "let mut names = Vec::with_capacity(orders.len() * 2);"
       }
     },
     {
       "id": "mutastic:wait-times",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
-      "description": "How long a sleep, or a `join` with a time limit, waits.",
+      "description": "How long a sleep waits, where the time goes only into the sleep. A timeout's, a deadline's or a backoff's stays counted.",
       "reasons": {
         "java": [
+          "arid: only sets how long to wait"
+        ],
+        "rust": [
           "arid: only sets how long to wait"
         ]
       },
       "examples": {
-        "java": "Thread.sleep(seconds * 1000L);"
+        "java": "Thread.sleep(seconds * 1000L);",
+        "rust": "std::thread::sleep(Duration::from_millis(attempt * 100));"
       }
     },
     {
       "id": "mutastic:waits",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
-      "description": "A sleep removed: `Thread.sleep` or `TimeUnit.sleep`.",
+      "description": "A sleep removed: `Thread.sleep` or `TimeUnit.sleep` in Java, `thread::sleep` or an awaited `sleep` in Rust.",
       "reasons": {
         "java": [
+          "arid: only waits"
+        ],
+        "rust": [
           "arid: only waits"
         ]
       },
       "examples": {
-        "java": "Thread.sleep(100);"
+        "java": "Thread.sleep(100);",
+        "rust": "std::thread::sleep(pause);"
       }
     },
     {
@@ -2000,7 +2028,7 @@
         "rust"
       ],
       "surface": "events",
-      "summary": "`caughtWith`: an exception class, or `panic` or `crash: SIGABRT`",
+      "summary": "`caughtWith`: an exception class, or `panic` or `crash: SIGABRT`; `exit: 2` in both",
       "reason": "How a test fails."
     },
     {
@@ -2399,16 +2427,40 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "G14",
+      "id": "G18",
       "kind": "pending",
       "editions": [
         "rust"
       ],
-      "surface": "configuration",
-      "summary": "No `MUTASTIC_ARID=audit`",
+      "surface": "events",
+      "summary": "No `failureOrigin`, in the events or mutation.json",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
       "items": [
-        "env:MUTASTIC_ARID"
+        "event:mutant-finished:failureOrigin",
+        "report:files.*.mutants[].mutastic.failureOrigin"
+      ]
+    },
+    {
+      "id": "G19",
+      "kind": "pending",
+      "editions": [
+        "rust"
+      ],
+      "surface": "events",
+      "summary": "`unrelatedCatches` is always `[]`",
+      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
+    },
+    {
+      "id": "G21",
+      "kind": "pending",
+      "editions": [
+        "rust"
+      ],
+      "surface": "events",
+      "summary": "`suggestion.receiver[]` has no `parameters`, no `suggestion.named`, and `mutant-explained.site` has no `ordinal`",
+      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
+      "items": [
+        "event:mutant-finished:suggestion.receiver[].parameters"
       ]
     },
     {

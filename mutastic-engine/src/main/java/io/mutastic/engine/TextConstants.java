@@ -71,7 +71,7 @@ final class TextConstants {
 
   /// A call a value goes straight into, where it is among the call's values (`0` is an instance
   /// call's receiver, or a static call's first argument), and where the call is.
-  private record Consumer(InvokeInstruction call, int position, int index) {}
+  record Consumer(InvokeInstruction call, int position, int index) {}
 
   static List<Change> strings(
       List<CodeElement> code, int at, Stores stores, Supertypes supertypes) {
@@ -323,9 +323,9 @@ final class TextConstants {
   /// carries the count to its label, and code no path reaches with the value is passed over. The
   /// walk stops where something other than a call takes the value, where a jump goes back or past
   /// the call, or at an instruction it doesn't know: the value may go somewhere else then.
-  private static final class Follow {
+  static final class Follow {
     /// What an instruction takes off the stack and leaves on it, in values: a `long` is one.
-    private record Effect(int takes, int leaves) {}
+    record Effect(int takes, int leaves) {}
 
     /// An instruction the walk doesn't follow, as if it took the whole stack.
     private static final Effect UNKNOWN = new Effect(Integer.MAX_VALUE, 0);
@@ -410,11 +410,11 @@ final class TextConstants {
       return before == null || before == depth;
     }
 
-    private static int takes(InvokeInstruction call) {
+    static int takes(InvokeInstruction call) {
       return call.typeSymbol().parameterCount() + (call.opcode() == Opcode.INVOKESTATIC ? 0 : 1);
     }
 
-    private static Effect effect(Instruction instruction) {
+    static Effect effect(Instruction instruction) {
       return switch (instruction) {
         case LoadInstruction _, ConstantInstruction _, NewObjectInstruction _ -> new Effect(0, 1);
         case StoreInstruction _, MonitorInstruction _ -> new Effect(1, 0);

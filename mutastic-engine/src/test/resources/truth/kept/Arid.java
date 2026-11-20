@@ -1,7 +1,9 @@
 package kept;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -39,6 +41,10 @@ class Arid {
 
   static List<String> sized(int n) {
     return new ArrayList<>(n * 2);
+  }
+
+  static Map<String, String> loaded(int n) {
+    return new HashMap<>(n, 0.75f);
   }
 
   void grown(int n) {

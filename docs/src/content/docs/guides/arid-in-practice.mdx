@@ -128,9 +128,9 @@ sales before the worker has fetched them, a race, and the test catches it. The
 [`waits`](/reference/arid/#waits) rule skips only a removed `Thread.sleep` or `TimeUnit.sleep`,
 which changes when the code gets somewhere, not what it finds there.
 
-The limit itself, `5_000`, is arid: with `--operators=stronger`, a change to it is skipped as
-`arid: only sets how long to wait`, by the [`wait-times`](/reference/arid/#wait-times) rule. Bring
-that rule back only if your tests run work slow enough for the limit to decide the result.
+The limit itself, `5_000`, counts too: a shorter one gives up on the worker sooner, and `of` reads
+the sales unfinished. Only how long a sleep waits is arid, by the
+[`wait-times`](/reference/arid/#wait-times) rule.
 
 ## The command's output
 

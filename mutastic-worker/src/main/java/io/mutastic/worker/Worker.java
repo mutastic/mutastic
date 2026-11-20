@@ -61,6 +61,7 @@ import org.junit.platform.launcher.core.LauncherFactory;
 /// | `FRESH <test>...`: the same, with every class loaded anew, so static initialisers run with the staged classes | as for `RUN` |
 /// | `SUGGEST <class> <method> <descriptor> <base64> <inputs> <receiver>`: find inputs where a mutant changes the result; inputs are `1;2\|3;4`, `-` for none; the receiver is `-` for a static method, else a constructor descriptor whose arguments start each input, or for an inner class its outer class's receiver, `>`, then its own | `SUGGESTED <inputs> <today> <with mutant> <stuck or ->`, or `SUGGESTED -` |
 /// | `EXIT` | nothing; the worker exits |
+/// | a test ends the JVM (`System.exit`) during `RUN` or `FRESH` | `EXITED <test>` as it goes, in place of `RESULT`; the engine reads the status from the process |
 ///
 /// A test is `com.example.PricingTest#method` or a class name. The engine kills the worker if it
 /// doesn't answer in time: a mutant that loops forever can't be stopped any other way.
@@ -87,6 +88,10 @@ public final class Worker {
   private final @Nullable Framework framework;
 
   private int runs;
+
+  /// The test `RUN` or `FRESH` is running, if one is: what a test that ends the JVM was running.
+  private volatile @Nullable String running;
+
   private String lastFailure = "unknown";
   private String lastOrigin = "unknown";
   private boolean lastPortClash;
@@ -161,12 +166,29 @@ public final class Worker {
             protocol,
             framework);
     var commands = readCommands();
+    sayWhatExits(worker, protocol);
     protocol.println("READY\t" + Runtime.version().feature());
     for (String line = commands.take(); !line.equals("EXIT"); line = commands.take()) {
       worker.handle(line.split("\t", -1));
     }
     writeCoverage();
     haltWithWhatTestsStarted(); // even if a test left non-daemon threads behind
+  }
+
+  /// When code a test runs ends the JVM (`System.exit`, which runs the shutdown hooks), says which
+  /// test it was, as its run won't finish: the exit is the mutant's doing, seen by that test, and
+  /// the engine tells it from a worker that hangs. The worker's own ends halt, and say nothing.
+  private static void sayWhatExits(Worker worker, PrintStream protocol) {
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  var test = worker.running;
+                  if (test != null) {
+                    protocol.println("EXITED\t" + test);
+                  }
+                },
+                "mutastic-exit"));
   }
 
   /// Ends what the tests started and left running, then the worker. Once the worker has gone, a
@@ -438,7 +460,7 @@ public final class Worker {
       var started = new StartedTests();
       List<String> failing;
       try {
-        failing = execute(List.of(test), loader, started);
+        failing = executeSaid(test, loader, started);
       } catch (RuntimeException e) {
         // Finding the tests failed: TestNG makes the test classes as it finds them, so a mutant
         // that breaks a test class's constructor breaks it here, before any test can fail.
@@ -457,6 +479,16 @@ public final class Worker {
       }
     }
     protocol.println("RESULT\tPASSED\t" + ran);
+  }
+
+  /// One test of a `RUN`, said to be running while it runs, for if its code ends the JVM.
+  private List<String> executeSaid(String test, ProductionLoader loader, StartedTests started) {
+    running = test;
+    try {
+      return execute(List.of(test), loader, started);
+    } finally {
+      running = null;
+    }
   }
 
   /// Counts the tests that started, not the containers.

@@ -50,6 +50,9 @@ final class TestWorker implements AutoCloseable {
   /// Said by a worker that's now worth replacing, ahead of its answer to a command.
   private static final String AGED = "AGED";
 
+  /// Said by a worker as a test's code ends its JVM, with the test, in place of an answer.
+  private static final String EXITED = "EXITED\t";
+
   private final Project project;
   private final Path workerJar;
   private final Path log;
@@ -66,6 +69,9 @@ final class TestWorker implements AutoCloseable {
 
   /// Whether the running worker has said it has aged.
   private boolean aged;
+
+  /// The test whose code ended the worker's JVM, if the worker said one did since the last command.
+  private @Nullable String exitedDuring;
 
   /// `log` collects the tests' own output, for when a baseline fails for reasons only the tests'
   /// output explains.
@@ -251,27 +257,77 @@ final class TestWorker implements AutoCloseable {
     Run(Status status, int testsRun) {
       this(status, Optional.empty(), Optional.empty(), Optional.empty(), testsRun, false);
     }
+
+    /// `test`, the `testsRun`th, ran code that ended the JVM with `status`.
+    static Run exited(String test, int status, int testsRun) {
+      return new Run(
+          status == 0 ? Status.MISSED : Status.CAUGHT,
+          Optional.of(test),
+          Optional.of("exit: " + status),
+          Optional.of("exit"),
+          testsRun,
+          false);
+    }
+
+    /// Whether a test's code ended the JVM with status 0, which the build reads as a pass.
+    boolean exitedAsAPass() {
+      return status == Status.MISSED && failedTest.isPresent();
+    }
   }
 
   Run run(String className, byte[] bytes, List<String> tests, Duration timeout) {
-    stage(className, bytes);
-    return result("RUN", tests, timeout);
+    return staged("RUN", () -> stage(className, bytes), tests, timeout);
   }
 
   /// The same, with every class loaded anew, so the class's static initialiser runs mutated.
   Run runFresh(String className, byte[] bytes, List<String> tests, Duration timeout) {
-    stage(className, bytes);
-    return result("FRESH", tests, timeout);
+    return staged("FRESH", () -> stage(className, bytes), tests, timeout);
+  }
+
+  /// A test whose code ends the JVM with status 0 hasn't failed: Gradle's test task and cargo test
+  /// both pass, though no test after it runs. So it's not a catch, and the tests after it run on a
+  /// new worker, as they would in a build that ran them first: `stage` gives it the mutant.
+  private Run staged(String command, Runnable stage, List<String> tests, Duration timeout) {
+    stage.run();
+    var run = result(command, tests, timeout);
+    if (!run.exitedAsAPass()) {
+      return run;
+    }
+    var rest = tests.subList(run.testsRun(), tests.size());
+    var after = rest.isEmpty() ? new Run(Status.MISSED, 0) : staged(command, stage, rest, timeout);
+    return new Run(
+        after.status(),
+        after.failedTest(),
+        after.failure(),
+        after.origin(),
+        run.testsRun() + after.testsRun(),
+        after.portClash());
   }
 
   private Run result(String command, List<String> tests, Duration timeout) {
-    var answer = testsRun(command + "\t" + String.join("\t", tests), timeout);
+    exitedDuring = null;
+    var answer = testsRun(command + "	" + String.join("	", tests), timeout);
     if (answer.isEmpty()) {
-      kill();
-      return new Run(Status.TIMED_OUT, tests.size());
+      return ended(tests);
     }
     replaceIfAged();
     return parsed(answer.get());
+  }
+
+  /// No answer: the worker ran out of time and is killed, which counts as a timeout, or a test's
+  /// code ended its JVM, which the worker said as it went. That's not a hang: it's what that test
+  /// saw the mutant do, with the status the JVM ended with. An end the worker didn't say, as a
+  /// crash's, or one that didn't finish in time, stays a timeout.
+  private Run ended(List<String> tests) {
+    var current = running;
+    var test = exitedDuring;
+    boolean stopped = current != null && current.stopped().get();
+    kill();
+    if (current == null || test == null || !stopped || current.process().isAlive()) {
+      return new Run(Status.TIMED_OUT, tests.size());
+    }
+    int at = tests.indexOf(test);
+    return Run.exited(test, current.process().exitValue(), at < 0 ? tests.size() : at + 1);
   }
 
   /// `RESULT PASSED <ran>` or `RESULT FAILED <ran> <test> <exception> <origin> <port-clash or ->`.
@@ -453,6 +509,10 @@ final class TestWorker implements AutoCloseable {
       var answer = current.answers().poll(timeout.toNanos(), TimeUnit.NANOSECONDS);
       if (AGED.equals(answer)) {
         aged = true;
+        return await(timeout);
+      }
+      if (answer != null && answer.startsWith(EXITED)) {
+        exitedDuring = answer.substring(EXITED.length());
         return await(timeout);
       }
       return Optional.ofNullable(answer).filter(line -> !line.equals(STOPPED));
