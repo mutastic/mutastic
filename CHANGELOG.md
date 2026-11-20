@@ -125,6 +125,12 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **Code only `main` runs says so, and what to do.** A `main` no test calls read as not covered,
+  like any other method. Its line in the Not covered list now says it's reached only from `main()`,
+  and to move what it does into `run(args, out)`, which returns the exit code, test `run`, and leave
+  `main()` a one-line call to it; a `main` that's already one line gets no such advice. The Rust
+  edition says the same. See [Code reached only from
+  main](https://docs.mutastic.io/concepts/results/#code-reached-only-from-main).
 - **A wrapper in a directory with a space gets commands that run as they're copied.** Since
   mutastic prints the Gradle or Maven it really runs, a wrapper under `/Users/me/My Projects`
   started a command a shell splits at the space. Its path is now quoted, `'/Users/me/My
