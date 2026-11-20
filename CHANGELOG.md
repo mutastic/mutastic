@@ -125,6 +125,15 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **A file one mutant's tests leave in the temporary directory can't change the next mutant's
+  result.** Each worker had a temporary directory of its own, but one worker runs many mutants,
+  so a mutant that removes a `Files.delete` left its file there, and a test of another mutant that
+  removes the write could read that file and pass: missed in one run, caught in the next. Now what
+  each run's tests add to the worker's temporary directory is deleted once they've answered, so
+  the next mutant's tests find it as the last ones did. What was there before stays, as a server
+  the coverage pass started can hold on to a directory there. The Rust edition gives each test
+  process an empty temporary directory of its own. See [How a run
+  works](https://docs.mutastic.io/concepts/how-a-run-works/#each-mutant-against-the-tests-that-reach-it).
 - **A wrapper in a directory with a space gets commands that run as they're copied.** Since
   mutastic prints the Gradle or Maven it really runs, a wrapper under `/Users/me/My Projects`
   started a command a shell splits at the space. Its path is now quoted, `'/Users/me/My

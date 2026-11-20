@@ -36,8 +36,9 @@ import org.jspecify.annotations.Nullable;
 /// documented on `io.mutastic.worker.Worker`). One worker serves every mutant. A worker that
 /// doesn't answer in time is killed, which is the only way to stop a mutant that loops forever, and
 /// the next mutant starts a new one; so does a worker that says it has aged, once it has answered.
-/// Each worker has a temporary directory of its own ([WorkerTemp]), deleted once it has gone, and
-/// what its tests started goes with it.
+/// Each worker has a temporary directory of its own ([WorkerTemp]): what one mutant's tests leave
+/// there is deleted before the next mutant runs, the directory is deleted once the worker has gone,
+/// and what its tests started goes with it.
 final class TestWorker implements AutoCloseable {
   private static final Duration STARTUP = Duration.ofSeconds(30);
   static final Duration COVERAGE_LIMIT = Duration.ofMinutes(10);
@@ -264,8 +265,7 @@ final class TestWorker implements AutoCloseable {
   }
 
   private Run result(String command, List<String> tests, Duration timeout) {
-    send(command + "\t" + String.join("\t", tests));
-    var answer = await(timeout);
+    var answer = testsRun(command + "\t" + String.join("\t", tests), timeout);
     if (answer.isEmpty()) {
       kill();
       return new Run(Status.TIMED_OUT, tests.size());
@@ -295,8 +295,7 @@ final class TestWorker implements AutoCloseable {
   /// with what it failed with if it fails, timed out if it doesn't finish. Empty if no test ran for
   /// it, as for a selector that matches nothing.
   Optional<Run> unmutated(String test, Duration timeout) {
-    send("RUN\t" + test);
-    var answer = await(timeout);
+    var answer = testsRun("RUN\t" + test, timeout);
     if (answer.isEmpty()) {
       kill();
       return Optional.of(new Run(Status.TIMED_OUT, 1));
@@ -357,14 +356,28 @@ final class TestWorker implements AutoCloseable {
 
   /// Whether `test` passes on its own with no mutant in, within `timeout`.
   boolean passes(String test, Duration timeout) {
-    send("RUN\t" + test);
-    var answer = await(timeout);
+    var answer = testsRun("RUN\t" + test, timeout);
     if (answer.isEmpty()) {
       kill();
       return false;
     }
     replaceIfAged();
     return answer.get().startsWith("RESULT\tPASSED");
+  }
+
+  /// The answer to `command`, which runs tests, or empty if none came in time. What the tests left
+  /// in the worker's temporary directory is deleted once they've answered, so the next tests find
+  /// it as these did ([WorkerTemp#deleteAllBut]); a worker that didn't answer is killed, and its
+  /// directory goes with it.
+  private Optional<String> testsRun(String command, Duration timeout) {
+    var current = running();
+    var before = current.temp().contents();
+    send(command);
+    var answer = await(timeout);
+    if (answer.isPresent()) {
+      current.temp().deleteAllBut(before);
+    }
+    return answer;
   }
 
   /// Ends a worker that has aged, between commands, so the next command starts a new one. That's
