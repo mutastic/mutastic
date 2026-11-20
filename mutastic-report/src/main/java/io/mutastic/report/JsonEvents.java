@@ -288,18 +288,19 @@ public final class JsonEvents {
     fields.put("idDescription", id.getFirst());
     fields.put("idNote", id.getLast());
     fields.put("site", site(mutant));
-    Explanation.arid(mutant, docs)
-        .ifPresent(
-            arid -> {
-              var rule = new LinkedHashMap<String, Object>();
-              rule.put("id", arid.rule().id());
-              rule.put("description", arid.rule().description());
-              rule.put("docs", arid.docs());
-              rule.put("bringBack", arid.bringBack());
-              fields.put("arid", rule);
-            });
+    Explanation.arid(mutant, docs).ifPresent(arid -> fields.put("arid", aridFields(arid)));
     lastRun.ifPresent(found -> fields.put("lastRun", lastRun(found)));
     emit("mutant-explained", fields);
+  }
+
+  /// The arid rule that skipped it, as `explain`'s `arid` row says it.
+  private static Map<String, Object> aridFields(Explanation.Arid arid) {
+    var rule = new LinkedHashMap<String, Object>();
+    rule.put("id", arid.rule().id());
+    rule.put("description", arid.rule().description());
+    rule.put("docs", arid.docs());
+    rule.put("bringBack", arid.bringBack());
+    return rule;
   }
 
   /// The opcodes before and after, what each does, and how the jump relates to the source. The

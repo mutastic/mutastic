@@ -411,9 +411,17 @@ record Configuration(
     }
 
     private void rule(String item, int indent) {
+      if (!underRule(item, indent)) {
+        newRule(item);
+      }
+    }
+
+    /// A line under the rule being read, its `reason:`, its `arid:` or an id in that list: whether
+    /// it was one.
+    private boolean underRule(String item, int indent) {
       if (aridIndent >= 0 && indent > aridIndent && item.startsWith("- ")) {
         aridId(value(item.substring(2)));
-        return;
+        return true;
       }
       aridIndent = -1;
       if (pendingVerb != null && item.startsWith("reason:")) {
@@ -421,12 +429,17 @@ record Configuration(
           throw error("the rule `%s: %s` has one `reason:`".formatted(pendingVerb, pendingTarget));
         }
         pendingReason = value(item.substring("reason:".length()));
-        return;
+        return true;
       }
       if (pendingVerb != null && item.startsWith("arid:")) {
         arid(value(item.substring("arid:".length())), indent);
-        return;
+        return true;
       }
+      return false;
+    }
+
+    /// `- skip: <pattern>` or `- mutate: <pattern>`, which ends the rule before it.
+    private void newRule(String item) {
       var listed = listed(item);
       int colon = listed.indexOf(':');
       var verb = colon < 0 ? "" : listed.substring(0, colon);
@@ -496,12 +509,7 @@ record Configuration(
         throw error(
             "the rule `%s: %s` needs a `reason:` under it".formatted(pendingVerb, pendingTarget));
       }
-      if (aridGiven && pendingArid.isEmpty()) {
-        throw error(
-            "the rule `mutate: %s` has an empty `arid:` list: name the rules to bring back, or"
-                    .formatted(pendingTarget)
-                + " leave `arid:` out to bring back every arid skip");
-      }
+      requireAridIds();
       rules.add(
           new Rule(
               pendingVerb.equals("mutate"),
@@ -512,6 +520,16 @@ record Configuration(
       pendingReason = null;
       pendingArid.clear();
       aridGiven = false;
+    }
+
+    /// An `arid:` with no ids is an error: leaving it out brings back every arid skip.
+    private void requireAridIds() {
+      if (aridGiven && pendingArid.isEmpty()) {
+        throw error(
+            "the rule `mutate: %s` has an empty `arid:` list: name the rules to bring back, or"
+                    .formatted(pendingTarget)
+                + " leave `arid:` out to bring back every arid skip");
+      }
     }
 
     private String listed(String item) {

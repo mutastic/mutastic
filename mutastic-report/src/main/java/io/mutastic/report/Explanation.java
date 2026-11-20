@@ -43,26 +43,31 @@ public final class Explanation {
         .skipped()
         .flatMap(io.mutastic.api.AridRule::of)
         .map(
-            rule -> {
-              var method = mutant.methodName();
-              if (rule == io.mutastic.api.AridRule.DEBUG_REPRESENTATIONS) {
-                var reason = mutant.skipped().orElse("");
-                var served = reason.lastIndexOf("()`");
-                method = reason.substring(reason.lastIndexOf('`', served - 1) + 1, served);
-              }
-              var bringBack =
-                  """
-                  rules:
-                    - mutate: %s#%s
-                      arid: [%s]
-                      reason: <why a test should check it>
-                  """
-                      .formatted(
-                          Untrusted.value(mutant.className().replace('/', '.')),
-                          Untrusted.value(method),
-                          rule.id());
-              return new Arid(rule, rule.url(docs.base()), bringBack);
-            });
+            rule ->
+                new Arid(
+                    rule,
+                    rule.url(docs.base()),
+                    """
+                    rules:
+                      - mutate: %s#%s
+                        arid: [%s]
+                        reason: <why a test should check it>
+                    """
+                        .formatted(
+                            Untrusted.value(mutant.className().replace('/', '.')),
+                            Untrusted.value(keptIn(mutant, rule)),
+                            rule.id())));
+  }
+
+  /// The method a `mutate:` rule names to bring it back: its own, or for a `toString()`'s helper or
+  /// lambda, the `toString()` it serves, the last name in its reason.
+  private static String keptIn(Mutant mutant, io.mutastic.api.AridRule rule) {
+    if (rule != io.mutastic.api.AridRule.DEBUG_REPRESENTATIONS) {
+      return mutant.methodName();
+    }
+    var reason = mutant.skipped().orElse("");
+    var served = reason.lastIndexOf("()`");
+    return reason.substring(reason.lastIndexOf('`', served - 1) + 1, served);
   }
 
   /// How the last full run went for it: its status, and the test that caught it if one did.
@@ -73,19 +78,7 @@ public final class Explanation {
     rows.add(heading());
     addRow(rows, "bytecode", bytecode(mutant));
     addRow(rows, "operator", operator(mutant));
-    arid(mutant, docs)
-        .ifPresent(
-            arid -> {
-              addRow(
-                  rows,
-                  "arid",
-                  List.of(
-                      arid.rule().id() + ": " + arid.rule().description(),
-                      "docs: " + arid.docs(),
-                      "to run it, add to mutastic.yaml:"));
-              // As it's to be copied: never broken between words.
-              arid.bringBack().lines().forEach(line -> rows.add(INDENT + "  " + line));
-            });
+    arid(mutant, docs).ifPresent(arid -> addArid(rows, arid));
     addRow(rows, "id", id(mutant));
     addRow(rows, "site", List.of(Untrusted.escape(site(mutant))));
     addRow(
@@ -94,6 +87,19 @@ public final class Explanation {
         List.of(
             lastRun.map(Explanation::described).orElse("none yet: `run` or `next` records one")));
     return String.join("\n", rows) + "\n";
+  }
+
+  /// The arid rule, its docs and the rule to copy: that, as it's to be copied, never broken between
+  /// words.
+  private void addArid(List<String> rows, Arid arid) {
+    addRow(
+        rows,
+        "arid",
+        List.of(
+            arid.rule().id() + ": " + arid.rule().description(),
+            "docs: " + arid.docs(),
+            "to run it, add to mutastic.yaml:"));
+    arid.bringBack().lines().forEach(line -> rows.add(INDENT + "  " + line));
   }
 
   /// `mutastic/boundary: what it does`, then where the docs say more, as text to copy in any

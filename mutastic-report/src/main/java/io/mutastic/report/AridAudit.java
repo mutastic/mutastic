@@ -28,14 +28,6 @@ record AridAudit(
   static AridAudit of(Report report) {
     var audited = report.audited();
     var checked = audited.stream().filter(AridAudit::byAssertion).toList();
-    // An audited mutant runs without its reason: the run's own result for it has it.
-    var skipped =
-        report.results().stream()
-            .map(MutantResult::mutant)
-            .filter(mutant -> mutant.skipped().isPresent())
-            .collect(
-                java.util.stream.Collectors.toMap(
-                    io.mutastic.api.Mutant::fingerprint, mutant -> mutant, (a, b) -> a));
     return new AridAudit(
         audited.size(),
         audited.stream().filter(result -> result.status().detected()).count(),
@@ -43,13 +35,28 @@ record AridAudit(
         count(audited, Status.MISSED),
         count(audited, Status.NOT_COVERED),
         checked.stream().map(AridAudit::method).distinct().toList(),
-        checked.stream()
-            .map(result -> skipped.getOrDefault(result.mutant().fingerprint(), result.mutant()))
-            .map(mutant -> Explanation.arid(mutant, OperatorDocs.LATEST))
-            .flatMap(java.util.Optional::stream)
-            .map(arid -> arid.bringBack().substring(arid.bringBack().indexOf('\n') + 1))
-            .distinct()
-            .toList());
+        bringBack(report, checked));
+  }
+
+  /// For each caught mutant, the `mutate:` rule that runs its arid rule's mutants there. An audited
+  /// mutant runs without its reason: the run's own result for it has it.
+  private static List<String> bringBack(Report report, List<MutantResult> checked) {
+    var skipped =
+        report.results().stream()
+            .map(MutantResult::mutant)
+            .filter(mutant -> mutant.skipped().isPresent())
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    io.mutastic.api.Mutant::fingerprint,
+                    mutant -> mutant,
+                    (first, second) -> first));
+    return checked.stream()
+        .map(result -> skipped.getOrDefault(result.mutant().fingerprint(), result.mutant()))
+        .map(mutant -> Explanation.arid(mutant, OperatorDocs.LATEST))
+        .flatMap(java.util.Optional::stream)
+        .map(arid -> arid.bringBack().substring(arid.bringBack().indexOf('\n') + 1))
+        .distinct()
+        .toList();
   }
 
   /// What to put in `mutastic.yaml` to run the arid mutants a test checks, in the first methods the
