@@ -24,7 +24,12 @@ class AridSelectorTest {
   void aMutateRuleWithAnAridListBringsBackOnlyItsRules() throws Exception {
     var source = read(SHAPES);
     var plain = found(source, Policy.NONE);
-    for (var rule : AridRule.values()) {
+    var found =
+        plain.values().stream().flatMap(why -> AridRule.of(why).stream()).distinct().toList();
+    // The rules the fixture has a skip of: every one but the thread settings', which have their
+    // own fixtures.
+    assertThat(found).hasSizeGreaterThanOrEqualTo(AridRule.values().length - 4);
+    for (var rule : found) {
       var listed = new Rule(true, source.className(), "worth a test", List.of(rule.id()));
 
       assertOnly(rule.id(), Set.of(rule), plain, found(source, policy(listed)));

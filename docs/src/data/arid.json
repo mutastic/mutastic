@@ -19,7 +19,9 @@
       },
       "examples": {
         "java": "String getName() { return name; }"
-      }
+      },
+      "mutate": "arid: [mutastic:trivial-accessors]",
+      "annotation": "@DoMutate(arid = \"mutastic:trivial-accessors\")"
     },
     {
       "id": "mutastic:debug-representations",
@@ -40,7 +42,9 @@
       },
       "examples": {
         "java": "public String toString() { return \"Order \" + id; }"
-      }
+      },
+      "mutate": "arid: [mutastic:debug-representations]",
+      "annotation": "@DoMutate(arid = \"mutastic:debug-representations\")"
     },
     {
       "id": "mutastic:output",
@@ -63,7 +67,9 @@
       "examples": {
         "java": "System.out.println(\"Saved \" + id);",
         "rust": "println!(\"saved {id}\");"
-      }
+      },
+      "mutate": "arid: [mutastic:output]",
+      "annotation": "@DoMutate(arid = \"mutastic:output\")"
     },
     {
       "id": "mutastic:messages",
@@ -82,7 +88,9 @@
       },
       "examples": {
         "java": "throw new IllegalArgumentException(\"amount must be positive\");"
-      }
+      },
+      "mutate": "arid: [mutastic:messages]",
+      "annotation": "@DoMutate(arid = \"mutastic:messages\")"
     },
     {
       "id": "mutastic:failed-asserts",
@@ -100,7 +108,9 @@
       },
       "examples": {
         "java": "assert total >= 0 : \"negative total\";"
-      }
+      },
+      "mutate": "arid: [mutastic:failed-asserts]",
+      "annotation": "@DoMutate(arid = \"mutastic:failed-asserts\")"
     },
     {
       "id": "mutastic:capacity",
@@ -118,7 +128,9 @@
       },
       "examples": {
         "java": "new ArrayList<>(orders.size() * 2)"
-      }
+      },
+      "mutate": "arid: [mutastic:capacity]",
+      "annotation": "@DoMutate(arid = \"mutastic:capacity\")"
     },
     {
       "id": "mutastic:wait-times",
@@ -136,7 +148,9 @@
       },
       "examples": {
         "java": "Thread.sleep(seconds * 1000L);"
-      }
+      },
+      "mutate": "arid: [mutastic:wait-times]",
+      "annotation": "@DoMutate(arid = \"mutastic:wait-times\")"
     },
     {
       "id": "mutastic:waits",
@@ -154,7 +168,9 @@
       },
       "examples": {
         "java": "Thread.sleep(100);"
-      }
+      },
+      "mutate": "arid: [mutastic:waits]",
+      "annotation": "@DoMutate(arid = \"mutastic:waits\")"
     },
     {
       "id": "mutastic:null-checks",
@@ -177,7 +193,9 @@
       "examples": {
         "java": "Objects.requireNonNull(order);",
         "rust": "order.unwrap();"
-      }
+      },
+      "mutate": "arid: [mutastic:null-checks]",
+      "annotation": "@DoMutate(arid = \"mutastic:null-checks\")"
     },
     {
       "id": "mutastic:array-sizes",
@@ -195,7 +213,9 @@
       },
       "examples": {
         "java": "byte[] buffer = new byte[8192];"
-      }
+      },
+      "mutate": "arid: [mutastic:array-sizes]",
+      "annotation": "@DoMutate(arid = \"mutastic:array-sizes\")"
     },
     {
       "id": "mutastic:first-values",
@@ -213,7 +233,9 @@
       },
       "examples": {
         "java": "int count = 0;"
-      }
+      },
+      "mutate": "arid: [mutastic:first-values]",
+      "annotation": "@DoMutate(arid = \"mutastic:first-values\")"
     },
     {
       "id": "mutastic:split-limits",
@@ -231,25 +253,34 @@
       },
       "examples": {
         "java": "line.split(\",\", 2)"
-      }
+      },
+      "mutate": "arid: [mutastic:split-limits]",
+      "annotation": "@DoMutate(arid = \"mutastic:split-limits\")"
     },
     {
       "id": "mutastic:thread-names",
       "anchor": "thread-names",
       "url": "https://docs.mutastic.io/reference/arid/#thread-names",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
       "description": "A thread's or a pool's name, which only people and their tools read: a thread dump, a profiler, a log pattern.",
       "reasons": {
         "java": [
           "arid: only names a thread"
+        ],
+        "rust": [
+          "arid: only names a thread"
         ]
       },
       "examples": {
-        "java": "thread.setName(\"background-task\");"
-      }
+        "java": "thread.setName(\"background-task\");",
+        "rust": "let builder = thread::Builder::new().name(\"squarer\".into());"
+      },
+      "mutate": "arid: [mutastic:thread-names]",
+      "annotation": "@DoMutate(arid = \"mutastic:thread-names\")"
     },
     {
       "id": "mutastic:thread-priorities",
@@ -267,43 +298,59 @@
       },
       "examples": {
         "java": "thread.setPriority(Thread.MAX_PRIORITY);"
-      }
+      },
+      "mutate": "arid: [mutastic:thread-priorities]",
+      "annotation": "@DoMutate(arid = \"mutastic:thread-priorities\")"
     },
     {
       "id": "mutastic:keep-alive-times",
       "anchor": "keep-alive-times",
       "url": "https://docs.mutastic.io/reference/arid/#keep-alive-times",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
       "description": "How long a pool's idle threads live before they stop, while it stays above zero.",
       "reasons": {
         "java": [
           "arid: only sets how long idle threads live"
+        ],
+        "rust": [
+          "arid: only sets how long idle threads live"
         ]
       },
       "examples": {
-        "java": "pool.setKeepAliveTime(30, TimeUnit.SECONDS);"
-      }
+        "java": "pool.setKeepAliveTime(30, TimeUnit.SECONDS);",
+        "rust": "let runtime = Builder::new_multi_thread().thread_keep_alive(Duration::from_secs(5 * 60));"
+      },
+      "mutate": "arid: [mutastic:keep-alive-times]",
+      "annotation": "@DoMutate(arid = \"mutastic:keep-alive-times\")"
     },
     {
       "id": "mutastic:stack-sizes",
       "anchor": "stack-sizes",
       "url": "https://docs.mutastic.io/reference/arid/#stack-sizes",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
       "description": "The size of a thread's stack, while it stays above zero.",
       "reasons": {
         "java": [
           "arid: only sizes a thread's stack"
+        ],
+        "rust": [
+          "arid: only sizes a thread's stack"
         ]
       },
       "examples": {
-        "java": "Thread.ofPlatform().stackSize(1 << 20).unstarted(task);"
-      }
+        "java": "Thread.ofPlatform().stackSize(1 << 20).unstarted(task);",
+        "rust": "let builder = thread::Builder::new().stack_size(64 * 1024);"
+      },
+      "mutate": "arid: [mutastic:stack-sizes]",
+      "annotation": "@DoMutate(arid = \"mutastic:stack-sizes\")"
     }
   ]
 }
