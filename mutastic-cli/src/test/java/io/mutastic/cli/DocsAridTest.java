@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -267,37 +268,44 @@ class DocsAridTest {
     return ANSI.matcher(result.out()).replaceAll("");
   }
 
-  /// What `explain` says of a skipped mutant: from the skip to its mutant, without the run before
-  /// it or the bytecode after.
+  /// What `explain` says of a skipped mutant: the skip and its mutant, then its rule, with the docs
+  /// and the `mutate:` rule that brings it back; not the run before it or the bytecode.
   private static Samples.Result theSkip(Samples.Result result) {
     var lines = result.out().lines().toList();
-    int first = 0;
-    while (first < lines.size() && !plain(lines.get(first)).contains("SKIPPED")) {
-      first++;
-    }
-    assertThat(first).as(result.out()).isLessThan(lines.size());
-    int end = first;
-    while (end < lines.size() && !plain(lines.get(end)).contains("About this mutant")) {
-      end++;
-    }
-    var shown = String.join("\n", lines.subList(first, end)).stripTrailing() + "\n";
+    int first = indexOf(lines, 0, line -> line.contains("SKIPPED"));
+    int about = indexOf(lines, first, line -> line.contains("About this mutant"));
+    int rule = indexOf(lines, about, line -> line.strip().startsWith("= arid"));
+    int end = indexOf(lines, rule + 1, line -> line.strip().startsWith("= "));
+    var shown =
+        String.join("\n", lines.subList(first, about)).stripTrailing()
+            + "\n\n"
+            + String.join("\n", lines.subList(rule, end))
+            + "\n";
     return new Samples.Result(result.exit(), shown, result.err());
   }
 
-  /// The summary's rows from the one starting `from` to the one starting `to`.
+  /// The summary's rows from the one starting `from` to the one starting `to`, and the lines that
+  /// go on from that one.
   private static Samples.Result theSummary(Samples.Result result, String from, String to) {
     var lines = result.out().lines().toList();
-    int first = 0;
-    while (first < lines.size() && !plain(lines.get(first)).strip().startsWith(from)) {
-      first++;
+    int first = indexOf(lines, 0, line -> line.strip().startsWith(from));
+    int last = indexOf(lines, first, line -> line.strip().startsWith(to));
+    int end = last + 1;
+    while (end < lines.size() && plain(lines.get(end)).startsWith("             ")) {
+      end++;
     }
-    int last = first;
-    while (last < lines.size() && !plain(lines.get(last)).strip().startsWith(to)) {
-      last++;
-    }
-    assertThat(last).as(result.out()).isLessThan(lines.size());
-    var shown = String.join("\n", lines.subList(first, last + 1)) + "\n";
+    var shown = String.join("\n", lines.subList(first, end)) + "\n";
     return new Samples.Result(result.exit(), shown, result.err());
+  }
+
+  /// The first of `lines` from `from` on that `matches`, its colours left out.
+  private static int indexOf(List<String> lines, int from, Predicate<String> matches) {
+    for (int index = from; index < lines.size(); index++) {
+      if (matches.test(plain(lines.get(index)))) {
+        return index;
+      }
+    }
+    throw new AssertionError("no such line from " + from + " in:\n" + String.join("\n", lines));
   }
 
   /// The page's `mutastic.yaml`, the block it adds to the sample.

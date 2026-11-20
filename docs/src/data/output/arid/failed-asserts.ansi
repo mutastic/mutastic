@@ -9,3 +9,11 @@
    [2m=[0m change  the [1mthrow[0m of [1mAssertionError[0m is removed, so the code carries on (not shown in the source)
 
    [2mreproduce [0m mutastic run --only=m9e76abb7 samples/arid
+
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:failed-asserts: The `throw` of an `assert` that fails.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#failed-asserts[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.arid.Ledger#settle
+                      arid: [mutastic:failed-asserts]
+                      reason: <why a test should check it>

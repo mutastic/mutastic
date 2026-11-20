@@ -9,3 +9,12 @@
     [2m=[0m mutant  [1;31m- [0mout.println("total: " + total);
 
     [2mreproduce [0m mutastic run --only=m71ba3a27 samples/arid
+
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:output: Code that only writes output: a log line, or text printed to the
+                console.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#output[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.arid.Totals#print
+                      arid: [mutastic:output]
+                      reason: <why a test should check it>
