@@ -32,7 +32,9 @@ kotlinc's own calls and shapes), never on a name alone:
 - a `lateinit`'s getter and the check that it's been set;
 - a coroutine's state machine: where to resume, saving locals across a suspension, and the comparison
   with `COROUTINE_SUSPENDED`;
-- code copied in from an inline function in a library, such as the loop in `filter`.
+- code copied in from an inline function in a library, such as the loop in `filter`;
+- what `use` copies in to close what it's given: its `closeFinally` call on each way out, as a Java
+  try-with-resources's close is. The block you give `use` is yours, and its mutants run.
 
 `x!!` and `x as String` are yours, so their checks stay: without one, a `null` carries on where you said
 it shouldn't. `x!!.size` is the exception, skipped as `equivalent:`, as reading the value throws the same
