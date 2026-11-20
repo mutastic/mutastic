@@ -180,7 +180,8 @@ class DocsAridTest {
           rules.entrySet().stream()
               .filter(
                   each ->
-                      each.getValue().stream().anyMatch(p -> p.matcher(mutant.reason()).matches()))
+                      each.getValue().stream()
+                          .anyMatch(reason -> reason.matcher(mutant.reason()).matches()))
               .map(Map.Entry::getKey)
               .findFirst();
       assertThat(rule).as("the rule that gives %s, in arid.json", mutant.reason()).isPresent();
