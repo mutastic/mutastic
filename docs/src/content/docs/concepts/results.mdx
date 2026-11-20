@@ -119,6 +119,21 @@ see [Profiles](/rust/concepts/profiles/#why-overflow-checks-are-forced).
 </div>
 </EditionTabs>
 
+### When the code a test runs exits
+
+A test that calls `main` in the tests' own process runs whatever `main` does, exits included. If a
+mutant makes `main` exit where it didn't, the test never finishes. What that means depends on the
+status, as it does in your own test run:
+
+- **Any status but 0 fails the run,** so the mutant is caught by the test that was running, by the
+  exit. The card says so, `caught by CliTest#printsTheDiscount, by the JVM exiting with status 2`,
+  and in the event stream `caughtWith` is `exit: 2`.
+- **Status 0 passes it,** in Gradle's test task and in `cargo test`, though no test after it runs.
+  So it isn't a catch: the tests after that one run without it, and decide. Maven's Surefire fails
+  any exit, but mutastic doesn't count on that.
+
+A test that hangs is still timed out.
+
 ## Which tests reach a line
 
 Before any mutant, mutastic runs every test once and records the code each one runs. A mutant then

@@ -63,6 +63,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Scoring changes
 
+- **A mutant that makes the code a test runs exit is caught by that test, or not caught.** A test
+  that calls `main` in the tests' own JVM, where a mutant made `main` call `System.exit`, read as a
+  timeout. It's now caught by that test, by the exit, when the status fails a build's test run (any
+  but 0): same score, but the test is named. Status 0 passes Gradle's test task, so it's no catch,
+  and the tests after it decide: such a mutant can now read as missed, and a score can go down.
+  See [When the code a test runs
+  exits](https://docs.mutastic.io/concepts/results/#when-the-code-a-test-runs-exits).
 - **`library/swap-math` swaps a stream's and a collection's `min` and `max` too.** `Stream.min`
   and `max` with a comparator, `IntStream`'s, `LongStream`'s and `DoubleStream`'s, `Collections.min`
   and `max`, and `Collectors.minBy` and `maxBy` swap places, as `Math.min` and `max` already did,
@@ -114,6 +121,9 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **A test whose code exits says so.** A caught mutant's card says `caught by
+  CliTest#printsTheDiscount, by the JVM exiting with status 2`, and its event has `caughtWith:
+  "exit: 2"` and `failureOrigin: "exit"`. The Rust edition says the same for `process::exit`.
 - **A test that runs `main` in a JVM of its own is said to reach no mutant.** A test that starts
   `java` on `java.class.path` to run the project's `main`, as a person would, found none of the
   project there and failed, so mutastic said the tests fail without any mutant, though they pass

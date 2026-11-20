@@ -2370,11 +2370,11 @@
             },
             {
               "name": "failure",
-              "doc": "what it failed with: the exception's class"
+              "doc": "what it failed with: the exception's class, or `exit: 2` when the code it ran ended the JVM with that status"
             },
             {
               "name": "failureOrigin",
-              "doc": "where that came from: `assertion` (a check failed), `test` (the test's own code threw), `code` (the code under test threw) or `unknown` (no frame of the stack trace is in the tests or the code: a framework or the JDK threw)"
+              "doc": "where that came from: `assertion` (a check failed), `test` (the test's own code threw), `code` (the code under test threw), `unknown` (no frame of the stack trace is in the tests or the code: a framework or the JDK threw) or `exit` (the code it ran ended the JVM)"
             },
             {
               "name": "testsRun",
