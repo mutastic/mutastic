@@ -10,3 +10,12 @@
               [32m+ [0mint attempt = 1;
 
     [2mreproduce [0m mutastic run --only=m2e6aaf12 samples/arid
+
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:first-values: A variable's first value of 0 or 1, where a counter or a
+                total starts.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#first-values[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.arid.Retry#attempts
+                      arid: [mutastic:first-values]
+                      reason: <why a test should check it>
