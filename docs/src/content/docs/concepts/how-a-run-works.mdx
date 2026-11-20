@@ -139,13 +139,24 @@ against every test that reaches its class. A worker that runs out of time is kil
 Workers side by side can get in each other's way: tests that use a fixed port collide, and tests
 that share a lock, a database or a slow start run slower than they did alone. So neither a catch
 caused by a port in use nor a timeout is trusted: that mutant runs again on its own once the others
-are done. Each worker has a temporary directory of its own, deleted once the worker has gone.
+are done.
+
+Each worker has a temporary directory of its own, its `java.io.tmpdir`, deleted once the worker has
+gone. What a mutant's tests add to it is deleted once they've answered, so a file one mutant's tests
+leave there, as a mutant that removes a `Files.delete` does, can't make the next mutant's tests
+pass. What was already there stays: a server the coverage pass started can hold on to a directory
+there.
 
 </div>
 <div slot="rust">
 
 Each mutant runs in the test binary mutastic built, with `MUTASTIC_ACTIVE` naming it, one process
 each. The time limit is set from how long its tests took in the coverage pass.
+
+Each test process gets an empty temporary directory of its own, deleted once it ends: `TMPDIR`, and
+`TMP` and `TEMP` on Windows, which `std::env::temp_dir()` and the `tempfile` crate read. A file one
+mutant's tests leave there, as a mutant that removes a `remove_file` does, can't make the next
+mutant's tests pass.
 
 A test process that dies without a test failing, by a signal or an abort, is run again one test at a
 time to see how it died. What that means depends on where the mutant is: see
