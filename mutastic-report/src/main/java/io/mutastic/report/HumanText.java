@@ -605,16 +605,23 @@ public final class HumanText {
                   AgentText.shortName(result.caughtBy().orElse("a test")),
                   result
                       .failureOrigin()
-                      .map(
-                          origin ->
-                              origin.equals("assertion")
-                                  ? ", by an assertion"
-                                  : ", by a crash in the " + origin)
+                      .map(origin -> by(origin, result.failure().orElse("")))
                       .orElse(""));
       case TIMED_OUT -> "its tests stopped finishing in time, which counts as caught";
       case NOT_COVERED -> "no test reaches this line";
       case SKIPPED -> Untrusted.value(result.mutant().skipped().orElse(""));
       case MISSED -> "missed";
+    };
+  }
+
+  /// `, by an assertion`, `, by a crash in the code`, or `, by the JVM exiting with status 2`: how
+  /// the catcher failed, from where the failure came from and what it was.
+  private static String by(String origin, String failure) {
+    return switch (origin) {
+      case "assertion" -> ", by an assertion";
+      case "exit" ->
+          ", by the JVM exiting with status " + Untrusted.value(failure.replace("exit: ", ""));
+      default -> ", by a crash in the " + origin;
     };
   }
 

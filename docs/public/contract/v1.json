@@ -1095,7 +1095,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "147b5e9cf7e682ab54d5fb3af9c6ef4aeb79a27e0c703873478d0ee06719f0a4"
+      "sha256": "24a625e8dd65dfc40e873391f4e60a6f46d6673c342038ef4f51726aba80833e"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1110,7 +1110,7 @@
     "reportAdditions": {
       "id": "mutastic.report/v1",
       "url": "https://docs.mutastic.io/schemas/report/v1.json",
-      "sha256": "e8b4c1c3bfa693cf4cc1627cc566dd002160398f2d6cec40900fa5cbb126c5a3"
+      "sha256": "fa833754331f81a4c7024e88ea5c0c6179fdacc474731f715a0ccad5f2fa8fc4"
     }
   },
   "events": {
@@ -2000,7 +2000,7 @@
         "rust"
       ],
       "surface": "events",
-      "summary": "`caughtWith`: an exception class, or `panic` or `crash: SIGABRT`",
+      "summary": "`caughtWith`: an exception class, or `panic` or `crash: SIGABRT`; `exit: 2` in both",
       "reason": "How a test fails."
     },
     {
