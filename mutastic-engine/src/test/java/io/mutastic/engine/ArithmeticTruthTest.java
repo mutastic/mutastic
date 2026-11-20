@@ -318,7 +318,10 @@ class ArithmeticTruthTest {
             "aCountFromZero",
             "aStartCompared");
     for (var start : starts) {
-      assertThat(constants.changesIn(start)).as(start).isNotEmpty().noneMatch(c -> c.contains("("));
+      assertThat(constants.changesIn(start))
+          .as(start)
+          .isNotEmpty()
+          .noneMatch(change -> change.contains("("));
     }
     assertThat(constants.changesIn("aCounterFromZero"))
         .containsExactly("constant 0 to 1", "constant 0 to -1");
