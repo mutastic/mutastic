@@ -324,8 +324,8 @@
         "java": "pool.setKeepAliveTime(30, TimeUnit.SECONDS);",
         "rust": "let runtime = Builder::new_multi_thread().thread_keep_alive(Duration::from_secs(5 * 60));"
       },
-      "mutate": "arid: [mutastic:keep-alive-times]",
-      "annotation": "@DoMutate(arid = \"mutastic:keep-alive-times\")"
+      "mutate": "arid: [mutastic:keep-alive]",
+      "annotation": "@DoMutate(arid = \"mutastic:keep-alive\")"
     },
     {
       "id": "mutastic:stack-sizes",
