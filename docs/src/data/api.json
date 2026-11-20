@@ -1717,8 +1717,8 @@
           "slug": "filter",
           "kind": "interface",
           "signature": "interface Filter",
-          "summary": "Decides that a method's mutants shouldn't run, and says why.",
-          "doc": "Decides that a method's mutants shouldn't run, and says why. A filter acts only on positive\nevidence in the bytecode, never on a name alone: one that skips too much makes the score lie,\nand nobody can tell.",
+          "summary": "Decides that a method's mutants, or one of them, shouldn't run, and says why.",
+          "doc": "Decides that a method's mutants, or one of them, shouldn't run, and says why. A filter acts only\non positive evidence in the bytecode, never on a name alone: one that skips too much makes the\nscore lie, and nobody can tell.",
           "params": [],
           "members": [
             {
@@ -1747,6 +1747,16 @@
               "anchor": "skip",
               "signature": "Optional<Skip> skip(ClassModel owner, MethodModel method)",
               "doc": "Why `method`'s mutants shouldn't run, if they shouldn't.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "skipMutant",
+              "anchor": "skipmutant",
+              "signature": "default Optional<Skip> skipMutant(Mutator.Site site, Mutant mutant)",
+              "doc": "Why one mutant shouldn't run, if it shouldn't: for a rule narrower than a method, such as\n\"this value only goes into a log line\". Asked of each mutant still to run once mutastic's own\nchecks and every filter's [`skip`](#skip) have had their say, so a method skipped as a whole never\ngets here. `site` is the instruction the mutant changes, with the code around it, and `mutant`\nis the change. None by default: the method's verdict stands.\n\nA skip says why, as every skip does: a [`Skip`](../skip/) with a blank reason stops the run.",
               "params": [],
               "returns": "",
               "throws": []

@@ -229,8 +229,59 @@ itself (`@QuarkusTest`) that can't be done, and they're skipped as `unviable:`.
 
 ## Filters
 
-A jar can also hold filters, which decide that a method's mutants shouldn't run:
+Some code isn't worth a test in your project, and mutastic can't know it: calls to your own audit
+log, say. A jar can hold filters that skip it:
 [`io.mutastic.api.Filter`](/reference/api/filter/),
 named in `META-INF/services/io.mutastic.api.Filter`. Unlike operators, a plugin's filters run only
 when `filters:` in `mutastic.yaml` names them: see [Configuration and
 skipping](/guides/configuration/).
+
+A filter judges a whole method with `skip`, or one mutant at a time with `skipMutant`, for a rule
+narrower than a method. This one skips the mutants of a call to `Audit.record`, and leaves the rest
+of the method to run:
+
+```java
+package acme;
+
+import io.mutastic.api.Filter;
+import io.mutastic.api.Mutant;
+import io.mutastic.api.Mutator;
+import io.mutastic.api.Skip;
+import java.lang.classfile.ClassModel;
+import java.lang.classfile.MethodModel;
+import java.lang.classfile.instruction.InvokeInstruction;
+import java.util.Optional;
+
+public class NoAuditCalls implements Filter {
+  public String id() {
+    return "acme:no-audit-calls";
+  }
+
+  public Optional<Skip> skip(ClassModel owner, MethodModel method) {
+    return Optional.empty();
+  }
+
+  public Optional<Skip> skipMutant(Mutator.Site site, Mutant mutant) {
+    return site.instruction() instanceof InvokeInstruction call
+            && call.owner().asInternalName().equals("com/acme/Audit")
+            && call.name().equalsString("record")
+        ? Optional.of(new Skip(Skip.Kind.ARID, "only records an audit event"))
+        : Optional.empty();
+  }
+}
+```
+
+- **`skip`** is asked once for each method. Its reason skips every mutant in the method.
+- **`skipMutant`** is asked about each mutant that's still to run: one that mutastic's own checks
+  and every filter's `skip` have left alone. `site` is the instruction the mutant changes, with the
+  method's code around it, the same `Site` a `Mutator` sees, so a filter can look at what comes
+  before or after. `mutant` is the change: its operator, its replacement, its line.
+- **`prepare`** sees the module's classes before any of them is judged, for a rule that depends on
+  who calls a method.
+
+A skip always says why. A `Skip` with a blank reason stops the run with an error that names the
+filter. The reason is shown with each mutant it skips, the same in every output: the terminal,
+`explain`, the report and the events' `statusReason`. Pick the kind that says what you know:
+`ARID` for code not worth a test, which a [`mutate:` rule](/guides/configuration/) or `@DoMutate`
+brings back, as it does mutastic's own arid skips; `USER` for your team's decision, which no rule
+overrides; `GENERATED`, `EQUIVALENT` or `UNVIABLE` only for what the bytecode proves.
