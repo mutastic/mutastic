@@ -33,9 +33,11 @@ public enum AridRule {
   OUTPUT(
       "mutastic:output",
       Scope.SITE,
-      "Code that only writes output: a log line, or text printed to the console.",
+      "Code that only writes output: a log line, or text printed to the console, and a value"
+          + " worked out for nothing else.",
       "System.out.println(\"Saved \" + id);",
-      "arid: only writes output"),
+      "arid: only writes output",
+      "arid: only feeds a log line"),
   MESSAGES(
       "mutastic:messages",
       Scope.SITE,
