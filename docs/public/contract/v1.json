@@ -2289,17 +2289,6 @@
       "reason": "Each language's own word."
     },
     {
-      "id": "D13",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "errors",
-      "summary": "Codes worked out from the message's words (Java's `usageCode`) rather than set where the error is raised",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "decision": 13
-    },
-    {
       "id": "G3",
       "kind": "pending",
       "editions": [
@@ -2465,26 +2454,6 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "G33",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "errors",
-      "summary": "A missing directory names only itself, not where it looked or a close directory",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "G34",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "errors",
-      "summary": "No command-first hint",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "G36",
       "kind": "pending",
       "editions": [
@@ -2493,17 +2462,6 @@
       "surface": "typos",
       "summary": "No close id for `ignore --accept`/`--remove`, no close key in ignores.yaml, no close rule verb, no inline-list hint",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G37",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "typos",
-      "summary": "typos.tsv has no rows for gate actions, ids, modules, directories, rule verbs or ignore keys",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
       "id": "G38",
@@ -2714,16 +2672,6 @@
       "surface": "reports",
       "summary": "SARIF rule `shortDescription` isn't the operator explanation's first sentence",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "T1",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "typos",
-      "summary": "Counts length in UTF-16 units, not chars",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
       "id": "C1",

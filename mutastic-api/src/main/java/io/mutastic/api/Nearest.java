@@ -28,7 +28,7 @@ public final class Nearest {
   /// without their `--` or `:`, so the punctuation counts for no edits.
   public static Optional<String> name(
       String typed, Collection<String> names, Function<String, String> key) {
-    return name(typed, names, key, Math.max(key.apply(typed).length(), 3) / 3);
+    return name(typed, names, key, Math.max(length(key.apply(typed)), 3) / 3);
   }
 
   /// A name without the punctuation around it, for [#name(String, Collection, Function)]: an
@@ -50,7 +50,13 @@ public final class Nearest {
         .filter(name -> distance(wanted, key.apply(name)) <= most)
         .min(
             Comparator.<String>comparingInt(name -> distance(wanted, key.apply(name)))
-                .thenComparingInt(name -> Math.abs(key.apply(name).length() - wanted.length())));
+                .thenComparingInt(name -> Math.abs(length(key.apply(name)) - length(wanted))));
+  }
+
+  /// How many characters `text` has, as the Rust edition counts them: code points, so a letter
+  /// outside the Basic Multilingual Plane is one, not two UTF-16 units.
+  private static int length(String text) {
+    return text.codePointCount(0, text.length());
   }
 
   /// The edits from `from` to `to`: a character inserted, deleted, changed, or two next to each
@@ -59,40 +65,37 @@ public final class Nearest {
     return new Edits(from.toLowerCase(Locale.ROOT), to.toLowerCase(Locale.ROOT)).all();
   }
 
-  /// The fewest edits from each start of one name to each start of another, filled in order.
+  /// The fewest edits from each start of one name to each start of another, filled in order, a
+  /// character being a code point.
   private static final class Edits {
-    private final String from;
-    private final String to;
+    private final int[] from;
+    private final int[] to;
     private final int[][] fewest;
 
     Edits(String from, String to) {
-      this.from = from;
-      this.to = to;
-      this.fewest = new int[from.length() + 1][to.length() + 1];
+      this.from = from.codePoints().toArray();
+      this.to = to.codePoints().toArray();
+      this.fewest = new int[this.from.length + 1][this.to.length + 1];
     }
 
     /// The edits from all of `from` to all of `to`.
     int all() {
-      for (int i = 0; i <= from.length(); i++) {
-        for (int j = 0; j <= to.length(); j++) {
+      for (int i = 0; i <= from.length; i++) {
+        for (int j = 0; j <= to.length; j++) {
           fewest[i][j] = i == 0 || j == 0 ? i + j : fewest(i, j);
         }
       }
-      return fewest[from.length()][to.length()];
+      return fewest[from.length][to.length];
     }
 
     /// The fewest edits to `from`'s first `i` characters to make `to`'s first `j`, from the ones
     /// before.
     private int fewest(int i, int j) {
-      int changed = from.charAt(i - 1) == to.charAt(j - 1) ? 0 : 1;
+      int changed = from[i - 1] == to[j - 1] ? 0 : 1;
       int least =
           Math.min(
               Math.min(fewest[i - 1][j] + 1, fewest[i][j - 1] + 1), fewest[i - 1][j - 1] + changed);
-      boolean swapped =
-          i > 1
-              && j > 1
-              && from.charAt(i - 1) == to.charAt(j - 2)
-              && from.charAt(i - 2) == to.charAt(j - 1);
+      boolean swapped = i > 1 && j > 1 && from[i - 1] == to[j - 2] && from[i - 2] == to[j - 1];
       return swapped ? Math.min(least, fewest[i - 2][j - 2] + 1) : least;
     }
   }
