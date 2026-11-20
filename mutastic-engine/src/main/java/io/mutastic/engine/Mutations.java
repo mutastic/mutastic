@@ -160,6 +160,7 @@ final class Mutations {
 
   List<Mutant> find(ClassModel model) {
     var mutants = new ArrayList<Mutant>();
+    var threads = ThreadSettings.Facts.of(model);
     for (MethodModel method : model.methods()) {
       var here = operatorsIn(model, method);
       if (!here.isEmpty()) {
@@ -167,7 +168,7 @@ final class Mutations {
             .code()
             .ifPresent(
                 code -> {
-                  var scan = scan(model, method, code, here);
+                  var scan = scan(new Scanned(model, threads), method, code, here);
                   var found = scan.mutants(); // before its twin keys, which it finds
                   var made = viable(model, located(model, method, mergeFinallyCopies(found, code)));
                   mutants.addAll(Twins.marked(made, scan.twinKeys()));
@@ -178,21 +179,26 @@ final class Mutations {
     return mutants;
   }
 
+  /// The class a method's in, and what it shows of how it treats its threads.
+  private record Scanned(ClassModel model, ThreadSettings.Facts threads) {}
+
   private MethodScan scan(
-      ClassModel model,
+      Scanned scanned,
       MethodModel method,
       java.lang.classfile.CodeModel code,
       List<Operator> here) {
+    var model = scanned.model();
     return new MethodScan(
-        model,
-        method,
-        code.elementList(),
-        filtered(model, method),
-        kept(model, method),
-        here,
-        new Wrappers(module),
-        supertypes,
-        module);
+            model,
+            method,
+            code.elementList(),
+            filtered(model, method),
+            kept(model, method),
+            here,
+            new Wrappers(module),
+            supertypes,
+            module,
+            scanned.threads());
   }
 
   /// The mutants at where their code really is, and those in code copied in from outside the module
@@ -363,6 +369,7 @@ final class Mutations {
     private final List<Operator> operators;
     private final Wrappers wrappers;
     private final Supertypes supertypes;
+    private final ThreadSettings threads;
 
     /// The module's classes by internal name: empty until [Mutations#prepare] has seen them.
     private final Map<String, ClassModel> module;
@@ -389,7 +396,8 @@ final class Mutations {
         List<Operator> operators,
         Wrappers wrappers,
         Supertypes supertypes,
-        Map<String, ClassModel> module) {
+        Map<String, ClassModel> module,
+        ThreadSettings.Facts threads) {
       this.model = model;
       this.module = module;
       this.wrappers = wrappers;
@@ -408,6 +416,7 @@ final class Mutations {
       this.defaultStandIns = kotlin ? KotlinDefaults.places(code) : Set.of();
       this.operands = method.code().map(Operands::new).orElseThrow();
       this.stores = new Stores(code);
+      this.threads = new ThreadSettings(code, threads);
     }
 
     Map<String, Set<String>> twinKeys() {
@@ -751,7 +760,7 @@ final class Mutations {
               () -> stringSwitch(instruction),
               () -> writesOutput(instruction),
               () -> KotlinChecks.reason(code, at),
-              () -> SiteSkips.reason(found.operator(), code, at),
+              () -> aroundTheSite(found, at),
               () ->
                   ImpliedOr.reason(
                       found.operator(), found.label(), new ImpliedOr.Site(model, code, at)),
@@ -762,6 +771,12 @@ final class Mutations {
           .flatMap(Optional::stream)
           .filter(reason -> !(kept && reason.startsWith("arid:")))
           .findFirst();
+    }
+
+    /// What the code right around the site shows: a capacity, a wait, a thread's settings.
+    private Optional<String> aroundTheSite(Found found, int at) {
+      return SiteSkips.reason(found.operator(), code, at)
+          .or(() -> threads.reason(found.operator(), found.label(), at));
     }
 
     /// The filters' reason, but for a `@NonNull` check in a member Lombok wrote: the person asked
