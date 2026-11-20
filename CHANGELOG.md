@@ -63,6 +63,30 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Scoring changes
 
+- **Only a sleep's time is arid, followed all the way to the sleep.** A number, or arithmetic,
+  that goes only into how long `Thread.sleep` or `TimeUnit.sleep` waits is skipped as `arid: only
+  sets how long to wait` however it gets there: the `1000` in `seconds * 1000L` too, and through
+  `Duration.ofSeconds` or `TimeUnit.toMillis`, as `Thread.sleep(Duration.ofSeconds(n * 2))`. A
+  `join`'s time limit now counts, as a timeout given to `Future.get` always did: a shorter limit
+  gives up on the work sooner, and a test can see that. So does a number made negative for
+  `Thread.sleep(long)`, which throws for it. The Rust edition makes and skips the same:
+  `thread::sleep` and an awaited `sleep` removed (`mutastic:waits`), and a number that goes into a
+  sleep (`mutastic:wait-times`), where it made no mutant before. See [Wait
+  times](https://docs.mutastic.io/reference/arid/#wait-times).
+- **More capacities are arid, and a negative one counts.** The number in the arithmetic, the `2`
+  in `new ArrayList<>(n * 2)`, the JDK's `HashMap.newHashMap` and its kin, Guava's sized factories
+  (`Lists.newArrayListWithExpectedSize` and the like) and a hash table's load factor while it stays
+  above zero (`arid: only sets when a hash table grows`) are skipped as arid. A number changed to a
+  negative one there, as `new ArrayList<>(16)` to `-1`, now counts: it always throws. The Rust
+  edition makes and skips a number or arithmetic in `with_capacity`, `reserve` and
+  `reserve_exact`. See [Capacity](https://docs.mutastic.io/reference/arid/#capacity).
+- **The Rust edition makes its arid mutants, and skips them with a reason.** An error's or a
+  failed check's text (`mutastic:messages`), a counter's first `0` or `1`
+  (`mutastic:first-values`), and every mutant of a `Debug` or `Hash` impl
+  (`mutastic:debug-representations`) are made and skipped, so they're counted as arid, a
+  `mutate:` rule brings them back, and `MUTASTIC_ARID=audit` runs them. A `Display` impl's whole
+  body now counts. The editions' contract gives each rule both editions.
+
 - **Twins run once, and their place counts once.** Two mutants at one place that always do the
   same now run as one: the other is skipped as `twin: same as <id>`, naming the one that runs, and
   is out of the score. A for-each loop over an array has three such pairs (`<` made `<=` and the

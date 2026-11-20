@@ -48,7 +48,7 @@ class DocsAridTest {
           Map.entry("mutastic:messages", "`\"amount must not be negative\"` becomes `\"\"`"),
           Map.entry("mutastic:failed-asserts", "the `throw` of `AssertionError` is removed"),
           Map.entry("mutastic:capacity", "`*` becomes `/`"),
-          Map.entry("mutastic:wait-times", "`seconds * 1000` becomes `seconds`"),
+          Map.entry("mutastic:wait-times", "`pauseTenths * 100` becomes `pauseTenths`"),
           Map.entry("mutastic:waits", "the call to `sleep()` is removed"),
           Map.entry("mutastic:null-checks", "the call to `requireNonNull()` is removed"),
           Map.entry("mutastic:array-sizes", "the constant `7` becomes `8`"),
