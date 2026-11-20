@@ -3,9 +3,11 @@ package io.mutastic.gradle;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.mutastic.api.BuildErrors;
 import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
 import io.mutastic.api.Wrappers;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -177,6 +179,54 @@ class GradleTest {
         .endsWith(
             "gradlew -p %s test --tests 'com.example.PricingTest.bigOrders'"
                 .formatted(directory.toRealPath()));
+  }
+
+  /// A build in a directory with a space: the commands mutastic prints run as they're copied, a
+  /// shell reading the wrapper's path and the build's directory as one word each, run with the
+  /// wrapper, with `sh` or with the Gradle on the PATH.
+  @Test
+  @DisabledOnOs(value = OS.WINDOWS, disabledReason = "a POSIX shell reads the command")
+  void aBuildInADirectoryWithASpaceGetsCommandsThatRunAsTheyreCopied(@TempDir Path work)
+      throws Exception {
+    var directory = Files.createDirectories(work.resolve("My Projects/app"));
+    Files.writeString(directory.resolve("settings.gradle.kts"), "");
+    var wrapper = executable(directory.resolve("gradlew"));
+    var request = new BuildTool.Request(directory, ":", directory.resolve("build"), ".", "test");
+    var real = directory.toRealPath().toString();
+    var filter = List.of("-p", real, "test", "--tests", "com.example.PricingTest.bigOrders");
+
+    var command = GradleSetup.testCommand(request, "com.example.PricingTest#bigOrders");
+
+    assertThat(command).startsWith("'" + wrapper.toRealPath() + "' -p '" + real + "' test");
+    assertThat(argv(command)).isEqualTo(concat(List.of(wrapper.toRealPath().toString()), filter));
+
+    assertThat(wrapper.toFile().setExecutable(false)).isTrue();
+
+    assertThat(argv(GradleSetup.testCommand(request, "com.example.PricingTest#bigOrders")))
+        .isEqualTo(concat(List.of("sh", wrapper.toRealPath().toString()), filter));
+
+    Files.delete(wrapper);
+    var path = onPath(work);
+    var onPath =
+        BuildErrors.command(
+            GradleSetup.gradle(directory, path).command(),
+            directory,
+            "-p",
+            List.of("test", "--tests", "'com.example.PricingTest.bigOrders'"));
+
+    assertThat(argv(onPath)).isEqualTo(concat(List.of("gradle"), filter));
+  }
+
+  private static List<String> concat(List<String> first, List<String> rest) {
+    return java.util.stream.Stream.concat(first.stream(), rest.stream()).toList();
+  }
+
+  /// The words `sh` reads in `command`.
+  private static List<String> argv(String command) throws Exception {
+    var process = new ProcessBuilder("sh", "-c", "printf '%s\\n' " + command).start();
+    var words = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+    assertThat(process.waitFor()).isZero();
+    return words.lines().toList();
   }
 
   /// With no wrapper, mutastic says which Gradle runs before it builds, and its version when its

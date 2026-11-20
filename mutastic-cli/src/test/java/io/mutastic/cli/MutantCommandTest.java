@@ -122,6 +122,65 @@ class MutantCommandTest {
         .isEqualTo("gradle :mutasticRun -Pmutastic.only=m855c8e3c");
   }
 
+  /// The Gradle the plugin found, a wrapper in a directory with a space, is quoted, so the command
+  /// runs as it's copied: in a shell's single quotes, after `sh` when the wrapper isn't executable;
+  /// for cmd, a `.bat` in double quotes. Every place a command shows comes from here: the terminal,
+  /// the agent's and share-ready text, the events and the report's `mutastic.commands`.
+  @Test
+  void aWrapperInADirectoryWithASpaceIsQuoted() throws Exception {
+    var target = List.of("my app", ":api");
+
+    assertThat(
+            MutantCommand.DONE_WHEN.command(
+                ID, Invocation.of("gradle:/Users/me/My Projects/gradlew", target)))
+        .isEqualTo(
+            "'/Users/me/My Projects/gradlew' :api:mutasticVerify -Pmutastic.mutant=m855c8e3c"
+                + " -p 'my app'");
+    assertThat(
+            MutantCommand.DONE_WHEN.command(
+                ID, Invocation.of("gradle:sh /Users/me/My Projects/gradlew", target)))
+        .startsWith("sh '/Users/me/My Projects/gradlew' :api:mutasticVerify ");
+    assertThat(
+            MutantCommand.DONE_WHEN.command(
+                ID, Invocation.of("gradle:C:\\My Projects\\gradlew.bat", List.of())))
+        .isEqualTo("\"C:\\My Projects\\gradlew.bat\" :mutasticVerify -Pmutastic.mutant=m855c8e3c");
+    assertThat(MutantCommand.DONE_WHEN.command(ID, Invocation.of("gradle:sh ./gradlew", List.of())))
+        .isEqualTo("sh ./gradlew :mutasticVerify -Pmutastic.mutant=m855c8e3c");
+  }
+
+  /// Each command offered from Gradle, its wrapper in a directory with a space, is the same words
+  /// to a shell as the plugin's: the wrapper's path one word.
+  @Test
+  @org.junit.jupiter.api.condition.DisabledOnOs(
+      value = org.junit.jupiter.api.condition.OS.WINDOWS,
+      disabledReason = "a POSIX shell reads the command")
+  void everyCommandOfferedFromAWrapperInADirectoryWithASpaceRunsAsItsCopied() throws Exception {
+    for (var launcher : List.of("/Users/me/My Projects/gradlew", "sh ../My Projects/gradlew")) {
+      var invocation = Invocation.of("gradle:" + launcher, List.of("my app", ":api"));
+      for (MutantCommand command : MutantCommand.values()) {
+        var written = command.command(ID, invocation);
+        var words = argv(String.join(" ", filled(List.of(written))));
+        var program =
+            launcher.startsWith("sh ") ? List.of("sh", launcher.substring(3)) : List.of(launcher);
+
+        assertThat(words.subList(0, program.size())).as(written).isEqualTo(program);
+        assertThat(words.subList(words.size() - 2, words.size()))
+            .as(written)
+            .containsExactly("-p", "my app");
+      }
+    }
+  }
+
+  /// The words `sh` reads in `command`.
+  private static List<String> argv(String command) throws Exception {
+    var process = new ProcessBuilder("sh", "-c", "printf '%s\\n' " + command).start();
+    var words =
+        new String(
+            process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+    assertThat(process.waitFor()).as(command).isZero();
+    return words.lines().toList();
+  }
+
   /// The plugin passes the `mutastic.` properties on as they are, with its task's module: each
   /// command offered from Gradle parses to the same command as the command line's.
   @Test
