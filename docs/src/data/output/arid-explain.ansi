@@ -10,3 +10,12 @@
               [32m+ [0mof(sales);
 
     [2mreproduce [0m mutastic run --only=m32bd4ead samples/sales
+
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:output: Code that only writes output: a log line, or text printed to the
+                console.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#output[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.sales.Summary#print
+                      arid: [mutastic:output]
+                      reason: <why a test should check it>

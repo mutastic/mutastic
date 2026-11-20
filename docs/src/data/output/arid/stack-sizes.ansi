@@ -9,3 +9,11 @@
     [2m=[0m change  the constant [1m67108864[0m becomes [1m1[0m (not shown in the source)
 
     [2mreproduce [0m mutastic run --only=m638dca75 samples/arid
+
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:stack-sizes: The size of a thread's stack, while it stays above zero.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#stack-sizes[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.arid.Workers#deep
+                      arid: [mutastic:stack-sizes]
+                      reason: <why a test should check it>
