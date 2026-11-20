@@ -10,3 +10,11 @@
              [32m+ [0mreturn line.split(":", 3)[1].strip();
 
    [2mreproduce [0m mutastic run --only=m34ba4295 samples/arid
+
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:split-limits: The limit of a `String.split`.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#split-limits[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.arid.Headers#value
+                      arid: [mutastic:split-limits]
+                      reason: <why a test should check it>
