@@ -10,3 +10,11 @@
              [32m+ [0mint[] counts = new int[8];
 
    [2mreproduce [0m mutastic run --only=m32a8834e samples/arid
+
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:array-sizes: The size of a new array, written as a number.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#array-sizes[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.arid.Week#perDay
+                      arid: [mutastic:array-sizes]
+                      reason: <why a test should check it>

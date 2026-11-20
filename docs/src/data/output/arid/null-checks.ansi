@@ -9,3 +9,13 @@
     [2m=[0m mutant  [1;31m- [0mObjects.requireNonNull(order);
 
     [2mreproduce [0m mutastic run --only=m3b47b4da samples/arid
+
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:null-checks: A call that only checks a value is there, its result unused,
+                removed: `Objects.requireNonNull(x)` or `x.getClass()` in Java, `x.unwrap()` or
+                `x.expect(…)` in Rust.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#null-checks[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.arid.Orders#add
+                      arid: [mutastic:null-checks]
+                      reason: <why a test should check it>
