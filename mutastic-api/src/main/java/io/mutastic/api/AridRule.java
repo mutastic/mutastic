@@ -64,7 +64,7 @@ public enum AridRule {
   WAITS(
       "mutastic:waits",
       Scope.SITE,
-      "A sleep, or a `join` with a time limit, removed.",
+      "A sleep removed: `Thread.sleep` or `TimeUnit.sleep`.",
       "Thread.sleep(100);",
       "arid: only waits"),
   NULL_CHECKS(
