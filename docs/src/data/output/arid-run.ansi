@@ -6,11 +6,11 @@
 [2m Next: mutastic verify <id> samples/sales · mutastic run --only=<id> samples/sales · mutastic explain <id> samples/sales[0m
 
  [2m  Classes[0m  [32m[1m0 clean[0m[0m[2m | [0m[1;31m[1m1 with misses[0m[0m[2m (1)[0m
- [2m  Mutants[0m  [32m✓ [1m9 caught[0m[0m[2m · [0m[1;31m✗ [1m2 missed[0m[0m[2m · [0m[2m4 skipped (4 arid)[0m[2m (15)[0m
+ [2m  Mutants[0m  [32m✓ [1m10 caught[0m[0m[2m · [0m[1;31m✗ [1m2 missed[0m[0m[2m · [0m[2m3 skipped (3 arid)[0m[2m (15)[0m
  [2m Worst at[0m  Summary.of() 2 ✗
- [2mTest runs[0m  11[2m (11 without coverage selection)[0m
- [2m Start at[0m  18:29:38
- [2m Duration[0m  7.0s [2m(setup 0ms, build 4.1s, coverage 336ms, mutants 1.3s, checking 1.2s)[0m
+ [2mTest runs[0m  12[2m (12 without coverage selection)[0m
+ [2m Start at[0m  19:39:03
+ [2m Duration[0m  7.4s [2m(setup 0ms, build 4.5s, coverage 348ms, mutants 1.3s, checking 1.1s)[0m
  [2m    Tests[0m  1 on JDK 17 · 1 worker
  [2m  Reports[0m  samples/sales/build/mutastic/mutation.json[2m · [0msamples/sales/build/mutastic/mutation.html
- [2m    Score[0m  [32m[1m81.8%[0m[0m  [42;30;1m PASS [0m [32m2 missed, above the threshold of 80.[0m
+ [2m    Score[0m  [32m[1m83.3%[0m[0m  [42;30;1m PASS [0m [32m2 missed, above the threshold of 80.[0m

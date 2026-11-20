@@ -56,7 +56,7 @@ class DocsAridTest {
           Map.entry("mutastic:split-limits", "the constant `2` becomes `3`"),
           Map.entry("mutastic:thread-names", "the string `\"report-worker\"` becomes `\"\"`"),
           Map.entry("mutastic:thread-priorities", "the call to `setPriority()` is removed"),
-          Map.entry("mutastic:keep-alive-times", "the constant `30` becomes `29`"),
+          Map.entry("mutastic:keep-alive", "the constant `30` becomes `29`"),
           Map.entry("mutastic:stack-sizes", "the constant `67108864` becomes `1`"));
 
   /// The rules whose section says a test of what the code does can't see what they skip: the audit
@@ -117,7 +117,7 @@ class DocsAridTest {
     var format = theMutant(events, "the string `\"summed {} amounts in {} ms\"` becomes `\"\"`");
     var logged = theMutants(events, "`-` becomes `+`", "`/` becomes `*`");
 
-    assertThat(join.reason()).isEqualTo("arid: only waits");
+    assertThat(join.reason()).as("a removed timed join counts").isEmpty();
     assertThat(printed.reason()).isEqualTo("arid: only writes output");
     assertThat(format.reason()).isEqualTo("arid: only writes output");
     assertThat(logged).allSatisfy(mutant -> assertThat(mutant.reason()).isEmpty());

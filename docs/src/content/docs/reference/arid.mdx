@@ -22,7 +22,7 @@ import firstValues from '../../../data/output/arid/first-values.ansi?raw';
 import splitLimits from '../../../data/output/arid/split-limits.ansi?raw';
 import threadNames from '../../../data/output/arid/thread-names.ansi?raw';
 import threadPriorities from '../../../data/output/arid/thread-priorities.ansi?raw';
-import keepAliveTimes from '../../../data/output/arid/keep-alive-times.ansi?raw';
+import keepAlive from '../../../data/output/arid/keep-alive.ansi?raw';
 import stackSizes from '../../../data/output/arid/stack-sizes.ansi?raw';
 
 A mutant your tests miss asks for a test. Some ask for one nobody should write: a removed log line,
@@ -471,7 +471,9 @@ it back. Arithmetic there counts.
 
 <AridRule id="mutastic:waits" />
 
-A removed `Thread.sleep` or `TimeUnit.sleep`, or a removed `join` with a time limit.
+A removed `Thread.sleep` or `TimeUnit.sleep`. A removed `join` isn't one, with a time limit or
+without: without it, the code can read what the other thread does before it's done, and that's a
+race worth a test.
 
 {/* from: samples/arid/src/main/java/com/example/arid/Backoff.java */}
 ```java
@@ -488,15 +490,10 @@ test of the clock: slow, and flaky on a busy machine.
 A pause that protects something: a backoff between tries, a rate limit. Without it the code asks
 again at once, as often as it can, which floods what it asks. Here the tries are the same, and only
 `BackoffTest`, which measures that two pauses took place, catches it.
-
-A race, where the wait is a `join` with a time limit. Without it the code reads the result before
-the other thread has finished, the same bug as removing a `join()` with none, which mutastic counts.
-In `samples/arid`, `Worker` joins its thread with a time limit, and `WorkerTest` catches the
-removed `join`.
 </Aside>
 
-**When to bring it back:** the code joins another thread with a time limit and your tests check
-the result, or a pause is part of what the code promises and your tests measure it.
+**When to bring it back:** the pause is part of what the code promises, and your tests measure it,
+or use a clock they control.
 
 <Tabs syncKey="arid-setting">
 <TabItem label="mutastic.yaml">
@@ -527,7 +524,8 @@ public static int poll(BooleanSupplier ready, long pauseMillis) throws Interrupt
 counts too.
 </EditionOnly>
 
-**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back; a removed `join`
+with a time limit counts, as one with none always did.
 
 ## Null checks
 
@@ -862,9 +860,9 @@ public static Thread background(Runnable work) {
 
 **Changed in:** 1.3.0.
 
-## Keep alive times
+## Keep alive
 
-<AridRule id="mutastic:keep-alive-times" />
+<AridRule id="mutastic:keep-alive" />
 
 How long a `ThreadPoolExecutor`'s idle threads live, given to its constructor or to
 `setKeepAliveTime`, while it stays above zero.
@@ -909,7 +907,7 @@ public static ThreadPoolExecutor pool() {
 
 **Check it:** what `mutastic explain` says of the skipped mutant:
 
-<Code code={keepAliveTimes} lang="ansi" />
+<Code code={keepAlive} lang="ansi" />
 
 <EditionOnly edition="rust">
 **In the Rust edition:** the duration given to tokio's `thread_keep_alive` is skipped the same way,

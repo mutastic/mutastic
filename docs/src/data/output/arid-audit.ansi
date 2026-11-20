@@ -1,2 +1,2 @@
- [2m   Mutants[0m  [32m✓ [1m9 caught[0m[0m[2m · [0m[1;31m✗ [1m2 missed[0m[0m[2m · [0m[2m4 skipped (4 arid)[0m[2m (15)[0m
- [2mArid audit[0m  4 ran anyway: 2 caught (2 by an assertion), 2 missed, 0 not covered; checked in Summary.print(), Summary.of()
+ [2m   Mutants[0m  [32m✓ [1m10 caught[0m[0m[2m · [0m[1;31m✗ [1m2 missed[0m[0m[2m · [0m[2m3 skipped (3 arid)[0m[2m (15)[0m
+ [2mArid audit[0m  3 ran anyway: 1 caught (1 by an assertion), 2 missed, 0 not covered; checked in Summary.print()
