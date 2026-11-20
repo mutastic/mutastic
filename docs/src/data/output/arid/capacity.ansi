@@ -10,3 +10,11 @@
               [32m+ [0mvar pairs = new ArrayList<Integer>(values.size() / 2);
 
     [2mreproduce [0m mutastic run --only=m06b94eb4 samples/arid
+
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:capacity: The size a collection or a buffer starts with.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#capacity[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.arid.Pairs#doubled
+                      arid: [mutastic:capacity]
+                      reason: <why a test should check it>
