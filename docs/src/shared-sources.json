@@ -81,5 +81,22 @@
     "sources": {
       "test-first-agent.md": "6ac394bfcd4d9519"
     }
+  },
+  "concepts/arid": {
+    "commit": "5ef5730d763e0b38c38fd5f78a073850497b43f9",
+    "sources": {
+      "operators/calls.md#remove-void-call": "689d6cc9e1acc786",
+      "reference/configuration.md#mutasticyaml": "82b95295ff802ef9",
+      "differences-from-java.md#whats-different-in-the-results": "dc8be6b46b9f6a7c"
+    }
+  },
+  "reference/arid": {
+    "commit": "5ef5730d763e0b38c38fd5f78a073850497b43f9",
+    "sources": {
+      "operators/calls.md#remove-void-call": "689d6cc9e1acc786",
+      "operators/calls.md#remove-discarded-call": "290f2afb3c29c443",
+      "reference/configuration.md#mutasticyaml": "82b95295ff802ef9",
+      "differences-from-java.md#whats-different-in-the-results": "dc8be6b46b9f6a7c"
+    }
   }
 }

@@ -48,7 +48,7 @@ Three reasons not to write a test sound alike, and aren't:
 | | The question it answers | An example | Who decides |
 |---|---|---|---|
 | **Equivalent** | Could any input tell the change apart? No. | `a < b ? a : b` becoming `a <= b ? a : b`: at `a == b` both give the same | mutastic, when the code proves it; you, otherwise |
-| **Arid** | Could a test tell? Yes, but none should have to. | Removing a log line, or changing a `new ArrayList<>(n * 2)` capacity | mutastic's [arid filters](/concepts/results/#skipped-mutants) |
+| **Arid** | Could a test tell? Yes, but none should have to. | Removing a log line, or changing a `new ArrayList<>(n * 2)` capacity | mutastic's [arid rules](/concepts/arid/), each of which [you can bring back](/reference/arid/) |
 | **Unreachable** | Could an input tell? Yes, but that input never happens. | A guard for a negative balance the ledger already rules out | You: `mutastic ignore --as=unreachable` |
 
 </div>
@@ -57,7 +57,7 @@ Three reasons not to write a test sound alike, and aren't:
 | | The question it answers | An example | Who decides |
 |---|---|---|---|
 | **Equivalent** | Could any input tell the change apart? No. | `if a < b { a } else { b }` becoming `if a <= b { a } else { b }`: at `a == b` both give the same | mutastic, when the code proves it; you, otherwise |
-| **Arid** | Could a test tell? Yes, but none should have to. | Removing a `println!` or `log::warn!` statement (`arid: only writes output`) | mutastic's [arid filters](/concepts/results/#skipped-mutants) |
+| **Arid** | Could a test tell? Yes, but none should have to. | Removing a `println!` or `log::warn!` statement (`arid: only writes output`) | mutastic's [arid rules](/concepts/arid/), each of which [you can bring back](/reference/arid/) |
 | **Unreachable** | Could an input tell? Yes, but that input never happens. | A guard for a negative balance the ledger already rules out | You: `mutastic ignore --as=unreachable` |
 
 </div>

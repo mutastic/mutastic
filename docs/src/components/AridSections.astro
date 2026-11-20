@@ -1,0 +1,78 @@
+---
+// The rest of the Arid rules page: a section, from src/data/arid.json alone, for any rule the page
+// doesn't have one for yet, so a rule the engine has is never missing from its docs. A rule with a
+// section of its own on the page (a heading, then <AridRule id="…" />) isn't repeated, and that
+// heading must give the anchor mutastic's output links to: the build stops when it doesn't.
+import { Code } from '@astrojs/starlight/components';
+import page from '../content/docs/reference/arid.mdx?raw';
+import { reasonText, rules, scope, title } from '../lib/arid';
+import { markdown } from '../lib/markdown';
+
+/** A heading's anchor, as Starlight writes it: lower case, words joined by `-`. */
+const slug = (heading: string) =>
+  heading
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .trim()
+    .replace(/\s+/g, '-');
+
+const documented = new Set<string>();
+const lines = page.split('\n');
+lines.forEach((line, index) => {
+  const id = line.match(/^<AridRule id="([^"]+)"/)?.[1];
+  if (!id) return;
+  const heading = lines
+    .slice(0, index)
+    .reverse()
+    .find((before) => before.startsWith('## '));
+  const anchor = rules.find((rule) => rule.id === id)?.anchor;
+  if (heading === undefined || slug(heading.slice(3)) !== anchor) {
+    throw new Error(
+      `reference/arid.mdx: ${id}'s section must sit under a heading whose anchor is #${anchor}, as mutastic's output links there; it's under ${heading ?? 'none'}`,
+    );
+  }
+  documented.add(id);
+});
+const missing = await Promise.all(
+  rules
+    .filter((rule) => !documented.has(rule.id))
+    .map(async (rule) => ({ rule, what: await markdown(rule.description, true) })),
+);
+if (missing.length > 0) {
+  console.warn(
+    `[arid] reference/arid.mdx has no section of its own for ${missing.map(({ rule }) => rule.id).join(', ')}: shown from src/data/arid.json only`,
+  );
+}
+const names = { java: 'Java', rust: 'Rust' } as const;
+---
+
+{
+  missing.map(({ rule, what }) => (
+    <section>
+      <h2 id={rule.anchor}>{title(rule)}</h2>
+      <p>
+        <span class="arid-default">Skipped by default</span> <code>{rule.id}</code> judges {scope(rule)}.
+      </p>
+      <p set:html={what} />
+      {rule.editions.map((edition) => (
+        <>
+          <p>
+            {names[edition]} prints{' '}
+            {rule.reasons[edition]!.map((reason, index) => (
+              <>
+                {index > 0 && ', '}
+                <code>{reasonText(reason)}</code>
+              </>
+            ))}
+            , for code like this:
+          </p>
+          <Code code={rule.examples[edition] ?? ''} lang={edition} />
+        </>
+      ))}
+      <p>
+        To bring it back, cover the code that needs it with a <code>mutate:</code> rule or
+        <code>@DoMutate</code>, as in the sections above.
+      </p>
+    </section>
+  ))
+}

@@ -1,0 +1,11 @@
+ [46;30;1m SKIPPED [0m [1marid: only waits[0m
+    [2m┌─[0m src/main/java/com/example/arid/Backoff.java:12
+    [2m│[0m
+ [2m11[0m [2m│[0m     while (!ready.getAsBoolean()) {
+ [2m12[0m [2m│[0m       Thread.sleep(pauseMillis);
+    [2m│[0m              [1;31m^^^^^ call removed[0m
+ [2m13[0m [2m│[0m       tries++;
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mThread.sleep(pauseMillis);
+
+    [2mreproduce [0m mutastic run --only=m4474cbf8 samples/arid
