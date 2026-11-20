@@ -1519,6 +1519,70 @@
       "examples": {
         "java": "line.split(\",\", 2)"
       }
+    },
+    {
+      "id": "mutastic:thread-names",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "A thread's or a pool's name, which only people and their tools read: a thread dump, a profiler, a log pattern.",
+      "reasons": {
+        "java": [
+          "arid: only names a thread"
+        ]
+      },
+      "examples": {
+        "java": "thread.setName(\"background-task\");"
+      }
+    },
+    {
+      "id": "mutastic:thread-priorities",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "A thread's priority from 1 to 10: a hint, which Linux ignores by default and a virtual thread always does.",
+      "reasons": {
+        "java": [
+          "arid: only sets a priority hint"
+        ]
+      },
+      "examples": {
+        "java": "thread.setPriority(Thread.MAX_PRIORITY);"
+      }
+    },
+    {
+      "id": "mutastic:keep-alive-times",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "How long a pool's idle threads live before they stop, while it stays above zero.",
+      "reasons": {
+        "java": [
+          "arid: only sets how long idle threads live"
+        ]
+      },
+      "examples": {
+        "java": "pool.setKeepAliveTime(30, TimeUnit.SECONDS);"
+      }
+    },
+    {
+      "id": "mutastic:stack-sizes",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "The size of a thread's stack, while it stays above zero.",
+      "reasons": {
+        "java": [
+          "arid: only sizes a thread's stack"
+        ]
+      },
+      "examples": {
+        "java": "Thread.ofPlatform().stackSize(1 << 20).unstarted(task);"
+      }
     }
   ],
   "decisions": [

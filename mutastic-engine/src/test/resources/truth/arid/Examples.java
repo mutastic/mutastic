@@ -3,6 +3,8 @@ package arid;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /// Each arid rule's example, as the docs show it, in a method named for the rule: `waits` for
 /// `mutastic:waits`. The example is the rule's line, word for word.
@@ -69,5 +71,21 @@ class Examples {
 
   String[] splitLimits(String line) {
     return line.split(",", 2);
+  }
+
+  void threadNames(Thread thread) {
+    thread.setName("background-task");
+  }
+
+  void threadPriorities(Thread thread) {
+    thread.setPriority(Thread.MAX_PRIORITY);
+  }
+
+  void keepAliveTimes(ThreadPoolExecutor pool) {
+    pool.setKeepAliveTime(30, TimeUnit.SECONDS);
+  }
+
+  Thread stackSizes(Runnable task) {
+    return Thread.ofPlatform().stackSize(1 << 20).unstarted(task);
   }
 }
