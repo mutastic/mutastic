@@ -242,6 +242,11 @@ final class TryWithResources {
             .noneMatch(entry -> entry.catchesAnything() && entry.handler() == finallyHandler)) {
       return;
     }
+    closingFinally(body, finallyHandler, rethrow);
+  }
+
+  /// The first way of closing the resource the `finally` handler after `rethrow` matches.
+  private void closingFinally(Entry body, int finallyHandler, Shape rethrow) {
     for (var closing : Finally.values()) {
       if (closing.javac && !java10OrBefore) {
         continue;
@@ -276,6 +281,25 @@ final class TryWithResources {
   private void ecj() {
     var primaries = new HashMap<Integer, Integer>();
     var resources = new HashMap<Integer, Integer>();
+    ecjSuppressing(primaries, resources);
+    for (var entry : entries) {
+      if (entry.catchesAnything() && !resources.containsKey(entry.handler())) {
+        var shape = new Shape(entry.handler(), Map.of()).store("p");
+        if (shape.matches() && primaries.containsKey(shape.slot("p"))) {
+          ecjCloseAndThrow(shape).ifPresent(closed -> resources.put(entry.handler(), closed));
+        }
+      }
+    }
+    resources.forEach(
+        (handler, resource) ->
+            endsOf(handler)
+                .forEach(end -> markFirst(REASON, guardedClose(end, Map.of("r", resource)))));
+    primaries.forEach(this::ecjNulls);
+  }
+
+  /// The handlers that keep the first exception and add others as suppressed: the primary
+  /// exception's slot with the suppressed one's, and the resource each closes next, by handler.
+  private void ecjSuppressing(Map<Integer, Integer> primaries, Map<Integer, Integer> resources) {
     for (var entry : entries) {
       if (entry.catchesAnything()) {
         var shape = new Shape(entry.handler(), Map.of()).store("x");
@@ -290,19 +314,6 @@ final class TryWithResources {
         }
       }
     }
-    for (var entry : entries) {
-      if (entry.catchesAnything() && !resources.containsKey(entry.handler())) {
-        var shape = new Shape(entry.handler(), Map.of()).store("p");
-        if (shape.matches() && primaries.containsKey(shape.slot("p"))) {
-          ecjCloseAndThrow(shape).ifPresent(closed -> resources.put(entry.handler(), closed));
-        }
-      }
-    }
-    resources.forEach(
-        (handler, resource) ->
-            endsOf(handler)
-                .forEach(end -> markFirst(REASON, guardedClose(end, Map.of("r", resource)))));
-    primaries.forEach(this::ecjNulls);
   }
 
   /// `aload p; ifnonnull s; aload x; astore p; goto e; s: aload p; aload x; if_acmpeq e; aload p;

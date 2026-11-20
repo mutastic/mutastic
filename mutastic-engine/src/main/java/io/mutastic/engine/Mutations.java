@@ -763,12 +763,11 @@ final class Mutations {
     /// an arid reason doesn't count, and the next reason, if any, does.
     private Optional<String> skipped(
         Found found, Instruction instruction, int at, List<String> workedOn) {
-      var closing = resourceCloses.get(at);
-      if (closing != null) {
-        return Optional.of(closing);
-      }
-      if (cleanups.contains(at)) {
-        return Optional.of(LombokCode.CLEANUP);
+      var closing =
+          Optional.ofNullable(resourceCloses.get(at))
+              .or(() -> cleanups.contains(at) ? Optional.of(LombokCode.CLEANUP) : Optional.empty());
+      if (closing.isPresent()) {
+        return closing;
       }
       return java.util.stream.Stream.<java.util.function.Supplier<Optional<String>>>of(
               () -> machinery(found.operator(), at),
