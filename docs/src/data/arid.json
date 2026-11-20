@@ -160,7 +160,7 @@
         "java"
       ],
       "scope": "site",
-      "description": "A sleep, or a `join` with a time limit, removed.",
+      "description": "A sleep removed: `Thread.sleep` or `TimeUnit.sleep`.",
       "reasons": {
         "java": [
           "arid: only waits"
@@ -303,9 +303,9 @@
       "annotation": "@DoMutate(arid = \"mutastic:thread-priorities\")"
     },
     {
-      "id": "mutastic:keep-alive-times",
-      "anchor": "keep-alive-times",
-      "url": "https://docs.mutastic.io/reference/arid/#keep-alive-times",
+      "id": "mutastic:keep-alive",
+      "anchor": "keep-alive",
+      "url": "https://docs.mutastic.io/reference/arid/#keep-alive",
       "editions": [
         "java",
         "rust"

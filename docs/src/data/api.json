@@ -213,9 +213,9 @@
             },
             {
               "kind": "enum constant",
-              "name": "KEEP_ALIVE_TIMES",
-              "anchor": "keep_alive_times",
-              "signature": "KEEP_ALIVE_TIMES",
+              "name": "KEEP_ALIVE",
+              "anchor": "keep_alive",
+              "signature": "KEEP_ALIVE",
               "doc": "",
               "params": [],
               "returns": "",

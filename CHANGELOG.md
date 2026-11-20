@@ -91,6 +91,10 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   `LinkedBlockingQueue` made with no bound never is, so changing its largest size to another no
   smaller than the core size changes nothing. A class that changes or reads a pool's sizes keeps
   them.
+- **A removed `join` with a time limit runs again.** It was skipped as `arid: only waits`, but
+  without it the code reads what the thread does before it's done: the same race a removed
+  `join()` with no limit shows, which ran. How long it waits stays arid. Code that joins with a
+  time limit gets a mutant more, and its score can fall.
 - **`@DoMutate` and a `mutate:` rule bring back every arid skip in their code.** They brought
   back only a whole method a filter skips, a trivial accessor or a `toString()`, and still
   skipped a log call, a `Thread.sleep`, a capacity, an exception's message and the other arid
