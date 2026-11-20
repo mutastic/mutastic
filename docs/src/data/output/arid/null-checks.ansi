@@ -1,0 +1,11 @@
+ [46;30;1m SKIPPED [0m [1marid: only checks the value isn't null[0m
+    [2m┌─[0m src/main/java/com/example/arid/Orders.java:12
+    [2m│[0m
+ [2m11[0m [2m│[0m   public void add(String order) {
+ [2m12[0m [2m│[0m     Objects.requireNonNull(order);
+    [2m│[0m             [1;31m^^^^^^^^^^^^^^ call removed[0m
+ [2m13[0m [2m│[0m     orders.add(order);
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mObjects.requireNonNull(order);
+
+    [2mreproduce [0m mutastic run --only=m3b47b4da samples/arid

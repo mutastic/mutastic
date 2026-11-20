@@ -34,6 +34,14 @@ module, set it, for example `--threshold=70`.
 For `verify`, the mutant is still missed: no test fails with it in. The card for that mutant shows
 the inputs your tests used and a test that would catch it.
 
+### A mutant you expected isn't run
+
+If `verify` says a mutant `is skipped (arid: …)`, or `run --only` that it `is skipped: arid: …`,
+mutastic judged it one no test should have to catch: a log line, a wait, a capacity. It isn't in
+the score, so it can't be what holds the score down. If that code is a contract your tests check, its rule's section in
+[Arid rules](/reference/arid/) has the `mutate:` rule that brings it back, and
+[Arid mutants](/concepts/arid/#check-what-the-skips-hide) shows how to check what the skips hide.
+
 ## 2: a usage error, or a build mutastic couldn't read
 
 The message says which. Here, a mutant's id from the `configured` sample, given to the pricing

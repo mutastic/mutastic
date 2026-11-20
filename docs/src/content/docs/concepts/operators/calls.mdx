@@ -122,7 +122,7 @@ The test has one item, and strips the receipt before it looks:
 ```
 
 **Edition notes:** `Objects.requireNonNull(x);`, which only checks a value isn't `null`, is skipped
-as arid. Constructors are left alone: removing one would leave an object half made, not a gap in the
+as [arid](/reference/arid/#null-checks). Constructors are left alone: removing one would leave an object half made, not a gap in the
 tests. The Rust edition has this operator too, `mutastic/remove-discarded-call`, for
 `map.insert(k, v);`, `w.flush()?;` and `let _ = f();`, and for a call whose result is only checked:
 `handle.join().unwrap();`, or `let removed = remove_file(&p); removed.unwrap();`, both statements
@@ -223,7 +223,8 @@ object does differently now.
 ```
 
 **Edition notes:** run it with `--operators=stronger`. Constructors and static initialisers are left
-alone, as they are for every operator, and a setter with nothing else in it is skipped as arid. A
+alone, as they are for every operator, and a setter with nothing else in it is skipped as
+[arid](/reference/arid/#trivial-accessors). A
 write of a default value, `count = 0;` in a `reset()`, is kept: that's what `reset()` is for. The
 Rust edition has this operator too, `mutastic/remove-field-write`, for `self.status = s;`, `*p = v;`
 and `v[i] = x;`, and adds `mutastic/remove-struct-field`, which leaves a field out of a struct

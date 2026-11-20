@@ -1,0 +1,12 @@
+ [46;30;1m SKIPPED [0m [1marid: only sizes an array[0m
+   [2m┌─[0m src/main/java/com/example/arid/Week.java:8
+   [2m│[0m
+ [2m7[0m [2m│[0m   public static int[] perDay(int[] days) {
+ [2m8[0m [2m│[0m     int[] counts = new int[7];
+   [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^ 7 changed to 8[0m
+ [2m9[0m [2m│[0m     for (int day : days) {
+   [2m│[0m
+   [2m=[0m mutant  [1;31m- [0mint[] counts = new int[7];
+             [32m+ [0mint[] counts = new int[8];
+
+   [2mreproduce [0m mutastic run --only=m32a8834e samples/arid

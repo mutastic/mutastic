@@ -209,6 +209,7 @@ const LAYOUT = [
     ['coverage-and-mutants', 'Coverage and mutants'],
     ['concepts/suggested-tests', 'Suggested tests'],
     ['/concepts/equivalence', 'Equivalent mutants'],
+    ['/concepts/arid', 'Arid mutants'],
     ['/concepts/flaky-tests', 'Flaky tests'],
     ['concepts/output', 'Output'],
     ['concepts/how-a-run-works', 'How a run works'],
@@ -232,7 +233,7 @@ const LAYOUT = [
   ]],
   // A page for each command from commands.json comes first, then Environment and exit codes: see
   // reference() below.
-  ['Reference', [['reference/errors', 'Errors'], ['reference/reports', 'Report files'], ['reference/events', 'Events'], ['reference/configuration', 'Configuration'], ['reference/compatibility', 'Compatibility']]],
+  ['Reference', [['reference/errors', 'Errors'], ['reference/reports', 'Report files'], ['reference/events', 'Events'], ['reference/configuration', 'Configuration'], ['/reference/arid', 'Arid rules'], ['reference/compatibility', 'Compatibility']]],
   ['Guides', [['scoping', 'Changed lines, members and shares'], ['test-first', 'Working test-first'], ['test-first-refactor', 'Working test-first: the refactor'], ['test-first-agent', 'Working test-first: with an agent'], ['/guides/ci', 'Running in CI']]],
   ['Help', [['troubleshooting', 'Troubleshooting'], ['differences-from-java', 'Differences from Java']]],
 ];
