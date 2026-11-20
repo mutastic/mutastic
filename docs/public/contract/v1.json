@@ -1523,49 +1523,80 @@
     {
       "id": "mutastic:thread-names",
       "editions": [
+        "java",
         "rust"
       ],
       "scope": "site",
-      "description": "A thread's name, or the names a pool gives its threads: they show in thread dumps and logs, not in what runs or when.",
+      "description": "A thread's or a pool's name, which only people and their tools read: a thread dump, a profiler, a log pattern.",
       "reasons": {
+        "java": [
+          "arid: only names a thread"
+        ],
         "rust": [
           "arid: only names a thread"
         ]
       },
       "examples": {
+        "java": "thread.setName(\"background-task\");",
         "rust": "let builder = thread::Builder::new().name(\"squarer\".into());"
       }
     },
     {
-      "id": "mutastic:stack-sizes",
+      "id": "mutastic:thread-priorities",
       "editions": [
-        "rust"
+        "java"
       ],
       "scope": "site",
-      "description": "The size of a new thread's stack, while it stays above zero.",
+      "description": "A thread's priority from 1 to 10: a hint, which Linux ignores by default and a virtual thread always does.",
       "reasons": {
-        "rust": [
-          "arid: only sizes a thread's stack"
+        "java": [
+          "arid: only sets a priority hint"
         ]
       },
       "examples": {
-        "rust": "let builder = thread::Builder::new().stack_size(64 * 1024);"
+        "java": "thread.setPriority(Thread.MAX_PRIORITY);"
       }
     },
     {
-      "id": "mutastic:keep-alive",
+      "id": "mutastic:keep-alive-times",
       "editions": [
+        "java",
         "rust"
       ],
       "scope": "site",
-      "description": "How long a pool's idle threads live before they end, while it stays above zero.",
+      "description": "How long a pool's idle threads live before they stop, while it stays above zero.",
       "reasons": {
+        "java": [
+          "arid: only sets how long idle threads live"
+        ],
         "rust": [
           "arid: only sets how long idle threads live"
         ]
       },
       "examples": {
+        "java": "pool.setKeepAliveTime(30, TimeUnit.SECONDS);",
         "rust": "let runtime = Builder::new_multi_thread().thread_keep_alive(Duration::from_secs(5 * 60));"
+      }
+    },
+    {
+      "id": "mutastic:stack-sizes",
+      "editions": [
+        "java",
+        "rust"
+      ],
+      "scope": "site",
+      "description": "The size of a thread's stack, while it stays above zero.",
+      "reasons": {
+        "java": [
+          "arid: only sizes a thread's stack"
+        ],
+        "rust": [
+          "arid: only sizes a thread's stack"
+        ]
+      },
+      "examples": {
+        "java": "Thread.ofPlatform().stackSize(1 << 20).unstarted(task);",
+        "rust": "let builder = thread::Builder::new().stack_size(64 * 1024);"
       }
     }
   ],

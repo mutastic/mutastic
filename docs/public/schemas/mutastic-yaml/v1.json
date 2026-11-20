@@ -98,7 +98,7 @@
             },
             "arid": {
               "type": "array",
-              "items": { "enum": ["mutastic:trivial-accessors", "mutastic:debug-representations", "mutastic:output", "mutastic:messages", "mutastic:failed-asserts", "mutastic:capacity", "mutastic:wait-times", "mutastic:waits", "mutastic:null-checks", "mutastic:array-sizes", "mutastic:first-values", "mutastic:split-limits", "mutastic:thread-names", "mutastic:stack-sizes", "mutastic:keep-alive"] },
+              "items": { "enum": ["mutastic:trivial-accessors", "mutastic:debug-representations", "mutastic:output", "mutastic:messages", "mutastic:failed-asserts", "mutastic:capacity", "mutastic:wait-times", "mutastic:waits", "mutastic:null-checks", "mutastic:array-sizes", "mutastic:first-values", "mutastic:split-limits", "mutastic:thread-names", "mutastic:thread-priorities", "mutastic:keep-alive-times", "mutastic:stack-sizes"] },
               "minItems": 1,
               "uniqueItems": true,
               "description": "Bring back only these arid rules' skips, by id: `[mutastic:waits]`. Each rule's docs: https://docs.mutastic.io/reference/arid/"
