@@ -153,13 +153,14 @@ MUTASTIC_ARID=audit mutastic run samples/sales
 <Code code={audit} lang="ansi" />
 
 One of them was caught by an assertion, in `Summary.print()`: a test checks what that code does, so
-the skip is hiding a contract. Bring the skips back there, for that method only, with a reason, in
-`mutastic.yaml`:
+the skip is hiding a contract. The audit says how: bring the rule back there, for that method and that rule only,
+with a reason, in `mutastic.yaml`:
 
 {/* added to: samples/sales/mutastic.yaml */}
 ```yaml
 rules:
   - mutate: com.example.sales.Summary#print
+    arid: [mutastic:output]
     reason: the report is what the command prints, and scripts read it
 ```
 

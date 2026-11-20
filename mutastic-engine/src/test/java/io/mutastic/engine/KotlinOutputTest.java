@@ -33,7 +33,8 @@ class KotlinOutputTest {
           "Late",
           "Holder",
           "InlinesKt",
-          "HelpersKt");
+          "HelpersKt",
+          "ResourcesKt");
 
   /// Each test finds its own, for its own classes, not shared from a `@BeforeAll`: a mutant is only
   /// run against the tests that reach its line, and what a `@BeforeAll` reaches is no test's.
@@ -178,5 +179,26 @@ class KotlinOutputTest {
             mutant ->
                 assertThat(mutant.skipped().orElseThrow())
                     .endsWith("the mutants on its copies are the ones that count"));
+  }
+
+  /// `use` is inline only, so what kotlinc copies in has the line of the call, and no map says it's
+  /// the library's: its `closeFinally` on both ways out is skipped as a try-with-resources's close
+  /// is. The block given to `use` is the person's.
+  @Test
+  void whatUseCopiesInToCloseIsKotlincsAndItsBlockIsNot() {
+    for (var method : List.of("firstChar", "released")) {
+      assertThat(of("ResourcesKt", method))
+          .as(method)
+          .filteredOn(mutant -> mutant.original().contains(".closeFinally("))
+          .isNotEmpty()
+          .allSatisfy(mutant -> assertThat(mutant.skipped()).contains(TryWithResources.USE));
+      assertThat(running("ResourcesKt", method))
+          .as(method)
+          .anyMatch(mutant -> mutant.original().equals("IRETURN"))
+          .noneMatch(mutant -> mutant.original().contains("closeFinally"))
+          .noneMatch(mutant -> mutant.original().equals("ATHROW"));
+    }
+    assertThat(running("ResourcesKt", "released$lambda$0"))
+        .anyMatch(mutant -> mutant.original().contains("StringBuilder.append"));
   }
 }

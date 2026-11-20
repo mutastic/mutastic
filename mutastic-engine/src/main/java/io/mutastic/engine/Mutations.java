@@ -33,7 +33,6 @@ import java.lang.classfile.instruction.InvokeDynamicInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.LabelTarget;
 import java.lang.classfile.instruction.LineNumber;
-import java.lang.classfile.instruction.LoadInstruction;
 import java.lang.classfile.instruction.LocalVariable;
 import java.lang.classfile.instruction.LocalVariableType;
 import java.lang.classfile.instruction.OperatorInstruction;
@@ -372,7 +371,7 @@ final class Mutations {
     private final ClassModel model;
     private final MethodModel method;
     private final List<CodeElement> code;
-    private final Set<Instruction> tryWithResources;
+    private final Map<Integer, String> resourceCloses;
     private final Set<Integer> cleanups;
     private final Set<Integer> nonNullChecks;
     private final Set<Integer> coroutineMachinery;
@@ -423,7 +422,7 @@ final class Mutations {
       this.filtered = filtered;
       this.kept = kept;
       this.operators = operators;
-      this.tryWithResources = tryWithResources(code);
+      this.resourceCloses = TryWithResources.closes(model, code);
       this.cleanups = LombokCode.cleanups(code);
       this.nonNullChecks = LombokCode.nonNullChecks(model, method, code);
       this.coroutineMachinery = Coroutines.machinery(model, method, code);
@@ -764,11 +763,11 @@ final class Mutations {
     /// an arid reason doesn't count, and the next reason, if any, does.
     private Optional<String> skipped(
         Found found, Instruction instruction, int at, List<String> workedOn) {
-      if (tryWithResources.contains(instruction)) {
-        return Optional.of("generated: closes a try-with-resources resource");
-      }
-      if (cleanups.contains(at)) {
-        return Optional.of(LombokCode.CLEANUP);
+      var closing =
+          Optional.ofNullable(resourceCloses.get(at))
+              .or(() -> cleanups.contains(at) ? Optional.of(LombokCode.CLEANUP) : Optional.empty());
+      if (closing.isPresent()) {
+        return closing;
       }
       return java.util.stream.Stream.<java.util.function.Supplier<Optional<String>>>of(
               () -> machinery(found.operator(), at),
@@ -846,78 +845,6 @@ final class Mutations {
           ? Optional.of(KotlinDefaults.REASON)
           : Optional.empty();
     }
-  }
-
-  /// The instructions javac writes to close a try-with-resources resource: on the normal path
-  /// `aload r; ifnull; aload r; close()`, and again in a `catch Throwable` handler that adds a
-  /// failure to close as suppressed. No test can see them, so their mutants would all be missed.
-  /// Found only in a method that calls `Throwable.addSuppressed`: the `addSuppressed` calls, each
-  /// `close()` on a local slot javac guards with `ifnull` or closes on both paths, and those
-  /// `ifnull` guards.
-  private static java.util.Set<Instruction> tryWithResources(List<CodeElement> code) {
-    var instructions = instructionsIn(code);
-    var generated =
-        java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Instruction, Boolean>());
-    if (instructions.stream().noneMatch(Mutations::isAddSuppressed)) {
-      return generated;
-    }
-    var closesBySlot = new java.util.HashMap<Integer, List<Integer>>();
-    var guardedSlots = new HashSet<Integer>();
-    for (int at = 1; at < instructions.size(); at++) {
-      var instruction = instructions.get(at);
-      if (isAddSuppressed(instruction)) {
-        generated.add(instruction);
-      }
-      if (isClose(instruction) && instructions.get(at - 1) instanceof LoadInstruction load) {
-        closesBySlot.computeIfAbsent(load.slot(), slot -> new ArrayList<>()).add(at);
-        if (isNullGuarded(instructions, at, load.slot())) {
-          guardedSlots.add(load.slot());
-          generated.add(instructions.get(at - 2));
-        }
-      }
-    }
-    generated.addAll(resourceCloses(instructions, closesBySlot, guardedSlots));
-    return generated;
-  }
-
-  private static List<Instruction> instructionsIn(List<CodeElement> code) {
-    return code.stream()
-        .filter(Instruction.class::isInstance)
-        .map(Instruction.class::cast)
-        .toList();
-  }
-
-  /// Whether the `close()` at `at` follows javac's guard on its slot: `aload r; ifnull; aload r`.
-  private static boolean isNullGuarded(List<Instruction> instructions, int at, int slot) {
-    return at >= 3
-        && instructions.get(at - 2).opcode() == Opcode.IFNULL
-        && instructions.get(at - 3) instanceof LoadInstruction guarded
-        && guarded.slot() == slot;
-  }
-
-  /// The `close()` calls on each slot javac closes on both paths or guards with `ifnull`.
-  private static List<Instruction> resourceCloses(
-      List<Instruction> instructions,
-      java.util.Map<Integer, List<Integer>> closesBySlot,
-      Set<Integer> guardedSlots) {
-    var closes = new ArrayList<Instruction>();
-    closesBySlot.forEach(
-        (slot, positions) -> {
-          if (positions.size() >= 2 || guardedSlots.contains(slot)) {
-            positions.forEach(at -> closes.add(instructions.get(at)));
-          }
-        });
-    return closes;
-  }
-
-  private static boolean isAddSuppressed(Instruction instruction) {
-    return isCall(instruction, "java/lang/Throwable", "addSuppressed");
-  }
-
-  private static boolean isClose(Instruction instruction) {
-    return instruction instanceof InvokeInstruction call
-        && call.name().equalsString("close")
-        && call.type().equalsString("()V");
   }
 
   /// The class with exactly one instruction changed. `CodeBuilder` regenerates the stack maps.
