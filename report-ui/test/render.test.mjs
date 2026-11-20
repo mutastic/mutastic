@@ -353,6 +353,35 @@ describe('what the tests let through', () => {
   });
 });
 
+describe('a mutant skipped as arid', () => {
+  const at = (line) => ({ start: { line, column: 5 }, end: { line, column: 7 } });
+  const rule = 'rules:\n  - mutate: com.example.Board#toString\n    arid: [mutastic:debug-representations]\n    reason: <why a test should check it>\n';
+  const json = report({
+    'src/main/java/com/example/Board.java': { language: 'java', source: 'class Board {\n  public String toString() { return "b" + 1; }\n}\n', mutants: [
+      { id: 'm00000001', mutatorName: 'math', description: '`+` becomes `-`', status: 'Ignored', statusReason: 'arid: `toString()` is a debug representation', location: at(2),
+        mutastic: { method: 'toString()', skipRule: 'mutastic:debug-representations', skipDocs: 'https://docs.mutastic.io/reference/arid/#debug-representations', bringBack: rule } },
+      { id: 'm00000002', mutatorName: 'math', description: '`+` becomes `-`', status: 'Ignored', statusReason: 'arid: only waits', location: at(2),
+        mutastic: { skipRule: 'mutastic:waits', skipDocs: 'https://elsewhere.example/#waits', bringBack: rule } }] },
+  });
+
+  test('names its rule, links to its docs and gives the rule that runs it', async () => {
+    const page = await open(json, '#/m/m00000001');
+    const text = await page.text('main');
+    assert.match(text, /why it was skipped[\s\S]*The arid rule mutastic:debug-representations \(what it skips, and why\) skipped it/i);
+    assert.match(text, /arid: \[mutastic:debug-representations\]/);
+    assert.equal(await page.count('a[href="https://docs.mutastic.io/reference/arid/#debug-representations"]'), 1);
+    assert.equal(await page.copied('.sec .cmd button'), rule);
+    await page.close();
+  });
+
+  test('links only to mutastic\'s docs', async () => {
+    const page = await open(json, '#/m/m00000002');
+    assert.match(await page.text('main'), /The arid rule mutastic:waits skipped it/);
+    assert.equal(await page.count('a[href^="https://elsewhere"]'), 0);
+    await page.close();
+  });
+});
+
 describe('a line no test reaches in a function the tests run', () => {
   const at = (line) => ({ start: { line, column: 5 }, end: { line, column: 7 } });
   const json = report({

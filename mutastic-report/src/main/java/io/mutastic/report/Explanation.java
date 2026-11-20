@@ -32,6 +32,44 @@ public final class Explanation {
     this.docs = docs;
   }
 
+  /// The arid rule that skipped a mutant: its section of the docs, and the `mutastic.yaml` rule
+  /// that brings back that rule's skips in its method.
+  public record Arid(io.mutastic.api.AridRule rule, String docs, String bringBack) {}
+
+  /// What to put in `mutastic.yaml` to run it, when one of mutastic's own arid rules skipped it. A
+  /// `toString()`'s helper or lambda comes back with the `toString()` it serves.
+  public static Optional<Arid> arid(Mutant mutant, OperatorDocs docs) {
+    return mutant
+        .skipped()
+        .flatMap(io.mutastic.api.AridRule::of)
+        .map(
+            rule ->
+                new Arid(
+                    rule,
+                    rule.url(docs.base()),
+                    """
+                    rules:
+                      - mutate: %s#%s
+                        arid: [%s]
+                        reason: <why a test should check it>
+                    """
+                        .formatted(
+                            Untrusted.value(mutant.className().replace('/', '.')),
+                            Untrusted.value(keptIn(mutant, rule)),
+                            rule.id())));
+  }
+
+  /// The method a `mutate:` rule names to bring it back: its own, or for a `toString()`'s helper or
+  /// lambda, the `toString()` it serves, the last name in its reason.
+  private static String keptIn(Mutant mutant, io.mutastic.api.AridRule rule) {
+    if (rule != io.mutastic.api.AridRule.DEBUG_REPRESENTATIONS) {
+      return mutant.methodName();
+    }
+    var reason = mutant.skipped().orElse("");
+    var served = reason.lastIndexOf("()`");
+    return reason.substring(reason.lastIndexOf('`', served - 1) + 1, served);
+  }
+
   /// How the last full run went for it: its status, and the test that caught it if one did.
   public record LastRun(Status status, Optional<String> caughtBy) {}
 
@@ -40,6 +78,7 @@ public final class Explanation {
     rows.add(heading());
     addRow(rows, "bytecode", bytecode(mutant));
     addRow(rows, "operator", operator(mutant));
+    arid(mutant, docs).ifPresent(arid -> addArid(rows, arid));
     addRow(rows, "id", id(mutant));
     addRow(rows, "site", List.of(Untrusted.escape(site(mutant))));
     addRow(
@@ -48,6 +87,19 @@ public final class Explanation {
         List.of(
             lastRun.map(Explanation::described).orElse("none yet: `run` or `next` records one")));
     return String.join("\n", rows) + "\n";
+  }
+
+  /// The arid rule, its docs and the rule to copy: that, as it's to be copied, never broken between
+  /// words.
+  private void addArid(List<String> rows, Arid arid) {
+    addRow(
+        rows,
+        "arid",
+        List.of(
+            arid.rule().id() + ": " + arid.rule().description(),
+            "docs: " + arid.docs(),
+            "to run it, add to mutastic.yaml:"));
+    arid.bringBack().lines().forEach(line -> rows.add(INDENT + "  " + line));
   }
 
   /// `mutastic/boundary: what it does`, then where the docs say more, as text to copy in any

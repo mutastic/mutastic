@@ -1086,7 +1086,14 @@ public final class HumanText {
   private static void putRunsAnyway(Map<String, String> rows, Report report) {
     var audit = AridAudit.of(report);
     if (audit.happened()) {
-      rows.put("Arid audit", audit.summary());
+      var rules = audit.rules();
+      rows.put(
+          "Arid audit",
+          rules.isEmpty()
+              ? audit.summary()
+              : audit.summary()
+                  + "\na test checks what they do: to run them, add to mutastic.yaml\n  "
+                  + String.join("\n  ", rules));
     }
     if (GhostCards.lookedFor(report)) {
       rows.put("Ghosts", GhostCards.summary(report));

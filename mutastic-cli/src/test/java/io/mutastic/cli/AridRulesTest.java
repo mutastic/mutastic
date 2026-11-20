@@ -90,6 +90,24 @@ class AridRulesTest {
         .isEqualTo(written);
   }
 
+  /// The `mutastic.yaml` schema's `arid:` takes every edition's ids, the contract's, and only
+  /// those.
+  @Test
+  void theSchemaHasTheIds() throws IOException {
+    var schema =
+        JsonMapper.shared()
+            .readTree(
+                EditionContract.FILE.resolveSibling("../schemas/mutastic-yaml/v1.json").toFile());
+    var ids =
+        schema.findValues("arid").stream()
+            .filter(node -> node.has("items"))
+            .map(node -> strings(node.get("items").get("enum")))
+            .toList();
+
+    assertThat(ids)
+        .containsExactly(rules().stream().map(rule -> rule.get("id").asString()).toList());
+  }
+
   /// What the docs render: each rule, the contract's, with its anchor and its section's address.
   private String exported() {
     var mapper = JsonMapper.shared();
@@ -109,6 +127,9 @@ class AridRulesTest {
       each.set("description", rule.get("description"));
       each.set("reasons", rule.get("reasons"));
       each.set("examples", rule.get("examples"));
+      // What brings the rule's skips back, as a `mutate:` rule's line and as the annotation.
+      each.put("mutate", "arid: [" + id + "]");
+      each.put("annotation", "@DoMutate(arid = \"" + id + "\")");
       engine(id, each);
     }
     var text = new StringBuilder();
