@@ -702,11 +702,11 @@ public static int attempts(BooleanSupplier call) {
 <Code code={firstValues} lang="ansi" />
 
 <EditionOnly edition="rust">
-**In the Rust edition:** a `let`'s first value of `0` or `1`.
+**In the Rust edition:** a `let`'s first value of `0` or `1` gets no mutant; nothing counts it, and
+no rule brings it back.
 </EditionOnly>
 
-**Changed in:** 1.0.0, with `mutastic/constant-value`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back. The Rust
-edition's rule.
+**Changed in:** 1.0.0, with `mutastic/constant-value`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
 
 ## Split limits
 
