@@ -1,0 +1,12 @@
+ [46;30;1m SKIPPED [0m [1marid: only sizes a collection's first allocation[0m
+    [2m┌─[0m src/main/java/com/example/arid/Pairs.java:11
+    [2m│[0m
+ [2m10[0m [2m│[0m   public static List<Integer> doubled(List<Integer> values) {
+ [2m11[0m [2m│[0m     var pairs = new ArrayList<Integer>(values.size() * 2);
+    [2m│[0m                                                      [1;31m^ * changed to /[0m
+ [2m12[0m [2m│[0m     for (int value : values) {
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mvar pairs = new ArrayList<Integer>(values.size() * 2);
+              [32m+ [0mvar pairs = new ArrayList<Integer>(values.size() / 2);
+
+    [2mreproduce [0m mutastic run --only=m06b94eb4 samples/arid

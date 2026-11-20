@@ -1,0 +1,185 @@
+---
+title: Arid mutants
+description: "The mutants mutastic skips because no test should have to catch them: what arid means, the evidence for it, what it can cost, and how to check a rule and bring it back."
+---
+
+import EditionTabs from '../../../components/EditionTabs.astro';
+import { Code } from '@astrojs/starlight/components';
+import audit from '../../../data/output/arid-audit.ansi?raw';
+
+Remove a log line and every test still passes. A run that calls that a gap is asking for a test
+nobody wants: one that reads a log message, breaks the day someone rewords it, and proves nothing
+about what the code does. A report full of those costs the time it takes to read, and teaches
+people, and coding agents, to stop trusting the rest of it, which is where the real gaps are.
+
+So mutastic skips mutants like that on its own, as **arid**. This page says what that means, why
+it's a fair line to draw, what it can cost, and how to check it and move it for your code. Each
+rule, with the setting that brings it back, has its own section in [Arid rules](/reference/arid/).
+
+## What arid means
+
+Code is arid when a test could check it but shouldn't have to: a change to it shows only in what
+the program tells a person, or in how fast it runs, not in what it does.
+
+<EditionTabs>
+<div slot="java">
+
+```java
+log.info("saved order {}", id);           // removed: the order is still saved
+var lines = new ArrayList<>(orders.size() * 2);  // * becomes /: the list still grows as it needs to
+Thread.sleep(100);                        // removed: the same work, sooner
+```
+
+</div>
+<div slot="rust">
+
+```rust
+info!("saved order {id}");  // removed: the order is still saved
+config.unwrap();            // removed: the same work, without the check that config is there
+```
+
+</div>
+</EditionTabs>
+
+Arid isn't the same as [equivalent](/concepts/equivalence/). An equivalent mutant is a fact: no
+input tells it apart from the code, so no test can catch it. An arid mutant is a judgement: a test
+could catch it, and mutastic thinks none should have to. Because it's a judgement, every rule says
+what it can hide, and every rule can be brought back where your code needs it.
+
+## Why skip them
+
+The idea, and the name, come from Google's mutation testing, which shows developers the mutants
+their tests miss while their change is in code review. Its authors found that mutants in
+"uninteresting statements like logging" cost the people reading them time and attention, and that
+a test written to catch one wasn't seen as making the suite any better, so those mutants stayed
+uncaught. Without rules to leave them out, "users would become frustrated with non-actionable
+feedback and opt out of the system altogether"
+([Petrović and Ivanković, ICSE 2018](https://research.google/pubs/state-of-mutation-testing-at-google/)).
+
+The first rules they wrote, for logging, for time and for configuration flags, are credited with
+lifting the share of mutants developers found worth acting on from about 15% to 80%. When they
+checked 100 calls the logging rule had skipped, 99 were right to skip, and the last was of
+marginal use
+([Petrović, Ivanković, Fraser and Just, IEEE TSE 2021](https://homes.cs.washington.edu/~rjust/publ/practical_mutation_testing_tse_2021.pdf)).
+
+The same papers are frank about the cost, and so is this page: a rule "may suppress mutation in
+relevant nodes as a side-effect". That's why mutastic's rules are narrow, and why each one comes
+with a way to check it.
+
+## How mutastic decides
+
+- **By the exact code, never by a name.** A rule matches what the compiled code does: a call to a
+  logger's type or to `System.out`, a `Thread.sleep`, the constructor of one of the JDK's
+  collections. A method called `log` or a variable called `timeout` is nothing special. In the Rust
+  edition, a rule matches the syntax: an output macro such as `info!` used as a statement.
+- **Only where the value goes nowhere else.** Text that goes straight into a log call is arid; the
+  same text returned, stored or compared is counted. Arithmetic that only sizes a new
+  `ArrayList` is arid; the same arithmetic used as a loop's bound is counted.
+- **Skipped, never hidden.** An arid mutant is still made, keeps its id, and says why it was
+  skipped, kind first: `arid: only waits`. The summary counts it (`4 skipped (4 arid)`), it's in the
+  report and the events, and `mutastic explain` shows it. It just isn't in the score.
+
+The kinds of code each rule covers, with the reason each prints, are listed in
+[Arid rules](/reference/arid/).
+
+## What is never arid
+
+Some code looks like plumbing and decides what the program does. mutastic counts it:
+
+- **Starting work, and waiting for it with no time limit:** a removed `start()`, `submit()` or
+  `join()`, and in Rust a removed `handle.join().unwrap();`. If no test notices the work never
+  ran, or the code read its result before it finished, that's a gap worth a test.
+- **Stopping work:** `interrupt()`, `shutdown()`, a lock's `unlock()`.
+- **Time limits that decide what happens:** a timeout given to `Future.get` or
+  `CountDownLatch.await`, how many times to retry. Only how long a sleep or a `join` waits is arid.
+- **How work is run:** whether a thread is a daemon, a pool's size, a queue's capacity.
+- **What the code returns, stores or compares,** however it got there.
+- **A value only a log line uses.** In this release, `(System.nanoTime() - start) / 1_000_000`
+  passed to `log.info` keeps its mutants; only removing the call, and its format string, are arid.
+  [Arid rules in practice](/guides/arid-in-practice/#a-value-only-logged) shows what to do with
+  them.
+
+## What it can cost
+
+Every rule is right for most code and wrong for some. A log line can be the product: an audit
+log, a command's output. A `toString()` can be what a customer reads. A `join` with a time limit
+can be what keeps the code from reading a result before the work that makes it has finished. For code like that, the skip hides a real gap.
+
+So each rule's section in [Arid rules](/reference/arid/) says, under **What it can hide**, the
+bug it could hide, found by running its mutants against tests that check that behaviour, and
+**When to bring it back**. Read those for the rules your code meets.
+
+## Check what the skips hide
+
+`MUTASTIC_ARID=audit` runs every arid mutant anyway, for one run, without changing what counts:
+
+```sh
+MUTASTIC_ARID=audit mutastic run samples/sales
+```
+
+<EditionTabs>
+<div slot="java">
+
+The summary gains an `Arid audit` row: how many ran, how many your tests caught, how many of
+those by a test's own assertion, and where:
+
+<Code code={audit} lang="ansi" />
+
+A catch by an assertion means a test already checks what that code does, so for that code the
+skip may be hiding a contract: look at it, and bring its rule back if so. A catch by a crash (an
+exception the change caused, not a failed check) says nothing either way, and a miss means the
+rule is doing its job. The audit is the command line's; the Gradle and Maven plugins don't run it.
+
+</div>
+<div slot="rust">
+
+The Rust edition has no audit yet
+([mutastic-rs#56](https://github.com/mutastic/mutastic-rs/issues/56)). To see what its skips hide,
+bring them back for a run with a `mutate:` rule, as below, and read what the tests miss.
+
+</div>
+</EditionTabs>
+
+## Bring a rule back
+
+Bring a rule back where your tests already check that kind of behaviour, or where that output is
+the product: an audit log, a command-line tool's output, a library whose `toString()` is part of
+its API. Say why, as every rule must: the reason is shown with each mutant the rule brings back.
+If you're not sure, run the audit first.
+
+<EditionTabs>
+<div slot="java">
+
+A `mutate:` rule in `mutastic.yaml` brings back every arid skip in the code it covers, a class or
+one method, and `@DoMutate` on a class or method does the same from the code itself:
+
+```yaml
+rules:
+  - mutate: com.example.sales.Summary#of
+    reason: callers rely on of() waiting for its worker
+```
+
+Neither brings back code the compiler wrote, an equivalent mutant, or code `@DoNotMutate` or a
+`skip:` rule skips. Each rule's section in [Arid rules](/reference/arid/) has the setting for that
+rule, ready to copy. See [Configuration](/guides/configuration/#mutasticyaml) for the patterns a
+rule takes.
+
+</div>
+<div slot="rust">
+
+A `mutate:` rule in `mutastic.yaml` takes back every arid skip in the code it covers. The Rust
+edition has no annotations, so the rule is the only way:
+
+```yaml
+rules:
+  - mutate: crate::report::Summary::of
+    reason: the summary is printed for people to read, and the tests check it
+```
+
+Some of what the Java edition skips as arid, the Rust edition doesn't make a mutant for at all:
+a number given straight to `with_capacity` or `sleep`, the text of an `Err` or an `expect`, a
+counter's first `0` or `1`, and anything inside a macro's arguments. With no mutant, nothing counts
+those, and no rule can bring them back. [Arid rules](/reference/arid/) says which, rule by rule.
+
+</div>
+</EditionTabs>

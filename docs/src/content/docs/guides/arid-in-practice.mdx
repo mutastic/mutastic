@@ -1,0 +1,184 @@
+---
+title: Arid rules in practice
+description: "One small class that logs, waits for a worker, sizes a buffer and prints a report: which of its mutants mutastic skips as arid, which it counts, how to check the skips, and how to bring back the one that's a contract."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import run from '../../../data/output/arid-run.ansi?raw';
+import audit from '../../../data/output/arid-audit.ansi?raw';
+import explained from '../../../data/output/arid-explain.ansi?raw';
+import formatString from '../../../data/output/arid-format-string.ansi?raw';
+import ignored from '../../../data/output/arid-ignore.ansi?raw';
+import kept from '../../../data/output/arid-kept.ansi?raw';
+
+Your report command fetches the day's sales on a worker thread, waits for it, builds the text,
+logs how long it all took, and prints the report. A mutastic run skips some of that as
+[arid](/concepts/arid/) and counts the rest, and the line between them isn't always where you'd
+draw it. This guide takes one such class through a run: which mutants are skipped and why, which
+are counted, how to check the skips, and how to bring back the one your tests rely on.
+
+## The class
+
+`samples/sales` in mutastic's repository:
+
+{/* from: samples/sales/src/main/java/com/example/sales/Summary.java */}
+```java
+  /** What the report command prints. */
+  public static void print(PrintStream out, Supplier<List<Long>> sales)
+      throws InterruptedException {
+    out.println(of(sales));
+  }
+
+  public static String of(Supplier<List<Long>> sales) throws InterruptedException {
+    long start = System.nanoTime();
+    var fetched = new AtomicReference<List<Long>>(List.of());
+    var worker = new Thread(() -> fetched.set(sales.get()));
+    worker.start();
+    worker.join(5_000);
+    List<Long> amounts = fetched.get();
+    var text = new StringBuilder(amounts.size() * 8);
+    long total = 0;
+    for (long amount : amounts) {
+      text.append(amount).append('\n');
+      total += amount;
+    }
+    text.append("total ").append(total);
+    log.info(
+        "summed {} amounts in {} ms", amounts.size(), (System.nanoTime() - start) / 1_000_000);
+    return text.toString();
+  }
+```
+
+Its one test checks what the command prints, from a source that takes a moment, as a real one
+does:
+
+{/* from: samples/sales/src/test/java/com/example/sales/SummaryTest.java */}
+```java
+  @Test
+  void printsEachAmountThenTheTotal() throws Exception {
+    var printed = new ByteArrayOutputStream();
+    Summary.print(new PrintStream(printed, true, StandardCharsets.UTF_8), slowly(List.of(12L, 30L)));
+    assertEquals(
+        "12\n30\ntotal 42" + System.lineSeparator(), printed.toString(StandardCharsets.UTF_8));
+  }
+```
+
+## The run
+
+```sh
+mutastic run samples/sales
+```
+
+<Code code={run} lang="ansi" />
+
+The test catches most of it: a removed `start()`, a removed `append`, the total's `+`. Four
+mutants are skipped as arid, and two on the log line are missed. Here is each, in turn.
+
+## A log line
+
+Removing the `log.info` call is skipped as `arid: only writes output`, by the
+[`output`](/reference/arid/#output) rule. The report comes out the same without it, and a test
+that read the log line would break the next time someone reworded it. Keep this skip unless the log
+is the product, an audit log say, and a test reads it.
+
+## Its format string
+
+With `--operators=stronger`, strings get mutants too. The format string,
+`"summed {} amounts in {} ms"`, only goes into the log call, so it's skipped by the same rule:
+
+```sh
+mutastic explain md6513da0 samples/sales
+```
+
+<Code code={formatString} lang="ansi" />
+
+The values after it, worked out in the call, don't change that: the string still goes nowhere but
+the log.
+
+## A value only logged
+
+The two missed mutants are in `(System.nanoTime() - start) / 1_000_000`: `-` becoming `+`, and `/`
+becoming `*`. Each gives the log line a wrong number of milliseconds, and nothing else, so no test
+should check them. But no rule skips them: mutastic skips a value only when it can see the value
+goes nowhere but output, and in this release it doesn't follow a value worked out for a log call.
+
+So say so yourself. `mutastic ignore` records the decision, with its reason, in
+`.mutastic/ignores.yaml`, for review with the code:
+
+```sh
+mutastic ignore m173c4fca samples/sales --as=telemetry --reason="only how long the summary took, for the log"
+```
+
+<Code code={ignored} lang="ansi" />
+
+Do the same for the other. `--as=telemetry` counts them apart in the summary, and each ignore lapses
+when its line changes, so a value later used for more than the log is counted again.
+
+## A buffer's size
+
+`amounts.size() * 8` sizes the `StringBuilder`, and its `*` becoming `/` is skipped as
+`arid: only sizes a collection's first allocation`, by the
+[`capacity`](/reference/arid/#capacity) rule. A builder grows as it needs to, so the text is the
+same either way. Keep it.
+
+## Waits
+
+Removing `worker.join(5_000)` is skipped as `arid: only waits`, by the
+[`waits`](/reference/arid/#waits) rule, which skips a removed sleep, and a `join` with a time
+limit. For this code, that skip is wrong: without the `join`, `of` reads the sales before the
+worker has fetched them, a race, the same bug as removing a `join()` with no time limit, which
+mutastic counts. The audit, below, shows the test would catch it, in `Summary.of()`.
+
+A `mutate:` rule on `of` would bring it back, but with it the log line and the buffer, which no test
+should check. Until a rule can be brought back on its own, weigh that: here the test already
+catches the race, and the audit says so.
+
+The time limit itself, `5_000`, is arid too: with `--operators=stronger`, a change to it is skipped
+as `arid: only sets how long to wait`, by the [`wait-times`](/reference/arid/#wait-times) rule.
+
+## The command's output
+
+Removing `out.println(...)` in `print` is skipped as `arid: only writes output` too, by the same rule
+as the log line. Here, though, the output is the product: it's what the report command is for, and
+the test reads it.
+
+```sh
+mutastic explain m32bd4ead samples/sales
+```
+
+<Code code={explained} lang="ansi" />
+
+The audit runs every arid mutant anyway, to show which skips your tests would catch:
+
+```sh
+MUTASTIC_ARID=audit mutastic run samples/sales
+```
+
+<Code code={audit} lang="ansi" />
+
+Two were caught by an assertion: the `join` in `Summary.of()`, and the output in `Summary.print()`.
+A test checks what that code does, so the skip is hiding a contract. Bring the skips back there, for that method only, with a reason, in
+`mutastic.yaml`:
+
+{/* added to: samples/sales/mutastic.yaml */}
+```yaml
+rules:
+  - mutate: com.example.sales.Summary#print
+    reason: the report is what the command prints, and scripts read it
+```
+
+The run after it runs the `println`'s mutant, and the test catches it. The log line and the buffer
+stay skipped, and the two ignored mutants are counted apart:
+
+<Code code={kept} lang="ansi" />
+
+## What you end with
+
+- Skips that are right for this code, kept: the log line and its text, the buffer's size.
+- A value only the log uses, ignored with a reason, by sort.
+- A wait whose skip could hide a race, which the audit shows the test already catches.
+- The one skip that hid a contract, the command's output, brought back for one method and one rule,
+  with the test that catches it.
+
+Each rule, what it can hide and the setting that brings it back are in
+[Arid rules](/reference/arid/).
