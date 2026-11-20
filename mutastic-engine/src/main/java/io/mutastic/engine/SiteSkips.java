@@ -166,6 +166,28 @@ final class SiteSkips {
     String descriptor() {
       return call.typeSymbol().descriptorString();
     }
+
+    /// A hash table's constructor that takes a capacity, then a load factor.
+    boolean hashTableInit() {
+      return name().equals("<init>")
+          && LOADED.contains(owner())
+          && (descriptor().equals("(IF)V") || descriptor().equals("(IFZ)V"));
+    }
+
+    boolean isLoadFactor() {
+      return hashTableInit() && position == 2;
+    }
+
+    boolean sizedFactory() {
+      return SIZED_FACTORIES.contains(owner() + "." + name())
+          && call.opcode() == Opcode.INVOKESTATIC
+          && descriptor().startsWith("(I)");
+    }
+
+    /// `Thread.sleep(long)` and `Thread.sleep(long, int)` throw for a negative time.
+    boolean throwsIfNegative() {
+      return owner().equals("java/lang/Thread") && descriptor().startsWith("(J");
+    }
   }
 
   /// The number goes only to a capacity or a wait, and a changed constant stays a value it takes
@@ -175,36 +197,25 @@ final class SiteSkips {
     if (sizes(taken)) {
       return negative ? Optional.empty() : Optional.of(SIZES);
     }
-    if (LOADED.contains(taken.owner())
-        && taken.name().equals("<init>")
-        && taken.position() == 2
-        && (taken.descriptor().equals("(IF)V") || taken.descriptor().equals("(IFZ)V"))) {
+    if (taken.isLoadFactor()) {
       // A load factor above zero only says when the table grows; zero or below throws, and so might
       // whatever the code works out.
       return to.filter(value -> value > 0).map(value -> GROWS);
     }
     if (sleepsFor(taken.call())) {
-      boolean throwsIfNegative =
-          taken.owner().equals("java/lang/Thread") && taken.descriptor().startsWith("(J");
-      return negative && throwsIfNegative ? Optional.empty() : Optional.of(WAITS);
+      return negative && taken.throwsIfNegative() ? Optional.empty() : Optional.of(WAITS);
     }
     return Optional.empty();
   }
 
   private static boolean sizes(Taken taken) {
-    var owner = taken.owner();
-    var name = taken.name();
-    if (name.equals("<init>")) {
-      var descriptor = taken.descriptor();
+    if (taken.name().equals("<init>")) {
       return taken.position() == 1
-          && ((SIZED.contains(owner) && descriptor.equals("(I)V"))
-              || (LOADED.contains(owner)
-                  && (descriptor.equals("(IF)V") || descriptor.equals("(IFZ)V"))));
+          && ((SIZED.contains(taken.owner()) && taken.descriptor().equals("(I)V"))
+              || taken.hashTableInit());
     }
-    return (name.equals("ensureCapacity") && SIZED.contains(owner))
-        || (SIZED_FACTORIES.contains(owner + "." + name)
-            && taken.call().opcode() == Opcode.INVOKESTATIC
-            && taken.descriptor().startsWith("(I)"));
+    return (taken.name().equals("ensureCapacity") && SIZED.contains(taken.owner()))
+        || taken.sizedFactory();
   }
 
   /// Follows the number `code[at]` leaves through what only works with it, arithmetic, a widening
@@ -215,37 +226,45 @@ final class SiteSkips {
     int depth = 1;
     for (int index = at + 1; index < code.size(); index++) {
       var element = code.get(index);
-      if (element instanceof LabelTarget target && landings.contains(target.label())) {
+      if (stopsTheWalk(element, landings)) {
         return Optional.empty();
       }
-      if (!(element instanceof Instruction instruction)) {
-        continue;
-      }
-      if (instruction instanceof BranchInstruction
-          || instruction instanceof ReturnInstruction
-          || instruction instanceof ThrowInstruction
-          || instruction instanceof TableSwitchInstruction
-          || instruction instanceof LookupSwitchInstruction) {
-        return Optional.empty();
-      }
-      var effect = TextConstants.Follow.effect(instruction);
-      if (effect.takes() < depth) {
-        depth += effect.leaves() - effect.takes();
-        continue;
-      }
-      if (instruction instanceof InvokeInstruction call) {
-        int takes = TextConstants.Follow.takes(call);
-        var taken = new Taken(call, takes - depth);
-        if (!TO_A_TIME.contains(taken.owner() + "." + taken.name())) {
-          return Optional.of(taken);
+      if (element instanceof Instruction instruction) {
+        var effect = TextConstants.Follow.effect(instruction);
+        if (effect.takes() < depth) {
+          depth += effect.leaves() - effect.takes();
+        } else if (passesOn(instruction)) {
+          // What it works out holds the number, and is on top.
+          depth = 1;
+        } else {
+          return instruction instanceof InvokeInstruction call
+              ? Optional.of(new Taken(call, TextConstants.Follow.takes(call) - depth))
+              : Optional.empty();
         }
-      } else if (!worksWith(instruction)) {
-        return Optional.empty();
       }
-      // What it works out holds the number, and is on top.
-      depth = 1;
     }
     return Optional.empty();
+  }
+
+  /// A jump, a return or a throw, or a place code jumps to: past it, the number may go elsewhere.
+  private static boolean stopsTheWalk(CodeElement element, Set<Label> landings) {
+    return switch (element) {
+      case LabelTarget target -> landings.contains(target.label());
+      case BranchInstruction _,
+          ReturnInstruction _,
+          ThrowInstruction _,
+          TableSwitchInstruction _,
+          LookupSwitchInstruction _ ->
+          true;
+      default -> false;
+    };
+  }
+
+  /// What takes the number and leaves it worked with: arithmetic, or a time in another unit.
+  private static boolean passesOn(Instruction instruction) {
+    return instruction instanceof InvokeInstruction call
+        ? TO_A_TIME.contains(call.owner().asInternalName() + "." + call.name().stringValue())
+        : worksWith(instruction);
   }
 
   /// Arithmetic, or a conversion from one kind of number to another: what's left is the number,
