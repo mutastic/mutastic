@@ -64,7 +64,7 @@ public enum AridRule {
   WAITS(
       "mutastic:waits",
       Scope.SITE,
-      "A sleep, or a `join` with a time limit, removed.",
+      "A sleep removed: `Thread.sleep` or `TimeUnit.sleep`.",
       "Thread.sleep(100);",
       "arid: only waits"),
   NULL_CHECKS(
@@ -92,7 +92,33 @@ public enum AridRule {
       Scope.SITE,
       "The limit of a `String.split`.",
       "line.split(\",\", 2)",
-      "arid: only limits a split");
+      "arid: only limits a split"),
+  THREAD_NAMES(
+      "mutastic:thread-names",
+      Scope.SITE,
+      "A thread's or a pool's name, which only people and their tools read: a thread dump, a"
+          + " profiler, a log pattern.",
+      "thread.setName(\"background-task\");",
+      "arid: only names a thread"),
+  THREAD_PRIORITIES(
+      "mutastic:thread-priorities",
+      Scope.SITE,
+      "A thread's priority from 1 to 10: a hint, which Linux ignores by default and a virtual"
+          + " thread always does.",
+      "thread.setPriority(Thread.MAX_PRIORITY);",
+      "arid: only sets a priority hint"),
+  KEEP_ALIVE(
+      "mutastic:keep-alive",
+      Scope.SITE,
+      "How long a pool's idle threads live before they stop, while it stays above zero.",
+      "pool.setKeepAliveTime(30, TimeUnit.SECONDS);",
+      "arid: only sets how long idle threads live"),
+  STACK_SIZES(
+      "mutastic:stack-sizes",
+      Scope.SITE,
+      "The size of a thread's stack, while it stays above zero.",
+      "Thread.ofPlatform().stackSize(1 << 20).unstarted(task);",
+      "arid: only sizes a thread's stack");
 
   /// What a rule judges: a whole method, every mutant in it, or one site, a call or a value.
   public enum Scope {

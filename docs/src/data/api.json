@@ -182,6 +182,46 @@
               "throws": []
             },
             {
+              "kind": "enum constant",
+              "name": "THREAD_NAMES",
+              "anchor": "thread_names",
+              "signature": "THREAD_NAMES",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "THREAD_PRIORITIES",
+              "anchor": "thread_priorities",
+              "signature": "THREAD_PRIORITIES",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "KEEP_ALIVE",
+              "anchor": "keep_alive",
+              "signature": "KEEP_ALIVE",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "STACK_SIZES",
+              "anchor": "stack_sizes",
+              "signature": "STACK_SIZES",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
               "kind": "field",
               "name": "PAGE",
               "anchor": "page",
