@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 /// Paths are shown from where the person is, here the tests' directory.
 class BuildErrorsTest {
@@ -154,6 +156,39 @@ class BuildErrorsTest {
             BuildErrors.command(
                 List.of("sh", HERE + "/gradlew"), Path.of(HERE), "-p", List.of("testClasses")))
         .isEqualTo("sh ./gradlew testClasses");
+  }
+
+  /// A path with a space, a quote or anything else a shell reads is typed in quotes, so a shell
+  /// reads it as one word and expands nothing in it; for cmd, a `.bat` or `.cmd` in double quotes.
+  @Test
+  void aPathAShellWouldSplitIsQuoted() {
+    assertThat(BuildErrors.typed("./gradlew")).isEqualTo("./gradlew");
+    assertThat(BuildErrors.typed("/work/app/gradlew")).isEqualTo("/work/app/gradlew");
+    assertThat(BuildErrors.typed("/Users/me/My Projects/gradlew"))
+        .isEqualTo(
+            Wrappers.WINDOWS
+                ? "\"/Users/me/My Projects/gradlew\""
+                : "'/Users/me/My Projects/gradlew'");
+    assertThat(BuildErrors.typed("C:\\My Projects\\gradlew.bat"))
+        .isEqualTo("\"C:\\My Projects\\gradlew.bat\"");
+    assertThat(BuildErrors.typed("C:\\Users\\RUNNER~1\\app\\mvnw.cmd"))
+        .isEqualTo("C:\\Users\\RUNNER~1\\app\\mvnw.cmd");
+    if (!Wrappers.WINDOWS) {
+      assertThat(BuildErrors.typed("/w/it's $HOME/gradlew"))
+          .isEqualTo("'/w/it'\\''s $HOME/gradlew'");
+    }
+  }
+
+  @Test
+  @DisabledOnOs(value = OS.WINDOWS, disabledReason = "paths from a drive's root")
+  void aCommandInADirectoryWithASpaceQuotesItsPaths() {
+    assertThat(
+            BuildErrors.command(
+                List.of("sh", "/My Projects/gradlew"),
+                Path.of("/My Projects/app"),
+                "-p",
+                List.of("testClasses")))
+        .isEqualTo("sh '/My Projects/gradlew' -p '/My Projects/app' testClasses");
   }
 
   /// What likely made the build fail comes after what went wrong, before where its output is.

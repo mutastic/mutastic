@@ -1,7 +1,7 @@
 
  Missed ────────────────────────────────────────────────────────────
 
- ❯ src/main/java/com/example/rates/Delivery.java  3 missed in 1 method
+ ❯ src/main/java/com/example/rates/Delivery.java  2 missed in 1 method
 
  [✗ MISSED] no test checks isFree() at total == freeFrom
     ┌─ src/main/java/com/example/rates/Delivery.java:12
@@ -55,33 +55,6 @@
     done when  mutastic verify m43173676 samples/suggestions passes
     reproduce  mutastic run --only=m43173676 samples/suggestions
     or ignore  mutastic ignore m43173676 --reason="<why>" samples/suggestions
-
- [✗ MISSED] no test checks isFree() returning false here
-    ┌─ src/main/java/com/example/rates/Delivery.java:12
-    │
- 11 │   public boolean isFree(int total) {
- 12 │     return total >= freeFrom;
-    │     ^^^^^^^^^^^^^^^^^^^^^^^^^ now returns true
- 13 │   }
-    │
-    = mutant  - return total >= freeFrom;
-              + return true;
-    = note: tests reach this return, but none fails when it returns true
-            inputs seen: total = 50
-            covered by DeliveryTest#bigOrdersGoFree (its 1 covering test still passes)
-    = help: add a test where isFree() returns false here, and assert it
-
-            // in DeliveryTest
-            @Test
-            void isFreeWithTotal0ForFreeFrom20() {
-              var delivery = new Delivery(20); // as DeliveryTest#bigOrdersGoFree builds it
-              assertThat(delivery.isFree(0)).isFalse(); // today false · with this mutant true
-            }
-            check today's value is the one you intend: the test pins what the code does now
-
-    done when  mutastic verify m2e5ded43 samples/suggestions passes
-    reproduce  mutastic run --only=m2e5ded43 samples/suggestions
-    or ignore  mutastic ignore m2e5ded43 --reason="<why>" samples/suggestions
 
  ❯ src/main/java/com/example/rates/Discounts.java  6 missed in 3 methods
 
@@ -237,7 +210,7 @@
     reproduce  mutastic run --only=m111a435d samples/suggestions
     or ignore  mutastic ignore m111a435d --reason="<why>" samples/suggestions
 
- ❯ src/main/java/com/example/rates/Rates.java  5 missed in 3 methods
+ ❯ src/main/java/com/example/rates/Rates.java  4 missed in 3 methods
 
  [✗ MISSED] no test checks inCredit() at balance == 0
     ┌─ src/main/java/com/example/rates/Rates.java:18
@@ -289,32 +262,6 @@
     done when  mutastic verify m05382fc9 samples/suggestions passes
     reproduce  mutastic run --only=m05382fc9 samples/suggestions
     or ignore  mutastic ignore m05382fc9 --reason="<why>" samples/suggestions
-
- [✗ MISSED] no test checks inCredit() returning false here
-    ┌─ src/main/java/com/example/rates/Rates.java:18
-    │
- 17 │   public static boolean inCredit(int balance) {
- 18 │     return balance > 0;
-    │     ^^^^^^^^^^^^^^^^^^^ now returns true
- 19 │   }
-    │
-    = mutant  - return balance > 0;
-              + return true;
-    = note: tests reach this return, but none fails when it returns true
-            inputs seen: balance = 50
-            covered by RatesTest#aPositiveBalanceIsInCredit (its 1 covering test still passes)
-    = help: add a test where inCredit() returns false here, and assert it
-
-            // in RatesTest
-            @Test
-            void inCreditWhenBalanceIsZero() {
-              assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
-            }
-            check today's value is the one you intend: the test pins what the code does now
-
-    done when  mutastic verify m193b6dcc samples/suggestions passes
-    reproduce  mutastic run --only=m193b6dcc samples/suggestions
-    or ignore  mutastic ignore m193b6dcc --reason="<why>" samples/suggestions
 
  [✗ MISSED] no test checks lateFee() at daysLate == 7
     ┌─ src/main/java/com/example/rates/Rates.java:10
@@ -543,10 +490,10 @@
  Next: mutastic verify <id> samples/suggestions · mutastic run --only=<id> samples/suggestions · mutastic explain <id> samples/suggestions
 
    Classes  0 clean | 4 with misses (4)
-   Mutants  ✓ 21 caught · ✗ 21 missed · 2 skipped (2 arid) (44)
-  Worst at  Window.openOn() 7 ✗ · Delivery.isFree() 3 ✗ · Rates.inCredit() 3 ✗
- Test runs  42 (336 without coverage selection)
+   Mutants  ✓ 19 caught · ✗ 19 missed · 6 skipped (2 arid, 4 twin) (44)
+  Worst at  Window.openOn() 7 ✗ · Delivery.isFree() 2 ✗ · Discounts.discount() 2 ✗
+ Test runs  38 (304 without coverage selection)
   Start at  …
   Duration  … (setup …, build …, coverage …, mutants …, checking …)
      Tests  8 on JDK 17 · … workers
-     Score  50.0%  [FAIL] Below the threshold of 80: 21 missed, 0 not covered.  = vs last run (same code)
+     Score  50.0%  [FAIL] Below the threshold of 80: 19 missed, 0 not covered.  = vs last run (same code)

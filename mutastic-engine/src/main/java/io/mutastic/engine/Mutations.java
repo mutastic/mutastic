@@ -40,6 +40,7 @@ import java.lang.classfile.instruction.ReturnInstruction;
 import java.lang.classfile.instruction.StoreInstruction;
 import java.lang.reflect.AccessFlag;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -166,9 +167,10 @@ final class Mutations {
             .code()
             .ifPresent(
                 code -> {
-                  var found = scanned(new Scanned(model, threads), method, code, here);
-                  mutants.addAll(
-                      viable(model, located(model, method, mergeFinallyCopies(found, code))));
+                  var scan = scan(new Scanned(model, threads), method, code, here);
+                  var found = scan.mutants(); // before its twin keys, which it finds
+                  var made = viable(model, located(model, method, mergeFinallyCopies(found, code)));
+                  mutants.addAll(Twins.marked(made, scan.twinKeys()));
                 });
       }
     }
@@ -179,24 +181,23 @@ final class Mutations {
   /// The class a method's in, and what it shows of how it treats its threads.
   private record Scanned(ClassModel model, ThreadSettings.Facts threads) {}
 
-  private List<Mutant> scanned(
+  private MethodScan scan(
       Scanned scanned,
       MethodModel method,
       java.lang.classfile.CodeModel code,
       List<Operator> here) {
     var model = scanned.model();
     return new MethodScan(
-            model,
-            method,
-            code.elementList(),
-            filtered(model, method),
-            kept(model, method),
-            here,
-            new Wrappers(module),
-            supertypes,
-            module,
-            scanned.threads())
-        .mutants();
+        model,
+        method,
+        code.elementList(),
+        filtered(model, method),
+        kept(model, method),
+        here,
+        new Wrappers(module),
+        supertypes,
+        module,
+        scanned.threads());
   }
 
   /// The mutants at where their code really is, and those in code copied in from outside the module
@@ -390,6 +391,11 @@ final class Mutations {
 
     private final Set<Integer> stringSwitchLines = new HashSet<>();
     private final List<Mutant> mutants = new ArrayList<>();
+
+    /// What each mutant found does, by id, for [Twins]: only those of a shape twins are known in,
+    /// once [#mutants] has found them.
+    private final Map<String, Set<String>> twinKeys = new HashMap<>();
+
     private int line = -1;
     private int ordinal;
     private int callOrdinal;
@@ -428,6 +434,10 @@ final class Mutations {
       this.threads = new ThreadSettings(code, threads);
     }
 
+    Map<String, Set<String>> twinKeys() {
+      return twinKeys;
+    }
+
     List<Mutant> mutants() {
       for (int at = 0; at < code.size(); at++) {
         switch (code.get(at)) {
@@ -457,7 +467,7 @@ final class Mutations {
               throw new IllegalStateException("changes a class as a whole: see WholeClasses");
         }
       }
-      found.forEach(each -> mutants.add(mutant(each, instruction, at, workedOn)));
+      found.forEach(each -> add(each, instruction, at, workedOn));
       if (instruction instanceof InvokeInstruction) {
         callOrdinal++;
       } else if (isSite(instruction)) {
@@ -465,6 +475,16 @@ final class Mutations {
       }
       index++;
       previous = instruction;
+    }
+
+    /// The mutant of a change found, and what it does, for [Twins].
+    private void add(Found found, Instruction instruction, int at, List<String> workedOn) {
+      var mutant = mutant(found, instruction, at, workedOn);
+      mutants.add(mutant);
+      var keys = Twins.keys(code, at, found.operator(), found.label());
+      if (!keys.isEmpty()) {
+        twinKeys.computeIfAbsent(mutant.id(), id -> new HashSet<>()).addAll(keys);
+      }
     }
 
     /// What the instruction works on, as the source names it.

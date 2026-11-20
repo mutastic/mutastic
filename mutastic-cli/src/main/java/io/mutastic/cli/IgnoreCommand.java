@@ -36,13 +36,37 @@ final class IgnoreCommand {
     }
   }
 
-  static int run(Main.Ignoring how, Where where, Engine.Mutants found, PrintStream out) {
+  /// The mutants found for an ignore, and the id it names: none for `--prune`.
+  record Named(String id, Engine.Mutants found) {}
+
+  static int run(Main.Ignoring how, Where where, Named named, PrintStream out) {
     if (how.prune()) {
-      return prune(where, found, out);
+      return prune(where, named.found(), out);
     }
-    return how.propose()
-        ? propose(found.all().getFirst(), how, where, out)
-        : ignore(found.all().getFirst(), how, where, out);
+    var mutant = decidedFor(named.id(), named.found().all(), out);
+    return how.propose() ? propose(mutant, how, where, out) : ignore(mutant, how, where, out);
+  }
+
+  /// The mutant a decision on `id` is for: its own, or for a twin the one it's the same as, which
+  /// runs for it, so the decision holds where the mutant runs.
+  private static Mutant decidedFor(String id, List<Mutant> found, PrintStream out) {
+    var named =
+        found.stream()
+            .filter(mutant -> mutant.id().equals(id))
+            .findFirst()
+            .orElse(found.getFirst());
+    var partner =
+        named
+            .sameAs()
+            .flatMap(same -> found.stream().filter(mutant -> mutant.id().equals(same)).findFirst());
+    if (partner.isEmpty()) {
+      return named;
+    }
+    out.printf(
+        "mutastic: %s is the same as %s, which runs for it: the decision is recorded for that"
+            + " one\n",
+        named.id(), partner.get().id());
+    return partner.get();
   }
 
   /// A proposal, waiting for a person: its mutant still counts as missed until it's accepted.
