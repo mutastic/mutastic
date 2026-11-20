@@ -53,7 +53,11 @@ class DocsAridTest {
           Map.entry("mutastic:null-checks", "the call to `requireNonNull()` is removed"),
           Map.entry("mutastic:array-sizes", "the constant `7` becomes `8`"),
           Map.entry("mutastic:first-values", "the constant `0` becomes `1`"),
-          Map.entry("mutastic:split-limits", "the constant `2` becomes `3`"));
+          Map.entry("mutastic:split-limits", "the constant `2` becomes `3`"),
+          Map.entry("mutastic:thread-names", "the string `\"report-worker\"` becomes `\"\"`"),
+          Map.entry("mutastic:thread-priorities", "the call to `setPriority()` is removed"),
+          Map.entry("mutastic:keep-alive-times", "the constant `30` becomes `29`"),
+          Map.entry("mutastic:stack-sizes", "the constant `67108864` becomes `1`"));
 
   /// The rules whose section says a test of what the code does can't see what they skip: the audit
   /// must find no catch by an assertion.

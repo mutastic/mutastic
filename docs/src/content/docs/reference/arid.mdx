@@ -20,6 +20,10 @@ import nullChecks from '../../../data/output/arid/null-checks.ansi?raw';
 import arraySizes from '../../../data/output/arid/array-sizes.ansi?raw';
 import firstValues from '../../../data/output/arid/first-values.ansi?raw';
 import splitLimits from '../../../data/output/arid/split-limits.ansi?raw';
+import threadNames from '../../../data/output/arid/thread-names.ansi?raw';
+import threadPriorities from '../../../data/output/arid/thread-priorities.ansi?raw';
+import keepAliveTimes from '../../../data/output/arid/keep-alive-times.ansi?raw';
+import stackSizes from '../../../data/output/arid/stack-sizes.ansi?raw';
 
 A mutant your tests miss asks for a test. Some ask for one nobody should write: a removed log line,
 a list's starting size. mutastic skips those on its own, as arid, and each skip says why. This
@@ -742,5 +746,231 @@ public static String value(String line) {
 </EditionOnly>
 
 **Changed in:** 1.0.0, with `mutastic/constant-value`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+
+## Thread names
+
+<AridRule id="mutastic:thread-names" />
+
+A thread's name: the name given to `new Thread`, `setName`, a `Thread.Builder`'s `name` and its
+start index, Guava's `setNameFormat`, and a value that only becomes part of a name, through
+`"worker-" + n` or `String.format`.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Workers.java */}
+```java
+    var thread = new Thread(work, "report-worker");
+```
+
+**Why:** nothing in the JVM acts on a thread's name. It's for people reading a thread dump, a
+profiler or a log line.
+
+<Aside type="caution" title="What it can hide">
+A name something reads: a monitoring tool or a test that finds a thread by its name, a log pattern
+that shows it. Here `WorkersTest` checks the name, and an empty one fails it. A class that reads
+names itself (`getName()` other than into a log line), or that implements `ThreadFactory`, keeps its
+name mutants.
+</Aside>
+
+**When to bring it back:** something other than people relies on the names, and your tests check
+them.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Workers#background
+    reason: the server's health check finds its workers by name
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("the server's health check finds its workers by name")
+public static Thread background(Runnable work) {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={threadNames} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** a name given to `thread::Builder::name`, or to tokio's `thread_name` or
+`thread_name_fn`, is skipped the same way, on a builder the code visibly starts from
+`thread::Builder::new()` or tokio's runtime `Builder`. A crate that reads a thread's name keeps them.
+</EditionOnly>
+
+**Changed in:** 1.3.0, both editions.
+
+## Thread priorities
+
+<AridRule id="mutastic:thread-priorities" />
+
+A removed `setPriority`, and a priority from 1 to 10 given to `setPriority`, a `Thread.Builder` or
+Guava's `ThreadFactoryBuilder`. One out of that range throws, and counts.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Workers.java */}
+```java
+    thread.setPriority(Thread.MIN_PRIORITY);
+```
+
+**Why:** a priority is a hint the operating system may ignore. HotSpot on Linux ignores it unless
+started with a flag only root can use, and a virtual thread's is always the normal one.
+
+<Aside type="caution" title="What it can hide">
+Code that reads the priority back, as `WorkersTest` does here, or work that's only scheduled right
+on a system that honours priorities. A class that calls `getPriority()` keeps its priority mutants.
+</Aside>
+
+**When to bring it back:** you ship on a system that honours priorities, and test the scheduling
+there.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Workers#background
+    reason: reports must yield to requests on the Windows servers
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("reports must yield to requests on the Windows servers")
+public static Thread background(Runnable work) {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={threadPriorities} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** no such rule: the standard library has no call to set a priority.
+</EditionOnly>
+
+**Changed in:** 1.3.0.
+
+## Keep alive times
+
+<AridRule id="mutastic:keep-alive-times" />
+
+How long a `ThreadPoolExecutor`'s idle threads live, given to its constructor or to
+`setKeepAliveTime`, while it stays above zero.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Workers.java */}
+```java
+    return new ThreadPoolExecutor(1, 4, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
+```
+
+**Why:** it decides when an idle thread is let go, which is memory and start-up time, not what the
+pool runs. A time of zero can throw, so it counts.
+
+<Aside type="caution" title="What it can hide">
+A pool whose idle threads must go, or stay, on time: one that lets its core threads time out so the
+program can exit, or that a test reads back, as `WorkersTest` does here.
+</Aside>
+
+**When to bring it back:** the pool's threads must be gone by a time something relies on, and your
+tests check it.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Workers#pool
+    reason: the batch job exits only once the pool's threads are gone
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("the batch job exits only once the pool's threads are gone")
+public static ThreadPoolExecutor pool() {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={keepAliveTimes} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** the duration given to tokio's `thread_keep_alive` is skipped the same way,
+while it stays above zero.
+</EditionOnly>
+
+**Changed in:** 1.3.0, both editions.
+
+## Stack sizes
+
+<AridRule id="mutastic:stack-sizes" />
+
+The stack size given to `new Thread(group, task, name, size)` or a `Thread.Builder`'s `stackSize`,
+while it stays above zero.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Workers.java */}
+```java
+    return new Thread(null, work, "deep-worker", 64L * 1024 * 1024);
+```
+
+**Why:** most code never comes near its stack's end, and the JVM may round the size, or ignore it.
+
+<Aside type="caution" title="What it can hide">
+Deep recursion that needs the room. Here a stack of 1 byte, which the JVM rounds up to its smallest,
+overflows on the recursion the thread runs, and `WorkersTest`, which checks the work finished,
+catches it.
+</Aside>
+
+**When to bring it back:** the thread recurses deeply on purpose, and your tests run it that deep.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Workers#deep
+    reason: the parser recurses once for each level of nesting
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("the parser recurses once for each level of nesting")
+public static Thread deep(Runnable work) {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={stackSizes} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** the size given to `thread::Builder::stack_size` or tokio's
+`thread_stack_size` is skipped the same way, while it stays above zero.
+</EditionOnly>
+
+**Changed in:** 1.3.0, both editions.
 
 <AridSections />

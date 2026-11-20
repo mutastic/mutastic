@@ -91,8 +91,11 @@ Some code looks like plumbing and decides what the program does. mutastic counts
   ran, or the code read its result before it finished, that's a gap worth a test.
 - **Stopping work:** `interrupt()`, `shutdown()`, a lock's `unlock()`.
 - **Time limits that decide what happens:** a timeout given to `Future.get` or
-  `CountDownLatch.await`, how many times to retry. Only how long a sleep or a `join` waits is arid.
-- **How work is run:** whether a thread is a daemon, a pool's size, a queue's capacity.
+  `CountDownLatch.await`, how many times to retry. Only how long a sleep or a `join` waits, and how long a pool's idle
+  threads live, are arid.
+- **How work is run:** whether a thread is a daemon, a pool's core or fixed size, a queue's
+  capacity. A thread's name, its priority and its stack size are arid: they change how threads look
+  or what they cost, not whether, when or how often work runs.
 - **What the code returns, stores or compares,** however it got there.
 - **A value only a log line uses.** In this release, `(System.nanoTime() - start) / 1_000_000`
   passed to `log.info` keeps its mutants; only removing the call, and its format string, are arid.
