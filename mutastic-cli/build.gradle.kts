@@ -141,6 +141,20 @@ tasks.test {
     testLogging {
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
+    // A time limit on each test, so one that hangs fails and says where, rather than holding a CI
+    // job until it's cut off with no log (Windows's, now and then). The slowest take under a
+    // minute (a card, on Windows); five is far past that. Before JUnit interrupts a test,
+    // TimeoutDump writes what every thread and process was doing to build/reports/timeouts.
+    // `-Pmutastic.testTimeout=2s` makes every test time out, to see a dump.
+    systemProperty(
+        "junit.jupiter.execution.timeout.default",
+        providers.gradleProperty("mutastic.testTimeout").getOrElse("5m"),
+    )
+    systemProperty("junit.jupiter.extensions.autodetection.enabled", "true")
+    systemProperty("junit.jupiter.extensions.autodetection.include", "io.mutastic.cli.TimeoutDump")
+    val timeoutDumps = layout.buildDirectory.dir("reports/timeouts")
+    systemProperty("mutastic.timeoutDumps", timeoutDumps.get().asFile.absolutePath)
+    doFirst { timeoutDumps.get().asFile.deleteRecursively() }
     // The end-to-end tests run mutastic against the sample projects, each its own Gradle build.
     systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
     // DocsCommandsTest parses every command the docs show.
