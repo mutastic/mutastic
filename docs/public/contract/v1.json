@@ -2629,26 +2629,6 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "G45",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "gate",
-      "summary": "`ignore --propose` with `--accept`, `--remove` or `--prune` isn't refused",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G46",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "gate",
-      "summary": "After `ignore --prune` on a directory that isn't `.`, the undo names the wrong path",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
       "id": "R1",
       "kind": "pending",
       "editions": [
@@ -2808,26 +2788,6 @@
       "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
-      "id": "A1",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "gate",
-      "summary": "`recorded in .mutastic/ignores.yaml`, not a path from where you are",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "A2",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "gate",
-      "summary": "The undo appends the directory even when it's `.`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
       "id": "A3",
       "kind": "pending",
       "editions": [
@@ -2835,16 +2795,6 @@
       ],
       "surface": "gate",
       "summary": "The undo quotes the reason with `'…'\\''…'`, not `\"…\"`",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "A5",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "gate",
-      "summary": "`doesn't run anyway` only for generated and equivalent skips",
       "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
