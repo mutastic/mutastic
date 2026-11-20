@@ -57,34 +57,78 @@ class PolicyTest {
     assertThat(run.out()).doesNotContain("listeners are wiring");
   }
 
+  /// A filter can skip one mutant, not its whole method: the change events' calls are skipped with
+  /// its reason, and every other mutant still runs.
+  @Test
+  void aPluginFilterSkipsOneMutantAtATime() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("observable"));
+    plugin(project.resolve("plugins/quiet.jar"), "acme.NoAuditCalls", guideExample());
+    Files.writeString(
+        project.resolve("mutastic.yaml"),
+        "plugins:\n  - plugins/quiet.jar\nfilters:\n  - acme:no-audit-calls\n");
+
+    var run = Samples.mutastic("run", project.toString(), "--format=jsonl", "--report=none");
+
+    assertThat(run.err()).doesNotContain("mutastic:");
+    var mutants = run.out().lines().filter(line -> line.contains("mutant-finished")).toList();
+    assertThat(mutants)
+        .filteredOn(line -> line.contains("firePropertyChange"))
+        .hasSize(2)
+        .allMatch(line -> line.contains("\"statusReason\":\"arid: only records an audit event\""));
+    assertThat(mutants)
+        .filteredOn(line -> !line.contains("firePropertyChange"))
+        .isNotEmpty()
+        .noneMatch(line -> line.contains("only records an audit event"))
+        .anyMatch(line -> !line.contains("statusReason"));
+  }
+
   /// A jar with one filter, as a team would ship its own: it skips listener registration.
   private static void plugin(Path jar) throws Exception {
-    var sources = Files.createTempDirectory("plugin");
-    var source = sources.resolve("acme/NoListeners.java");
-    Files.createDirectories(source.getParent());
-    Files.writeString(
-        source,
-        """
-        package acme;
+    plugin(jar, "acme.NoListeners", NO_LISTENERS);
+  }
 
-        import io.mutastic.api.Filter;
-        import io.mutastic.api.Skip;
-        import java.lang.classfile.ClassModel;
-        import java.lang.classfile.MethodModel;
-        import java.util.Optional;
+  private static final String NO_LISTENERS =
+      """
+      package acme;
 
-        public class NoListeners implements Filter {
-          public String id() {
-            return "acme:no-listeners";
-          }
+      import io.mutastic.api.Filter;
+      import io.mutastic.api.Skip;
+      import java.lang.classfile.ClassModel;
+      import java.lang.classfile.MethodModel;
+      import java.util.Optional;
 
-          public Optional<Skip> skip(ClassModel owner, MethodModel method) {
-            return method.methodName().stringValue().startsWith("add")
-                ? Optional.of(new Skip(Skip.Kind.USER, "listeners are wiring"))
-                : Optional.empty();
-          }
+      public class NoListeners implements Filter {
+        public String id() {
+          return "acme:no-listeners";
         }
-        """);
+
+        public Optional<Skip> skip(ClassModel owner, MethodModel method) {
+          return method.methodName().stringValue().startsWith("add")
+              ? Optional.of(new Skip(Skip.Kind.USER, "listeners are wiring"))
+              : Optional.empty();
+        }
+      }
+      """;
+
+  /// The guide's `NoAuditCalls`, from the first line of its code to its last, on the sample's
+  /// change events in place of an audit log.
+  private static String guideExample() throws java.io.IOException {
+    var guide =
+        Files.readString(Path.of(System.getProperty("mutastic.docs"), "guides", "plugins.mdx"));
+    var start = guide.indexOf("package acme;", guide.indexOf("## Filters"));
+    return guide
+        .substring(start, guide.indexOf("```", start))
+        .replace("com/acme/Audit", "java/beans/PropertyChangeSupport")
+        .replace("\"record\"", "\"firePropertyChange\"");
+  }
+
+  /// A jar with the filter `className`, written as `source`.
+  private static void plugin(Path jar, String className, String source) throws Exception {
+    var sources = Files.createTempDirectory("plugin");
+    var path = className.replace('.', '/');
+    var file = sources.resolve(path + ".java");
+    Files.createDirectories(file.getParent());
+    Files.writeString(file, source);
     var compiled =
         ToolProvider.getSystemJavaCompiler()
             .run(
@@ -95,14 +139,14 @@ class PolicyTest {
                 System.getProperty("java.class.path"),
                 "-d",
                 sources.toString(),
-                source.toString());
+                file.toString());
     assertThat(compiled).isZero();
     Files.createDirectories(jar.getParent());
     try (var out = new JarOutputStream(Files.newOutputStream(jar))) {
-      out.putNextEntry(new JarEntry("acme/NoListeners.class"));
-      out.write(Files.readAllBytes(sources.resolve("acme/NoListeners.class")));
+      out.putNextEntry(new JarEntry(path + ".class"));
+      out.write(Files.readAllBytes(sources.resolve(path + ".class")));
       out.putNextEntry(new JarEntry("META-INF/services/io.mutastic.api.Filter"));
-      out.write("acme.NoListeners\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      out.write((className + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
   }
 }

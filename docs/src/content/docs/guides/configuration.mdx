@@ -165,7 +165,7 @@ A file names one other, which may extend another in turn.
 Ignores are the run's: `.mutastic/` beside the directory the run is on, the top's for `mutastic run
 :core` there and `core/.mutastic/` for a run in `core/`.
 
-An annotation on the code comes first, then a rule, then mutastic's own filters. A `mutate:` rule, like `@DoMutate`, brings back every mutant mutastic would call arid in the code it covers, a whole method or one call in it, and never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
+An annotation on the code comes first, then a rule, then mutastic's own filters, then a plugin's: its verdict on a whole method, and last its verdict on one mutant. A `mutate:` rule, like `@DoMutate`, brings back every mutant mutastic would call arid in the code it covers, a whole method or one call in it, and never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
 
 Every arid skip is one rule's, by an id that never changes: `mutastic:output`, `mutastic:waits`, `mutastic:capacity` and the rest. An `arid:` list on a `mutate:` rule brings back only those rules' skips, so a team that relies on a worker's join can count its waits and still leave its log lines out. `@DoMutate(arid = "mutastic:waits")` does the same in the code. `mutastic explain` on a skipped mutant names its rule, links to its docs and prints the rule to copy.
 
