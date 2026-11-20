@@ -61,14 +61,6 @@ class Examples {
     return buffer;
   }
 
-  int firstValues(List<String> lines) {
-    int count = 0;
-    for (var line : lines) {
-      count += line.length();
-    }
-    return count;
-  }
-
   String[] splitLimits(String line) {
     return line.split(",", 2);
   }

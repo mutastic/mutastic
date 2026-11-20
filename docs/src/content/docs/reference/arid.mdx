@@ -18,7 +18,6 @@ import waitTimes from '../../../data/output/arid/wait-times.ansi?raw';
 import waits from '../../../data/output/arid/waits.ansi?raw';
 import nullChecks from '../../../data/output/arid/null-checks.ansi?raw';
 import arraySizes from '../../../data/output/arid/array-sizes.ansi?raw';
-import firstValues from '../../../data/output/arid/first-values.ansi?raw';
 import splitLimits from '../../../data/output/arid/split-limits.ansi?raw';
 import threadNames from '../../../data/output/arid/thread-names.ansi?raw';
 import threadPriorities from '../../../data/output/arid/thread-priorities.ansi?raw';
@@ -639,61 +638,6 @@ public static int[] perDay(int[] days) {
 
 **Changed in:** 1.0.0, with `mutastic/constant-value`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
 
-## First values
-
-<AridRule id="mutastic:first-values" />
-
-A variable's first value of `0` or `1`, where a counter or a total starts. Mutants of numbers come
-with `--operators=stronger`.
-
-{/* from: samples/arid/src/main/java/com/example/arid/Retry.java */}
-```java
-    int attempt = 0;
-    while (attempt < 3) {
-```
-
-**Why:** a total that starts at the wrong value is wrong at once, for every input, and any test of
-the result shows it; the mutant adds nothing that test doesn't already check.
-
-<Aside type="caution" title="What it can hide">
-A count no test checks, or one that decides how often something happens. Here `attempt` starting at
-`1` tries the call twice instead of three times, and `RetryTest`, which counts the calls, catches it.
-</Aside>
-
-**When to bring it back:** a count decides what the code does, a retry limit or a page size, and
-your tests count.
-
-<Tabs syncKey="arid-setting">
-<TabItem label="mutastic.yaml">
-
-```yaml
-rules:
-  - mutate: com.example.arid.Retry#attempts
-    reason: the call must be tried exactly three times
-```
-
-</TabItem>
-<TabItem label="@DoMutate">
-
-```java
-@DoMutate("the call must be tried exactly three times")
-public static int attempts(BooleanSupplier call) {
-```
-
-</TabItem>
-</Tabs>
-
-**Check it:** what `mutastic explain` says of the skipped mutant:
-
-<Code code={firstValues} lang="ansi" />
-
-<EditionOnly edition="rust">
-**In the Rust edition:** a `let`'s first value of `0` or `1` gets no mutant; nothing counts it, and
-no rule brings it back.
-</EditionOnly>
-
-**Changed in:** 1.0.0, with `mutastic/constant-value`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
-
 ## Split limits
 
 <AridRule id="mutastic:split-limits" />
@@ -972,3 +916,19 @@ public static Thread deep(Runnable work) {
 **Changed in:** 1.3.0, both editions.
 
 <AridSections />
+
+## No longer skipped
+
+### First values
+
+Until 1.3.0, a variable's first value of `0` or `1`, as in `int total = 0;`, was skipped as arid.
+It isn't now. Where a total, a count or an index starts flows into what the code gives, so a test
+of the result sees a wrong start: the skip hid mutants such tests catch, and the ones they miss.
+A first value the code replaces before anything reads it is skipped as equivalent instead. Mutants
+of numbers come with `--operators=stronger`.
+
+<EditionOnly edition="rust">
+**In the Rust edition:** a `let`'s first value of `0` or `1` gets its mutants too.
+</EditionOnly>
+
+**Changed in:** 1.3.0, both editions.

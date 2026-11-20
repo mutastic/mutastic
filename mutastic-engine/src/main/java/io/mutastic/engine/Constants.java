@@ -56,7 +56,7 @@ final class Constants {
         || isJavacsOwn(at)) {
       return List.of();
     }
-    var skipped = aridReason(value, at);
+    var skipped = aridReason(at).or(() -> unread(at));
     return values(value, at).stream()
         .map(to -> new Mutator.Change(PREFIX + value + " to " + to, skipped))
         .toList();
@@ -160,10 +160,10 @@ final class Constants {
     return index;
   }
 
-  /// Why changing the number isn't worth a test: an array's size, a variable's first `0` or `1`
-  /// (where a counter or a total starts, whose change shows at once or says little), or a `split`'s
-  /// limit, which rarely shows.
-  private Optional<String> aridReason(Number value, int at) {
+  /// Why changing the number isn't worth a test: an array's size, or a `split`'s limit, which
+  /// rarely shows. A variable's first value isn't one: a total's, a count's or an index's start
+  /// flows into what the code gives, and an ordinary test of that sees it.
+  private Optional<String> aridReason(int at) {
     var next = SiteSkips.instructionsAfter(code, at, 1);
     if (next.isEmpty()) {
       return Optional.empty();
@@ -172,19 +172,21 @@ final class Constants {
     if (isNewArray(first)) {
       return Optional.of("arid: only sizes an array");
     }
-    if (first instanceof StoreInstruction store && startsAt0Or1(value, store, at)) {
-      return Optional.of("arid: a variable's first value of 0 or 1");
-    }
     if (first instanceof InvokeInstruction call && isSplit(call)) {
       return Optional.of("arid: only limits a split");
     }
     return Optional.empty();
   }
 
-  private boolean startsAt0Or1(Number value, StoreInstruction store, int at) {
-    double number = value.doubleValue();
-    return (number == 0 || number == 1)
-        && stores.variableIn(indexOfNextInstruction(at), store.slot()).isEmpty();
+  /// A number stored in a variable that's given another before anything reads it: `int total = 0;`
+  /// then `total = sum(lines);`.
+  private Optional<String> unread(int at) {
+    int store = indexOfNextInstruction(at);
+    return store < code.size()
+            && code.get(store) instanceof StoreInstruction
+            && !stores.valueIsRead(store)
+        ? Optional.of("equivalent: nothing reads the value it's given")
+        : Optional.empty();
   }
 
   private static boolean isSplit(InvokeInstruction call) {

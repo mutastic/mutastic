@@ -13,7 +13,7 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   name, shared by both editions where both have the rule (`mutastic:output` and
   `mutastic:null-checks` today): `mutastic:output`, `mutastic:messages`, `mutastic:failed-asserts`,
   `mutastic:capacity`, `mutastic:wait-times`, `mutastic:waits`, `mutastic:null-checks`,
-  `mutastic:array-sizes`, `mutastic:first-values` and `mutastic:split-limits`, beside
+  `mutastic:array-sizes` and `mutastic:split-limits`, beside
   `mutastic:trivial-accessors` and `mutastic:debug-representations`. The editions' contract lists
   each with the reasons it gives, and each has a section on the [Arid
   rules](https://docs.mutastic.io/reference/arid/) page.
@@ -63,6 +63,14 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Scoring changes
 
+- **A variable's first value of `0` or `1` runs again (stronger).** `int total = 0;` or
+  `for (int i = 0; …)` was skipped as `arid: a variable's first value of 0 or 1`, but where a
+  total, a count or an index starts flows into what the code gives, and a test of the result
+  catches a wrong start; the skip hid those catches and the misses beside them. Now
+  `mutastic/constant-value` changes it like any other number, and one the code replaces before
+  anything reads it is skipped as equivalent. `stronger` runs get more mutants, and scores move;
+  no id changes. The Rust edition makes them too. See [First
+  values](https://docs.mutastic.io/reference/arid/#first-values).
 - **Twins run once, and their place counts once.** Two mutants at one place that always do the
   same now run as one: the other is skipped as `twin: same as <id>`, naming the one that runs, and
   is out of the score. A for-each loop over an array has three such pairs (`<` made `<=` and the
