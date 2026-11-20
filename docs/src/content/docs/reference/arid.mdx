@@ -26,8 +26,8 @@ import keepAlive from '../../../data/output/arid/keep-alive.ansi?raw';
 import stackSizes from '../../../data/output/arid/stack-sizes.ansi?raw';
 
 A mutant your tests miss asks for a test. Some ask for one nobody should write: a removed log line,
-a list's starting size. mutastic skips those on its own, as arid, and each skip says why. This
-page has a section for each rule: what it skips, why, what it can hide, when to bring
+a list's starting size. mutastic skips those on its own, as arid, and each skip names its rule and
+links to its section here. This page has a section for each rule: what it skips, why, what it can hide, when to bring
 it back, and the setting that does, ready to copy. Why mutastic skips any of them, and what it costs,
 is in [Arid mutants](/concepts/arid/).
 
@@ -35,12 +35,19 @@ Every rule is on by default:
 
 <AridTable />
 
+<EditionOnly edition="rust">
+The Rust edition has fewer rules because it never changes what's inside a macro's arguments. Log
+lines, `println!` and `format!` text, the messages of `assert!`, `panic!` and `expect`, and
+`debug_assert!` never produce a mutant there, so there's nothing to skip and no rule is needed.
+The table lists each rule as the edition ships it, and grows as rules are added; each section says
+what the Rust edition does with that code.
+</EditionOnly>
+
 A skipped mutant is still made and keeps its id; it isn't in the score, and the summary counts it
 (`3 skipped (3 arid)`). To see what a rule hides in your code, run the mutants it skips with
 `MUTASTIC_ARID=audit` (Java). To bring a rule back, cover the code that needs it with a `mutate:`
-rule in `mutastic.yaml`, or `@DoMutate` on it, as each section shows. Either brings back every arid
-skip in the code it covers, whichever rule made it, so cover only the class or method that needs
-it.
+rule in `mutastic.yaml`, or `@DoMutate` on it, naming the rule, as each section shows. Without
+`arid:`, either brings back every arid skip in the code it covers, whichever rule made it.
 
 Each example below is a class in `samples/arid`, with a test that checks the behaviour the skip
 could hide. Running the skipped mutants against those tests is how each **What it can hide** was
@@ -86,6 +93,7 @@ that fills the object in and reads it back, as `CustomerTest` does, catches it.
 ```yaml
 rules:
   - mutate: com.example.arid.Customer
+    arid: [mutastic:trivial-accessors]
     reason: a JSON library fills customers in through their setters
 ```
 
@@ -93,14 +101,15 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("a JSON library fills customers in through their setters")
+@DoMutate(value = "a JSON library fills customers in through their setters",
+    arid = "mutastic:trivial-accessors")
 public class Customer {
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={trivialAccessors} lang="ansi" />
 
@@ -110,7 +119,8 @@ public class Customer {
 other mutants count.
 </EditionOnly>
 
-**Changed in:** 0.1.0, the first release. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+**Changed in:** 0.1.0, the first release. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back, by
+its id.
 
 ## Debug representations
 
@@ -146,6 +156,7 @@ test of what the code returns should notice.
 ```yaml
 rules:
   - mutate: com.example.arid.Money#toString
+    arid: [mutastic:debug-representations]
     reason: shown to customers on their receipts
 ```
 
@@ -153,7 +164,7 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("shown to customers on their receipts")
+@DoMutate(value = "shown to customers on their receipts", arid = "mutastic:debug-representations")
 @Override
 public String toString() {
 ```
@@ -161,7 +172,7 @@ public String toString() {
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={debugRepresentations} lang="ansi" />
 
@@ -171,9 +182,9 @@ its whole body replaced included. A `Display` impl counts: what it writes is oft
 read.
 </EditionOnly>
 
-**Changed in:** 0.1.0, the first release. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back;
-in the Rust edition, a `Debug` or `Hash` impl's mutants are made and skipped, and a `Display` impl's
-whole body counts.
+**Changed in:** 0.1.0, the first release. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back, by
+its id; in the Rust edition, a `Debug` or `Hash` impl's mutants are made and skipped, and a
+`Display` impl's whole body counts.
 
 ## Output
 
@@ -208,6 +219,7 @@ only to be logged isn't skipped: see [A value only logged](/guides/arid-in-pract
 ```yaml
 rules:
   - mutate: com.example.arid.Totals
+    arid: [mutastic:output]
     reason: the total is what the command prints, and scripts read it
 ```
 
@@ -215,14 +227,15 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("the total is what the command prints, and scripts read it")
+@DoMutate(value = "the total is what the command prints, and scripts read it",
+    arid = "mutastic:output")
 public final class Totals {
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={output} lang="ansi" />
 
@@ -233,9 +246,9 @@ reason, and a `mutate:` rule takes it back. A `write!` goes to a writer the code
 may read, so it counts. Nothing inside a macro's arguments gets a mutant.
 </EditionOnly>
 
-**Changed in:** 0.1.0, the first release. 1.0.0: a string that only goes into output.
-1.3.0: its id; `mutate:` and `@DoMutate` bring it back; a format string followed by a value worked out in the call
-(`log.info("took {} ms", now - start)`) is skipped as well.
+**Changed in:** 0.1.0, the first release. 1.0.0: a string that only goes into output. 1.3.0: its id;
+`mutate:` and `@DoMutate` bring it back, by its id; a format string followed by a value worked out
+in the call (`log.info("took {} ms", now - start)`) is skipped as well.
 
 ## Messages
 
@@ -271,6 +284,7 @@ check it.
 ```yaml
 rules:
   - mutate: com.example.arid.Amounts#parse
+    arid: [mutastic:messages]
     reason: the message is shown on the form, word for word
 ```
 
@@ -278,14 +292,14 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("the message is shown on the form, word for word")
+@DoMutate(value = "the message is shown on the form, word for word", arid = "mutastic:messages")
 public static long parse(String text) {
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={messages} lang="ansi" />
 
@@ -296,8 +310,8 @@ through `.into()` or `String::from`. Anything inside a macro such as `format!` o
 mutant; nothing counts it, and no rule brings it back.
 </EditionOnly>
 
-**Changed in:** 1.0.0, with `mutastic/string-constant`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back. The Rust
-edition's rule.
+**Changed in:** 1.0.0, with `mutastic/string-constant`. 1.3.0: its id; `mutate:` and `@DoMutate`
+bring it back, by its id. The Rust edition's rule.
 
 ## Failed asserts
 
@@ -331,6 +345,7 @@ check matters in production, it shouldn't be an `assert`.
 ```yaml
 rules:
   - mutate: com.example.arid.Ledger#settle
+    arid: [mutastic:failed-asserts]
     reason: the tests check that a negative balance is refused
 ```
 
@@ -338,14 +353,15 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("the tests check that a negative balance is refused")
+@DoMutate(value = "the tests check that a negative balance is refused",
+    arid = "mutastic:failed-asserts")
 public static long settle(long balance) {
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={failedAsserts} lang="ansi" />
 
@@ -354,7 +370,8 @@ public static long settle(long balance) {
 mutant, so there's nothing to skip.
 </EditionOnly>
 
-**Changed in:** 1.0.0, with `mutastic/remove-throw`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+**Changed in:** 1.0.0, with `mutastic/remove-throw`. 1.3.0: its id; `mutate:` and `@DoMutate` bring
+it back, by its id.
 
 ## Capacity
 
@@ -390,6 +407,7 @@ something else counts.
 ```yaml
 rules:
   - mutate: com.example.arid.Pairs#doubled
+    arid: [mutastic:capacity]
     reason: the allocation is checked by a benchmark that runs with the tests
 ```
 
@@ -397,14 +415,15 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("the allocation is checked by a benchmark that runs with the tests")
+@DoMutate(value = "the allocation is checked by a benchmark that runs with the tests",
+    arid = "mutastic:capacity")
 public static List<Integer> doubled(List<Integer> values) {
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={capacity} lang="ansi" />
 
@@ -413,9 +432,9 @@ public static List<Integer> doubled(List<Integer> values) {
 `with_capacity_and_hasher`, `reserve` or `reserve_exact`.
 </EditionOnly>
 
-**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back; a number in the
-arithmetic, the JDK's and Guava's sized factories, and a load factor are skipped, and a number made
-negative counts; the Rust edition's rule.
+**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back, by its id; a number
+in the arithmetic, the JDK's and Guava's sized factories, and a load factor are skipped, and a
+number made negative counts; the Rust edition's rule.
 
 ## Wait times
 
@@ -453,6 +472,7 @@ tests measure it, or use a clock they control.
 ```yaml
 rules:
   - mutate: com.example.arid.Pacer#send
+    arid: [mutastic:wait-times]
     reason: the reader needs a tenth of a second between messages
 ```
 
@@ -460,14 +480,15 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("the reader needs a tenth of a second between messages")
+@DoMutate(value = "the reader needs a tenth of a second between messages",
+    arid = "mutastic:wait-times")
 public static int send(List<String> messages, Consumer<String> reader, int pauseTenths)
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={waitTimes} lang="ansi" />
 
@@ -477,9 +498,9 @@ public static int send(List<String> messages, Consumer<String> reader, int pause
 given to anything else, a timeout, counts.
 </EditionOnly>
 
-**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back; only a sleep's
-time, followed through arithmetic and conversions, and a `join`'s time limit counts; the Rust
-edition's rule.
+**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back, by its id; only a
+sleep's time, followed through arithmetic and conversions, and a `join`'s time limit counts; the
+Rust edition's rule.
 
 ## Waits
 
@@ -515,6 +536,7 @@ or use a clock they control.
 ```yaml
 rules:
   - mutate: com.example.arid.Backoff#poll
+    arid: [mutastic:waits]
     reason: the service it polls limits how often it's asked
 ```
 
@@ -522,14 +544,14 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("the service it polls limits how often it's asked")
+@DoMutate(value = "the service it polls limits how often it's asked", arid = "mutastic:waits")
 public static int poll(BooleanSupplier ready, long pauseMillis) throws InterruptedException {
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={waits} lang="ansi" />
 
@@ -538,8 +560,8 @@ public static int poll(BooleanSupplier ready, long pauseMillis) throws Interrupt
 tokio's. A removed `handle.join().unwrap();` counts.
 </EditionOnly>
 
-**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back; a removed `join`
-with a time limit counts, as one with none always did; the Rust edition's rule.
+**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back, by its id; a removed
+`join` with a time limit counts, as one with none always did; the Rust edition's rule.
 
 ## Null checks
 
@@ -573,6 +595,7 @@ it `null`.
 ```yaml
 rules:
   - mutate: com.example.arid.Orders#add
+    arid: [mutastic:null-checks]
     reason: callers rely on add refusing null straight away
 ```
 
@@ -580,14 +603,14 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("callers rely on add refusing null straight away")
+@DoMutate(value = "callers rely on add refusing null straight away", arid = "mutastic:null-checks")
 public void add(String order) {
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={nullChecks} lang="ansi" />
 
@@ -629,6 +652,7 @@ throws when the code fills it, which a test catches by the crash.
 ```yaml
 rules:
   - mutate: com.example.arid.Week#perDay
+    arid: [mutastic:array-sizes]
     reason: callers read one count for each day of the week
 ```
 
@@ -636,14 +660,14 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("callers read one count for each day of the week")
+@DoMutate(value = "callers read one count for each day of the week", arid = "mutastic:array-sizes")
 public static int[] perDay(int[] days) {
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={arraySizes} lang="ansi" />
 
@@ -651,7 +675,8 @@ public static int[] perDay(int[] days) {
 **In the Rust edition:** no such rule.
 </EditionOnly>
 
-**Changed in:** 1.0.0, with `mutastic/constant-value`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+**Changed in:** 1.0.0, with `mutastic/constant-value`. 1.3.0: its id; `mutate:` and `@DoMutate`
+bring it back, by its id.
 
 ## First values
 
@@ -683,6 +708,7 @@ your tests count.
 ```yaml
 rules:
   - mutate: com.example.arid.Retry#attempts
+    arid: [mutastic:first-values]
     reason: the call must be tried exactly three times
 ```
 
@@ -690,14 +716,14 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("the call must be tried exactly three times")
+@DoMutate(value = "the call must be tried exactly three times", arid = "mutastic:first-values")
 public static int attempts(BooleanSupplier call) {
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={firstValues} lang="ansi" />
 
@@ -706,7 +732,8 @@ public static int attempts(BooleanSupplier call) {
 no rule brings it back.
 </EditionOnly>
 
-**Changed in:** 1.0.0, with `mutastic/constant-value`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+**Changed in:** 1.0.0, with `mutastic/constant-value`. 1.3.0: its id; `mutate:` and `@DoMutate`
+bring it back, by its id.
 
 ## Split limits
 
@@ -735,6 +762,7 @@ text.
 ```yaml
 rules:
   - mutate: com.example.arid.Headers#value
+    arid: [mutastic:split-limits]
     reason: a header's value can have colons of its own
 ```
 
@@ -742,14 +770,14 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("a header's value can have colons of its own")
+@DoMutate(value = "a header's value can have colons of its own", arid = "mutastic:split-limits")
 public static String value(String line) {
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={splitLimits} lang="ansi" />
 
@@ -757,7 +785,8 @@ public static String value(String line) {
 **In the Rust edition:** no such rule.
 </EditionOnly>
 
-**Changed in:** 1.0.0, with `mutastic/constant-value`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+**Changed in:** 1.0.0, with `mutastic/constant-value`. 1.3.0: its id; `mutate:` and `@DoMutate`
+bring it back, by its id.
 
 ## Thread names
 
@@ -791,6 +820,7 @@ them.
 ```yaml
 rules:
   - mutate: com.example.arid.Workers#background
+    arid: [mutastic:thread-names]
     reason: the server's health check finds its workers by name
 ```
 
@@ -798,16 +828,15 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("the server's health check finds its workers by name")
+@DoMutate(value = "the server's health check finds its workers by name",
+    arid = "mutastic:thread-names")
 public static Thread background(Runnable work) {
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
-
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={threadNames} lang="ansi" />
 
@@ -848,6 +877,7 @@ there.
 ```yaml
 rules:
   - mutate: com.example.arid.Workers#background
+    arid: [mutastic:thread-priorities]
     reason: reports must yield to requests on the Windows servers
 ```
 
@@ -855,16 +885,15 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("reports must yield to requests on the Windows servers")
+@DoMutate(value = "reports must yield to requests on the Windows servers",
+    arid = "mutastic:thread-priorities")
 public static Thread background(Runnable work) {
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
-
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={threadPriorities} lang="ansi" />
 
@@ -903,6 +932,7 @@ tests check it.
 ```yaml
 rules:
   - mutate: com.example.arid.Workers#pool
+    arid: [mutastic:keep-alive]
     reason: the batch job exits only once the pool's threads are gone
 ```
 
@@ -910,16 +940,15 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("the batch job exits only once the pool's threads are gone")
+@DoMutate(value = "the batch job exits only once the pool's threads are gone",
+    arid = "mutastic:keep-alive")
 public static ThreadPoolExecutor pool() {
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
-
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={keepAlive} lang="ansi" />
 
@@ -958,6 +987,7 @@ catches it.
 ```yaml
 rules:
   - mutate: com.example.arid.Workers#deep
+    arid: [mutastic:stack-sizes]
     reason: the parser recurses once for each level of nesting
 ```
 
@@ -965,16 +995,15 @@ rules:
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate("the parser recurses once for each level of nesting")
+@DoMutate(value = "the parser recurses once for each level of nesting",
+    arid = "mutastic:stack-sizes")
 public static Thread deep(Runnable work) {
 ```
 
 </TabItem>
 </Tabs>
 
-**Check it:** what `mutastic explain` says of the skipped mutant:
-
-**Check it:** what `mutastic explain` says of the skipped mutant:
+**Check it:** what `mutastic explain` says of the skipped mutant, with its rule and the setting to copy:
 
 <Code code={stackSizes} lang="ansi" />
 

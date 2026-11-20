@@ -129,7 +129,8 @@ those by a test's own assertion, and where:
 <Code code={audit} lang="ansi" />
 
 A catch by an assertion means a test already checks what that code does, so for that code the
-skip may be hiding a contract: look at it, and bring its rule back if so. A catch by a crash (an
+skip may be hiding a contract: look at it, and bring its rule back if so, with the `mutate:` rule
+the audit prints. A catch by a crash (an
 exception the change caused, not a failed check) says nothing either way, and a miss means the
 rule is doing its job. The audit is the command line's; the Gradle and Maven plugins don't run it.
 
@@ -159,14 +160,18 @@ If you're not sure, run the audit first.
 <EditionTabs>
 <div slot="java">
 
-A `mutate:` rule in `mutastic.yaml` brings back every arid skip in the code it covers, a class or
-one method, and `@DoMutate` on a class or method does the same from the code itself:
+A `mutate:` rule in `mutastic.yaml` brings back the arid skips in the code it covers, a class or
+one method: the rules its `arid:` names, or every rule without it. `@DoMutate` on a class or method
+does the same from the code itself, `@DoMutate(value = "…", arid = "mutastic:output")`:
 
 ```yaml
 rules:
-  - mutate: com.example.sales.Summary#of
-    reason: callers rely on of() waiting for its worker
+  - mutate: com.example.sales.Summary#print
+    arid: [mutastic:output]
+    reason: the report is what the command prints, and scripts read it
 ```
+
+`mutastic explain` on a skipped mutant prints this rule, filled in for it.
 
 Neither brings back code the compiler wrote, an equivalent mutant, or code `@DoNotMutate` or a
 `skip:` rule skips. Each rule's section in [Arid rules](/reference/arid/) has the setting for that
@@ -185,9 +190,10 @@ rules:
     reason: the summary is printed for people to read, and the tests check it
 ```
 
-One thing the Java edition skips as arid, the Rust edition doesn't make a mutant for at all:
-anything inside a macro's arguments. With no mutant, nothing counts it, and no rule can bring it
-back. [Arid rules](/reference/arid/) says what each rule covers in each edition.
+The Rust edition never changes what's inside a macro's arguments. So the biggest kinds of arid code
+in Java, log lines, `println!` and `format!` text, the messages of `assert!`, `panic!` and `expect`,
+and `debug_assert!`, never produce a mutant in Rust, and need no rule. The rules it does have, as
+they ship, are in [Arid rules](/reference/arid/), with what each edition does for every rule.
 
 </div>
 </EditionTabs>

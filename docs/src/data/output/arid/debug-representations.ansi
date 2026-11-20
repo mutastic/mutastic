@@ -10,3 +10,12 @@
               [32m+ [0mreturn "£" + pence * 100 + "." + String.format("%02d", pence % 100);
 
     [2mreproduce [0m mutastic run --only=ma68347d0 samples/arid
+
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:debug-representations: `toString()` and `hashCode()`, the lambdas they
+                define and the helpers only they call.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#debug-representations[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.arid.Money#toString
+                      arid: [mutastic:debug-representations]
+                      reason: <why a test should check it>

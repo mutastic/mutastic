@@ -8,4 +8,18 @@
     [2m│[0m
     [2m=[0m change  [1mpauseTenths * 100[0m becomes [1mpauseTenths[0m (not shown in the source)
 
+<<<<<<< HEAD
     [2mreproduce [0m mutastic run --only=m5fa09958 samples/arid
+||||||| 08de1c80
+    [2mreproduce [0m mutastic run --only=m90eda42f samples/arid
+=======
+    [2mreproduce [0m mutastic run --only=m90eda42f samples/arid
+
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:wait-times: How long a sleep, or a `join` with a time limit, waits.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#wait-times[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.arid.Worker#result
+                      arid: [mutastic:wait-times]
+                      reason: <why a test should check it>
+>>>>>>> origin/main
