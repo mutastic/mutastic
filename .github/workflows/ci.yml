@@ -128,6 +128,11 @@ jobs:
         if: needs.changes.outputs.code == 'true'
       - run: ./gradlew :mutastic-cli:test -Pmutastic.shard=${{ matrix.shard }}/4
         if: needs.changes.outputs.code == 'true'
+      # What was running when a test ran out of time (TimeoutDump), in the log as well as the
+      # reports.
+      - name: what a test that timed out was waiting on
+        if: always() && needs.changes.outputs.code == 'true'
+        run: bash .github/timeout-dumps.sh
       # These tests build a copy of a sample project, and each copy is a new directory, so Gradle
       # forks a javac worker for it rather than reusing the identical one it forked for the copy
       # before. A worker belongs to the daemon that forked it and outlives the build with it, for
@@ -186,13 +191,15 @@ jobs:
   # Windows, on its own beside the others: the CLI's end-to-end tests on a few samples (the cards,
   # a Gradle build and a Maven build), run the way a Windows user runs them, with `gradlew.bat`.
   # The rest of the build is the same on every platform, so it runs on Linux only.
-  # Windows, in two shares to stay under 30 minutes each: the cards and both build tools' samples,
-  # then the Gradle plugin, the gate and a Quarkus build.
+  # Windows, in two shares to stay well under the time limit: the cards and both build tools'
+  # samples, then the Gradle plugin, the gate and a Quarkus build.
   windows-share:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: windows-latest
-    timeout-minutes: 30
+    # Past the tests' own limits (five minutes a test, 35 for the step), so a test that hangs
+    # fails, says where, and its reports are kept, rather than the job being cut off.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -222,6 +229,7 @@ jobs:
       # failures in full (the test task logs them, CardsTest as a diff), and the runner's state
       # (windows-dump.ps1), on every share so a failure has a healthy share to compare with.
       - shell: pwsh
+        timeout-minutes: 35
         run: |
           # A failing native command mustn't end the script: what follows has to run.
           $PSNativeCommandUseErrorActionPreference = $false
@@ -239,6 +247,11 @@ jobs:
           .\gradlew.bat --stop
           Get-Process java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           exit $tests
+      # What was running when a test ran out of time, as on Linux.
+      - name: what a test that timed out was waiting on
+        if: always()
+        shell: bash
+        run: bash .github/timeout-dumps.sh
       # Each share's reports and results, named apart, whether its tests passed or failed.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
