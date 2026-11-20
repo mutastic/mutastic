@@ -1,4 +1,4 @@
-mutastic: FAIL · score 62.5% (threshold 80) · 6 missed, 0 not covered, 10 caught of 16 mutants
+mutastic: FAIL · score 64.3% (threshold 80) · 5 missed, 0 not covered, 9 caught of 14 mutants (2 more skipped)
 rules: add or change tests only; never change production code to make a mutant go away: tell the person; a fix counts when `mutastic verify <id> samples/parameterized-kotlin` passes
 decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: propose ignoring it, for a person to accept, as the kind it is (equivalent, unreachable, telemetry, deprecated or accepted-risk), with the reason in two sentences: the one case where it differs, and why that can't happen (`mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/parameterized-kotlin`)
 tasks: first make a task list with one item per mutant, grouped by file; then take them one at a time: write its test, run `mutastic verify <id> samples/parameterized-kotlin`, and mark it done before starting the next
@@ -39,25 +39,7 @@ tasks: first make a task list with one item per mutant, grouped by file; then ta
    reproduce: mutastic run --only=m8bfed71b samples/parameterized-kotlin
    or propose: mutastic ignore m8bfed71b --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/parameterized-kotlin
 
-3. missed m07b20be8: no test checks `isEven()` returning `false` here
-   at src/main/kotlin/com/example/calc/Calculator.kt:17
-   - fun isEven(n: Int): Boolean = n % 2 == 0
-   change: returns `true` instead (not shown in the source)
-   covered by: CalculatorTest#evens(int); all still pass with the change
-   evidence: tests reach this return, but none fails when it returns `true`
-   evidence: inputs seen: n = 2, 4
-   fix: add a test where `isEven()` returns `false` here, and assert it
-   test to add in CalculatorTest:
-     @org.junit.jupiter.api.Test
-     fun isEvenWhenNIsNegative() {
-         org.junit.jupiter.api.Assertions.assertFalse(Calculator().isEven(-1)) // today false · with this mutant true
-     }
-     // check today's value is the one you intend: the test pins what the code does now
-   done when: mutastic verify m07b20be8 samples/parameterized-kotlin passes
-   reproduce: mutastic run --only=m07b20be8 samples/parameterized-kotlin
-   or propose: mutastic ignore m07b20be8 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/parameterized-kotlin
-
-4. missed mfe4003e9: tests pass even when `+` becomes `-` in `add()`
+3. missed mfe4003e9: tests pass even when `+` becomes `-` in `add()`
    at src/main/kotlin/com/example/calc/Calculator.kt:4
    - fun add(a: Int, b: Int): Int = a + b
    + fun add(a: Int, b: Int): Int = a - b
@@ -74,7 +56,7 @@ tasks: first make a task list with one item per mutant, grouped by file; then ta
    reproduce: mutastic run --only=mfe4003e9 samples/parameterized-kotlin
    or propose: mutastic ignore mfe4003e9 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/parameterized-kotlin
 
-5. missed mb9d91e31: tests pass even when `-` becomes `+` in `subtract()`
+4. missed mb9d91e31: tests pass even when `-` becomes `+` in `subtract()`
    at src/main/kotlin/com/example/calc/Calculator.kt:6
    - fun subtract(a: Int, b: Int): Int = a - b
    + fun subtract(a: Int, b: Int): Int = a + b
@@ -91,7 +73,7 @@ tasks: first make a task list with one item per mutant, grouped by file; then ta
    reproduce: mutastic run --only=mb9d91e31 samples/parameterized-kotlin
    or propose: mutastic ignore mb9d91e31 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/parameterized-kotlin
 
-6. missed m6f2c2618: tests pass even when `*` becomes `/` in `multiply()`
+5. missed m6f2c2618: tests pass even when `*` becomes `/` in `multiply()`
    at src/main/kotlin/com/example/calc/Calculator.kt:8
    - fun multiply(a: Int, b: Int): Int = a * b
    + fun multiply(a: Int, b: Int): Int = a / b

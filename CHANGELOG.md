@@ -74,6 +74,17 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   as a metric, passed to another method, captured by a lambda. Code that logs timings gets fewer
   mutants, and its score can go up; `arid: [mutastic:output]` on a `mutate:` rule, or `@DoMutate`,
   brings them back. The Rust edition skips a `let` read only by output macros.
+- **Twins run once, and their place counts once.** Two mutants at one place that always do the
+  same now run as one: the other is skipped as `twin: same as <id>`, naming the one that runs, and
+  is out of the score. A for-each loop over an array has three such pairs (`<` made `<=` and the
+  test always true, `<` made `>=` and `!=`, the test always false and `<` made `>`), and a
+  comparison returned as it is, `return a > b;`, two (the test always true and `return true`,
+  always false and `return false`). No id changes, and each still works: `verify`, `run --only`
+  and `explain` run the one it's the same as, `mutastic ignore` records the decision for that one,
+  and an ignore of either holds for both. Runs have fewer mutants to run, and a score moves a
+  little where a place was counted twice. Events give a twin's `sameAs` and the skip kind `twin`.
+  The Rust edition has twins too. See
+  [Twins](https://docs.mutastic.io/concepts/results/#twins).
 - **`library/swap-math` swaps a stream's and a collection's `min` and `max` too.** `Stream.min`
   and `max` with a comparator, `IntStream`'s, `LongStream`'s and `DoubleStream`'s, `Collections.min`
   and `max`, and `Collectors.minBy` and `maxBy` swap places, as `Math.min` and `max` already did,
@@ -125,6 +136,15 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **A wrapper in a directory with a space gets commands that run as they're copied.** Since
+  mutastic prints the Gradle or Maven it really runs, a wrapper under `/Users/me/My Projects`
+  started a command a shell splits at the space. Its path is now quoted, `'/Users/me/My
+  Projects/gradlew'`, or for cmd `"C:\My Projects\gradlew.bat"`, and so is the build's directory
+  after `-p` or `-f`: in the terminal, the agent's and share-ready text, the events and the
+  report's `mutastic.commands`. The HTML report offers these to copy, and a Windows directory after
+  the launcher, `-p C:\dir`, which it left out. Its check reads quotes as a shell does: a report
+  could get another command past it with a `'` inside double quotes, or `$(…)` in a `<…>`, and
+  can't now.
 - **A test that runs `main` in a JVM of its own is said to reach no mutant.** A test that starts
   `java` on `java.class.path` to run the project's `main`, as a person would, found none of the
   project there and failed, so mutastic said the tests fail without any mutant, though they pass

@@ -129,7 +129,8 @@ class CardTruthTest {
     var claims = new ArrayList<Claim>();
     var mutants =
         mutations.find(model).stream()
-            .filter(mutant -> mutant.skipped().isEmpty())
+            // A twin's card shows when the one it's the same as isn't in a run's operators.
+            .filter(mutant -> mutant.skipped().isEmpty() || mutant.sameAs().isPresent())
             .filter(mutant -> CONDITIONS.contains(mutant.operator()))
             .filter(mutant -> !HELPERS.contains(mutant.methodName()))
             .toList();
@@ -225,6 +226,72 @@ class CardTruthTest {
                 + " an empty array",
             "the for-each loop over `Integer.toString(a * b).toCharArray()` never runs its body")
         .noneMatch(change -> change.contains("local"));
+  }
+
+  /// A twin does what the mutant it's the same as does, on every input: it doesn't run, and that
+  /// one's result is its own, so a twin that isn't one would hide a mutant a test could catch.
+  @Test
+  void everyTwinDoesWhatTheOneItIsTheSameAsDoes() throws Exception {
+    var original = original();
+    var model = ClassFile.of().parse(original.get(CLASS));
+    var mutations =
+        new Mutations(
+            ClassFile.of(), new Policy(List.of(), List.of(), List.of(), List.of("all"), List.of()));
+    var found = mutations.find(model);
+    var byId = new HashMap<String, Mutant>();
+    found.forEach(mutant -> byId.put(mutant.id(), mutant));
+    var twins =
+        found.stream()
+            .filter(mutant -> mutant.sameAs().isPresent())
+            .filter(mutant -> mutant.descriptor().startsWith("(II)"))
+            .toList();
+    var failures = new ArrayList<String>();
+    var pairs = new ArrayList<String>();
+    for (var twin : twins) {
+      var partner = Objects.requireNonNull(byId.get(twin.sameAs().orElseThrow()));
+      var method = twin.methodName();
+      var did = outcomes(method, mutations.apply(model, twin), original);
+      var same = outcomes(method, mutations.apply(model, partner), original);
+      firstDifference(same, did)
+          .ifPresent(input -> failures.add(twin + " and " + partner + " differ at " + input));
+      if (!partner.methodName().equals(method) || partner.skipped().isPresent()) {
+        failures.add(twin + " is the same as " + partner + ", which doesn't run beside it");
+      }
+      pairs.add(pair(twin) + " = " + pair(partner));
+    }
+
+    assertThat(failures).as("twins that don't do what the one they're the same as does").isEmpty();
+    // A for-each loop's test, and a comparison returned as it is, each way it can be a twin.
+    assertThat(pairs)
+        .contains(
+            "forEachInts mutastic/remove-conditional never jump"
+                + " = forEachInts mutastic/boundary IF_ICMPGT",
+            "forEachInts mutastic/other-comparison IF_ICMPLE"
+                + " = forEachInts mutastic/remove-conditional always jump",
+            "forEachInts mutastic/other-comparison IF_ICMPNE"
+                + " = forEachInts mutastic/other-comparison IF_ICMPLT",
+            "returnedComparison mutastic/return-value return true"
+                + " = returnedComparison mutastic/remove-conditional never jump",
+            "returnedComparison mutastic/return-value return false"
+                + " = returnedComparison mutastic/remove-conditional always jump",
+            "returnedZero mutastic/return-value return true"
+                + " = returnedZero mutastic/remove-conditional never jump");
+    assertThat(twins.stream().map(Mutant::methodName).distinct())
+        .as("the shapes with a twin")
+        .contains(
+            "forEachObjects",
+            "forEachLongs",
+            "forEachField",
+            "forEachChars",
+            "forEachNested",
+            "forEachBreak",
+            "forEachContinue",
+            "forEachReturn",
+            "forEachUnused");
+  }
+
+  private static String pair(Mutant mutant) {
+    return mutant.methodName() + " " + mutant.operator().id() + " " + mutant.replacement();
   }
 
   /// A mutant skipped as equivalent behaves as the code does on every input: a skip rule that's

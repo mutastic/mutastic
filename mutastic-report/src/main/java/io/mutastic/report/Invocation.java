@@ -1,5 +1,6 @@
 package io.mutastic.report;
 
+import io.mutastic.api.BuildErrors;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,8 +10,8 @@ import java.util.List;
 ///
 /// @param launcher how the build runs it: for Maven, the plugin as goals name it, `mutastic` (its
 ///   prefix) when the build declares it, else its coordinates,
-///   `io.mutastic:mutastic-maven-plugin:0.2.0`; for Gradle, the command, `./gradlew` or `gradle`;
-///   empty for the command line
+///   `io.mutastic:mutastic-maven-plugin:0.2.0`; for Gradle, the command, `./gradlew`, `gradle`, `sh
+///   ./gradlew` or the wrapper's path, unquoted; empty for the command line
 /// @param target the project as the command line names it, `samples/pricing :api`, and its test
 ///   suite when it isn't the default, `--suite=integrationTest`; empty when it's the directory
 ///   mutastic ran in, its root project and its default suite
@@ -103,7 +104,8 @@ public record Invocation(Form form, String launcher, List<String> target) {
   private List<String> gradle(List<String> words) {
     var module = target.stream().filter(word -> word.startsWith(":")).findFirst().orElse("");
     var task = module + ":mutastic" + Character.toUpperCase(words.getFirst().charAt(0));
-    var all = new ArrayList<>(List.of(launcher, task + words.getFirst().substring(1)));
+    var all = new ArrayList<>(gradle());
+    all.add(task + words.getFirst().substring(1));
     for (String word : words.subList(1, words.size())) {
       all.add(quoted(GRADLE_PROPERTY + property(word)));
     }
@@ -116,6 +118,20 @@ public record Invocation(Form form, String launcher, List<String> target) {
     }
     return all;
   }
+
+  /// The Gradle the build runs, as a shell or cmd reads it: `./gradlew`, `gradle`, `sh ./gradlew`
+  /// for a wrapper that isn't executable, or the wrapper's path, in quotes when it needs them
+  /// (`'/Users/me/My Projects/gradlew'`, `"C:\My Projects\gradlew.bat"`).
+  private List<String> gradle() {
+    var sh = launcher.startsWith(SH) ? List.of("sh") : List.<String>of();
+    var program = launcher.substring(sh.isEmpty() ? 0 : SH.length());
+    var all = new ArrayList<>(sh);
+    all.add(BuildErrors.typed(Untrusted.escape(program)));
+    return all;
+  }
+
+  /// What a wrapper that isn't executable runs after.
+  private static final String SH = "sh ";
 
   /// `--tests-from=:app` → `testsFrom=:app`, `--prune` → `prune`, and a mutant's id →
   /// `mutant=m855c8e3c`: the property, after `mutastic.`.

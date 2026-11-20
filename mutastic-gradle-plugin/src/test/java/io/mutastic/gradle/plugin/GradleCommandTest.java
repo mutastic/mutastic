@@ -57,6 +57,24 @@ class GradleCommandTest {
         .isEqualTo(repository.resolve("gradlew").toString());
   }
 
+  /// A wrapper in a directory with a space is passed on by its path as it is: the command line
+  /// quotes it in each command it prints.
+  @Test
+  @DisabledOnOs(value = OS.WINDOWS, disabledReason = "Unix paths")
+  void aWrapperInADirectoryWithASpaceIsItsPath(@TempDir Path work) throws Exception {
+    var root = Files.createDirectories(work.resolve("My Projects/app"));
+    Files.createDirectories(root.resolve(".git"));
+    Files.writeString(root.resolve("gradlew"), "#!/bin/sh\n");
+    root.resolve("gradlew").toFile().setExecutable(true);
+
+    var elsewhere = Files.createDirectories(work.resolve("elsewhere"));
+
+    assertThat(MutasticPlugin.gradle(root.toFile(), work.toFile(), false))
+        .isEqualTo("./My Projects/app/gradlew");
+    assertThat(MutasticPlugin.gradle(root.toFile(), elsewhere.toFile(), false))
+        .isEqualTo(root.resolve("gradlew").toString());
+  }
+
   /// A wrapper that isn't executable runs with `sh`, so the command runs as it's copied.
   @Test
   @DisabledOnOs(value = OS.WINDOWS, disabledReason = "Windows runs gradlew.bat as it is")

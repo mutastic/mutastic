@@ -46,6 +46,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -653,7 +654,7 @@ public final class Main {
     }
     var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
-    int exit = verified(report.results(), out);
+    int exit = verified(report.results(), command.only(), out);
     if (report.failingAlone().isEmpty()) {
       return exit;
     }
@@ -678,7 +679,9 @@ public final class Main {
         : IgnoreCommand.run(
             command.ignore().get(),
             where,
-            passes.engine().find(prepared.project(), passes.options()),
+            new IgnoreCommand.Named(
+                command.only().stream().findFirst().orElse(""), // none for --prune
+                passes.engine().find(prepared.project(), passes.options())),
             out);
   }
 
@@ -1390,18 +1393,23 @@ public final class Main {
 
   /// `explain`: everything known of one mutant, with how the last full run went.
   private static int explained(Command command, Prepared prepared, Passes passes, Output output) {
-    var lastRun = lastRun(prepared, command.only().getFirst());
     var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
-    var result = report.results().getFirst();
+    var named = resultOf(report, command.only().getFirst());
+    // A twin didn't run: the one it's the same as ran for it, and is what there is to explain.
+    var result = named.mutant().sameAs().map(id -> resultOf(report, id)).orElse(named);
+    var twin = Optional.of(named).filter(it -> !it.mutant().id().equals(result.mutant().id()));
+    var lastRun = lastRun(prepared, result.mutant().id());
     if (output.format().equals("jsonl")) {
       var events = new JsonEvents(output.out(), prepared.sources(), command.threshold());
       events.runStarted(prepared.project().name());
+      twin.ifPresent(events::mutantFinished);
       events.mutantFinished(result);
       events.runFinished(report, Optional.empty(), List.of(), true);
       events.mutantExplained(result.mutant(), lastRun);
       return PASSED;
     }
+    twin.ifPresent(it -> output.out().print(sameAs(it, result)));
     output.out().print(humanText(command, output, prepared.sources()).explained(result));
     output
         .out()
@@ -1409,6 +1417,20 @@ public final class Main {
             new Explanation(prepared.sources(), output.style(), operatorDocs())
                 .render(result.mutant(), lastRun));
     return PASSED;
+  }
+
+  /// What `explain` says first of a twin: which mutant ran for it, and is explained.
+  private static String sameAs(MutantResult twin, MutantResult ran) {
+    return "mutastic: %s is the same as %s, which runs for it: what follows is that one's\n"
+        .formatted(twin.mutant().id(), ran.mutant().id());
+  }
+
+  /// The result of the mutant `id`, which the run had: the first one's if not.
+  private static MutantResult resultOf(Report report, String id) {
+    return report.results().stream()
+        .filter(result -> result.mutant().id().equals(id))
+        .findFirst()
+        .orElse(report.results().getFirst());
   }
 
   /// How the last full run of this project with the mutant `id` went for it, if there was one.
@@ -1868,31 +1890,42 @@ public final class Main {
         unknown.closest().map(close -> Correction.of(unknown.name(), close)).orElse(null));
   }
 
-  /// What `verify` says of each of its mutants, and whether every one passed.
-  private static int verified(List<MutantResult> results, PrintStream out) {
+  /// What `verify` says of each of its mutants, and whether every one passed. A twin is said with
+  /// the result of the one it's the same as, which ran for it and decides; that one's own line
+  /// comes only when it was named too.
+  private static int verified(List<MutantResult> results, List<String> named, PrintStream out) {
+    var byId = new HashMap<String, MutantResult>();
+    results.forEach(result -> byId.put(result.mutant().id(), result));
     int exit = PASSED;
     for (MutantResult result : results) {
-      exit = Math.max(exit, verified(result, out));
+      var mutant = result.mutant();
+      var partner = mutant.sameAs().map(byId::get);
+      if (partner.isPresent()) {
+        out.printf(
+            "mutastic: %s is the same as %s, which %s\n",
+            mutant.id(), partner.get().mutant().id(), fate(partner.get()));
+        exit = Math.max(exit, settled(partner.get()) ? PASSED : FAILED);
+      } else if (named.contains(mutant.id())) {
+        out.printf("mutastic: %s %s\n", mutant.id(), fate(result));
+        exit = Math.max(exit, settled(result) ? PASSED : FAILED);
+      }
     }
     return exit;
   }
 
-  /// What `verify` says of one of its mutants, and whether it passed: caught, or skipped, which
-  /// leaves nothing to catch. A skipped mutant once read "isn't reached by any test", and an agent
+  /// What `verify` says of one of its mutants after its id: caught, or skipped, which leaves
+  /// nothing to catch, passes. A skipped mutant once read "isn't reached by any test", and an agent
   /// went looking for the test that should reach it.
-  private static int verified(MutantResult result, PrintStream out) {
-    var fate =
-        switch (result.status()) {
-          case CAUGHT, TIMED_OUT ->
-              "is caught by " + Untrusted.value(result.caughtBy().orElse("a timeout"));
-          case MISSED -> "is still missed";
-          case NOT_COVERED -> "isn't reached by any test";
-          case SKIPPED ->
-              "is skipped (%s), so it isn't run and needs no test"
-                  .formatted(Untrusted.value(result.mutant().skipped().orElse("skipped")));
-        };
-    out.printf("mutastic: %s %s\n", result.mutant().id(), fate);
-    return settled(result) ? PASSED : FAILED;
+  private static String fate(MutantResult result) {
+    return switch (result.status()) {
+      case CAUGHT, TIMED_OUT ->
+          "is caught by " + Untrusted.value(result.caughtBy().orElse("a timeout"));
+      case MISSED -> "is still missed";
+      case NOT_COVERED -> "isn't reached by any test";
+      case SKIPPED ->
+          "is skipped (%s), so it isn't run and needs no test"
+              .formatted(Untrusted.value(result.mutant().skipped().orElse("skipped")));
+    };
   }
 
   /// Whether a mutant asked for by id passes: caught, or skipped, with nothing to catch.

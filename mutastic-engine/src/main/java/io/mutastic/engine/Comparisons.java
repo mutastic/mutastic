@@ -178,7 +178,7 @@ final class Comparisons {
   /// with -1; zero and below for a for-each loop's index compared with the array's length
   /// ([#FOR_EACH_INDEX]). `once` when each change that differs is made only once: a for-each loop's
   /// changes that do the same to the loop are each still made, as their ids were kept before its
-  /// test was known, and an id once kept names its mutant for good.
+  /// test was known, and an id once kept names its mutant for good; they're [Twins], and run once.
   private record Reach(String reason, int low, int high, boolean once) {
     /// Whether the two relations give the same answer for both signs.
     boolean same(Relation one, Relation other) {
@@ -195,6 +195,26 @@ final class Comparisons {
       "equivalent: differs only when a for-each loop's index is past the array's length. That"
           + " can't happen because the loop counts it up from 0 by one, and reads the element at"
           + " the index before the body runs.";
+
+  /// What a change makes a for-each loop's test at `code[at]` do, as whether the jump is taken for
+  /// each sign the index can have against the length, `-1` then `0`: `[false, false]` for `<` made
+  /// `<=`, which is the test always true. Empty when the jump isn't a for-each loop's test, or the
+  /// change isn't a jump's.
+  static Optional<String> forEachJumps(List<CodeElement> code, int at, String label) {
+    if (ArrayForEach.arraySlot(code, at).isEmpty()) {
+      return Optional.empty();
+    }
+    var family = Jump.of(((Instruction) code.get(at)).opcode()).family();
+    Optional<Relation> changed =
+        Arrays.stream(Relation.values())
+            .filter(relation -> family.opcode(relation).name().equals(label))
+            .findFirst();
+    return switch (label) {
+      case Operators.ALWAYS_JUMP -> Optional.of(List.of(true, true).toString());
+      case Operators.NEVER_JUMP -> Optional.of(List.of(false, false).toString());
+      default -> changed.map(relation -> List.of(relation.holds(-1), relation.holds(0)).toString());
+    };
+  }
 
   private static Optional<Reach> reach(
       Jump jump, List<Instruction> before, List<CodeElement> code, int at) {

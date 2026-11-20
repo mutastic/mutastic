@@ -137,6 +137,15 @@ public final class Shapes {
     return a > b + 1;
   }
 
+  /// A comparison returned as it is: its test always true does what the return made `true` does.
+  static boolean returnedComparison(int a, int b) {
+    return a < b;
+  }
+
+  static boolean returnedZero(int a, int b) {
+    return a - b == 0;
+  }
+
   static int whileLoop(int a, int b) {
     int n = 0;
     while (n < a && n < 4) {
