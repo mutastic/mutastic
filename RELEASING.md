@@ -74,10 +74,10 @@ version can never be changed or removed.
 1. **Check the promises** ([Compatibility](docs/src/content/docs/reference/compatibility.mdx)).
    The build already fails on a moved mutant id, a break in the plugin API and a break in the
    events format; these are left to you:
-   - **Scores.** Read `CHANGELOG.md`'s *Scoring changes* under *Unreleased*. A patch release (`X.Y.Z+1`) has none:
-     anything that moves a score (an operator into or out of the default set, a filter that skips
-     more or less) waits for a minor release. A minor release's notes say which scores move, and
-     how.
+   - **Scores.** Read the *Scoring changes* that `scripts/changelog.sh preview` prints, the
+     entries waiting in `changes/`. A patch release (`X.Y.Z+1`) has none: anything that moves a
+     score (an operator into or out of the default set, a filter that skips more or less) waits
+     for a minor release. A minor release's notes say which scores move, and how.
    - **Ids.** Run `./gradlew :mutastic-cli:exportIds`. If `src/test/ids/ids.tsv` changes, it's an
      operator new since the last release: commit it, so its ids are held from this release on.
    - **The Rust edition.** From 1.0.0 the editions release each minor version together: for
@@ -99,9 +99,18 @@ version can never be changed or removed.
    - **Files on Central.** Central counts every file against a monthly limit
      ([Usage](https://central.sonatype.com/publishing/usage)). `checkCentralFiles` keeps a release
      small enough for four a month; look at the usage before a second release in a month.
-2. In `CHANGELOG.md`, turn `## Unreleased` into `## X.Y.Z (D Mon YYYY)`, with a new empty
-   `## Unreleased` above it, and commit. With `main` green, create the release from that section;
-   its tag gives the version:
+2. **The release's notes.** Each entry since the last release is a file in `changes/`
+   ([changes/README.md](changes/README.md)), so pull requests don't conflict over `CHANGELOG.md`.
+   Read them as one section, then gather them into `CHANGELOG.md` as `## X.Y.Z (D Mon YYYY)`,
+   dated today, which deletes the files:
+   ```sh
+   scripts/changelog.sh preview X.Y.Z   # prints the section, writes nothing
+   scripts/changelog.sh release X.Y.Z   # writes it below Unreleased, deletes the entries
+   ```
+   Edit the section if it needs it, a paragraph above a section's entries or one at the top, and
+   commit it with the deleted files as `chore(release): version X.Y.Z`: only a commit with the
+   `release` scope may edit `CHANGELOG.md`. With `main` green, create the release from that
+   section; its tag gives the version:
    ```sh
    awk '/^## X\.Y\.Z /{on=1; next} /^## /{on=0} on' CHANGELOG.md > notes.md
    gh release create vX.Y.Z --target main --notes-file notes.md
