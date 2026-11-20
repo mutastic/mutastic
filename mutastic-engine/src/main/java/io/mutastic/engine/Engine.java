@@ -85,6 +85,18 @@ public final class Engine {
     }
   }
 
+  /// A plugin's filter skipped a mutant without saying why: every skip is shown with its reason, so
+  /// one without isn't a skip anyone could check.
+  public static final class SkipWithoutReason extends CantRun {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    SkipWithoutReason(String filter, String mutant) {
+      super(
+          "the filter %s skipped %s without a reason. A filter's Skip says why, as every skip does"
+              .formatted(filter, mutant));
+    }
+  }
+
   /// `--only` named a mutant the project doesn't have.
   public static final class UnknownMutant extends CantRun {
     @java.io.Serial private static final long serialVersionUID = 1L;
