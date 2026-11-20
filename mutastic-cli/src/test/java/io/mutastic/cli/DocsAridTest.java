@@ -53,7 +53,6 @@ class DocsAridTest {
           Map.entry("mutastic:waits", "the call to `sleep()` is removed"),
           Map.entry("mutastic:null-checks", "the call to `requireNonNull()` is removed"),
           Map.entry("mutastic:array-sizes", "the constant `7` becomes `8`"),
-          Map.entry("mutastic:first-values", "the constant `0` becomes `1`"),
           Map.entry("mutastic:split-limits", "the constant `2` becomes `3`"),
           Map.entry("mutastic:thread-names", "the string `\"report-worker\"` becomes `\"\"`"),
           Map.entry("mutastic:thread-priorities", "the call to `setPriority()` is removed"),

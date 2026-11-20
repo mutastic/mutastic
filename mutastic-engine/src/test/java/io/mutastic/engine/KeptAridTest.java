@@ -50,7 +50,6 @@ class KeptAridTest {
             "arid: only waits",
             "arid: only checks the value isn't null",
             "arid: only sizes an array",
-            "arid: a variable's first value of 0 or 1",
             "arid: only limits a split",
             "arid: trivial getter of name",
             "arid: trivial setter of name",

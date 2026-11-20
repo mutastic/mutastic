@@ -173,16 +173,6 @@
             },
             {
               "kind": "enum constant",
-              "name": "FIRST_VALUES",
-              "anchor": "first_values",
-              "signature": "FIRST_VALUES",
-              "doc": "",
-              "params": [],
-              "returns": "",
-              "throws": []
-            },
-            {
-              "kind": "enum constant",
               "name": "SPLIT_LIMITS",
               "anchor": "split_limits",
               "signature": "SPLIT_LIMITS",

@@ -218,26 +218,6 @@
       "annotation": "@DoMutate(arid = \"mutastic:array-sizes\")"
     },
     {
-      "id": "mutastic:first-values",
-      "anchor": "first-values",
-      "url": "https://docs.mutastic.io/reference/arid/#first-values",
-      "editions": [
-        "java"
-      ],
-      "scope": "site",
-      "description": "A variable's first value of 0 or 1, where a counter or a total starts.",
-      "reasons": {
-        "java": [
-          "arid: a variable's first value of 0 or 1"
-        ]
-      },
-      "examples": {
-        "java": "int count = 0;"
-      },
-      "mutate": "arid: [mutastic:first-values]",
-      "annotation": "@DoMutate(arid = \"mutastic:first-values\")"
-    },
-    {
       "id": "mutastic:split-limits",
       "anchor": "split-limits",
       "url": "https://docs.mutastic.io/reference/arid/#split-limits",

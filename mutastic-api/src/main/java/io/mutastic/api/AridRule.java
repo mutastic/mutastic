@@ -81,12 +81,6 @@ public enum AridRule {
       "The size of a new array, written as a number.",
       "byte[] buffer = new byte[8192];",
       "arid: only sizes an array"),
-  FIRST_VALUES(
-      "mutastic:first-values",
-      Scope.SITE,
-      "A variable's first value of 0 or 1, where a counter or a total starts.",
-      "int count = 0;",
-      "arid: a variable's first value of 0 or 1"),
   SPLIT_LIMITS(
       "mutastic:split-limits",
       Scope.SITE,
