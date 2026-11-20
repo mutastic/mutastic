@@ -1,0 +1,12 @@
+ [46;30;1m SKIPPED [0m [1marid: only an exception's message[0m
+    [2m┌─[0m src/main/java/com/example/arid/Amounts.java:10
+    [2m│[0m
+ [2m 9[0m [2m│[0m     if (amount < 0) {
+ [2m10[0m [2m│[0m       throw new IllegalArgumentException("amount must not be negative");
+    [2m│[0m       [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ "amount must not be negative" changed to ""[0m
+ [2m11[0m [2m│[0m     }
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mthrow new IllegalArgumentException("amount must not be negative");
+              [32m+ [0mthrow new IllegalArgumentException("");
+
+    [2mreproduce [0m mutastic run --only=m1c99562f samples/arid

@@ -241,6 +241,7 @@ val secondsOnCi =
         "GateTest" to 59,
         "ParallelTest" to 50,
         "DocsOutputTest" to 60,
+        "DocsAridTest" to 60,
         "DocsOperatorsTest" to 25,
         "PricingSampleTest" to 44,
         "MavenPluginTest" to 41,
@@ -353,6 +354,8 @@ tasks.register<Test>("exportDocsOutput") {
     useJUnitPlatform()
     filter {
         includeTestsMatching("io.mutastic.cli.DocsOutputTest")
+        // The arid pages' captures.
+        includeTestsMatching("io.mutastic.cli.DocsAridTest")
         // The errors page's captures.
         includeTestsMatching("io.mutastic.cli.ErrorsPageTest")
         // The cards on the operator pages.

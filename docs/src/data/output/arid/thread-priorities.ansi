@@ -1,0 +1,11 @@
+ [46;30;1m SKIPPED [0m [1marid: only sets a priority hint[0m
+    [2m┌─[0m src/main/java/com/example/arid/Workers.java:13
+    [2m│[0m
+ [2m12[0m [2m│[0m     var thread = new Thread(work, "report-worker");
+ [2m13[0m [2m│[0m     thread.setPriority(Thread.MIN_PRIORITY);
+    [2m│[0m            [1;31m^^^^^^^^^^^ call removed[0m
+ [2m14[0m [2m│[0m     return thread;
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mthread.setPriority(Thread.MIN_PRIORITY);
+
+    [2mreproduce [0m mutastic run --only=m888732e4 samples/arid

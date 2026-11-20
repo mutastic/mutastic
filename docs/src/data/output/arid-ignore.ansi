@@ -1,0 +1,3 @@
+mutastic: m173c4fca is ignored: only how long the summary took, for the log
+  recorded in samples/sales/.mutastic/ignores.yaml: commit it, as a decision to review
+  to undo: mutastic ignore --remove m173c4fca samples/sales

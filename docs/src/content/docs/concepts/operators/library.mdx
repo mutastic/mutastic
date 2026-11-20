@@ -307,16 +307,18 @@ The test's header has one column, so the separator never shows:
 ```
 
 **Edition notes:** run it with `--operators=stronger`. Text that only tells a person something is
-skipped as arid: what goes into a log call or `System.out`, an exception's message, including
-through `String.format` or `formatted`, or a failed check's message, whatever values come after
-it: `"took {} ms"` in `log.info("took {} ms", now - start)` is skipped. An exception is known by
-being thrown straight away, or by its supertypes reaching `Throwable`: a class named `ConfigError`
-that isn't one keeps its mutant, and so does one whose supertypes can't be found. A failed check is
+skipped as arid: what goes into a log call or `System.out` ([`output`](/reference/arid/#output)),
+an exception's message, including through `String.format` or `formatted`, or a failed check's
+message ([`messages`](/reference/arid/#messages)), whatever values come after it: `"took {} ms"`
+in `log.info("took {} ms", now - start)` is skipped. An exception is known by being thrown straight
+away, or by its supertypes reaching `Throwable`: a class named `ConfigError` that isn't one keeps
+its mutant, and so does one whose supertypes can't be found. A failed check is
 `Objects.requireNonNull` or Guava's `Preconditions`. A string in an annotation isn't in the code,
 and the text in `"total: " + x` is in javac's recipe for the call, so neither has a mutant. Text a
-person reads in other ways, such as a command's output, is changed like any other, so expect misses
-there: ranking puts those after the rest, and most aren't worth a test. The Rust edition has this
-operator too, `mutastic/string-constant`, and leaves alone an error's or `expect`'s message.
+person reads in other ways, such as text a method returns for a command to print, is changed like
+any other, so expect misses there: ranking puts those after the rest, and most aren't worth a
+test. The Rust edition has this operator too, `mutastic/string-constant`, and leaves alone an
+error's or `expect`'s message.
 
 ## Regex constant
 

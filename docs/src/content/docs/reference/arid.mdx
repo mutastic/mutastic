@@ -1,0 +1,974 @@
+---
+title: Arid rules
+description: "Every kind of code mutastic skips as arid by default: what each rule skips, why, what it can hide, when to bring it back, and the setting that does."
+---
+
+import AridRule from '../../../components/AridRule.astro';
+import AridSections from '../../../components/AridSections.astro';
+import AridTable from '../../../components/AridTable.astro';
+import EditionOnly from '../../../components/EditionOnly.astro';
+import { Aside, Code, TabItem, Tabs } from '@astrojs/starlight/components';
+import trivialAccessors from '../../../data/output/arid/trivial-accessors.ansi?raw';
+import debugRepresentations from '../../../data/output/arid/debug-representations.ansi?raw';
+import output from '../../../data/output/arid/output.ansi?raw';
+import messages from '../../../data/output/arid/messages.ansi?raw';
+import failedAsserts from '../../../data/output/arid/failed-asserts.ansi?raw';
+import capacity from '../../../data/output/arid/capacity.ansi?raw';
+import waitTimes from '../../../data/output/arid/wait-times.ansi?raw';
+import waits from '../../../data/output/arid/waits.ansi?raw';
+import nullChecks from '../../../data/output/arid/null-checks.ansi?raw';
+import arraySizes from '../../../data/output/arid/array-sizes.ansi?raw';
+import firstValues from '../../../data/output/arid/first-values.ansi?raw';
+import splitLimits from '../../../data/output/arid/split-limits.ansi?raw';
+import threadNames from '../../../data/output/arid/thread-names.ansi?raw';
+import threadPriorities from '../../../data/output/arid/thread-priorities.ansi?raw';
+import keepAlive from '../../../data/output/arid/keep-alive.ansi?raw';
+import stackSizes from '../../../data/output/arid/stack-sizes.ansi?raw';
+
+A mutant your tests miss asks for a test. Some ask for one nobody should write: a removed log line,
+a list's starting size. mutastic skips those on its own, as arid, and each skip says why. This
+page has a section for each rule: what it skips, why, what it can hide, when to bring
+it back, and the setting that does, ready to copy. Why mutastic skips any of them, and what it costs,
+is in [Arid mutants](/concepts/arid/).
+
+Every rule is on by default:
+
+<AridTable />
+
+A skipped mutant is still made and keeps its id; it isn't in the score, and the summary counts it
+(`3 skipped (3 arid)`). To see what a rule hides in your code, run the mutants it skips with
+`MUTASTIC_ARID=audit` (Java). To bring a rule back, cover the code that needs it with a `mutate:`
+rule in `mutastic.yaml`, or `@DoMutate` on it, as each section shows. Either brings back every arid
+skip in the code it covers, whichever rule made it, so cover only the class or method that needs
+it.
+
+Each example below is a class in `samples/arid`, with a test that checks the behaviour the skip
+could hide. Running the skipped mutants against those tests is how each **What it can hide** was
+found:
+
+```sh
+MUTASTIC_ARID=audit mutastic run samples/arid --operators=all
+```
+
+## Trivial accessors
+
+<AridRule id="mutastic:trivial-accessors" />
+
+Every mutant of a getter that only returns one of its class's fields, or a setter that only stores
+its argument in one, named for that field: `getName`, `isActive`, `setName`, a record-style `name()`.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Customer.java */}
+```java
+  public String getName() {
+    return name;
+  }
+
+  public void setName(String name) {
+    this.name = name;
+  }
+```
+
+**Why:** a test of a field read back is a test of the language. A getter named for the wrong field
+is a lint's to find. An accessor with any logic in it, a copy, a check, lazy set-up, isn't trivial,
+and its mutants count.
+
+<Aside type="caution" title="What it can hide">
+A getter or setter that's how other code reads or fills in the object: one a JSON or database
+library calls by name. A setter that stores nothing leaves the field empty after binding, and a test
+that fills the object in and reads it back, as `CustomerTest` does, catches it.
+</Aside>
+
+**When to bring it back:** the accessors are an API others call, and you test them through it.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Customer
+    reason: a JSON library fills customers in through their setters
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("a JSON library fills customers in through their setters")
+public class Customer {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={trivialAccessors} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** a getter whose body only hands back a field (`self.name`, `&self.name`,
+`self.name.clone()`) gets no whole-body mutant; nothing counts it, and no rule brings it back. Its
+other mutants count.
+</EditionOnly>
+
+**Changed in:** 0.1.0, the first release. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+
+## Debug representations
+
+<AridRule id="mutastic:debug-representations" />
+
+Every mutant of `toString()` and `hashCode()`, of the lambdas they define, and of a private or
+package-private helper that only they call.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Money.java */}
+```java
+  @Override
+  public String toString() {
+    return "£" + pence / 100 + "." + String.format("%02d", pence % 100);
+  }
+```
+
+**Why:** `toString()` is usually for people debugging, and a test of it pins a format nobody
+promised. `hashCode()` may return any value that agrees with `equals()`, so most changes to it are
+still correct.
+
+<Aside type="caution" title="What it can hide">
+A `toString()` people read: a price on a receipt, text an API returns. Here `pence / 100` becoming
+`pence * 100` shows `£10500.05` for `£1.05`, and `MoneyTest` catches it. For `hashCode()`, a change
+that makes every value collide still agrees with `equals()`: it slows a `HashMap` down, and no
+test of what the code returns should notice.
+</Aside>
+
+**When to bring it back:** the text is what someone reads, and your tests check it.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Money#toString
+    reason: shown to customers on their receipts
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("shown to customers on their receipts")
+@Override
+public String toString() {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={debugRepresentations} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** a `fmt`, `hash` or `new` gets no whole-body mutant, and a formatter's
+`Ok(())` isn't changed; nothing counts those, and no rule brings them back. Their other mutants
+count.
+</EditionOnly>
+
+**Changed in:** 0.1.0, the first release. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+
+## Output
+
+<AridRule id="mutastic:output" />
+
+A removed call to a logger (SLF4J, Log4j 2, `java.util.logging`, `System.Logger`, Commons
+Logging) or to a `PrintStream`, `System.out` included; every other mutant of such a call; and a
+string that only goes into one, its format string included.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Totals.java */}
+```java
+  public static void print(PrintStream out, long total) {
+    out.println("total: " + total);
+  }
+```
+
+**Why:** removing a log line changes what a person reads, not what the code does. A test that
+reads log text breaks the next time someone rewords it, and says nothing about the code.
+
+<Aside type="caution" title="What it can hide">
+Output that is the product: a command-line tool's output, an audit log. Every `PrintStream` counts
+as output, not only `System.out`, so a stream the code is given, that a test reads, is skipped too:
+here the removed `println` leaves nothing printed, and `TotalsTest` catches it. A value worked out
+only to be logged isn't skipped: see [A value only logged](/guides/arid-in-practice/#a-value-only-logged).
+</Aside>
+
+**When to bring it back:** the output is what the code is for, and your tests read it.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Totals
+    reason: the total is what the command prints, and scripts read it
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("the total is what the command prints, and scripts read it")
+public final class Totals {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={output} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** a removed output macro used as a statement (`println!`, `eprintln!`,
+`dbg!`, and the `log` and `tracing` macros such as `info!`) is made and skipped with the same
+reason, and a `mutate:` rule takes it back. A `write!` goes to a writer the code chose, which a test
+may read, so it counts. Nothing inside a macro's arguments gets a mutant.
+</EditionOnly>
+
+**Changed in:** 0.1.0, the first release. 1.0.0: a string that only goes into output.
+1.3.0: its id; `mutate:` and `@DoMutate` bring it back; a format string followed by a value worked out in the call
+(`log.info("took {} ms", now - start)`) is skipped as well.
+
+## Messages
+
+<AridRule id="mutastic:messages" />
+
+A string that's only an exception's message, or only the message of a failed check
+(`Objects.requireNonNull(x, "…")`, Guava's `Preconditions`). Mutants of strings come with
+`--operators=stronger`.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Amounts.java */}
+```java
+    if (amount < 0) {
+      throw new IllegalArgumentException("amount must not be negative");
+    }
+```
+
+**Why:** a test should check that the code refuses a bad value, and which exception it throws.
+Its words are for the person reading them, and a test that pins them breaks whenever they're
+improved.
+
+<Aside type="caution" title="What it can hide">
+A message that's shown to a person or read by other code: an error a form displays, text an API
+returns. Here an empty message reaches the person typing, and `AmountsTest`, which checks the
+words, catches it.
+</Aside>
+
+**When to bring it back:** the message is what users see, or what callers parse, and your tests
+check it.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Amounts#parse
+    reason: the message is shown on the form, word for word
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("the message is shown on the form, word for word")
+public static long parse(String text) {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={messages} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** text given straight to `Err`, `expect`, `context`, `with_context` or
+`wrap_err`, and anything inside a macro such as `format!` or `panic!`, gets no mutant; nothing counts
+it, and no rule brings it back.
+</EditionOnly>
+
+**Changed in:** 1.0.0, with `mutastic/string-constant`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+
+## Failed asserts
+
+<AridRule id="mutastic:failed-asserts" />
+
+The `throw` of an `assert` that fails, removed. Comes with `--operators=extended`, which removes
+throws.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Ledger.java */}
+```java
+  public static long settle(long balance) {
+    assert balance >= 0 : "negative balance";
+    return balance;
+  }
+```
+
+**Why:** an `assert` checks the code's own assumptions while it's tested, and is off in production
+unless the JVM is started with `-ea`. A test that fails an assert tests the assert, not the code.
+
+<Aside type="caution" title="What it can hide">
+An assert a test relies on to show a bad value is refused. Gradle and Maven run tests with asserts
+on, so a test that expects the `AssertionError`, as `LedgerTest` does, catches its removal. If the
+check matters in production, it shouldn't be an `assert`.
+</Aside>
+
+**When to bring it back:** your tests check the code's invariants by expecting its asserts to fail.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Ledger#settle
+    reason: the tests check that a negative balance is refused
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("the tests check that a negative balance is refused")
+public static long settle(long balance) {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={failedAsserts} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** `assert!` and `debug_assert!` are macros, and nothing inside a macro gets a
+mutant, so there's nothing to skip.
+</EditionOnly>
+
+**Changed in:** 1.0.0, with `mutastic/remove-throw`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+
+## Capacity
+
+<AridRule id="mutastic:capacity" />
+
+Arithmetic whose result goes straight into the starting size of one of the JDK's collections or
+buffers: the `int` constructor of `ArrayList`, `HashMap`, `HashSet`, `StringBuilder` and the like,
+or their `ensureCapacity`.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Pairs.java */}
+```java
+    var pairs = new ArrayList<Integer>(values.size() * 2);
+```
+
+**Why:** a collection grows as it needs to, so its starting size changes how often it grows, which
+is speed and memory, not what it holds.
+
+<Aside type="caution" title="What it can hide">
+Nothing a test of what the code does can see. A size that comes out negative throws, and a test
+catches that by the crash, which says nothing about your tests. What's left is performance: a size
+far too small, or far too big. Only the arithmetic is skipped: with `--operators=stronger`, the
+`2` in `values.size() * 2` gets mutants of its own, which count.
+</Aside>
+
+**When to bring it back:** rarely: when a benchmark, not a unit test, checks the allocation.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Pairs#doubled
+    reason: the allocation is checked by a benchmark that runs with the tests
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("the allocation is checked by a benchmark that runs with the tests")
+public static List<Integer> doubled(List<Integer> values) {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={capacity} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** a number written straight into `with_capacity`, `reserve` or
+`reserve_exact` gets no mutant; nothing counts it, and no rule brings it back. Arithmetic there,
+`with_capacity(n * 2)`, counts.
+</EditionOnly>
+
+**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+
+## Wait times
+
+<AridRule id="mutastic:wait-times" />
+
+Arithmetic, or a number, that goes straight into how long `Thread.sleep`, `TimeUnit.sleep` or a
+`join` with a time limit waits.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Worker.java */}
+```java
+    worker.start();
+    worker.join(seconds * 1000L);
+    return result.get();
+```
+
+**Why:** how long code waits changes when it gets somewhere, not where it goes, and a test that
+depends on the length of a wait is slow and flaky.
+
+<Aside type="caution" title="What it can hide">
+A time limit too short for the work. A `join` that gives up early lets the code read a result the
+worker hasn't finished: here `seconds * 1000L` becoming `seconds` waits 5 milliseconds for work that
+takes 200, `result` returns `0`, and `WorkerTest` catches it.
+</Aside>
+
+**When to bring it back:** the time limit decides whether the code waits for its work, and your
+tests run work slow enough for it to matter.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Worker#result
+    reason: result must wait long enough for its worker to finish
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("result must wait long enough for its worker to finish")
+public static long result(LongSupplier work, int seconds) throws InterruptedException {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={waitTimes} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** a number written straight into `sleep`, or into `Duration::from_secs`,
+`from_millis`, `from_micros` or `from_nanos`, gets no mutant; nothing counts it, and no rule brings
+it back. Arithmetic there counts.
+</EditionOnly>
+
+**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+
+## Waits
+
+<AridRule id="mutastic:waits" />
+
+A removed `Thread.sleep` or `TimeUnit.sleep`. A removed `join` isn't one, with a time limit or
+without: without it, the code can read what the other thread does before it's done, and that's a
+race worth a test.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Backoff.java */}
+```java
+    while (!ready.getAsBoolean()) {
+      Thread.sleep(pauseMillis);
+      tries++;
+    }
+```
+
+**Why:** without a sleep the code does the same work, sooner, and a test that would notice is a
+test of the clock: slow, and flaky on a busy machine.
+
+<Aside type="caution" title="What it can hide">
+A pause that protects something: a backoff between tries, a rate limit. Without it the code asks
+again at once, as often as it can, which floods what it asks. Here the tries are the same, and only
+`BackoffTest`, which measures that two pauses took place, catches it.
+</Aside>
+
+**When to bring it back:** the pause is part of what the code promises, and your tests measure it,
+or use a clock they control.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Backoff#poll
+    reason: the service it polls limits how often it's asked
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("the service it polls limits how often it's asked")
+public static int poll(BooleanSupplier ready, long pauseMillis) throws InterruptedException {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={waits} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** a removed `thread::sleep(d);` counts. A removed `handle.join().unwrap();`
+counts too.
+</EditionOnly>
+
+**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back; a removed `join`
+with a time limit counts, as one with none always did.
+
+## Null checks
+
+<AridRule id="mutastic:null-checks" />
+
+A removed call whose only job is to check a value is there, its result unused:
+`Objects.requireNonNull(x)`, or `x.getClass()`, which javac writes for the same check.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Orders.java */}
+```java
+  public void add(String order) {
+    Objects.requireNonNull(order);
+    orders.add(order);
+  }
+```
+
+**Why:** without the check, code given `null` fails a little later, or goes on with it, and the
+check is usually there to fail early on a `null` no caller passes.
+
+<Aside type="caution" title="What it can hide">
+A check callers rely on. Without it, `add(null)` puts `null` in the list, to fail somewhere else
+later, and `OrdersTest`, which expects `add(null)` to throw and the list to stay empty, catches it.
+</Aside>
+
+**When to bring it back:** refusing `null` is part of what the code promises, and your tests pass
+it `null`.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Orders#add
+    reason: callers rely on add refusing null straight away
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("callers rely on add refusing null straight away")
+public void add(String order) {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={nullChecks} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** a removed `x.unwrap();` or `x.expect(…);` on a value the code is given,
+where only the check is thrown away, is skipped as `arid: only checks the value is there`, and a
+`mutate:` rule takes it back. A check on what a call returns, `handle.join().unwrap();`, is removed
+with its call, and counts.
+</EditionOnly>
+
+**Changed in:** 1.0.0, with `mutastic/remove-discarded-call`. 1.3.0: its id; `mutate:` can name
+it; the Rust edition's rule.
+
+## Array sizes
+
+<AridRule id="mutastic:array-sizes" />
+
+A number that only sizes a new array. Mutants of numbers come with `--operators=stronger`.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Week.java */}
+```java
+    int[] counts = new int[7];
+```
+
+**Why:** most arrays are sized for the work, a buffer of `8192` bytes, and a different size changes
+how much is read at once, not what is read.
+
+<Aside type="caution" title="What it can hide">
+An array whose size is the result. Here `counts` has a slot for each day of the week and is
+returned: `new int[8]` gives callers an eighth day, and `WeekTest` catches it. A size too small
+throws when the code fills it, which a test catches by the crash.
+</Aside>
+
+**When to bring it back:** the array's length is part of what the code returns.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Week#perDay
+    reason: callers read one count for each day of the week
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("callers read one count for each day of the week")
+public static int[] perDay(int[] days) {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={arraySizes} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** no such rule.
+</EditionOnly>
+
+**Changed in:** 1.0.0, with `mutastic/constant-value`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+
+## First values
+
+<AridRule id="mutastic:first-values" />
+
+A variable's first value of `0` or `1`, where a counter or a total starts. Mutants of numbers come
+with `--operators=stronger`.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Retry.java */}
+```java
+    int attempt = 0;
+    while (attempt < 3) {
+```
+
+**Why:** a total that starts at the wrong value is wrong at once, for every input, and any test of
+the result shows it; the mutant adds nothing that test doesn't already check.
+
+<Aside type="caution" title="What it can hide">
+A count no test checks, or one that decides how often something happens. Here `attempt` starting at
+`1` tries the call twice instead of three times, and `RetryTest`, which counts the calls, catches it.
+</Aside>
+
+**When to bring it back:** a count decides what the code does, a retry limit or a page size, and
+your tests count.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Retry#attempts
+    reason: the call must be tried exactly three times
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("the call must be tried exactly three times")
+public static int attempts(BooleanSupplier call) {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={firstValues} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** a `let`'s first value of `0` or `1` gets no mutant; nothing counts it, and
+no rule brings it back.
+</EditionOnly>
+
+**Changed in:** 1.0.0, with `mutastic/constant-value`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+
+## Split limits
+
+<AridRule id="mutastic:split-limits" />
+
+The limit given to `String.split`. Mutants of numbers come with `--operators=stronger`.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Headers.java */}
+```java
+    return line.split(":", 2)[1].strip();
+```
+
+**Why:** for most text the limit is never reached, and a different one splits it the same way.
+
+<Aside type="caution" title="What it can hide">
+Text with the separator in the part you keep. Here a header's value has colons of its own, and a
+limit of `3` cuts `http://example.com:8080` down to `http`, and `HeadersTest` catches it.
+</Aside>
+
+**When to bring it back:** the text you split can contain the separator, and your tests have such
+text.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Headers#value
+    reason: a header's value can have colons of its own
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("a header's value can have colons of its own")
+public static String value(String line) {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={splitLimits} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** no such rule.
+</EditionOnly>
+
+**Changed in:** 1.0.0, with `mutastic/constant-value`. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back.
+
+## Thread names
+
+<AridRule id="mutastic:thread-names" />
+
+A thread's name: the name given to `new Thread`, `setName`, a `Thread.Builder`'s `name` and its
+start index, Guava's `setNameFormat`, and a value that only becomes part of a name, through
+`"worker-" + n` or `String.format`.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Workers.java */}
+```java
+    var thread = new Thread(work, "report-worker");
+```
+
+**Why:** nothing in the JVM acts on a thread's name. It's for people reading a thread dump, a
+profiler or a log line.
+
+<Aside type="caution" title="What it can hide">
+A name something reads: a monitoring tool or a test that finds a thread by its name, a log pattern
+that shows it. Here `WorkersTest` checks the name, and an empty one fails it. A class that reads
+names itself (`getName()` other than into a log line), or that implements `ThreadFactory`, keeps its
+name mutants.
+</Aside>
+
+**When to bring it back:** something other than people relies on the names, and your tests check
+them.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Workers#background
+    reason: the server's health check finds its workers by name
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("the server's health check finds its workers by name")
+public static Thread background(Runnable work) {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={threadNames} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** a name given to `thread::Builder::name`, or to tokio's `thread_name` or
+`thread_name_fn`, is skipped the same way, on a builder the code visibly starts from
+`thread::Builder::new()` or tokio's runtime `Builder`. A crate that reads a thread's name keeps them.
+</EditionOnly>
+
+**Changed in:** 1.3.0, both editions.
+
+## Thread priorities
+
+<AridRule id="mutastic:thread-priorities" />
+
+A removed `setPriority`, and a priority from 1 to 10 given to `setPriority`, a `Thread.Builder` or
+Guava's `ThreadFactoryBuilder`. One out of that range throws, and counts.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Workers.java */}
+```java
+    thread.setPriority(Thread.MIN_PRIORITY);
+```
+
+**Why:** a priority is a hint the operating system may ignore. HotSpot on Linux ignores it unless
+started with a flag only root can use, and a virtual thread's is always the normal one.
+
+<Aside type="caution" title="What it can hide">
+Code that reads the priority back, as `WorkersTest` does here, or work that's only scheduled right
+on a system that honours priorities. A class that calls `getPriority()` keeps its priority mutants.
+</Aside>
+
+**When to bring it back:** you ship on a system that honours priorities, and test the scheduling
+there.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Workers#background
+    reason: reports must yield to requests on the Windows servers
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("reports must yield to requests on the Windows servers")
+public static Thread background(Runnable work) {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={threadPriorities} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** no such rule: the standard library has no call to set a priority.
+</EditionOnly>
+
+**Changed in:** 1.3.0.
+
+## Keep alive
+
+<AridRule id="mutastic:keep-alive" />
+
+How long a `ThreadPoolExecutor`'s idle threads live, given to its constructor or to
+`setKeepAliveTime`, while it stays above zero.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Workers.java */}
+```java
+    return new ThreadPoolExecutor(1, 4, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
+```
+
+**Why:** it decides when an idle thread is let go, which is memory and start-up time, not what the
+pool runs. A time of zero can throw, so it counts.
+
+<Aside type="caution" title="What it can hide">
+A pool whose idle threads must go, or stay, on time: one that lets its core threads time out so the
+program can exit, or that a test reads back, as `WorkersTest` does here.
+</Aside>
+
+**When to bring it back:** the pool's threads must be gone by a time something relies on, and your
+tests check it.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Workers#pool
+    reason: the batch job exits only once the pool's threads are gone
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("the batch job exits only once the pool's threads are gone")
+public static ThreadPoolExecutor pool() {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={keepAlive} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** the duration given to tokio's `thread_keep_alive` is skipped the same way,
+while it stays above zero.
+</EditionOnly>
+
+**Changed in:** 1.3.0, both editions.
+
+## Stack sizes
+
+<AridRule id="mutastic:stack-sizes" />
+
+The stack size given to `new Thread(group, task, name, size)` or a `Thread.Builder`'s `stackSize`,
+while it stays above zero.
+
+{/* from: samples/arid/src/main/java/com/example/arid/Workers.java */}
+```java
+    return new Thread(null, work, "deep-worker", 64L * 1024 * 1024);
+```
+
+**Why:** most code never comes near its stack's end, and the JVM may round the size, or ignore it.
+
+<Aside type="caution" title="What it can hide">
+Deep recursion that needs the room. Here a stack of 1 byte, which the JVM rounds up to its smallest,
+overflows on the recursion the thread runs, and `WorkersTest`, which checks the work finished,
+catches it.
+</Aside>
+
+**When to bring it back:** the thread recurses deeply on purpose, and your tests run it that deep.
+
+<Tabs syncKey="arid-setting">
+<TabItem label="mutastic.yaml">
+
+```yaml
+rules:
+  - mutate: com.example.arid.Workers#deep
+    reason: the parser recurses once for each level of nesting
+```
+
+</TabItem>
+<TabItem label="@DoMutate">
+
+```java
+@DoMutate("the parser recurses once for each level of nesting")
+public static Thread deep(Runnable work) {
+```
+
+</TabItem>
+</Tabs>
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+**Check it:** what `mutastic explain` says of the skipped mutant:
+
+<Code code={stackSizes} lang="ansi" />
+
+<EditionOnly edition="rust">
+**In the Rust edition:** the size given to `thread::Builder::stack_size` or tokio's
+`thread_stack_size` is skipped the same way, while it stays above zero.
+</EditionOnly>
+
+**Changed in:** 1.3.0, both editions.
+
+<AridSections />
