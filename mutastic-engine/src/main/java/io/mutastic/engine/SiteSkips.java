@@ -9,11 +9,18 @@ import java.lang.classfile.Opcode;
 import java.lang.classfile.instruction.BranchInstruction;
 import java.lang.classfile.instruction.ConstantInstruction;
 import java.lang.classfile.instruction.ConvertInstruction;
+import java.lang.classfile.instruction.ExceptionCatch;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.LabelTarget;
 import java.lang.classfile.instruction.LoadInstruction;
+import java.lang.classfile.instruction.LookupSwitchInstruction;
+import java.lang.classfile.instruction.OperatorInstruction;
+import java.lang.classfile.instruction.ReturnInstruction;
 import java.lang.classfile.instruction.StoreInstruction;
+import java.lang.classfile.instruction.TableSwitchInstruction;
+import java.lang.classfile.instruction.ThrowInstruction;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -21,9 +28,12 @@ import org.jspecify.annotations.Nullable;
 
 /// Mutants judged by the code right around their instruction, on positive evidence in the bytecode:
 ///
-/// - **arid:** arithmetic whose result only sizes a collection's first allocation (`new
-///   ArrayList<>(n * 2)`) or sets how long to wait (`Thread.sleep(seconds * 1000)`), and a removed
-///   sleep. What a test sees doesn't change, only how fast it runs.
+/// - **arid:** a number whose only use is a collection's first allocation (`new ArrayList<>(n *
+///   2)`, `HashMap.newHashMap(n)`), when a hash table grows (`new HashMap<>(n, 0.75f)`) or how long
+///   a sleep waits (`Thread.sleep(seconds * 1000)`, `Thread.sleep(Duration.ofSeconds(n))`), and a
+///   removed sleep. What a test sees doesn't change, only how fast it runs. A number made negative
+///   where that throws (`new ArrayList<>(-1)`, `Thread.sleep(-1)`) is counted: any test that runs
+///   the line sees it.
 /// - **equivalent:** a boundary where both sides give the same value at the edge: `if (x > max) max
 ///   = x;` stores the value `max` already holds when they're equal, `a < b ? a : b` gives either,
 ///   as they're the same, and so do `x < 10 ? 10 : x` and `if (x < 2) x = 2;`, and `x > 3 ? x : 3`
@@ -45,6 +55,58 @@ final class SiteSkips {
           "java/lang/StringBuffer",
           "java/io/ByteArrayOutputStream");
 
+  /// Hash tables whose constructor takes a capacity, then a load factor: `(IF)V`, and
+  /// `LinkedHashMap`'s `(IFZ)V`.
+  private static final Set<String> LOADED =
+      Set.of(
+          "java/util/HashMap",
+          "java/util/HashSet",
+          "java/util/LinkedHashMap",
+          "java/util/LinkedHashSet",
+          "java/util/WeakHashMap",
+          "java/util/concurrent/ConcurrentHashMap");
+
+  /// Factories whose one argument is only how many entries to make room for: the JDK's since 19,
+  /// and Guava's.
+  private static final Set<String> SIZED_FACTORIES =
+      Set.of(
+          "java/util/HashMap.newHashMap",
+          "java/util/HashSet.newHashSet",
+          "java/util/LinkedHashMap.newLinkedHashMap",
+          "java/util/LinkedHashSet.newLinkedHashSet",
+          "java/util/WeakHashMap.newWeakHashMap",
+          "com/google/common/collect/Lists.newArrayListWithCapacity",
+          "com/google/common/collect/Lists.newArrayListWithExpectedSize",
+          "com/google/common/collect/Maps.newHashMapWithExpectedSize",
+          "com/google/common/collect/Maps.newLinkedHashMapWithExpectedSize",
+          "com/google/common/collect/Sets.newHashSetWithExpectedSize",
+          "com/google/common/collect/Sets.newLinkedHashSetWithExpectedSize",
+          "com/google/common/collect/ImmutableList.builderWithExpectedSize",
+          "com/google/common/collect/ImmutableSet.builderWithExpectedSize",
+          "com/google/common/collect/ImmutableMap.builderWithExpectedSize");
+
+  /// What turns a number into a time and nothing else, so a sleep's time can be followed through
+  /// it: `Duration.ofSeconds(n)`, `TimeUnit.SECONDS.toMillis(n)`.
+  private static final Set<String> TO_A_TIME =
+      Set.of(
+          "java/time/Duration.ofNanos",
+          "java/time/Duration.ofMillis",
+          "java/time/Duration.ofSeconds",
+          "java/time/Duration.ofMinutes",
+          "java/time/Duration.ofHours",
+          "java/time/Duration.ofDays",
+          "java/util/concurrent/TimeUnit.toNanos",
+          "java/util/concurrent/TimeUnit.toMicros",
+          "java/util/concurrent/TimeUnit.toMillis",
+          "java/util/concurrent/TimeUnit.toSeconds",
+          "java/util/concurrent/TimeUnit.toMinutes",
+          "java/util/concurrent/TimeUnit.toHours",
+          "java/util/concurrent/TimeUnit.toDays");
+
+  private static final String SIZES = "arid: only sizes a collection's first allocation";
+  private static final String GROWS = "arid: only sets when a hash table grows";
+  private static final String WAITS = "arid: only sets how long to wait";
+
   /// The operators that change a value worked out, or given, by the code.
   private static final Set<Operator> CALCULATIONS =
       Set.of(
@@ -62,10 +124,12 @@ final class SiteSkips {
 
   private SiteSkips() {}
 
-  /// Why the mutant `operator` makes at `code[at]` shouldn't run, if it shouldn't.
-  static Optional<String> reason(Operator operator, List<CodeElement> code, int at) {
+  /// Why the mutant `operator` makes at `code[at]`, its change `label`, shouldn't run, if it
+  /// shouldn't.
+  static Optional<String> reason(Operator operator, String label, List<CodeElement> code, int at) {
     if (CALCULATIONS.contains(operator)) {
-      return next(code, at).flatMap(SiteSkips::onlySizesOrWaits);
+      return takenBy(code, at)
+          .flatMap(taken -> onlySizesOrWaits(taken, changedTo(operator, label)));
     }
     if (code.get(at) instanceof InvokeInstruction call) {
       return removedCall(operator, call);
@@ -76,24 +140,147 @@ final class SiteSkips {
     return Optional.empty();
   }
 
-  /// The arithmetic's result goes straight to a capacity or a wait: next is the call, or a widening
-  /// to `long` and then the call.
-  private static Optional<String> onlySizesOrWaits(Instruction next) {
-    if (next instanceof InvokeInstruction call
-        && call.name().equalsString("<init>")
-        && call.typeSymbol().descriptorString().equals("(I)V")
-        && SIZED.contains(call.owner().asInternalName())) {
-      return Optional.of("arid: only sizes a collection's first allocation");
+  /// The number a constant becomes, `-1` for `constant 16 to -1`; none for any other change, whose
+  /// value the code works out as it runs.
+  private static Optional<Double> changedTo(Operator operator, String label) {
+    if (operator != BuiltIn.CONSTANT_VALUE) {
+      return Optional.empty();
     }
-    if (next instanceof InvokeInstruction call
-        && call.name().equalsString("ensureCapacity")
-        && SIZED.contains(call.owner().asInternalName())) {
-      return Optional.of("arid: only sizes a collection's first allocation");
+    try {
+      return Optional.of(Double.parseDouble(label.substring(label.lastIndexOf(' ') + 1)));
+    } catch (NumberFormatException e) {
+      return Optional.empty();
     }
-    if (next instanceof InvokeInstruction call && waits(call)) {
-      return Optional.of("arid: only sets how long to wait");
+  }
+
+  /// The call a number goes to, and where in it: the call's receiver is `0`, as [Taken] says.
+  private record Taken(InvokeInstruction call, int position) {
+    String owner() {
+      return call.owner().asInternalName();
+    }
+
+    String name() {
+      return call.name().stringValue();
+    }
+
+    String descriptor() {
+      return call.typeSymbol().descriptorString();
+    }
+  }
+
+  /// The number goes only to a capacity or a wait, and a changed constant stays a value it takes
+  /// without throwing.
+  private static Optional<String> onlySizesOrWaits(Taken taken, Optional<Double> to) {
+    boolean negative = to.filter(value -> value < 0).isPresent();
+    if (sizes(taken)) {
+      return negative ? Optional.empty() : Optional.of(SIZES);
+    }
+    if (LOADED.contains(taken.owner())
+        && taken.name().equals("<init>")
+        && taken.position() == 2
+        && (taken.descriptor().equals("(IF)V") || taken.descriptor().equals("(IFZ)V"))) {
+      // A load factor above zero only says when the table grows; zero or below throws, and so might
+      // whatever the code works out.
+      return to.filter(value -> value > 0).map(value -> GROWS);
+    }
+    if (sleepsFor(taken.call())) {
+      boolean throwsIfNegative =
+          taken.owner().equals("java/lang/Thread") && taken.descriptor().startsWith("(J");
+      return negative && throwsIfNegative ? Optional.empty() : Optional.of(WAITS);
     }
     return Optional.empty();
+  }
+
+  private static boolean sizes(Taken taken) {
+    var owner = taken.owner();
+    var name = taken.name();
+    if (name.equals("<init>")) {
+      var descriptor = taken.descriptor();
+      return taken.position() == 1
+          && ((SIZED.contains(owner) && descriptor.equals("(I)V"))
+              || (LOADED.contains(owner)
+                  && (descriptor.equals("(IF)V") || descriptor.equals("(IFZ)V"))));
+    }
+    return (name.equals("ensureCapacity") && SIZED.contains(owner))
+        || (SIZED_FACTORIES.contains(owner + "." + name)
+            && taken.call().opcode() == Opcode.INVOKESTATIC
+            && taken.descriptor().startsWith("(I)"));
+  }
+
+  /// Follows the number `code[at]` leaves through what only works with it, arithmetic, a widening
+  /// or a time's unit, to the call that takes it, in straight-line code: past a jump, or a place
+  /// one lands, the number may go somewhere else.
+  private static Optional<Taken> takenBy(List<CodeElement> code, int at) {
+    var landings = landings(code);
+    int depth = 1;
+    for (int index = at + 1; index < code.size(); index++) {
+      var element = code.get(index);
+      if (element instanceof LabelTarget target && landings.contains(target.label())) {
+        return Optional.empty();
+      }
+      if (!(element instanceof Instruction instruction)) {
+        continue;
+      }
+      if (instruction instanceof BranchInstruction
+          || instruction instanceof ReturnInstruction
+          || instruction instanceof ThrowInstruction
+          || instruction instanceof TableSwitchInstruction
+          || instruction instanceof LookupSwitchInstruction) {
+        return Optional.empty();
+      }
+      var effect = TextConstants.Follow.effect(instruction);
+      if (effect.takes() < depth) {
+        depth += effect.leaves() - effect.takes();
+        continue;
+      }
+      if (instruction instanceof InvokeInstruction call) {
+        int takes = TextConstants.Follow.takes(call);
+        var taken = new Taken(call, takes - depth);
+        if (!TO_A_TIME.contains(taken.owner() + "." + taken.name())) {
+          return Optional.of(taken);
+        }
+      } else if (!worksWith(instruction)) {
+        return Optional.empty();
+      }
+      // What it works out holds the number, and is on top.
+      depth = 1;
+    }
+    return Optional.empty();
+  }
+
+  /// Arithmetic, or a conversion from one kind of number to another: what's left is the number,
+  /// worked with. Not a comparison, whose result says which is bigger.
+  private static boolean worksWith(Instruction instruction) {
+    return switch (instruction) {
+      case ConvertInstruction _ -> true;
+      case OperatorInstruction operator ->
+          switch (operator.opcode()) {
+            case LCMP, FCMPL, FCMPG, DCMPL, DCMPG, ARRAYLENGTH -> false;
+            default -> true;
+          };
+      default -> false;
+    };
+  }
+
+  /// The labels code jumps to, or a handler starts at.
+  private static Set<Label> landings(List<CodeElement> code) {
+    var found = new HashSet<Label>();
+    for (var element : code) {
+      switch (element) {
+        case BranchInstruction branch -> found.add(branch.target());
+        case TableSwitchInstruction table -> {
+          found.add(table.defaultTarget());
+          table.cases().forEach(each -> found.add(each.target()));
+        }
+        case LookupSwitchInstruction lookup -> {
+          found.add(lookup.defaultTarget());
+          lookup.cases().forEach(each -> found.add(each.target()));
+        }
+        case ExceptionCatch handler -> found.add(handler.handler());
+        default -> {}
+      }
+    }
+    return found;
   }
 
   /// A removed sleep, or a call that only checks a value isn't null. A `join` with a time limit
@@ -127,27 +314,11 @@ final class SiteSkips {
         || (owner.equals("java/util/concurrent/TimeUnit") && name.equals("sleep"));
   }
 
-  /// A sleep, or `Thread.join` with a time limit: how long either waits.
-  private static boolean waits(InvokeInstruction call) {
-    var owner = call.owner().asInternalName();
-    var name = call.name().stringValue();
-    return (owner.equals("java/lang/Thread")
-            && (name.equals("sleep") || name.equals("join"))
-            && call.typeSymbol().parameterCount() > 0)
-        || (owner.equals("java/util/concurrent/TimeUnit") && name.equals("sleep"));
-  }
-
-  /// The instruction after `code[at]`, a widening conversion skipped.
-  private static Optional<Instruction> next(List<CodeElement> code, int at) {
-    var following = instructionsAfter(code, at, 2);
-    if (following.isEmpty()) {
-      return Optional.empty();
-    }
-    var first = following.getFirst();
-    if (first instanceof ConvertInstruction convert && convert.opcode() == Opcode.I2L) {
-      return following.size() > 1 ? Optional.of(following.get(1)) : Optional.empty();
-    }
-    return Optional.of(first);
+  /// A sleep that takes how long: `Thread.sleep(ms)`, `Thread.sleep(Duration)` or `TimeUnit.sleep`.
+  /// Not a `join` or a `wait` with a time limit: past it, the code goes on whether or not what it
+  /// waited for happened, and a test can see which.
+  private static boolean sleepsFor(InvokeInstruction call) {
+    return sleeps(call) && call.typeSymbol().parameterCount() > 0;
   }
 
   /// `if a ? b goto L; ...` where both ways leave the same value when `a == b`: the body stores one
