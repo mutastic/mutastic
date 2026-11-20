@@ -9,12 +9,12 @@
 # each job measured.
 #
 # On a pull request that changes nothing the build reads (the repository's own Markdown pages, the
-# issue and pull request templates, workflows other than this one, the hooks), the jobs that build
-# and test are skipped, as `changes` decides: a skipped job counts as passed for branch protection,
-# and the CLI's shards, whose checks are named for their share, run with nothing to do instead,
-# since a matrix skipped whole reports one check under the job's bare name. docs/ is read by the
-# build, so a change there runs everything. The merge queue, main and a run by hand always run
-# everything: main is always fully tested.
+# changelog's entries, the issue and pull request templates, workflows other than this one, the
+# hooks), the jobs that build and test are skipped, as `changes` decides: a skipped job counts as
+# passed for branch protection, and the CLI's shards, whose checks are named for their share, run
+# with nothing to do instead, since a matrix skipped whole reports one check under the job's bare
+# name. docs/ is read by the build, so a change there runs everything. The merge queue, main and a
+# run by hand always run everything: main is always fully tested.
 name: CI
 
 on:
@@ -54,9 +54,10 @@ jobs:
           EVENT: ${{ github.event_name }}
           NUMBER: ${{ github.event.pull_request.number }}
           COUNT: ${{ github.event.pull_request.changed_files }}
-          # What the build never reads: the top-level Markdown pages, the citation, the templates
-          # and picture under .github, the workflows other than this one, and the hooks.
-          UNREAD: '^([^/]+\.md|CITATION\.cff|\.github/(ISSUE_TEMPLATE/.*|PULL_REQUEST_TEMPLATE\.md|pip\.webp|workflows/(commits|docs|nightly|portal|release)\.yml)|\.githooks/.*)$'
+          # What the build never reads: the top-level Markdown pages, the changelog's entries and
+          # script, the citation, the templates and picture under .github, the workflows other
+          # than this one, and the hooks.
+          UNREAD: '^([^/]+\.md|changes/.*|scripts/changelog\.sh|CITATION\.cff|\.github/(ISSUE_TEMPLATE/.*|PULL_REQUEST_TEMPLATE\.md|pip\.webp|workflows/(commits|docs|nightly|portal|release)\.yml)|\.githooks/.*)$'
         run: |
           code=true
           if [ "$EVENT" = pull_request ] &&
