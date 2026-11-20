@@ -48,6 +48,25 @@ class FailureTest {
             new Failure(Main.TESTS_FAIL, "red-baseline", "mutastic: x\n  sh ./gradlew test\n")
                 .help())
         .containsExactly(Map.of("applicability", "exact", "command", "sh ./gradlew test"));
+    assertThat(
+            new Failure(
+                    Main.TESTS_FAIL,
+                    "red-baseline",
+                    "mutastic: x\n  sh '/My Projects/gradlew' -p '/My Projects/app' test\n")
+                .help())
+        .containsExactly(
+            Map.of(
+                "applicability",
+                "exact",
+                "command",
+                "sh '/My Projects/gradlew' -p '/My Projects/app' test"));
+    assertThat(
+            new Failure(
+                    Main.TESTS_FAIL,
+                    "red-baseline",
+                    "mutastic: x\n  \"C:\\My Projects\\mvnw.cmd\" test\n")
+                .help())
+        .hasSize(1);
     assertThat(exact.message())
         .isEqualTo("a.BTest#c fails without any mutant, so mutastic can't judge one.");
   }

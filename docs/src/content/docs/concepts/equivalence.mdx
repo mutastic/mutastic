@@ -144,7 +144,9 @@ body runs. So the index is never past the length where it's tested, and a change
 there is skipped: the test made `index != length` changes nothing. The other changes do one of
 three things to the loop: read past the last element, never run the body, or never run it and read
 past the end of an empty array. They run, and the card says which, in the loop's terms: the for-each
-loop over `items` reads past its last element, an ArrayIndexOutOfBoundsException.
+loop over `items` reads past its last element, an ArrayIndexOutOfBoundsException. Changes that do
+the same thing to the loop, `<` made `<=` and the test made always true, are
+[twins](/concepts/results/#twins): one of them runs, for both.
 
 **A value your code says can't be negative.** The same change is skipped for a value annotated as
 never negative by an annotation a tool checks when the code compiles. This skip rests on your

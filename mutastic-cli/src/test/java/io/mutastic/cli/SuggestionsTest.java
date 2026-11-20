@@ -28,6 +28,7 @@ class SuggestionsTest {
         run.out()
             .lines()
             .filter(line -> line.contains("\"status\":\"Ignored\""))
+            .filter(line -> !line.contains("\"sameAs\""))
             .findFirst()
             .orElseThrow();
     var skippedId = skipped.replaceAll(".*\"id\":\"(m[0-9a-f]{8})\".*", "$1");

@@ -25,19 +25,32 @@ public record FailOnNew(Set<String> baseline) {
 
   /// The ids of the mutants no test catches that the baseline doesn't hold, in the run's order.
   public List<String> newMisses(Report report) {
+    var held = held(report);
     return report.results().stream()
         .filter(FailOnNew::uncaught)
         .map(result -> result.mutant().id())
-        .filter(id -> !baseline.contains(id))
+        .filter(id -> !held.contains(id))
         .toList();
+  }
+
+  /// The ids the baseline holds in this run: its own, and for each twin in it the mutant that runs
+  /// for the twin, whose result the twin's is.
+  private Set<String> held(Report report) {
+    var held = new java.util.HashSet<>(baseline);
+    report.results().stream()
+        .map(MutantResult::mutant)
+        .filter(mutant -> baseline.contains(mutant.id()))
+        .forEach(mutant -> mutant.sameAs().ifPresent(held::add));
+    return held;
   }
 
   /// How many of the mutants no test catches the baseline holds: missed before, and still missed.
   public int inBaseline(Report report) {
+    var held = held(report);
     return (int)
         report.results().stream()
             .filter(FailOnNew::uncaught)
-            .filter(result -> baseline.contains(result.mutant().id()))
+            .filter(result -> held.contains(result.mutant().id()))
             .count();
   }
 

@@ -89,51 +89,6 @@ $ mutastic explain m43173676
                 are counted in bytecode order; calls apart)
     = last run  missed: every covering test still passed
 
-$ mutastic explain m2e5ded43
-
- [✗ MISSED] no test checks isFree() returning false here
-    ┌─ src/main/java/com/example/rates/Delivery.java:12
-    │
- 11 │   public boolean isFree(int total) {
- 12 │     return total >= freeFrom;
-    │     ^^^^^^^^^^^^^^^^^^^^^^^^^ now returns true
- 13 │   }
-    │
-    = mutant  - return total >= freeFrom;
-              + return true;
-    = note: tests reach this return, but none fails when it returns true
-            inputs seen: total = 50
-            covered by DeliveryTest#bigOrdersGoFree (its 1 covering test still passes)
-    = help: add a test where isFree() returns false here, and assert it
-
-            // in DeliveryTest
-            @Test
-            void isFreeWithTotal0ForFreeFrom20() {
-              var delivery = new Delivery(20); // as DeliveryTest#bigOrdersGoFree builds it
-              assertThat(delivery.isFree(0)).isFalse(); // today false · with this mutant true
-            }
-            check today's value is the one you intend: the test pins what the code does now
-
-    done when  mutastic verify m2e5ded43 samples/suggestions passes
-    reproduce  mutastic run --only=m2e5ded43 samples/suggestions
-    or ignore  mutastic ignore m2e5ded43 --reason="<why>" samples/suggestions
-
- About this mutant ───────────────────────────────────────────────
-    = bytecode  IRETURN → return true
-                IRETURN: return the value on the stack (one of the ints)
-                return true: return true instead
-    = operator  mutastic/return-value: A method returns the value its kind of method most plausibly
-                gets wrong: a `boolean` the other one, a number `0` (`1` where it returns `0`), an
-                `Optional`, string, collection or stream an empty one, anything else `null`. It goes
-                unnoticed when tests call the method but never look at what it returns.
-                docs: https://docs.mutastic.io/java/operators/returns/#return-value
-    = id        m2e5ded43: `m` and the first 8 hex digits of its fingerprint, 2e5ded43d0f5f36f, a
-                SHA-256 of the class, method, site and change, and the operator
-                no line number goes in, so the id stays the same when code above it moves
-    = site      instruction site 3 of isFree(I)Z, counting from 1 (arithmetic, branches and returns
-                are counted in bytecode order; calls apart)
-    = last run  missed: every covering test still passed
-
 $ mutastic explain m56784e43
 
  [✗ MISSED] no test checks discount() at total == 100
@@ -444,5 +399,50 @@ $ mutastic explain m2e491c40
                 no line number goes in, so the id stays the same when code above it moves
     = site      instruction site 2 of lateFee(J)J, counting from 1 (arithmetic, branches and returns
                 are counted in bytecode order; calls apart)
+    = last run  missed: every covering test still passed
+
+$ mutastic explain md4db94d8
+
+ [✗ MISSED] no test checks inCredit() at balance == 0
+    ┌─ src/main/java/com/example/rates/Rates.java:18
+    │
+ 17 │   public static boolean inCredit(int balance) {
+ 18 │     return balance > 0;
+    │                    ^ > changed to >=
+ 19 │   }
+    │
+    = mutant  - return balance > 0;
+              + return balance >= 0;
+    = note: every test calls inCredit() away from the boundary
+            inputs seen: 50 (none is 0)
+            covered by RatesTest#aPositiveBalanceIsInCredit (its 1 covering test still passes)
+    = help: test inCredit() with balance = 0 and assert the result
+
+            // in RatesTest
+            @Test
+            void inCreditWhenBalanceIsZero() {
+              assertThat(Rates.inCredit(0)).isFalse(); // today false · with this mutant true
+            }
+            check today's value is the one you intend: the test pins what the code does now
+
+    done when  mutastic verify md4db94d8 samples/suggestions passes
+    reproduce  mutastic run --only=md4db94d8 samples/suggestions
+    or ignore  mutastic ignore md4db94d8 --reason="<why>" samples/suggestions
+
+ About this mutant ───────────────────────────────────────────────
+    = bytecode  IFLE → IFLT
+                IFLE: jump if the int (or the comparison's result, or a boolean) is less than or
+                equal to zero
+                IFLT: jump if the int (or the comparison's result, or a boolean) is less than zero
+                javac compiles an `if` to a jump past its body when the condition is false, so the
+                jump tests the opposite of the source
+    = operator  mutastic/boundary: `<` becomes `<=` and the other way round: the off-by-one at the
+                edge of a range, which tests that only check values far from the edge never notice.
+                docs: https://docs.mutastic.io/java/operators/conditions/#boundary
+    = id        md4db94d8: `m` and the first 8 hex digits of its fingerprint, d4db94d8d1d6dcc8, a
+                SHA-256 of the class, method, site and change
+                no line number goes in, so the id stays the same when code above it moves
+    = site      instruction site 1 of inCredit(I)Z, counting from 1 (arithmetic, branches and
+                returns are counted in bytecode order; calls apart)
     = last run  missed: every covering test still passed
 

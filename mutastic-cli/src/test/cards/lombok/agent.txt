@@ -1,4 +1,4 @@
-mutastic: FAIL · score 55.8% (threshold 80; 70.6% where tests reach) · 10 missed, 9 not covered, 24 caught of 43 mutants (155 more skipped)
+mutastic: FAIL · score 58.5% (threshold 80; 70.6% where tests reach) · 10 missed, 7 not covered, 24 caught of 41 mutants (157 more skipped)
 rules: add or change tests only; never change production code to make a mutant go away: tell the person; a fix counts when `mutastic verify <id> samples/lombok` passes
 decline: if a mutant's case can't happen in practice, or the change is one no caller can see, don't contrive a test: propose ignoring it, for a person to accept, as the kind it is (equivalent, unreachable, telemetry, deprecated or accepted-risk), with the reason in two sentences: the one case where it differs, and why that can't happen (`mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/lombok`)
 tasks: first make a task list with one item per mutant, grouped by file; then take them one at a time: write its test, run `mutastic verify <id> samples/lombok`, and mark it done before starting the next
@@ -107,8 +107,8 @@ tasks: first make a task list with one item per mutant, grouped by file; then ta
 not covered (no test reaches these lines; fix the missed mutants first):
 - src/main/java/com/example/orders/Customer.java:18 tier() (4 mutants)
   or propose: mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/lombok for each of m407a986e, mc2b074ce, m96cb0f1c, ma5a3dbc2
-- src/main/java/com/example/orders/Money.java:26 isZero() (4 mutants)
-  or propose: mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/lombok for each of m6d21103e, m0a10b381, mef4203d4, mb23c01b8
+- src/main/java/com/example/orders/Money.java:26 isZero() (2 mutants)
+  or propose: mutastic ignore <id> --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/lombok for each of m6d21103e, m0a10b381
 - src/main/java/com/example/orders/Order.java:36 discounted() (1 mutant)
   or propose: mutastic ignore mdd725aea --propose --as=<equivalent|unreachable|…> --reason="Differs only when <case>. That can't happen because <why>." samples/lombok
 <<end mutastic-data 3f9a0c1e>>

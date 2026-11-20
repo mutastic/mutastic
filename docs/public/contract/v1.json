@@ -1095,7 +1095,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "46224e56ea8a7e3014c509301b2e2bc215509042f053b72ca316803cf92825d3"
+      "sha256": "a71b366db4b2e03fe50765b2e4d4602dcb28973bc6a05b596ef52b072b24695d"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1311,6 +1311,28 @@
       "thresholds.high",
       "thresholds.low"
     ]
+  },
+  "twins": {
+    "rule": "Two mutants at one place are twins when they always do the same: the same code, or changes no value the code can have there tells apart. Of twins in one run, one runs, and each other is skipped as `twin: same as <id>`, naming it, so the place counts once in the score: a twin is out of it, as any skipped mutant is, and the one that runs counts as it ends. A twin's id stays its own and keeps working: `verify`, `run --only` and `explain` run the one it's the same as, `mutastic ignore` records the decision for that one, an ignore of either holds for both, and a run that has a twin but not the one it's the same as (`--since`, the gate) runs that one too.",
+    "runs": "The one that runs is the first of the twins in the defaults, then stronger, then extended, in the order `mutastic mutants` lists them. A mutant whose twins aren't in the run's operators, or are skipped for another reason, runs as any mutant does.",
+    "skip": "^twin: same as m[0-9a-f]{8}$",
+    "events": "mutant-finished for a twin: `status` `Ignored`, `statusReason` the skip, `skipKind` `twin` and `sameAs` the id of the one that runs. run-finished counts it in `ignored`.",
+    "report": "mutation.json: `status` `Ignored` and `statusReason` the skip.",
+    "summary": "The Mutants row counts a twin with the skipped, by its kind: `3 skipped (2 equivalent, 1 twin)`.",
+    "verify": "^mutastic: (?<twin>m[0-9a-f]{8}) is the same as (?<runs>m[0-9a-f]{8}), which (?<fate>.+)$",
+    "verifyNote": "`fate` is what `verify` says of the one that runs, after its id; verify passes or fails on that one. Its own line comes too only when it was named.",
+    "explain": "^mutastic: (?<twin>m[0-9a-f]{8}) is the same as (?<runs>m[0-9a-f]{8}), which runs for it: what follows is that one's$",
+    "ignore": "^mutastic: (?<twin>m[0-9a-f]{8}) is the same as (?<runs>m[0-9a-f]{8}), which runs for it: the decision is recorded for that one$",
+    "shapes": {
+      "java": [
+        "A for-each loop's test over an array, whose index javac counts up from 0 by one: `<` made `<=` and the test always true; `<` made `>=` and `!=`; the test always false and `<` made `>`.",
+        "A comparison returned as it is, `return a > b;`: the test always true and `return true`; always false and `return false`."
+      ],
+      "rust": [
+        "The same code: a returned comparison, `n > 0` as a function's last expression, made `true` or `false` by mutastic/return-value and by mutastic/remove-conditional.",
+        "A comparison of a value the code proves unsigned with 0: changes that agree for 0 and above, `n > 0` made `n >= 0` and always true, `n != 0` made `n < 0` and always false."
+      ]
+    }
   },
   "arid": [
     {

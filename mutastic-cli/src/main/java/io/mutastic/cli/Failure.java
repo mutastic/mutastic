@@ -188,11 +188,11 @@ record Failure(int exit, String code, String said) {
   }
 
   /// How a line that is a command starts: mutastic's, a build tool's (a wrapper that isn't
-  /// executable after `sh`), or the look at a log.
+  /// executable after `sh`, its path in quotes when it has a space), or the look at a log.
   private static final Pattern COMMAND =
       Pattern.compile(
-          "^  (?:mutastic |(?:sh )?\\S*gradlew(?:\\.bat)? |gradle |(?:sh )?\\S*mvnw(?:\\.cmd)? |mvn"
-              + " |tail )");
+          "^  (?:mutastic |(?:sh )?(?:\\S*|'[^']*|\"[^\"]*)"
+              + "(?:gradlew(?:\\.bat)?|mvnw(?:\\.cmd)?)['\"]? |gradle |mvn |tail )");
 
   /// A close name the message offers: `There's one called --format.`
   private static final Pattern OFFERED =
