@@ -28,7 +28,8 @@ class KeptAridTest {
           "arithmetic/ConstantValues.java",
           "exceptions/Throws.java",
           "discards/Discards.java",
-          "text/Strings.java");
+          "text/Strings.java",
+          "threads/Settings.java");
 
   @Test
   void theShapesHaveEveryAridReason() throws Exception {

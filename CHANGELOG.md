@@ -59,6 +59,24 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
   loop's index up from 0 to the array's length and no further, so `mutastic/comparison` changing
   `index < length` to `index != length` changes nothing, and no test could catch it. `stronger`
   runs have one mutant fewer to run for each such loop, and scores go up a little; no id changes.
+- **A thread's name, its priority, its stack size and how long a pool's idle threads live are
+  skipped as arid.** None of them changes whether, when or how often work runs. A name given to
+  `new Thread`, `setName`, `Thread.Builder`'s `name` (and its start index) or Guava's
+  `setNameFormat` is `arid: only names a thread`; a priority from 1 to 10, or `setPriority`
+  removed, is `arid: only sets a priority hint`, as Linux ignores priorities by default and a
+  virtual thread always does; a `ThreadPoolExecutor`'s keep-alive is `arid: only sets how long
+  idle threads live`; and a stack size is `arid: only sizes a thread's stack`. A class that reads
+  names (`getName()`, other than into a log line) or is a `ThreadFactory` keeps its name mutants,
+  and one that reads priorities keeps those. A value that throws, and a keep-alive or a stack size
+  of zero, still run, and so do `start`, `interrupt`, `join`, `setDaemon` and pool and queue
+  sizes. Runs on code that sets threads up get fewer mutants, and scores can go up; `@DoMutate`
+  and a `mutate:` rule bring them back. The Rust edition skips names, stack sizes and tokio's
+  keep-alive too.
+- **A pool's largest size beside a queue with no limit is skipped as equivalent.** A
+  `ThreadPoolExecutor` only grows past its core size when its queue is full, and a
+  `LinkedBlockingQueue` made with no bound never is, so changing its largest size to another no
+  smaller than the core size changes nothing. A class that changes or reads a pool's sizes keeps
+  them.
 - **`@DoMutate` and a `mutate:` rule bring back every arid skip in their code.** They brought
   back only a whole method a filter skips, a trivial accessor or a `toString()`, and still
   skipped a log call, a `Thread.sleep`, a capacity, an exception's message and the other arid
