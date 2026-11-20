@@ -67,6 +67,8 @@ record Failure(int exit, String code, String said) {
       case Main.ConfigException config -> new Failure(Main.USAGE, config.code(), headline);
       case Engine.UnknownMutant unknown ->
           new Failure(Main.USAGE, "unknown-id", headline + closeId(unknown, args));
+      case BuildTool.SetupFailed setup when setup.code().equals("no-directory") ->
+          withHint("no-directory", missingDirectory(message, args), setup, env);
       case BuildTool.SetupFailed setup ->
           withHint(
               setup.code().equals("setup") ? OTHER : setup.code(),
@@ -87,11 +89,8 @@ record Failure(int exit, String code, String said) {
   /// A mistake in the command line: the command corrected, when it's a close name; else the message
   /// ends in what to run, if anything.
   private static Failure usage(Main.UsageException usage, String headline, List<String> args) {
-    var message = String.valueOf(usage.getMessage());
     return new Failure(
-        Main.USAGE,
-        usage.code().equals(USAGE) ? usageCode(message) : usage.code(),
-        headline + corrected(usage.correction(), args).orElse(""));
+        Main.USAGE, usage.code(), headline + corrected(usage.correction(), args).orElse(""));
   }
 
   /// The command with the id a slip away from the one asked for, if there's one; else the command
@@ -122,6 +121,59 @@ record Failure(int exit, String code, String said) {
       words.add(command(args).size(), "<project directory>");
     }
     return "\n  mutastic " + String.join(" ", words);
+  }
+
+  /// A directory that isn't there, as the Rust edition says it: as typed, and where it was looked
+  /// for when it was typed relative; then a directory beside it a slip away, with the command again
+  /// on it.
+  private static String missingDirectory(String message, List<String> args) {
+    var lead = "there's no directory ";
+    if (!message.startsWith(lead)) {
+      return message;
+    }
+    var missing = java.nio.file.Path.of(message.substring(lead.length()));
+    var given =
+        args.stream()
+            .filter(arg -> !arg.startsWith("-") && !named(arg, args))
+            .filter(arg -> java.nio.file.Path.of(arg).toAbsolutePath().normalize().equals(missing))
+            .findFirst();
+    if (given.isEmpty()) {
+      return message;
+    }
+    var typed = given.get();
+    var headline =
+        java.nio.file.Path.of(typed).isAbsolute()
+            ? "there's no directory %s.".formatted(typed)
+            : "there's no directory %s in %s."
+                .formatted(typed, java.nio.file.Path.of("").toAbsolutePath());
+    var name = missing.getFileName();
+    var parent = missing.getParent();
+    if (name == null || parent == null || !java.nio.file.Files.isDirectory(parent)) {
+      return headline;
+    }
+    List<String> beside;
+    try (var listed = java.nio.file.Files.list(parent)) {
+      beside =
+          listed
+              .filter(java.nio.file.Files::isDirectory)
+              .map(dir -> String.valueOf(dir.getFileName()))
+              .sorted()
+              .toList();
+    } catch (java.io.IOException e) {
+      return headline;
+    }
+    return io.mutastic.api.Nearest.name(name.toString(), beside)
+        .flatMap(
+            close -> {
+              var instead = typed.substring(0, typed.length() - name.toString().length()) + close;
+              return Correction.of(typed, instead)
+                  .in(args)
+                  .map(
+                      line ->
+                          "%s\nThere's a directory called %s. To test it:\n  mutastic %s"
+                              .formatted(headline, close, line));
+            })
+        .orElse(headline);
   }
 
   /// Whether `arg` is one of the command's own words, or a mutant's id.
@@ -162,20 +214,6 @@ record Failure(int exit, String code, String said) {
       String code, String message, RuntimeException failure, Map<String, String> env) {
     var hint = CodexSandbox.hint(failure, env).map(said -> said + "\n").orElse("");
     return new Failure(Main.USAGE, code, "mutastic: " + message + "\n" + hint);
-  }
-
-  /// The Rust edition's code for a usage error, by what it says.
-  private static String usageCode(String message) {
-    if (message.contains("mutant id") || message.contains("needs a reason")) {
-      return "needs-id";
-    }
-    if (message.contains("--fail-on-new needs a baseline")) {
-      return "no-baseline";
-    }
-    if (message.contains("--from-shards")) {
-      return "shards";
-    }
-    return message.contains(" doesn't take ") ? "extra-words" : USAGE;
   }
 
   /// The command line with the correction made, to copy: none when a build plugin passed the

@@ -125,6 +125,13 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **An error with an option before the command, or a directory that isn't there, says what to
+  run.** `mutastic --format=agent run` says mutastic takes its command first and gives the line
+  with it first, `mutastic run --format=agent`, where it said `--format=agent` wasn't a command.
+  `mutastic run pricng` says where it looked, and that there's a directory called `pricing`, with
+  the command on it. Both read as the Rust edition's.
+- **A close name counts letters as the Rust edition does.** A character outside the Basic
+  Multilingual Plane, an emoji, is one edit, not two, when mutastic looks for the name you meant.
 - **A file one mutant's tests leave in the temporary directory can't change the next mutant's
   result.** Each worker had a temporary directory of its own, but one worker runs many mutants,
   so a mutant that removes a `Files.delete` left its file there, and a test of another mutant that
