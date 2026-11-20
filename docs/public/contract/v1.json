@@ -2533,16 +2533,6 @@
       "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
-      "id": "G36",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "typos",
-      "summary": "No close id for `ignore --accept`/`--remove`, no close key in ignores.yaml, no close rule verb, no inline-list hint",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
       "id": "G37",
       "kind": "pending",
       "editions": [
