@@ -125,6 +125,9 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 
 ### Fixes
 
+- **`ignore` on a mutant mutastic skips itself says it doesn't run anyway.** A mutant skipped as
+  arid, by a `skip:` rule or as unviable got an ignore that decided nothing; now, as for a
+  generated or equivalent one, nothing is recorded, as in the Rust edition.
 - **A file one mutant's tests leave in the temporary directory can't change the next mutant's
   result.** Each worker had a temporary directory of its own, but one worker runs many mutants,
   so a mutant that removes a `Files.delete` left its file there, and a test of another mutant that
