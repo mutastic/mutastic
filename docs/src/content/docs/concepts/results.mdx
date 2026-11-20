@@ -352,15 +352,17 @@ first, and the summary counts them by kind (`2 skipped (1 arid, 1 unviable)`):
 
 | Kind | Means | For example |
 |---|---|---|
-| `arid:` | Code whose change no test should have to notice | A call that only writes output, a trivial getter or setter, `toString()` and `hashCode()`, arithmetic that only sizes a collection (`new ArrayList<>(n * 2)`) or sets a wait (`Thread.sleep(s * 1000)`), a removed `sleep`, a thread's name, its priority (from 1 to 10) or its stack size, a pool's keep-alive, a removed `Objects.requireNonNull(x)` whose result isn't used, a number that sizes an array, limits a `split` or starts a variable at `0` or `1`, the `throw` of a failed `assert`, a string that only goes into a log call, an exception or a failed check |
+| `arid:` | Code a test could check, but none should have to ([why](/concepts/arid/)) | A removed log call or `System.out.println`, a trivial getter or setter, `toString()`, a list's starting size (`new ArrayList<>(n * 2)`), a removed `Thread.sleep`, a thread's name, an exception's message: [every rule](/reference/arid/), with what it can hide |
 | `generated:` | Code the compiler or a tool wrote, not you | Closing a try-with-resources resource, the hashing in a `switch` on a `String`, anything marked `@Generated`, [what Lombok writes](#lombok), Kotlin's null checks, a data class's `copy` and `equals`, a coroutine's state machine ([experimental](/guides/operator-plugins/#kotlin-projects)) |
 | `equivalent:` | The change does nothing ([what that means](/concepts/equivalence/)) | An assignment nothing reads (`x = 1; x = 2;`); a call's arguments swapped where it can't tell (`Math.max(a, b)`, `f(x, x)`); a search only tested for being there, swapped for the one from the other end (`name.indexOf('.') >= 0`); a whole number rounded down instead of up (`Math.floor((double) count)`); A return that already gives the value it would be changed to (`return List.of();`, `return null;`); a boundary where both sides give the same value at the edge (`if (x > max) max = x;`, `a < b ? a : b`, `x < 10 ? 10 : x`); a comparison of a length changed only where it would be negative (`name.length() == 0` to `name.length() <= 0`, on a `String` or an array); an anchor on a regular expression that has to match all of the text (`s.matches("^a+$")`); an arm of a `switch` with no code of its own that goes where the default goes (`case 1: break;`); a test of an `\|\|` whose case the next test already covers (`inCredit(balance) \|\| balance > -1000`, where `inCredit` is `balance >= 1`); a pool's largest size beside a queue with no limit (`new ThreadPoolExecutor(2, 4, …, new LinkedBlockingQueue<>())`) |
 | `unviable:` | The change wouldn't load, can't reach what it's for, or would never finish | `limit` removed from a stream only it ends, a plugin's rewrite that doesn't fit the call it met, a `throw` removed with nothing after it to run, `isEmpty` in a class for a Java older than 11, [a proposed rewrite](/guides/operator-plugins/#proposed-rewrites) that doesn't compile, an annotation removed where a framework loads the app itself |
 | `user:` | Your decision | `@DoNotMutate`, a rule in `mutastic.yaml`, or `mutastic ignore` |
+| `twin:` | It always does what another mutant at its place does, and that one runs for it ([Twins](#twins)) | `twin: same as m911a2864`, for a lambda's `return total >= 100;` made `return true`, the same as its test made always true |
 
 Where a log line or a wait is part of what the code promises, `@DoMutate` on a method or class, or
 a [`mutate:` rule](/guides/configuration/#mutasticyaml), brings back every arid skip there, and
-nothing else. `MUTASTIC_ARID=audit` runs every arid mutant anyway, to check the filters.
+nothing else. `MUTASTIC_ARID=audit` runs every arid mutant anyway, to check the rules: see
+[Arid mutants](/concepts/arid/#check-what-the-skips-hide).
 
 mutastic never mutates constructors, static initialisers, an enum's `values()`, or a record's
 generated `equals`, `hashCode` and `toString`. The `defaults` set also leaves `float` and `double`
@@ -372,9 +374,10 @@ arithmetic alone.
 | Kind | Means | For example |
 |---|---|---|
 | `unviable:` | It doesn't compile | `unviable: doesn't compile (E0308: mismatched types)` |
-| `arid:` | Code whose change no test should have to notice | `arid: only writes output`, for a `println!` or `log::warn!` statement removed; `arid: only names a thread`, for a `thread::Builder`'s name |
+| `arid:` | Code a test could check, but none should have to ([why](/concepts/arid/)) | `arid: only writes output`, for a `println!` or `log::warn!` statement removed; `arid: only checks the value is there`, for an `x.unwrap();` statement removed; `arid: only names a thread`, for a `thread::Builder`'s name: [every rule](/reference/arid/) |
 | `equivalent:` | No test can tell it from the code ([what that means](/concepts/equivalence/)) | a `?` that only passes on a formatter's error |
 | `user:` | The project's own decision, in `mutastic.yaml` or `.mutastic/ignores.yaml` | ``user: written by a code generator (rule `skip: shop::generated::**`)`` |
+| `twin:` | It always does what another mutant at its place does, and that one runs for it ([Twins](#twins)) | `twin: same as m2e329a72`, for `n < 10`, which `is_small` returns, made `true` by `mutastic/remove-conditional`: the same code `mutastic/return-value` makes |
 
 A mutant is unviable when the build withdrew it, and its reason is the compiler's error. A change
 that doesn't compile is one no test needs to catch, so it's left out of the score. See
@@ -387,6 +390,42 @@ many), so you know what the score doesn't cover.
 
 </div>
 </EditionTabs>
+
+### Twins
+
+Two mutants at one place can always do the same. Running both would cost a second run and count
+one gap twice. So only one of them runs, and the other is skipped as `twin: same as <id>`, naming
+the one that runs. Its result is that one's, and the place counts once in the score.
+
+<EditionTabs>
+<div slot="java">
+
+- **A for-each loop over an array.** javac counts its index up from 0 by one, so the test only
+  ever sees an index below the length or at it. `<` made `<=` does what the test made always
+  true does, `<` made `>=` what `!=` does, and the test made always false what `<` made `>`
+  does.
+- **A comparison returned as it is.** In `return total > 0;`, the test made always true does what
+  `return true` does, and always false what `return false` does.
+
+</div>
+<div slot="rust">
+
+- **The same code.** A function that ends in `n > 0` gets `true` from `mutastic/return-value` and
+  from `mutastic/remove-conditional`. It's one change, made twice.
+- **A comparison of an unsigned value with 0.** The value can't be below 0, so `n > 0` made `n >=
+  0` is always true, as `n > 0` made `true` is.
+
+</div>
+</EditionTabs>
+
+A twin keeps its id, and the id keeps working. `verify`, `run --only` and `explain` run the one
+it's the same as, and say so. `mutastic ignore` records the decision for that one, and an ignore
+you made of either holds for both. A run on changed lines that has a twin runs the one it's the
+same as too.
+
+The one that runs is the first of them in `defaults`, then `stronger`, then `extended`, in the
+order `mutastic mutants` lists them. A run whose operators leave it out runs the twin as it would
+any mutant.
 
 <EditionOnly edition="java">
 
@@ -429,6 +468,7 @@ how it went:
 | `isn't reached by any test` | no test reaches it | no |
 | `is skipped (unviable: …), so it isn't run and needs no test` | it doesn't compile | yes |
 | `crashes, and no test can be said to catch it (…)` | it crashed where a crash proves nothing | yes |
+| `is the same as m2e329a72, which is still missed` | a twin: the one it's the same as ran for it, and its fate follows | as that one |
 
 See [`mutastic verify`](/rust/reference/verify/) for the command itself.
 

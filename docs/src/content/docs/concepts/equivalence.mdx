@@ -48,7 +48,7 @@ Three reasons not to write a test sound alike, and aren't:
 | | The question it answers | An example | Who decides |
 |---|---|---|---|
 | **Equivalent** | Could any input tell the change apart? No. | `a < b ? a : b` becoming `a <= b ? a : b`: at `a == b` both give the same | mutastic, when the code proves it; you, otherwise |
-| **Arid** | Could a test tell? Yes, but none should have to. | Removing a log line, or changing a `new ArrayList<>(n * 2)` capacity | mutastic's [arid filters](/concepts/results/#skipped-mutants) |
+| **Arid** | Could a test tell? Yes, but none should have to. | Removing a log line, or changing a `new ArrayList<>(n * 2)` capacity | mutastic's [arid rules](/concepts/arid/), each of which [you can bring back](/reference/arid/) |
 | **Unreachable** | Could an input tell? Yes, but that input never happens. | A guard for a negative balance the ledger already rules out | You: `mutastic ignore --as=unreachable` |
 
 </div>
@@ -57,7 +57,7 @@ Three reasons not to write a test sound alike, and aren't:
 | | The question it answers | An example | Who decides |
 |---|---|---|---|
 | **Equivalent** | Could any input tell the change apart? No. | `if a < b { a } else { b }` becoming `if a <= b { a } else { b }`: at `a == b` both give the same | mutastic, when the code proves it; you, otherwise |
-| **Arid** | Could a test tell? Yes, but none should have to. | Removing a `println!` or `log::warn!` statement (`arid: only writes output`) | mutastic's [arid filters](/concepts/results/#skipped-mutants) |
+| **Arid** | Could a test tell? Yes, but none should have to. | Removing a `println!` or `log::warn!` statement (`arid: only writes output`) | mutastic's [arid rules](/concepts/arid/), each of which [you can bring back](/reference/arid/) |
 | **Unreachable** | Could an input tell? Yes, but that input never happens. | A guard for a negative balance the ledger already rules out | You: `mutastic ignore --as=unreachable` |
 
 </div>
@@ -144,7 +144,9 @@ body runs. So the index is never past the length where it's tested, and a change
 there is skipped: the test made `index != length` changes nothing. The other changes do one of
 three things to the loop: read past the last element, never run the body, or never run it and read
 past the end of an empty array. They run, and the card says which, in the loop's terms: the for-each
-loop over `items` reads past its last element, an ArrayIndexOutOfBoundsException.
+loop over `items` reads past its last element, an ArrayIndexOutOfBoundsException. Changes that do
+the same thing to the loop, `<` made `<=` and the test made always true, are
+[twins](/concepts/results/#twins): one of them runs, for both.
 
 **A value your code says can't be negative.** The same change is skipped for a value annotated as
 never negative by an annotation a tool checks when the code compiles. This skip rests on your

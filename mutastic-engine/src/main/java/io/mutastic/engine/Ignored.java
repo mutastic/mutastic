@@ -29,10 +29,26 @@ final class Ignored {
   private final Map<Path, List<String>> files = new HashMap<>();
   private final List<Ignore> stale = new ArrayList<>();
 
+  /// The twins of each mutant one is the same as, by its id: an ignore of a twin holds for it.
+  private final Map<String, List<Mutant>> twins = new HashMap<>();
+
   Ignored(List<Ignore> ignores, Map<String, ClassModel> models, Project project) {
+    this(ignores, models, project, List.of());
+  }
+
+  /// The ignores, for mutants whose twins are among `every`.
+  Ignored(
+      List<Ignore> ignores, Map<String, ClassModel> models, Project project, List<Mutant> every) {
     ignores.forEach(ignore -> byId.put(ignore.id(), ignore));
     this.models = models;
     this.sources = project.sources();
+    every.forEach(
+        mutant ->
+            mutant
+                .sameAs()
+                .ifPresent(
+                    partner ->
+                        twins.computeIfAbsent(partner, ignored -> new ArrayList<>()).add(mutant)));
   }
 
   /// The mutants of a run that sees only part of the project, the ignored ones skipped.
@@ -40,9 +56,21 @@ final class Ignored {
     var applied = new ArrayList<Mutant>();
     for (Mutant mutant : mutants) {
       var ignore = byId.get(mutant.id());
-      applied.add(ignore == null ? mutant : applied(mutant, ignore));
+      applied.add(ignore == null ? byTwin(mutant) : applied(mutant, ignore));
     }
     return applied;
+  }
+
+  /// The mutant, skipped for an ignore of a twin of it that still holds: the twin's id was kept,
+  /// maybe from before mutastic knew the two are the same, and its decision is this one's.
+  private Mutant byTwin(Mutant mutant) {
+    for (Mutant twin : twins.getOrDefault(mutant.id(), List.of())) {
+      var ignore = byId.get(twin.id());
+      if (ignore != null && holds(ignore, twin)) {
+        return skipped(mutant, ignore);
+      }
+    }
+    return mutant;
   }
 
   /// The mutants of a run of the whole project, the ignored ones skipped. An ignore matching none
@@ -76,6 +104,11 @@ final class Ignored {
       stale.add(ignore);
       return mutant;
     }
+    return skipped(mutant, ignore);
+  }
+
+  /// The mutant skipped for the ignore, unless a skip of its own already says more.
+  private static Mutant skipped(Mutant mutant, Ignore ignore) {
     var skipped = mutant.skipped().orElse("");
     boolean overridable =
         skipped.isEmpty() || skipped.startsWith("arid:") || skipped.contains("(rule `");

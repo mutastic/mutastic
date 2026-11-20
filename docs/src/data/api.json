@@ -447,6 +447,16 @@
               "params": [],
               "returns": "",
               "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "typed",
+              "anchor": "typed",
+              "signature": "static String typed(String path)",
+              "doc": "A path as a command mutastic prints types it, so a shell reads it as one word: as it is when\nit's plain, `/work/app/gradlew`; else in quotes, `'/Users/me/My Projects/gradlew'`. A shell's\nsingle quotes run nothing in them. For cmd, on Windows or for a `.bat` or `.cmd` file, double\nquotes: `\"C:\\My Projects\\gradlew.bat\"`.",
+              "params": [],
+              "returns": "",
+              "throws": []
             }
           ]
         },
@@ -2262,6 +2272,36 @@
               "anchor": "skippedfor",
               "signature": "@Internal Mutant skippedFor(String reason)",
               "doc": "The same mutant, skipped for `reason` (`user: …`).",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "field",
+              "name": "SAME_AS",
+              "anchor": "same_as",
+              "signature": "static final String SAME_AS",
+              "doc": "How a twin's skip starts: `twin: same as m11989fc0`. A twin always does what another mutant at\nits place does, so it doesn't run: that one runs for it, and the place counts once.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "sameAs",
+              "anchor": "sameas",
+              "signature": "@Internal Mutant sameAs(String partner)",
+              "doc": "The same mutant, a twin of `partner`'s: skipped, as `partner` runs for it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "sameAs",
+              "anchor": "sameas-2",
+              "signature": "Optional<String> sameAs()",
+              "doc": "The id of the mutant this one always does the same as, which runs for it, when it's a twin.",
               "params": [],
               "returns": "",
               "throws": []

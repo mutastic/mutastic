@@ -196,18 +196,41 @@ public final class BuildErrors {
     var words = new ArrayList<>(tool.subList(0, tool.size() - 1));
     var program = Path.of(tool.getLast());
     if (!program.isAbsolute()) {
-      words.add(tool.getLast());
+      words.add(typed(tool.getLast()));
     } else {
       var parent = RealPath.of(program).getParent();
-      words.add(here.equals(parent) ? "./" + program.getFileName() : shown(program, here));
+      words.add(typed(here.equals(parent) ? "./" + program.getFileName() : shown(program, here)));
     }
     if (!RealPath.of(build).equals(here)) {
       words.add(flag);
-      words.add(shown(build, here));
+      words.add(typed(shown(build, here)));
     }
     words.addAll(rest);
     return String.join(" ", words);
   }
+
+  /// A path as a command mutastic prints types it, so a shell reads it as one word: as it is when
+  /// it's plain, `/work/app/gradlew`; else in quotes, `'/Users/me/My Projects/gradlew'`. A shell's
+  /// single quotes run nothing in them. For cmd, on Windows or for a `.bat` or `.cmd` file, double
+  /// quotes: `"C:\My Projects\gradlew.bat"`.
+  public static String typed(String path) {
+    boolean cmd = Wrappers.WINDOWS || CMD_FILE.matcher(path).find();
+    if (path.matches(cmd ? PLAIN_FOR_CMD : PLAIN)) {
+      return path;
+    }
+    return cmd ? '"' + path + '"' : "'" + path.replace("'", "'\\''") + "'";
+  }
+
+  /// A file cmd runs: `gradlew.bat`, `mvnw.cmd`.
+  private static final Pattern CMD_FILE =
+      Pattern.compile("\\.(?:bat|cmd)$", Pattern.CASE_INSENSITIVE);
+
+  /// The characters a path can have and need no quotes.
+  private static final String PLAIN = "[A-Za-z0-9_./:@%+=,-]+";
+
+  /// For cmd, where a path's `\` and the `~` of a short name (`C:\Users\RUNNER~1`) are typed as
+  /// they are.
+  private static final String PLAIN_FOR_CMD = "[A-Za-z0-9_./:@%+=,~\\\\-]+";
 
   /// A file as a compiler named it, from `here`: a URI's path on Windows, `/C:/a`, is `C:/a`; a
   /// name that isn't a path here is shown as it was given.

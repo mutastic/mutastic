@@ -1,0 +1,12 @@
+ [46;30;1m SKIPPED [0m [1marid: only sets how long idle threads live[0m
+    [2m┌─[0m src/main/java/com/example/arid/Workers.java:22
+    [2m│[0m
+ [2m21[0m [2m│[0m   public static ThreadPoolExecutor pool() {
+ [2m22[0m [2m│[0m     return new ThreadPoolExecutor(1, 4, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
+    [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 30 changed to 29[0m
+ [2m23[0m [2m│[0m   }
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mreturn new ThreadPoolExecutor(1, 4, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
+              [32m+ [0mreturn new ThreadPoolExecutor(1, 4, 29, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
+
+    [2mreproduce [0m mutastic run --only=m6adab85f samples/arid

@@ -12,8 +12,8 @@ import org.junit.jupiter.api.io.TempDir;
 /// percent only `ConfigurationTest` sets, so it fails whenever it runs on its own; and
 /// `LedgerTest`'s first two tests share a file in the build directory, which the second leaves an
 /// entry in, so once the suite has run they both fail. Each passes when the whole suite runs, as it
-/// does before any mutant, and fails against every mutant it reaches. Taken at face value they
-/// caught 19 of 21 mutants, a pass at 80.
+/// does before any mutant, and fails against every mutant it reaches. Taken at face value, each of
+/// those failures would count as a catch.
 class FalseCatchesTest {
   private static final Path SAMPLE =
       Path.of(System.getProperty("mutastic.samples"), "false-catches");
@@ -34,8 +34,8 @@ class FalseCatchesTest {
     assertThat(run.out().lines().findFirst())
         .hasValue(
             "mutastic: FAIL (a test that caught mutants fails on its own, with no mutant in) ·"
-                + " score 57.1% (threshold 80; 75.0% where tests reach) · 4 missed, 5 not covered,"
-                + " 12 caught of 21 mutants");
+                + " score 58.8% (threshold 80; 71.4% where tests reach) · 4 missed, 3 not covered,"
+                + " 10 caught of 17 mutants (4 more skipped)");
     assertThat(run.out())
         .contains(
             "flaky: FeesTest#chargesTheConfiguredPercent passes among the others but fails on its"
@@ -70,7 +70,7 @@ class FalseCatchesTest {
     assertThat(lines.getLast())
         .contains(
             "\"reason\":\"run-finished\"",
-            "\"killed\":12",
+            "\"killed\":10",
             "\"passed\":false",
             "{\"test\":\"" + FEES + "\",\"failure\":[\"org.opentest4j.AssertionFailedError\"]",
             "\"failsAlone\":true");

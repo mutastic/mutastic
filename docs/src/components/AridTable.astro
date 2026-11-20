@@ -1,0 +1,59 @@
+---
+// Every arid rule, as src/data/arid.json lists them: the table the Arid rules page opens with.
+// Each row links to the rule's section, by the anchor mutastic's output links to.
+import { rules, title } from '../lib/arid';
+import { markdown } from '../lib/markdown';
+
+const names = { java: 'Java', rust: 'Rust' } as const;
+const rows = await Promise.all(
+  rules.map(async (rule) => ({
+    rule,
+    what: await markdown(rule.description, true),
+    editions: rule.editions.map((edition) => names[edition]).join(', '),
+  })),
+);
+---
+
+<table class="arid-rules">
+  <thead>
+    <tr>
+      <th>Rule</th>
+      <th>What it skips</th>
+    </tr>
+  </thead>
+  <tbody>
+    {
+      rows.map(({ rule, what, editions }) => (
+        <tr>
+          <td>
+            <a href={`#${rule.anchor}`}>{title(rule)}</a>
+            <br />
+            <code class="arid-id">{rule.id}</code>
+            <span class="arid-editions">{editions}</span>
+          </td>
+          <td set:html={what} />
+        </tr>
+      ))
+    }
+  </tbody>
+</table>
+
+<style>
+  .arid-rules td:first-child {
+    width: 40%;
+  }
+  .arid-rules code.arid-id {
+    font-size: var(--sl-text-xs);
+  }
+  .arid-editions {
+    display: block;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+  }
+  /* On a phone the id would break across lines: its section shows it. */
+  @media (max-width: 50rem) {
+    .arid-rules code.arid-id {
+      display: none;
+    }
+  }
+</style>

@@ -749,12 +749,9 @@ public final class Engine {
         new Mutations(context, options.policy(), ClassFiles.supertypesFrom(classpath(project)));
     mutations.prepare(models.values());
     mutations.prepareFor(project);
-    var mutants =
-        mutantsIn(models, mutations, options.only(), project.name()).stream()
-            .filter(mutant -> options.among().isEmpty() || options.among().contains(mutant.id()))
-            .filter(inScope(models, project, options.changed()))
-            .toList();
-    var ignored = new Ignored(options.policy().ignores(), models, project);
+    var all = models.values().stream().flatMap(model -> mutations.find(model).stream()).toList();
+    var mutants = chosen(all, project, options, models);
+    var ignored = new Ignored(options.policy().ignores(), models, project, all);
     boolean complete =
         options.only().isEmpty() && options.among().isEmpty() && options.changed().isEmpty();
     var applied =
@@ -767,6 +764,19 @@ public final class Engine {
     return new Found(shared, mutations, ignored.stale());
   }
 
+  /// The mutants a run chose from `all`: those `--only` names, of an earlier run's queue, on the
+  /// changed lines; and the mutant each twin among them is the same as.
+  private static List<Mutant> chosen(
+      List<Mutant> all, Project project, Options options, Map<String, ClassModel> models) {
+    var every = named(all, options.only(), project.name());
+    return withPartners(
+        every.stream()
+            .filter(mutant -> options.among().isEmpty() || options.among().contains(mutant.id()))
+            .filter(inScope(models, project, options.changed()))
+            .toList(),
+        every);
+  }
+
   /// Every mutant the project has, whichever operators this run chose.
   private static List<Mutant> underEveryOperator(
       Project project, Options options, ClassFile context, Map<String, ClassModel> models) {
@@ -777,7 +787,7 @@ public final class Engine {
             policy.withOperators(List.of("all"), policy.mutators()),
             ClassFiles.supertypesFrom(classpath(project)));
     mutations.prepare(models.values());
-    return mutantsIn(models, mutations, List.of(), project.name());
+    return models.values().stream().flatMap(model -> mutations.find(model).stream()).toList();
   }
 
   private static Plan plan(Project project, Options options) {
@@ -847,10 +857,9 @@ public final class Engine {
         .toList();
   }
 
-  /// Every mutant in the classes, or only those with the ids `only`, which must all be there.
-  private static List<Mutant> mutantsIn(
-      Map<String, ClassModel> models, Mutations mutations, List<String> only, String projectName) {
-    var every = models.values().stream().flatMap(model -> mutations.find(model).stream()).toList();
+  /// Of every mutant, all, or only those with the ids `only`, which must all be there, and the
+  /// mutant each twin among them is the same as.
+  private static List<Mutant> named(List<Mutant> every, List<String> only, String projectName) {
     if (only.isEmpty()) {
       return every;
     }
@@ -862,7 +871,24 @@ public final class Engine {
             id -> {
               throw new UnknownMutant(id, projectName, Nearest.id(id, found));
             });
-    return every.stream().filter(mutant -> only.contains(mutant.id())).toList();
+    return withPartners(
+        every.stream().filter(mutant -> only.contains(mutant.id())).toList(), every);
+  }
+
+  /// The mutants chosen, and the mutant each twin among them is the same as, from `every`, where
+  /// the choice left it out: a twin doesn't run, so its partner runs for it. In the order of
+  /// `every`.
+  private static List<Mutant> withPartners(List<Mutant> chosen, List<Mutant> every) {
+    var wanted = new java.util.HashSet<String>();
+    chosen.forEach(
+        mutant -> {
+          wanted.add(mutant.id());
+          mutant.sameAs().ifPresent(wanted::add);
+        });
+    if (wanted.size() == chosen.size()) {
+      return chosen;
+    }
+    return every.stream().filter(mutant -> wanted.contains(mutant.id())).toList();
   }
 
   private static Map<String, byte[]> instrumentMutated(
