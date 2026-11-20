@@ -2814,8 +2814,11 @@ public final class Main {
       if (!gate && typed.startsWith("-")) {
         return optionsFirst(words);
       }
-      var commands = commandWords(gate);
-      var owner = gate ? "gate" : "mutastic";
+      return noCommand(gate ? "gate" : "mutastic", typed, commandWords(gate));
+    }
+
+    /// `owner` has no command `typed`: with the one of `commands` close to it, if there's one.
+    private static UsageException noCommand(String owner, String typed, List<String> commands) {
       var close = io.mutastic.api.Nearest.name(typed, commands);
       if (close.isPresent()) {
         return new UsageException(

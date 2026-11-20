@@ -67,14 +67,7 @@ record Failure(int exit, String code, String said) {
       case Main.ConfigException config -> new Failure(Main.USAGE, config.code(), headline);
       case Engine.UnknownMutant unknown ->
           new Failure(Main.USAGE, "unknown-id", headline + closeId(unknown, args));
-      case BuildTool.SetupFailed setup when setup.code().equals("no-directory") ->
-          withHint("no-directory", missingDirectory(message, args), setup, env);
-      case BuildTool.SetupFailed setup ->
-          withHint(
-              setup.code().equals("setup") ? OTHER : setup.code(),
-              message + elsewhere(setup, message, args),
-              setup,
-              env);
+      case BuildTool.SetupFailed setup -> setup(setup, message, args, env);
       case Engine.NoTestsRan none -> withHint("no-tests", message, none, env);
       case Engine.NothingCovered nothing -> withHint("nothing-covered", message, nothing, env);
       case Engine.CantRun cantRun -> withHint(OTHER, message, cantRun, env);
@@ -84,6 +77,20 @@ record Failure(int exit, String code, String said) {
       default ->
           new Failure(Main.INTERNAL, "internal", "mutastic: internal error: " + failure + "\n");
     };
+  }
+
+  /// A build that couldn't be set up: a directory that isn't there, said as the Rust edition says
+  /// it; else the message, and the command again on the project's directory when it's in one.
+  private static Failure setup(
+      BuildTool.SetupFailed setup, String message, List<String> args, Map<String, String> env) {
+    if (setup.code().equals("no-directory")) {
+      return withHint("no-directory", missingDirectory(message, args), setup, env);
+    }
+    return withHint(
+        setup.code().equals("setup") ? OTHER : setup.code(),
+        message + elsewhere(setup, message, args),
+        setup,
+        env);
   }
 
   /// A mistake in the command line: the command corrected, when it's a close name; else the message
@@ -146,23 +153,19 @@ record Failure(int exit, String code, String said) {
             ? "there's no directory %s.".formatted(typed)
             : "there's no directory %s in %s."
                 .formatted(typed, java.nio.file.Path.of("").toAbsolutePath());
+    return beside(missing, typed, args).map(line -> headline + "\n" + line).orElse(headline);
+  }
+
+  /// A directory beside `missing` a slip away from its name, and the command again on it, if
+  /// there's one.
+  private static Optional<String> beside(
+      java.nio.file.Path missing, String typed, List<String> args) {
     var name = missing.getFileName();
     var parent = missing.getParent();
     if (name == null || parent == null || !java.nio.file.Files.isDirectory(parent)) {
-      return headline;
+      return Optional.empty();
     }
-    List<String> beside;
-    try (var listed = java.nio.file.Files.list(parent)) {
-      beside =
-          listed
-              .filter(java.nio.file.Files::isDirectory)
-              .map(dir -> String.valueOf(dir.getFileName()))
-              .sorted()
-              .toList();
-    } catch (java.io.IOException e) {
-      return headline;
-    }
-    return io.mutastic.api.Nearest.name(name.toString(), beside)
+    return io.mutastic.api.Nearest.name(name.toString(), directories(parent))
         .flatMap(
             close -> {
               var instead = typed.substring(0, typed.length() - name.toString().length()) + close;
@@ -170,10 +173,22 @@ record Failure(int exit, String code, String said) {
                   .in(args)
                   .map(
                       line ->
-                          "%s\nThere's a directory called %s. To test it:\n  mutastic %s"
-                              .formatted(headline, close, line));
-            })
-        .orElse(headline);
+                          "There's a directory called %s. To test it:\n  mutastic %s"
+                              .formatted(close, line));
+            });
+  }
+
+  /// The names of the directories in `parent`, in order; none if it can't be listed.
+  private static List<String> directories(java.nio.file.Path parent) {
+    try (var listed = java.nio.file.Files.list(parent)) {
+      return listed
+          .filter(java.nio.file.Files::isDirectory)
+          .map(dir -> String.valueOf(dir.getFileName()))
+          .sorted()
+          .toList();
+    } catch (java.io.IOException e) {
+      return List.of();
+    }
   }
 
   /// Whether `arg` is one of the command's own words, or a mutant's id.
