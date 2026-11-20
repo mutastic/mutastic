@@ -1095,7 +1095,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "f92fc7c91993c8858896a773ddafa69bcb84d88cfd56c87f541355abdefd6e3b"
+      "sha256": "147b5e9cf7e682ab54d5fb3af9c6ef4aeb79a27e0c703873478d0ee06719f0a4"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -2411,62 +2411,14 @@
       ]
     },
     {
-      "id": "G18",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "No `failureOrigin`, in the events or mutation.json",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "event:mutant-finished:failureOrigin",
-        "report:files.*.mutants[].mutastic.failureOrigin"
-      ]
-    },
-    {
-      "id": "G19",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "`unrelatedCatches` is always `[]`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G21",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "`suggestion.receiver[]` has no `parameters`, no `suggestion.named`, and `mutant-explained.site` has no `ordinal`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "event:mutant-finished:suggestion.receiver[].parameters"
-      ]
-    },
-    {
       "id": "G22",
-      "kind": "pending",
+      "kind": "engine",
       "editions": [
-        "rust"
+        "java"
       ],
       "surface": "events",
-      "summary": "No `MUTASTIC_EVENTS` file for live events",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G23",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "The schema's `$defs/test` describes only `Class#method`, and `statusReason` says only for a skipped mutant",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
+      "summary": "`MUTASTIC_EVENTS`: a file a run writes its live events to, every second, for the Gradle plugin",
+      "reason": "The Gradle plugin reads the run's live events from this file to draw its own progress line. `cargo mutastic` runs the binary itself, which draws its own."
     },
     {
       "id": "G26",
@@ -2699,16 +2651,6 @@
       ],
       "surface": "human output",
       "summary": "explain's lines aren't wrapped to the terminal",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "E1",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "Another key order in `mutant-finished`",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
