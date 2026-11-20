@@ -2,6 +2,7 @@ package io.mutastic.cli;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import io.mutastic.api.Rule;
 import io.mutastic.report.Schemas;
@@ -131,6 +132,9 @@ class ConfigurationTest {
             reason: protobuf output
           - mutate: "com.acme.Money#toString"
             reason: 'shown to customers'
+          - mutate: com.acme.Worker#run
+            arid: [mutastic:waits, mutastic:output]
+            reason: callers wait for it
         plugins:
           - build/libs/acme-filters.jar
           - mutiny.yaml
@@ -152,13 +156,69 @@ class ConfigurationTest {
             "rules:\n  - skip: com.acme.**\n",
             "rule:\n  - skip: com.acme.**\n",
             "rules:\n  - skip: com.acme.**\n    mutate: com.acme.**\n    reason: both\n",
-            "gate:\n  threshold: 90\n")) {
+            "gate:\n  threshold: 90\n",
+            "rules:\n  - skip: com.acme.**\n    arid: [mutastic:waits]\n    reason: r\n",
+            "rules:\n  - mutate: com.acme.**\n    arid: [mutastic:wait]\n    reason: r\n",
+            "rules:\n  - mutate: com.acme.**\n    arid: []\n    reason: r\n")) {
       write(refused);
       assertThatThrownBy(() -> Configuration.read(project))
           .as(refused)
           .isInstanceOf(Main.ConfigException.class);
       assertThat(Schemas.yamlProblems("mutastic-yaml/v1.json", refused)).as(refused).isNotEmpty();
     }
+  }
+
+  /// A `mutate:` rule's `arid:` names the arid rules it brings back, on its line or under it,
+  /// before or after its reason; without one it brings back every arid skip.
+  @Test
+  void aMutateRuleNamesTheAridRulesItBringsBack() throws Exception {
+    write(
+        """
+        rules:
+          - mutate: com.acme.Worker#run
+            arid: [mutastic:waits, "mutastic:output"]
+            reason: callers wait for it
+          - mutate: com.acme.Pool#**
+            reason: sized by contract
+            arid: mutastic:capacity
+          - mutate: com.acme.Clock#**
+            arid:
+              - mutastic:wait-times
+              - mutastic:waits
+            reason: timing is the product
+          - mutate: com.acme.Money#toString
+            reason: shown to customers
+        """);
+
+    assertThat(Configuration.read(project).rules())
+        .extracting(Rule::target, Rule::arid)
+        .containsExactly(
+            tuple("com.acme.Worker#run", java.util.List.of("mutastic:waits", "mutastic:output")),
+            tuple("com.acme.Pool#**", java.util.List.of("mutastic:capacity")),
+            tuple("com.acme.Clock#**", java.util.List.of("mutastic:wait-times", "mutastic:waits")),
+            tuple("com.acme.Money#toString", java.util.List.of()));
+  }
+
+  @Test
+  void anAridListNamesMutasticsRulesOnAMutateRule() throws Exception {
+    write("rules:\n  - mutate: com.acme.**\n    arid: [mutastic:wait]\n    reason: r\n");
+    assertThatThrownBy(() -> Configuration.read(project))
+        .hasMessage(
+            "mutastic.yaml line 3: mutastic:wait isn't an arid rule. There's one called"
+                + " mutastic:waits.");
+
+    write("rules:\n  - mutate: com.acme.**\n    arid: [sleeps]\n    reason: r\n");
+    assertThatThrownBy(() -> Configuration.read(project))
+        .hasMessageStartingWith("mutastic.yaml line 3: sleeps isn't an arid rule; the rules are")
+        .hasMessageContaining("mutastic:waits");
+
+    write("rules:\n  - skip: com.acme.**\n    arid: [mutastic:waits]\n    reason: r\n");
+    assertThatThrownBy(() -> Configuration.read(project))
+        .hasMessageStartingWith("mutastic.yaml line 3: `arid:` goes on a `mutate:` rule");
+
+    write("rules:\n  - mutate: com.acme.**\n    arid: []\n    reason: r\n");
+    assertThatThrownBy(() -> Configuration.read(project))
+        .hasMessageContaining("has an empty `arid:` list");
   }
 
   /// The example of every key the Configuration guide shows, its last, is one mutastic reads and

@@ -6,6 +6,7 @@ import java.lang.classfile.AttributedElement;
 import java.lang.classfile.Attributes;
 import java.lang.classfile.ClassModel;
 import java.lang.classfile.MethodModel;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -15,8 +16,13 @@ import java.util.stream.Stream;
 final class Annotations {
   private Annotations() {}
 
-  /// An annotation found: its simple name, and its `value()` or `reason()` text if it has one.
-  record Found(String simpleName, Optional<String> reason) {}
+  /// An annotation found: its simple name, its `value()` or `reason()` text if it has one, and the
+  /// texts of its `arid()` list, `@DoMutate(arid = "mutastic:waits")`.
+  record Found(String simpleName, Optional<String> reason, List<String> arid) {
+    Found {
+      arid = List.copyOf(arid);
+    }
+  }
 
   /// Whether the method, or the class it's in, has an annotation called `simpleName`.
   static boolean has(ClassModel owner, MethodModel method, String simpleName) {
@@ -64,6 +70,20 @@ final class Annotations {
                         : "")
             .filter(text -> !text.isBlank())
             .findFirst();
-    return new Found(simple, reason);
+    var arid =
+        annotation.elements().stream()
+            .filter(element -> element.name().equalsString("arid"))
+            .flatMap(element -> texts(element.value()))
+            .toList();
+    return new Found(simple, reason, arid);
+  }
+
+  /// A text, or each text of an array: `arid = "mutastic:waits"` is `arid = {"mutastic:waits"}`.
+  private static Stream<String> texts(AnnotationValue value) {
+    return switch (value) {
+      case AnnotationValue.OfString text -> Stream.of(text.stringValue());
+      case AnnotationValue.OfArray array -> array.values().stream().flatMap(Annotations::texts);
+      default -> Stream.empty();
+    };
   }
 }

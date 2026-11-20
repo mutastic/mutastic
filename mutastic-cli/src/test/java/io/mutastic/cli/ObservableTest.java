@@ -49,6 +49,14 @@ class ObservableTest {
         .contains(
             "Arid audit  3 ran anyway: 2 caught (2 by an assertion), 0 missed, 1 not covered;"
                 + " checked in Person.getName(), Person.getEmail()")
+        .contains(
+            """
+                         a test checks what they do: to run them, add to mutastic.yaml
+                           rules:
+                             - mutate: com.example.observable.Person#getName
+                               arid: [mutastic:trivial-accessors]
+                               reason: <why a test should check it>
+            """)
         .contains("3 skipped (3 arid)");
   }
 }

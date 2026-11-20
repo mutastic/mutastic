@@ -22,6 +22,16 @@
               "params": [],
               "returns": "",
               "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "arid",
+              "anchor": "arid",
+              "signature": "String[] arid()",
+              "doc": "Only these arid rules' skips come back, by id: `@DoMutate(value = \"callers wait for it\", arid\n= \"mutastic:waits\")`. Empty, every arid skip. Each rule is on [Arid\nrules](https://docs.mutastic.io/reference/arid/).",
+              "params": [],
+              "returns": "",
+              "throws": []
             }
           ]
         },
@@ -3239,7 +3249,7 @@
           "name": "Rule",
           "slug": "rule",
           "kind": "record",
-          "signature": "@Internal record Rule(boolean mutate, String target, String reason)",
+          "signature": "@Internal record Rule(\n    boolean mutate,\n    String target,\n    String reason,\n    List<String> arid)",
           "summary": "A project's own decision, from `mutastic.yaml`: skip the mutants in some code, or mutate code a built-in filter would skip as arid, with the reason.",
           "doc": "A project's own decision, from `mutastic.yaml`: skip the mutants in some code, or mutate code a\nbuilt-in filter would skip as arid, with the reason.",
           "params": [
@@ -3250,9 +3260,23 @@
             {
               "name": "target",
               "doc": "a class or method pattern: `com.acme.generated.**` (any depth), `*` (one name), `com.acme.Money#toString` (one method)"
+            },
+            {
+              "name": "arid",
+              "doc": "a `mutate:` rule's `arid:` list, the ids of the arid rules it brings back (`mutastic:waits`); empty for every arid skip, and for a `skip:` rule"
             }
           ],
           "members": [
+            {
+              "kind": "constructor",
+              "name": "Rule",
+              "anchor": "rule",
+              "signature": "Rule(boolean mutate, String target, String reason)",
+              "doc": "A rule with no `arid:` list.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
             {
               "kind": "method",
               "name": "covers",

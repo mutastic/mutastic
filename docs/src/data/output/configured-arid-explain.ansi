@@ -1,0 +1,38 @@
+
+ [46;30;1m SKIPPED [0m [1marid: [1mtoString()[0m is a debug representation[0m
+    [2m┌─[0m src/main/java/com/example/configured/Customer.java:18
+    [2m│[0m
+ [2m17[0m [2m│[0m   public String toString() {
+ [2m18[0m [2m│[0m     return "Customer[" + name + "]";
+    [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now returns ""[0m
+ [2m19[0m [2m│[0m   }
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mreturn "Customer[" + name + "]";
+              [32m+ [0mreturn "";
+    [2m=[0m [1;34m[1mnote[0m[0m: tests reach this return, but none fails when it returns [1m""[0m
+
+    [2mreproduce [0m mutastic run --only=mb7fe9c69 samples/configured
+
+[1m About this mutant [0m[2m───────────────────────────────────────────────[0m
+    [2m=[0m [1;34m[1mbytecode[0m[0m  [1mARETURN → return ""[0m
+                [2mARETURN: return the value on the stack (one of the references)[0m
+                [2mreturn "": return "" instead[0m
+    [2m=[0m [1;34m[1moperator[0m[0m  mutastic/return-value: A method returns the value its kind of method most plausibly
+                gets wrong: a `boolean` the other one, a number `0` (`1` where it returns `0`), an
+                `Optional`, string, collection or stream an empty one, anything else `null`. It goes
+                unnoticed when tests call the method but never look at what it returns.
+                [2mdocs: https://docs.mutastic.io/java/operators/returns/#return-value[0m
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:debug-representations: `toString()` and `hashCode()`, the lambdas they
+                define and the helpers only they call.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#debug-representations[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.configured.Customer#toString
+                      arid: [mutastic:debug-representations]
+                      reason: <why a test should check it>
+    [2m=[0m [1;34m[1mid      [0m[0m  mb7fe9c69: `m` and the first 8 hex digits of its fingerprint, b7fe9c69319fb7c1, a
+                SHA-256 of the class, method, site and change, and the operator
+                [2mno line number goes in, so the id stays the same when code above it moves[0m
+    [2m=[0m [1;34m[1msite    [0m[0m  instruction site 1 of toString()Ljava/lang/String;, counting from 1 (arithmetic,
+                branches and returns are counted in bytecode order; calls apart)
+    [2m=[0m [1;34m[1mlast run[0m[0m  skipped
