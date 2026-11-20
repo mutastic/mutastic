@@ -19,8 +19,7 @@ public final class Summary {
     out.println(of(sales, metrics));
   }
 
-  public static String of(Supplier<List<Long>> sales, Metrics metrics)
-      throws InterruptedException {
+  public static String of(Supplier<List<Long>> sales, Metrics metrics) throws InterruptedException {
     long start = System.nanoTime();
     var fetched = new AtomicReference<List<Long>>(List.of());
     var worker = new Thread(() -> fetched.set(sales.get()));
