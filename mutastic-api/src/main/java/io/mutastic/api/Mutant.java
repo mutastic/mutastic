@@ -141,6 +141,23 @@ public record Mutant(
         inlinedFrom);
   }
 
+  /// How a twin's skip starts: `twin: same as m11989fc0`. A twin always does what another mutant at
+  /// its place does, so it doesn't run: that one runs for it, and the place counts once.
+  public static final String SAME_AS = "twin: same as ";
+
+  /// The same mutant, a twin of `partner`'s: skipped, as `partner` runs for it.
+  @Internal
+  public Mutant sameAs(String partner) {
+    return skippedFor(SAME_AS + partner);
+  }
+
+  /// The id of the mutant this one always does the same as, which runs for it, when it's a twin.
+  public Optional<String> sameAs() {
+    return skipped
+        .filter(reason -> reason.startsWith(SAME_AS))
+        .map(reason -> reason.substring(SAME_AS.length()));
+  }
+
   /// The same mutant, to run: for an audit of what a filter skips.
   @Internal
   public Mutant unskipped() {

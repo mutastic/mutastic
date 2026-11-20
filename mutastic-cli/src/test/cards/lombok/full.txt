@@ -180,16 +180,16 @@
 
  Not covered (no test reaches these lines)
    ○ src/main/java/com/example/orders/Customer.java:18 tier() (4 mutants)
-   ○ src/main/java/com/example/orders/Money.java:26 isZero() (4 mutants)
+   ○ src/main/java/com/example/orders/Money.java:26 isZero() (2 mutants)
    ○ src/main/java/com/example/orders/Order.java:36 discounted() (1 mutant)
 
  Next: mutastic verify <id> samples/lombok · mutastic run --only=<id> samples/lombok · mutastic explain <id> samples/lombok
 
    Classes  0 clean | 5 with misses (5)
-   Mutants  ✓ 24 caught · ✗ 10 missed · ○ 9 not covered · 155 skipped (1 arid, 154 generated) (198)
+   Mutants  ✓ 24 caught · ✗ 10 missed · ○ 7 not covered · 157 skipped (1 arid, 154 generated, 2 twin) (198)
   Worst at  Order.discounted() 5 ✗ · Customer.tier() 2 ✗ · Money.plus() 1 ✗
  Test runs  34 (204 without coverage selection)
   Start at  …
   Duration  … (setup …, build …, coverage …, mutants …, checking …)
      Tests  6 on JDK 17 · … workers
-     Score  55.8%  [FAIL] Below the threshold of 80: 10 missed, 9 not covered.  = vs last run (same code)  · 70.6% where tests reach
+     Score  58.5%  [FAIL] Below the threshold of 80: 10 missed, 7 not covered.  = vs last run (same code)  · 70.6% where tests reach

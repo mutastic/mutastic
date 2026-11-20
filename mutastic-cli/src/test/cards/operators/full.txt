@@ -1,7 +1,7 @@
 
  Missed ────────────────────────────────────────────────────────────
 
- ❯ src/main/java/com/example/orders/Orders.java  4 missed in 2 methods
+ ❯ src/main/java/com/example/orders/Orders.java  3 missed in 2 methods
 
  [✗ MISSED] no test checks a lambda in large() at total == 100
    ┌─ src/main/java/com/example/orders/Orders.java:8
@@ -37,24 +37,6 @@
    reproduce  mutastic run --only=m911a2864 samples/operators
    or ignore  mutastic ignore m911a2864 --reason="<why>" samples/operators
 
- [✗ MISSED] no test checks a lambda in large() returning false here
-   ┌─ src/main/java/com/example/orders/Orders.java:8
-   │
- 7 │   public long large(List<Integer> totals) {
- 8 │     return totals.stream().filter(total -> total >= 100).count();
-   │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ now returns true
- 9 │   }
-   │
-   = mutant  - return totals.stream().filter(total -> total >= 100).count();
-             + return true;
-   = note: tests reach this return, but none fails when it returns true
-           covered by OrdersTest#countsLargeOrders (its 1 covering test still passes)
-   = help: add a test where a lambda in large() returns false here, and assert it
-
-   done when  mutastic verify m378f41b1 samples/operators passes
-   reproduce  mutastic run --only=m378f41b1 samples/operators
-   or ignore  mutastic ignore m378f41b1 --reason="<why>" samples/operators
-
  [✗ MISSED] no test needs .filter(…) in large()
    ┌─ src/main/java/com/example/orders/Orders.java:8
    │
@@ -75,10 +57,10 @@
  Next: mutastic verify <id> samples/operators · mutastic run --only=<id> samples/operators · mutastic explain <id> samples/operators
 
    Classes  0 clean | 1 with misses (1)
-   Mutants  ✓ 7 caught · ✗ 4 missed (11)
-  Worst at  Orders.large() (a lambda) 3 ✗ · Orders.large() 1 ✗
- Test runs  11 (33 without coverage selection)
+   Mutants  ✓ 6 caught · ✗ 3 missed · 2 skipped (2 twin) (11)
+  Worst at  Orders.large() (a lambda) 2 ✗ · Orders.large() 1 ✗
+ Test runs  9 (27 without coverage selection)
   Start at  …
   Duration  … (setup …, build …, coverage …, mutants …, checking …)
      Tests  3 on JDK 17 · … workers
-     Score  63.6%  [FAIL] Below the threshold of 80: 4 missed, 0 not covered.  = vs last run (same code)
+     Score  66.7%  [FAIL] Below the threshold of 80: 3 missed, 0 not covered.  = vs last run (same code)
