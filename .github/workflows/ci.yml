@@ -9,12 +9,12 @@
 # each job measured.
 #
 # On a pull request that changes nothing the build reads (the repository's own Markdown pages, the
-# issue and pull request templates, workflows other than this one, the hooks), the jobs that build
-# and test are skipped, as `changes` decides: a skipped job counts as passed for branch protection,
-# and the CLI's shards, whose checks are named for their share, run with nothing to do instead,
-# since a matrix skipped whole reports one check under the job's bare name. docs/ is read by the
-# build, so a change there runs everything. The merge queue, main and a run by hand always run
-# everything: main is always fully tested.
+# changelog's entries, the issue and pull request templates, workflows other than this one, the
+# hooks), the jobs that build and test are skipped, as `changes` decides: a skipped job counts as
+# passed for branch protection, and the CLI's shards, whose checks are named for their share, run
+# with nothing to do instead, since a matrix skipped whole reports one check under the job's bare
+# name. docs/ is read by the build, so a change there runs everything. The merge queue, main and a
+# run by hand always run everything: main is always fully tested.
 name: CI
 
 on:
@@ -54,9 +54,10 @@ jobs:
           EVENT: ${{ github.event_name }}
           NUMBER: ${{ github.event.pull_request.number }}
           COUNT: ${{ github.event.pull_request.changed_files }}
-          # What the build never reads: the top-level Markdown pages, the citation, the templates
-          # and picture under .github, the workflows other than this one, and the hooks.
-          UNREAD: '^([^/]+\.md|CITATION\.cff|\.github/(ISSUE_TEMPLATE/.*|PULL_REQUEST_TEMPLATE\.md|pip\.webp|workflows/(commits|docs|nightly|portal|release)\.yml)|\.githooks/.*)$'
+          # What the build never reads: the top-level Markdown pages, the changelog's entries and
+          # script, the citation, the templates and picture under .github, the workflows other
+          # than this one, and the hooks.
+          UNREAD: '^([^/]+\.md|changes/.*|scripts/changelog\.sh|CITATION\.cff|\.github/(ISSUE_TEMPLATE/.*|PULL_REQUEST_TEMPLATE\.md|pip\.webp|workflows/(commits|docs|nightly|portal|release)\.yml)|\.githooks/.*)$'
         run: |
           code=true
           if [ "$EVENT" = pull_request ] &&
@@ -142,6 +143,11 @@ jobs:
         if: needs.changes.outputs.code == 'true'
       - run: ./gradlew :mutastic-cli:test -Pmutastic.shard=${{ matrix.shard }}/4
         if: needs.changes.outputs.code == 'true'
+      # What was running when a test ran out of time (TimeoutDump), in the log as well as the
+      # reports.
+      - name: what a test that timed out was waiting on
+        if: always() && needs.changes.outputs.code == 'true'
+        run: bash .github/timeout-dumps.sh
       # Without what this build published, which each run publishes again.
       - if: github.ref == 'refs/heads/main' && steps.maven.outputs.cache-hit != 'true' && needs.changes.outputs.code == 'true'
         run: rm -rf ~/.m2/repository/io/mutastic build/samples-maven-local/io/mutastic
@@ -210,13 +216,15 @@ jobs:
   # Windows, on its own beside the others: the CLI's end-to-end tests on a few samples (the cards,
   # a Gradle build and a Maven build), run the way a Windows user runs them, with `gradlew.bat`.
   # The rest of the build is the same on every platform, so it runs on Linux only.
-  # Windows, in two shares to stay under 30 minutes each: the cards and both build tools' samples,
-  # then the Gradle plugin, the gate and a Quarkus build.
+  # Windows, in two shares to stay well under the time limit: the cards and both build tools'
+  # samples, then the Gradle plugin, the gate and a Quarkus build.
   windows-share:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: windows-latest
-    timeout-minutes: 30
+    # Past the tests' own limits (five minutes a test, 35 for the step), so a test that hangs
+    # fails, says where, and its reports are kept, rather than the job being cut off.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -260,6 +268,7 @@ jobs:
       # failures in full (the test task logs them, CardsTest as a diff), and the runner's state
       # (windows-dump.ps1), on every share so a failure has a healthy share to compare with.
       - shell: pwsh
+        timeout-minutes: 35
         run: |
           # A failing native command mustn't end the script: what follows has to run.
           $PSNativeCommandUseErrorActionPreference = $false
@@ -277,6 +286,11 @@ jobs:
           .\gradlew.bat --stop
           Get-Process java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           exit $tests
+      # What was running when a test ran out of time, as on Linux.
+      - name: what a test that timed out was waiting on
+        if: always()
+        shell: bash
+        run: bash .github/timeout-dumps.sh
       - if: github.ref == 'refs/heads/main' && matrix.share == 1 && steps.maven.outputs.cache-hit != 'true'
         shell: bash
         run: rm -rf ~/.m2/repository/io/mutastic build/samples-maven-local/io/mutastic
