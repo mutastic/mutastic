@@ -1,0 +1,12 @@
+ [46;30;1m SKIPPED [0m [1marid: a variable's first value of 0 or 1[0m
+    [2m┌─[0m src/main/java/com/example/arid/Retry.java:10
+    [2m│[0m
+ [2m 9[0m [2m│[0m   public static int attempts(BooleanSupplier call) {
+ [2m10[0m [2m│[0m     int attempt = 0;
+    [2m│[0m     [1;31m^^^^^^^^^^^^^^^^ 0 changed to 1[0m
+ [2m11[0m [2m│[0m     while (attempt < 3) {
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mint attempt = 0;
+              [32m+ [0mint attempt = 1;
+
+    [2mreproduce [0m mutastic run --only=m2e6aaf12 samples/arid

@@ -1,0 +1,11 @@
+ [46;30;1m SKIPPED [0m [1marid: only sizes a thread's stack[0m
+    [2m┌─[0m src/main/java/com/example/arid/Workers.java:18
+    [2m│[0m
+ [2m17[0m [2m│[0m   public static Thread deep(Runnable work) {
+ [2m18[0m [2m│[0m     return new Thread(null, work, "deep-worker", 64L * 1024 * 1024);
+    [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 67108864 changed to 1[0m
+ [2m19[0m [2m│[0m   }
+    [2m│[0m
+    [2m=[0m change  the constant [1m67108864[0m becomes [1m1[0m (not shown in the source)
+
+    [2mreproduce [0m mutastic run --only=m638dca75 samples/arid
