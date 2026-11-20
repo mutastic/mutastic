@@ -9,3 +9,12 @@
     [2m=[0m mutant  [1;31m- [0mthread.setPriority(Thread.MIN_PRIORITY);
 
     [2mreproduce [0m mutastic run --only=m888732e4 samples/arid
+
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:thread-priorities: A thread's priority from 1 to 10: a hint, which Linux
+                ignores by default and a virtual thread always does.
+                [2mdocs: https://docs.mutastic.io/reference/arid/#thread-priorities[0m
+                [2mto run it, add to mutastic.yaml:[0m
+                  rules:
+                    - mutate: com.example.arid.Workers#background
+                      arid: [mutastic:thread-priorities]
+                      reason: <why a test should check it>
