@@ -846,6 +846,10 @@ public record Advice(
     if (threads.isPresent()) {
       return threads.get();
     }
+    var cleanup = CleanupCalls.removed(mutant, seen);
+    if (cleanup.isPresent()) {
+      return cleanup.get();
+    }
     var called = "`%s()`".formatted(SourceView.calledName(mutant.original()));
     return new Advice(
         Optional.empty(),

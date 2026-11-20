@@ -71,6 +71,14 @@ removed `start()` wants a test that joins the thread and checks what its task di
 thrown away, and for a pool's `awaitTermination` made always true, whose card asks for a task still
 running when the wait ends.
 
+**A call that releases something:** a removed `close()`, `closeQuietly()`, pool `shutdown()`,
+shutdown hook or `Cleaner`'s `clean()` survives because tests rarely look at what was released,
+not because no test should. So its card says what to look at. A `close()` in a `finally` wants a
+resource you can inspect, closed both when the method returns and when it throws; one in a `catch`
+wants the work made to fail first. A JDBC connection's close wants a `DataSource` you pass in, a
+pool's shutdown wants the pool passed in and `isShutdown()`, and a shutdown hook wants
+`removeShutdownHook` to return true.
+
 **Edition notes:** the Rust edition has this operator too, `mutastic/remove-void-call`, for a call
 the crate declares with no return, or one of std's (`push`, `sort`, `clear`, `extend`, `drop` and
 the like).
