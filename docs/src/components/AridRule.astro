@@ -1,0 +1,77 @@
+---
+// The facts of one arid rule, under its heading on the Arid rules page: that it's on by default,
+// what it judges, and the reasons it prints, each as mutastic prints it, for each edition that has
+// it. All of it comes from src/data/arid.json, so the page never says what the engine doesn't.
+//
+//   ## Waits
+//   <AridRule id="mutastic:waits" />
+//
+// The heading's text is the rule's id after `mutastic:`, as words, so its anchor is the one
+// mutastic's output links to; the build stops when they differ (see AridSections.astro).
+import { reasonText, rule, scope } from '../lib/arid';
+import EditionOnly from './EditionOnly.astro';
+
+interface Props {
+  id: string;
+}
+const found = rule(Astro.props.id);
+const editions = { java: 'Java', rust: 'Rust' } as const;
+---
+
+<div class="arid-rule">
+  <p class="arid-meta">
+    <span class="arid-default">Skipped by default</span>
+    <code>{found.id}</code>
+    <span>judges {scope(found)}</span>
+  </p>
+  {
+    (['java', 'rust'] as const).map((edition) =>
+      found.reasons[edition] ? (
+        <EditionOnly edition={edition}>
+          <p class="arid-reasons">
+            {editions[edition]} prints{' '}
+            {found.reasons[edition]!.map((reason, index) => (
+              <>
+                {index > 0 && (index === found.reasons[edition]!.length - 1 ? ' or ' : ', ')}
+                <code>{reasonText(reason)}</code>
+              </>
+            ))}
+          </p>
+        </EditionOnly>
+      ) : (
+        <EditionOnly edition={edition}>
+          <p class="arid-reasons">The {editions[edition]} edition has no such rule: see below.</p>
+        </EditionOnly>
+      ),
+    )
+  }
+</div>
+
+<style is:global>
+  /* The default a rule's section opens with, in the site's own colours. */
+  .arid-default {
+    display: inline-block;
+    padding: 0.05rem 0.55rem;
+    border: 1px solid var(--sl-color-accent);
+    border-radius: 999px;
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-accent-high);
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+  }
+</style>
+
+<style>
+  .arid-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+  }
+  .arid-meta span {
+    color: var(--sl-color-gray-3);
+  }
+  .arid-reasons {
+    margin-top: 0.5rem;
+  }
+</style>

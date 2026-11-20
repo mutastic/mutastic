@@ -69,17 +69,14 @@ towards the score.
 - **Equivalent changes,** which can't be told apart from the original: `return 0` becoming "return
   the default".
 - **Code the compiler wrote:** a `switch` on a `String`, a record's `equals()`.
-- **Calls that only write output:** logging, `System.out`.
-- **Trivial accessors:** a getter that only returns one of its class's fields, or a setter that
-  only stores its argument in one, named for that field. An accessor with any logic (a copy, a
-  check, lazy set-up, a notification) is mutated like any code.
-- **`toString()` and `hashCode()`,** with the lambdas they define and the helpers only they call.
-  `toString()` is a debug representation, and `hashCode()` may return any value consistent with
-  `equals()`.
+- **Arid code,** which a test could check but none should have to: a call that only writes
+  output, a trivial getter or setter, `toString()` and `hashCode()`, a list's starting size, a
+  removed `Thread.sleep`. [Arid rules](/reference/arid/) has each rule: what it skips, why, what it
+  can hide and how to bring it back.
 
 Sometimes what mutastic skips is part of what the code promises: a `toString()` customers see, a
 getter that's an API, a log line an alert watches. `@DoMutate` on a method or class brings back
-every mutant mutastic would skip there as [arid](/concepts/results/#skipped-mutants): a whole
+every mutant mutastic would skip there as [arid](/concepts/arid/): a whole
 accessor or `toString()`, and each call that only writes output, each wait, capacity or message in
 the code. Code the compiler wrote and equivalent changes stay skipped, and so does a method's own
 `@DoNotMutate`.
@@ -180,4 +177,4 @@ A coding agent proposes an ignore instead of making one: `mutastic ignore ID --p
 
 `--as` says what sort of decision it is: `equivalent` (no test could tell the change apart), `unreachable` (its case can't happen in practice), `telemetry` (it only feeds logs or metrics), `deprecated` (the code is on its way out) or `accepted-risk`. The summary counts ignores by sort (`3 ignored as unreachable`), so what they hide can be reviewed by sort. Three or more ignores in one method are one decision said again and again: the run suggests the `skip:` rule that says it once.
 
-To see what the arid skips hide, `MUTASTIC_ARID=audit` runs them anyway and adds an `Arid audit` row: how many ran, how many were caught and how many of those by a test's own assertion (a check on what the code returns, which may make it a contract worth `@DoMutate`), and where.
+To see what the [arid](/concepts/arid/) skips hide, `MUTASTIC_ARID=audit` runs them anyway and adds an `Arid audit` row: how many ran, how many were caught and how many of those by a test's own assertion (a check on what the code returns, which may make it a contract worth `@DoMutate`), and where.

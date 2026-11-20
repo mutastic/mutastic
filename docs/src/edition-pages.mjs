@@ -17,6 +17,7 @@ export const SHARED = [
   ['concepts/coverage-and-mutants', 'coverage-and-mutants'],
   ['concepts/suggested-tests', 'concepts/suggested-tests'],
   ['concepts/equivalence', undefined],
+  ['concepts/arid', undefined],
   ['concepts/flaky-tests', undefined],
   ['concepts/output', 'concepts/output'],
   ['concepts/how-a-run-works', 'concepts/how-a-run-works'],
@@ -26,6 +27,7 @@ export const SHARED = [
   ['guides/test-first', 'test-first'],
   ['guides/test-first-refactor', 'test-first-refactor'],
   ['guides/test-first-agent', 'test-first-agent'],
+  ['reference/arid', undefined],
 ];
 
 /**
