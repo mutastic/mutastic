@@ -1441,7 +1441,7 @@
         "java"
       ],
       "scope": "site",
-      "description": "A sleep, or a `join` with a time limit, removed.",
+      "description": "A sleep removed: `Thread.sleep` or `TimeUnit.sleep`.",
       "reasons": {
         "java": [
           "arid: only waits"
@@ -1553,7 +1553,7 @@
       }
     },
     {
-      "id": "mutastic:keep-alive-times",
+      "id": "mutastic:keep-alive",
       "editions": [
         "java"
       ],

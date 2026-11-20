@@ -64,7 +64,7 @@ public enum AridRule {
   WAITS(
       "mutastic:waits",
       Scope.SITE,
-      "A sleep, or a `join` with a time limit, removed.",
+      "A sleep removed: `Thread.sleep` or `TimeUnit.sleep`.",
       "Thread.sleep(100);",
       "arid: only waits"),
   NULL_CHECKS(
@@ -107,8 +107,8 @@ public enum AridRule {
           + " thread always does.",
       "thread.setPriority(Thread.MAX_PRIORITY);",
       "arid: only sets a priority hint"),
-  KEEP_ALIVE_TIMES(
-      "mutastic:keep-alive-times",
+  KEEP_ALIVE(
+      "mutastic:keep-alive",
       Scope.SITE,
       "How long a pool's idle threads live before they stop, while it stays above zero.",
       "pool.setKeepAliveTime(30, TimeUnit.SECONDS);",

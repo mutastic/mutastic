@@ -47,4 +47,8 @@ public final class Sites {
   public static void pause(int seconds) throws InterruptedException {
     Thread.sleep(seconds * 1000L);
   }
+
+  public static void joined(Thread worker, int seconds) throws InterruptedException {
+    worker.join(seconds * 1000L);
+  }
 }
