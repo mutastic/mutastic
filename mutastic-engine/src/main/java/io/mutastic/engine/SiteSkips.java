@@ -23,7 +23,7 @@ import org.jspecify.annotations.Nullable;
 ///
 /// - **arid:** arithmetic whose result only sizes a collection's first allocation (`new
 ///   ArrayList<>(n * 2)`) or sets how long to wait (`Thread.sleep(seconds * 1000)`), and a removed
-///   call that only waits. What a test sees doesn't change, only how fast it runs.
+///   sleep. What a test sees doesn't change, only how fast it runs.
 /// - **equivalent:** a boundary where both sides give the same value at the edge: `if (x > max) max
 ///   = x;` stores the value `max` already holds when they're equal, `a < b ? a : b` gives either,
 ///   as they're the same, and so do `x < 10 ? 10 : x` and `if (x < 2) x = 2;`, and `x > 3 ? x : 3`
@@ -96,9 +96,11 @@ final class SiteSkips {
     return Optional.empty();
   }
 
-  /// A removed call that only waits, or only checks a value isn't null.
+  /// A removed sleep, or a call that only checks a value isn't null. A `join` with a time limit
+  /// isn't one: without it the code reads what the thread does before it's done, as without one
+  /// with none.
   private static Optional<String> removedCall(Operator operator, InvokeInstruction call) {
-    if (operator == BuiltIn.REMOVE_VOID_CALL && waits(call)) {
+    if (operator == BuiltIn.REMOVE_VOID_CALL && sleeps(call)) {
       return Optional.of("arid: only waits");
     }
     if (operator == BuiltIn.REMOVE_DISCARDED_CALL && onlyChecksForNull(call)) {
@@ -117,7 +119,15 @@ final class SiteSkips {
         || (name.equals("getClass") && call.typeSymbol().parameterCount() == 0);
   }
 
-  /// `Thread.sleep`, `TimeUnit.sleep`, or `Thread.join` with a time limit.
+  /// `Thread.sleep` or `TimeUnit.sleep`.
+  private static boolean sleeps(InvokeInstruction call) {
+    var owner = call.owner().asInternalName();
+    var name = call.name().stringValue();
+    return (owner.equals("java/lang/Thread") && name.equals("sleep"))
+        || (owner.equals("java/util/concurrent/TimeUnit") && name.equals("sleep"));
+  }
+
+  /// A sleep, or `Thread.join` with a time limit: how long either waits.
   private static boolean waits(InvokeInstruction call) {
     var owner = call.owner().asInternalName();
     var name = call.name().stringValue();

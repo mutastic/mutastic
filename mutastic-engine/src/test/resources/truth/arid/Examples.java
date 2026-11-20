@@ -81,7 +81,7 @@ class Examples {
     thread.setPriority(Thread.MAX_PRIORITY);
   }
 
-  void keepAliveTimes(ThreadPoolExecutor pool) {
+  void keepAlive(ThreadPoolExecutor pool) {
     pool.setKeepAliveTime(30, TimeUnit.SECONDS);
   }
 
