@@ -94,6 +94,18 @@ class HelpTest {
     assertThat(run()).startsWith("2 ");
   }
 
+  /// `gate --help` without its action is each action's help, as in the Rust edition.
+  @Test
+  void gateHelpIsEachActionsHelp() {
+    var help = run("gate", "--help");
+
+    assertThat(help).startsWith("0 Usage: mutastic gate open [DIR]");
+    assertThat(help)
+        .contains("\n\nUsage: mutastic gate check [DIR]")
+        .contains("\n\nUsage: mutastic gate close [DIR]");
+    assertThat(run("help", "gate")).isEqualTo(help);
+  }
+
   /// The exit status, then what went to stdout.
   private static String run(String... args) {
     var out = new ByteArrayOutputStream();

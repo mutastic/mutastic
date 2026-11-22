@@ -2328,19 +2328,6 @@
       "decision": 13
     },
     {
-      "id": "G3",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "command line",
-      "summary": "`baseline` doesn't take `--operators`",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "items": [
-        "takes:baseline:--operators"
-      ]
-    },
-    {
       "id": "G4",
       "kind": "pending",
       "editions": [
@@ -2405,16 +2392,6 @@
       "surface": "command line",
       "summary": "`--operators` doesn't take `all`, a namespace, or `-` to leave one out",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G11",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "help",
-      "summary": "`gate --help` prints the general help",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
       "id": "G12",
@@ -2601,24 +2578,6 @@
       ]
     },
     {
-      "id": "G42",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "configuration",
-      "summary": "commands.json leaves out variables the code reads",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "items": [
-        "env:MUTASTIC_PROGRESS",
-        "env:MUTASTIC_TERM_PROGRESS",
-        "env:MUTASTIC_HEARTBEAT",
-        "env:TERM",
-        "env:CI",
-        "env:CLAUDECODE"
-      ]
-    },
-    {
       "id": "G43",
       "kind": "pending",
       "editions": [
@@ -2640,42 +2599,6 @@
       "items": [
         "option:--report:choice:*"
       ]
-    },
-    {
-      "id": "R2",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "`--operators` is kind `value`, not `repeated`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "option:--operators:kind"
-      ]
-    },
-    {
-      "id": "R3",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "`run` lists `--shard` and `--from-shards` after `--report`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "order:run"
-      ]
-    },
-    {
-      "id": "H7",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "help",
-      "summary": "`--workers`: how many workers, where Rust's \"how many mutants\" is what it does",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
       "id": "O1",

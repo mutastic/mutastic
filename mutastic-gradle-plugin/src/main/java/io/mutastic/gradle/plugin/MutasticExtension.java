@@ -19,7 +19,7 @@ public abstract class MutasticExtension {
   /// Which `Test` task's tests run, and its source set's: `test` unless set, `integrationTest` say.
   public abstract Property<String> getSuite();
 
-  /// How many workers run side by side; unset, it depends on the machine.
+  /// How many mutants run side by side; unset, it depends on the machine.
   public abstract Property<Integer> getWorkers();
 
   /// The report files a full run writes: `json`, `html` and `xml`, each with `:path` if it isn't
