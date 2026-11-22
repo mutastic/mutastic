@@ -2375,16 +2375,6 @@
       ]
     },
     {
-      "id": "G8",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "`--operators` doesn't take `all`, a namespace, or `-` to leave one out",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
       "id": "G12",
       "kind": "pending",
       "editions": [
@@ -2462,26 +2452,16 @@
     },
     {
       "id": "R1",
-      "kind": "pending",
+      "kind": "engine",
       "editions": [
         "java"
       ],
       "surface": "command line",
-      "summary": "commands.json lists `xml` among `--report`'s choices",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
+      "summary": "`--report=xml`: Java writes `mutations.xml`",
+      "reason": "`mutations.xml` is the format the JVM's build-server and code-quality plugins read; no Rust tool reads it.",
       "items": [
         "option:--report:choice:*"
       ]
-    },
-    {
-      "id": "A3",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "gate",
-      "summary": "The undo quotes the reason with `'…'\\''…'`, not `\"…\"`",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
       "id": "K3",
