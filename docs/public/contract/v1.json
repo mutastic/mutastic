@@ -2395,16 +2395,6 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "G13",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "explain's `= operator` line has no explanation",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
       "id": "G22",
       "kind": "engine",
       "editions": [
@@ -2413,16 +2403,6 @@
       "surface": "events",
       "summary": "`MUTASTIC_EVENTS`: a file a run writes its live events to, every second, for the Gradle plugin",
       "reason": "The Gradle plugin reads the run's live events from this file to draw its own progress line. `cargo mutastic` runs the binary itself, which draws its own."
-    },
-    {
-      "id": "G26",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "reports",
-      "summary": "SARIF `fullDescription` and `help` explain only call-rule operators",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
       "id": "G27",
@@ -2494,76 +2474,6 @@
       ]
     },
     {
-      "id": "O1",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "The Mutants row puts the total before the skipped count",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "O2",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "Brief card: three lines of context, not the mutated line",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "O3",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "`next` names the package, not the directory as typed",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "O4",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "`--only` on one mutant reports 4 workers, not workers capped at the mutant count",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "O5",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "explain's lines aren't wrapped to the terminal",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "P3",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "reports",
-      "summary": "SARIF `driver.informationUri` is https://mutastic.io, not the docs",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "P4",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "reports",
-      "summary": "SARIF rule `shortDescription` isn't the operator explanation's first sentence",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
       "id": "A3",
       "kind": "pending",
       "editions": [
@@ -2575,13 +2485,13 @@
     },
     {
       "id": "K3",
-      "kind": "pending",
+      "kind": "engine",
       "editions": [
         "rust"
       ],
       "surface": "human output",
-      "summary": "The summary's `Left out` row is code not mutated, early in the summary; Java's is `--exclude-tests`, after Reports",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
+      "summary": "Rust's `Left out` row, after Reports, names the code it doesn't mutate: unsafe, and what a `cfg` leaves out of the build",
+      "reason": "Rust doesn't mutate unsafe code unless `--unsafe` says to, nor code a `cfg` leaves out of the build: the row names both. Java has no such code, and its row is the test classes `--exclude-tests` leaves out (G7)."
     }
   ]
 }
