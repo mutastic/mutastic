@@ -11,7 +11,13 @@ class TotalsTest {
   @Test
   void printsTheTotal() {
     var printed = new ByteArrayOutputStream();
-    Totals.print(new PrintStream(printed, true, StandardCharsets.UTF_8), 42);
+    var console = System.out;
+    System.setOut(new PrintStream(printed, true, StandardCharsets.UTF_8));
+    try {
+      Totals.print(42);
+    } finally {
+      System.setOut(console);
+    }
     assertEquals("total: 42" + System.lineSeparator(), printed.toString(StandardCharsets.UTF_8));
   }
 }

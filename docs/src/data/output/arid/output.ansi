@@ -1,14 +1,14 @@
  [46;30;1m SKIPPED [0m [1marid: only writes output[0m
-    [2m┌─[0m src/main/java/com/example/arid/Totals.java:10
-    [2m│[0m
- [2m 9[0m [2m│[0m   public static void print(PrintStream out, long total) {
- [2m10[0m [2m│[0m     out.println("total: " + total);
-    [2m│[0m         [1;31m^^^^^^^ call removed[0m
- [2m11[0m [2m│[0m   }
-    [2m│[0m
-    [2m=[0m mutant  [1;31m- [0mout.println("total: " + total);
+   [2m┌─[0m src/main/java/com/example/arid/Totals.java:8
+   [2m│[0m
+ [2m7[0m [2m│[0m   public static void print(long total) {
+ [2m8[0m [2m│[0m     System.out.println("total: " + total);
+   [2m│[0m                [1;31m^^^^^^^ call removed[0m
+ [2m9[0m [2m│[0m   }
+   [2m│[0m
+   [2m=[0m mutant  [1;31m- [0mSystem.out.println("total: " + total);
 
-    [2mreproduce [0m mutastic run --only=m71ba3a27 samples/arid
+   [2mreproduce [0m mutastic run --only=m3d96ab6c samples/arid
 
     [2m=[0m [1;34m[1marid    [0m[0m  mutastic:output: Code that only writes output: a log line, or text printed to the
                 console, and a value worked out for nothing else.

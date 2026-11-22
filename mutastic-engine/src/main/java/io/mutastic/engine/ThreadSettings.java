@@ -97,7 +97,7 @@ final class ThreadSettings {
         var code = method.code().map(java.lang.classfile.CodeModel::elementList).orElse(List.of());
         for (int at = 0; at < code.size(); at++) {
           if (code.get(at) instanceof InvokeInstruction call) {
-            names |= readsAName(call, code, at);
+            names |= readsAName(call, code, at, method);
             priorities |= isCall(call, THREAD, "getPriority");
             sizes |= RESIZING.contains(call.name().stringValue());
           }
@@ -107,9 +107,14 @@ final class ThreadSettings {
     }
 
     /// `thread.getName()`, unless what it gives only goes into a log line or a print.
-    private static boolean readsAName(InvokeInstruction call, List<CodeElement> code, int at) {
-      return isCall(call, THREAD, "getName")
-          && !new ThreadSettings(code, NONE).goesThroughTextInto(at, ThreadSettings::writesOutput);
+    private static boolean readsAName(
+        InvokeInstruction call, List<CodeElement> code, int at, MethodModel method) {
+      if (!isCall(call, THREAD, "getName")) {
+        return false;
+      }
+      var outputs = new OutputCalls(code, method);
+      return !new ThreadSettings(code, NONE)
+          .goesThroughTextInto(at, taken -> outputs.writes(taken.index()));
     }
   }
 
@@ -328,10 +333,6 @@ final class ThreadSettings {
     var called = call.called();
     return call.parameter().filter("Ljava/lang/String;"::equals).isPresent()
         && (called.equals("thread.<init>") || NAMING.contains(called));
-  }
-
-  private static boolean writesOutput(Taken call) {
-    return Mutations.OUTPUT_OWNERS.contains(call.owner());
   }
 
   /// What only makes more text of a value: javac's `"a" + x`, either way it writes it, `format` and

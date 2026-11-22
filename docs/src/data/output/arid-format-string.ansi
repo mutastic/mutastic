@@ -1,10 +1,10 @@
  [46;30;1m SKIPPED [0m [1marid: only writes output[0m
-    [2m┌─[0m src/main/java/com/example/sales/Summary.java:37
+    [2m┌─[0m src/main/java/com/example/sales/Summary.java:36
     [2m│[0m
- [2m36[0m [2m│[0m     long took = (System.nanoTime() - start) / 1_000_000;
- [2m37[0m [2m│[0m     log.info("summed {} amounts in {} ms", amounts.size(), took);
+ [2m35[0m [2m│[0m     long took = (System.nanoTime() - start) / 1_000_000;
+ [2m36[0m [2m│[0m     log.info("summed {} amounts in {} ms", amounts.size(), took);
     [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ "summed {} amounts in {} ms" changed to ""[0m
- [2m38[0m [2m│[0m     metrics.record("summary.ms", took);
+ [2m37[0m [2m│[0m     metrics.record("summary.ms", took);
     [2m│[0m
     [2m=[0m mutant  [1;31m- [0mlog.info("summed {} amounts in {} ms", amounts.size(), took);
               [32m+ [0mlog.info("", amounts.size(), took);

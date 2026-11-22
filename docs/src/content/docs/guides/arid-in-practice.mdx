@@ -24,9 +24,9 @@ are counted, how to check the skips, and how to bring back the one your tests re
 {/* from: samples/sales/src/main/java/com/example/sales/Summary.java */}
 ```java
   /** What the report command prints. */
-  public static void print(PrintStream out, Supplier<List<Long>> sales, Metrics metrics)
+  public static void print(Supplier<List<Long>> sales, Metrics metrics)
       throws InterruptedException {
-    out.println(of(sales, metrics));
+    System.out.println(of(sales, metrics));
   }
 
   public static String of(Supplier<List<Long>> sales, Metrics metrics) throws InterruptedException {
@@ -58,10 +58,13 @@ does:
   @Test
   void printsEachAmountThenTheTotal() throws Exception {
     var printed = new ByteArrayOutputStream();
-    Summary.print(
-        new PrintStream(printed, true, StandardCharsets.UTF_8),
-        slowly(List.of(12L, 30L)),
-        (name, value) -> {});
+    var console = System.out;
+    System.setOut(new PrintStream(printed, true, StandardCharsets.UTF_8));
+    try {
+      Summary.print(slowly(List.of(12L, 30L)), (name, value) -> {});
+    } finally {
+      System.setOut(console);
+    }
     assertEquals(
         "12\n30\ntotal 42" + System.lineSeparator(), printed.toString(StandardCharsets.UTF_8));
   }
@@ -150,12 +153,12 @@ the sales unfinished. Only how long a sleep waits is arid, by the
 
 ## The command's output
 
-Removing `out.println(...)` in `print` is skipped as `arid: only writes output` too, by the same rule
-as the log line. Here, though, the output is the product: it's what the report command is for, and
-the test reads it.
+Removing `System.out.println(...)` in `print` is skipped as `arid: only writes output` too, by the
+same rule as the log line. Here, though, the output is the product: it's what the report command is
+for, and the test reads it.
 
 ```sh
-mutastic explain m15502e60 samples/sales
+mutastic explain m03c37b45 samples/sales
 ```
 
 <Code code={explained} lang="ansi" />

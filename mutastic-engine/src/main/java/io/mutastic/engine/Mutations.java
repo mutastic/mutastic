@@ -52,17 +52,6 @@ import org.jspecify.annotations.Nullable;
 
 /// Finds the mutants in a class and applies one at a time, with only `java.lang.classfile`.
 final class Mutations {
-  /// Calls whose only effect is output: removing one changes what a person reads, not what the code
-  /// does, so no test is expected to notice.
-  static final Set<String> OUTPUT_OWNERS =
-      Set.of(
-          "org/slf4j/Logger",
-          "java/util/logging/Logger",
-          "java/lang/System$Logger",
-          "org/apache/logging/log4j/Logger",
-          "org/apache/commons/logging/Log",
-          "java/io/PrintStream");
-
   /// mutastic's own operators whose mutants are verified as a plugin's are: each is built to load,
   /// but on what another compiler writes, or what a method here doesn't foresee, the mutant is
   /// skipped rather than stopping the run.
@@ -382,6 +371,7 @@ final class Mutations {
     private final Set<Integer> defaultStandIns;
     private final Operands operands;
     private final Stores stores;
+    private final OutputCalls outputs;
     private final Optional<String> filtered;
     private final KeptArid kept;
 
@@ -438,6 +428,7 @@ final class Mutations {
       this.defaultStandIns = kotlin ? KotlinDefaults.places(code) : Set.of();
       this.operands = method.code().map(Operands::new).orElseThrow();
       this.stores = new Stores(code);
+      this.outputs = new OutputCalls(code, method);
       this.threads = new ThreadSettings(code, threads);
     }
 
@@ -653,7 +644,8 @@ final class Mutations {
       switch (builtIn) {
         case REPLACE_BODY -> bodyChanges(found);
         case STRING_CONSTANT ->
-            addChanges(builtIn, TextConstants.strings(code, at, stores, supertypes), found);
+            addChanges(
+                builtIn, TextConstants.strings(code, at, stores, supertypes, outputs), found);
         case REGEX_CONSTANT -> addChanges(builtIn, TextConstants.regexes(code, at), found);
         case BOOLEAN_CONSTANT ->
             addChanges(builtIn, BooleanConstants.change(code, at, stores).stream().toList(), found);
@@ -804,7 +796,7 @@ final class Mutations {
               () -> machinery(found.operator(), at),
               found::skippedByOperator,
               () -> stringSwitch(instruction),
-              () -> writesOutput(instruction),
+              () -> outputs.reason(at),
               () -> KotlinChecks.reason(code, at),
               () -> aroundTheSite(found, at),
               () ->
@@ -823,7 +815,7 @@ final class Mutations {
     private Optional<String> aroundTheSite(Found found, int at) {
       return SiteSkips.reason(found.operator(), found.label(), code, at)
           .or(() -> threads.reason(found.operator(), found.label(), at))
-          .or(() -> LoggedValues.reason(found.operator(), code, at, stores));
+          .or(() -> LoggedValues.reason(found.operator(), code, at, stores, outputs));
     }
 
     /// The filters' reason, but for a `@NonNull` check in a member Lombok wrote: the person asked
@@ -855,14 +847,6 @@ final class Mutations {
               && stringSwitchLines.contains(line)
               && isCall(previous, "java/lang/String", "equals")
           ? Optional.of("generated: part of a switch on a String")
-          : Optional.empty();
-    }
-
-    /// A call to a logger or a print stream.
-    private static Optional<String> writesOutput(Instruction instruction) {
-      return instruction instanceof InvokeInstruction call
-              && OUTPUT_OWNERS.contains(call.owner().asInternalName())
-          ? Optional.of("arid: only writes output")
           : Optional.empty();
     }
 

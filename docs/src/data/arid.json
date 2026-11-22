@@ -65,7 +65,8 @@
       "reasons": {
         "java": [
           "arid: only writes output",
-          "arid: only feeds a log line"
+          "arid: only feeds a log line",
+          "arid: only decides whether output is written"
         ],
         "rust": [
           "arid: only writes output",
