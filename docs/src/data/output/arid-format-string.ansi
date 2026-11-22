@@ -1,18 +1,18 @@
  [46;30;1m SKIPPED [0m [1marid: only writes output[0m
-    [2m┌─[0m src/main/java/com/example/sales/Summary.java:36
+    [2m┌─[0m src/main/java/com/example/sales/Summary.java:37
     [2m│[0m
- [2m35[0m [2m│[0m     text.append("total ").append(total);
- [2m36[0m [2m│[0m     log.info("summed {} amounts in {} ms", amounts.size(), (System.nanoTime() - start) / 1_000_000);
-    [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ "summed {} amounts in {} ms" changed to ""[0m
- [2m37[0m [2m│[0m     return text.toString();
+ [2m36[0m [2m│[0m     long took = (System.nanoTime() - start) / 1_000_000;
+ [2m37[0m [2m│[0m     log.info("summed {} amounts in {} ms", amounts.size(), took);
+    [2m│[0m     [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ "summed {} amounts in {} ms" changed to ""[0m
+ [2m38[0m [2m│[0m     metrics.record("summary.ms", took);
     [2m│[0m
-    [2m=[0m mutant  [1;31m- [0mlog.info("summed {} amounts in {} ms", amounts.size(), (System.nanoTime() - start) / 1_000_000);
-              [32m+ [0mlog.info("", amounts.size(), (System.nanoTime() - start) / 1_000_000);
+    [2m=[0m mutant  [1;31m- [0mlog.info("summed {} amounts in {} ms", amounts.size(), took);
+              [32m+ [0mlog.info("", amounts.size(), took);
 
-    [2mreproduce [0m mutastic run --only=md6513da0 samples/sales
+    [2mreproduce [0m mutastic run --only=ma5436468 samples/sales
 
     [2m=[0m [1;34m[1marid    [0m[0m  mutastic:output: Code that only writes output: a log line, or text printed to the
-                console.
+                console, and a value worked out for nothing else.
                 [2mdocs: https://docs.mutastic.io/reference/arid/#output[0m
                 [2mto run it, add to mutastic.yaml:[0m
                   rules:

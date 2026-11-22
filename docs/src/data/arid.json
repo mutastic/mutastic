@@ -61,13 +61,15 @@
         "rust"
       ],
       "scope": "site",
-      "description": "Code that only writes output: a log line, or text printed to the console.",
+      "description": "Code that only writes output: a log line, or text printed to the console, and a value worked out for nothing else.",
       "reasons": {
         "java": [
-          "arid: only writes output"
+          "arid: only writes output",
+          "arid: only feeds a log line"
         ],
         "rust": [
-          "arid: only writes output"
+          "arid: only writes output",
+          "arid: only feeds a log line"
         ]
       },
       "examples": {
