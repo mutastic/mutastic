@@ -1970,17 +1970,6 @@
       "reason": "Language. The contract masks the test's code lines."
     },
     {
-      "id": "N20",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "agent format",
-      "summary": "`start with:` lines when present",
-      "reason": "Engine capability; shared once G12 lands."
-    },
-    {
       "id": "N21",
       "kind": "engine",
       "editions": [
@@ -2375,16 +2364,6 @@
       ]
     },
     {
-      "id": "G12",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "Code no test reaches gets no starting assertion (also G15, the agent format's `start with:`)",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
       "id": "G22",
       "kind": "engine",
       "editions": [
@@ -2429,13 +2408,13 @@
     },
     {
       "id": "G39",
-      "kind": "pending",
+      "kind": "engine",
       "editions": [
-        "rust"
+        "java"
       ],
       "surface": "configuration",
-      "summary": "Rules files have only the `remove` and `rename` rewrites",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
+      "summary": "A rules file's `omit last argument` rewrite; a `call` rewrite's `ARGS` are the JVM's parameter types, or Rust's, which Rust reads and doesn't check",
+      "reason": "`omit last argument` calls a method's shorter overload, and a Rust method has one count of arguments, so the shorter call never compiles: Rust refuses the rewrite and says so. A `call` rewrite finds its method by the JVM's descriptor; Rust reads source without types, so it matches by name, as it does `owners` (N36)."
     },
     {
       "id": "G43",
