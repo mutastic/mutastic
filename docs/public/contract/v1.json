@@ -2437,43 +2437,6 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "G18",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "No `failureOrigin`, in the events or mutation.json",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "event:mutant-finished:failureOrigin",
-        "report:files.*.mutants[].mutastic.failureOrigin"
-      ]
-    },
-    {
-      "id": "G19",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "`unrelatedCatches` is always `[]`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G21",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "`suggestion.receiver[]` has no `parameters`, no `suggestion.named`, and `mutant-explained.site` has no `ordinal`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "event:mutant-finished:suggestion.receiver[].parameters"
-      ]
-    },
-    {
       "id": "G22",
       "kind": "engine",
       "editions": [
