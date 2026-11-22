@@ -14,7 +14,9 @@ class SummaryTest {
   void printsEachAmountThenTheTotal() throws Exception {
     var printed = new ByteArrayOutputStream();
     Summary.print(
-        new PrintStream(printed, true, StandardCharsets.UTF_8), slowly(List.of(12L, 30L)));
+        new PrintStream(printed, true, StandardCharsets.UTF_8),
+        slowly(List.of(12L, 30L)),
+        (name, value) -> {});
     assertEquals(
         "12\n30\ntotal 42" + System.lineSeparator(), printed.toString(StandardCharsets.UTF_8));
   }

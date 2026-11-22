@@ -12,9 +12,9 @@ import ignored from '../../../data/output/arid-ignore.ansi?raw';
 import kept from '../../../data/output/arid-kept.ansi?raw';
 
 Your report command fetches the day's sales on a worker thread, waits for it, builds the text,
-logs how long it all took, and prints the report. A mutastic run skips some of that as
-[arid](/concepts/arid/) and counts the rest, and the line between them isn't always where you'd
-draw it. This guide takes one such class through a run: which mutants are skipped and why, which
+logs how long it all took, records that time for a dashboard, and prints the report. A mutastic
+run skips some of that as [arid](/concepts/arid/) and counts the rest, and the line between them
+isn't always where you'd draw it. This guide takes one such class through a run: which mutants are skipped and why, which
 are counted, how to check the skips, and how to bring back the one your tests rely on.
 
 ## The class
@@ -24,12 +24,12 @@ are counted, how to check the skips, and how to bring back the one your tests re
 {/* from: samples/sales/src/main/java/com/example/sales/Summary.java */}
 ```java
   /** What the report command prints. */
-  public static void print(PrintStream out, Supplier<List<Long>> sales)
+  public static void print(PrintStream out, Supplier<List<Long>> sales, Metrics metrics)
       throws InterruptedException {
-    out.println(of(sales));
+    out.println(of(sales, metrics));
   }
 
-  public static String of(Supplier<List<Long>> sales) throws InterruptedException {
+  public static String of(Supplier<List<Long>> sales, Metrics metrics) throws InterruptedException {
     long start = System.nanoTime();
     var fetched = new AtomicReference<List<Long>>(List.of());
     var worker = new Thread(() -> fetched.set(sales.get()));
@@ -43,7 +43,9 @@ are counted, how to check the skips, and how to bring back the one your tests re
       total += amount;
     }
     text.append("total ").append(total);
-    log.info("summed {} amounts in {} ms", amounts.size(), (System.nanoTime() - start) / 1_000_000);
+    long took = (System.nanoTime() - start) / 1_000_000;
+    log.info("summed {} amounts in {} ms", amounts.size(), took);
+    metrics.record("summary.ms", took);
     return text.toString();
   }
 ```
@@ -57,7 +59,9 @@ does:
   void printsEachAmountThenTheTotal() throws Exception {
     var printed = new ByteArrayOutputStream();
     Summary.print(
-        new PrintStream(printed, true, StandardCharsets.UTF_8), slowly(List.of(12L, 30L)));
+        new PrintStream(printed, true, StandardCharsets.UTF_8),
+        slowly(List.of(12L, 30L)),
+        (name, value) -> {});
     assertEquals(
         "12\n30\ntotal 42" + System.lineSeparator(), printed.toString(StandardCharsets.UTF_8));
   }
@@ -72,7 +76,8 @@ mutastic run samples/sales
 <Code code={run} lang="ansi" />
 
 The test catches most of it: a removed `start()` or `join`, a removed `append`, the total's `+`.
-Three mutants are skipped as arid, and two on the log line are missed. Here is each, in turn.
+Some mutants are skipped as arid, and the time worked out at the end is missed. Here is each, in
+turn.
 
 ## A log line
 
@@ -87,32 +92,43 @@ With `--operators=stronger`, strings get mutants too. The format string,
 `"summed {} amounts in {} ms"`, only goes into the log call, so it's skipped by the same rule:
 
 ```sh
-mutastic explain md6513da0 samples/sales
+mutastic explain ma5436468 samples/sales
 ```
 
 <Code code={formatString} lang="ansi" />
 
-The values after it, worked out in the call, don't change that: the string still goes nowhere but
-the log.
+The values after it don't change that: the string still goes nowhere but the log. Nor would a
+value worked out only for the log, `(System.nanoTime() - start) / 1_000_000` passed straight to
+`log.info`, or through a local nothing else reads: its mutants would be skipped as
+`arid: only feeds a log line`, by the same rule.
 
-## A value only logged
+## A value logged and recorded
 
-The two missed mutants are in `(System.nanoTime() - start) / 1_000_000`: `-` becoming `+`, and `/`
-becoming `*`. Each gives the log line a wrong number of milliseconds, and nothing else, so no test
-should check them. But no rule skips them: mutastic skips a value only when it can see the value
-goes nowhere but output, and in this release it doesn't follow a value worked out for a log call.
+Here the time goes somewhere else too:
 
-So say so yourself. `mutastic ignore` records the decision, with its reason, in
-`.mutastic/ignores.yaml`, for review with the code:
+```java
+    long took = (System.nanoTime() - start) / 1_000_000;
+    log.info("summed {} amounts in {} ms", amounts.size(), took);
+    metrics.record("summary.ms", took);
+```
+
+So the `-` becoming `+` and the `/` becoming `*` are counted, and missed, and so is removing
+`metrics.record`: the value reaches more than the log, and a dashboard reads the metric. mutastic
+skips a value only when every use of it, on every path, is a log call's or a print's argument.
+
+If a test should check the metric, write it: a `Metrics` that keeps what it's given, and an
+assertion on it. If nobody tests the timing, because it's checked in the dashboards, say so
+yourself. `mutastic ignore` records the decision, with its reason, in `.mutastic/ignores.yaml`, for
+review with the code:
 
 ```sh
-mutastic ignore m173c4fca samples/sales --as=telemetry --reason="only how long the summary took, for the log"
+mutastic ignore m3b95337d samples/sales --as=telemetry --reason="timing only, checked in dashboards"
 ```
 
 <Code code={ignored} lang="ansi" />
 
-Do the same for the other. `--as=telemetry` counts them apart in the summary, and each ignore lapses
-when its line changes, so a value later used for more than the log is counted again.
+Do the same for the others. `--as=telemetry` counts them apart in the summary, and each ignore
+lapses when its line changes, so a value later used for more is counted again.
 
 ## A buffer's size
 
@@ -128,9 +144,9 @@ sales before the worker has fetched them, a race, and the test catches it. The
 [`waits`](/reference/arid/#waits) rule skips only a removed `Thread.sleep` or `TimeUnit.sleep`,
 which changes when the code gets somewhere, not what it finds there.
 
-The limit itself, `5_000`, is arid: with `--operators=stronger`, a change to it is skipped as
-`arid: only sets how long to wait`, by the [`wait-times`](/reference/arid/#wait-times) rule. Bring
-that rule back only if your tests run work slow enough for the limit to decide the result.
+The limit itself, `5_000`, counts too: a shorter one gives up on the worker sooner, and `of` reads
+the sales unfinished. Only how long a sleep waits is arid, by the
+[`wait-times`](/reference/arid/#wait-times) rule.
 
 ## The command's output
 
@@ -139,7 +155,7 @@ as the log line. Here, though, the output is the product: it's what the report c
 the test reads it.
 
 ```sh
-mutastic explain m32bd4ead samples/sales
+mutastic explain m15502e60 samples/sales
 ```
 
 <Code code={explained} lang="ansi" />
@@ -165,14 +181,14 @@ rules:
 ```
 
 The run after it runs the `println`'s mutant, and the test catches it. The log line and the buffer
-stay skipped, and the two ignored mutants are counted apart:
+stay skipped, and the three ignored mutants are counted apart:
 
 <Code code={kept} lang="ansi" />
 
 ## What you end with
 
 - Skips that are right for this code, kept: the log line and its text, the buffer's size.
-- A value only the log uses, ignored with a reason, by sort.
+- A timing the log and a dashboard use, which no test checks, ignored with a reason, by sort.
 - The one skip that hid a contract, the command's output, brought back for one method and one rule,
   with the test that catches it.
 

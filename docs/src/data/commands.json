@@ -66,7 +66,7 @@
       "exits": "0 when the baseline is written or pruned; 1 when there's one already and --prune isn't given.",
       "takesMutantId": false,
       "examples": [{ "gradle": "", "maven": "", "commandLine": "mutastic baseline" }, { "gradle": "", "maven": "", "commandLine": "mutastic baseline --prune" }],
-      "options": ["--tests-from", "--workers", "--confirm-catches", "--exclude-tests", "--suite", "--progress", "--prune"]
+      "options": ["--tests-from", "--workers", "--confirm-catches", "--exclude-tests", "--suite", "--operators", "--progress", "--prune"]
     },
     {
       "name": "gate open",
@@ -191,7 +191,7 @@
       "group": "Running",
       "value": "N",
       "choices": [],
-      "help": "How many workers run side by side; half the cores, from 1 to 4, unless set",
+      "help": "How many mutants run side by side; half the cores, from 1 to 4, unless set",
       "commands": ["baseline", "explain", "next", "run", "verify"],
       "environment": "",
       "maven": { "property": "-Dmutastic.workers", "setting": "<workers>…</workers>" },
@@ -318,11 +318,11 @@
       "value": "OPERATORS",
       "choices": [],
       "help": "Which operators run: a set (defaults, stronger, extended or all), an operator's id or namespace, or any with - in front to leave it out; defaults unless set",
-      "commands": ["gate check", "gate open", "mutants", "next", "run"],
+      "commands": ["baseline", "gate check", "gate open", "mutants", "next", "run"],
       "environment": "",
       "maven": { "property": "-Dmutastic.operators", "setting": null },
       "gradle": { "property": "-Pmutastic.operators", "setting": null },
-      "examples": { "gate check": { "gradle": "", "maven": "", "commandLine": "mutastic gate check --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "gate open": { "gradle": "", "maven": "", "commandLine": "mutastic gate open --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "mutants": { "gradle": "", "maven": "", "commandLine": "mutastic mutants --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "next": { "gradle": "", "maven": "", "commandLine": "mutastic next --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.operators=stronger", "maven": "mvn mutastic:run -Dmutastic.operators=stronger", "commandLine": "mutastic run --operators=stronger", "gradleBuild": "", "mavenBuild": "" } }
+      "examples": { "baseline": { "gradle": "", "maven": "", "commandLine": "mutastic baseline --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "gate check": { "gradle": "", "maven": "", "commandLine": "mutastic gate check --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "gate open": { "gradle": "", "maven": "", "commandLine": "mutastic gate open --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "mutants": { "gradle": "", "maven": "", "commandLine": "mutastic mutants --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "next": { "gradle": "", "maven": "", "commandLine": "mutastic next --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.operators=stronger", "maven": "mvn mutastic:run -Dmutastic.operators=stronger", "commandLine": "mutastic run --operators=stronger", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--experimental",
@@ -573,8 +573,14 @@
     { "name": "MUTASTIC_GATE_BUDGET", "meaning": "Seconds a hooked gate check may take", "detail": "600 unless set: what the agents' plugins' Stop hook allows. The check waits for the count of the task's start only as long as this leaves, and hands over before it runs when its last run took longer." },
     { "name": "MUTASTIC_GATE_COUNT_WAIT", "meaning": "Seconds gate check waits for the count of the task's start", "detail": "240 unless set. A count not done by then is left, and a pass says the check compared the tests' annotations only." },
     { "name": "MUTASTIC_JAVA_HOME", "meaning": "The JDK mutastic runs on, 25 or later", "detail": "Unless set, the newest JDK 25 or later of `JAVA_HOME` and those installed where SDKMAN, asdf, mise, Gradle, IntelliJ, Homebrew, macOS and Linux keep them. Your build and its tests keep the `JAVA_HOME` and `PATH` you gave them." },
+    { "name": "MUTASTIC_PROGRESS", "meaning": "auto, bar, counter or none, when --progress isn't given", "detail": "For a Gradle or Maven build, or a CI job, that always wants the same. Any other value is refused." },
+    { "name": "MUTASTIC_TERM_PROGRESS", "meaning": "true or false: whether the terminal's tab shows the run's progress", "detail": "Unset, it does in Windows Terminal, ConEmu, Ghostty and WezTerm, which say they draw it. Cargo's `CARGO_TERM_PROGRESS_TERM_INTEGRATION` is read too." },
+    { "name": "MUTASTIC_HEARTBEAT", "meaning": "Seconds a log may go without a progress line", "detail": "30 unless set. Off a terminal, a line with the phase, its counts and its clock is printed whenever this long has passed since the last. A value that isn't a number above 0 is refused." },
     { "name": "NO_COLOR", "meaning": "No colour", "detail": "Set to anything, it turns colour off, as it does for many tools." },
-    { "name": "FORCE_COLOR", "meaning": "Colour even off a terminal", "detail": "Set to anything, it turns colour on where mutastic can't tell a person is reading, such as a CI log that shows colour." }
+    { "name": "FORCE_COLOR", "meaning": "Colour even off a terminal", "detail": "Set to anything, it turns colour on where mutastic can't tell a person is reading, such as a CI log that shows colour. It wins over `NO_COLOR`." },
+    { "name": "TERM=dumb", "meaning": "No colour, unless `FORCE_COLOR` is set, and progress as lines", "detail": "" },
+    { "name": "CI", "meaning": "Progress as lines, not redrawn in place", "detail": "Set to anything but `false` or `0`; as are `TF_BUILD`, `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `JENKINS_URL`, `TEAMCITY_VERSION` and `CIRCLECI`, since some CI services pretend to be a terminal." },
+    { "name": "CLAUDECODE", "meaning": "Progress as lines, for a coding agent", "detail": "As are `CLAUDE_CODE`, `GEMINI_CLI`, `CODEX_SANDBOX`, `CODEX_THREAD_ID`, `OPENCODE`, `COPILOT_AGENT`, `COPILOT_CLI`, `CURSOR_AGENT`, `REPL_ID`, `JUNIE_DATA`, `GOOSE_PROVIDER` and `AUGMENT_AGENT`, which coding agents set. Only progress changes: the format is still `--format`'s." }
   ],
   "exitCodes": [
     { "name": "0", "meaning": "The score reaches the threshold, or with --fail-on-new no miss is new; for verify, the mutant is caught or skipped; for gate check, the task is done", "detail": "" },

@@ -117,15 +117,17 @@ class ThreadCardTruthTest {
   }
 
   /// The mutants whose card is a thread's: each fixture method's call to the thread or pool, and
-  /// its always-true wait. Every other mutant there keeps the card any call gets.
+  /// its always-true wait. Every other mutant there keeps the card any call gets, or a cleanup's.
   private List<Mutant> threadMutants() {
     var found = new ArrayList<Mutant>();
     for (var fixture : List.of(removed, discarded, conditions)) {
       for (var mutant : fixture.running()) {
         var headline = sources.advice(mutant).headline();
+        // A pool's `shutdown()` has a cleanup's card, which `CleanupCardTruthTest` checks.
         boolean generic =
             headline.startsWith("no test checks the effect of calling")
-                || headline.startsWith("no test needs ");
+                || headline.startsWith("no test needs ")
+                || headline.endsWith(" shuts its pool down");
         if (!generic) {
           found.add(mutant);
         }

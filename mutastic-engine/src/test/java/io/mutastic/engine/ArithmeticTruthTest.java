@@ -295,10 +295,16 @@ class ArithmeticTruthTest {
     assertThat(constants.changesIn("anArraySize"))
         .isNotEmpty()
         .allMatch(change -> change.endsWith("(arid: only sizes an array)"));
+    // A negative capacity throws, which any test that runs the line sees.
     assertThat(constants.changesIn("aCapacity"))
+        .contains("constant 16 to -1")
+        .filteredOn(change -> !change.equals("constant 16 to -1"))
         .isNotEmpty()
         .allMatch(change -> change.endsWith("(arid: only sizes a collection's first allocation)"));
+    // So does a negative sleep: Thread.sleep(-1) throws.
     assertThat(constants.changesIn("aWait"))
+        .contains("constant 25 to -1")
+        .filteredOn(change -> !change.equals("constant 25 to -1"))
         .isNotEmpty()
         .allMatch(change -> change.endsWith("(arid: only sets how long to wait)"));
     assertThat(constants.changesIn("aSplitsLimit"))

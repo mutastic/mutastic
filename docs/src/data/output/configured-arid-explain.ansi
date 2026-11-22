@@ -23,7 +23,7 @@
                 unnoticed when tests call the method but never look at what it returns.
                 [2mdocs: https://docs.mutastic.io/java/operators/returns/#return-value[0m
     [2m=[0m [1;34m[1marid    [0m[0m  mutastic:debug-representations: `toString()` and `hashCode()`, the lambdas they
-                define and the helpers only they call.
+                define and the helpers only they call; in Rust, a `Debug` or a `Hash` impl.
                 [2mdocs: https://docs.mutastic.io/reference/arid/#debug-representations[0m
                 [2mto run it, add to mutastic.yaml:[0m
                   rules:

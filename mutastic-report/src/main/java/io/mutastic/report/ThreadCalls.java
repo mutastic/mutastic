@@ -134,6 +134,11 @@ final class ThreadCalls {
         : Optional.empty();
   }
 
+  /// Whether the call's owner is one of the JDK's pools.
+  static boolean isPool(String owner) {
+    return POOLS.contains(owner);
+  }
+
   private static boolean starts(String owner, String name) {
     if (owner.equals("java/lang/Thread")) {
       return name.equals("start") || name.equals("startVirtualThread");

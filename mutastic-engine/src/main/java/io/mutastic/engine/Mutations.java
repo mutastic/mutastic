@@ -191,8 +191,7 @@ final class Mutations {
         model,
         method,
         code.elementList(),
-        filtered(model, method),
-        kept(model, method),
+        new Judged(filtered(model, method), kept(model, method), judges),
         here,
         new Wrappers(module),
         supertypes,
@@ -365,6 +364,10 @@ final class Mutations {
         .findFirst();
   }
 
+  /// What's decided for a whole method before its code is walked: the filters' reason, if any, what
+  /// the project keeps of arid skips, and the filters, for what each says of one mutant.
+  private record Judged(Optional<String> filtered, KeptArid kept, List<Filter> judges) {}
+
   /// Walks one method's code in order, counting its sites and finding the mutants at each. A skip
   /// the code itself shows (generated, equivalent) comes before a filter's.
   private static final class MethodScan {
@@ -381,6 +384,10 @@ final class Mutations {
     private final Stores stores;
     private final Optional<String> filtered;
     private final KeptArid kept;
+
+    /// The filters, for what each says of one mutant.
+    private final List<Filter> judges;
+
     private final List<Operator> operators;
     private final Wrappers wrappers;
     private final Supertypes supertypes;
@@ -406,8 +413,7 @@ final class Mutations {
         ClassModel model,
         MethodModel method,
         List<CodeElement> code,
-        Optional<String> filtered,
-        KeptArid kept,
+        Judged judged,
         List<Operator> operators,
         Wrappers wrappers,
         Supertypes supertypes,
@@ -419,8 +425,9 @@ final class Mutations {
       this.supertypes = supertypes;
       this.method = method;
       this.code = code;
-      this.filtered = filtered;
-      this.kept = kept;
+      this.filtered = judged.filtered();
+      this.kept = judged.kept();
+      this.judges = judged.judges();
       this.operators = operators;
       this.resourceCloses = TryWithResources.closes(model, code);
       this.cleanups = LombokCode.cleanups(code);
@@ -743,19 +750,43 @@ final class Mutations {
     private Mutant mutant(Found found, Instruction instruction, int at, List<String> workedOn) {
       var operator = found.operator();
       var skipped = skipped(found, instruction, at, workedOn);
-      return new Mutant(
-          model.thisClass().asInternalName(),
-          method.methodName().stringValue(),
-          method.methodType().stringValue(),
-          found.site(),
-          found.line() >= 0 ? found.line() : line,
-          operator,
-          // A handler's first instruction isn't what changes, and differs between finally's copies.
-          operator == BuiltIn.DROP_CATCH_TYPE ? "catch" : describe(instruction),
-          found.label(),
-          skipped,
-          List.of(),
-          workedOn);
+      var mutant =
+          new Mutant(
+              model.thisClass().asInternalName(),
+              method.methodName().stringValue(),
+              method.methodType().stringValue(),
+              found.site(),
+              found.line() >= 0 ? found.line() : line,
+              operator,
+              // A handler's first instruction isn't what changes, and differs between finally's
+              // copies.
+              operator == BuiltIn.DROP_CATCH_TYPE ? "catch" : describe(instruction),
+              found.label(),
+              skipped,
+              List.of(),
+              workedOn);
+      return skipped.isPresent() ? mutant : judged(mutant, instruction, at);
+    }
+
+    /// The mutant, skipped when a filter says so of it alone ([Filter#skipMutant]) and the project
+    /// doesn't keep it: the first filter with a reason the project doesn't keep decides.
+    private Mutant judged(Mutant mutant, Instruction instruction, int at) {
+      var site = new Mutator.Site(model, method, code, at, instruction);
+      for (Filter filter : judges) {
+        var reason = filter.skipMutant(site, mutant).map(skip -> reasonOf(filter, skip, mutant));
+        if (reason.isPresent() && !kept.keeps(reason.get())) {
+          return mutant.skippedFor(reason.get());
+        }
+      }
+      return mutant;
+    }
+
+    /// `user: only feeds a log line`: a skip says why, or the run stops.
+    private static String reasonOf(Filter filter, Skip skip, Mutant mutant) {
+      if (skip.reason().isBlank()) {
+        throw new Engine.SkipWithoutReason(filter.id(), mutant.id());
+      }
+      return skip.toString();
     }
 
     /// Why a mutant shouldn't run, if it shouldn't: code the compiler or Lombok wrote, then what
@@ -788,10 +819,11 @@ final class Mutations {
           .findFirst();
     }
 
-    /// What the code right around the site shows: a capacity, a wait, a thread's settings.
+    /// What the code around the site shows: a capacity, a wait, a thread's settings, a log line.
     private Optional<String> aroundTheSite(Found found, int at) {
-      return SiteSkips.reason(found.operator(), code, at)
-          .or(() -> threads.reason(found.operator(), found.label(), at));
+      return SiteSkips.reason(found.operator(), found.label(), code, at)
+          .or(() -> threads.reason(found.operator(), found.label(), at))
+          .or(() -> LoggedValues.reason(found.operator(), code, at, stores));
     }
 
     /// The filters' reason, but for a `@NonNull` check in a member Lombok wrote: the person asked

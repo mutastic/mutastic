@@ -148,9 +148,12 @@ jobs:
       - name: what a test that timed out was waiting on
         if: always() && needs.changes.outputs.code == 'true'
         run: bash .github/timeout-dumps.sh
-      # Without what this build published, which each run publishes again.
+      # Without what this build published, which each run publishes again, or Maven's records of
+      # what it couldn't fetch.
       - if: github.ref == 'refs/heads/main' && steps.maven.outputs.cache-hit != 'true' && needs.changes.outputs.code == 'true'
-        run: rm -rf ~/.m2/repository/io/mutastic build/samples-maven-local/io/mutastic
+        run: |
+          rm -rf ~/.m2/repository/io/mutastic build/samples-maven-local/io/mutastic
+          find ~/.m2/repository build/samples-maven-local \( -name '*.lastUpdated' -o -name 'resolver-status.properties' \) -delete || true
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: github.ref == 'refs/heads/main' && steps.maven.outputs.cache-hit != 'true' && needs.changes.outputs.code == 'true'
         with:
@@ -293,7 +296,9 @@ jobs:
         run: bash .github/timeout-dumps.sh
       - if: github.ref == 'refs/heads/main' && matrix.share == 1 && steps.maven.outputs.cache-hit != 'true'
         shell: bash
-        run: rm -rf ~/.m2/repository/io/mutastic build/samples-maven-local/io/mutastic
+        run: |
+          rm -rf ~/.m2/repository/io/mutastic build/samples-maven-local/io/mutastic
+          find ~/.m2/repository build/samples-maven-local \( -name '*.lastUpdated' -o -name 'resolver-status.properties' \) -delete || true
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: github.ref == 'refs/heads/main' && matrix.share == 1 && steps.maven.outputs.cache-hit != 'true'
         with:

@@ -605,16 +605,23 @@ public final class HumanText {
                   AgentText.shortName(result.caughtBy().orElse("a test")),
                   result
                       .failureOrigin()
-                      .map(
-                          origin ->
-                              origin.equals("assertion")
-                                  ? ", by an assertion"
-                                  : ", by a crash in the " + origin)
+                      .map(origin -> by(origin, result.failure().orElse("")))
                       .orElse(""));
       case TIMED_OUT -> "its tests stopped finishing in time, which counts as caught";
       case NOT_COVERED -> "no test reaches this line";
       case SKIPPED -> Untrusted.value(result.mutant().skipped().orElse(""));
       case MISSED -> "missed";
+    };
+  }
+
+  /// `, by an assertion`, `, by a crash in the code`, or `, by the JVM exiting with status 2`: how
+  /// the catcher failed, from where the failure came from and what it was.
+  private static String by(String origin, String failure) {
+    return switch (origin) {
+      case "assertion" -> ", by an assertion";
+      case "exit" ->
+          ", by the JVM exiting with status " + Untrusted.value(failure.replace("exit: ", ""));
+      default -> ", by a crash in the " + origin;
     };
   }
 
@@ -881,11 +888,17 @@ public final class HumanText {
                 out.append("     %s %s\n".formatted(style.dim("try:"), style.green(assertion))));
   }
 
-  /// The first [#CARDS] places no test reaches, and how many more there are.
-  private void appendNotCoveredLines(StringBuilder out, Map<String, Long> byLine) {
+  /// The first [#CARDS] places no test reaches, and how many more there are; under a place in a
+  /// `main`, what to do about it.
+  private void appendNotCoveredLines(StringBuilder out, Map<String, List<Mutant>> byLine) {
     byLine.entrySet().stream()
         .limit(CARDS)
-        .forEach(entry -> out.append(notCoveredLine(entry.getKey(), entry.getValue())));
+        .forEach(
+            entry -> {
+              out.append(notCoveredLine(entry.getKey(), entry.getValue().size()));
+              OnlyFromMain.advice(entry.getValue(), sources)
+                  .ifPresent(advice -> out.append("     %s\n".formatted(code(advice))));
+            });
     if (byLine.size() > CARDS) {
       out.append(
           style.dim(
@@ -902,12 +915,12 @@ public final class HumanText {
             style.dim("(%d mutant%s)".formatted(count, count == 1 ? "" : "s")));
   }
 
-  /// `src/…/Pricing.java:17 discount()` to how many mutants no test reaches there, in report order:
-  /// one entry per method, at its first such line, or with `--each-mutant` one per line.
-  private Map<String, Long> notCoveredByLine(Report report) {
+  /// `src/…/Pricing.java:17 discount()` to the mutants no test reaches there, in report order: one
+  /// entry per method, at its first such line, or with `--each-mutant` one per line.
+  private Map<String, List<Mutant>> notCoveredByLine(Report report) {
     var uncovered =
         report.results().stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
-    return NotCovered.counted(
+    return NotCovered.grouped(
         uncovered, sources, eachMutant, mutant -> plain(Advice.method(mutant)));
   }
 
