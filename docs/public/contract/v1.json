@@ -1541,22 +1541,6 @@
       }
     },
     {
-      "id": "mutastic:first-values",
-      "editions": [
-        "java"
-      ],
-      "scope": "site",
-      "description": "A variable's first value of 0 or 1, where a counter or a total starts.",
-      "reasons": {
-        "java": [
-          "arid: a variable's first value of 0 or 1"
-        ]
-      },
-      "examples": {
-        "java": "int count = 0;"
-      }
-    },
-    {
       "id": "mutastic:split-limits",
       "editions": [
         "java"
