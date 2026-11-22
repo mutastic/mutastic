@@ -2406,19 +2406,6 @@
       "reason": "The Gradle plugin reads the run's live events from this file to draw its own progress line. `cargo mutastic` runs the binary itself, which draws its own."
     },
     {
-      "id": "G27",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "reports",
-      "summary": "No GitHub Actions annotations or job summary (`MUTASTIC_GITHUB=off`)",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "env:MUTASTIC_GITHUB"
-      ]
-    },
-    {
       "id": "G38",
       "kind": "pending",
       "editions": [
