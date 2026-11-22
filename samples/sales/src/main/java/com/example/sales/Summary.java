@@ -14,12 +14,12 @@ public final class Summary {
   private Summary() {}
 
   /** What the report command prints. */
-  public static void print(PrintStream out, Supplier<List<Long>> sales)
+  public static void print(PrintStream out, Supplier<List<Long>> sales, Metrics metrics)
       throws InterruptedException {
-    out.println(of(sales));
+    out.println(of(sales, metrics));
   }
 
-  public static String of(Supplier<List<Long>> sales) throws InterruptedException {
+  public static String of(Supplier<List<Long>> sales, Metrics metrics) throws InterruptedException {
     long start = System.nanoTime();
     var fetched = new AtomicReference<List<Long>>(List.of());
     var worker = new Thread(() -> fetched.set(sales.get()));
@@ -33,7 +33,9 @@ public final class Summary {
       total += amount;
     }
     text.append("total ").append(total);
-    log.info("summed {} amounts in {} ms", amounts.size(), (System.nanoTime() - start) / 1_000_000);
+    long took = (System.nanoTime() - start) / 1_000_000;
+    log.info("summed {} amounts in {} ms", amounts.size(), took);
+    metrics.record("summary.ms", took);
     return text.toString();
   }
 }

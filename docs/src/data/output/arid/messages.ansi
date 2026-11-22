@@ -11,7 +11,8 @@
 
     [2mreproduce [0m mutastic run --only=m1c99562f samples/arid
 
-    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:messages: The text of an exception's message, or of a failed check's.
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:messages: The text of an exception's or an error's message, or of a failed
+                check's.
                 [2mdocs: https://docs.mutastic.io/reference/arid/#messages[0m
                 [2mto run it, add to mutastic.yaml:[0m
                   rules:

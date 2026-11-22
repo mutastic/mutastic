@@ -11,7 +11,8 @@
 
     [2mreproduce [0m mutastic run --only=m06b94eb4 samples/arid
 
-    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:capacity: The size a collection or a buffer starts with.
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:capacity: The room a collection or a buffer starts with or makes, and how
+                full a hash table gets before it grows, while it stays above zero.
                 [2mdocs: https://docs.mutastic.io/reference/arid/#capacity[0m
                 [2mto run it, add to mutastic.yaml:[0m
                   rules:

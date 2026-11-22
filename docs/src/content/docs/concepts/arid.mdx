@@ -74,7 +74,9 @@ with a way to check it.
   edition, a rule matches the syntax: an output macro such as `info!` used as a statement.
 - **Only where the value goes nowhere else.** Text that goes straight into a log call is arid; the
   same text returned, stored or compared is counted. Arithmetic that only sizes a new
-  `ArrayList` is arid; the same arithmetic used as a loop's bound is counted.
+  `ArrayList` is arid; the same arithmetic used as a loop's bound is counted. A value worked out
+  only for a log line, `(System.nanoTime() - start) / 1_000_000`, is arid, through a local too,
+  but only when every use of it on every path is the log's.
 - **Skipped, never hidden.** An arid mutant is still made, keeps its id, and says why it was
   skipped, kind first: `arid: only waits`. The summary counts it (`4 skipped (4 arid)`), it's in the
   report and the events, and `mutastic explain` shows it. It just isn't in the score.
@@ -91,16 +93,16 @@ Some code looks like plumbing and decides what the program does. mutastic counts
   never ran, or the code read its result before it finished, that's a gap worth a test.
 - **Stopping work:** `interrupt()`, `shutdown()`, a lock's `unlock()`.
 - **Time limits that decide what happens:** a timeout given to `Future.get` or
-  `CountDownLatch.await`, how many times to retry. Only how long a sleep or a `join` waits, and how long a pool's idle
-  threads live, are arid.
+  `CountDownLatch.await` or a timed `join()`, a time worked out for a later retry, how many times
+  to retry. Only how long a sleep waits, and how long a pool's idle threads live, are arid.
 - **How work is run:** whether a thread is a daemon, a pool's core or fixed size, a queue's
   capacity. A thread's name, its priority and its stack size are arid: they change how threads look
   or what they cost, not whether, when or how often work runs.
 - **What the code returns, stores or compares,** however it got there.
-- **A value only a log line uses.** In this release, `(System.nanoTime() - start) / 1_000_000`
-  passed to `log.info` keeps its mutants; only removing the call, and its format string, are arid.
-  [Arid rules in practice](/guides/arid-in-practice/#a-value-only-logged) shows what to do with
-  them.
+- **A value a log line uses, and something else too.** An elapsed time that's logged and also
+  recorded as a metric, compared with a limit or returned keeps its mutants: one of its uses is
+  behaviour. [Arid rules in practice](/guides/arid-in-practice/#a-value-logged-and-recorded) shows
+  what to do when nobody tests that other use.
 
 ## What it can cost
 
@@ -137,9 +139,15 @@ rule is doing its job. The audit is the command line's; the Gradle and Maven plu
 </div>
 <div slot="rust">
 
-The Rust edition has no audit yet
-([mutastic-rs#56](https://github.com/mutastic/mutastic-rs/issues/56)). To see what its skips hide,
-bring them back for a run with a `mutate:` rule, as below, and read what the tests miss.
+Set `MUTASTIC_ARID=audit` for one run, and mutastic runs every mutant its arid rules skip, then
+says what became of them. They still stay out of the score:
+
+```bash
+MUTASTIC_ARID=audit mutastic run fixtures/arid
+```
+
+The summary gains the same `Arid audit` row. With no failure origin in this edition yet, a catch
+counts as by an assertion when the failing test's panic is a failed `assert!` or `assert_eq!`.
 
 </div>
 </EditionTabs>
@@ -175,7 +183,7 @@ rule takes.
 </div>
 <div slot="rust">
 
-A `mutate:` rule in `mutastic.yaml` takes back every arid skip in the code it covers. The Rust
+A `mutate:` rule in `mutastic.yaml` brings back every arid skip in the code it covers. The Rust
 edition has no annotations, so the rule is the only way:
 
 ```yaml
@@ -184,11 +192,10 @@ rules:
     reason: the summary is printed for people to read, and the tests check it
 ```
 
-The Rust edition's list of rules is shorter, and that's not because it mutates more of this code:
-it never changes what's inside a macro's arguments. So the biggest kinds of arid code in Java, log
-lines, `println!` and `format!` text, the messages of `assert!`, `panic!` and `expect`, and
-`debug_assert!`, never produce a mutant in Rust, and need no rule. The rules it does have, as they
-ship, are in [Arid rules](/reference/arid/), with what each edition does for every rule.
+The Rust edition never changes what's inside a macro's arguments. So the biggest kinds of arid code
+in Java, log lines, `println!` and `format!` text, the messages of `assert!`, `panic!` and `expect`,
+and `debug_assert!`, never produce a mutant in Rust, and need no rule. The rules it does have, as
+they ship, are in [Arid rules](/reference/arid/), with what each edition does for every rule.
 
 </div>
 </EditionTabs>

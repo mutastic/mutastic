@@ -13,10 +13,11 @@ import java.util.Optional;
 ///   runs, kept in the docs and read by agents, so what it lists mustn't. The first is where a
 ///   suggested test goes.
 /// @param caughtBy the test that failed, if one did
-/// @param failure what it failed with: the exception's class
+/// @param failure what it failed with: the exception's class, or `exit: 2` when the code it ran
+///   ended the JVM with that status
 /// @param failureOrigin where that came from: `assertion` (a check failed), `test` (the test's own
-///   code threw), `code` (the code under test threw) or `unknown` (no frame of the stack trace is
-///   in the tests or the code: a framework or the JDK threw)
+///   code threw), `code` (the code under test threw), `unknown` (no frame of the stack trace is in
+///   the tests or the code: a framework or the JDK threw) or `exit` (the code it ran ended the JVM)
 /// @param testsRun how many covering tests ran before the result was known
 /// @param unconfirmed a test whose catch didn't repeat when run again, if catches were confirmed
 /// @param inputs the whole numbers the covering tests passed to the mutant's method, by parameter

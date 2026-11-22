@@ -10,7 +10,8 @@
 
     [2mreproduce [0m mutastic run --only=m4474cbf8 samples/arid
 
-    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:waits: A sleep removed: `Thread.sleep` or `TimeUnit.sleep`.
+    [2m=[0m [1;34m[1marid    [0m[0m  mutastic:waits: A sleep removed: `Thread.sleep` or `TimeUnit.sleep` in Java,
+                `thread::sleep` or an awaited `sleep` in Rust.
                 [2mdocs: https://docs.mutastic.io/reference/arid/#waits[0m
                 [2mto run it, add to mutastic.yaml:[0m
                   rules:

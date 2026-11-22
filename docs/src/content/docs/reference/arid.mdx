@@ -176,21 +176,24 @@ public String toString() {
 <Code code={debugRepresentations} lang="ansi" />
 
 <EditionOnly edition="rust">
-**In the Rust edition:** a `fmt`, `hash` or `new` gets no whole-body mutant, and a formatter's
-`Ok(())` isn't changed; nothing counts those, and no rule brings them back. Their other mutants
-count.
+**In the Rust edition:** every mutant of a `Debug` impl's `fmt` and of a `Hash` impl's `hash`,
+its whole body replaced included. A `Display` impl counts: what it writes is often what people
+read.
 </EditionOnly>
 
 **Changed in:** 0.1.0, the first release. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back, by
-its id.
+its id; in the Rust edition, a `Debug` or `Hash` impl's mutants are made and skipped, and a
+`Display` impl's whole body counts.
 
 ## Output
 
 <AridRule id="mutastic:output" />
 
 A removed call to a logger (SLF4J, Log4j 2, `java.util.logging`, `System.Logger`, Commons
-Logging) or to a `PrintStream`, `System.out` included; every other mutant of such a call; and a
-string that only goes into one, its format string included.
+Logging) or to a `PrintStream`, `System.out` included; every other mutant of such a call; a
+string that only goes into one, its format string included; and a value worked out only for one,
+`arid: only feeds a log line`: `log.info("took {} ms", now - start)`, or the same through a local
+that nothing else reads.
 
 {/* from: samples/arid/src/main/java/com/example/arid/Totals.java */}
 ```java
@@ -205,8 +208,10 @@ reads log text breaks the next time someone rewords it, and says nothing about t
 <Aside type="caution" title="What it can hide">
 Output that is the product: a command-line tool's output, an audit log. Every `PrintStream` counts
 as output, not only `System.out`, so a stream the code is given, that a test reads, is skipped too:
-here the removed `println` leaves nothing printed, and `TotalsTest` catches it. A value worked out
-only to be logged isn't skipped: see [A value only logged](/guides/arid-in-practice/#a-value-only-logged).
+here the removed `println` leaves nothing printed, and `TotalsTest` catches it. A value is skipped
+only when every use of it, on every path, is a log call's or a print's argument; one that's also
+returned, compared, stored or passed to another method, a metric's say, is counted: see [A value
+logged and recorded](/guides/arid-in-practice/#a-value-logged-and-recorded).
 </Aside>
 
 **When to bring it back:** the output is what the code is for, and your tests read it.
@@ -241,12 +246,16 @@ public final class Totals {
 **In the Rust edition:** a removed output macro used as a statement (`println!`, `eprintln!`,
 `dbg!`, and the `log` and `tracing` macros such as `info!`) is made and skipped with the same
 reason, and a `mutate:` rule takes it back. A `write!` goes to a writer the code chose, which a test
-may read, so it counts. Nothing inside a macro's arguments gets a mutant.
+may read, so it counts. Nothing inside a macro's arguments gets a mutant, and a value a `let`
+works out only for output macros to read, `let took = a - b; info!("{took}");`, is skipped as
+`arid: only feeds a log line`, by syntax: every read of the name in the function is an output
+macro's argument, and no other binding has that name.
 </EditionOnly>
 
 **Changed in:** 0.1.0, the first release. 1.0.0: a string that only goes into output. 1.3.0: its id;
 `mutate:` and `@DoMutate` bring it back, by its id; a format string followed by a value worked out
-in the call (`log.info("took {} ms", now - start)`) is skipped as well.
+in the call (`log.info("took {} ms", now - start)`) is skipped as well; follows a value worked out
+for a log call, in both editions.
 
 ## Messages
 
@@ -302,13 +311,14 @@ public static long parse(String text) {
 <Code code={messages} lang="ansi" />
 
 <EditionOnly edition="rust">
-**In the Rust edition:** text given straight to `Err`, `expect`, `context`, `with_context` or
-`wrap_err`, and anything inside a macro such as `format!` or `panic!`, gets no mutant; nothing counts
-it, and no rule brings it back.
+**In the Rust edition:** text given to `Err`, `context`, `with_context` or `wrap_err` (`arid:
+only an error's message`), or to `expect` (`arid: only a failed check's message`), straight or
+through `.into()` or `String::from`. Anything inside a macro such as `format!` or `panic!` gets no
+mutant; nothing counts it, and no rule brings it back.
 </EditionOnly>
 
 **Changed in:** 1.0.0, with `mutastic/string-constant`. 1.3.0: its id; `mutate:` and `@DoMutate`
-bring it back, by its id.
+bring it back, by its id. The Rust edition's rule.
 
 ## Failed asserts
 
@@ -374,9 +384,11 @@ it back, by its id.
 
 <AridRule id="mutastic:capacity" />
 
-Arithmetic whose result goes straight into the starting size of one of the JDK's collections or
+A number, or arithmetic, that goes only into the starting size of one of the JDK's collections or
 buffers: the `int` constructor of `ArrayList`, `HashMap`, `HashSet`, `StringBuilder` and the like,
-or their `ensureCapacity`.
+their `ensureCapacity`, `HashMap.newHashMap` and its kin, or Guava's sized factories such as
+`Lists.newArrayListWithExpectedSize`. A hash table's load factor, `new HashMap<>(n, 0.75f)`, is
+skipped too while it stays above zero, as `arid: only sets when a hash table grows`.
 
 {/* from: samples/arid/src/main/java/com/example/arid/Pairs.java */}
 ```java
@@ -388,9 +400,10 @@ is speed and memory, not what it holds.
 
 <Aside type="caution" title="What it can hide">
 Nothing a test of what the code does can see. A size that comes out negative throws, and a test
-catches that by the crash, which says nothing about your tests. What's left is performance: a size
-far too small, or far too big. Only the arithmetic is skipped: with `--operators=stronger`, the
-`2` in `values.size() * 2` gets mutants of its own, which count.
+catches that by the crash, which says nothing about your tests; a number changed to a negative one,
+or a load factor to zero or below, always throws, so those mutants count. What's left is
+performance: a size far too small, or far too big. A size kept in a variable that's also used for
+something else counts.
 </Aside>
 
 **When to bring it back:** rarely: when a benchmark, not a unit test, checks the allocation.
@@ -422,56 +435,61 @@ public static List<Integer> doubled(List<Integer> values) {
 <Code code={capacity} lang="ansi" />
 
 <EditionOnly edition="rust">
-**In the Rust edition:** a number written straight into `with_capacity`, `reserve` or
-`reserve_exact` gets no mutant; nothing counts it, and no rule brings it back. Arithmetic there,
-`with_capacity(n * 2)`, counts.
+**In the Rust edition:** a number, or arithmetic, in `with_capacity`, the first argument of
+`with_capacity_and_hasher`, `reserve` or `reserve_exact`.
 </EditionOnly>
 
-**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back, by its id.
+**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back, by its id; a number
+in the arithmetic, the JDK's and Guava's sized factories, and a load factor are skipped, and a
+number made negative counts; the Rust edition's rule.
 
 ## Wait times
 
 <AridRule id="mutastic:wait-times" />
 
-Arithmetic, or a number, that goes straight into how long `Thread.sleep`, `TimeUnit.sleep` or a
-`join` with a time limit waits.
+A number, or arithmetic, that goes only into how long `Thread.sleep` or `TimeUnit.sleep` waits,
+straight in or through `Duration.ofSeconds` and the like, or `TimeUnit.toMillis`. A time limit
+isn't one: a timeout given to `Future.get`, a `join` with a time limit, or a time stored for a later
+retry decides what the code does next, and counts. So does a number made negative for
+`Thread.sleep(long)`, which throws for it.
 
-{/* from: samples/arid/src/main/java/com/example/arid/Worker.java */}
+{/* from: samples/arid/src/main/java/com/example/arid/Pacer.java */}
 ```java
-    worker.start();
-    worker.join(seconds * 1000L);
-    return result.get();
+    for (var message : messages) {
+      reader.accept(message);
+      Thread.sleep(pauseTenths * 100L);
+    }
 ```
 
-**Why:** how long code waits changes when it gets somewhere, not where it goes, and a test that
-depends on the length of a wait is slow and flaky.
+**Why:** how long a sleep waits changes when the code gets somewhere, not where it goes, and a test
+that depends on the length of a wait is slow and flaky.
 
 <Aside type="caution" title="What it can hide">
-A time limit too short for the work. A `join` that gives up early lets the code read a result the
-worker hasn't finished: here `seconds * 1000L` becoming `seconds` waits 5 milliseconds for work that
-takes 200, `result` returns `0`, and `WorkerTest` catches it.
+A pause that protects something: a reader that needs time between messages, a rate limit. Here
+`pauseTenths * 100L` becoming `pauseTenths` pauses a millisecond instead of a tenth of a second,
+and only `PacerTest`, which measures the pauses, catches it.
 </Aside>
 
-**When to bring it back:** the time limit decides whether the code waits for its work, and your
-tests run work slow enough for it to matter.
+**When to bring it back:** the length of the pause is part of what the code promises, and your
+tests measure it, or use a clock they control.
 
 <Tabs syncKey="arid-setting">
 <TabItem label="mutastic.yaml">
 
 ```yaml
 rules:
-  - mutate: com.example.arid.Worker#result
+  - mutate: com.example.arid.Pacer#send
     arid: [mutastic:wait-times]
-    reason: result must wait long enough for its worker to finish
+    reason: the reader needs a tenth of a second between messages
 ```
 
 </TabItem>
 <TabItem label="@DoMutate">
 
 ```java
-@DoMutate(value = "result must wait long enough for its worker to finish",
+@DoMutate(value = "the reader needs a tenth of a second between messages",
     arid = "mutastic:wait-times")
-public static long result(LongSupplier work, int seconds) throws InterruptedException {
+public static int send(List<String> messages, Consumer<String> reader, int pauseTenths)
 ```
 
 </TabItem>
@@ -482,12 +500,14 @@ public static long result(LongSupplier work, int seconds) throws InterruptedExce
 <Code code={waitTimes} lang="ansi" />
 
 <EditionOnly edition="rust">
-**In the Rust edition:** a number written straight into `sleep`, or into `Duration::from_secs`,
-`from_millis`, `from_micros` or `from_nanos`, gets no mutant; nothing counts it, and no rule brings
-it back. Arithmetic there counts.
+**In the Rust edition:** a number, or arithmetic, that goes into a `sleep`, straight or through
+`Duration::from_secs`, `from_millis`, `from_micros`, `from_nanos` or `Duration::new`. A `Duration`
+given to anything else, a timeout, counts.
 </EditionOnly>
 
-**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back, by its id.
+**Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back, by its id; only a
+sleep's time, followed through arithmetic and conversions, and a `join`'s time limit counts; the
+Rust edition's rule.
 
 ## Waits
 
@@ -543,12 +563,12 @@ public static int poll(BooleanSupplier ready, long pauseMillis) throws Interrupt
 <Code code={waits} lang="ansi" />
 
 <EditionOnly edition="rust">
-**In the Rust edition:** a removed `thread::sleep(d);` counts. A removed `handle.join().unwrap();`
-counts too.
+**In the Rust edition:** a removed `thread::sleep(d);`, or an awaited `sleep(d).await;` such as
+tokio's. A removed `handle.join().unwrap();` counts.
 </EditionOnly>
 
 **Changed in:** 0.4.0. 1.3.0: its id; `mutate:` and `@DoMutate` bring it back, by its id; a removed
-`join` with a time limit counts, as one with none always did.
+`join` with a time limit counts, as one with none always did; the Rust edition's rule.
 
 ## Null checks
 
