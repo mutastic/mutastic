@@ -25,14 +25,26 @@ class NearestTest {
   /// so a typo gets the same answer from either.
   @Test
   void everyTypoInTheSharedTableGetsItsAnswer() throws IOException {
+    boolean ids = false;
     for (String line : table()) {
+      if (line.startsWith("#")) {
+        ids = line.startsWith("# Ids");
+        continue;
+      }
       var columns = line.split("\t", -1);
       var expected = columns[2].equals("-") ? Optional.<String>empty() : Optional.of(columns[2]);
+      var names = List.of(columns[1].split(",", -1));
 
-      assertThat(Nearest.name(columns[0], List.of(columns[1].split(",", -1))))
+      assertThat(ids ? Nearest.id(columns[0], names) : Nearest.name(columns[0], names))
           .as(line)
           .isEqualTo(expected);
     }
+  }
+
+  /// A character is a code point, as the Rust edition counts one: an emoji is one edit.
+  @Test
+  void aCharacterIsACodePoint() {
+    assertThat(Nearest.distance("\uD83D\uDE00un", "run")).isEqualTo(1);
   }
 
   @Test
@@ -57,7 +69,7 @@ class NearestTest {
         Objects.requireNonNull(NearestTest.class.getResourceAsStream("typos.tsv"))) {
       return new String(in.readAllBytes(), StandardCharsets.UTF_8)
           .lines()
-          .filter(line -> !line.isBlank() && !line.startsWith("#"))
+          .filter(line -> !line.isBlank())
           .toList();
     }
   }

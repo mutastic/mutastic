@@ -113,9 +113,11 @@ the entry out. So the list only shrinks when the editions really meet. A differe
    them. If one edition will have it first, add a `pending` difference for the other, with items
    `option:--name` and `takes:*:--name` and an issue.
 2. Add it here, run `./gradlew :mutastic-cli:exportDocsModel`, and `ContractTest` passes.
-3. mutastic-rs pins the contract by commit (`contract.json`). When the Rust side is written, its
-   contract check fails with "now matches". Take `rust` out of the pending entry in a mutastic PR,
-   then move the pin in the Rust PR to that merge commit. Its weekly drift job, against mutastic
+3. mutastic-rs pins the contract by commit, one file to a pull request in `contract/pins`, and
+   reads it at the newest. When the Rust side is written, its contract check fails with "now
+   matches". Take `rust` out of the pending entry in a mutastic PR, merge it, then pin that merge
+   commit in the Rust PR (`scripts/pin-contract.sh <slug>` there). A pin to a mutastic PR's head,
+   not yet merged, holds only until a later pin lands. Its weekly drift job, against mutastic
    main, says when the two are out of step.
 
 An option only one edition will ever have, for a reason of its engine, is an `engine` difference

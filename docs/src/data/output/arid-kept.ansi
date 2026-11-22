@@ -1,9 +1,11 @@
 
+ [1;34mnote:[0m 3 ignores in com.example.sales.Summary#of: one rule says it once, [1mskip: com.example.sales.Summary#of[0m in mutastic.yaml
+
  [2m  Classes[0m  [32m[1m1 clean[0m[0m[2m (1)[0m
- [2m  Mutants[0m  [32m✓ [1m11 caught[0m[0m[2m · [0m[2m4 skipped (2 arid, 2 ignored as telemetry)[0m[2m (15)[0m
+ [2m  Mutants[0m  [32m✓ [1m11 caught[0m[0m[2m · [0m[2m5 skipped (2 arid, 3 ignored as telemetry)[0m[2m (16)[0m
  [2mTest runs[0m  11[2m (11 without coverage selection)[0m
- [2m Start at[0m  19:39:23
- [2m Duration[0m  3.0s [2m(setup 0ms, build 444ms, coverage 317ms, mutants 1.1s, checking 1.1s)[0m
+ [2m Start at[0m  01:28:51
+ [2m Duration[0m  4.0s [2m(setup 0ms, build 788ms, coverage 553ms, mutants 1.2s, checking 1.4s)[0m
  [2m    Tests[0m  1 on JDK 17 · 1 worker
  [2m  Reports[0m  samples/sales/build/mutastic/mutation.json[2m · [0msamples/sales/build/mutastic/mutation.html
- [2m    Score[0m  [32m[1m100.0%[0m[0m  [42;30;1m PASS [0m [32mEvery mutant was caught.[0m  [32m▲ 16.7 vs last run[0m[2m (same code)[0m
+ [2m    Score[0m  [32m[1m100.0%[0m[0m  [42;30;1m PASS [0m [32mEvery mutant was caught.[0m  [32m▲ 23.1 vs last run[0m[2m (same code)[0m

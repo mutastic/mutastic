@@ -27,12 +27,14 @@ final class Options {
   /// The commands that run the module's mutants, every one or those on a change.
   private static final Set<Main.Subcommand> MODULE_RUNS = EnumSet.of(RUN, NEXT);
 
-  /// The commands that choose the module's operators: those that run its mutants, `mutants`, which
-  /// lists them, and the gate's open, which keeps them for its checks.
+  /// The commands that choose the module's operators: those that run its mutants, `baseline`, which
+  /// keeps the set it was taken under, `mutants`, which lists them, and the gate's open, which
+  /// keeps them for its checks.
   private static final Set<Main.Subcommand> OPERATORS_CHOSEN =
       EnumSet.of(
           RUN,
           NEXT,
+          Main.Subcommand.BASELINE,
           Main.Subcommand.MUTANTS,
           Main.Subcommand.GATE_OPEN,
           Main.Subcommand.GATE_CHECK);
@@ -125,7 +127,7 @@ final class Options {
               Group.RUNNING,
               "N",
               List.of(),
-              "How many workers run side by side; half the cores, from 1 to 4, unless set",
+              "How many mutants run side by side; half the cores, from 1 to 4, unless set",
               MUTANTS_RUN,
               "workers",
               true,

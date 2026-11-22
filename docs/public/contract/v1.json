@@ -1095,7 +1095,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "147b5e9cf7e682ab54d5fb3af9c6ef4aeb79a27e0c703873478d0ee06719f0a4"
+      "sha256": "24a625e8dd65dfc40e873391f4e60a6f46d6673c342038ef4f51726aba80833e"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1110,7 +1110,7 @@
     "reportAdditions": {
       "id": "mutastic.report/v1",
       "url": "https://docs.mutastic.io/schemas/report/v1.json",
-      "sha256": "e8b4c1c3bfa693cf4cc1627cc566dd002160398f2d6cec40900fa5cbb126c5a3"
+      "sha256": "fa833754331f81a4c7024e88ea5c0c6179fdacc474731f715a0ccad5f2fa8fc4"
     }
   },
   "events": {
@@ -1355,20 +1355,26 @@
     {
       "id": "mutastic:debug-representations",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "method",
-      "description": "`toString()` and `hashCode()`, the lambdas they define and the helpers only they call.",
+      "description": "`toString()` and `hashCode()`, the lambdas they define and the helpers only they call; in Rust, a `Debug` or a `Hash` impl.",
       "reasons": {
         "java": [
           "arid: `toString()` is a debug representation",
           "arid: `hashCode()` may return any value consistent with `equals()`",
           "arid: a lambda in `<method>()`",
           "arid: `<helper>()` only serves `<method>()`"
+        ],
+        "rust": [
+          "arid: `Debug::fmt` is a debug representation",
+          "arid: `Hash::hash` may give any value consistent with `Eq`"
         ]
       },
       "examples": {
-        "java": "public String toString() { return \"Order \" + id; }"
+        "java": "public String toString() { return \"Order \" + id; }",
+        "rust": "impl fmt::Debug for Order { fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { f.write_str(\"Order\") } }"
       }
     },
     {
@@ -1378,13 +1384,15 @@
         "rust"
       ],
       "scope": "site",
-      "description": "Code that only writes output: a log line, or text printed to the console.",
+      "description": "Code that only writes output: a log line, or text printed to the console, and a value worked out for nothing else.",
       "reasons": {
         "java": [
-          "arid: only writes output"
+          "arid: only writes output",
+          "arid: only feeds a log line"
         ],
         "rust": [
-          "arid: only writes output"
+          "arid: only writes output",
+          "arid: only feeds a log line"
         ]
       },
       "examples": {
@@ -1395,18 +1403,24 @@
     {
       "id": "mutastic:messages",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
-      "description": "The text of an exception's message, or of a failed check's.",
+      "description": "The text of an exception's or an error's message, or of a failed check's.",
       "reasons": {
         "java": [
           "arid: only an exception's message",
           "arid: only a failed check's message"
+        ],
+        "rust": [
+          "arid: only an error's message",
+          "arid: only a failed check's message"
         ]
       },
       "examples": {
-        "java": "throw new IllegalArgumentException(\"amount must be positive\");"
+        "java": "throw new IllegalArgumentException(\"amount must be positive\");",
+        "rust": "let order = order.expect(\"an order to ship\");"
       }
     },
     {
@@ -1428,49 +1442,65 @@
     {
       "id": "mutastic:capacity",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
-      "description": "The size a collection or a buffer starts with.",
+      "description": "The room a collection or a buffer starts with or makes, and how full a hash table gets before it grows, while it stays above zero.",
       "reasons": {
         "java": [
+          "arid: only sizes a collection's first allocation",
+          "arid: only sets when a hash table grows"
+        ],
+        "rust": [
           "arid: only sizes a collection's first allocation"
         ]
       },
       "examples": {
-        "java": "new ArrayList<>(orders.size() * 2)"
+        "java": "new ArrayList<>(orders.size() * 2)",
+        "rust": "let mut names = Vec::with_capacity(orders.len() * 2);"
       }
     },
     {
       "id": "mutastic:wait-times",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
-      "description": "How long a sleep, or a `join` with a time limit, waits.",
+      "description": "How long a sleep waits, where the time goes only into the sleep. A timeout's, a deadline's or a backoff's stays counted.",
       "reasons": {
         "java": [
+          "arid: only sets how long to wait"
+        ],
+        "rust": [
           "arid: only sets how long to wait"
         ]
       },
       "examples": {
-        "java": "Thread.sleep(seconds * 1000L);"
+        "java": "Thread.sleep(seconds * 1000L);",
+        "rust": "std::thread::sleep(Duration::from_millis(attempt * 100));"
       }
     },
     {
       "id": "mutastic:waits",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
-      "description": "A sleep removed: `Thread.sleep` or `TimeUnit.sleep`.",
+      "description": "A sleep removed: `Thread.sleep` or `TimeUnit.sleep` in Java, `thread::sleep` or an awaited `sleep` in Rust.",
       "reasons": {
         "java": [
+          "arid: only waits"
+        ],
+        "rust": [
           "arid: only waits"
         ]
       },
       "examples": {
-        "java": "Thread.sleep(100);"
+        "java": "Thread.sleep(100);",
+        "rust": "std::thread::sleep(pause);"
       }
     },
     {
@@ -2000,7 +2030,7 @@
         "rust"
       ],
       "surface": "events",
-      "summary": "`caughtWith`: an exception class, or `panic` or `crash: SIGABRT`",
+      "summary": "`caughtWith`: an exception class, or `panic` or `crash: SIGABRT`; `exit: 2` in both",
       "reason": "How a test fails."
     },
     {
@@ -2289,30 +2319,6 @@
       "reason": "Each language's own word."
     },
     {
-      "id": "D13",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "errors",
-      "summary": "Codes worked out from the message's words (Java's `usageCode`) rather than set where the error is raised",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "decision": 13
-    },
-    {
-      "id": "G3",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "command line",
-      "summary": "`baseline` doesn't take `--operators`",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "items": [
-        "takes:baseline:--operators"
-      ]
-    },
-    {
       "id": "G4",
       "kind": "pending",
       "editions": [
@@ -2379,16 +2385,6 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "G11",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "help",
-      "summary": "`gate --help` prints the general help",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "G12",
       "kind": "pending",
       "editions": [
@@ -2399,29 +2395,6 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "G13",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "explain's `= operator` line has no explanation",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G14",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "configuration",
-      "summary": "No `MUTASTIC_ARID=audit`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "env:MUTASTIC_ARID"
-      ]
-    },
-    {
       "id": "G22",
       "kind": "engine",
       "editions": [
@@ -2430,16 +2403,6 @@
       "surface": "events",
       "summary": "`MUTASTIC_EVENTS`: a file a run writes its live events to, every second, for the Gradle plugin",
       "reason": "The Gradle plugin reads the run's live events from this file to draw its own progress line. `cargo mutastic` runs the binary itself, which draws its own."
-    },
-    {
-      "id": "G26",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "reports",
-      "summary": "SARIF `fullDescription` and `help` explain only call-rule operators",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
       "id": "G27",
@@ -2465,47 +2428,6 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "G33",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "errors",
-      "summary": "A missing directory names only itself, not where it looked or a close directory",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "G34",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "errors",
-      "summary": "No command-first hint",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "G36",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "typos",
-      "summary": "No close id for `ignore --accept`/`--remove`, no close key in ignores.yaml, no close rule verb, no inline-list hint",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G37",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "typos",
-      "summary": "typos.tsv has no rows for gate actions, ids, modules, directories, rule verbs or ignore keys",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "G38",
       "kind": "pending",
       "editions": [
@@ -2526,75 +2448,17 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "G40",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "configuration",
-      "summary": "No published JSON schemas for mutastic.yaml or rules files",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G41",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "configuration",
-      "summary": "No `MUTASTIC_PILLS`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "env:MUTASTIC_PILLS"
-      ]
-    },
-    {
-      "id": "G42",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "configuration",
-      "summary": "commands.json leaves out variables the code reads",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "items": [
-        "env:MUTASTIC_PROGRESS",
-        "env:MUTASTIC_TERM_PROGRESS",
-        "env:MUTASTIC_HEARTBEAT",
-        "env:TERM",
-        "env:CI",
-        "env:CLAUDECODE"
-      ]
-    },
-    {
       "id": "G43",
-      "kind": "pending",
+      "kind": "engine",
       "editions": [
         "rust"
       ],
       "surface": "configuration",
-      "summary": "`MUTASTIC_INCREMENTAL` is read but not documented",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G45",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "gate",
-      "summary": "`ignore --propose` with `--accept`, `--remove` or `--prune` isn't refused",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G46",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "gate",
-      "summary": "After `ignore --prune` on a directory that isn't `.`, the undo names the wrong path",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
+      "summary": "`MUTASTIC_INCREMENTAL`: Cargo's incremental compilation for the mutants' build",
+      "reason": "Cargo's `CARGO_INCREMENTAL` for the mutants' build; Gradle and Maven keep their own build caches.",
+      "items": [
+        "env:MUTASTIC_INCREMENTAL"
+      ]
     },
     {
       "id": "R1",
@@ -2610,172 +2474,6 @@
       ]
     },
     {
-      "id": "R2",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "`--operators` is kind `value`, not `repeated`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "option:--operators:kind"
-      ]
-    },
-    {
-      "id": "R3",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "`run` lists `--shard` and `--from-shards` after `--report`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "order:run"
-      ]
-    },
-    {
-      "id": "H7",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "help",
-      "summary": "`--workers`: how many workers, where Rust's \"how many mutants\" is what it does",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "O1",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "The Mutants row puts the total before the skipped count",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "O2",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "Brief card: three lines of context, not the mutated line",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "O3",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "`next` names the package, not the directory as typed",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "O4",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "`--only` on one mutant reports 4 workers, not workers capped at the mutant count",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "O5",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "explain's lines aren't wrapped to the terminal",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "P3",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "reports",
-      "summary": "SARIF `driver.informationUri` is https://mutastic.io, not the docs",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "P4",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "reports",
-      "summary": "SARIF rule `shortDescription` isn't the operator explanation's first sentence",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "T1",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "typos",
-      "summary": "Counts length in UTF-16 units, not chars",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "C1",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "configuration",
-      "summary": "mutastic.yaml's unknown section lists every section rather than saying it isn't one",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "F1",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "files",
-      "summary": "ignores.yaml's line with no colon gives no example",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "F2",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "files",
-      "summary": "A missing field doesn't say the problem first",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "A1",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "gate",
-      "summary": "`recorded in .mutastic/ignores.yaml`, not a path from where you are",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "A2",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "gate",
-      "summary": "The undo appends the directory even when it's `.`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
       "id": "A3",
       "kind": "pending",
       "editions": [
@@ -2786,24 +2484,14 @@
       "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
-      "id": "A5",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "gate",
-      "summary": "`doesn't run anyway` only for generated and equivalent skips",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "K3",
-      "kind": "pending",
+      "kind": "engine",
       "editions": [
         "rust"
       ],
       "surface": "human output",
-      "summary": "The summary's `Left out` row is code not mutated, early in the summary; Java's is `--exclude-tests`, after Reports",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
+      "summary": "Rust's `Left out` row, after Reports, names the code it doesn't mutate: unsafe, and what a `cfg` leaves out of the build",
+      "reason": "Rust doesn't mutate unsafe code unless `--unsafe` says to, nor code a `cfg` leaves out of the build: the row names both. Java has no such code, and its row is the test classes `--exclude-tests` leaves out (G7)."
     }
   ]
 }

@@ -61,7 +61,7 @@ abstract class MutasticMojo extends AbstractMojo {
   @Parameter(property = "mutastic.testsFrom")
   private @Nullable List<String> testsFrom;
 
-  /// How many workers run side by side; unset, it depends on the machine.
+  /// How many mutants run side by side; unset, it depends on the machine.
   @Parameter(property = "mutastic.workers")
   private @Nullable Integer workers;
 
