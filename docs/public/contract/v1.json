@@ -2308,7 +2308,7 @@
       "reason": "A JVM a test starts loads the classes as built, so neither the worker's mutants nor its coverage reach it. A Rust binary a test runs has every mutant built in and takes the one to run, and where to record coverage, from the environment the test process passes on."
     },
     {
-      "id": "N50",
+      "id": "N51",
       "kind": "engine",
       "editions": [
         "java",
