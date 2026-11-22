@@ -184,7 +184,7 @@ final class Ignores {
             .filter(key -> io.mutastic.api.Nearest.name(key, KEYS).equals(Optional.of(missing)))
             .findFirst();
     return new Main.ConfigException(
-        "%s: every entry needs an id and a reason, and this one has no %s%s"
+        "%s: the entry has no %s: every entry needs an id and a reason%s"
             .formatted(
                 place,
                 missing,
