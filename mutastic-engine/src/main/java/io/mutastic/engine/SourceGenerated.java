@@ -28,7 +28,7 @@ final class SourceGenerated {
   /// `class Name`, `interface Name`, `enum Name`, `record Name`: a type's declaration.
   private static final Pattern DECLARATION =
       Pattern.compile(
-          "\\b(?:class|interface|enum|record)\\s+([\\p{javaJavaIdentifierStart}][\\p{javaJavaIdentifierPart}]*)");
+          "\\b(?:class|interface|enum|record)\\s+(?<name>[\\p{javaJavaIdentifierStart}][\\p{javaJavaIdentifierPart}]*)");
 
   /// `@Generated`, `@javax.annotation.processing.Generated`: not `@GeneratedValue`.
   private static final Pattern GENERATED =
@@ -133,7 +133,7 @@ final class SourceGenerated {
   private static void header(String header, Set<String> found) {
     var declaration = DECLARATION.matcher(header);
     if (declaration.find() && GENERATED.matcher(header.substring(0, declaration.start())).find()) {
-      found.add(declaration.group(1));
+      found.add(declaration.group("name"));
     }
   }
 
