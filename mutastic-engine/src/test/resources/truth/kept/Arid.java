@@ -24,6 +24,11 @@ class Arid {
     LOG.info("seen " + who);
   }
 
+  static void timed(long start) {
+    long took = System.currentTimeMillis() - start;
+    LOG.info("took " + took + " ms");
+  }
+
   static void thrown(int a) {
     if (a < 0) {
       throw new IllegalArgumentException("negative");

@@ -67,12 +67,7 @@ record Failure(int exit, String code, String said) {
       case Main.ConfigException config -> new Failure(Main.USAGE, config.code(), headline);
       case Engine.UnknownMutant unknown ->
           new Failure(Main.USAGE, "unknown-id", headline + closeId(unknown, args));
-      case BuildTool.SetupFailed setup ->
-          withHint(
-              setup.code().equals("setup") ? OTHER : setup.code(),
-              message + elsewhere(setup, message, args),
-              setup,
-              env);
+      case BuildTool.SetupFailed setup -> setup(setup, message, args, env);
       case Engine.NoTestsRan none -> withHint("no-tests", message, none, env);
       case Engine.NothingCovered nothing -> withHint("nothing-covered", message, nothing, env);
       case Engine.CantRun cantRun -> withHint(OTHER, message, cantRun, env);
@@ -84,14 +79,25 @@ record Failure(int exit, String code, String said) {
     };
   }
 
+  /// A build that couldn't be set up: a directory that isn't there, said as the Rust edition says
+  /// it; else the message, and the command again on the project's directory when it's in one.
+  private static Failure setup(
+      BuildTool.SetupFailed setup, String message, List<String> args, Map<String, String> env) {
+    if (setup.code().equals("no-directory")) {
+      return withHint("no-directory", missingDirectory(message, args), setup, env);
+    }
+    return withHint(
+        setup.code().equals("setup") ? OTHER : setup.code(),
+        message + elsewhere(setup, message, args),
+        setup,
+        env);
+  }
+
   /// A mistake in the command line: the command corrected, when it's a close name; else the message
   /// ends in what to run, if anything.
   private static Failure usage(Main.UsageException usage, String headline, List<String> args) {
-    var message = String.valueOf(usage.getMessage());
     return new Failure(
-        Main.USAGE,
-        usage.code().equals(USAGE) ? usageCode(message) : usage.code(),
-        headline + corrected(usage.correction(), args).orElse(""));
+        Main.USAGE, usage.code(), headline + corrected(usage.correction(), args).orElse(""));
   }
 
   /// The command with the id a slip away from the one asked for, if there's one; else the command
@@ -122,6 +128,67 @@ record Failure(int exit, String code, String said) {
       words.add(command(args).size(), "<project directory>");
     }
     return "\n  mutastic " + String.join(" ", words);
+  }
+
+  /// A directory that isn't there, as the Rust edition says it: as typed, and where it was looked
+  /// for when it was typed relative; then a directory beside it a slip away, with the command again
+  /// on it.
+  private static String missingDirectory(String message, List<String> args) {
+    var lead = "there's no directory ";
+    if (!message.startsWith(lead)) {
+      return message;
+    }
+    var missing = java.nio.file.Path.of(message.substring(lead.length()));
+    var given =
+        args.stream()
+            .filter(arg -> !arg.startsWith("-") && !named(arg, args))
+            .filter(arg -> java.nio.file.Path.of(arg).toAbsolutePath().normalize().equals(missing))
+            .findFirst();
+    if (given.isEmpty()) {
+      return message;
+    }
+    var typed = given.get();
+    var headline =
+        java.nio.file.Path.of(typed).isAbsolute()
+            ? "there's no directory %s.".formatted(typed)
+            : "there's no directory %s in %s."
+                .formatted(typed, java.nio.file.Path.of("").toAbsolutePath());
+    return beside(missing, typed, args).map(line -> headline + "\n" + line).orElse(headline);
+  }
+
+  /// A directory beside `missing` a slip away from its name, and the command again on it, if
+  /// there's one.
+  private static Optional<String> beside(
+      java.nio.file.Path missing, String typed, List<String> args) {
+    var name = missing.getFileName();
+    var parent = missing.getParent();
+    if (name == null || parent == null || !java.nio.file.Files.isDirectory(parent)) {
+      return Optional.empty();
+    }
+    return io.mutastic.api.Nearest.name(name.toString(), directories(parent))
+        .flatMap(
+            close -> {
+              var instead = typed.substring(0, typed.length() - name.toString().length()) + close;
+              return Correction.of(typed, instead)
+                  .in(args)
+                  .map(
+                      line ->
+                          "There's a directory called %s. To test it:\n  mutastic %s"
+                              .formatted(close, line));
+            });
+  }
+
+  /// The names of the directories in `parent`, in order; none if it can't be listed.
+  private static List<String> directories(java.nio.file.Path parent) {
+    try (var listed = java.nio.file.Files.list(parent)) {
+      return listed
+          .filter(java.nio.file.Files::isDirectory)
+          .map(dir -> String.valueOf(dir.getFileName()))
+          .sorted()
+          .toList();
+    } catch (java.io.IOException e) {
+      return List.of();
+    }
   }
 
   /// Whether `arg` is one of the command's own words, or a mutant's id.
@@ -162,20 +229,6 @@ record Failure(int exit, String code, String said) {
       String code, String message, RuntimeException failure, Map<String, String> env) {
     var hint = CodexSandbox.hint(failure, env).map(said -> said + "\n").orElse("");
     return new Failure(Main.USAGE, code, "mutastic: " + message + "\n" + hint);
-  }
-
-  /// The Rust edition's code for a usage error, by what it says.
-  private static String usageCode(String message) {
-    if (message.contains("mutant id") || message.contains("needs a reason")) {
-      return "needs-id";
-    }
-    if (message.contains("--fail-on-new needs a baseline")) {
-      return "no-baseline";
-    }
-    if (message.contains("--from-shards")) {
-      return "shards";
-    }
-    return message.contains(" doesn't take ") ? "extra-words" : USAGE;
   }
 
   /// The command line with the correction made, to copy: none when a build plugin passed the

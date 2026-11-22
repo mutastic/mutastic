@@ -1384,13 +1384,15 @@
         "rust"
       ],
       "scope": "site",
-      "description": "Code that only writes output: a log line, or text printed to the console.",
+      "description": "Code that only writes output: a log line, or text printed to the console, and a value worked out for nothing else.",
       "reasons": {
         "java": [
-          "arid: only writes output"
+          "arid: only writes output",
+          "arid: only feeds a log line"
         ],
         "rust": [
-          "arid: only writes output"
+          "arid: only writes output",
+          "arid: only feeds a log line"
         ]
       },
       "examples": {
@@ -2317,17 +2319,6 @@
       "reason": "Each language's own word."
     },
     {
-      "id": "D13",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "errors",
-      "summary": "Codes worked out from the message's words (Java's `usageCode`) rather than set where the error is raised",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "decision": 13
-    },
-    {
       "id": "G4",
       "kind": "pending",
       "editions": [
@@ -2437,47 +2428,6 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "G33",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "errors",
-      "summary": "A missing directory names only itself, not where it looked or a close directory",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "G34",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "errors",
-      "summary": "No command-first hint",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "G36",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "typos",
-      "summary": "No close id for `ignore --accept`/`--remove`, no close key in ignores.yaml, no close rule verb, no inline-list hint",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G37",
-      "kind": "pending",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "typos",
-      "summary": "typos.tsv has no rows for gate actions, ids, modules, directories, rule verbs or ignore keys",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "G38",
       "kind": "pending",
       "editions": [
@@ -2498,37 +2448,17 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "G40",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "configuration",
-      "summary": "No published JSON schemas for mutastic.yaml or rules files",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G41",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "configuration",
-      "summary": "No `MUTASTIC_PILLS`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "env:MUTASTIC_PILLS"
-      ]
-    },
-    {
       "id": "G43",
-      "kind": "pending",
+      "kind": "engine",
       "editions": [
         "rust"
       ],
       "surface": "configuration",
-      "summary": "`MUTASTIC_INCREMENTAL` is read but not documented",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
+      "summary": "`MUTASTIC_INCREMENTAL`: Cargo's incremental compilation for the mutants' build",
+      "reason": "Cargo's `CARGO_INCREMENTAL` for the mutants' build; Gradle and Maven keep their own build caches.",
+      "items": [
+        "env:MUTASTIC_INCREMENTAL"
+      ]
     },
     {
       "id": "R1",
@@ -2542,46 +2472,6 @@
       "items": [
         "option:--report:choice:*"
       ]
-    },
-    {
-      "id": "T1",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "typos",
-      "summary": "Counts length in UTF-16 units, not chars",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "C1",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "configuration",
-      "summary": "mutastic.yaml's unknown section lists every section rather than saying it isn't one",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "F1",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "files",
-      "summary": "ignores.yaml's line with no colon gives no example",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "F2",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "files",
-      "summary": "A missing field doesn't say the problem first",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
       "id": "A3",

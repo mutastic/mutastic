@@ -315,6 +315,7 @@ public final class Main {
   private static void noBaselineToFailOn(Command command, Path directory) {
     if (command.failOnNew() && !Baseline.exists(directory)) {
       throw new UsageException(
+          "no-baseline",
           ("--fail-on-new needs a baseline to tell new misses from, and %s has no %s:"
                   + " `mutastic baseline` writes one, to commit")
               .formatted(directory, Baseline.FILE));
@@ -2511,6 +2512,11 @@ public final class Main {
       this(Failure.USAGE, message, null);
     }
 
+    /// @param code what went wrong, set here where it's raised (decision 13): `needs-id`
+    UsageException(String code, String message) {
+      this(code, message, null);
+    }
+
     /// @param code what went wrong, as the `run-failed` event names it: `unknown-option`
     UsageException(String code, String message, @Nullable Correction correction) {
       super(message);
@@ -2814,8 +2820,14 @@ public final class Main {
             null);
       }
       var typed = words.get(gate ? 1 : 0);
-      var commands = commandWords(gate);
-      var owner = gate ? "gate" : "mutastic";
+      if (!gate && typed.startsWith("-")) {
+        return optionsFirst(words);
+      }
+      return noCommand(gate ? "gate" : "mutastic", typed, commandWords(gate));
+    }
+
+    /// `owner` has no command `typed`: with the one of `commands` close to it, if there's one.
+    private static UsageException noCommand(String owner, String typed, List<String> commands) {
       var close = io.mutastic.api.Nearest.name(typed, commands);
       if (close.isPresent()) {
         return new UsageException(
@@ -2826,6 +2838,30 @@ public final class Main {
       return new UsageException(
           "unknown-command",
           "%s has no command %s. To see its commands:\n  mutastic --help".formatted(owner, typed),
+          null);
+    }
+
+    /// An option before the command, as the Rust edition answers it: the line with its command
+    /// first, when there's one in it; else that a command goes first.
+    private static UsageException optionsFirst(List<String> words) {
+      for (int at = 1; at < words.size(); at++) {
+        var from = words.subList(at, words.size());
+        if (Subcommand.at(from).isPresent()) {
+          var reordered = new ArrayList<>(from.subList(0, Subcommand.length(from)));
+          reordered.addAll(words.subList(0, at));
+          reordered.addAll(from.subList(Subcommand.length(from), from.size()));
+          return new UsageException(
+              "unknown-command",
+              "mutastic takes its command first, then the command's options.\n  mutastic "
+                  + String.join(" ", reordered.stream().map(Correction::quoted).toList()),
+              null);
+        }
+      }
+      return new UsageException(
+          "unknown-command",
+          "mutastic takes a command before its options, and %s isn't one. To see its commands:\n"
+                  .formatted(words.getFirst())
+              + "  mutastic --help",
           null);
     }
 
@@ -3214,6 +3250,7 @@ public final class Main {
           only = List.of(mutantId("ignore"));
           if (!remove && !accept && reason.isBlank()) {
             throw new UsageException(
+                "needs-id",
                 "ignore needs a reason, for whoever reviews it:\n  mutastic ignore %s%s"
                     .formatted(only.getFirst(), withReason()));
           }
@@ -3262,12 +3299,12 @@ public final class Main {
       /// current directory as the project, and say it isn't a build.
       private String mutantId(String subcommand) {
         if (positional.isEmpty()) {
-          throw new UsageException(needsAnId(subcommand, ""));
+          throw new UsageException("needs-id", needsAnId(subcommand, ""));
         }
         var given = positional.getFirst();
         for (String id : given.split(",", -1)) {
           if (!MUTANT_ID.matcher(id).matches()) {
-            throw new UsageException(notAnId(subcommand, given));
+            throw new UsageException("needs-id", notAnId(subcommand, given));
           }
         }
         return positional.removeFirst();
@@ -3321,6 +3358,7 @@ public final class Main {
         stray.stream().filter(arg -> arg.startsWith(":")).findFirst().ifPresent(stray::remove);
         if (!stray.isEmpty()) {
           throw new UsageException(
+              "extra-words",
               "%s doesn't take %s: mutastic %s"
                   .formatted(subcommand.word(), String.join(" ", stray), subcommand.synopsis));
         }
@@ -3385,11 +3423,13 @@ public final class Main {
       /// the options for what runs are the shares'.
       private Sharing sharing(Subcommand subcommand) {
         if (fromShards.isPresent() && subcommand != Subcommand.RUN) {
-          throw new UsageException("--from-shards is run's: mutastic run --from-shards=DIR");
+          throw new UsageException(
+              "shards", "--from-shards is run's: mutastic run --from-shards=DIR");
         }
         var clash = fromShards.isPresent() ? clashWithShares() : Optional.<String>empty();
         if (clash.isPresent()) {
           throw new UsageException(
+              "shards",
               ("--from-shards puts the shares' results together as the whole run, and runs no"
                       + " mutant itself: not with %s, which the shares run with")
                   .formatted(clash.get()));
