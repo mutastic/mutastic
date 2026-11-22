@@ -225,8 +225,17 @@ class ConstantValues {
     return new ArrayList<String>(16).size() + a;
   }
 
+  static int aCapacityClaim(int a, int b, int value) {
+    return new ArrayList<String>(value).size() + a;
+  }
+
   static int aWait(int a, int b) throws InterruptedException {
     Thread.sleep(25L);
+    return a;
+  }
+
+  static int aWaitClaim(int a, int b, long value) throws InterruptedException {
+    Thread.sleep(value);
     return a;
   }
 

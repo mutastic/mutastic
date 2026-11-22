@@ -46,6 +46,7 @@ class KeptAridTest {
             "arid: only a failed check's message",
             "arid: only says an assert failed",
             "arid: only sizes a collection's first allocation",
+            "arid: only sets when a hash table grows",
             "arid: only sets how long to wait",
             "arid: only waits",
             "arid: only checks the value isn't null",

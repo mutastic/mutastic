@@ -7,7 +7,8 @@ import org.junit.jupiter.api.Test;
 
 /// A removed `join` with a time limit hides the race one with no limit shows: the code reads what
 /// the thread does before it's done. Its mutant runs, and a test that reads the result straight
-/// after catches it. How long it waits, and a removed sleep, stay arid.
+/// after catches it. How long it waits is counted too: a shorter limit gives up on the work sooner.
+/// How long a sleep waits, and a removed sleep, stay arid.
 class TimedJoinTest {
   private final ClaimFixture removed =
       new ClaimFixture("waits/Joins.java", "mutastic/remove-void-call", Inputs.NUMBERS);
@@ -30,8 +31,9 @@ class TimedJoinTest {
   }
 
   @Test
-  void howLongItWaitsStaysArid() {
+  void howLongItWaitsIsCountedAndHowLongASleepWaitsStaysArid() {
     assertThat(waits.changesIn("joined"))
-        .contains("constant 5000 to 5001 (arid: only sets how long to wait)");
+        .contains(
+            "constant 5000 to 5001", "constant 100 to 101 (arid: only sets how long to wait)");
   }
 }

@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
 /// `mutastic`: mutation testing for a Java build, read through Gradle or Maven. `mutastic --help`
@@ -1611,7 +1612,8 @@ public final class Main {
   }
 
   /// What help was asked for, if any: `--version`; `--help`, `-h` or `help` for every command;
-  /// `<command> --help` or `help <command>` for one.
+  /// `<command> --help` or `help <command>` for one; `gate --help` without its action, each
+  /// action's.
   private static Optional<String> helpAsked(List<String> words) {
     if (words.isEmpty()) {
       return Optional.empty();
@@ -1623,7 +1625,14 @@ public final class Main {
     if (!help && !words.contains("--help") && !words.contains("-h")) {
       return Optional.empty();
     }
-    var command = Subcommand.at(help ? words.subList(1, words.size()) : words);
+    var asked = help ? words.subList(1, words.size()) : words;
+    var command = Subcommand.at(asked);
+    if (command.isEmpty() && !asked.isEmpty() && asked.getFirst().equals("gate")) {
+      return Optional.of(
+          Stream.of(Subcommand.GATE_OPEN, Subcommand.GATE_CHECK, Subcommand.GATE_CLOSE)
+              .map(action -> Help.of(action, version()))
+              .collect(Collectors.joining("\n")));
+    }
     return Optional.of(
         command.map(each -> Help.of(each, version())).orElseGet(() -> Help.general(version())));
   }
