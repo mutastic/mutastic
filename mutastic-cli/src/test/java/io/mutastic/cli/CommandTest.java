@@ -122,7 +122,14 @@ class CommandTest {
 
   /// `--fail-on-new` is run's, as the flag or a build plugin's property: a build file that sets it
   /// for every task passes it to `verify` too, which takes no notice. A run of mutants asked for by
-  /// id passes on each one's fate, so it isn't judged on new misses.
+  /// id passes on each one's fate, so it isn't judged on new misses. `baseline` is taken under the
+  /// operators it's given, as the Rust edition's is.
+  @Test
+  void baselineTakesOperators() {
+    assertThat(parse("baseline", "--operators=stronger", "--operators=-stream").operators())
+        .containsExactly("stronger", "-stream");
+  }
+
   @Test
   void failOnNewIsRunsAlone() {
     assertThat(parse("run", "--fail-on-new").failOnNew()).isTrue();

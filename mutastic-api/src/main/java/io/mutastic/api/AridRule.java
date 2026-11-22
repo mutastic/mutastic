@@ -24,7 +24,8 @@ public enum AridRule {
   DEBUG_REPRESENTATIONS(
       "mutastic:debug-representations",
       Scope.METHOD,
-      "`toString()` and `hashCode()`, the lambdas they define and the helpers only they call.",
+      "`toString()` and `hashCode()`, the lambdas they define and the helpers only they call; in"
+          + " Rust, a `Debug` or a `Hash` impl.",
       "public String toString() { return \"Order \" + id; }",
       "arid: `toString()` is a debug representation",
       "arid: `hashCode()` may return any value consistent with `equals()`",
@@ -39,7 +40,7 @@ public enum AridRule {
   MESSAGES(
       "mutastic:messages",
       Scope.SITE,
-      "The text of an exception's message, or of a failed check's.",
+      "The text of an exception's or an error's message, or of a failed check's.",
       "throw new IllegalArgumentException(\"amount must be positive\");",
       "arid: only an exception's message",
       "arid: only a failed check's message"),
@@ -52,19 +53,23 @@ public enum AridRule {
   CAPACITY(
       "mutastic:capacity",
       Scope.SITE,
-      "The size a collection or a buffer starts with.",
+      "The room a collection or a buffer starts with or makes, and how full a hash table gets"
+          + " before it grows, while it stays above zero.",
       "new ArrayList<>(orders.size() * 2)",
-      "arid: only sizes a collection's first allocation"),
+      "arid: only sizes a collection's first allocation",
+      "arid: only sets when a hash table grows"),
   WAIT_TIMES(
       "mutastic:wait-times",
       Scope.SITE,
-      "How long a sleep, or a `join` with a time limit, waits.",
+      "How long a sleep waits, where the time goes only into the sleep. A timeout's, a deadline's"
+          + " or a backoff's stays counted.",
       "Thread.sleep(seconds * 1000L);",
       "arid: only sets how long to wait"),
   WAITS(
       "mutastic:waits",
       Scope.SITE,
-      "A sleep removed: `Thread.sleep` or `TimeUnit.sleep`.",
+      "A sleep removed: `Thread.sleep` or `TimeUnit.sleep` in Java, `thread::sleep` or an awaited"
+          + " `sleep` in Rust.",
       "Thread.sleep(100);",
       "arid: only waits"),
   NULL_CHECKS(

@@ -146,10 +146,10 @@ final class IgnoreCommand {
 
   private static int ignore(Mutant mutant, Main.Ignoring how, Where where, PrintStream out) {
     var reason = how.reason();
+    // A mutant mutastic skips itself, for any reason, never runs: an ignore of it would decide
+    // nothing, as in the Rust edition.
     var already = mutant.skipped().filter(skip -> !skip.endsWith("(ignored)"));
-    if (already
-        .filter(skip -> skip.startsWith("generated:") || skip.startsWith("equivalent:"))
-        .isPresent()) {
+    if (already.isPresent()) {
       out.print(runsAnyway(mutant, already.get()));
       return Main.PASSED;
     }
