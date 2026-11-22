@@ -2292,6 +2292,19 @@
       "reason": "A JVM a test starts loads the classes as built, so neither the worker's mutants nor its coverage reach it. A Rust binary a test runs has every mutant built in and takes the one to run, and where to record coverage, from the environment the test process passes on."
     },
     {
+      "id": "N50",
+      "kind": "engine",
+      "editions": [
+        "rust"
+      ],
+      "surface": "command line",
+      "summary": "`--exclude-tests=CLASS` or `=TEST`",
+      "reason": "Java leaves out a test class, by its name or full name. Rust has no test classes: it leaves out a test by its name as libtest lists it, or a module of tests by its path.",
+      "items": [
+        "option:--exclude-tests:value"
+      ]
+    },
+    {
       "id": "A6",
       "kind": "engine",
       "editions": [
@@ -2301,62 +2314,6 @@
       "surface": "gate",
       "summary": "The reason template's word: `a size` or `a length`",
       "reason": "Each language's own word."
-    },
-    {
-      "id": "G4",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "No `--confirm-catches`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "option:--confirm-catches",
-        "takes:*:--confirm-catches"
-      ]
-    },
-    {
-      "id": "G5",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "No `--kill-matrix`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "option:--kill-matrix",
-        "takes:*:--kill-matrix"
-      ]
-    },
-    {
-      "id": "G6",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "No `--each-mutant`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "option:--each-mutant",
-        "takes:*:--each-mutant"
-      ]
-    },
-    {
-      "id": "G7",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "No `--exclude-tests`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "option:--exclude-tests",
-        "takes:*:--exclude-tests"
-      ]
     },
     {
       "id": "G12",
@@ -2455,7 +2412,7 @@
       ],
       "surface": "human output",
       "summary": "Rust's `Left out` row, after Reports, names the code it doesn't mutate: unsafe, and what a `cfg` leaves out of the build",
-      "reason": "Rust doesn't mutate unsafe code unless `--unsafe` says to, nor code a `cfg` leaves out of the build: the row names both. Java has no such code, and its row is the test classes `--exclude-tests` leaves out (G7)."
+      "reason": "Rust doesn't mutate unsafe code unless `--unsafe` says to, nor code a `cfg` leaves out of the build: the row names both. Java has no such code. In both, the row starts with the tests `--exclude-tests` leaves out."
     }
   ]
 }
