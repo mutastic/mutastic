@@ -2419,13 +2419,13 @@
     },
     {
       "id": "G38",
-      "kind": "pending",
+      "kind": "engine",
       "editions": [
         "rust"
       ],
       "surface": "configuration",
-      "summary": "No compiled plugins: mutastic.yaml's `filters:` errors (planned as WebAssembly)",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
+      "summary": "No compiled plugins: mutastic.yaml's `filters:` errors",
+      "reason": "A compiled plugin is a class the JVM loads beside the engine. A Rust binary has no such loader, so the Rust edition takes call operators from a rules file; a WebAssembly host for plugins may follow."
     },
     {
       "id": "G39",
