@@ -396,6 +396,8 @@ public final class AgentText {
             (where, mutants) -> {
               int count = mutants.size();
               out.append("- %s (%d mutant%s)\n".formatted(where, count, count == 1 ? "" : "s"));
+              OnlyFromMain.advice(mutants, sources)
+                  .ifPresent(advice -> out.append("  %s\n".formatted(advice)));
               appendProposals(out, mutants);
             });
     SuggestedTest.startingPoints(notCovered, sources, LIMIT)

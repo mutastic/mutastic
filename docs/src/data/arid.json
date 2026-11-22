@@ -28,20 +28,26 @@
       "anchor": "debug-representations",
       "url": "https://docs.mutastic.io/reference/arid/#debug-representations",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "method",
-      "description": "`toString()` and `hashCode()`, the lambdas they define and the helpers only they call.",
+      "description": "`toString()` and `hashCode()`, the lambdas they define and the helpers only they call; in Rust, a `Debug` or a `Hash` impl.",
       "reasons": {
         "java": [
           "arid: `toString()` is a debug representation",
           "arid: `hashCode()` may return any value consistent with `equals()`",
           "arid: a lambda in `<method>()`",
           "arid: `<helper>()` only serves `<method>()`"
+        ],
+        "rust": [
+          "arid: `Debug::fmt` is a debug representation",
+          "arid: `Hash::hash` may give any value consistent with `Eq`"
         ]
       },
       "examples": {
-        "java": "public String toString() { return \"Order \" + id; }"
+        "java": "public String toString() { return \"Order \" + id; }",
+        "rust": "impl fmt::Debug for Order { fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { f.write_str(\"Order\") } }"
       },
       "mutate": "arid: [mutastic:debug-representations]",
       "annotation": "@DoMutate(arid = \"mutastic:debug-representations\")"
@@ -78,18 +84,24 @@
       "anchor": "messages",
       "url": "https://docs.mutastic.io/reference/arid/#messages",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
-      "description": "The text of an exception's message, or of a failed check's.",
+      "description": "The text of an exception's or an error's message, or of a failed check's.",
       "reasons": {
         "java": [
           "arid: only an exception's message",
           "arid: only a failed check's message"
+        ],
+        "rust": [
+          "arid: only an error's message",
+          "arid: only a failed check's message"
         ]
       },
       "examples": {
-        "java": "throw new IllegalArgumentException(\"amount must be positive\");"
+        "java": "throw new IllegalArgumentException(\"amount must be positive\");",
+        "rust": "let order = order.expect(\"an order to ship\");"
       },
       "mutate": "arid: [mutastic:messages]",
       "annotation": "@DoMutate(arid = \"mutastic:messages\")"
@@ -119,17 +131,23 @@
       "anchor": "capacity",
       "url": "https://docs.mutastic.io/reference/arid/#capacity",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
-      "description": "The size a collection or a buffer starts with.",
+      "description": "The room a collection or a buffer starts with or makes, and how full a hash table gets before it grows, while it stays above zero.",
       "reasons": {
         "java": [
+          "arid: only sizes a collection's first allocation",
+          "arid: only sets when a hash table grows"
+        ],
+        "rust": [
           "arid: only sizes a collection's first allocation"
         ]
       },
       "examples": {
-        "java": "new ArrayList<>(orders.size() * 2)"
+        "java": "new ArrayList<>(orders.size() * 2)",
+        "rust": "let mut names = Vec::with_capacity(orders.len() * 2);"
       },
       "mutate": "arid: [mutastic:capacity]",
       "annotation": "@DoMutate(arid = \"mutastic:capacity\")"
@@ -139,17 +157,22 @@
       "anchor": "wait-times",
       "url": "https://docs.mutastic.io/reference/arid/#wait-times",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
-      "description": "How long a sleep, or a `join` with a time limit, waits.",
+      "description": "How long a sleep waits, where the time goes only into the sleep. A timeout's, a deadline's or a backoff's stays counted.",
       "reasons": {
         "java": [
+          "arid: only sets how long to wait"
+        ],
+        "rust": [
           "arid: only sets how long to wait"
         ]
       },
       "examples": {
-        "java": "Thread.sleep(seconds * 1000L);"
+        "java": "Thread.sleep(seconds * 1000L);",
+        "rust": "std::thread::sleep(Duration::from_millis(attempt * 100));"
       },
       "mutate": "arid: [mutastic:wait-times]",
       "annotation": "@DoMutate(arid = \"mutastic:wait-times\")"
@@ -159,17 +182,22 @@
       "anchor": "waits",
       "url": "https://docs.mutastic.io/reference/arid/#waits",
       "editions": [
-        "java"
+        "java",
+        "rust"
       ],
       "scope": "site",
-      "description": "A sleep removed: `Thread.sleep` or `TimeUnit.sleep`.",
+      "description": "A sleep removed: `Thread.sleep` or `TimeUnit.sleep` in Java, `thread::sleep` or an awaited `sleep` in Rust.",
       "reasons": {
         "java": [
+          "arid: only waits"
+        ],
+        "rust": [
           "arid: only waits"
         ]
       },
       "examples": {
-        "java": "Thread.sleep(100);"
+        "java": "Thread.sleep(100);",
+        "rust": "std::thread::sleep(pause);"
       },
       "mutate": "arid: [mutastic:waits]",
       "annotation": "@DoMutate(arid = \"mutastic:waits\")"
