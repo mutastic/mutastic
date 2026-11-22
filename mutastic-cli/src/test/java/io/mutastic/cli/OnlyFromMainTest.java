@@ -12,6 +12,9 @@ import org.junit.jupiter.api.io.TempDir;
 /// `main`, and to move what `main` does into `run(args, out)`, test that, and leave `main` a
 /// one-line call. What it says is checked by doing it: the same code moved into `run`, with a test
 /// of `run`, has every mutant caught, and the one line left in `main` gets no such advice.
+///
+/// The first `main` exits with what's to pay, where it once printed it: a value that only feeds a
+/// print is arid, so a `main` that only printed had one line of mutants and nothing to move.
 class OnlyFromMainTest {
   private static final Path SAMPLE = Path.of(System.getProperty("mutastic.samples"), "pricing");
   private static final String RECEIPT = "src/main/java/com/example/pricing/Receipt.java";
@@ -29,13 +32,13 @@ class OnlyFromMainTest {
         """
         package com.example.pricing;
 
-        /// Prints what's to pay on a total, with the discount taken off.
+        /// Exits with what's to pay on a total, with the discount taken off.
         public final class Receipt {
           private Receipt() {}
 
           public static void main(String[] args) {
             int total = args.length > 0 ? Integer.parseInt(args[0]) : 0;
-            System.out.println("total " + (total - new Pricing().discount(total)));
+            System.exit(total - new Pricing().discount(total));
           }
         }
         """);
@@ -45,13 +48,13 @@ class OnlyFromMainTest {
 
     assertThat(agent.out())
         .contains(
-            "- " + RECEIPT + ":8-9 main() (3 mutants)\n  " + ADVICE + "\n  or propose (line 8)");
+            "- " + RECEIPT + ":8-9 main() (4 mutants)\n  " + ADVICE + "\n  or propose (line 8)");
     assertThat(human.out())
-        .contains("○ " + RECEIPT + ":8-9 main() (3 mutants)\n     " + ADVICE.replace("`", ""));
+        .contains("○ " + RECEIPT + ":8-9 main() (4 mutants)\n     " + ADVICE.replace("`", ""));
   }
 
   /// The advice, taken: `run` holds what `main` did, a test checks it, and `main` calls it. Its
-  /// `println` is skipped as only writing output, as it was in `main`.
+  /// `println` is skipped as only writing output.
   @Test
   void theAdviceTakenCatchesWhatMainDidAndLeavesOneLine() throws IOException {
     var project = Samples.copy(SAMPLE, work.resolve("pricing"));
