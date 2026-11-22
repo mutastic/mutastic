@@ -2328,19 +2328,6 @@
       "decision": 13
     },
     {
-      "id": "G3",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "command line",
-      "summary": "`baseline` doesn't take `--operators`",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "items": [
-        "takes:baseline:--operators"
-      ]
-    },
-    {
       "id": "G4",
       "kind": "pending",
       "editions": [
@@ -2407,16 +2394,6 @@
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
-      "id": "G11",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "help",
-      "summary": "`gate --help` prints the general help",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
       "id": "G12",
       "kind": "pending",
       "editions": [
@@ -2425,43 +2402,6 @@
       "surface": "human output",
       "summary": "Code no test reaches gets no starting assertion (also G15, the agent format's `start with:`)",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G18",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "No `failureOrigin`, in the events or mutation.json",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "event:mutant-finished:failureOrigin",
-        "report:files.*.mutants[].mutastic.failureOrigin"
-      ]
-    },
-    {
-      "id": "G19",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "`unrelatedCatches` is always `[]`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G21",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "`suggestion.receiver[]` has no `parameters`, no `suggestion.named`, and `mutant-explained.site` has no `ordinal`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "event:mutant-finished:suggestion.receiver[].parameters"
-      ]
     },
     {
       "id": "G22",
@@ -2581,24 +2521,6 @@
       ]
     },
     {
-      "id": "G42",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "configuration",
-      "summary": "commands.json leaves out variables the code reads",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "items": [
-        "env:MUTASTIC_PROGRESS",
-        "env:MUTASTIC_TERM_PROGRESS",
-        "env:MUTASTIC_HEARTBEAT",
-        "env:TERM",
-        "env:CI",
-        "env:CLAUDECODE"
-      ]
-    },
-    {
       "id": "G43",
       "kind": "pending",
       "editions": [
@@ -2606,26 +2528,6 @@
       ],
       "surface": "configuration",
       "summary": "`MUTASTIC_INCREMENTAL` is read but not documented",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G45",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "gate",
-      "summary": "`ignore --propose` with `--accept`, `--remove` or `--prune` isn't refused",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "G46",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "gate",
-      "summary": "After `ignore --prune` on a directory that isn't `.`, the undo names the wrong path",
       "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
@@ -2640,42 +2542,6 @@
       "items": [
         "option:--report:choice:*"
       ]
-    },
-    {
-      "id": "R2",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "`--operators` is kind `value`, not `repeated`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "option:--operators:kind"
-      ]
-    },
-    {
-      "id": "R3",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "`run` lists `--shard` and `--from-shards` after `--report`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "order:run"
-      ]
-    },
-    {
-      "id": "H7",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "help",
-      "summary": "`--workers`: how many workers, where Rust's \"how many mutants\" is what it does",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
       "id": "T1",
@@ -2718,26 +2584,6 @@
       "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
-      "id": "A1",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "gate",
-      "summary": "`recorded in .mutastic/ignores.yaml`, not a path from where you are",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
-      "id": "A2",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "gate",
-      "summary": "The undo appends the directory even when it's `.`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
       "id": "A3",
       "kind": "pending",
       "editions": [
@@ -2745,16 +2591,6 @@
       ],
       "surface": "gate",
       "summary": "The undo quotes the reason with `'…'\\''…'`, not `\"…\"`",
-      "issue": "https://github.com/mutastic/mutastic/issues/61"
-    },
-    {
-      "id": "A5",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "gate",
-      "summary": "`doesn't run anyway` only for generated and equivalent skips",
       "issue": "https://github.com/mutastic/mutastic/issues/61"
     },
     {
