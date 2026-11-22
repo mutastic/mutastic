@@ -644,8 +644,7 @@ final class Mutations {
       switch (builtIn) {
         case REPLACE_BODY -> bodyChanges(found);
         case STRING_CONSTANT ->
-            addChanges(
-                builtIn, TextConstants.strings(code, at, stores, supertypes, outputs), found);
+            addChanges(builtIn, TextConstants.strings(at, stores, supertypes, outputs), found);
         case REGEX_CONSTANT -> addChanges(builtIn, TextConstants.regexes(code, at), found);
         case BOOLEAN_CONSTANT ->
             addChanges(builtIn, BooleanConstants.change(code, at, stores).stream().toList(), found);
@@ -815,7 +814,7 @@ final class Mutations {
     private Optional<String> aroundTheSite(Found found, int at) {
       return SiteSkips.reason(found.operator(), found.label(), code, at)
           .or(() -> threads.reason(found.operator(), found.label(), at))
-          .or(() -> LoggedValues.reason(found.operator(), code, at, stores, outputs));
+          .or(() -> LoggedValues.reason(found.operator(), at, stores, outputs));
     }
 
     /// The filters' reason, but for a `@NonNull` check in a member Lombok wrote: the person asked

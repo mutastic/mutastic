@@ -102,6 +102,11 @@ final class OutputCalls {
     }
   }
 
+  /// The method's code these calls are in.
+  List<CodeElement> code() {
+    return code;
+  }
+
   /// Whether the call at `code[at]` only writes output.
   boolean writes(int at) {
     return code.get(at) instanceof InvokeInstruction call
@@ -208,55 +213,88 @@ final class OutputCalls {
   /// stack goes back to empty only after one of those. Jumps inside it, a ternary's in a call's
   /// values, go forward and stay inside it.
   private boolean onlyOutput(int from, int to) {
-    var ahead = new HashMap<Label, Integer>();
-    int depth = 0;
-    boolean reached = true;
-    boolean any = false;
+    var statements = new Statements(to);
     for (int at = from; at < to; at++) {
-      var element = code.get(at);
+      if (!statements.step(code.get(at), at)) {
+        return false;
+      }
+    }
+    return statements.endClean();
+  }
+
+  /// The walk [#onlyOutput] makes: how many values are on the stack, what each jump ahead carries
+  /// to where it lands, and whether the code where the walk stands can be reached.
+  private final class Statements {
+    private final Map<Label, Integer> ahead = new HashMap<>();
+    private final int to;
+    private int depth;
+    private boolean reached = true;
+    private boolean any;
+
+    Statements(int to) {
+      this.to = to;
+    }
+
+    /// Takes the walk over `code[at]`; false once the code isn't only output statements.
+    boolean step(CodeElement element, int at) {
       if (element instanceof LabelTarget target) {
-        var carried = ahead.remove(target.label());
-        if (carried != null && reached && carried != depth) {
-          return false;
-        }
-        if (carried != null) {
-          depth = carried;
-          reached = true;
-        }
-        continue;
+        return lands(target.label());
       }
       if (!(element instanceof Instruction instruction)) {
-        continue;
+        return true;
       }
       if (!reached) {
         return false;
       }
-      if (instruction instanceof BranchInstruction jump) {
-        int target = labels.getOrDefault(jump.target(), -1);
-        int tested = tested(jump.opcode());
-        if (target <= at || target >= to || tested > depth) {
-          return false;
-        }
-        depth -= tested;
-        if (ahead.merge(jump.target(), depth, (one, other) -> one.equals(other) ? one : -1) < 0) {
-          return false;
-        }
-        reached = tested > 0;
-        continue;
+      return instruction instanceof BranchInstruction jump
+          ? jumps(jump, at)
+          : runs(instruction, at);
+    }
+
+    /// At least one statement, the last one finished, and no jump left to land.
+    boolean endClean() {
+      return any && reached && depth == 0 && ahead.isEmpty();
+    }
+
+    /// Where a jump lands, the stack is as the jump left it.
+    private boolean lands(Label label) {
+      var carried = ahead.remove(label);
+      if (carried == null) {
+        return true;
       }
+      if (reached && carried != depth) {
+        return false;
+      }
+      depth = carried;
+      reached = true;
+      return true;
+    }
+
+    /// A jump goes forward, stays inside, and every jump to one place leaves the same stack.
+    private boolean jumps(BranchInstruction jump, int at) {
+      int target = labels.getOrDefault(jump.target(), -1);
+      int tested = tested(jump.opcode());
+      if (target <= at || target >= to || tested > depth) {
+        return false;
+      }
+      depth -= tested;
+      reached = tested > 0;
+      return ahead.merge(jump.target(), depth, (one, other) -> one.equals(other) ? one : -1) >= 0;
+    }
+
+    /// Any other instruction: when it empties the stack, it has to end an output statement.
+    private boolean runs(Instruction instruction, int at) {
       var effect = TextConstants.Follow.effect(instruction);
       if (effect.equals(TextConstants.Follow.UNKNOWN) || effect.takes() > depth) {
         return false;
       }
       depth += effect.leaves() - effect.takes();
-      if (depth == 0) {
-        if (!endsAnOutputStatement(instruction, at)) {
-          return false;
-        }
-        any = true;
+      if (depth > 0) {
+        return true;
       }
+      any = true;
+      return endsAnOutputStatement(instruction, at);
     }
-    return any && reached && depth == 0 && ahead.isEmpty();
   }
 
   /// An output call that gives nothing, or the `pop` of what one gave.

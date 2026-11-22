@@ -226,7 +226,8 @@ final class LoggedValues {
   /// Why the mutant `operator` makes at `code[at]` is arid, if all it changes only feeds a log
   /// line.
   static java.util.Optional<String> reason(
-      Operator operator, List<CodeElement> code, int at, Stores stores, OutputCalls outputs) {
+      Operator operator, int at, Stores stores, OutputCalls outputs) {
+    var code = outputs.code();
     var values = new LoggedValues(code, stores, outputs);
     boolean logged =
         switch (code.get(at)) {

@@ -73,8 +73,8 @@ final class TextConstants {
   /// call's receiver, or a static call's first argument), and where the call is.
   record Consumer(InvokeInstruction call, int position, int index) {}
 
-  static List<Change> strings(
-      List<CodeElement> code, int at, Stores stores, Supertypes supertypes, OutputCalls outputs) {
+  static List<Change> strings(int at, Stores stores, Supertypes supertypes, OutputCalls outputs) {
+    var code = outputs.code();
     if (!(code.get(at) instanceof ConstantInstruction constant)
         || !(constant.constantValue() instanceof String text)
         || isStringSwitchTest(code, at, stores)) {
@@ -106,7 +106,7 @@ final class TextConstants {
     var next = consumer(code, at);
     while (next.isPresent()) {
       var call = next.get().call();
-      var why = aridCall(call, code, next.get().index(), supertypes, outputs);
+      var why = aridCall(call, next.get().index(), supertypes, outputs);
       if (why.isPresent() || !isFormatting(call)) {
         return why;
       }
@@ -128,11 +128,8 @@ final class TextConstants {
   }
 
   private static Optional<String> aridCall(
-      InvokeInstruction call,
-      List<CodeElement> code,
-      int at,
-      Supertypes supertypes,
-      OutputCalls outputs) {
+      InvokeInstruction call, int at, Supertypes supertypes, OutputCalls outputs) {
+    var code = outputs.code();
     var owner = call.owner().asInternalName();
     if (outputs.writes(at)) {
       return Optional.of(OutputCalls.REASON);
