@@ -97,7 +97,7 @@
     },
     "test": {
       "type": "string",
-      "description": "A test, as its class and method: `com.example.PricingTest#bigOrdersGetTenPercentOff`."
+      "description": "A test, as the edition names it: in Java its class and method, `com.example.PricingTest#bigOrdersGetTenPercentOff`; in Rust its path in its target, `tests::small_orders_pay_full_price`, after the target's name for an integration test, `pricing::big_orders_get_ten_percent_off`."
     },
     "mutantId": {
       "type": "string",
@@ -251,11 +251,20 @@
         },
         "statusReason": {
           "type": "string",
-          "description": "Why it was skipped, kind first: `arid: trivial getter of name`. Only for a skipped mutant."
+          "description": "Why it has its status, kind first: for a skipped mutant, why it was skipped, `arid: trivial getter of name`; in the Rust edition also why a mutant is a runtime error, `crash: SIGSEGV inside unsafe code, which may be undefined behaviour`. Not for another status."
         },
         "skipKind": {
-          "enum": ["generated", "equivalent", "unviable", "arid", "user"],
-          "description": "The kind of reason it was skipped, the first word of `statusReason`: code the compiler wrote, a change that can't be told apart, one that can't run, code not worth a test, or the project's own decision. Only with `statusReason`."
+          "enum": ["generated", "equivalent", "unviable", "arid", "user", "twin"],
+          "description": "The kind of reason it was skipped, the first word of `statusReason`: code the compiler wrote, a change that can't be told apart, one that can't run, code not worth a test, the project's own decision, or a twin, which always does what another mutant at its place does (`sameAs`). Only with `statusReason`."
+        },
+        "sameAs": {
+          "$ref": "#/$defs/mutantId",
+          "description": "For a twin: the mutant at its place that always does the same, which runs for it, so the place counts once in the score. Its result is that mutant's mutant-finished. Only with `skipKind` `twin`."
+        },
+        "skipRule": {
+          "type": "string",
+          "pattern": "^mutastic:[a-z]+(-[a-z]+)*$",
+          "description": "The arid rule that skipped it, by id: `mutastic:waits`. Its docs are at https://docs.mutastic.io/reference/arid/#waits, the id after `mutastic:`, and a `mutate:` rule's `arid: [mutastic:waits]` brings it back. Only with `skipKind` `arid`, and only for mutastic's own rules."
         },
         "coveredBy": {
           "type": "array",
@@ -268,20 +277,31 @@
         },
         "caughtWith": {
           "type": "string",
-          "description": "What caught it failed with: in the Java edition the exception's class, `org.opentest4j.AssertionFailedError`; in Rust's the panic or the crash, `crash: SIGABRT`."
+          "description": "What caught it failed with: in the Java edition the exception's class, `org.opentest4j.AssertionFailedError`; in Rust's the panic or the crash, `crash: SIGABRT`. In both, `exit: 2` when the code the test ran ended the process with that status."
         },
         "caughtByAll": {
           "type": "array",
           "items": { "$ref": "#/$defs/test" },
           "description": "Every covering test that catches it, in the order they ran, the first being `caughtBy`: only with `--kill-matrix`, and only when one did."
         },
+        "caughtCase": {
+          "type": "object",
+          "description": "The case that caught it, when the test that did is one case of a table of them: as evidence of this run, as its index moves when a case is added before it. Java names a parameterized, repeated or dynamic test by its method (`caughtBy`), and this is the invocation that failed; Rust names each case as libtest lists it (`caughtBy`), and this is the `#[case]` or `#[test_case]` row it runs.",
+          "required": ["test", "index", "name"],
+          "additionalProperties": false,
+          "properties": {
+            "test": { "type": "string", "description": "The test the case belongs to, the method or `fn` it's written as: in Java `caughtBy`, in Rust `caughtBy` without its last segment, `rstest_tests::subtracts`." },
+            "index": { "type": "integer", "minimum": 1, "description": "Its position among its test's cases in this run, from 1: JUnit's invocation number, rstest's `case_2`, test-case's `test_case_2`." },
+            "name": { "type": "string", "description": "What it's called: in Java its display name, `[2] 2, 3, 5` by default; in Rust its row as written, `#[case(2, 3, 5)]`." }
+          }
+        },
         "nearUnsafe": {
           "type": "string",
           "description": "The Rust edition only: why the mutant is near unsafe code, when it is (`called from unsafe code`, `in a module with unsafe code`, `in a function with an unsafe block`, `inside unsafe code`). It ran on its own, and a crash isn't counted as caught (`RuntimeError`)."
         },
         "failureOrigin": {
-          "enum": ["assertion", "test", "code", "unknown"],
-          "description": "Where the failure came from: `assertion` (a check failed), `test` (the test's own code threw), `code` (the code under test threw) or `unknown`."
+          "enum": ["assertion", "test", "code", "unknown", "exit"],
+          "description": "Where the failure came from: `assertion` (a check failed), `test` (the test's own code threw), `code` (the code under test threw), `unknown`, or `exit` (the code the test ran ended the JVM, with the status `caughtWith` gives)."
         },
         "unconfirmedCatchBy": {
           "$ref": "#/$defs/test",
@@ -509,7 +529,7 @@
         "test": { "$ref": "#/$defs/test" },
         "failure": {
           "type": "string",
-          "description": "The exception it threw each time, by class name."
+          "description": "What it failed with each time: in the Java edition the exception, by class name; in Rust's what `caughtWith` says, `panic`."
         },
         "mutants": {
           "type": "array",
@@ -624,6 +644,19 @@
           "items": { "$ref": "#/$defs/test" },
           "description": "Tests that failed when first run and passed when run again: left out of every mutant's run."
         },
+        "testsLeftOut": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["test", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "test": { "type": "string", "minLength": 1, "description": "The test as it was given: in Java a class by its name or full name, or `PricingTest#bigOrders`; in Rust a test's name or a module of tests by its path." },
+              "reason": { "type": ["string", "null"], "description": "Why, from its `reason:` under mutastic.yaml's `exclude-tests:`; null for one `--exclude-tests` added for this run." }
+            }
+          },
+          "description": "The tests the run was told to leave out, none of which ran: mutastic.yaml's `exclude-tests:`, then those `--exclude-tests` added, each once. A run with other tests left out is other code to compare with, never the same code."
+        },
         "flakyEvidence": {
           "type": "array",
           "items": { "$ref": "#/$defs/flakyEvidence" },
@@ -678,6 +711,10 @@
               "type": "array",
               "items": { "type": "string" },
               "description": "The methods of the catches by an assertion, `Board.toString()`, in the order found."
+            },
+            "bringBack": {
+              "type": "string",
+              "description": "The `mutastic.yaml` text that runs those arid mutants in the first three of those methods: a `rules:` list with a `mutate:` rule for each, its `arid:` naming the rule and a `reason:` to fill in, lines ending in a newline. Only when a test's assertion caught one of mutastic's own rules' mutants."
             }
           }
         },
@@ -751,6 +788,10 @@
         "durationMs": {
           "$ref": "#/$defs/count",
           "description": "How long the run took, in milliseconds."
+        },
+        "sleptMs": {
+          "$ref": "#/$defs/count",
+          "description": "How long the machine slept during the run, in milliseconds, which `durationMs` leaves out: the wall clock's time less the time awake, from the start of the run. 0 unless it's at least 5 seconds and a tenth of the wall clock's time, when the summary says it under Duration. Always there from 1.3.0."
         }
       },
       "allOf": [
@@ -910,6 +951,17 @@
             "ordinal": { "type": "integer", "minimum": 1, "description": "Which site, counting from 1, as `description` says they're counted. Not for a change to the class as a whole." },
             "method": { "type": "string", "description": "The method, with its JVM descriptor: `discount(I)I`." },
             "description": { "type": "string", "description": "Which site it is and how the sites are counted, in words." }
+          }
+        },
+        "arid": {
+          "type": "object",
+          "description": "The arid rule that skipped it, as the text's `arid` row says it. Only when one of mutastic's own rules did.",
+          "required": ["id", "description", "docs", "bringBack"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^mutastic:[a-z]+(-[a-z]+)*$", "description": "The rule's id, as `mutant-finished`'s `skipRule`: `mutastic:waits`." },
+            "description": { "type": "string", "description": "What the rule skips, in a sentence." },
+            "docs": { "type": "string", "description": "The rule's section of the docs: `https://docs.mutastic.io/reference/arid/#waits`." },
+            "bringBack": { "type": "string", "description": "The `mutastic.yaml` text that runs this rule's mutants in the mutant's method, a `rules:` list of one `mutate:` rule with `arid:` and a `reason:` to fill in, lines ending in a newline." }
           }
         },
         "lastRun": {
