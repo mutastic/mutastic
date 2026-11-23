@@ -99,9 +99,8 @@ final class ArrayForEach {
     if (setUp.size() < 6 || !(setUp.get(0) instanceof StoreInstruction copy)) {
       return null;
     }
-    var slots = Set.of(copy.slot(), loop.index(), loop.length());
     boolean javacs =
-        slots.size() == 3
+        distinct(copy.slot(), loop.index(), loop.length())
             && copy.typeKind() == TypeKind.REFERENCE
             && loads(setUp.get(1), copy.slot(), TypeKind.REFERENCE)
             && setUp.get(2).opcode() == Opcode.ARRAYLENGTH
@@ -109,6 +108,13 @@ final class ArrayForEach {
             && setUp.get(4).opcode() == Opcode.ICONST_0
             && stores(setUp.get(5), loop.index());
     return javacs ? copy : null;
+  }
+
+  /// Whether the array's copy, the index and the length are three locals of their own. Not
+  /// `Set.of(…).size() == 3`: `Set.of` throws on a repeated slot, as when the store before the
+  /// set-up is to the index, and that stopped the run.
+  private static boolean distinct(int array, int index, int length) {
+    return array != index && array != length && index != length;
   }
 
   /// Whether the body starts by reading the element: `aload a; iload i; iaload`.
