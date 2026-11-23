@@ -37,9 +37,10 @@ class RunningElsewhereTest {
     var missed =
         Samples.mutastic(
             "run", "--only=" + ID, project.toString(), "--format=concise", "--report=none");
+    // A report asked for by name isn't written by a run of some mutants, and a note says so.
     var jsonl =
         Samples.mutastic(
-            "run", "--only=" + ID, project.toString(), "--format=jsonl", "--report=none");
+            "run", "--only=" + ID, project.toString(), "--format=jsonl", "--report=json");
 
     assertThat(missed.exit()).isEqualTo(Main.FAILED);
     assertThat(missed.out())
@@ -47,7 +48,12 @@ class RunningElsewhereTest {
             " [MISSED] %s is still missed · done when mutastic verify %s %s passes"
                 .formatted(ID, ID, project))
         .doesNotContain("Score", "threshold");
+    assertThat(missed.err()).doesNotContain("note:");
+    assertThat(jsonl.exit()).isEqualTo(Main.FAILED);
     assertThat(jsonl.out()).contains("\"passed\":false,\"only\":\"" + ID + "\"");
+    assertThat(jsonl.out().lines()).allMatch(line -> line.startsWith("{"));
+    assertThat(jsonl.err()).endsWith(Main.REPORTS_LEFT_OUT + "\n");
+    assertThat(project.resolve("build/mutastic/mutation.json")).doesNotExist();
   }
 
   @Test

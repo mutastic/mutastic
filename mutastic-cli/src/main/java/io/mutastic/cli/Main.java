@@ -586,8 +586,22 @@ public final class Main {
     display.printer().print(tested.report(), kept.comparison(), kept.written());
     toGitHub(command, prepared, output.github(), tested.report());
     baselineNote(command, prepared, tested.report(), output);
+    reportsLeftOut(command, output.err());
     return exitCode(command, tested.report(), judged);
   }
+
+  /// With `--only`, the reports `--report` named aren't written, and a note on stderr says why, so
+  /// one asked for isn't missed in silence. A note, not a failure: the run's exit code is its own.
+  private static void reportsLeftOut(Command command, PrintStream err) {
+    if (!command.only().isEmpty() && command.extras().reportsNamed()) {
+      err.print(REPORTS_LEFT_OUT + "\n");
+    }
+  }
+
+  /// What a run with `--only` says of the reports `--report` named, as the Rust edition says it.
+  static final String REPORTS_LEFT_OUT =
+      "note: --report is left out with --only: a run of some mutants writes no reports, as it says"
+          + " nothing about the rest; run without --only to write them";
 
   /// What progress calls writing the run's record and reports.
   private static final String RECORDING = "writing the record and reports";
@@ -1661,8 +1675,10 @@ public final class Main {
   /// What a run does besides running its mutants: look for a test to suggest for each missed one,
   /// and with `forceCoverage` (`--force-coverage`) run the coverage pass even with none to run.
   /// With `estimate` (`mutants --estimate`), the coverage pass runs to time the tests for the
-  /// estimates `mutants` gives.
-  record Extras(boolean suggestions, boolean forceCoverage, boolean estimate) {}
+  /// estimates `mutants` gives. With `reportsNamed`, `--report` named a file to write, which a run
+  /// of some mutants leaves out, and says so.
+  record Extras(
+      boolean suggestions, boolean forceCoverage, boolean estimate, boolean reportsNamed) {}
 
   /// What a run must clear to pass: its score reaching `threshold`, or with `failOnNew`
   /// (`--fail-on-new`), no miss that the project's baseline doesn't hold, whatever the score.
@@ -1844,6 +1860,7 @@ public final class Main {
   /// the terminal's style.
   private record Output(
       PrintStream out,
+      PrintStream err,
       Progress progress,
       String format,
       Vocabulary words,
@@ -1892,6 +1909,7 @@ public final class Main {
     var words = Vocabulary.valueOf(vocabulary.toUpperCase(java.util.Locale.ROOT));
     return new Output(
         out,
+        err,
         progress(command, err, format, terminal),
         format,
         words,
@@ -3018,7 +3036,7 @@ public final class Main {
           workers,
           // The tests always run: a change with no mutant on its lines (a constant, an import, a
           // log line) can still break one, and the gate mustn't pass it.
-          new Extras(extras.suggestions(), true, false),
+          new Extras(extras.suggestions(), true, false, false),
           List.of(),
           testsFrom,
           operators,
@@ -3637,7 +3655,7 @@ public final class Main {
             only,
             new Catches(confirmCatches, killMatrix),
             workers,
-            new Extras(suggestions, forceCoverage, estimate),
+            new Extras(suggestions, forceCoverage, estimate, reports != null && !reports.isEmpty()),
             reports == null ? DEFAULT_REPORTS : List.copyOf(reports),
             List.copyOf(testsFrom),
             List.copyOf(operators),

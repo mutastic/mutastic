@@ -428,6 +428,23 @@ class HumanTextTest {
                 + "\u001b\\pricing/build/mutastic/mutation.json\u001b]8;;\u001b\\");
   }
 
+  /// A report's path is the project's text: an ANSI escape in it is shown, not run, and the path is
+  /// whole. Rust's `report.rs` has the same test.
+  @Test
+  void aReportsPathShowsWhatCantBeSeen() {
+    var file = project.resolve("a\u001b[2Jb/" + "x".repeat(Untrusted.LONGEST) + ".json");
+    var run = new HumanText.Run(LocalTime.of(9, 30, 5), Duration.ofMillis(500), List.of(file));
+
+    var shown =
+        text(HumanText.Detail.FULL, Vocabulary.PLAIN)
+            .render(report(missed(boundary(), Map.of())), Optional.empty(), run);
+
+    assertThat(shown)
+        .contains("  Reports  " + Untrusted.escape(Here.shown(file)) + "\n")
+        .contains("a\\x1b[2Jb/")
+        .doesNotContain("\u001b");
+  }
+
   /// With links on and mutant pages written, each id the output shows links to its page, which
   /// opens the HTML report on it; one in a link's address is left alone. Rust's `report.rs` has the
   /// same test.

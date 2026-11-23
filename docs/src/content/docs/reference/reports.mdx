@@ -8,8 +8,9 @@ import mutationJson from '../../../data/output/mutation-json.json?raw';
 
 Besides what it prints, a run writes its results as files, for tools and for reading later: a
 report viewer, a dashboard, a badge, a code-quality plugin. Every run writes them except a run of
-one mutant (`--only`, and so `verify` and `explain`), which says nothing about the rest. The
-summary's `Reports` line lists the files it wrote.
+one mutant (`--only`, and so `verify` and `explain`), which says nothing about the rest: given
+`--report` as well, `--only` says on stderr that it leaves the report out. The summary's `Reports`
+line lists the files it wrote.
 
 ## Formats
 
