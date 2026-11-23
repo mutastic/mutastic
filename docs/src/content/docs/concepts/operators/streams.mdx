@@ -18,8 +18,8 @@ gatherer for its pair. Together they ask whether your tests' input is input each
 | [`stream/remove-stage`](#stream-stage-removal) | a stream stage, removed | defaults |
 | [`stream/swap-match`](#stream-match-swap) | `anyMatch`, `allMatch` and `noneMatch`, swapped | defaults |
 | [`stream/remove-other-stage`](#other-stage-removal) | `peek`, and `map` on a primitive stream, removed | extended |
-| [`stream/swap-window`](#swap-window) | `Gatherers.windowFixed` and `windowSliding`, swapped | extended |
-| [`stream/swap-fold-scan`](#swap-fold-scan) | `Gatherers.fold` and `scan`, swapped | extended |
+| [`stream/swap-window`](#window-swap) | `Gatherers.windowFixed` and `windowSliding`, swapped | extended |
+| [`stream/swap-fold-scan`](#fold-and-scan-swap) | `Gatherers.fold` and `scan`, swapped | extended |
 
 Each example is a class in `samples/operator-docs` with a test that misses its mutant, and each card
 is what `mutastic run samples/operator-docs --operators=all` prints for it.
