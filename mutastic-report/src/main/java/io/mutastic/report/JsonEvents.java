@@ -33,6 +33,7 @@ public final class JsonEvents {
   private final Optional<FailOnNew> failOnNew;
   private final OperatorDocs docs;
   private final Optional<Slept> clocks;
+  private final List<LeftOut> leftOut;
 
   public JsonEvents(PrintStream out, SourceView sources, int threshold) {
     this(out, sources, threshold, Optional.empty());
@@ -51,7 +52,7 @@ public final class JsonEvents {
       int threshold,
       Optional<Share> share,
       OperatorDocs docs) {
-    this(out, sources, threshold, share, docs, Optional.empty(), Optional.empty());
+    this(out, sources, threshold, share, docs, Optional.empty(), Optional.empty(), List.of());
   }
 
   private JsonEvents(
@@ -61,7 +62,8 @@ public final class JsonEvents {
       Optional<Share> share,
       OperatorDocs docs,
       Optional<FailOnNew> failOnNew,
-      Optional<Slept> clocks) {
+      Optional<Slept> clocks,
+      List<LeftOut> leftOut) {
     this.out = out;
     this.sources = sources;
     this.text = new AgentText(sources, threshold);
@@ -70,18 +72,27 @@ public final class JsonEvents {
     this.docs = docs;
     this.failOnNew = failOnNew;
     this.clocks = clocks;
+    this.leftOut = List.copyOf(leftOut);
   }
 
   /// The same, passing a run on its misses the baseline doesn't hold, not on its score
   /// (`--fail-on-new`): `run-finished` says so, with the new misses by id.
   public JsonEvents failingOnNew(FailOnNew judged) {
-    return new JsonEvents(out, sources, threshold, share, docs, Optional.of(judged), clocks);
+    return new JsonEvents(
+        out, sources, threshold, share, docs, Optional.of(judged), clocks, leftOut);
   }
 
   /// The same, for a run whose clocks read these when it started: `run-finished`'s `sleptMs` says
   /// how long the machine slept since, when it's worth saying (see [Slept]).
   public JsonEvents sleptFrom(Slept started) {
-    return new JsonEvents(out, sources, threshold, share, docs, failOnNew, Optional.of(started));
+    return new JsonEvents(
+        out, sources, threshold, share, docs, failOnNew, Optional.of(started), leftOut);
+  }
+
+  /// The same, for a run that left out these tests: `run-finished`'s `testsLeftOut` names each,
+  /// with its reason, or null for one given on the command line.
+  public JsonEvents leavingOut(List<LeftOut> tests) {
+    return new JsonEvents(out, sources, threshold, share, docs, failOnNew, clocks, tests);
   }
 
   /// Which share of a split run this is, and what it ran on: the shares of one run are of the same
@@ -393,8 +404,7 @@ public final class JsonEvents {
     putCounts(fields, report);
     putVerdict(fields, report, oneMutant);
     putTests(fields, report);
-    fields.put("flaky", report.flaky());
-    fields.put("flakyEvidence", flakyEvidence(report));
+    putTestsLeftOut(fields, report);
     // Under other operators, nothing was compared: the event has no comparison, as with no last
     // run.
     comparison.filter(Comparison::compared).ifPresent(found -> putComparison(fields, found));
@@ -411,6 +421,25 @@ public final class JsonEvents {
     fields.put("durationMs", report.took().toMillis());
     fields.put("sleptMs", clocks.map(Slept::untilNow).orElse(Duration.ZERO).toMillis());
     emit("run-finished", fields);
+  }
+
+  /// The tests the run left out: those it found flaky, why, and those it was told to leave out.
+  private void putTestsLeftOut(Map<String, Object> fields, Report report) {
+    fields.put("flaky", report.flaky());
+    fields.put("flakyEvidence", flakyEvidence(report));
+    fields.put("testsLeftOut", testsLeftOut());
+  }
+
+  /// Each test the run left out, and why: `reason` is null for one `--exclude-tests` gave.
+  private List<Map<String, Object>> testsLeftOut() {
+    var all = new java.util.ArrayList<Map<String, Object>>();
+    for (var test : leftOut) {
+      var fields = new LinkedHashMap<String, Object>();
+      fields.put("test", test.test());
+      fields.put("reason", test.reason());
+      all.add(fields);
+    }
+    return all;
   }
 
   /// How many tests, and how the run went about them: how many workers side by side, how many

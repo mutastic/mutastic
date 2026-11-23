@@ -2,3 +2,4 @@ mutastic: com.example.pricing.PricingTest#loyalCustomersGetTwentyOffFrom250 fail
 It failed: expected: <20> but was: <10>
 Its output is in samples/pricing/build/mutastic/worker.log. To run it alone:
   samples/pricing/gradlew -p samples/pricing test --tests 'com.example.pricing.PricingTest.loyalCustomersGetTwentyOffFrom250'
+To run without it until it's fixed, list it under exclude-tests: in mutastic.yaml with a reason, or for this run add --exclude-tests=PricingTest#loyalCustomersGetTwentyOffFrom250

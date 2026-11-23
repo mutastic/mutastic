@@ -123,6 +123,9 @@ filters:
 operators:
   - defaults                         # which operators run, as --operators chooses
   - -stream/swap-match
+exclude-tests:
+  - test: CheckoutRaceTest#paysOnce  # a test every run leaves out, with why
+    reason: shares port 8080 with the payment stub until it's fixed
 gate:
   operators:
     - stronger                       # what the gate holds an agent's task to
@@ -149,6 +152,32 @@ file's first line:
 ```
 
 See [Schemas and stability](/reference/schemas/).
+
+### Leaving a test out
+
+A test that fails on its own, with no mutant in, stops the run: mutastic can't tell a mutant it
+catches from one it would fail on anyway, and the message ends in how to leave it out. Fix it if
+you can. Until then, `exclude-tests:` leaves it out of every run, with the reason a reviewer reads:
+
+```yaml
+exclude-tests:
+  - test: PricingTest#bigOrdersGetTenPercentOff
+    reason: expects the old discount until the pricing change lands
+```
+
+A test is named as [`--exclude-tests`](/reference/run/#exclude-tests) takes it: a test class by its
+name or full name, which leaves out every test in it, or one method, `Class#method`, with every
+overload and every row of it. A test without a `reason:` is an error. The summary's `Left out` row
+names each test with its reason, the Score row ends in `· 1 test left out`, and `run-finished`
+lists them as `testsLeftOut`. A left-out test can't make a mutant look caught: what only it reaches
+counts as not covered, so the score can only fall. A run with other tests left out is other code
+than one that ran them, never compared as the same. `--exclude-tests` adds to the file's tests for
+one run. With `extends:`, the file's own come first, then the other file's, and a test named in
+both keeps this file's reason.
+
+Leaving a test out is a person's call, as a test left out may be a broken one hidden: an agent's
+output never offers it, and [`mutastic gate`](/agents/gate/) holds a task that adds one as a task
+that took a test away.
 
 ### In a build of several modules
 
