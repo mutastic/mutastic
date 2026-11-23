@@ -177,7 +177,8 @@ mutastic run fixtures/pricing --since=HEAD
 
 The one test is at 50, so nothing checks the edge at 30, nothing checks an order below it, and no
 test reaches the code for an order below 30 at all: the code ran ahead of its tests. The card
-suggests a test for each.
+suggests a test for each, and `try:` an assertion that reaches the last line, which the card's test
+below 30 does too.
 
 ## Write the card's tests
 

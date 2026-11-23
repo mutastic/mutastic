@@ -10,6 +10,396 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 What's merged since the last release waits in [`changes/`](changes/), one file for each entry,
 until the next release gathers it here.
 
+## 1.3.0 (23 Nov 2026)
+
+### Card changes
+
+- **A removed cleanup call's card says what to look at.** A `close()`, `closeQuietly()`, a pool's
+  `shutdown()` or `shutdownNow()`, `addShutdownHook` and a `Cleaner`'s `clean()` had the card any
+  call gets, "no test checks the effect of calling `close()`". Each now names its test: a `close()`
+  in a `finally` wants a resource you can inspect, closed when the method returns and when it
+  throws; one on a single path, such as a `catch`, wants that path taken first; a JDBC
+  `Connection`'s wants a `DataSource` you pass in and `close()` verified, a statement's or result
+  set's a mock; a pool's wants the pool passed in and `isShutdown()`; a hook's wants
+  `removeShutdownHook` to return true; and `clean()` wants its effect checked right away. Each
+  named test is run against its mutant. See [Remove void
+  call](https://docs.mutastic.io/concepts/operators/calls/#remove-void-call).
+
+### Scoring changes
+
+- **Twins run once, and their place counts once.** Two mutants at one place that always do the
+  same now run as one: the other is skipped as `twin: same as <id>`, naming the one that runs, and
+  is out of the score. A for-each loop over an array has three such pairs (`<` made `<=` and the
+  test always true, `<` made `>=` and `!=`, the test always false and `<` made `>`), and a
+  comparison returned as it is, `return a > b;`, two (the test always true and `return true`,
+  always false and `return false`). No id changes, and each still works: `verify`, `run --only`
+  and `explain` run the one it's the same as, `mutastic ignore` records the decision for that one,
+  and an ignore of either holds for both. Runs have fewer mutants to run, and a score moves a
+  little where a place was counted twice. Events give a twin's `sameAs` and the skip kind `twin`.
+  The Rust edition has twins too. See
+  [Twins](https://docs.mutastic.io/concepts/results/#twins).
+- **`library/swap-math` swaps a stream's and a collection's `min` and `max` too.** `Stream.min`
+  and `max` with a comparator, `IntStream`'s, `LongStream`'s and `DoubleStream`'s, `Collections.min`
+  and `max`, and `Collectors.minBy` and `maxBy` swap places, as `Math.min` and `max` already did,
+  and as the Rust edition does for an iterator's. It's in the defaults, so runs get more mutants
+  and scores move with them; no existing id changes. See [Math method
+  swap](https://docs.mutastic.io/concepts/operators/library/#math-method-swap).
+- **A for-each loop's test made `!=` is skipped as equivalent (stronger).** javac counts the
+  loop's index up from 0 to the array's length and no further, so `mutastic/comparison` changing
+  `index < length` to `index != length` changes nothing, and no test could catch it. `stronger`
+  runs have one mutant fewer to run for each such loop, and scores go up a little; no id changes.
+- **A thread's name, its priority, its stack size and how long a pool's idle threads live are
+  skipped as arid.** None of them changes whether, when or how often work runs. A name given to
+  `new Thread`, `setName`, `Thread.Builder`'s `name` (and its start index) or Guava's
+  `setNameFormat` is `arid: only names a thread`; a priority from 1 to 10, or `setPriority`
+  removed, is `arid: only sets a priority hint`, as Linux ignores priorities by default and a
+  virtual thread always does; a `ThreadPoolExecutor`'s keep-alive is `arid: only sets how long
+  idle threads live`; and a stack size is `arid: only sizes a thread's stack`. A class that reads
+  names (`getName()`, other than into a log line) or is a `ThreadFactory` keeps its name mutants,
+  and one that reads priorities keeps those. A value that throws, and a keep-alive or a stack size
+  of zero, still run, and so do `start`, `interrupt`, `join`, `setDaemon` and pool and queue
+  sizes. Runs on code that sets threads up get fewer mutants, and scores can go up; `@DoMutate`
+  and a `mutate:` rule bring them back. The Rust edition skips names, stack sizes and tokio's
+  keep-alive too.
+- **A pool's largest size beside a queue with no limit is skipped as equivalent.** A
+  `ThreadPoolExecutor` only grows past its core size when its queue is full, and a
+  `LinkedBlockingQueue` made with no bound never is, so changing its largest size to another no
+  smaller than the core size changes nothing. A class that changes or reads a pool's sizes keeps
+  them.
+- **A removed `join` with a time limit runs again.** It was skipped as `arid: only waits`, but
+  without it the code reads what the thread does before it's done: the same race a removed
+  `join()` with no limit shows, which ran. How long it waits counts too, as a timeout's does: see
+  the sleep entry below. Code that joins with a time limit gets mutants more, and its score can
+  fall.
+- **`@DoMutate` and a `mutate:` rule bring back every arid skip in their code.** They brought
+  back only a whole method a filter skips, a trivial accessor or a `toString()`, and still
+  skipped a log call, a `Thread.sleep`, a capacity, an exception's message and the other arid
+  sites inside it. Now each of those runs too, so code under `@DoMutate` or `mutate:` gets more
+  mutants, and its score can fall. What's generated, equivalent or unviable, and a `@DoNotMutate`
+  or `skip:` rule's skip, still stand; no id changes. The Rust edition's `mutate:` already worked
+  this way.
+- **A log call's format string is arid with worked-out values after it (stronger).**
+  `log.info("took {} ms", System.currentTimeMillis() - start)` kept a `mutastic/string-constant`
+  mutant on `"took {} ms"`: the walk from the string to the logger stopped at the subtraction, a
+  call, boxing, a varargs array, a `+` or a `? :` on the way. It now follows the string through
+  them to the call that takes it, so the string is skipped as arid, as one with nothing after it
+  was; one that may reach anything else on any path still counts. `stronger` runs have fewer
+  mutants, and scores move a little. `mutastic/regex-constant` follows an expression the same
+  way, so one with a worked-out replacement after it, `a.replaceAll("a+", b + "!")`, is now
+  changed. No id changes.
+- **A close you write yourself runs, even in a method with a try-with-resources.** The skip for
+  the close javac writes for a try-with-resources worked by method: in any method that called
+  `addSuppressed`, every `close()` behind a null check, or closed in two places, was skipped as
+  `generated: closes a try-with-resources resource`. So an `if (out != null) out.close()` beside a
+  try-with-resources, or a close written out by hand with its own `addSuppressed`, was hidden,
+  though a test could catch it. Now only the exact code each compiler writes is skipped, found
+  from the resource's own handler: javac 11 and later's, javac 7 to 10's (with javac 9 and 10's
+  `$closeResource`, which wasn't skipped before) and ECJ's, whose own null and identity checks
+  weren't either. Methods like that get more mutants, and their scores can fall; no id changes.
+  Kotlin's `use` is skipped the same way, as ``generated: closes a `use` resource``: its
+  `closeFinally` call ran before.
+- **A mutant that makes the code a test runs exit is caught by that test, or not caught.** A test
+  that calls `main` in the tests' own JVM, where a mutant made `main` call `System.exit`, read as a
+  timeout. It's now caught by that test, by the exit, when the status fails a build's test run (any
+  but 0): same score, but the test is named. Status 0 passes Gradle's test task, so it's no catch,
+  and the tests after it decide: such a mutant can now read as missed, and a score can go down.
+  See [When the code a test runs
+  exits](https://docs.mutastic.io/concepts/results/#when-the-code-a-test-runs-exits).
+- **More capacities are arid, and a negative one counts.** The number in the arithmetic, the `2`
+  in `new ArrayList<>(n * 2)`, the JDK's `HashMap.newHashMap` and its kin, Guava's sized factories
+  (`Lists.newArrayListWithExpectedSize` and the like) and a hash table's load factor while it stays
+  above zero (`arid: only sets when a hash table grows`) are skipped as arid. A number changed to a
+  negative one there, as `new ArrayList<>(16)` to `-1`, now counts: it always throws. The Rust
+  edition makes and skips a number or arithmetic in `with_capacity`, `reserve` and
+  `reserve_exact`. See [Capacity](https://docs.mutastic.io/reference/arid/#capacity).
+- **The Rust edition makes its arid mutants, and skips them with a reason.** An error's or a
+  failed check's text (`mutastic:messages`) and every mutant of a `Debug` or `Hash` impl
+  (`mutastic:debug-representations`) are made and skipped, so they're counted as arid, a
+  `mutate:` rule brings them back, and `MUTASTIC_ARID=audit` runs them. A `Display` impl's whole
+  body now counts. The editions' contract gives each rule both editions.
+- **Only a sleep's time is arid, followed all the way to the sleep.** A number, or arithmetic,
+  that goes only into how long `Thread.sleep` or `TimeUnit.sleep` waits is skipped as `arid: only
+  sets how long to wait` however it gets there: the `1000` in `seconds * 1000L` too, and through
+  `Duration.ofSeconds` or `TimeUnit.toMillis`, as `Thread.sleep(Duration.ofSeconds(n * 2))`. A
+  `join`'s time limit now counts, as a timeout given to `Future.get` always did: a shorter limit
+  gives up on the work sooner, and a test can see that. So does a number made negative for
+  `Thread.sleep(long)`, which throws for it. The Rust edition makes and skips the same:
+  `thread::sleep` and an awaited `sleep` removed (`mutastic:waits`), and a number that goes into a
+  sleep (`mutastic:wait-times`), where it made no mutant before. See [Wait
+  times](https://docs.mutastic.io/reference/arid/#wait-times).
+- **A value worked out only for a log line is skipped as arid.** In `log.info("took {}",
+  System.currentTimeMillis() - start)` the subtraction's mutants only change what the log says, so
+  they're now `arid: only feeds a log line`, part of `mutastic:output`. The value is followed in the
+  bytecode, however the source is wrapped: through arithmetic, boxing, `"a" + x`, `String.format`,
+  a varargs array, a ternary and the methods of `java.time` and `Math`, and through a local, as in
+  `long took = now - start; log.info("took {} ms", took)`, when every read of the local on every
+  path, a loop's and a `catch`'s included, is a log call's or a print's argument. A value that
+  reaches anything else stays counted: logged and returned, compared, stored in a field, recorded
+  as a metric, passed to another method, captured by a lambda. Code that logs timings gets fewer
+  mutants, and its score can go up; `arid: [mutastic:output]` on a `mutate:` rule, or `@DoMutate`,
+  brings them back. The Rust edition skips a `let` read only by output macros.
+- **A variable's first value of `0` or `1` runs again (stronger).** `int total = 0;` or
+  `for (int i = 0; …)` was skipped as `arid: a variable's first value of 0 or 1`, but where a
+  total, a count or an index starts flows into what the code gives, and a test of the result
+  catches a wrong start; the skip hid those catches and the misses beside them. Now
+  `mutastic/constant-value` changes it like any other number, and one the code replaces before
+  anything reads it is skipped as equivalent. `stronger` runs get more mutants, and scores move;
+  no id changes. The Rust edition makes them too. See [First
+  values](https://docs.mutastic.io/reference/arid/#first-values).
+- **The JDK's `@Generated` counts, though javac keeps it for the source alone.**
+  `javax.annotation.processing.Generated`, `javax.annotation.Generated` and
+  `jakarta.annotation.Generated` never reach the class file, so the code annotation processors
+  (Dagger, MapStruct, AutoValue) and generators (OpenAPI Generator, jOOQ) write was mutated and
+  scored as yours. mutastic now reads a Java class's source file too: a top-level type with
+  `@Generated` on it is skipped as ``generated: @Generated on `Order` in the source``, with every
+  type nested in it. Comments and strings that only mention it don't count. The Gradle plugin adds
+  where annotation processors write (`build/generated/sources/annotationProcessor`) to the
+  module's sources, as Maven already does. Projects with such code have fewer mutants, and their
+  score moves. See [Annotations](https://docs.mutastic.io/guides/configuration/#annotations).
+- **More loggers' calls are output, and so is a log level's check around nothing else.** The
+  `mutastic:output` rule now knows SLF4J's fluent builder (`log.atInfo().log(...)`), Logback's
+  `Logger`, Log4j 2's builder, Log4j 1, JBoss Logging, kotlin-logging, Flogger and tinylog, beside
+  SLF4J, Log4j 2, `java.util.logging`, `System.Logger` and Commons Logging. And in `if
+  (log.isDebugEnabled()) { log.debug(...); }` the check's mutants are skipped as `arid: only
+  decides whether output is written`, when every statement it guards writes output and does
+  nothing else; a check that also stores a value, calls a method of the code's own, has an `else`
+  or returns stays counted. Code that logs through these gets fewer mutants, and its score can go
+  up; `arid: [mutastic:output]` on a `mutate:` rule, or `@DoMutate`, brings them back.
+- **A print to a stream the code is given is counted.** `out.println(...)` on a `PrintStream`
+  passed in or held in a field, as `run(args, out)` takes it, was skipped as `arid: only writes
+  output`, though a test can hand the code a stream and read it: mutants such a test catches, and
+  the ones it misses, went unseen. Only the console is output now, `System.out` and `System.err`
+  read straight from there or from a local that holds nothing else. Code that prints to a stream
+  of its own gets more mutants, and its score moves; new ids appear, none moves.
+- **How many calls `mapConcurrent` runs at once is arid.** A number given straight to
+  `Gatherers.mapConcurrent` and changed to another above zero gives the same results in the same
+  order, so it's skipped as `arid: only sets how many run at once`. Changed to `0`, it always
+  throws as the gatherer is made, and counts, as a window's size does. The rule is
+  `mutastic:gatherer-sizes`, Java only. See [Arid
+  rules](https://docs.mutastic.io/reference/arid/#gatherer-sizes).
+
+### Additions
+
+- **Every arid rule has an id.** Each kind of code mutastic skips as arid has a short, stable
+  name, shared by both editions where both have the rule (`mutastic:output` and
+  `mutastic:null-checks` today): `mutastic:output`, `mutastic:messages`, `mutastic:failed-asserts`,
+  `mutastic:capacity`, `mutastic:wait-times`, `mutastic:waits`, `mutastic:null-checks`,
+  `mutastic:array-sizes` and `mutastic:split-limits`, beside
+  `mutastic:trivial-accessors` and `mutastic:debug-representations`. The editions' contract lists
+  each with the reasons it gives, and each has a section on the [Arid
+  rules](https://docs.mutastic.io/reference/arid/) page.
+- **Bring back one arid rule: `arid:` on a `mutate:` rule.** `arid: [mutastic:waits]` under a
+  `mutate:` rule in `mutastic.yaml` brings back only that rule's skips in the code it covers, and
+  `@DoMutate(arid = "mutastic:waits")` does the same in the code (`mutastic-annotations` gains
+  `arid()`). Without it a `mutate:` rule brings back every arid skip, as before. An id mutastic
+  doesn't have is refused, with the one meant when it's close: `mutastic:wait isn't an arid rule.
+  There's one called mutastic:waits.` The `mutastic.yaml` schema has the key and its ids. The
+  Rust edition shares `mutastic:thread-names`, `mutastic:stack-sizes` and
+  `mutastic:keep-alive`.
+- **A skip says which arid rule made it, and how to undo it.** `explain` on a mutant an arid rule
+  skipped has an `arid` row: the rule's id, what it skips, a link to its docs and the
+  `mutastic.yaml` rule to copy that runs it. The HTML report's "Why it was skipped" says the same,
+  with a copy button. Events carry the id as `skipRule` (`mutant-finished`) and the row as `arid`
+  (`mutant-explained`), mutation.json as `mutastic.skipRule`, and an arid audit gives the rule to
+  copy for each method where a test's assertion caught an arid mutant.
+- **`mutastic/boolean-constant`, in `stronger`: a flag set the other way.** A `true` or `false` the
+  code passes to a method, or stores in a field or a variable, becomes the other, where only a
+  returned one did. A condition's own value isn't one, and a variable nothing reads is skipped as
+  equivalent. The Rust edition has it too. See [Boolean
+  constant](https://docs.mutastic.io/concepts/operators/arguments/#boolean-constant).
+- **`library/plain-division`, in `stronger`: division that rounds towards zero.** `Math.floorDiv`
+  and `Math.floorMod` become `/` and `%`, so a remainder that's wrong for negative numbers, `-1 %
+  3` being `-1` where `floorMod` gives `2`, shows unless a test has one. A JDK length or count
+  divided by a constant that isn't negative is skipped as equivalent. The Rust edition has it too,
+  for `div_euclid` and `rem_euclid`. See [Plain
+  division](https://docs.mutastic.io/concepts/operators/arithmetic/#plain-division).
+- **`library/swap-ends`, in `stronger`: one end of a collection for the other.** `getFirst` and
+  `getLast`, a `Deque`'s `peekFirst` and `peekLast` and `pollFirst` and `pollLast`, a `SortedSet`'s
+  `first` and `last`, and a `SortedMap`'s `firstKey` and `lastKey` and `firstEntry` and `lastEntry`
+  swap places. It finds the newest taken where the oldest was meant, which tests with one element
+  can't see. The Rust edition has it too, for `first` and `last` and `front` and `back`. See [Swap
+  ends](https://docs.mutastic.io/concepts/operators/library/#swap-ends).
+- **`library/reverse-ordering`, in `stronger`: an order turned round.** `a.compareTo(b)` becomes
+  `b.compareTo(a)`, a comparator's or a list's `reversed()` is left out, `Collections.reverseOrder(c)`
+  becomes `c`, and `Comparator.reverseOrder()` becomes `naturalOrder()`. It finds a sort the wrong
+  way round that tests with input already in order can't see. A `compareTo` only tested for `0` is
+  skipped as equivalent. The Rust edition has had it, for `cmp`. See [Reverse
+  ordering](https://docs.mutastic.io/concepts/operators/library/#reverse-ordering).
+- **The summary says when the machine slept during the run.** Duration counts the time the
+  machine was awake, so a run a Mac slept through for four minutes said 15.4s. When the clock ran
+  at least 5 seconds and a tenth of its time more, a line under Duration says `The machine slept
+  for 3m49s during the run, which Duration leaves out.`, and `run-finished` has it as `sleptMs`,
+  else 0. The Rust edition says it too. See [When the machine
+  sleeps](https://docs.mutastic.io/concepts/output/#when-the-machine-sleeps).
+- **A plugin's filter can skip one mutant, not only a whole method.** `Filter` gains
+  `skipMutant(site, mutant)`, asked about each mutant still to run once mutastic's own checks and
+  every filter's `skip` have had their say, with the instruction it changes and the code around
+  it. So a rule like "this call only records an audit event" can ship as a plugin. It does nothing
+  by default, so existing filters are unchanged. A skip with a blank reason stops the run, naming
+  the filter; an `ARID` one is brought back by a `mutate:` rule or `@DoMutate`, as mutastic's own
+  are. See [Filters](https://docs.mutastic.io/guides/plugins/#filters).
+- **Code only `main` runs says so, and what to do.** A `main` no test calls read as not covered,
+  like any other method. Its line in the Not covered list now says it's reached only from `main()`,
+  and to move what it does into `run(args, out)`, which returns the exit code, test `run`, and leave
+  `main()` a one-line call to it; a `main` whose mutants are all on one line, as one that only calls
+  `run`, gets no such advice. The Rust edition says the same. See [Code reached only from
+  main](https://docs.mutastic.io/concepts/results/#code-reached-only-from-main).
+- **An `output:` rule names your own output calls.** mutastic knows the common loggers, not the
+  wrapper your team logs through, an audit log, or a metric no test reads: each of their calls was
+  a mutant only a test of the log text would catch. A rule in `mutastic.yaml`, `- output:
+  com.acme.AuditLog#*` with the `reason:` it can't do without, has them skipped as a logger's
+  calls are, under `mutastic:output`: a removed call as `arid: only calls AuditLog#info (<the
+  reason>)`, a string or a value that only goes into one as `arid: only feeds AuditLog#info (…)`,
+  and a check around nothing but those calls. A `mutate:` rule brings them back, and
+  `MUTASTIC_ARID=audit` runs them. Nothing is output until a rule says so. In the Rust edition the
+  rule names a function or a macro by its path. See
+  https://docs.mutastic.io/guides/configuration/#your-own-output-calls.
+- **A way past a test that fails on its own: `exclude-tests:` in `mutastic.yaml`, each with a
+  reason, and `--exclude-tests=Class#method` for one method.** A test that fails with no mutant in
+  still stops the run, and its message now ends in the way past it: list it under `exclude-tests:`
+  with a `reason:`, or give `--exclude-tests` for one run, which now takes one method of a class,
+  `PricingTest#bigOrders`, with every overload and row, as well as a whole class. The summary's
+  `Left out` row names each test with its reason, the Score row ends in `· 1 test left out`, and
+  `run-finished` lists them as `testsLeftOut`. A left-out test can only make the score fall: what
+  only it reaches is not covered, and a run with other tests left out is never compared as the
+  same code. The agent format never offers it, and `mutastic gate` holds a task that adds one, as
+  a task that took a test away. See
+  [Configuration](https://docs.mutastic.io/guides/configuration/#leaving-a-test-out).
+- **A parameterized test that catches a mutant names the case that did.** `verify` and `explain`
+  say `caught by CalculatorTest#addsMixed(int, int, int) (case [2] 2, 3, 5)`, and the
+  `mutant-finished` event has `caughtCase`, with the method, the case's place in this run and its
+  display name. A test that fails with no mutant in is named with its first failing case too, and
+  once, where a method with two failing cases was named twice. The method is still the test that
+  runs, counts and is remembered; the case is evidence of this run, as a row added above it moves
+  it ([results](https://docs.mutastic.io/concepts/results/#parameterised-and-data-driven-tests)).
+- **`mutants --operators` estimates what a set adds to a run's tests.** Going from the defaults to
+  `stronger` can multiply the mutants, and nothing said what that would cost before a run paid for
+  it. After a run, `mutastic mutants --operators=stronger` adds a line before the count, such as
+  `estimate: 31 more mutants than defaults, up to 7.7s more of tests, from the run of 22 Nov 2026
+  14:03 UTC`: the time the covering tests of each extra mutant took in that run's coverage pass,
+  added up. It never guesses: with no run recorded, one of other code or other operators, or
+  mutants where that run measured nothing, it says why there's no estimate. `mutants --estimate`
+  runs every test once, with no mutant in, and estimates `defaults`, `stronger` and `all`. See
+  [All operators](https://docs.mutastic.io/concepts/operators/#choosing-operators).
+- **`stream/swap-window` and `stream/swap-fold-scan`, in `extended`: Java 24's gatherers.**
+  `Gatherers.windowFixed` and `windowSliding` swap places, which finds batches that overlap where
+  they shouldn't, unseen by a test with no more elements than one window. `Gatherers.fold` and
+  `scan` swap places, which finds a running total where the final one was meant, unseen by a test
+  with one element. A window of one is the same either way, and is skipped as equivalent. The Rust
+  edition has no gatherers. See [Window
+  swap](https://docs.mutastic.io/concepts/operators/streams/#swap-window).
+
+### Changes
+
+- **The agent format no longer offers `--exclude-tests`.** For a test that fails on its own, or one
+  that fails from outside the code, it told the agent to run without the test. Leaving a test out
+  may hide a broken one, so it's the person's call: the agent is told to find out whether the
+  change or the test is wrong, then tell the person, or propose leaving it out under
+  `exclude-tests:` with its reason. The hint for tests that fail on a JDK service the project
+  provides no longer ends in `--exclude-tests` either: the line after it names the tests to leave
+  out, outside the agent format.
+
+### Fixes
+
+- **A file one mutant's tests leave in the temporary directory can't change the next mutant's
+  result.** Each worker had a temporary directory of its own, but one worker runs many mutants,
+  so a mutant that removes a `Files.delete` left its file there, and a test of another mutant that
+  removes the write could read that file and pass: missed in one run, caught in the next. Now what
+  each run's tests add to the worker's temporary directory is deleted once they've answered, so
+  the next mutant's tests find it as the last ones did. What was there before stays, as a server
+  the coverage pass started can hold on to a directory there. The Rust edition gives each test
+  process an empty temporary directory of its own. See [How a run
+  works](https://docs.mutastic.io/concepts/how-a-run-works/#each-mutant-against-the-tests-that-reach-it).
+- **A wrapper in a directory with a space gets commands that run as they're copied.** Since
+  mutastic prints the Gradle or Maven it really runs, a wrapper under `/Users/me/My Projects`
+  started a command a shell splits at the space. Its path is now quoted, `'/Users/me/My
+  Projects/gradlew'`, or for cmd `"C:\My Projects\gradlew.bat"`, and so is the build's directory
+  after `-p` or `-f`: in the terminal, the agent's and share-ready text, the events and the
+  report's `mutastic.commands`. The HTML report offers these to copy, and a Windows directory after
+  the launcher, `-p C:\dir`, which it left out. Its check reads quotes as a shell does: a report
+  could get another command past it with a `'` inside double quotes, or `$(…)` in a `<…>`, and
+  can't now.
+- **A test that runs `main` in a JVM of its own is said to reach no mutant.** A test that starts
+  `java` on `java.class.path` to run the project's `main`, as a person would, found none of the
+  project there and failed, so mutastic said the tests fail without any mutant, though they pass
+  in the build. It now finds the build's classes there and passes. That JVM gets the classes as
+  built, though, and coverage can't see it: so a mutant only it could catch was missed, and `main`
+  read as reached by no test. The run now says so after its `coverage` line, for each test class
+  that starts a process and names a class with a `main`, and says to call what `main` calls from
+  a test instead. When that's the only test, the reason the coverage pass recorded nothing says
+  so too. The Rust edition has no such gap: a binary a test runs has the mutant in it. See [Which
+  tests reach a line](https://docs.mutastic.io/concepts/results/#which-tests-reach-a-line).
+- **A thread's card names the test that catches it.** A missed `start()`, `execute()` or
+  `submit()` said only that no test checked the effect of calling it. Its card now says no test
+  waits for the work and checks what it did, and to join the thread or wait on a latch first. A
+  removed `interrupt()` asks for a test that has a waiting thread stop; one that sets the flag
+  again after an `InterruptedException` asks for the flag to be checked. A removed `unlock()` asks
+  for another thread to take the lock, `setDaemon(true)` for `isDaemon()`, and a handler for
+  exceptions for a task that throws, run with `start()` or `execute()`, as one from `submit()`
+  never reaches it. A pool's `awaitTermination` that's always true asks for a task still running
+  when the wait ends. Each card's test was run against its mutant, in every shape javac compiles
+  the call to. The Rust edition's card for a removed `thread::spawn` says the same.
+- **A count of one reads as one.** The gate's pass said the tests `catch 1 of the 1 mutants`; it
+  now says they `catch the only mutant`, `catch all 6 mutants` when they catch every one, and
+  `catch 4 of the 6 mutants` otherwise. `1 of the baseline's mutants is caught now`, from a run
+  and from `baseline --prune`, and `removed 1 ignore that no longer holds`, from `ignore
+  --prune`, take their verb from the count too, as does the `shares` line's `1 mutant`. The Rust
+  edition says the same.
+- **A for-each loop over an array is told as the loop.** Its card said what javac compiles it to,
+  `local4 < local3` is always true. It now says what the loop does: the for-each loop over `items`
+  reads past its last element, an ArrayIndexOutOfBoundsException, or never runs its body.
+- **Help fits 100 columns.** The exit codes, `--help`'s list of commands and the long `ignore`
+  example ran to 150 columns and more, so a terminal broke them mid-word. They now wrap under
+  their first line, and the example breaks before an option with ` \`, as the Rust edition's
+  help does. `--progress` also says that the agent and jsonl formats always get a line at least
+  every 30s.
+- **A module runs with its repository's Gradle wrapper.** A module with a `settings.gradle` of
+  its own, the wrapper only at the top of the repository, ran with the `gradle` on the `PATH`
+  instead, and an older Gradle failed while it read the build file. mutastic now looks for
+  `gradlew` and `mvnw` up to the top of the repository, and runs one that has lost its executable
+  bit with `sh`. With no wrapper, it says which Gradle or Maven it runs from the `PATH`, with its
+  path and version, and a failed build says that may be why. A Gradle on the `PATH` too old for
+  the build's JDK is named as `build-jdk` too. The commands mutastic prints start with the same
+  Gradle or Maven. See [Which Gradle and Maven
+  run](https://docs.mutastic.io/getting-started/install/#which-gradle-and-maven-run).
+- **The HTML report offers those commands to copy.** A mutant's commands that start with the
+  wrapper by its path (`sh ./gradlew`, `../gradlew`, `/repo/mvnw`), Gradle or Maven by an absolute
+  path, or `.\gradlew.bat` on Windows were left out of the report's page, as it took only
+  `./gradlew`, `gradle` and `mvn`. It still offers nothing else: a path is plain names between its
+  separators, ending in the wrapper's or the tool's name.
+- **An error ends in the one command to run, in the Rust edition's words.** A mistake in the
+  command line no longer ends in a `usage:` line. With no close name, it ends in the command that
+  lists what there is, `mutastic run --help`, or in yours with a `<…>` to fill in: a missing value
+  (`--format=<format>`, with the values it takes), a missing id (`<id>`, where the example was a
+  real id that could be run as it was) or reason (`--reason="<why>"`, the directory and options
+  kept). An id no mutant has ends in `mutastic mutants`; a directory with no build says where it
+  looked and ends in your command on `<project directory>`. `--workers=0` says what it got, and
+  an unknown id, a missing reason and a directory with no project read as they do in the Rust
+  edition, so a script or an agent reads one message in both.
+- **A test whose code exits says so.** A caught mutant's card says `caught by
+  CliTest#printsTheDiscount, by the JVM exiting with status 2`, and its event has `caughtWith:
+  "exit: 2"` and `failureOrigin: "exit"`. The Rust edition says the same for `process::exit`.
+- **`ignore` on a mutant mutastic skips itself says it doesn't run anyway.** A mutant skipped as
+  arid, by a `skip:` rule or as unviable got an ignore that decided nothing; now, as for a
+  generated or equivalent one, nothing is recorded, as in the Rust edition.
+- **`baseline` takes `--operators`.** A baseline is taken under the operators it names, as the
+  Rust edition's is, where only `mutastic.yaml`'s `operators:` could choose them.
+- **`gate --help` is the gate's help.** Without its action, it shows the help of `gate open`,
+  `gate check` and `gate close`, where it showed every command's.
+- **Help lists every variable mutastic reads.** `MUTASTIC_PROGRESS`, `MUTASTIC_TERM_PROGRESS`,
+  `MUTASTIC_HEARTBEAT`, `TERM=dumb`, `CI` and `CLAUDECODE` were read but not listed. `--workers`
+  says it's how many mutants run side by side.
+- **An ignore with no reason says so first.** `.mutastic/ignores.yaml line 4: the entry has no
+  reason: every entry needs an id and a reason`, as the Rust edition says it, where the rule came
+  before the problem.
+- **A close name counts letters as the Rust edition does.** A character outside the Basic
+  Multilingual Plane, an emoji, is one edit, not two, when mutastic looks for the name you meant.
+- **An error with an option before the command, or a directory that isn't there, says what to
+  run.** `mutastic --format=agent run` says mutastic takes its command first and gives the line
+  with it first, `mutastic run --format=agent`, where it said `--format=agent` wasn't a command.
+  `mutastic run pricng` says where it looked, and that there's a directory called `pricing`, with
+  the command on it. Both read as the Rust edition's.
+
 ## 1.2.1 (18 Nov 2026)
 
 ### Fixes

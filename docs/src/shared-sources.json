@@ -1,20 +1,20 @@
 {
   "concepts/results": {
-    "commit": "c8e7f4f2b89bf143a49abc7a978d22471931e01e",
+    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
     "sources": {
-      "concepts/results.md": "b516887663cf1b5b"
+      "concepts/results.md": "a8bf4935b4cb180c"
     }
   },
   "concepts/coverage-and-mutants": {
-    "commit": "2701f2b99d0d57c03348b6efea545461863f9d51",
+    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
     "sources": {
-      "coverage-and-mutants.md": "e025d36d6418984a"
+      "coverage-and-mutants.md": "07fe302dbd7baf2c"
     }
   },
   "concepts/suggested-tests": {
-    "commit": "24beb4f1727ab4117692621b1161d8cfaf72c66c",
+    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
     "sources": {
-      "concepts/suggested-tests.md": "9fac9873cf57420a"
+      "concepts/suggested-tests.md": "0d3c2356c3b9aae1"
     }
   },
   "concepts/equivalence": {
@@ -25,30 +25,30 @@
     }
   },
   "concepts/flaky-tests": {
-    "commit": "c8e7f4f2b89bf143a49abc7a978d22471931e01e",
+    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
     "sources": {
       "concepts/how-a-run-works.md#what-each-test-reaches": "39b9098379c64c5b",
-      "troubleshooting.md#a-test-fails-before-any-mutant": "7c5d07a6ebfdfed8",
-      "troubleshooting.md#a-test-is-flaky": "4f3925232861ed7c",
-      "differences-from-java.md#tests": "e29b502a03689fa3"
+      "troubleshooting.md#a-test-fails-before-any-mutant": "8c06f7dd25e9c303",
+      "troubleshooting.md#a-test-is-flaky": "9e0b6b495704d441",
+      "differences-from-java.md#tests": "ad8b869261b40218"
     }
   },
   "concepts/output": {
-    "commit": "c8e7f4f2b89bf143a49abc7a978d22471931e01e",
+    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
     "sources": {
-      "concepts/output.md": "427473bd3abc694e"
+      "concepts/output.md": "1701e94febba6f44"
     }
   },
   "concepts/how-a-run-works": {
-    "commit": "c8e7f4f2b89bf143a49abc7a978d22471931e01e",
+    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
     "sources": {
-      "concepts/how-a-run-works.md": "207cf05efc126b5d"
+      "concepts/how-a-run-works.md": "99b50aa2977030c6"
     }
   },
   "concepts/ids": {
-    "commit": "c8e7f4f2b89bf143a49abc7a978d22471931e01e",
+    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
     "sources": {
-      "concepts/ids.md": "f20fef821848896f"
+      "concepts/ids.md": "1a5c91796e0e49c8"
     }
   },
   "guides/ci": {
@@ -65,9 +65,9 @@
     }
   },
   "guides/test-first": {
-    "commit": "f6a2b1e134cd650f9ca087e63527d94a5b1612a3",
+    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
     "sources": {
-      "test-first.md": "facde36c39000196"
+      "test-first.md": "fd0c32f0cdceb063"
     }
   },
   "guides/test-first-refactor": {
@@ -77,25 +77,25 @@
     }
   },
   "guides/test-first-agent": {
-    "commit": "c8e7f4f2b89bf143a49abc7a978d22471931e01e",
+    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
     "sources": {
-      "test-first-agent.md": "6ac394bfcd4d9519"
+      "test-first-agent.md": "3097c15422a6ceed"
     }
   },
   "concepts/arid": {
-    "commit": "5ef5730d763e0b38c38fd5f78a073850497b43f9",
+    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
     "sources": {
-      "operators/calls.md#remove-void-call": "689d6cc9e1acc786",
-      "reference/configuration.md#mutasticyaml": "82b95295ff802ef9",
+      "operators/calls.md#remove-void-call": "d8063dc6f8189833",
+      "reference/configuration.md#mutasticyaml": "d505afae61bd9f02",
       "differences-from-java.md#whats-different-in-the-results": "dc8be6b46b9f6a7c"
     }
   },
   "reference/arid": {
-    "commit": "5ef5730d763e0b38c38fd5f78a073850497b43f9",
+    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
     "sources": {
-      "operators/calls.md#remove-void-call": "689d6cc9e1acc786",
-      "operators/calls.md#remove-discarded-call": "290f2afb3c29c443",
-      "reference/configuration.md#mutasticyaml": "82b95295ff802ef9",
+      "operators/calls.md#remove-void-call": "d8063dc6f8189833",
+      "operators/calls.md#remove-discarded-call": "aef7a264e0cf12e0",
+      "reference/configuration.md#mutasticyaml": "d505afae61bd9f02",
       "differences-from-java.md#whats-different-in-the-results": "dc8be6b46b9f6a7c"
     }
   }
