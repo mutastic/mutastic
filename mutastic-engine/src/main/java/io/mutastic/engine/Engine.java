@@ -611,7 +611,7 @@ public final class Engine {
   /// and no mutant run. What it measured, for [TestTimes].
   public TestTimes.Measured measure(Project project, Options options, Listener listener) {
     var plan = plan(project, options);
-    var workers = workersFor(project, 1, 1);
+    var workers = workersFor(project, 1, 1, methods(options));
     try {
       listener.coverageFinished(coveragePass(project, plan, workers.getFirst(), listener));
       return plan.mutantRun().coverage().measured();
