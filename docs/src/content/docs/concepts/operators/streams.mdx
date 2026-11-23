@@ -18,8 +18,8 @@ gatherer for its pair. Together they ask whether your tests' input is input each
 | [`stream/remove-stage`](#stream-stage-removal) | a stream stage, removed | defaults |
 | [`stream/swap-match`](#stream-match-swap) | `anyMatch`, `allMatch` and `noneMatch`, swapped | defaults |
 | [`stream/remove-other-stage`](#other-stage-removal) | `peek`, and `map` on a primitive stream, removed | extended |
-| [`stream/swap-window`](#window-swap) | `Gatherers.windowFixed` and `windowSliding`, swapped | extended |
-| [`stream/swap-fold-scan`](#fold-and-scan-swap) | `Gatherers.fold` and `scan`, swapped | extended |
+| [`stream/swap-window`](#swap-window) | `Gatherers.windowFixed` and `windowSliding`, swapped | extended |
+| [`stream/swap-fold-scan`](#swap-fold-scan) | `Gatherers.fold` and `scan`, swapped | extended |
 
 Each example is a class in `samples/operator-docs` with a test that misses its mutant, and each card
 is what `mutastic run samples/operator-docs --operators=all` prints for it.
@@ -172,7 +172,7 @@ it can change what the stream holds, and what comes next would throw on the wron
 look like a catch. The Rust edition has this operator too, `stream/remove-other-stage`, for an
 iterator's `inspect` and `map`.
 
-## Window swap
+## Swap window
 
 `stream/swap-window`, in the `extended` set. `Gatherers.windowFixed` and `windowSliding` swap
 places: windows side by side become windows that overlap, and the other way round. Gatherers are
@@ -219,7 +219,7 @@ The test has two orders, and batches of three, so there's only one batch:
 is the same either way, so its swap is skipped as equivalent. The Rust edition has no gatherers, so
 no such operator.
 
-## Fold and scan swap
+## Swap fold-scan
 
 `stream/swap-fold-scan`, in the `extended` set. `Gatherers.fold` and `scan` swap places: one result
 at the end becomes one after each element, and the other way round. Gatherers are Java 24's, so this
