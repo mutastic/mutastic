@@ -135,6 +135,8 @@ class ConfigurationTest {
           - mutate: com.acme.Worker#run
             arid: [mutastic:waits, mutastic:output]
             reason: callers wait for it
+          - output: com.acme.AuditLog#*
+            reason: the audit trail, which ops read
         plugins:
           - build/libs/acme-filters.jar
           - mutiny.yaml
@@ -159,13 +161,46 @@ class ConfigurationTest {
             "gate:\n  threshold: 90\n",
             "rules:\n  - skip: com.acme.**\n    arid: [mutastic:waits]\n    reason: r\n",
             "rules:\n  - mutate: com.acme.**\n    arid: [mutastic:wait]\n    reason: r\n",
-            "rules:\n  - mutate: com.acme.**\n    arid: []\n    reason: r\n")) {
+            "rules:\n  - mutate: com.acme.**\n    arid: []\n    reason: r\n",
+            "rules:\n  - output: com.acme.AuditLog#*\n",
+            "rules:\n  - output: com.acme.**\n    arid: [mutastic:output]\n    reason: r\n")) {
       write(refused);
       assertThatThrownBy(() -> Configuration.read(project))
           .as(refused)
           .isInstanceOf(Main.ConfigException.class);
       assertThat(Schemas.yamlProblems("mutastic-yaml/v1.json", refused)).as(refused).isNotEmpty();
     }
+  }
+
+  /// An `output:` rule names the project's own calls that only write output, with its reason, and
+  /// takes no `arid:` list: that's a `mutate:` rule's.
+  @Test
+  void anOutputRuleNamesTheProjectsOwnOutputCalls() throws Exception {
+    write(
+        """
+        rules:
+          - output: com.acme.AuditLog#*
+            reason: the audit trail, which ops read
+          - output: io.micrometer.core.instrument.Timer#record
+            reason: a metric
+        """);
+
+    assertThat(Configuration.read(project).rules())
+        .containsExactly(
+            Rule.output("com.acme.AuditLog#*", "the audit trail, which ops read"),
+            Rule.output("io.micrometer.core.instrument.Timer#record", "a metric"));
+
+    write("rules:\n  - output: com.acme.AuditLog\nplugins:\n");
+    assertThatThrownBy(() -> Configuration.read(project))
+        .hasMessage(
+            "mutastic.yaml line 3: the rule `output: com.acme.AuditLog` needs a `reason:` under"
+                + " it");
+    write("rules:\n  - outptu: com.acme.AuditLog\n    reason: r\n");
+    assertThatThrownBy(() -> Configuration.read(project))
+        .hasMessage("mutastic.yaml line 2: outptu: isn't a rule. There's one called output:.");
+    write("rules:\n  - output: com.acme.AuditLog\n    arid: [mutastic:output]\n");
+    assertThatThrownBy(() -> Configuration.read(project))
+        .hasMessageContaining("`arid:` goes on a `mutate:` rule");
   }
 
   /// A `mutate:` rule's `arid:` names the arid rules it brings back, on its line or under it,

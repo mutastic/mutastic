@@ -75,7 +75,7 @@
     },
     "rule": {
       "type": "object",
-      "description": "`skip:` or `mutate:`, then `reason:` under it.",
+      "description": "`skip:`, `mutate:` or `output:`, then `reason:` under it.",
       "oneOf": [
         {
           "required": ["skip", "reason"],
@@ -102,6 +102,17 @@
               "minItems": 1,
               "uniqueItems": true,
               "description": "Bring back only these arid rules' skips, by id: `[mutastic:waits]`. Each rule's docs: https://docs.mutastic.io/reference/arid/"
+            },
+            "reason": { "$ref": "#/$defs/reason" }
+          }
+        },
+        {
+          "required": ["output", "reason"],
+          "additionalProperties": false,
+          "properties": {
+            "output": {
+              "$ref": "#/$defs/pattern",
+              "description": "Calls to these methods only write output, as a logger's do: your own logger, an audit log, a metric. mutastic skips them as arid (`mutastic:output`), and what only goes into them, each with this rule's reason. A `mutate:` rule brings them back. In the Rust edition, a function or macro path: `crate::audit::record`, `metrics::counter`."
             },
             "reason": { "$ref": "#/$defs/reason" }
           }

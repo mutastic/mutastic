@@ -32,18 +32,24 @@ final class SchemaCompatibility {
   /// What the schema's root describes, to say where a break is: `the event`.
   private final String root;
 
+  /// Whether the schema is of a file mutastic reads, not of what it writes.
+  private final boolean read;
+
   private final List<String> breaks = new ArrayList<>();
 
-  private SchemaCompatibility(JsonNode released, JsonNode current, String root) {
+  private SchemaCompatibility(JsonNode released, JsonNode current, String root, boolean read) {
     this.released = released;
     this.current = current;
     this.root = root;
+    this.read = read;
   }
 
   /// Each promise the events schema `current` breaks of `released`'s, in words, with where: empty
   /// when it keeps them.
   static List<String> breaks(JsonNode released, JsonNode current) {
-    return breaks(released, current, "the event");
+    var compatibility = new SchemaCompatibility(released, current, "the event", false);
+    compatibility.compare("", released, current);
+    return compatibility.breaks;
   }
 
   /// The same for a schema whose root describes `root`: `mutastic.yaml`.
@@ -51,9 +57,11 @@ final class SchemaCompatibility {
   /// For a file mutastic reads, what matters is the other way round: that a file the released
   /// schema took is still taken. A field made optional, or a constraint loosened, keeps that
   /// promise, and is still called a break here. Kept strict on purpose: such a change is rare, and
-  /// a release should decide it, not let it through unseen.
+  /// a release should decide it, not let it through unseen. One change of that kind is let through,
+  /// since no file the released schema took can meet it: a new alternative, a new kind of rule,
+  /// that requires a field every released alternative refuses ([#alternatives]).
   static List<String> breaks(JsonNode released, JsonNode current, String root) {
-    var compatibility = new SchemaCompatibility(released, current, root);
+    var compatibility = new SchemaCompatibility(released, current, root, true);
     compatibility.compare("", released, current);
     return compatibility.breaks;
   }
@@ -125,8 +133,14 @@ final class SchemaCompatibility {
   /// The same alternatives, each still saying what it said: a rule that's `skip:` or `mutate:`. One
   /// added or taken away changes which values are valid, and with `oneOf` a value two now match is
   /// valid no longer.
+  ///
+  /// In a file mutastic reads, alternatives added after the released ones are kept when no file the
+  /// released schema took can match one: each requires a field every released alternative refuses,
+  /// as `output:` is to a rule that's `skip:` or `mutate:`. Every file that was valid then matches
+  /// the one alternative it matched, and what's new is only what's valid besides.
   private void alternatives(String at, String keyword, JsonNode then, JsonNode later) {
-    if (then.size() != later.size()) {
+    boolean onlyNewKinds = read && later.size() > then.size() && addedApart(then, later);
+    if (then.size() != later.size() && !onlyNewKinds) {
       breaks.add(
           "%s: `%s` had %d alternatives, and has %d"
               .formatted(place(at), keyword, then.size(), later.size()));
@@ -135,6 +149,30 @@ final class SchemaCompatibility {
     for (int index = 0; index < then.size(); index++) {
       compare("%s/%s[%d]".formatted(at, keyword, index), then.get(index), later.get(index));
     }
+  }
+
+  /// Whether each alternative `later` has past `then`'s requires a field all of `then`'s refuse.
+  private boolean addedApart(JsonNode then, JsonNode later) {
+    for (int index = then.size(); index < later.size(); index++) {
+      var required = resolved(current, later.get(index)).path("required");
+      if (words(required).stream().noneMatch(field -> refusedByAll(then, field))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// No alternative of the released schema takes an object with `field`: each lists its fields,
+  /// `field` not among them, and takes no others.
+  private boolean refusedByAll(JsonNode then, String field) {
+    for (JsonNode alternative : then.values()) {
+      var was = resolved(released, alternative);
+      var others = was.path("additionalProperties");
+      if (!others.isBoolean() || others.asBoolean() || was.path("properties").has(field)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// Each released branch, found by its condition, still says what it said. A new branch is a new
