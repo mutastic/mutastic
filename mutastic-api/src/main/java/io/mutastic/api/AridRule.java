@@ -124,10 +124,8 @@ public enum AridRule {
   GATHERER_SIZES(
       "mutastic:gatherer-sizes",
       Scope.SITE,
-      "A gatherer's size made less than one, which always throws, and how many calls"
-          + " `Gatherers.mapConcurrent` runs at once.",
+      "How many calls `Gatherers.mapConcurrent` runs at once, while it stays above zero.",
       "items.stream().gather(Gatherers.mapConcurrent(4, this::price)).toList();",
-      "arid: a gatherer's size below one always throws",
       "arid: only sets how many run at once");
 
   /// What a rule judges: a whole method, every mutant in it, or one site, a call or a value.

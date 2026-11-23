@@ -216,10 +216,8 @@ The test has two orders, and batches of three, so there's only one batch:
 ```
 
 **Edition notes:** run it with `--operators=defaults,extended`. A window of one, `windowFixed(1)`,
-is the same either way, so its swap is skipped as equivalent. A window's size made less than one by
-`mutastic/constant-value` always throws, and is skipped as arid
-([`mutastic:gatherer-sizes`](/reference/arid/#gatherer-sizes)). The Rust edition has no gatherers,
-so no such operator.
+is the same either way, so its swap is skipped as equivalent. The Rust edition has no gatherers, so
+no such operator.
 
 ## Fold and scan swap
 

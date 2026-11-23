@@ -1642,10 +1642,9 @@
         "java"
       ],
       "scope": "site",
-      "description": "A gatherer's size made less than one, which always throws, and how many calls `Gatherers.mapConcurrent` runs at once.",
+      "description": "How many calls `Gatherers.mapConcurrent` runs at once, while it stays above zero.",
       "reasons": {
         "java": [
-          "arid: a gatherer's size below one always throws",
           "arid: only sets how many run at once"
         ]
       },
@@ -2459,8 +2458,8 @@
         "java"
       ],
       "surface": "operators",
-      "summary": "The arid rule `mutastic:gatherer-sizes`: a gatherer's size made less than one, and `Gatherers.mapConcurrent`'s number of calls at once",
-      "reason": "Java's gatherers check their size when they're made, and `mapConcurrent` runs its calls on virtual threads, keeping their order. Rust has no gatherers, so nothing to skip."
+      "summary": "The arid rule `mutastic:gatherer-sizes`: `Gatherers.mapConcurrent`'s number of calls at once, while it stays above zero",
+      "reason": "Java's `mapConcurrent` runs its calls on virtual threads and keeps their order, so how many run at once changes only how long they take. Rust has no gatherers, so nothing to skip."
     }
   ]
 }

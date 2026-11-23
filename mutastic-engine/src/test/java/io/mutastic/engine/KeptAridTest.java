@@ -59,7 +59,6 @@ class KeptAridTest {
             "arid: `toString()` is a debug representation",
             "arid: `describe()` only serves `toString()`",
             "arid: `hashCode()` may return any value consistent with `equals()`",
-            "arid: a gatherer's size below one always throws",
             "arid: only sets how many run at once");
   }
 

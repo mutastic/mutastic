@@ -371,10 +371,9 @@
         "java"
       ],
       "scope": "site",
-      "description": "A gatherer's size made less than one, which always throws, and how many calls `Gatherers.mapConcurrent` runs at once.",
+      "description": "How many calls `Gatherers.mapConcurrent` runs at once, while it stays above zero.",
       "reasons": {
         "java": [
-          "arid: a gatherer's size below one always throws",
           "arid: only sets how many run at once"
         ]
       },

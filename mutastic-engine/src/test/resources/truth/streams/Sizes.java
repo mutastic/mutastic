@@ -5,9 +5,9 @@ import java.util.stream.Gatherer;
 import java.util.stream.Gatherers;
 import java.util.stream.Stream;
 
-/// The numbers a gatherer is made with, in each shape javac writes them: a window's size below one
-/// always throws, and `mapConcurrent`'s number only says how many run at once; a window's size
-/// above zero, and a number that isn't the size itself, are counted.
+/// The numbers a gatherer is made with, in each shape javac writes them: `mapConcurrent`'s number
+/// above zero only says how many run at once. A window's size, any number below one, which always
+/// throws, and a number that isn't the size itself are counted.
 class Sizes {
   static String windowsInline(int a, int b) {
     return Stream.of(a, b, 7, 8).gather(Gatherers.windowFixed(3)).toList().toString();
@@ -43,7 +43,7 @@ class Sizes {
         .toString();
   }
 
-  /// A number that only goes into the size: below one, it doesn't always throw.
+  /// A number that only goes into the size.
   static String sizeFromArithmetic(int a, int b) {
     int size = Math.floorMod(b, 3) + 2;
     return Stream.of(a, b, 7).gather(Gatherers.windowFixed(size)).toList().toString();

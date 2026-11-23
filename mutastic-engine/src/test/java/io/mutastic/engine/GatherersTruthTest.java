@@ -10,10 +10,24 @@ import org.junit.jupiter.api.Test;
 
 /// Java 24's gatherers: each card a window or a fold swapped for its pair gets says what its mutant
 /// does (see [ClaimFixture]), and a gatherer's numbers are skipped as arid only where the mutant
-/// always throws, or changes only how many calls run at once, each mutant run to show it.
+/// changes only how many calls run at once, each mutant run to show it. A size made less than one
+/// always throws, so any test that reaches it catches it: it's counted.
 class GatherersTruthTest {
-  private static final String THROWS = " (arid: a gatherer's size below one always throws)";
   private static final String AT_ONCE = " (arid: only sets how many run at once)";
+
+  /// The sizes made less than one, by method: each counted, and each throws for every input.
+  private static final java.util.Set<String> ALWAYS_THROW =
+      java.util.Set.of(
+          "windowsInline constant 3 to 0",
+          "windowsInline constant 3 to -1",
+          "slidingInALocal constant 2 to 0",
+          "slidingInALocal constant 2 to -1",
+          "chained constant 2 to 0",
+          "chained constant 2 to -1",
+          "chained constant 3 to 0",
+          "concurrently constant 4 to 0",
+          "concurrentlyCapturing constant 8 to 0",
+          "concurrentlyByReference constant 2 to 0");
 
   /// Inputs either side of zero and of the windows' sizes, and an end of `int`.
   private static final List<Integer> SOME = List.of(Integer.MIN_VALUE, -1, 0, 1, 2, 3, 7);
@@ -43,26 +57,20 @@ class GatherersTruthTest {
   }
 
   @Test
-  void aWindowsSizeAboveZeroIsCountedAndBelowOneIsArid() {
+  void aWindowsSizeIsCounted() {
     assertThat(changes("windowsInline", 3))
         .containsExactly(
             "constant 3 to 4",
             "constant 3 to 2",
-            "constant 3 to 0" + THROWS,
+            "constant 3 to 0",
             "constant 3 to 1",
-            "constant 3 to -1" + THROWS);
+            "constant 3 to -1");
     assertThat(changes("slidingInALocal", 2))
         .containsExactly(
-            "constant 2 to 3",
-            "constant 2 to 1",
-            "constant 2 to 0" + THROWS,
-            "constant 2 to -1" + THROWS);
+            "constant 2 to 3", "constant 2 to 1", "constant 2 to 0", "constant 2 to -1");
     assertThat(changes("chained", 2))
         .containsExactly(
-            "constant 2 to 3",
-            "constant 2 to 1",
-            "constant 2 to 0" + THROWS,
-            "constant 2 to -1" + THROWS);
+            "constant 2 to 3", "constant 2 to 1", "constant 2 to 0", "constant 2 to -1");
   }
 
   /// Every change to how many run at once, in each shape: a lambda, one that captures a value, a
@@ -74,29 +82,29 @@ class GatherersTruthTest {
         .containsExactly(
             "constant 4 to 5" + AT_ONCE,
             "constant 4 to 3" + AT_ONCE,
-            "constant 4 to 0" + THROWS,
+            "constant 4 to 0",
             "constant 4 to 1" + AT_ONCE);
     assertThat(changes("concurrentlyCapturing", 8))
         .containsExactly(
             "constant 8 to 9" + AT_ONCE,
             "constant 8 to 7" + AT_ONCE,
-            "constant 8 to 0" + THROWS,
+            "constant 8 to 0",
             "constant 8 to 1" + AT_ONCE);
     assertThat(changes("concurrentlyByReference", 2))
         .containsExactly(
-            "constant 2 to 3" + AT_ONCE, "constant 2 to 1" + AT_ONCE, "constant 2 to 0" + THROWS);
+            "constant 2 to 3" + AT_ONCE, "constant 2 to 1" + AT_ONCE, "constant 2 to 0");
     assertThat(changes("chained", 3))
         .containsExactly(
             "constant 3 to 4" + AT_ONCE,
             "constant 3 to 2" + AT_ONCE,
-            "constant 3 to 0" + THROWS,
+            "constant 3 to 0",
             "constant 3 to 1" + AT_ONCE);
   }
 
-  /// A number that isn't the size itself, but goes into it, doesn't always throw below one; and the
-  /// numbers beside a gatherer's are counted.
+  /// A number that isn't the size itself, but goes into it, and the numbers beside a gatherer's,
+  /// are counted.
   @Test
-  void onlyTheSizeItselfIsArid() {
+  void onlyHowManyRunAtOnceIsArid() {
     assertThat(sizes.changesIn("sizeFromArithmetic"))
         .isNotEmpty()
         .noneMatch(GatherersTruthTest::arid);
@@ -114,22 +122,26 @@ class GatherersTruthTest {
         .toList();
   }
 
-  /// Run: each mutant skipped as always throwing throws, for every input; each skipped as only
-  /// setting how many run at once gives what the code does; each window's size that's counted
-  /// changes what it gives.
+  /// Run: each size made less than one is counted and throws, for every input; each skipped as only
+  /// setting how many run at once gives what the code does; each other counted one changes what it
+  /// gives.
   @Test
   void eachSkipIsWhatItSays() throws Exception {
     var failures = new ArrayList<String>();
     for (Mutant mutant : sizes.mutants()) {
       var why = mutant.skipped().map(reason -> " (" + reason + ")").orElse("");
       var method = ClaimFixture.sourceMethod(mutant);
+      var throwing = ALWAYS_THROW.contains(method + " " + mutant.replacement());
+      if (throwing && !why.isEmpty()) {
+        failures.add(ClaimFixture.describe(mutant) + " always throws, and is skipped" + why);
+      }
       var differs = false;
       for (int a : SOME) {
         for (int b : SOME) {
           var mutated = sizes.outcomeOf(mutant, a, b);
           var original = sizes.outcomeOfOriginal(method, a, b);
           differs |= !mutated.equals(original);
-          if (why.equals(THROWS) && !mutated.equals("threw IllegalArgumentException")) {
+          if (throwing && !mutated.equals("threw IllegalArgumentException")) {
             failures.add(ClaimFixture.describe(mutant) + " gives " + mutated);
           }
           if (why.equals(AT_ONCE) && !mutated.equals(original)) {
@@ -142,9 +154,16 @@ class GatherersTruthTest {
       }
     }
     assertThat(failures).isEmpty();
+    assertThat(sizes.mutants())
+        .filteredOn(
+            mutant ->
+                ALWAYS_THROW.contains(
+                    ClaimFixture.sourceMethod(mutant) + " " + mutant.replacement()))
+        .as("the sizes made less than one")
+        .hasSize(ALWAYS_THROW.size());
   }
 
   private static boolean arid(String change) {
-    return change.endsWith(THROWS) || change.endsWith(AT_ONCE);
+    return change.endsWith(AT_ONCE);
   }
 }
