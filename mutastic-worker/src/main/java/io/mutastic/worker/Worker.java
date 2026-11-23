@@ -154,10 +154,11 @@ public final class Worker {
     this.testRoots = testRoots;
     this.tags = tags;
     this.protocol = protocol;
-    var providers = TestSplit.providersIn(concat(testRoots, productionRoots));
-    var renamed = new HashSet<>(splitTests(productionRoots, testRoots));
-    renamed.removeAll(providers);
-    this.splitTests = new TestSplit(renamed, providers);
+    var allRoots = concat(testRoots, productionRoots);
+    var scanned = new Scannable(Scannable.SPRING, allRoots, getClass().getClassLoader());
+    this.splitTests =
+        TestSplit.of(
+            splitTests(productionRoots, testRoots), TestSplit.providersIn(allRoots), scanned);
     this.testClassNames = classNamesIn(testRoots);
     this.framework =
         framework ? new Framework(productionRoots, classNamesIn(productionRoots)) : null;

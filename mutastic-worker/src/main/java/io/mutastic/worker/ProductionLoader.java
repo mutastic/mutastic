@@ -71,9 +71,10 @@ final class ProductionLoader extends RootsLoader implements MutantInPlace.Classe
     }
     // A test-only class a test copy uses. A test in a production package is run as a renamed copy,
     // and every class reference in a copy is renamed too, so only a lookup by name reaches here by
-    // its original name: a string (`@MethodSource("com.example.UtilTest#cases")`) or a framework's
-    // scan of the class files (Spring's, for a test `@Configuration`). That class is defined once,
-    // as the build has it, and its statics last across runs.
+    // its original name: a string (`@MethodSource("com.example.UtilTest#cases")`). That class is
+    // defined once, as the build has it, and its statics last across runs. A class a framework's
+    // scan finds (Spring's, for a test `@Configuration`) is never renamed ([Scannable]), so tests
+    // and scan both reach it here.
     return classFile(testRoots, name);
   }
 
@@ -100,15 +101,20 @@ final class ProductionLoader extends RootsLoader implements MutantInPlace.Classe
 
   /// The split-package test class `name` belongs to (itself or the class it's nested in), or null.
   @Nullable String splitTopLevel(String name) {
-    int dollar = name.indexOf('$');
-    var topLevel = dollar < 0 ? name : name.substring(0, dollar);
+    var topLevel = topLevel(name);
     return splitTests.renamed().contains(topLevel) ? topLevel : null;
   }
 
-  /// Whether `name` is a class the JDK makes for a service ([TestSplit#shared]): this loader's
-  /// alone, by its own name, for every run.
+  /// Whether `name` is a class shared by every run ([TestSplit#shared]), or nested in one: this
+  /// loader's alone, by its own name.
   boolean shared(String name) {
-    return splitTests.shared().contains(name);
+    return splitTests.shared().contains(name) || splitTests.shared().contains(topLevel(name));
+  }
+
+  /// `com.example.FooTest$Nested` → `com.example.FooTest`.
+  private static String topLevel(String name) {
+    int dollar = name.indexOf('$');
+    return dollar < 0 ? name : name.substring(0, dollar);
   }
 
   /// Puts mutants in: redefines classes already loaded, and leaves the rest to be defined with the
