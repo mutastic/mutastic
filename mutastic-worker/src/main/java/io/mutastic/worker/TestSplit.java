@@ -6,14 +6,17 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /// Which test classes the production loader defines, not each run's test loader.
 ///
 /// @param renamed top-level test classes in a package production code also uses, defined as a
 ///   renamed copy each run (see [Renamer])
-/// @param shared classes the project names in `META-INF/services` for a service the JDK looks up
-///   ([SystemLoader]): defined once, by the name the JDK asks for, so the instance the JDK makes
-///   and the class a test reads are one and the same. Their statics last across runs.
+/// @param shared classes defined once, by their own names, so the class something outside the tests
+///   finds and the class a test reads are one and the same: those the project names in
+///   `META-INF/services` for a service the JDK looks up ([SystemLoader]), and top-level test
+///   classes in a package production code also uses that a framework finds by scanning
+///   ([Scannable]), with the classes nested in them. Their statics last across runs.
 record TestSplit(Set<String> renamed, Set<String> shared) {
   /// The services the JDK finds with the system class loader, whoever asks.
   static final List<String> JDK_SERVICES =
@@ -28,6 +31,17 @@ record TestSplit(Set<String> renamed, Set<String> shared) {
   TestSplit {
     renamed = Set.copyOf(renamed);
     shared = Set.copyOf(shared);
+  }
+
+  /// From the top-level test classes in a package production code also uses (`split`): each is
+  /// renamed per run but for the JDK's service `providers` and those a framework finds by scanning
+  /// (`scanned`), which are shared.
+  static TestSplit of(Set<String> split, Set<String> providers, Predicate<String> scanned) {
+    var shared = new HashSet<>(providers);
+    split.stream().filter(scanned).forEach(shared::add);
+    var renamed = new HashSet<>(split);
+    renamed.removeAll(shared);
+    return new TestSplit(renamed, shared);
   }
 
   /// The classes named for the JDK's services in the roots' `META-INF/services`.
