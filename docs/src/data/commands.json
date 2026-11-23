@@ -106,11 +106,11 @@
       "page": "mutants",
       "synopsis": "mutastic mutants [DIR] [:MODULE]",
       "summary": "List the mutants, without running a test",
-      "detail": "One line each: its id, place, operator, the change, and the method it's in; the last line counts them. The build compiles the code, as the mutants are in its classes, and no test runs. With --operators, it shows what those would add before a run.",
+      "detail": "One line each: its id, place, operator, the change, and the method it's in; the last line counts them. The build compiles the code, as the mutants are in its classes, and no test runs. With --operators, it shows what those would add before a run, and the line before the count estimates what they add to the tests' time, by the last run's record; --estimate runs every test once to measure them first.",
       "exits": "0 once they're listed.",
       "takesMutantId": false,
       "examples": [{ "gradle": "", "maven": "", "commandLine": "mutastic mutants" }, { "gradle": "", "maven": "", "commandLine": "mutastic mutants samples/pricing --operators=stronger" }],
-      "options": ["--operators"]
+      "options": ["--operators", "--estimate"]
     }
   ],
   "options": [
@@ -323,6 +323,20 @@
       "maven": { "property": "-Dmutastic.operators", "setting": null },
       "gradle": { "property": "-Pmutastic.operators", "setting": null },
       "examples": { "baseline": { "gradle": "", "maven": "", "commandLine": "mutastic baseline --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "gate check": { "gradle": "", "maven": "", "commandLine": "mutastic gate check --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "gate open": { "gradle": "", "maven": "", "commandLine": "mutastic gate open --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "mutants": { "gradle": "", "maven": "", "commandLine": "mutastic mutants --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "next": { "gradle": "", "maven": "", "commandLine": "mutastic next --operators=stronger", "gradleBuild": "", "mavenBuild": "" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.operators=stronger", "maven": "mvn mutastic:run -Dmutastic.operators=stronger", "commandLine": "mutastic run --operators=stronger", "gradleBuild": "", "mavenBuild": "" } }
+    },
+    {
+      "name": "--estimate",
+      "synopsis": "--estimate",
+      "kind": "flag",
+      "group": "Running",
+      "value": "",
+      "choices": [],
+      "help": "Run every test once, with no mutant in, and estimate what defaults, stronger and all would take",
+      "commands": ["mutants"],
+      "environment": "",
+      "maven": null,
+      "gradle": null,
+      "examples": { "mutants": { "gradle": "", "maven": "", "commandLine": "mutastic mutants --estimate", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--experimental",

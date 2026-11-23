@@ -78,7 +78,8 @@ class DocsOutputTest {
   private static final Pattern TIMINGS =
       Pattern.compile(
           "\\d+(\\.\\d+)?(ms|s)\\b|\\d\\d:\\d\\d:\\d\\d|Ms\" ?: ?\\d+|\"testsRun\" ?: ?\\d+"
-              + "|Test runs(?:\u001B\\[[0-9;]*m)*  \\d+");
+              + "|Test runs(?:\u001B\\[[0-9;]*m)*  \\d+"
+              + "|\\d{1,2} [A-Z][a-z]{2} \\d{4} \\d\\d:\\d\\d UTC");
 
   /// The commit a gate's task starts from, which changes with each repository a test makes.
   private static final Pattern COMMITS = Pattern.compile("(from |--since=)[0-9a-f]{7,40}\\b");

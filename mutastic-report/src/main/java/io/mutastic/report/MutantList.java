@@ -16,8 +16,15 @@ public final class MutantList {
 
   /// Every mutant's line, in the order given, then `11 mutants`.
   public String of(List<Mutant> mutants) {
+    return of(mutants, List.of());
+  }
+
+  /// Every mutant's line, in the order given, then each of `notes`, then `11 mutants`: the count
+  /// stays last, and each mutant's line its own, whatever is said about them.
+  public String of(List<Mutant> mutants, List<String> notes) {
     var text = new StringBuilder();
     mutants.forEach(mutant -> text.append(line(mutant)).append('\n'));
+    notes.forEach(note -> text.append(note).append('\n'));
     return text.append(mutants.size()).append(" mutants\n").toString();
   }
 

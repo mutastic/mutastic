@@ -270,6 +270,52 @@ final class Coverage {
         .reduce(Duration.ZERO, Duration::plus);
   }
 
+  /// The mutant's method, as [TestTimes] keeps the methods a test reached:
+  /// `com/example/Pricing#discount(I)I`.
+  static String methodKey(Mutant mutant) {
+    return mutant.className() + "#" + mutant.methodName() + mutant.descriptor();
+  }
+
+  /// What the pass measured, for [TestTimes]: each line's covering tests' time between them, as
+  /// [#coveringTests] finds them, a line run only at class load taking the time of the tests that
+  /// reach any line of its class.
+  TestTimes.Measured measured() {
+    var keys = new HashMap<Integer, String>();
+    lineIds.forEach((key, id) -> keys.put(id, key));
+    var lines = new HashMap<String, Duration>();
+    var byClass = new HashMap<String, Duration>();
+    var methods = new HashSet<String>();
+    linesByTest.forEach(
+        (test, ran) -> {
+          var took = durations.get(test);
+          if (took != null) {
+            var reached = ran.stream().map(keys::get).toList();
+            reached.forEach(key -> lines.merge(key, took, Duration::plus));
+            reached.stream().map(Coverage::methodOf).distinct().forEach(methods::add);
+            reached.stream()
+                .map(Coverage::classOf)
+                .distinct()
+                .forEach(name -> byClass.merge(name, took, Duration::plus));
+          }
+        });
+    onlyAtLoad.stream()
+        .map(keys::get)
+        .forEach(key -> lines.put(key, byClass.getOrDefault(classOf(key), Duration.ZERO)));
+    var classes = new HashSet<String>();
+    lineIds.keySet().forEach(key -> classes.add(classOf(key)));
+    return new TestTimes.Measured(classes, lines, methods, timeOfEveryTest());
+  }
+
+  /// `com/example/Pricing#discount(I)I` of a line's key.
+  private static String methodOf(String key) {
+    return key.substring(0, key.lastIndexOf(':'));
+  }
+
+  /// `com/example/Pricing` of a line's key.
+  private static String classOf(String key) {
+    return key.substring(0, key.indexOf('#'));
+  }
+
   private CodeTransform probes(ClassModel model, MethodModel method, SourceMap lines) {
     var methodKey = method.methodName().stringValue() + method.methodType().stringValue();
     var recorded = wholeNumberParameters(model.thisClass().asInternalName(), method, methodKey);
@@ -364,7 +410,7 @@ final class Coverage {
 
   /// Keyed by method as well as line: a record's header line holds its constructor, accessors and
   /// generated methods, so a test that only constructs one would otherwise "cover" them all.
-  private static String key(Mutant mutant) {
+  static String key(Mutant mutant) {
     var file = mutant.inlinedFrom().map(path -> path + "@").orElse("");
     return key(mutant.className(), mutant.methodName() + mutant.descriptor(), file + mutant.line());
   }

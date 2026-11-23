@@ -40,4 +40,5 @@ md46482dd src/main/java/com/example/checkout/Checkout.java:19:18 mutastic/other-
 mee1fc9ef src/main/java/com/example/checkout/Checkout.java:19:5 mutastic/keep-operand total - off becomes total in Checkout.pay()
 m45d77da9 src/main/java/com/example/checkout/Checkout.java:19:5 mutastic/keep-operand total - off becomes off in Checkout.pay()
 m6073d12b src/main/java/com/example/checkout/Checkout.java:19:5 mutastic/return-value returns 0 instead in Checkout.pay()
+estimate: 32 more mutants than defaults, up to 1.8s more of tests, from the run of 23 Nov 2026 05:05 UTC
 42 mutants
