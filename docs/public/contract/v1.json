@@ -2323,7 +2323,7 @@
         "rust"
       ],
       "surface": "errors",
-      "summary": "What raises `tests-stopped`, `tests-timed-out` and `no-tests`: a test that ends the tests' JVM, a coverage pass past its 10 minutes, test classes none of which ran on the JUnit Platform (Java); a test that ends its own test process, a test past its 5 minutes, tests that are all `#[ignore]`d (Rust)",
+      "summary": "What raises `tests-stopped`, `tests-timed-out` and `no-tests`: a test that ends the tests' JVM, a coverage pass past its 10 minutes, test classes that declare tests, none of which ran on the JUnit Platform (Java); a test that ends its own test process, a test past its 5 minutes, tests that are all `#[ignore]`d (Rust)",
       "reason": "Test runner: Java's tests share a JVM, and Rust runs each test in a process of its own, as `cargo test` lists them."
     },
     {

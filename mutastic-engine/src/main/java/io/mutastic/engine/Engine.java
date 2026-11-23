@@ -136,8 +136,9 @@ public final class Engine {
     }
   }
 
-  /// The module has test classes, but none ran on the JUnit Platform: a runner mutastic doesn't
-  /// run, or tests every one of which is filtered out.
+  /// The module's test classes declare tests ([DeclaredTests]), but none ran on the JUnit Platform:
+  /// a runner mutastic doesn't run, tests every one of which is disabled, or filtered out. Test
+  /// classes that declare none, only helpers, are a module with no tests, and get a report.
   public static final class NoTestsRan extends CantRun {
     @java.io.Serial private static final long serialVersionUID = 1L;
 
@@ -1000,24 +1001,24 @@ public final class Engine {
 
   /// Every test once, on `first`, with coverage; flaky tests are left out of what it recorded. A
   /// module with no test classes has nothing to run: every mutant is not covered, and no worker
-  /// starts (one couldn't, with no JUnit on the classpath).
+  /// starts (one couldn't, with no JUnit on the classpath). One whose test classes are only helpers
+  /// runs none: every mutant is not covered there too.
   private CoveragePass coveragePass(
       Project project, Plan plan, TestWorker first, Listener listener) {
-    var testClasses =
-        testClassesIn(project.testClasses()).stream().filter(project.tests()::runs).toList();
+    var testClasses = testClassesToRun(project);
     if (testClasses.isEmpty()) {
-      return new CoveragePass(0, 0, Duration.ZERO, plan.mutants().size(), List.of());
+      return noTests(plan);
     }
     var coverage = plan.mutantRun().coverage();
     long coverageStart = System.nanoTime();
     var baseline = covered(first, plan, testClasses, listener);
+    if (declaresNone(project, plan, baseline)) {
+      return noTests(plan);
+    }
     var reruns = new Reruns(coverage, first, Duration.ofNanos(System.nanoTime() - coverageStart));
     var flaky = baseline.passed() ? List.<String>of() : flakyOrFail(baseline, reruns, project);
     boolean recordedNothing = coverage.recordedNothing();
-    // Before they're left out: what each flaky test reached is in what the pass recorded.
-    var evidence =
-        new FlakyEvidence(coverage, plan.mutantRun().models(), project)
-            .about(flaky, baseline.failures());
+    var evidence = flakyEvidence(project, plan, flaky, baseline);
     coverage.exclude(flaky);
     var coverageTook = Duration.ofNanos(System.nanoTime() - coverageStart);
     var separate =
@@ -1027,6 +1028,32 @@ public final class Engine {
             first.jdk(), coverage.testCount(), coverageTook, plan.mutants().size(), flaky, evidence)
         .withCases(coverage.casesRan(), coverage.casesSkipped())
         .withSeparateJvms(separate);
+  }
+
+  /// The module's test classes that the build's selection runs, by binary name.
+  private static List<String> testClassesToRun(Project project) {
+    return testClassesIn(project.testClasses()).stream().filter(project.tests()::runs).toList();
+  }
+
+  /// What each flaky test reached, taken before they're left out of what the pass recorded.
+  private static List<FlakyTest> flakyEvidence(
+      Project project, Plan plan, List<String> flaky, TestWorker.Baseline baseline) {
+    return new FlakyEvidence(plan.mutantRun().coverage(), plan.mutantRun().models(), project)
+        .about(flaky, baseline.failures());
+  }
+
+  /// The coverage pass of a module with no tests: every mutant is not covered.
+  private static CoveragePass noTests(Plan plan) {
+    return new CoveragePass(0, 0, Duration.ZERO, plan.mutants().size(), List.of());
+  }
+
+  /// Whether the coverage pass ran no test, and passed, in a module whose test classes declare none
+  /// ([DeclaredTests]): a test source set of only helpers. Where they do declare tests, a pass that
+  /// ran none stops the run ([NoTestsRan]).
+  private static boolean declaresNone(Project project, Plan plan, TestWorker.Baseline baseline) {
+    return plan.mutantRun().coverage().testCount() == 0
+        && baseline.passed()
+        && !DeclaredTests.anyIn(project.testClasses(), project.classes());
   }
 
   /// The coverage pass's tests run on `first`: a test that stops its JVM, or keeps it past the
@@ -1040,11 +1067,11 @@ public final class Engine {
     }
   }
 
-  /// Stops a run whose coverage pass measured nothing: no test ran, or tests ran and passed and the
-  /// probes in the classes with mutants never did. Scored, that would be every mutant not covered:
-  /// a 0% that reads as tests that don't reach the code, when it's mutastic that didn't see them. A
-  /// run of only some mutants, or on only some tests, is let through, as there the tests may well
-  /// reach none of the classes.
+  /// Stops a run whose coverage pass measured nothing: none of the tests the module declares ran,
+  /// or tests ran and passed and the probes in the classes with mutants never did. Scored, that
+  /// would be every mutant not covered: a 0% that reads as tests that don't reach the code, when
+  /// it's mutastic that didn't see them. A run of only some mutants, or on only some tests, is let
+  /// through, as there the tests may well reach none of the classes.
   ///
   /// @param separate a note for each test class that runs the code in a JVM of its own, which the
   ///   coverage pass can't see

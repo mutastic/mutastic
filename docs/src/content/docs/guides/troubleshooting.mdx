@@ -171,8 +171,8 @@ usual causes:
 
 A run of only some mutants (`--only`, `--since`, `--shard`), or one that leaves tests out with
 `--exclude-tests`, isn't stopped: there the tests that run may well reach none of the classes, and
-those mutants are reported as not covered. With no tests at all, a
-module's mutants are not covered too.
+those mutants are reported as not covered. With no tests at all, or test classes that are only
+helpers, a module's mutants are not covered too.
 
 ## 3: the tests fail without any mutant
 
