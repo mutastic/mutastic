@@ -261,9 +261,19 @@ public final class Engine {
           running.stream().toList());
     }
 
-    /// The same, with `line` after what it says.
+    /// The same, with `line` before where the tests' output is: the command that runs a test alone
+    /// stays last, to copy.
     public BaselineFailed then(String line) {
-      return new BaselineFailed(code, getMessage() + "\n" + line, failing);
+      var message = String.valueOf(getMessage());
+      int output =
+          Math.max(
+              message.lastIndexOf("\nIts output is in "),
+              message.lastIndexOf("\nTheir output is in "));
+      var said =
+          output < 0
+              ? message + "\n" + line
+              : message.substring(0, output) + "\n" + line + message.substring(output);
+      return new BaselineFailed(code, said, failing);
     }
 
     /// The same, ending in the command that runs the first failing test alone in its build.
