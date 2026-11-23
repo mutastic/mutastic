@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -24,11 +25,64 @@ class ParameterizedSampleTest {
   private static final Pattern TEST_CLASS = Pattern.compile("\"testClass\":\"(\\w+)\"");
   private static final Pattern CODE = Pattern.compile("\"code\":\"((?:[^\"\\\\]|\\\\.)*)\"");
 
+  /// A test named where the events name tests: what caught a mutant, and what covers it.
+  private static final Pattern CAUGHT_OR_COVERED =
+      Pattern.compile("\"(?:caughtBy|coveredBy)\":(?:\"[^\"]*\"|\\[[^\\]]*\\])");
+
   @TempDir Path work;
+
+  /// `verify` names the case that caught its mutant after the test, as evidence of this run.
+  @Test
+  void verifyNamesTheCaseThatCaught() throws Exception {
+    var project = Samples.copy(SAMPLES.resolve("parameterized"), work.resolve("parameterized"));
+    var run = mutastic("run", project.toString(), "--format=jsonl", "--report=none");
+    var add =
+        run.out()
+            .lines()
+            .filter(line -> line.contains("\"text\":\"IADD -> ISUB\""))
+            .findFirst()
+            .orElseThrow();
+    var id = ID.matcher(add);
+    assertThat(id.find()).isTrue();
+
+    var verified = mutastic("verify", id.group(1), project.toString());
+
+    assertThat(verified.exit()).isEqualTo(Main.PASSED);
+    assertThat(verified.out() + verified.err())
+        .contains(
+            id.group(1)
+                + " is caught by com.example.calc.CalculatorTest#addsMixed(int, int, int)"
+                + " (case [2] 2, 3, 5)");
+  }
+
+  /// A test that fails with no mutant in is named once, with the first of its cases that failed and
+  /// what that case said: a custom display name too, whole.
+  @Test
+  void aRedTestNamesTheFirstCaseThatFailed() throws Exception {
+    var project = Samples.copy(SAMPLES.resolve("parameterized"), work.resolve("parameterized"));
+    var test = project.resolve(TESTS).resolve("CalculatorTest.java");
+    Files.writeString(
+        test,
+        Files.readString(test)
+            .replace("{\"100, 0, 100\"}", "{\"100, 0, 101\"}")
+            .replace("{\"0, 0, 0\", \"2, 3, 5\"}", "{\"0, 0, 0\", \"2, 2, 5\", \"1, 1, 3\"}"));
+
+    var red = mutastic("run", project.toString(), "--progress=none");
+
+    assertThat(red.exit()).isEqualTo(Main.TESTS_FAIL);
+    assertThat(red.err())
+        .contains("2 tests fail without any mutant")
+        .contains(
+            "  com.example.calc.CalculatorTest#addsMixed(int, int, int) (case [2] 2, 2, 5):"
+                + " expected: <5> but was: <4>\n")
+        .contains(
+            "  com.example.calc.CalculatorTest#adds(int, int, int) (case 100 + 0 = 101"
+                + " \"quoted\", #hash [x] (y) é ✓): expected: <101> but was: <100>\n");
+  }
 
   /// Tests are named by class and method, with the parameters' types, whichever engine ran them: no
   /// case, display name or unique id. Only the second row of `addsMixed` catches `+` becoming `-`,
-  /// and its method is named for it.
+  /// so its method is named for it, and that row as the case that failed, as evidence.
   @Test
   void aParameterizedTestIsNamedByItsMethod() throws Exception {
     var project = Samples.copy(SAMPLES.resolve("parameterized"), work.resolve("parameterized"));
@@ -43,12 +97,19 @@ class ParameterizedSampleTest {
             .findFirst()
             .orElseThrow();
     assertThat(add)
-        .contains("\"caughtBy\":\"com.example.calc.CalculatorTest#addsMixed(int, int, int)\"");
+        .contains("\"caughtBy\":\"com.example.calc.CalculatorTest#addsMixed(int, int, int)\"")
+        .contains(
+            "\"caughtCase\":{\"test\":\"com.example.calc.CalculatorTest#addsMixed(int, int, int)\","
+                + "\"index\":2,\"name\":\"[2] 2, 3, 5\"}");
+    var named = CAUGHT_OR_COVERED.matcher(run.out()).results().map(MatchResult::group).toList();
+    assertThat(named)
+        .isNotEmpty()
+        .noneSatisfy(test -> assertThat(test).contains("quoted"))
+        .noneSatisfy(test -> assertThat(test).contains("[2]"));
     assertThat(run.out())
         .contains("\"com.example.calc.CalculatorTest#multiplies(int, int, int)\"")
         .contains("\"com.example.calc.SubtractJUnit4Test#subtracts\"")
         .doesNotContain("[engine:")
-        .doesNotContain("quoted")
         .doesNotContain("__m");
     assertThat(full.out())
         .contains("inputs seen: a = 1, 2; b = 1")

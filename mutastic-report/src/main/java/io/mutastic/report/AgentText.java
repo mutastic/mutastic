@@ -182,7 +182,9 @@ public final class AgentText {
 
   private String fate(MutantResult result) {
     return switch (result.status()) {
-      case CAUGHT -> "is %s by %s".formatted(words.detected, result.caughtBy().orElse("a test"));
+      case CAUGHT ->
+          "is %s by %s%s"
+              .formatted(words.detected, result.caughtBy().orElse("a test"), inCase(result));
       case TIMED_OUT -> "is %s: its tests stopped finishing in time".formatted(words.detected);
       case MISSED -> "is still %s".formatted(words.undetected);
       case NOT_COVERED -> "isn't reached by any test";
@@ -564,6 +566,15 @@ public final class AgentText {
   }
 
   /// `PricingTest#bigOrders`, as it's shown: [Untrusted#value]d, as a test's name is the project's.
+  /// ` (case [2] 2, 3, 5)`, the case of the catching test that failed, when it runs a table of
+  /// them: evidence of this run, after the test it's a case of.
+  public static String inCase(MutantResult result) {
+    return result
+        .caughtCase()
+        .map(failed -> " (case " + Untrusted.value(failed.name()) + ")")
+        .orElse("");
+  }
+
   static String shortName(String test) {
     int hash = test.indexOf('#');
     var className = hash < 0 ? test : test.substring(0, hash);

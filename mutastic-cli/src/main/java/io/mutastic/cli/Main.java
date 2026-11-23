@@ -1929,7 +1929,9 @@ public final class Main {
   private static String fate(MutantResult result) {
     return switch (result.status()) {
       case CAUGHT, TIMED_OUT ->
-          "is caught by " + Untrusted.value(result.caughtBy().orElse("a timeout"));
+          "is caught by "
+              + Untrusted.value(result.caughtBy().orElse("a timeout"))
+              + AgentText.inCase(result);
       case MISSED -> "is still missed";
       case NOT_COVERED -> "isn't reached by any test";
       case SKIPPED ->

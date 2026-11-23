@@ -2396,7 +2396,7 @@
           "name": "MutantResult",
           "slug": "mutantresult",
           "kind": "record",
-          "signature": "@Internal record MutantResult(\n    Mutant mutant,\n    Status status,\n    List<String> coveredBy,\n    Optional<String> caughtBy,\n    Optional<String> failure,\n    Optional<String> failureOrigin,\n    int testsRun,\n    Optional<String> unconfirmed,\n    Map<String, List<Long>> inputs,\n    Optional<Suggestion> suggestion,\n    Duration took,\n    Optional<String> falseCatchBy,\n    List<String> caughtByAll)",
+          "signature": "@Internal record MutantResult(\n    Mutant mutant,\n    Status status,\n    List<String> coveredBy,\n    Optional<String> caughtBy,\n    Optional<String> failure,\n    Optional<String> failureOrigin,\n    int testsRun,\n    Optional<String> unconfirmed,\n    Map<String, List<Long>> inputs,\n    Optional<Suggestion> suggestion,\n    Duration took,\n    Optional<String> falseCatchBy,\n    List<String> caughtByAll,\n    Optional<TestCase> caughtCase)",
           "summary": "One mutant's outcome.",
           "doc": "One mutant's outcome.",
           "params": [
@@ -2439,6 +2439,10 @@
             {
               "name": "caughtByAll",
               "doc": "with `--kill-matrix`, every covering test that catches it, in the order they ran, the first being `caughtBy`; empty otherwise"
+            },
+            {
+              "name": "caughtCase",
+              "doc": "the case of `caughtBy` that failed, when it runs a table of cases: evidence of this run, as its index moves when a case is added before it"
             }
           ],
           "members": [
@@ -2446,6 +2450,16 @@
               "kind": "constructor",
               "name": "MutantResult",
               "anchor": "mutantresult",
+              "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy, List<String> caughtByAll)",
+              "doc": "A result that names no case: its catcher, if it has one, runs no table of them.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "MutantResult",
+              "anchor": "mutantresult-2",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy)",
               "doc": "A result without every catcher: the run stopped at the first.",
               "params": [],
@@ -2455,7 +2469,7 @@
             {
               "kind": "constructor",
               "name": "MutantResult",
-              "anchor": "mutantresult-2",
+              "anchor": "mutantresult-3",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took)",
               "doc": "A result whose catch, if it has one, stands.",
               "params": [],
@@ -2518,6 +2532,16 @@
               "anchor": "withcaughtbyall",
               "signature": "MutantResult withCaughtByAll(List<String> tests)",
               "doc": "The same result, with every covering test that catches it (`--kill-matrix`).",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withCaughtCase",
+              "anchor": "withcaughtcase",
+              "signature": "MutantResult withCaughtCase(Optional<TestCase> failed)",
+              "doc": "The same result, naming the case of its catcher that failed.",
               "params": [],
               "returns": "",
               "throws": []
@@ -3629,6 +3653,25 @@
               "throws": []
             }
           ]
+        },
+        {
+          "name": "TestCase",
+          "slug": "testcase",
+          "kind": "record",
+          "signature": "@Internal record TestCase(int index, String name)",
+          "summary": "One case of a test that runs a table of them, as it ran: an invocation of a parameterized or repeated test, or a dynamic test.",
+          "doc": "One case of a test that runs a table of them, as it ran: an invocation of a parameterized or\nrepeated test, or a dynamic test. The test itself, which mutastic selects, runs again and names,\nis still its method; the case is evidence of what failed in this run.",
+          "params": [
+            {
+              "name": "index",
+              "doc": "its position among its method's cases in this run, from 1. A case added before it moves it, so it says which case failed this time, not a name to keep."
+            },
+            {
+              "name": "name",
+              "doc": "what the framework calls it: `[2] 2, 3, 5` for a parameterized test's, by default"
+            }
+          ],
+          "members": []
         },
         {
           "name": "TestSelection",
