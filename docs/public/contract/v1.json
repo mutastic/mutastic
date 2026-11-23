@@ -195,7 +195,7 @@
     {
       "name": "--exclude-tests",
       "kind": "repeated",
-      "value": "CLASS"
+      "value": "TEST"
     },
     {
       "name": "--operators",
@@ -978,12 +978,14 @@
         },
         {
           "label": "Left out",
-          "optional": true
+          "optional": true,
+          "note": "Each test the run leaves out on a line of its own: mutastic.yaml's `exclude-tests:` first, as `<test>: <reason>`, then those `--exclude-tests` adds, as `<test> (--exclude-tests)`; a test in both is named once, with its reason"
         },
         {
           "label": "Score",
           "optional": true,
-          "shape": "^\\d+(\\.\\d)?%  \\[(PASS|FAIL)\\] .+$"
+          "shape": "^\\d+(\\.\\d)?%  \\[(PASS|FAIL)\\] .+$",
+          "note": "Ends in `  · 1 test left out` or `  · N tests left out` when the run leaves tests out: their mutants can only count as not covered, so the score can only fall, and a score over fewer tests says so where it's read"
         }
       ]
     },
@@ -1095,7 +1097,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "24a625e8dd65dfc40e873391f4e60a6f46d6673c342038ef4f51726aba80833e"
+      "sha256": "4729e3f5e2a37ca4a6b69c9390b46059bb2c9772c105f8032f5c162a216db76a"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1211,6 +1213,7 @@
         "staleIgnores",
         "survived",
         "tests",
+        "testsLeftOut",
         "threshold",
         "timeout",
         "toolchain",
@@ -1644,7 +1647,7 @@
     },
     {
       "id": 2,
-      "rule": "Each error code has one exit code (`errors`). A panic is code `internal`. Rust exits 2 for all until 2.0 (N34)."
+      "rule": "Each error code has one exit code (`errors`). A panic is code `internal`. Rust exits 2 for all but exit 3, the tests failing without any mutant, until 2.0 (N34)."
     },
     {
       "id": 3,
@@ -1700,7 +1703,7 @@
     },
     {
       "id": 16,
-      "rule": "An ignore or baseline entry is the task's own when it wasn't there at `gate open`: the gate keeps both lists when it opens, since git may ignore `.mutastic/` and the start commit can't say. Ignores a person accepts between hooked turns join the opening list."
+      "rule": "An ignore or baseline entry is the task's own when it wasn't there at `gate open`: the gate keeps both lists when it opens, since git may ignore `.mutastic/` and the start commit can't say. Ignores a person accepts between hooked turns join the opening list. A test under mutastic.yaml's `exclude-tests:` is the task's own when it wasn't there at `gate open`, which keeps that list too, and the gate counts it as a test taken away: leaving a test out is a person's call."
     },
     {
       "id": 17,
@@ -2122,13 +2125,11 @@
         "rust"
       ],
       "surface": "exit codes",
-      "summary": "Exit 3 and 4: Rust exits 2 for every failure",
-      "reason": "2 for every failure in Rust 1.x; it moves to Java's 2/3/4 at 2.0 (decision 2).",
+      "summary": "Exit 4: Rust exits 2 for every other failure",
+      "reason": "2 for every failure in Rust 1.x but the tests failing without any mutant, which exit 3 from 1.3.0 as in Java, so a way past a failing test is told from a usage error; the rest moves to Java's 2/4 at 2.0 (decision 2).",
       "until": "rust 2.0.0",
       "items": [
-        "exit:3",
-        "exit:4",
-        "error:red:exit"
+        "exit:4"
       ]
     },
     {
@@ -2299,11 +2300,8 @@
         "rust"
       ],
       "surface": "command line",
-      "summary": "`--exclude-tests=CLASS` or `=TEST`",
-      "reason": "Java leaves out a test class, by its name or full name. Rust has no test classes: it leaves out a test by its name as libtest lists it, or a module of tests by its path.",
-      "items": [
-        "option:--exclude-tests:value"
-      ]
+      "summary": "`--exclude-tests=TEST` and `exclude-tests:` take a class or `Class#method` in Java, a test or a module of tests in Rust",
+      "reason": "Java leaves out a test class, by its name or full name, or one method of it, `PricingTest#bigOrders`, with every overload and row. Rust has no test classes: it leaves out a test by its name as libtest lists it, or a module of tests by its path."
     },
     {
       "id": "A6",
