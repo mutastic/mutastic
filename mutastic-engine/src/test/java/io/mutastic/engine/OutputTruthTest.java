@@ -195,6 +195,49 @@ class OutputTruthTest {
         .containsOnly(Optional.empty());
   }
 
+  /// `- output: output.AuditLog#*` makes the project's own calls output, said with the method and
+  /// the rule's reason, and what only goes into one with them; without the rule they count. A
+  /// `mutate:` rule brings them back.
+  @ParameterizedTest
+  @CsvSource({"8, -g:none", "11, -g", "17, -g:none", "21, -g", "25, -g"})
+  void aProjectsOwnOutputIsAridWithItsReason(String release, String debug) throws Exception {
+    var classes = compiled(release, debug);
+    var own = Rule.output("output.AuditLog#*", "the audit trail");
+
+    assertThat(found(classes, Policy.NONE))
+        .filteredOn(mutant -> mutant.methodName().startsWith("own"))
+        .filteredOn(mutant -> mutant.skipped().isPresent())
+        .extracting(OutputTruthTest::shown)
+        .isEmpty();
+
+    var found =
+        found(classes, policy(own)).stream()
+            .filter(mutant -> mutant.methodName().startsWith("own"))
+            .toList();
+    assertThat(found)
+        .filteredOn(mutant -> REMOVALS.contains(mutant.operator()))
+        .extracting(mutant -> mutant.original().replaceAll(" .*", "") + " " + mutant.skipped())
+        .containsExactlyInAnyOrder(
+            "INVOKEVIRTUAL Optional[arid: only calls AuditLog#info (the audit trail)]",
+            "INVOKEVIRTUAL Optional[arid: only calls AuditLog#count (the audit trail)]",
+            "INVOKEVIRTUAL Optional[arid: only calls AuditLog#info (the audit trail)]");
+    assertThat(found)
+        .filteredOn(mutant -> mutant.operator() == BuiltIn.STRING_CONSTANT)
+        .extracting(mutant -> mutant.skipped().orElse("counted"))
+        .contains("arid: only feeds AuditLog#info (the audit trail)");
+    assertThat(conditions(found, "ownGuard"))
+        .extracting(mutant -> mutant.skipped().orElse("counted"))
+        .isNotEmpty()
+        .containsOnly(OutputCalls.GUARD);
+
+    var kept = new Rule(true, CLASS, "the audit is checked", List.of("mutastic:output"));
+    assertThat(found(classes, new Policy(List.of(own, kept), List.of())))
+        .filteredOn(mutant -> mutant.methodName().startsWith("own"))
+        .filteredOn(mutant -> mutant.skipped().isPresent())
+        .extracting(OutputTruthTest::shown)
+        .isEmpty();
+  }
+
   private static List<Optional<String>> skipsOf(List<Mutant> found, Set<String> ids) {
     return found.stream().filter(mutant -> ids.contains(mutant.id())).map(Mutant::skipped).toList();
   }

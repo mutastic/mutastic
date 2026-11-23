@@ -35,6 +35,7 @@ class DocsOutputTest {
   private static final Path PAGES = Path.of(System.getProperty("mutastic.docs"));
   private static final Path STOCK = Path.of(System.getProperty("mutastic.samples"), "stock");
   private static final Path CHECKOUT = Path.of(System.getProperty("mutastic.samples"), "checkout");
+  private static final Path FASTPATH = Path.of(System.getProperty("mutastic.samples"), "fastpath");
   private static final String CHECKOUT_TEST =
       "src/test/java/com/example/checkout/CheckoutTest.java";
 
@@ -48,6 +49,17 @@ class DocsOutputTest {
   private static final String CLAIMED = "m46ea303d";
 
   private static final String VALIDATED = "mb1c584d6";
+
+  /// The fastpath sample's check that picks the safe way past 9 digits: `>` becoming `>=`, and the
+  /// check made always true. Either sends some number down the safe way, which reads it alike.
+  private static final String TO_THE_SAFE_WAY_AT_9 = "mb0e29482";
+
+  private static final String ALWAYS_THE_SAFE_WAY = "m061d8040";
+
+  /// The Equivalent mutants page's reason for ignoring [#TO_THE_SAFE_WAY_AT_9], as it shows it.
+  private static final String SAME_AT_9 =
+      "Differs only when the fast way and the safe way read 9 digits differently. That can't"
+          + " happen because any 9 digits fit in an int, so both read them exactly.";
 
   /// A mutant of the configured sample's generated code, which its rule skips.
   private static final String GENERATED = "m6393711d";
@@ -815,6 +827,31 @@ class DocsOutputTest {
     shown("configured.ansi", project, with);
     shown("configured-explain.ansi", project, mutastic("explain", GENERATED, project.toString()));
     shown("configured-arid-explain.ansi", project, mutastic("explain", ARID, project.toString()));
+  }
+
+  /// The Equivalent mutants page's fast-path guard: a check that only picks between a fast way and
+  /// a safe way, whose mutants every test passes, as both ways give the same answer; and one of
+  /// them ignored as equivalent.
+  @Test
+  void aCheckThatOnlyPicksBetweenAFastWayAndASafeWay() throws Exception {
+    var project = Samples.copy(FASTPATH, work.resolve("fastpath"));
+    var run = Samples.mutastic(TERMINAL, "run", project.toString(), "--workers=1");
+    assertThat(run.exit()).as(run.out()).isEqualTo(Main.PASSED);
+    var plain = ANSI.matcher(run.out()).replaceAll("");
+    assertThat(plain).containsOnlyOnce("✗ MISSED").contains("· " + ALWAYS_THE_SAFE_WAY);
+    shown(
+        "fastpath-missed.ansi",
+        project,
+        aCard(run, "no test checks read() at digits.length() == 9"));
+    shown(
+        "fastpath-ignore.ansi",
+        project,
+        mutastic(
+            "ignore",
+            TO_THE_SAFE_WAY_AT_9,
+            "--as=equivalent",
+            "--reason=" + SAME_AT_9,
+            project.toString()));
   }
 
   /// The Equivalent mutants page's pair: a comparison's change that differs only below zero,

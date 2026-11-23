@@ -83,8 +83,7 @@ class ConfigurationFormatTest {
     var lines = new ArrayList<String>();
     for (Rule rule : configuration.rules()) {
       lines.add(
-          "rule: %s %s, because %s"
-              .formatted(rule.mutate() ? "mutate" : "skip", rule.target(), rule.reason()));
+          "rule: %s %s, because %s".formatted(rule.kind().written(), rule.target(), rule.reason()));
     }
     configuration
         .plugins()

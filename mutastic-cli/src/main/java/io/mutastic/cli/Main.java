@@ -24,6 +24,7 @@ import io.mutastic.report.Here;
 import io.mutastic.report.HumanText;
 import io.mutastic.report.Invocation;
 import io.mutastic.report.JsonEvents;
+import io.mutastic.report.LeftOut;
 import io.mutastic.report.LiveEvents;
 import io.mutastic.report.MutantCommand;
 import io.mutastic.report.MutantList;
@@ -251,7 +252,7 @@ public final class Main {
     try (var output = output(command, out, err, terminal)) {
       return held(command, output, tool, terminal);
     } catch (Engine.BaselineFailed e) {
-      throw rerun(e, command, tool, directory);
+      throw wayPast(rerun(e, command, tool, directory), agent(command, terminal));
     } finally {
       lock.close();
     }
@@ -309,6 +310,55 @@ public final class Main {
             typed(directory),
             command.suite());
     return tool.testCommand(request, named.get()).map(failed::endingIn).orElse(failed);
+  }
+
+  /// What an agent is told of tests failing with no mutant in, in place of the way past them.
+  static final String AGENT_WAY_PAST =
+      "Find out whether the change or the test is wrong. Don't leave the test out yourself: tell"
+          + " the person, or propose leaving it out under exclude-tests: in mutastic.yaml with its"
+          + " reason, for them to decide.";
+
+  /// Whether the run's output is the agent format.
+  private static boolean agent(Command command, Terminal terminal) {
+    return command.format().orElse(terminal.defaultFormat()).equals("agent");
+  }
+
+  /// The tests failing with no mutant in, ending in the way past them: for a person, leaving each
+  /// out with a reason, or for this run; never on its own, as stopping is the default. An agent is
+  /// never offered it, as a test left out may be a broken one hidden: it's told to find out which
+  /// is wrong, and leave that call to the person.
+  static Engine.BaselineFailed wayPast(Engine.BaselineFailed failed, boolean agent) {
+    var names =
+        failed.failing().stream()
+            .filter(test -> !test.startsWith("["))
+            .map(Main::asLeftOut)
+            .distinct()
+            .toList();
+    if (!failed.code().equals("red-baseline") || names.isEmpty()) {
+      return failed;
+    }
+    if (agent) {
+      return failed.then(AGENT_WAY_PAST);
+    }
+    boolean one = names.size() == 1;
+    return failed.then(
+        ("To run without %s until %s fixed, list %s under exclude-tests: in mutastic.yaml with a"
+                + " reason, or for this run add --exclude-tests=%s")
+            .formatted(
+                one ? "it" : "them",
+                one ? "it's" : "they're",
+                one ? "it" : "them",
+                String.join(",", names)));
+  }
+
+  /// `PricingTest#bigOrders`, as `--exclude-tests` takes the test `com.example.PricingTest
+  /// #bigOrders(int)`: its class by name, and its method with every overload; a class as a whole by
+  /// its name.
+  static String asLeftOut(String test) {
+    int hash = test.indexOf('#');
+    var className = hash < 0 ? test : test.substring(0, hash);
+    var method = hash < 0 ? "" : test.substring(hash).replaceFirst("\\(.*$", "");
+    return className.substring(className.lastIndexOf('.') + 1) + method;
   }
 
   /// `--fail-on-new` with no baseline to tell new misses from: every miss would be new, or none,
@@ -928,7 +978,8 @@ public final class Main {
             "",
             Map.of(),
             Optional.empty(),
-            operators)
+            operators,
+            Optional.of(excludedTests(gated.prepared())))
         .write(gated.work());
     var module = new GateCount.Module(gated.command().module(), gated.command().suite());
     GateCount.start(gated.work(), directory, new Git(directory).tree(), module);
@@ -1062,7 +1113,10 @@ public final class Main {
     // Whatever lines it changed: a task that only ignores a mutant itself changes none mutastic
     // mutates, and mustn't pass for it. Checked even on a tree git sees as untouched, which it is
     // when the project's git ignores `.mutastic/`.
-    var own = selfIgnored(directory, state).or(() -> selfBaselined(directory, state));
+    var own =
+        selfIgnored(directory, state)
+            .or(() -> selfExcluded(gated, state))
+            .or(() -> selfBaselined(directory, state));
     if (own.isPresent()) {
       return own.get();
     }
@@ -1204,6 +1258,40 @@ public final class Main {
                             gone.stream()
                                 .map(Untrusted::value)
                                 .collect(Collectors.joining("\n"))))));
+  }
+
+  /// The tests under `exclude-tests:` in `mutastic.yaml`, by name: not those `--exclude-tests`
+  /// adds, which last one run.
+  private static java.util.Set<String> excludedTests(Prepared prepared) {
+    var configured =
+        Configuration.read(
+            Configuration.nearest(prepared.project().workingDirectory(), prepared.directory()));
+    return new java.util.TreeSet<>(LeftOut.names(configured.excludedTests()));
+  }
+
+  /// A test the task left out under `exclude-tests:` itself: a test taken away, which may be a
+  /// broken one hidden, and leaving it out is a person's call.
+  private static Optional<Gate.Verdict> selfExcluded(Gated gated, Gate.State state) {
+    if (state.excluded().isEmpty()) {
+      return Optional.empty(); // an older gate kept no list
+    }
+    var added = new java.util.TreeSet<>(excludedTests(gated.prepared()));
+    added.removeAll(state.excluded().get());
+    if (added.isEmpty()) {
+      return Optional.empty();
+    }
+    boolean one = added.size() == 1;
+    return Optional.of(
+        Gate.Verdict.block(
+            ("mutastic gate: the task left out %s under exclude-tests: in mutastic.yaml itself,"
+                    + " which takes %s away, and leaving a test out is a person's call. Take %s"
+                    + " back out of the list and leave the test in place: find out whether the"
+                    + " change or the test is wrong, then tell the person, or propose leaving it"
+                    + " out, for them to decide")
+                .formatted(
+                    Untrusted.values(List.copyOf(added)),
+                    one ? "a test" : "tests",
+                    one ? "it" : "them")));
   }
 
   /// A mutant the task added to the baseline itself: like an ignore, a person's call. Compared with
@@ -1507,11 +1595,11 @@ public final class Main {
     var twin = Optional.of(named).filter(it -> !it.mutant().id().equals(result.mutant().id()));
     var lastRun = lastRun(prepared, result.mutant().id());
     if (output.format().equals("jsonl")) {
-      var events = new JsonEvents(output.out(), prepared.sources(), command.threshold());
+      var events =
+          new JsonEvents(output.out(), prepared.sources(), command.threshold())
+              .leavingOut(prepared.leftOut());
       events.runStarted(prepared.project().name());
-      twin.ifPresent(events::mutantFinished);
-      events.mutantFinished(result);
-      events.runFinished(report, Optional.empty(), List.of(), true);
+      explainedEvents(events, report, twin, result);
       events.mutantExplained(result.mutant(), lastRun);
       return PASSED;
     }
@@ -1523,6 +1611,15 @@ public final class Main {
             new Explanation(prepared.sources(), output.style(), operatorDocs())
                 .render(result.mutant(), lastRun));
     return PASSED;
+  }
+
+  /// `explain`'s run as events, before the explanation: the mutant, and its twin's first if it has
+  /// one.
+  private static void explainedEvents(
+      JsonEvents events, Report report, Optional<MutantResult> twin, MutantResult result) {
+    twin.ifPresent(events::mutantFinished);
+    events.mutantFinished(result);
+    events.runFinished(report, Optional.empty(), List.of(), true);
   }
 
   /// What `explain` says first of a twin: which mutant ran for it, and is explained.
@@ -1839,6 +1936,7 @@ public final class Main {
   /// as the output shows it, and when and how long reading it took.
   ///
   /// @param clocks both clocks when the run started: when, and how long the machine slept since
+  /// @param leftOut the tests the run leaves out: `mutastic.yaml`'s, then `--exclude-tests`'s
   private record Prepared(
       Path directory,
       Path work,
@@ -1846,7 +1944,8 @@ public final class Main {
       SourceView sources,
       Duration setup,
       Duration build,
-      Slept clocks) {
+      Slept clocks,
+      List<LeftOut> leftOut) {
     /// When the run started, on the reader's clock.
     ZonedDateTime startedAt() {
       return clocks.clock().atZone(java.time.ZoneId.systemDefault());
@@ -1861,14 +1960,31 @@ public final class Main {
         new BuildTool.Request(directory, command.module(), work, typed(directory), command.suite());
     var built = built(command, tool, request, progress);
     progress.findingMutants();
+    var leftOut = leftOut(command, built.project(), directory);
     var project =
-        built.project().withTests(built.project().tests().leavingOut(command.excludeTests()));
+        built
+            .project()
+            .withTests(built.project().tests().leavingOut(wholeClasses(LeftOut.names(leftOut))));
     var setup = Duration.ofNanos(System.nanoTime() - clocks.awake());
     var sources =
         new SourceView(directory, project.sources(), project.testSources())
             .withClassSources(new ClassSources(project.classes()))
             .withInvocation(invocation(command, directory));
-    return new Prepared(directory, work, project, sources, setup, built.took(), clocks);
+    return new Prepared(directory, work, project, sources, setup, built.took(), clocks, leftOut);
+  }
+
+  /// The tests a run leaves out: those under `exclude-tests:` in the module's nearest
+  /// `mutastic.yaml`, each with its reason, then those `--exclude-tests` adds.
+  private static List<LeftOut> leftOut(Command command, Project project, Path directory) {
+    var configured =
+        Configuration.read(Configuration.nearest(project.workingDirectory(), directory));
+    return LeftOut.of(configured.excludedTests(), command.excludeTests());
+  }
+
+  /// The tests left out whole, test classes: a method, `PricingTest#bigOrders`, is the workers' to
+  /// leave out of its class.
+  private static List<String> wholeClasses(List<String> tests) {
+    return tests.stream().filter(test -> !test.contains("#")).toList();
   }
 
   /// A module read, and how long its build tool took building what the run needs.
@@ -1957,7 +2073,7 @@ public final class Main {
             command.experimental().contains(GHOSTS) || terminal.experimental().contains(GHOSTS))
         .withKillMatrix(command.killMatrix())
         .withShard(command.shard().orElse(Shard.WHOLE))
-        .withTestsLeftOut(!command.excludeTests().isEmpty())
+        .withTestsLeftOut(LeftOut.names(prepared.leftOut()))
         .withForceCoverage(command.forceCoverage());
   }
 
@@ -2035,7 +2151,9 @@ public final class Main {
   private static String fate(MutantResult result) {
     return switch (result.status()) {
       case CAUGHT, TIMED_OUT ->
-          "is caught by " + Untrusted.value(result.caughtBy().orElse("a timeout"));
+          "is caught by "
+              + Untrusted.value(result.caughtBy().orElse("a timeout"))
+              + AgentText.inCase(result);
       case MISSED -> "is still missed";
       case NOT_COVERED -> "isn't reached by any test";
       case SKIPPED ->
@@ -2100,7 +2218,7 @@ public final class Main {
         prepared.setup(),
         written,
         !command.only().isEmpty(),
-        command.excludeTests(),
+        prepared.leftOut(),
         prepared.build(),
         command.shard().isEmpty()
             ? html(command, written).map(ReportFiles::pagesFolder)
@@ -2108,8 +2226,8 @@ public final class Main {
         prepared.clocks().untilNow());
   }
 
-  /// JSON Lines: the run's start now, each mutant as it finishes, and the result at the end.
-  private static Display jsonl(
+  /// The events of a run, as it was judged, with when it started and the tests it left out.
+  private static JsonEvents events(
       Command command, Prepared prepared, Output output, Optional<FailOnNew> judged) {
     var shown =
         new JsonEvents(
@@ -2118,7 +2236,17 @@ public final class Main {
             command.threshold(),
             shareOf(command, prepared),
             operatorDocs());
-    var events = judged.map(shown::failingOnNew).orElse(shown).sleptFrom(prepared.clocks());
+    return judged
+        .map(shown::failingOnNew)
+        .orElse(shown)
+        .sleptFrom(prepared.clocks())
+        .leavingOut(prepared.leftOut());
+  }
+
+  /// JSON Lines: the run's start now, each mutant as it finishes, and the result at the end.
+  private static Display jsonl(
+      Command command, Prepared prepared, Output output, Optional<FailOnNew> judged) {
+    var events = events(command, prepared, output, judged);
     events.runStarted(prepared.project().name());
     if (!command.testsFrom().isEmpty()) {
       // Each mutant's result is known only once every module's tests have run: all at the end.
@@ -2197,11 +2325,12 @@ public final class Main {
         out -> {
           var events =
               new JsonEvents(
-                  out,
-                  prepared.sources(),
-                  command.threshold(),
-                  shareOf(command, prepared),
-                  operatorDocs());
+                      out,
+                      prepared.sources(),
+                      command.threshold(),
+                      shareOf(command, prepared),
+                      operatorDocs())
+                  .leavingOut(prepared.leftOut());
           events.runStarted(prepared.project().name());
           report.results().forEach(events::mutantFinished);
           events.runFinished(report, kept.comparison(), listed(prepared, kept.written()), false);
@@ -2243,7 +2372,8 @@ public final class Main {
                 otherTests,
                 RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())),
                 report)
-            .under(OperatorSet.active(policy(command, prepared)));
+            .under(OperatorSet.active(policy(command, prepared)))
+            .leavingOut(LeftOut.names(prepared.leftOut()));
     // Only an earlier run of the same project, in the same place, under the same operators, says
     // anything about this one. When the last run used others, it's said so instead.
     var comparison =
@@ -3270,7 +3400,8 @@ public final class Main {
         return value.strip();
       }
 
-      /// `--exclude-tests=RacyTest,com.example.PortTest`: test classes by name or full name.
+      /// `--exclude-tests=RacyTest,com.example.PortTest,PricingTest#bigOrders`: test classes by
+      /// name or full name, or one method of one.
       private void excludeTests(String value) {
         for (String name : value.split(",", -1)) {
           if (!name.isBlank()) {

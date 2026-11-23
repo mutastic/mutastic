@@ -73,10 +73,10 @@ should treat each pair below as one kind:
 | `module-missing` | `no-directory`, for a workspace member | The module (package) named isn't in the build |
 | `build-failed` | `build-failed`, `copy-build-failed` | The project doesn't build; the Rust edition says too when only its copy with the mutants in fails |
 
-These are only the Java edition's: `unknown-suite`, `build-jdk`, `tests-stopped`, `tests-timed-out`,
-`no-tests`, `nothing-covered` and `disk`. These are only the Rust edition's: `both-editions`, `java-edition`
-and `proc-macro`. A code an edition doesn't have comes out there as `other`, or as the nearest it
-has. Both editions keep these names for 1.x. A new edition uses the general name of each pair:
+These are only the Java edition's: `unknown-suite` and `build-jdk`. These are only the Rust
+edition's: `both-editions`, `java-edition` and `proc-macro`. A code an edition doesn't have comes
+out there as `other`, or as the nearest it has. Both editions keep these names for 1.x. A new
+edition uses the general name of each pair:
 `no-build-tool`, and `build-root` for the root of a build of modules.
 
 ## Mistakes in the command line
@@ -231,7 +231,11 @@ Set JAVA_HOME to a JDK 23 or older, and mutastic still finds its own JDK 25. Or 
 ### `red-baseline`
 
 A test fails with no mutant in, so no mutant can be judged by it. The message says what the test
-said, and ends in the build's command that runs it alone. Exits with 3.
+said, the build's command that runs it alone, and how to leave it out until it's fixed: under
+[`exclude-tests:`](/guides/configuration/#leaving-a-test-out) in `mutastic.yaml` with a reason, or
+for one run with `--exclude-tests`. Nothing is left out on its own. In the agent format, the
+message says instead to find out whether the change or the test is wrong, and leave leaving it out
+to the person. Exits with 3.
 
 <Code code={testsFail} lang="ansi" />
 

@@ -269,6 +269,21 @@ public final class Engine {
           running.stream().toList());
     }
 
+    /// The same, with `line` before where the tests' output is: the command that runs a test alone
+    /// stays last, to copy.
+    public BaselineFailed then(String line) {
+      var message = String.valueOf(getMessage());
+      int output =
+          Math.max(
+              message.lastIndexOf("\nIts output is in "),
+              message.lastIndexOf("\nTheir output is in "));
+      var said =
+          output < 0
+              ? message + "\n" + line
+              : message.substring(0, output) + "\n" + line + message.substring(output);
+      return new BaselineFailed(code, said, failing);
+    }
+
     /// The same, ending in the command that runs the first failing test alone in its build.
     public BaselineFailed endingIn(String command) {
       return new BaselineFailed(
@@ -283,29 +298,37 @@ public final class Engine {
         TestWorker.Baseline baseline,
         ByteBuddyJdk.Written written,
         List<String> services) {
-      var failures = baseline.failures();
       var messages = baseline.messages();
       var log = written.log();
-      var where = loadedElsewhere(failing, services) + ByteBuddyJdk.said(written);
+      var where = loadedElsewhere(services) + ByteBuddyJdk.said(written);
       if (failing.size() == 1) {
         var test = failing.getFirst();
         var said = messages.getOrDefault(test, "");
-        return "%s%s fails without any mutant, so mutastic can't judge one.%s%s\nIts output is in %s."
+        return "%s fails without any mutant, so mutastic can't judge one.%s%s\nIts output is in %s."
             .formatted(
-                test,
-                asAWhole(test, failures),
+                named(test, baseline),
                 said.isBlank() ? "" : "\nIt failed: " + said,
                 where,
                 shown(log));
       }
-      var named =
+      var listed =
           failing.stream()
               .limit(NAMED)
-              .map(test -> "  " + test + asAWhole(test, failures) + saying(test, messages))
+              .map(test -> "  " + named(test, baseline) + saying(test, messages))
               .collect(Collectors.joining("\n"));
       var more = failing.size() > NAMED ? "\n  and %d more".formatted(failing.size() - NAMED) : "";
       return "%d tests fail without any mutant, so mutastic can't judge one:\n%s%s%s\nTheir output is in %s."
-          .formatted(failing.size(), named, more, where, shown(log));
+          .formatted(failing.size(), listed, more, where, shown(log));
+    }
+
+    /// `a.BTest#adds(int, int) (case [2] 2, 2, 5)`: the test, the case of it that failed first when
+    /// it runs a table of them, and for a class, that it failed as a whole.
+    private static String named(String test, TestWorker.Baseline baseline) {
+      var failedCase =
+          java.util.Optional.ofNullable(baseline.cases().get(test))
+              .map(failed -> " (case " + failed.name() + ")")
+              .orElse("");
+      return test + failedCase + asAWhole(test, baseline.failures());
     }
 
     /// `log` from where the person is, when it's inside it.
@@ -347,23 +370,16 @@ public final class Engine {
             "org.junit.runners.model.InvalidTestClassError",
             "org.junit.runners.model.InitializationError");
 
-    /// Why tests that pass in the build can fail here, when the project provides a JDK service.
-    private static String loadedElsewhere(List<String> failing, List<String> services) {
+    /// Why tests that pass in the build can fail here, when the project provides a JDK service. The
+    /// way past them, leaving them out, is the command line's to offer: never to an agent.
+    private static String loadedElsewhere(List<String> services) {
       if (services.isEmpty()) {
         return "";
       }
-      var classes =
-          failing.stream()
-              .map(test -> test.replaceFirst("#.*", ""))
-              .map(test -> test.substring(test.lastIndexOf('.') + 1))
-              .distinct()
-              .map(name -> "--exclude-tests=" + name)
-              .collect(Collectors.joining(" "));
       return ("\nIf they pass in the build, this is likely why: the project provides %s in"
               + " META-INF/services, which the JDK looks for on the system class path. mutastic"
-              + " loads the project in class loaders of its own, so the JDK doesn't find it here."
-              + " To run without those tests: %s")
-          .formatted(String.join(" and ", services), classes);
+              + " loads the project in class loaders of its own, so the JDK doesn't find it here.")
+          .formatted(String.join(" and ", services));
     }
 
     public List<String> failing() {
@@ -390,8 +406,10 @@ public final class Engine {
   /// @param ghosts find and run ghosts (experimental), reported apart and never in the score
   /// @param killMatrix run every covering test of a caught mutant, not only up to the first catch
   /// @param shard the share of the mutants that runs: every one unless the run is split
-  /// @param testsLeftOut whether the run leaves out tests the build runs (`--exclude-tests`): the
-  ///   lines only they reach count as not covered, even if that's every line
+  /// @param testsLeftOut the tests the run leaves out though the build runs them (`--exclude-tests`
+  ///   and `mutastic.yaml`'s `exclude-tests:`): the lines only they reach count as not covered,
+  ///   even if that's every line. A class is left out of the project's test selection; one method,
+  ///   `PricingTest#bigOrders`, the workers leave out of each class they run
   /// @param forceCoverage run the coverage pass even when no mutant is there to run
   ///   (`--force-coverage`), to check or time the tests; with none to run, otherwise, no test runs
   public record Options(
@@ -406,7 +424,7 @@ public final class Engine {
       boolean ghosts,
       boolean killMatrix,
       Shard shard,
-      boolean testsLeftOut,
+      List<String> testsLeftOut,
       boolean forceCoverage) {
     /// Options that stop at a mutant's first catch.
     public Options(
@@ -431,7 +449,7 @@ public final class Engine {
           ghosts,
           false,
           Shard.WHOLE,
-          false,
+          List.of(),
           false);
     }
 
@@ -472,8 +490,8 @@ public final class Engine {
           forceCoverage);
     }
 
-    /// The same options, leaving out tests the build runs or not (`--exclude-tests`).
-    public Options withTestsLeftOut(boolean leftOut) {
+    /// The same options, leaving out these tests the build runs (`--exclude-tests`).
+    public Options withTestsLeftOut(List<String> leftOut) {
       return new Options(
           only,
           confirmCatches,
@@ -542,6 +560,7 @@ public final class Engine {
 
     public Options {
       only = List.copyOf(only);
+      testsLeftOut = List.copyOf(testsLeftOut);
       among = java.util.Set.copyOf(among);
       if (workers < 1) {
         throw new IllegalArgumentException("workers must be at least 1, not " + workers);
@@ -560,7 +579,7 @@ public final class Engine {
       return unrun(
           project, plan, options, new Told(skipped, Duration.ofNanos(System.nanoTime() - start)));
     }
-    var workers = workersFor(project, options.workers(), plan.mutants().size());
+    var workers = workersFor(project, options.workers(), plan.mutants().size(), methods(options));
     try {
       var ran = ran(project, plan, workers, listener);
       keepTimes(project, plan, options);
@@ -861,7 +880,7 @@ public final class Engine {
         && options.among().isEmpty()
         && options.changed().isEmpty()
         && options.shard().whole()
-        && !options.testsLeftOut();
+        && options.testsLeftOut().isEmpty();
   }
 
   /// The ghosts in the module's classes that would load, in this run's share: one that doesn't
@@ -959,15 +978,24 @@ public final class Engine {
     return (int) Math.max(1, workers.stream().filter(worker -> worker.started() > 0).count());
   }
 
-  private List<TestWorker> workersFor(Project project, int wanted, int mutantCount) {
+  private List<TestWorker> workersFor(
+      Project project, int wanted, int mutantCount, List<String> methodsLeftOut) {
     var workers = new ArrayList<TestWorker>();
     var toWarm = new ClassesToWarm();
     var resources = ResourceCopy.of(project, resourcesBeside(log));
     for (int number = 1; number <= Math.min(wanted, Math.max(1, mutantCount)); number++) {
       var numberedLog = number == 1 ? log : numbered(log, number);
-      workers.add(new TestWorker(project, workerJar, numberedLog, toWarm, resources));
+      workers.add(
+          new TestWorker(project, workerJar, numberedLog, toWarm, resources)
+              .leavingOut(methodsLeftOut));
     }
     return workers;
+  }
+
+  /// The single test methods the run leaves out, `PricingTest#bigOrders`: a class left out whole
+  /// isn't in the project's test selection, so it never reaches a worker.
+  private static List<String> methods(Options options) {
+    return options.testsLeftOut().stream().filter(test -> test.contains("#")).toList();
   }
 
   /// Every test once, on `first`, with coverage; flaky tests are left out of what it recorded. A
@@ -1434,7 +1462,8 @@ public final class Engine {
               last.failure(),
               last.origin(),
               run.testsRun() + last.testsRun(),
-              last.portClash()),
+              last.portClash(),
+              last.failedCase()),
           after.unconfirmed().or(() -> unconfirmed));
     }
 
@@ -1442,17 +1471,18 @@ public final class Engine {
         Trial trial, List<String> covering, Tested tested, Map<String, List<Long>> inputs) {
       var run = tested.run();
       return new MutantResult(
-          trial.mutant(),
-          run.status(),
-          covering,
-          run.failedTest(),
-          run.failure(),
-          run.origin(),
-          run.testsRun(),
-          tested.unconfirmed(),
-          inputs,
-          Optional.empty(),
-          trial.took());
+              trial.mutant(),
+              run.status(),
+              covering,
+              run.failedTest(),
+              run.failure(),
+              run.origin(),
+              run.testsRun(),
+              tested.unconfirmed(),
+              inputs,
+              Optional.empty(),
+              trial.took())
+          .withCaughtCase(run.failedCase());
     }
 
     /// A mutant no test reaches, with the first test to write for it when suggestions are on.
