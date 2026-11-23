@@ -41,8 +41,9 @@ const cut = (all: string) => {
   return end < 0 ? all : `${lines.slice(0, end).join('\n').replace(/\n+$/, '')}\n`;
 };
 const text = whole !== undefined && until !== undefined ? cut(whole) : whole;
-if (awaiting !== undefined && awaiting !== pin.ref) {
-  throw new Error(`RustOutput '${name}' awaits the Rust release after ${awaiting}, and the pin is ${pin.ref} now: take out its awaiting`);
+const pinned = `v${pin.version}`;
+if (awaiting !== undefined && awaiting !== pinned) {
+  throw new Error(`RustOutput '${name}' awaits the Rust release after ${awaiting}, and the pin is ${pinned} now: take out its awaiting`);
 }
 const waiting = text === undefined && awaiting !== undefined;
 if (rust && text === undefined && !awaitsRust(Astro.locals) && !waiting) {

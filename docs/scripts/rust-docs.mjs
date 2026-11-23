@@ -4,14 +4,16 @@
 //
 // Which mutastic-rs is read:
 //   MUTASTIC_RS_DOCS=<dir>     that docs/ folder, e.g. a checkout being edited.
-//   MUTASTIC_RS_DOCS=pinned    the release named in docs/rust-edition.json, fetched by its tag.
+//   MUTASTIC_RS_DOCS=pinned    the release named in docs/rust-edition.json, fetched by its commit.
 //   MUTASTIC_RS_DOCS=          (empty) none: the section is off.
 //   unset, a local build       ~/Code/mutastic-rs/docs when it's there, else the pinned release.
 //   unset, a release or CI     the pinned release, only once rust-edition.json says "publish":
 //   build (DOCS_VERSION)       true. Until then the published site has no Rust section.
 //
 // The pin travels with each release's docs: a release line is rebuilt from its own tag, so it
-// shows the Rust release it was published with. Move it with each Rust release.
+// shows the Rust release it was published with. Move it with each Rust release. It names the
+// release's commit, as the Java edition is tagged before the Rust one, and its version, which
+// that commit's Cargo.toml has to say, so a pin can't name a commit of another release.
 //
 // Its commands come as data, not pages: docs/commands.json, written from the Rust CLI's own
 // declarations in the Java edition's shape, with each command's captured output in
@@ -53,7 +55,7 @@ const cache = fileURLToPath(new URL('../node_modules/.cache/mutastic-rs/', impor
 
 /** The release docs/rust-edition.json pins, `v1.1.0`, or undefined when there's no pin. */
 export function pinnedRef() {
-  return existsSync(pinFile) ? JSON.parse(readFileSync(pinFile, 'utf8')).ref : undefined;
+  return existsSync(pinFile) ? `v${JSON.parse(readFileSync(pinFile, 'utf8')).version}` : undefined;
 }
 
 /**
@@ -67,16 +69,26 @@ function awaitingRust(known) {
   );
 }
 
-/** The pinned release's docs/ folder, fetched by its tag the first time it's needed. */
+/** The pinned release's docs/ folder, fetched by its commit the first time it's needed. */
 function pinned() {
   const pin = JSON.parse(readFileSync(pinFile, 'utf8'));
-  const into = join(cache, pin.ref.replace(/[^\w.-]/g, '_'));
+  if (!/^[0-9a-f]{40}$/.test(pin.commit ?? '')) {
+    throw new Error(`docs/rust-edition.json's commit is '${pin.commit}', not a commit's full hash`);
+  }
+  const into = join(cache, pin.commit);
   if (!existsSync(join(into, 'docs', 'README.md'))) {
     rmSync(into, { recursive: true, force: true });
-    mkdirSync(cache, { recursive: true });
-    const quiet = ['-c', 'advice.detachedHead=false'];
-    execFileSync('git', [...quiet, 'clone', '--quiet', '--depth', '1', '--branch', pin.ref, pin.repository, into]);
-    console.log(`[rust-docs] fetched mutastic-rs ${pin.ref}`);
+    mkdirSync(into, { recursive: true });
+    const git = (...args) => execFileSync('git', ['-c', 'advice.detachedHead=false', '-C', into, ...args]);
+    git('init', '--quiet');
+    git('fetch', '--quiet', '--depth', '1', pin.repository, pin.commit);
+    git('checkout', '--quiet', 'FETCH_HEAD');
+    console.log(`[rust-docs] fetched mutastic-rs ${pin.version} at ${pin.commit}`);
+  }
+  const version = readFileSync(join(into, 'Cargo.toml'), 'utf8').match(/^version = "(?<version>[^"]+)"/m)?.groups
+    ?.version;
+  if (version !== pin.version) {
+    throw new Error(`docs/rust-edition.json pins ${pin.version} at ${pin.commit}, whose Cargo.toml is ${version}`);
   }
   return join(into, 'docs');
 }
