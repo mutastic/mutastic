@@ -1007,6 +1007,11 @@
           "repeat": "?"
         },
         {
+          "name": "reports",
+          "pattern": "^reports: [^·]+( · [^·]+)*$",
+          "repeat": "?"
+        },
+        {
           "name": "rules",
           "pattern": "^rules: add or change tests only; never change production code to make a mutant go away: tell the person; a fix counts when `mutastic verify <id> <dir>` passes$"
         },

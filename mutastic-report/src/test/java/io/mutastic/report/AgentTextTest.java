@@ -433,6 +433,51 @@ class AgentTextTest {
   }
 
   @Test
+  void theReportsWrittenAreNamedAfterTheVerdictBeforeTheRules() {
+    var here = Path.of("").toAbsolutePath();
+    var written =
+        List.of(here.resolve("build/mutastic/mutation.json"), project.resolve("a\u001bb.html"));
+    var comparison = new Comparison(OptionalDouble.of(25), true, true, List.of());
+
+    var output =
+        text.render(
+            report(List.of(result(boundary(0), Status.MISSED)), List.of(), List.of()),
+            Optional.of(comparison),
+            false,
+            written);
+
+    var line =
+        "\nreports: build/mutastic/mutation.json · %s\n".formatted(project.resolve("a\\x1bb.html"));
+    assertThat(output).contains("\nvs last run: 25.0% → 0.0% (same code)" + line + "rules: ");
+  }
+
+  @Test
+  void noReportWrittenNoReportsLine() {
+    var output =
+        text.render(
+            report(List.of(result(boundary(0), Status.MISSED)), List.of(), List.of()),
+            Optional.empty(),
+            false,
+            List.of());
+
+    assertThat(output).doesNotContain("reports:");
+  }
+
+  @Test
+  void mutantsAskedForNameTheReportsAfterTheirFates() {
+    var caught = result(boundary(0), Status.CAUGHT);
+    var written = List.of(Path.of("build/mutastic/mutation.json").toAbsolutePath());
+
+    var output =
+        text.render(report(List.of(caught), List.of(), List.of()), Optional.empty(), true, written);
+
+    assertThat(output)
+        .isEqualTo(
+            "mutastic: %s is caught by a.PricingTest#a%nreports: build/mutastic/mutation.json%n"
+                .formatted(caught.mutant().id()));
+  }
+
+  @Test
   void oneMutantAskedForGetsItsFate() {
     var caught = result(boundary(0), Status.CAUGHT);
 

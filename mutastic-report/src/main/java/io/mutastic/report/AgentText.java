@@ -5,6 +5,7 @@ import io.mutastic.api.FlakyTest;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -72,9 +73,16 @@ public final class AgentText {
   /// @param oneMutant the run was mutants asked for by id: each one's fate is the verdict, not a
   ///   score
   public String render(Report report, Optional<Comparison> comparison, boolean oneMutant) {
+    return render(report, comparison, oneMutant, List.of());
+  }
+
+  /// The same, naming the report files the run wrote (see [#reports]).
+  ///
+  /// @param reports the files written, as the summary's Reports row has them
+  public String render(
+      Report report, Optional<Comparison> comparison, boolean oneMutant, List<Path> reports) {
     if (oneMutant && !report.results().isEmpty()) {
-      return report.results().stream().map(this::oneMutant).collect(Collectors.joining("\n"))
-          + failingAlone(report);
+      return fates(report, reports);
     }
     var missed =
         report.results().stream().filter(result -> result.status() == Status.MISSED).toList();
@@ -87,6 +95,7 @@ public final class AgentText {
     RepeatedIgnores.in(report)
         .forEach(repeated -> out.append("note: %s\n".formatted(RepeatedIgnores.text(repeated))));
     comparison.ifPresent(found -> appendVsLastRun(out, report, found));
+    out.append(reports(reports));
     appendSuspects(out, report, comparison);
     appendUnrelatedCatches(out, report);
     if (!missed.isEmpty() || !notCovered.isEmpty()) {
@@ -94,6 +103,14 @@ public final class AgentText {
     }
     appendGhosts(out, report);
     return out.toString();
+  }
+
+  /// Each mutant asked for by id, its fate first; then the tests that fail on their own, and the
+  /// reports written.
+  private String fates(Report report, List<Path> reports) {
+    return report.results().stream().map(this::oneMutant).collect(Collectors.joining("\n"))
+        + failingAlone(report)
+        + reports(reports);
   }
 
   /// Ghosts, with `--experimental=ghosts`: questions about what the code should do, never part of
@@ -112,6 +129,18 @@ public final class AgentText {
         .filter(ghost -> !ghost.appeared())
         .forEach(ghost -> cards.card(ghost).forEach(line -> quoted.append(line).append('\n')));
     out.append(Untrusted.fence(quoted.toString()));
+  }
+
+  /// `reports: build/mutastic/mutation.json · build/mutastic/mutation.html`: the files the run
+  /// wrote, as the summary's Reports row names them, each as typed from where mutastic ran with
+  /// what can't be seen escaped. An agent that isn't told of them runs again to get one. Nothing
+  /// when none was written (`--report=none`).
+  static String reports(List<Path> written) {
+    return written.isEmpty()
+        ? ""
+        : written.stream()
+            .map(file -> Untrusted.escape(Here.shown(file)))
+            .collect(Collectors.joining(" · ", "reports: ", "\n"));
   }
 
   /// `85.7%`, or `none` when there was nothing to score.

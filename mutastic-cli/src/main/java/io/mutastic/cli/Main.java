@@ -2186,7 +2186,7 @@ public final class Main {
         yield new Display(
             output.progress(),
             (report, comparison, written) ->
-                output.out().print(agent.render(report, comparison, oneMutant)));
+                output.out().print(agent.render(report, comparison, oneMutant, written)));
       }
       default -> {
         var plain = humanText(command, output, prepared.sources());
