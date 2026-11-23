@@ -1,21 +1,25 @@
 ---
 title: Streams
-description: "The operators that change a stream pipeline: a stage left out, or one match for another. The bug each stands for, a real card, and the test that catches it."
+description: "The operators that change a stream pipeline: a stage left out, one match for another, or one gatherer for its pair. The bug each stands for, a real card, and the test that catches it."
 ---
 
 import { Code } from '@astrojs/starlight/components';
 import removeStage from '../../../../data/output/operators/streams/remove-stage.ansi?raw';
 import swapMatch from '../../../../data/output/operators/streams/swap-match.ansi?raw';
 import removeOtherStage from '../../../../data/output/operators/streams/remove-other-stage.ansi?raw';
+import swapWindow from '../../../../data/output/operators/streams/swap-window.ansi?raw';
+import swapFoldScan from '../../../../data/output/operators/streams/swap-fold-scan.ansi?raw';
 
-Operators that change a stream pipeline: a stage left out, or one kind of match for another.
-Together they ask whether your tests' input is input each stage has to change.
+Operators that change a stream pipeline: a stage left out, one kind of match for another, or one
+gatherer for its pair. Together they ask whether your tests' input is input each stage has to change.
 
 | Operator | Changes | Set |
 |---|---|---|
 | [`stream/remove-stage`](#stream-stage-removal) | a stream stage, removed | defaults |
 | [`stream/swap-match`](#stream-match-swap) | `anyMatch`, `allMatch` and `noneMatch`, swapped | defaults |
 | [`stream/remove-other-stage`](#other-stage-removal) | `peek`, and `map` on a primitive stream, removed | extended |
+| [`stream/swap-window`](#swap-window) | `Gatherers.windowFixed` and `windowSliding`, swapped | extended |
+| [`stream/swap-fold-scan`](#swap-fold-scan) | `Gatherers.fold` and `scan`, swapped | extended |
 
 Each example is a class in `samples/operator-docs` with a test that misses its mutant, and each card
 is what `mutastic run samples/operator-docs --operators=all` prints for it.
@@ -167,3 +171,95 @@ The test checks the total, and never the log:
 it can change what the stream holds, and what comes next would throw on the wrong type, which would
 look like a catch. The Rust edition has this operator too, `stream/remove-other-stage`, for an
 iterator's `inspect` and `map`.
+
+## Window swap
+
+`stream/swap-window`, in the `extended` set. `Gatherers.windowFixed` and `windowSliding` swap
+places: windows side by side become windows that overlap, and the other way round. Gatherers are
+Java 24's, so this needs code built for Java 24 or later.
+
+**The bug it stands for:** the wrong kind of window. Batches that overlap send each element more
+than once: an order shipped twice, a row imported twice. A moving average over windows that don't
+overlap gives one average for each group instead of one at each step. With no more elements than
+one window holds, both give the same single window, and that's the input tests usually pick.
+
+{/* from: samples/operator-docs/src/main/java/com/example/streams/Batches.java */}
+```java
+  /// The orders in batches of `size`, each batch sent to the warehouse in one request.
+  public static List<List<String>> of(List<String> orders, int size) {
+    return orders.stream().gather(Gatherers.windowFixed(size)).toList();
+  }
+```
+
+The test has two orders, and batches of three, so there's only one batch:
+
+{/* from: samples/operator-docs/src/test/java/com/example/streams/BatchesTest.java */}
+```java
+  @Test
+  void aFewOrdersGoTogether() {
+    assertEquals(List.of(List.of("a", "b")), Batches.of(List.of("a", "b"), 3));
+  }
+```
+
+<Code code={swapWindow} lang="ansi" />
+
+**The test that catches it:** one with more elements than a window holds, asserting the windows.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/streams/BatchesTest.java */}
+```java
+  @Test
+  void moreOrdersThanABatchHolds() {
+    assertEquals(
+        List.of(List.of("a", "b", "c"), List.of("d")),
+        Batches.of(List.of("a", "b", "c", "d"), 3));
+  }
+```
+
+**Edition notes:** run it with `--operators=defaults,extended`. A window of one, `windowFixed(1)`,
+is the same either way, so its swap is skipped as equivalent. A window's size made less than one by
+`mutastic/constant-value` always throws, and is skipped as arid
+([`mutastic:gatherer-sizes`](/reference/arid/#gatherer-sizes)). The Rust edition has no gatherers,
+so no such operator.
+
+## Fold and scan swap
+
+`stream/swap-fold-scan`, in the `extended` set. `Gatherers.fold` and `scan` swap places: one result
+at the end becomes one after each element, and the other way round. Gatherers are Java 24's, so this
+needs code built for Java 24 or later.
+
+**The bug it stands for:** a running total where the final one was meant, or the other way round. A
+statement that shows only the closing balance, or a total that's every partial sum. With one element
+they give the same one result, and that's the input tests usually pick.
+
+{/* from: samples/operator-docs/src/main/java/com/example/streams/Statement.java */}
+```java
+  /// The balance after each payment: a line of the statement for each.
+  public static List<Integer> balances(List<Integer> payments) {
+    return payments.stream().gather(Gatherers.scan(() -> 0, Integer::sum)).toList();
+  }
+```
+
+The test has one payment:
+
+{/* from: samples/operator-docs/src/test/java/com/example/streams/StatementTest.java */}
+```java
+  @Test
+  void aPayment() {
+    assertEquals(List.of(10), Statement.balances(List.of(10)));
+  }
+```
+
+<Code code={swapFoldScan} lang="ansi" />
+
+**The test that catches it:** one with more than one element, asserting every result.
+
+{/* added to: samples/operator-docs/src/test/java/com/example/streams/StatementTest.java */}
+```java
+  @Test
+  void aBalanceAfterEachPayment() {
+    assertEquals(List.of(10, 15), Statement.balances(List.of(10, 5)));
+  }
+```
+
+**Edition notes:** run it with `--operators=defaults,extended`. The Rust edition has no gatherers,
+so no such operator.

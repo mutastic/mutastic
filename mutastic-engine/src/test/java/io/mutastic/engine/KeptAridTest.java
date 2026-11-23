@@ -29,7 +29,8 @@ class KeptAridTest {
           "exceptions/Throws.java",
           "discards/Discards.java",
           "text/Strings.java",
-          "threads/Settings.java");
+          "threads/Settings.java",
+          "streams/Sizes.java");
 
   @Test
   void theShapesHaveEveryAridReason() throws Exception {
@@ -57,7 +58,9 @@ class KeptAridTest {
             "arid: trivial setter of name",
             "arid: `toString()` is a debug representation",
             "arid: `describe()` only serves `toString()`",
-            "arid: `hashCode()` may return any value consistent with `equals()`");
+            "arid: `hashCode()` may return any value consistent with `equals()`",
+            "arid: a gatherer's size below one always throws",
+            "arid: only sets how many run at once");
   }
 
   @Test

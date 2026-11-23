@@ -1,0 +1,17 @@
+ [41;30;1m ✗ MISSED [0m no test tells [1mwindowFixed[0m from [1mwindowSliding[0m in of()
+    [2m┌─[0m src/main/java/com/example/streams/Batches.java:9
+    [2m│[0m
+ [2m 8[0m [2m│[0m   public static List<List<String>> of(List<String> orders, int size) {
+ [2m 9[0m [2m│[0m     return orders.stream().gather(Gatherers.windowFixed(size)).toList();
+    [2m│[0m                                             [1;31m^^^^^^^^^^^ windowFixed changed to windowSliding[0m
+ [2m10[0m [2m│[0m   }
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mreturn orders.stream().gather(Gatherers.windowFixed(size)).toList();
+              [32m+ [0mreturn orders.stream().gather(Gatherers.windowSliding(size)).toList();
+    [2m=[0m [1;34m[1mnote[0m[0m: inputs seen: size = 3
+            [2mcovered by BatchesTest#aFewOrdersGoTogether (its 1 covering test still passes)[0m
+    [2m=[0m [32m[1mhelp[0m[0m: use more elements than a window holds, and assert the windows
+
+    [2mdone when [0m mutastic verify m3359158f samples/operator-docs[2m passes[0m
+    [2mreproduce [0m mutastic run --only=m3359158f samples/operator-docs
+    [2mor ignore [0m mutastic ignore m3359158f --reason="<why>" samples/operator-docs

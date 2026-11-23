@@ -362,6 +362,27 @@
       },
       "mutate": "arid: [mutastic:stack-sizes]",
       "annotation": "@DoMutate(arid = \"mutastic:stack-sizes\")"
+    },
+    {
+      "id": "mutastic:gatherer-sizes",
+      "anchor": "gatherer-sizes",
+      "url": "https://docs.mutastic.io/reference/arid/#gatherer-sizes",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "A gatherer's size made less than one, which always throws, and how many calls `Gatherers.mapConcurrent` runs at once.",
+      "reasons": {
+        "java": [
+          "arid: a gatherer's size below one always throws",
+          "arid: only sets how many run at once"
+        ]
+      },
+      "examples": {
+        "java": "items.stream().gather(Gatherers.mapConcurrent(4, this::price)).toList();"
+      },
+      "mutate": "arid: [mutastic:gatherer-sizes]",
+      "annotation": "@DoMutate(arid = \"mutastic:gatherer-sizes\")"
     }
   ]
 }

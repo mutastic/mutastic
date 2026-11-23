@@ -17,6 +17,7 @@ import java.util.Optional;
 ///   it isn't there, so a test of whether it's there can't tell them apart.
 /// - `Math.floor((double) count)`: a `double` made from a whole number is whole, so it rounds to
 ///   itself either way.
+/// - `Gatherers.windowFixed(1)`: windows of one element are the same whether they slide or not.
 final class LibrarySwaps {
   private LibrarySwaps() {}
 
@@ -37,7 +38,37 @@ final class LibrarySwaps {
                   + " because it's a whole number, which rounds to itself with `%s` and `%s`.")
               .formatted(name, name, to));
     }
+    if (isGatherers(call) && sizeIsOne(code, at)) {
+      return Optional.of(
+          "equivalent: `%s(1)` and `%s(1)` both put each element in a window of its own"
+              .formatted(name, to));
+    }
     return Optional.empty();
+  }
+
+  /// `windowFixed` or `windowSliding`, whose one argument is the window's size.
+  private static boolean isGatherers(InvokeInstruction call) {
+    return call.owner().asInternalName().equals("java/util/stream/Gatherers")
+        && call.name().stringValue().startsWith("window");
+  }
+
+  /// The argument is `1`, pushed right before the call with nothing able to jump in between.
+  private static boolean sizeIsOne(List<CodeElement> code, int at) {
+    for (int index = at - 1; index >= 0; index--) {
+      switch (code.get(index)) {
+        case LabelTarget _ -> {
+          return false;
+        }
+        case ConstantInstruction constant -> {
+          return Integer.valueOf(1).equals(constant.constantValue());
+        }
+        case Instruction _ -> {
+          return false;
+        }
+        default -> {}
+      }
+    }
+    return false;
   }
 
   private static boolean isString(InvokeInstruction call) {

@@ -222,6 +222,16 @@
               "throws": []
             },
             {
+              "kind": "enum constant",
+              "name": "GATHERER_SIZES",
+              "anchor": "gatherer_sizes",
+              "signature": "GATHERER_SIZES",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
               "kind": "field",
               "name": "PAGE",
               "anchor": "page",

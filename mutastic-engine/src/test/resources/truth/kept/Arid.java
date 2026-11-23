@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import java.util.stream.Gatherers;
 
 /// Each reason mutastic skips a mutant as arid, in the shape javac writes it: one method each. A
 /// test puts `@DoMutate` on the class, or a `mutate:` rule over it, and every one comes back.
@@ -119,6 +120,10 @@ class Arid {
   @Override
   public boolean equals(Object other) {
     return other instanceof Arid that && that.name.equals(name);
+  }
+
+  static List<Integer> gathered(List<Integer> items) {
+    return items.stream().gather(Gatherers.mapConcurrent(4, x -> x + 1)).toList();
   }
 
   /// The project's own skip, which `@DoMutate` on the class doesn't undo.

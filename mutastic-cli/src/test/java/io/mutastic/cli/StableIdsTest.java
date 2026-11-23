@@ -27,8 +27,9 @@ import org.junit.jupiter.api.io.TempDir;
 /// id, so an id must name the same mutant in every later version while the method's code is
 /// unchanged. This finds every mutant, under every operator mutastic has and those its own plugins
 /// and rules files add, in a fixed set of class files (src/test/ids: each sample's main code and
-/// the engine's fixtures, compiled once with JDK 17's javac and never again), and holds them to the
-/// list kept in src/test/ids/ids.tsv. Only finding: no test runs.
+/// the engine's fixtures, compiled once with JDK 17's javac and never again; JDK 25's for a class
+/// that calls what 17 doesn't have, Java 24's gatherers), and holds them to the list kept in
+/// src/test/ids/ids.tsv. Only finding: no test runs.
 ///
 /// An id that's gone, or that now names another mutant, fails it: that breaks what users have kept.
 /// So does a new mutant of an operator already listed, until the list is written again, so the list

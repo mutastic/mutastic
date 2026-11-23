@@ -120,7 +120,15 @@ public enum AridRule {
       Scope.SITE,
       "The size of a thread's stack, while it stays above zero.",
       "Thread.ofPlatform().stackSize(1 << 20).unstarted(task);",
-      "arid: only sizes a thread's stack");
+      "arid: only sizes a thread's stack"),
+  GATHERER_SIZES(
+      "mutastic:gatherer-sizes",
+      Scope.SITE,
+      "A gatherer's size made less than one, which always throws, and how many calls"
+          + " `Gatherers.mapConcurrent` runs at once.",
+      "items.stream().gather(Gatherers.mapConcurrent(4, this::price)).toList();",
+      "arid: a gatherer's size below one always throws",
+      "arid: only sets how many run at once");
 
   /// What a rule judges: a whole method, every mutant in it, or one site, a call or a value.
   public enum Scope {

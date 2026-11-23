@@ -26,7 +26,8 @@ class AridRuleTest {
           "exceptions/Throws.java",
           "discards/Discards.java",
           "text/Strings.java",
-          "threads/Settings.java");
+          "threads/Settings.java",
+          "streams/Sizes.java");
 
   private static List<String> lines = List.of();
   private static List<Mutant> mutants = List.of();

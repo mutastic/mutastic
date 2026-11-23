@@ -2845,6 +2845,10 @@ mf69bfac0	operator-docs	com/example/returns/Quantities#parse(Ljava/lang/String;)
 m15b47533	operator-docs	com/example/returns/Quantities#parse(Ljava/lang/String;)I	mutastic/replace-body	5	ALOAD_0 → body return 0
 m19fd0218	operator-docs	com/example/returns/Quantities#parse(Ljava/lang/String;)I	mutastic/return-value	6	IRETURN → return 0
 m9cd8d789	operator-docs	com/example/returns/Quantities#parse(Ljava/lang/String;)I	mutastic/string-constant	5	LDC → string "no quantity given" to ""
+m0b496f2c	operator-docs	com/example/streams/Batches#of(Ljava/util/List;I)Ljava/util/List;	mutastic/null-parameter	9	ALOAD_0 → null parameter 0 orders
+m8ded1888	operator-docs	com/example/streams/Batches#of(Ljava/util/List;I)Ljava/util/List;	mutastic/replace-body	9	ALOAD_0 → body return List.of()
+m82f0b459	operator-docs	com/example/streams/Batches#of(Ljava/util/List;I)Ljava/util/List;	mutastic/return-value	9	ARETURN → return List.of()
+m3359158f	operator-docs	com/example/streams/Batches#of(Ljava/util/List;I)Ljava/util/List;	stream/swap-window	9	INVOKESTATIC java/util/stream/Gatherers.windowFixed(I)Ljava/util/stream/Gatherer; → windowSliding
 md615dccf	operator-docs	com/example/streams/Forms#anyBlank(Ljava/util/List;)Z	mutastic/null-parameter	8	ALOAD_0 → null parameter 0 answers
 m7bb9f157	operator-docs	com/example/streams/Forms#anyBlank(Ljava/util/List;)Z	mutastic/replace-body	8	ALOAD_0 → body return false
 m0a95a8aa	operator-docs	com/example/streams/Forms#anyBlank(Ljava/util/List;)Z	mutastic/replace-body	8	ALOAD_0 → body return true
@@ -2862,6 +2866,14 @@ md47d4c37	operator-docs	com/example/streams/Orders$Order#paid()Z	mutastic/return
 m601353fc	operator-docs	com/example/streams/Orders$Order#paid()Z	mutastic/return-value	6	IRETURN → return true
 m0bcefcc4	operator-docs	com/example/streams/Orders$Order#total()I	mutastic/replace-body	6	ALOAD_0 → body return 0
 m105d1a10	operator-docs	com/example/streams/Orders$Order#total()I	mutastic/return-value	6	IRETURN → return 0
+m5970bf31	operator-docs	com/example/streams/Statement#balances(Ljava/util/List;)Ljava/util/List;	mutastic/null-parameter	9	ALOAD_0 → null parameter 0 payments
+m07c02493	operator-docs	com/example/streams/Statement#balances(Ljava/util/List;)Ljava/util/List;	mutastic/replace-body	9	ALOAD_0 → body return List.of()
+m07b344e6	operator-docs	com/example/streams/Statement#balances(Ljava/util/List;)Ljava/util/List;	mutastic/return-value	9	ARETURN → return List.of()
+m646ef48e	operator-docs	com/example/streams/Statement#balances(Ljava/util/List;)Ljava/util/List;	stream/swap-fold-scan	9	INVOKESTATIC java/util/stream/Gatherers.scan(Ljava/util/function/Supplier;Ljava/util/function/BiFunction;)Ljava/util/stream/Gatherer; → fold
+m8658ca31	operator-docs	com/example/streams/Statement#lambda$balances$0()Ljava/lang/Integer;	mutastic/constant-value	9	ICONST_0 → constant 0 to -1
+m3b44e0d0	operator-docs	com/example/streams/Statement#lambda$balances$0()Ljava/lang/Integer;	mutastic/constant-value	9	ICONST_0 → constant 0 to 1
+m7f97314e	operator-docs	com/example/streams/Statement#lambda$balances$0()Ljava/lang/Integer;	mutastic/replace-body	9	ICONST_0 → body return 1
+m8c6fc7e2	operator-docs	com/example/streams/Statement#lambda$balances$0()Ljava/lang/Integer;	mutastic/return-value	9	ARETURN → return 1
 m99240bde	operator-docs	com/example/streams/Totals#logged(Ljava/util/List;Ljava/util/List;)I	mutastic/null-parameter	8	ALOAD_0 → null parameter 0 values
 mf1036a8c	operator-docs	com/example/streams/Totals#logged(Ljava/util/List;Ljava/util/List;)I	mutastic/null-parameter	8	ALOAD_0 → null parameter 1 log
 mcd4ade2a	operator-docs	com/example/streams/Totals#logged(Ljava/util/List;Ljava/util/List;)I	mutastic/remove-discarded-call	8	INVOKESTATIC java/util/Objects.requireNonNull(Ljava/lang/Object;)Ljava/lang/Object; → remove call
