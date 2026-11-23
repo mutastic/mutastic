@@ -7,8 +7,8 @@ import java.io.PrintWriter;
 /// logger, and its calls are arid; `kept…` writes to a stream or a writer the code is given, which
 /// a test can read back, and its calls stay counted. `guard…` checks a log level around a body
 /// that only writes output, so the check is arid too; `keptGuard…` does more, or is shaped
-/// otherwise, and its check stays counted. Each returns what it works out, which no output
-/// changes.
+/// otherwise, and its check stays counted. `own…` writes the project's own output, arid only when
+/// a rule names it. Each returns what it works out, which no output changes.
 class Printed {
   private final PrintStream out;
   private org.slf4j.Logger slf4j;
@@ -19,6 +19,7 @@ class Printed {
   private io.github.oshai.kotlinlogging.KLogger klogger;
   private com.google.common.flogger.FluentLogger flogger;
   private int saved;
+  private final AuditLog audit = new AuditLog();
 
   Printed(PrintStream out) {
     this.out = out;
@@ -233,5 +234,31 @@ class Printed {
 
   private void save(int a) {
     saved += a;
+  }
+
+  int ownOutput(int a) {
+    audit.info("a is " + a);
+    audit.count(a);
+    return a + 12;
+  }
+
+  int ownGuard(int a) {
+    if (audit.enabled()) {
+      audit.info("seen");
+    }
+    return a + 13;
+  }
+}
+
+/// A project's own output, as `mutastic.yaml` names it: `- output: output.AuditLog#*`.
+class AuditLog {
+  void info(String message) {}
+
+  int count(int value) {
+    return value;
+  }
+
+  boolean enabled() {
+    return true;
   }
 }

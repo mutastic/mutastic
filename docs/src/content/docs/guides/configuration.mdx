@@ -4,6 +4,7 @@ description: "Tell mutastic what not to mutate, and why: annotations, mutastic.y
 ---
 
 import { Code } from '@astrojs/starlight/components';
+import EditionOnly from '../../../components/EditionOnly.astro';
 import without from '../../../data/output/configured-without.ansi?raw';
 import configured from '../../../data/output/configured.ansi?raw';
 import explained from '../../../data/output/configured-explain.ansi?raw';
@@ -115,6 +116,8 @@ rules:
   - mutate: com.acme.Worker#run      # only what one arid rule skips: its waits
     arid: [mutastic:waits]
     reason: callers rely on run() returning once the work is done
+  - output: com.acme.AuditLog#*      # your own output calls, skipped as log calls are
+    reason: the audit trail, which ops read and tests don't
 plugins:
   - build/libs/acme-filters.jar      # a jar: filters and operators of your own
   - mutiny.yaml                      # a rules file: call operators, as data
@@ -207,6 +210,33 @@ Ignores are the run's: `.mutastic/` beside the directory the run is on, the top'
 An annotation on the code comes first, then a rule, then mutastic's own filters, then a plugin's: its verdict on a whole method, and last its verdict on one mutant. A `mutate:` rule, like `@DoMutate`, brings back every mutant mutastic would call arid in the code it covers, a whole method or one call in it, and never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
 
 Every arid skip is one rule's, by an id that never changes: `mutastic:output`, `mutastic:waits`, `mutastic:capacity` and the rest. An `arid:` list on a `mutate:` rule brings back only those rules' skips, so a team whose tests measure its pauses can count its sleeps and still leave its log lines out. `@DoMutate(arid = "mutastic:waits")` does the same in the code. `mutastic explain` on a skipped mutant names its rule, links to its docs and prints the rule to copy.
+
+### Your own output calls
+
+mutastic knows the common loggers, but not the wrapper your team logs through, an audit log, or a
+metric nobody's tests read. Without a rule, each of their calls is a mutant that only a test of the
+log text would catch. An `output:` rule names them, with a reason, and mutastic skips them as it
+skips a logger's calls, under `mutastic:output`:
+
+```yaml title="mutastic.yaml"
+rules:
+  - output: com.acme.AuditLog#*
+    reason: the audit trail, which ops read and tests don't
+```
+
+A removed call says `arid: only calls AuditLog#info (the audit trail, which ops read and tests
+don't)`. So does a string or a value that only goes into one, as `arid: only feeds AuditLog#info
+(…)`, and a check like `if (audit.enabled())` around nothing but those calls. The pattern names the
+methods called, as `skip:` names the code: `Class#method`, `*` for one name, `**` for any depth.
+The skips are arid like the rest: a `mutate:` rule brings them back, and `MUTASTIC_ARID=audit` runs
+them. None are output until a rule says so, since some teams test their metrics.
+
+<EditionOnly edition="rust">
+**In the Rust edition:** an `output:` rule names a function or a macro by its path,
+`crate::audit::record` or `metrics::counter`, and a statement that calls it is skipped as
+`arid: only calls audit::record (…)`. The path in the code may be shorter, `audit::record` or
+`record` after a `use`: its segments are matched against the end of the rule's.
+</EditionOnly>
 
 ## Ignoring one mutant
 

@@ -1,5 +1,6 @@
 package io.mutastic.engine;
 
+import io.mutastic.api.Rule;
 import java.lang.classfile.CodeElement;
 import java.lang.classfile.Instruction;
 import java.lang.classfile.Label;
@@ -30,6 +31,10 @@ import java.util.Set;
 /// console's, `System.out` or `System.err`, read straight from there or from a local that never
 /// holds anything else. A stream the code is given, as a parameter or a field, is one a test can
 /// hand it and read back, as `run(args, out)` is: its calls stay counted, as a `PrintWriter`'s do.
+///
+/// A project names its own in `mutastic.yaml`, `- output: com.acme.AuditLog#*` with its reason:
+/// those are skipped with the method and the reason, `arid: only calls AuditLog#info (<reason>)`,
+/// and a value only fed to one with `arid: only feeds AuditLog#info (<reason>)`.
 ///
 /// A log-level check is output too when all it decides is whether output is written: `if
 /// (log.isDebugEnabled()) { log.debug(…); }`, each statement of its body one of these calls. A body
@@ -76,14 +81,18 @@ final class OutputCalls {
 
   private final List<CodeElement> code;
 
+  /// The project's `output:` rules.
+  private final List<Rule> rules;
+
   /// The print stream calls on the console, by where they are in the code.
   private final Set<Integer> console = new HashSet<>();
 
   /// Each label, and where it is in the code.
   private final Map<Label, Integer> labels = new HashMap<>();
 
-  OutputCalls(List<CodeElement> code, MethodModel method) {
+  OutputCalls(List<CodeElement> code, MethodModel method, List<Rule> rules) {
     this.code = code;
+    this.rules = List.copyOf(rules);
     for (int at = 0; at < code.size(); at++) {
       if (code.get(at) instanceof LabelTarget target) {
         labels.put(target.label(), at);
@@ -110,18 +119,54 @@ final class OutputCalls {
   /// Whether the call at `code[at]` only writes output.
   boolean writes(int at) {
     return code.get(at) instanceof InvokeInstruction call
-        && (LOGGERS.contains(call.owner().asInternalName()) || console.contains(at));
+        && (LOGGERS.contains(call.owner().asInternalName())
+            || console.contains(at)
+            || projects(call).isPresent());
   }
 
   /// Why the mutant at `code[at]` is output, if it is: a call that only writes it, or a log-level
   /// check that only decides whether it's written.
   Optional<String> reason(int at) {
     if (writes(at)) {
-      return Optional.of(REASON);
+      return Optional.of(said(at, "calls").orElse(REASON));
     }
     return code.get(at) instanceof BranchInstruction branch && guardsOnlyOutput(branch, at)
         ? Optional.of(GUARD)
         : Optional.empty();
+  }
+
+  /// Why a value that goes straight into the call at `code[at]` is output, if the call only writes
+  /// it: as mutastic's own calls say it, or as the project's rule does, `arid: only feeds
+  /// AuditLog#info (<reason>)`.
+  Optional<String> fed(int at, String ownReason) {
+    return writes(at) ? Optional.of(said(at, "feeds").orElse(ownReason)) : Optional.empty();
+  }
+
+  /// The project's rule for the call at `code[at]`, if it's the project's own and not mutastic's,
+  /// in its words: `arid: only calls AuditLog#info (the audit trail)`.
+  private Optional<String> said(int at, String verb) {
+    if (!(code.get(at) instanceof InvokeInstruction call)
+        || LOGGERS.contains(call.owner().asInternalName())
+        || console.contains(at)) {
+      return Optional.empty();
+    }
+    var owner = call.owner().asInternalName();
+    var simple = owner.substring(owner.lastIndexOf('/') + 1);
+    return projects(call)
+        .map(
+            rule ->
+                "arid: only %s %s#%s (%s)"
+                    .formatted(verb, simple, call.name().stringValue(), rule.reason()));
+  }
+
+  /// The project's `output:` rule that names the method called, if one does.
+  private Optional<Rule> projects(InvokeInstruction call) {
+    var owner = call.owner().asInternalName().replace('/', '.');
+    var name = call.name().stringValue();
+    // A constructor makes the object a call is made on; it isn't one.
+    return name.equals("<init>")
+        ? Optional.empty()
+        : rules.stream().filter(rule -> rule.covers(owner, name)).findFirst();
   }
 
   /// `System.out` or `System.err`, read.

@@ -1392,11 +1392,15 @@
         "java": [
           "arid: only writes output",
           "arid: only feeds a log line",
-          "arid: only decides whether output is written"
+          "arid: only decides whether output is written",
+          "arid: only calls <call> (<reason>)",
+          "arid: only feeds <call> (<reason>)"
         ],
         "rust": [
           "arid: only writes output",
-          "arid: only feeds a log line"
+          "arid: only feeds a log line",
+          "arid: only decides whether output is written",
+          "arid: only calls <call> (<reason>)"
         ]
       },
       "examples": {
@@ -1724,6 +1728,10 @@
     {
       "id": 21,
       "rule": "A mutant one of mutastic's own arid rules skipped names the rule: `skipRule` in `mutant-finished`, `mutastic.skipRule` in mutation.json, and in `explain` and the HTML report with its docs section (decision 20) and the `mutastic.yaml` rule that runs it, `- mutate: <its method>` with `arid: [<id>]` and `reason: <why a test should check it>`. A `mutate:` rule's optional `arid:` list, of known ids only (an unknown one is refused, with a close one when there is one), brings back only those rules' skips; without it, every arid skip in the code it covers."
+    },
+    {
+      "id": 22,
+      "rule": "`mutastic.yaml`'s `- output: <pattern>`, with a `reason:` it can't do without and no `arid:` list, names a project's own calls that only write output: a Java method pattern (`com.acme.AuditLog#*`) or a Rust function or macro path (`crate::audit::record`, `metrics::counter`), matched by its last segments. Its calls are skipped as `mutastic:output`, said `arid: only calls <call> (<reason>)`, `<call>` the class's simple name and the method (`AuditLog#info`) or the path as written; in the Java edition a value only fed to one, `arid: only feeds <call> (<reason>)`; and a log level's check around nothing but output, `arid: only decides whether output is written`. A `mutate:` rule brings them back as any `mutastic:output` skip, and `MUTASTIC_ARID=audit` runs them. None by default."
     }
   ],
   "differences": [
@@ -1956,17 +1964,6 @@
       "surface": "agent format",
       "summary": "`test to add in PricingTest:` or `in mod tests:`, with code in the language",
       "reason": "Language. The contract masks the test's code lines."
-    },
-    {
-      "id": "N20",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
-      "surface": "agent format",
-      "summary": "`start with:` lines when present",
-      "reason": "Engine capability; shared once G12 lands."
     },
     {
       "id": "N21",
@@ -2294,6 +2291,17 @@
       "reason": "A JVM a test starts loads the classes as built, so neither the worker's mutants nor its coverage reach it. A Rust binary a test runs has every mutant built in and takes the one to run, and where to record coverage, from the environment the test process passes on."
     },
     {
+      "id": "N51",
+      "kind": "engine",
+      "editions": [
+        "java",
+        "rust"
+      ],
+      "surface": "errors",
+      "summary": "What raises `tests-stopped`, `tests-timed-out` and `no-tests`: a test that ends the tests' JVM, a coverage pass past its 10 minutes, test classes none of which ran on the JUnit Platform (Java); a test that ends its own test process, a test past its 5 minutes, tests that are all `#[ignore]`d (Rust)",
+      "reason": "Test runner: Java's tests share a JVM, and Rust runs each test in a process of its own, as `cargo test` lists them."
+    },
+    {
       "id": "N50",
       "kind": "engine",
       "editions": [
@@ -2315,16 +2323,6 @@
       "reason": "Each language's own word."
     },
     {
-      "id": "G12",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "human output",
-      "summary": "Code no test reaches gets no starting assertion (also G15, the agent format's `start with:`)",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
-    },
-    {
       "id": "G22",
       "kind": "engine",
       "editions": [
@@ -2333,29 +2331,6 @@
       "surface": "events",
       "summary": "`MUTASTIC_EVENTS`: a file a run writes its live events to, every second, for the Gradle plugin",
       "reason": "The Gradle plugin reads the run's live events from this file to draw its own progress line. `cargo mutastic` runs the binary itself, which draws its own."
-    },
-    {
-      "id": "G27",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "reports",
-      "summary": "No GitHub Actions annotations or job summary (`MUTASTIC_GITHUB=off`)",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "env:MUTASTIC_GITHUB"
-      ]
-    },
-    {
-      "id": "G30",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "No `disk`, `no-tests`, `nothing-covered`, `tests-stopped` or `tests-timed-out` codes",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
       "id": "G38",
@@ -2369,13 +2344,13 @@
     },
     {
       "id": "G39",
-      "kind": "pending",
+      "kind": "engine",
       "editions": [
-        "rust"
+        "java"
       ],
       "surface": "configuration",
-      "summary": "Rules files have only the `remove` and `rename` rewrites",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
+      "summary": "A rules file's `omit last argument` rewrite; a `call` rewrite's `ARGS` are the JVM's parameter types, or Rust's, which Rust reads and doesn't check",
+      "reason": "`omit last argument` calls a method's shorter overload, and a Rust method has one count of arguments, so the shorter call never compiles: Rust refuses the rewrite and says so. A `call` rewrite finds its method by the JVM's descriptor; Rust reads source without types, so it matches by name, as it does `owners` (N36)."
     },
     {
       "id": "G43",

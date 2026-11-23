@@ -73,10 +73,10 @@ should treat each pair below as one kind:
 | `module-missing` | `no-directory`, for a workspace member | The module (package) named isn't in the build |
 | `build-failed` | `build-failed`, `copy-build-failed` | The project doesn't build; the Rust edition says too when only its copy with the mutants in fails |
 
-These are only the Java edition's: `unknown-suite`, `build-jdk`, `tests-stopped`, `tests-timed-out`,
-`no-tests`, `nothing-covered` and `disk`. These are only the Rust edition's: `both-editions`, `java-edition`
-and `proc-macro`. A code an edition doesn't have comes out there as `other`, or as the nearest it
-has. Both editions keep these names for 1.x. A new edition uses the general name of each pair:
+These are only the Java edition's: `unknown-suite` and `build-jdk`. These are only the Rust
+edition's: `both-editions`, `java-edition` and `proc-macro`. A code an edition doesn't have comes
+out there as `other`, or as the nearest it has. Both editions keep these names for 1.x. A new
+edition uses the general name of each pair:
 `no-build-tool`, and `build-root` for the root of a build of modules.
 
 ## Mistakes in the command line

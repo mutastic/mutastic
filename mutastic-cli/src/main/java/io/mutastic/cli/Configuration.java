@@ -34,6 +34,8 @@ import org.jspecify.annotations.Nullable;
 ///     reason: protobuf output
 ///   - mutate: com.acme.Money#toString
 ///     reason: shown to customers
+///   - output: com.acme.AuditLog#*
+///     reason: the audit trail, which ops read and tests don't
 /// plugins:
 ///   - build/libs/acme-filters.jar
 ///   - mutiny.yaml
@@ -330,6 +332,9 @@ record Configuration(
 
     private @Nullable String pendingTestReason;
 
+    /// What a rule starts with: `- skip:`, `- mutate:` or `- output:`.
+    private static final List<String> VERBS = List.of("skip", "mutate", "output");
+
     /// What `gate:` takes, as an error says it.
     private static final String GATE_SHAPE =
         "gate: takes operators:, a list under it:\n  gate:\n    operators:\n      - stronger";
@@ -503,18 +508,20 @@ record Configuration(
       return false;
     }
 
-    /// `- skip: <pattern>` or `- mutate: <pattern>`, which ends the rule before it.
+    /// `- skip: <pattern>`, `- mutate: <pattern>` or `- output: <pattern>`, which ends the rule
+    /// before it.
     private void newRule(String item) {
       var listed = listed(item);
       int colon = listed.indexOf(':');
       var verb = colon < 0 ? "" : listed.substring(0, colon);
-      if (!verb.equals("skip") && !verb.equals("mutate")) {
-        var close = io.mutastic.api.Nearest.name(verb, List.of("skip", "mutate"));
+      if (!VERBS.contains(verb)) {
+        var close = io.mutastic.api.Nearest.name(verb, VERBS);
         throw error(
             close
                 .map(rule -> "%s: isn't a rule. There's one called %s:.".formatted(verb, rule))
                 .orElse(
-                    "a rule is `- skip: <pattern>` or `- mutate: <pattern>`, then `reason: …`"));
+                    "a rule is `- skip: <pattern>`, `- mutate: <pattern>` or `- output:"
+                        + " <pattern>`, then `reason: …`"));
       }
       requireReason();
       pendingVerb = verb;
@@ -527,7 +534,9 @@ record Configuration(
       if (!"mutate".equals(pendingVerb)) {
         throw error(
             "`arid:` goes on a `mutate:` rule: it says which arid skips to bring back, and a"
-                + " `skip:` rule skips everything it covers");
+                + ("skip".equals(pendingVerb)
+                    ? " `skip:` rule skips everything it covers"
+                    : "n `output:` rule's calls are all skipped as `mutastic:output`"));
       }
       if (aridGiven) {
         throw error("the rule `mutate: %s` has one `arid:` list".formatted(pendingTarget));
@@ -578,7 +587,7 @@ record Configuration(
       requireAridIds();
       rules.add(
           new Rule(
-              pendingVerb.equals("mutate"),
+              Rule.Kind.valueOf(pendingVerb.toUpperCase(java.util.Locale.ROOT)),
               java.util.Objects.requireNonNull(pendingTarget),
               pendingReason,
               pendingArid));

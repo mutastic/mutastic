@@ -3259,21 +3259,21 @@
           "name": "Rule",
           "slug": "rule",
           "kind": "record",
-          "signature": "@Internal record Rule(\n    boolean mutate,\n    String target,\n    String reason,\n    List<String> arid)",
-          "summary": "A project's own decision, from `mutastic.yaml`: skip the mutants in some code, or mutate code a built-in filter would skip as arid, with the reason.",
-          "doc": "A project's own decision, from `mutastic.yaml`: skip the mutants in some code, or mutate code a\nbuilt-in filter would skip as arid, with the reason.",
+          "signature": "@Internal record Rule(\n    Rule.Kind kind,\n    String target,\n    String reason,\n    List<String> arid)",
+          "summary": "A project's own decision, from `mutastic.yaml`: skip the mutants in some code, mutate code a built-in filter would skip as arid, or name calls of its own that only write output, with the reason.",
+          "doc": "A project's own decision, from `mutastic.yaml`: skip the mutants in some code, mutate code a\nbuilt-in filter would skip as arid, or name calls of its own that only write output, with the\nreason.",
           "params": [
             {
-              "name": "mutate",
-              "doc": "`mutate:`, else `skip:`"
+              "name": "kind",
+              "doc": "`skip:`, `mutate:` or `output:`"
             },
             {
               "name": "target",
-              "doc": "a class or method pattern: `com.acme.generated.**` (any depth), `*` (one name), `com.acme.Money#toString` (one method)"
+              "doc": "a class or method pattern: `com.acme.generated.**` (any depth), `*` (one name), `com.acme.Money#toString` (one method). An `output:` rule's names the methods called, `com.acme.AuditLog#*`."
             },
             {
               "name": "arid",
-              "doc": "a `mutate:` rule's `arid:` list, the ids of the arid rules it brings back (`mutastic:waits`); empty for every arid skip, and for a `skip:` rule"
+              "doc": "a `mutate:` rule's `arid:` list, the ids of the arid rules it brings back (`mutastic:waits`); empty for every arid skip, and for the other kinds"
             }
           ],
           "members": [
@@ -3281,8 +3281,48 @@
               "kind": "constructor",
               "name": "Rule",
               "anchor": "rule",
+              "signature": "Rule(boolean mutate, String target, String reason, List<String> arid)",
+              "doc": "A `skip:` or a `mutate:` rule.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "Rule",
+              "anchor": "rule-2",
               "signature": "Rule(boolean mutate, String target, String reason)",
-              "doc": "A rule with no `arid:` list.",
+              "doc": "A `skip:` or a `mutate:` rule with no `arid:` list.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "output",
+              "anchor": "output",
+              "signature": "static Rule output(String target, String reason)",
+              "doc": "An `output:` rule: calls of the methods `target` names only write output.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "mutate",
+              "anchor": "mutate",
+              "signature": "boolean mutate()",
+              "doc": "Whether it's a `mutate:` rule.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "skip",
+              "anchor": "skip",
+              "signature": "boolean skip()",
+              "doc": "Whether it's a `skip:` rule.",
               "params": [],
               "returns": "",
               "throws": []
@@ -3303,6 +3343,57 @@
               "anchor": "written",
               "signature": "String written()",
               "doc": "`skip: com.acme.generated.**`, as the rule was written.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "Rule.Kind",
+          "slug": "rule-kind",
+          "kind": "enum",
+          "signature": "enum Kind",
+          "summary": "What a rule does with the code it names.",
+          "doc": "What a rule does with the code it names.",
+          "params": [],
+          "members": [
+            {
+              "kind": "enum constant",
+              "name": "SKIP",
+              "anchor": "skip",
+              "signature": "SKIP",
+              "doc": "Skip the mutants in it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "MUTATE",
+              "anchor": "mutate",
+              "signature": "MUTATE",
+              "doc": "Mutate what mutastic would skip in it as arid.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "enum constant",
+              "name": "OUTPUT",
+              "anchor": "output",
+              "signature": "OUTPUT",
+              "doc": "Calls to it only write output, as a logger's do: `mutastic:output` skips them, and what only\nfeeds them.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "written",
+              "anchor": "written",
+              "signature": "String written()",
+              "doc": "`skip`, as the file says it.",
               "params": [],
               "returns": "",
               "throws": []
