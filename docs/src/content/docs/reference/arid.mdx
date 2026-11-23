@@ -189,16 +189,19 @@ its id; in the Rust edition, a `Debug` or `Hash` impl's mutants are made and ski
 
 <AridRule id="mutastic:output" />
 
-A removed call to a logger (SLF4J, Log4j 2, `java.util.logging`, `System.Logger`, Commons
-Logging) or to a `PrintStream`, `System.out` included; every other mutant of such a call; a
-string that only goes into one, its format string included; and a value worked out only for one,
-`arid: only feeds a log line`: `log.info("took {} ms", now - start)`, or the same through a local
-that nothing else reads.
+A removed call to a logger, or a print to the console, `System.out` or `System.err`; every other
+mutant of such a call; a string that only goes into one, its format string included; a value
+worked out only for one, `arid: only feeds a log line`: `log.info("took {} ms", now - start)`, or
+the same through a local that nothing else reads; and a log level's check around nothing but
+output, `if (log.isDebugEnabled()) { log.debug(…); }`, as `arid: only decides whether output is
+written`. The loggers are SLF4J, its fluent builder included (`log.atInfo().log(…)`), Logback,
+Log4j 2 and its builder, Log4j 1, `java.util.logging`, `System.Logger`, Commons Logging, JBoss
+Logging, kotlin-logging, Flogger and tinylog.
 
 {/* from: samples/arid/src/main/java/com/example/arid/Totals.java */}
 ```java
-  public static void print(PrintStream out, long total) {
-    out.println("total: " + total);
+  public static void print(long total) {
+    System.out.println("total: " + total);
   }
 ```
 
@@ -206,9 +209,12 @@ that nothing else reads.
 reads log text breaks the next time someone rewords it, and says nothing about the code.
 
 <Aside type="caution" title="What it can hide">
-Output that is the product: a command-line tool's output, an audit log. Every `PrintStream` counts
-as output, not only `System.out`, so a stream the code is given, that a test reads, is skipped too:
-here the removed `println` leaves nothing printed, and `TotalsTest` catches it. A value is skipped
+Output that is the product: a command-line tool's output, an audit log. Here the removed `println`
+leaves nothing printed, and `TotalsTest`, which reads `System.out`, catches it. A stream the code
+is given isn't output, a `PrintStream` or a `PrintWriter` passed in or held in a field as
+`run(args, out)` takes it: a test can hand it one and read it, so its prints count. A level's
+check is skipped only when every statement it guards writes output and does nothing else; one that
+also stores a value, calls a method of the code's own, has an `else` or returns is counted. A value is skipped
 only when every use of it, on every path, is a log call's or a print's argument; one that's also
 returned, compared, stored or passed to another method, a metric's say, is counted: see [A value
 logged and recorded](/guides/arid-in-practice/#a-value-logged-and-recorded).
@@ -255,7 +261,8 @@ macro's argument, and no other binding has that name.
 **Changed in:** 0.1.0, the first release. 1.0.0: a string that only goes into output. 1.3.0: its id;
 `mutate:` and `@DoMutate` bring it back, by its id; a format string followed by a value worked out
 in the call (`log.info("took {} ms", now - start)`) is skipped as well; follows a value worked out
-for a log call, in both editions.
+for a log call, in both editions; a print to a stream the code is given counts, more loggers'
+calls are output, and so is a log level's check around nothing else.
 
 ## Messages
 

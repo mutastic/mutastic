@@ -73,8 +73,8 @@ final class TextConstants {
   /// call's receiver, or a static call's first argument), and where the call is.
   record Consumer(InvokeInstruction call, int position, int index) {}
 
-  static List<Change> strings(
-      List<CodeElement> code, int at, Stores stores, Supertypes supertypes) {
+  static List<Change> strings(int at, Stores stores, Supertypes supertypes, OutputCalls outputs) {
+    var code = outputs.code();
     if (!(code.get(at) instanceof ConstantInstruction constant)
         || !(constant.constantValue() instanceof String text)
         || isStringSwitchTest(code, at, stores)) {
@@ -84,7 +84,7 @@ final class TextConstants {
     return List.of(
         new Change(
             "string %s to %s".formatted(shown(text), quoted(to)),
-            onlyTellsAPerson(code, at, supertypes)));
+            onlyTellsAPerson(code, at, supertypes, outputs)));
   }
 
   /// javac's test in a `String` switch: `aload temporary; ldc "a"; equals`.
@@ -102,11 +102,11 @@ final class TextConstants {
 
   /// Following the value through what only formats it, why nothing but a person reads it, if so.
   private static Optional<String> onlyTellsAPerson(
-      List<CodeElement> code, int at, Supertypes supertypes) {
+      List<CodeElement> code, int at, Supertypes supertypes, OutputCalls outputs) {
     var next = consumer(code, at);
     while (next.isPresent()) {
       var call = next.get().call();
-      var why = aridCall(call, code, next.get().index(), supertypes);
+      var why = aridCall(call, next.get().index(), supertypes, outputs);
       if (why.isPresent() || !isFormatting(call)) {
         return why;
       }
@@ -128,10 +128,11 @@ final class TextConstants {
   }
 
   private static Optional<String> aridCall(
-      InvokeInstruction call, List<CodeElement> code, int at, Supertypes supertypes) {
+      InvokeInstruction call, int at, Supertypes supertypes, OutputCalls outputs) {
+    var code = outputs.code();
     var owner = call.owner().asInternalName();
-    if (Mutations.OUTPUT_OWNERS.contains(owner)) {
-      return Optional.of("arid: only writes output");
+    if (outputs.writes(at)) {
+      return Optional.of(OutputCalls.REASON);
     }
     if (call.name().equalsString("<init>") && isThrowable(owner, code, at, supertypes)) {
       return Optional.of("arid: only an exception's message");
@@ -205,7 +206,7 @@ final class TextConstants {
 
   /// Follows the value at `code[at]` to the call that takes it, on every path the code can take
   /// while the value is on the stack; none if any path does anything else with it.
-  private static Optional<Consumer> consumer(List<CodeElement> code, int at) {
+  static Optional<Consumer> consumer(List<CodeElement> code, int at) {
     return new Follow().from(code, at);
   }
 
@@ -328,7 +329,7 @@ final class TextConstants {
     record Effect(int takes, int leaves) {}
 
     /// An instruction the walk doesn't follow, as if it took the whole stack.
-    private static final Effect UNKNOWN = new Effect(Integer.MAX_VALUE, 0);
+    static final Effect UNKNOWN = new Effect(Integer.MAX_VALUE, 0);
 
     private final Set<Label> passed = new HashSet<>();
     private final Map<Label, Integer> ahead = new HashMap<>();

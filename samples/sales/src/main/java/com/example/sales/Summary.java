@@ -1,6 +1,5 @@
 package com.example.sales;
 
-import java.io.PrintStream;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -14,9 +13,9 @@ public final class Summary {
   private Summary() {}
 
   /** What the report command prints. */
-  public static void print(PrintStream out, Supplier<List<Long>> sales, Metrics metrics)
+  public static void print(Supplier<List<Long>> sales, Metrics metrics)
       throws InterruptedException {
-    out.println(of(sales, metrics));
+    System.out.println(of(sales, metrics));
   }
 
   public static String of(Supplier<List<Long>> sales, Metrics metrics) throws InterruptedException {

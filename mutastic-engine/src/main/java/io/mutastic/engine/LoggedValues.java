@@ -47,9 +47,9 @@ import org.jspecify.annotations.Nullable;
 /// only works out more from it: arithmetic, conversions, boxing, `String.valueOf`, `"a" + x` (a
 /// builder before Java 9, an `invokedynamic` since), an array built for a varargs call, a ternary,
 /// the methods of `java.time` and of `Math`. Every path has to end in a call of one of the loggers
-/// `mutastic:output` knows, [Mutations#OUTPUT_OWNERS]. Stored in a local, every read of it on any
-/// path, a loop's or a `catch`'s included, has to end in one too. Anything else that takes it keeps
-/// the mutant: a comparison, a `return`, a field, a call of any other method, a metric's.
+/// `mutastic:output` knows, [OutputCalls]. Stored in a local, every read of it on any path, a
+/// loop's or a `catch`'s included, has to end in one too. Anything else that takes it keeps the
+/// mutant: a comparison, a `return`, a field, a call of any other method, a metric's.
 ///
 /// The changes it judges change only a value: arithmetic, a number, a `boolean` or a string in the
 /// code, `Math.min` swapped for `Math.max`, a step or an assignment of a local. A call left out
@@ -130,13 +130,15 @@ final class LoggedValues {
 
   private final List<CodeElement> code;
   private final Stores stores;
+  private final OutputCalls outputs;
   private final Set<Integer> followed = new HashSet<>();
 
   /// How many ways in each label has besides falling through: the jumps to it, and a handler's
   /// start as many as can be.
   private final Map<Label, Integer> jumpsTo = new HashMap<>();
 
-  private LoggedValues(List<CodeElement> code, Stores stores) {
+  private LoggedValues(List<CodeElement> code, Stores stores, OutputCalls outputs) {
+    this.outputs = outputs;
     this.code = code;
     this.stores = stores;
     for (var element : code) {
@@ -224,8 +226,9 @@ final class LoggedValues {
   /// Why the mutant `operator` makes at `code[at]` is arid, if all it changes only feeds a log
   /// line.
   static java.util.Optional<String> reason(
-      Operator operator, List<CodeElement> code, int at, Stores stores) {
-    var values = new LoggedValues(code, stores);
+      Operator operator, int at, Stores stores, OutputCalls outputs) {
+    var code = outputs.code();
+    var values = new LoggedValues(code, stores, outputs);
     boolean logged =
         switch (code.get(at)) {
           case IncrementInstruction step when LOCALS.contains(operator) ->
@@ -365,7 +368,7 @@ final class LoggedValues {
     private boolean step(Instruction instruction, int index) {
       return switch (instruction) {
         case BranchInstruction branch -> jump(branch);
-        case InvokeInstruction call -> call(call);
+        case InvokeInstruction call -> call(call, index);
         case InvokeDynamicInstruction call -> dynamic(call);
         case StoreInstruction _ -> store(index);
         case ArrayStoreInstruction _ -> arrayStore();
@@ -421,7 +424,7 @@ final class LoggedValues {
       return true;
     }
 
-    private boolean call(InvokeInstruction call) {
+    private boolean call(InvokeInstruction call, int index) {
       int count =
           call.typeSymbol().parameterCount() + (call.opcode() == Opcode.INVOKESTATIC ? 0 : 1);
       var taken = take(count);
@@ -430,7 +433,7 @@ final class LoggedValues {
       if (owner.equals("java/lang/StringBuilder") || owner.equals("java/lang/StringBuffer")) {
         return builder(call.name().stringValue(), taken, returns);
       }
-      if (Mutations.OUTPUT_OWNERS.contains(owner) || noneFollowed(taken)) {
+      if (outputs.writes(index) || noneFollowed(taken)) {
         taken.forEach(this::letGo);
         return !returns || push(Value.OTHER);
       }
