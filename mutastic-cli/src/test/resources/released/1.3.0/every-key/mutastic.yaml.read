@@ -1,5 +1,6 @@
 rule: skip com.acme.generated.**, because protobuf output
 rule: mutate com.acme.Money#toString, because shown to customers
+rule: output com.acme.AuditLog#*, because the audit trail, which ops read and tests don't
 plugin: build/libs/acme-filters.jar
 plugin: mutiny.yaml
 filter: acme:no-metrics

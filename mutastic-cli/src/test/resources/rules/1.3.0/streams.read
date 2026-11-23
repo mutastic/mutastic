@@ -33,3 +33,27 @@ since=0
 source=
 templates={headline=no test needs `.{name}(…)` in {method}, headline.peek=no test checks what `.peek(…)` does in {method}, help=add a test with a value `.{name}(…)` changes, and assert the result, help.peek=add a test that asserts what `.peek(…)` does to each element}
 tier=extended
+
+changed={name} changed to {to}
+descriptors=[]
+explanation=`Gatherers.windowFixed` and `windowSliding` swap places. It goes unnoticed when no test has more elements than a window holds.
+id=stream/swap-window
+methods=[windowFixed, windowSliding]
+owners=[java.util.stream.Gatherers]
+rewrite=rename windowFixed->windowSliding, windowSliding->windowFixed
+since=0
+source=
+templates={headline=no test tells `{name}` from `{to}` in {method}, help=use more elements than a window holds, and assert the windows}
+tier=extended
+
+changed={name} changed to {to}
+descriptors=[]
+explanation=`Gatherers.fold` and `scan` swap places, one result at the end for one after each element. It goes unnoticed when every test has exactly one element.
+id=stream/swap-fold-scan
+methods=[fold, scan]
+owners=[java.util.stream.Gatherers]
+rewrite=rename fold->scan, scan->fold
+since=0
+source=
+templates={headline=no test tells `{name}` from `{to}` in {method}, help=use more than one element, and assert every result}
+tier=extended
