@@ -838,4 +838,16 @@ public final class Shapes {
     }
     return count;
   }
+
+  /// No array, but the store six instructions before the loop's top, where javac copies a for-each
+  /// loop's array, is to the index the loop tests: not a for-each loop, and checked as one without
+  /// failing (1.3.0 stopped the run with `duplicate element`).
+  static int storedToTheIndexFirst(int a, int b) {
+    int i = a;
+    int step = -b * 3;
+    while (i < b && i < 6) {
+      i++;
+    }
+    return i + step;
+  }
 }
