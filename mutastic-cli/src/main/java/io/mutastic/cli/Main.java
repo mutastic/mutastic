@@ -340,8 +340,7 @@ public final class Main {
     var human = humanText(command, output, prepared.sources());
     showFileLines(command, output, human, prepared);
     progress.nameMutants(human::running);
-    var log = prepared.work().resolve("worker.log");
-    var engine = new Engine(workerJar(), log, timesOf(command, prepared));
+    var engine = engineFor(command, prepared);
     var options = options(command, terminal, prepared);
     var passes = new Passes(engine, options, progress, tool, shares);
     if (command.subcommand() != Subcommand.RUN) {
@@ -350,6 +349,13 @@ public final class Main {
           : single(command, prepared, passes, output);
     }
     return fullRun(command, prepared, passes, output);
+  }
+
+  /// The engine a run runs on, logging to the module's work directory and keeping its tests' times
+  /// there when it's `run`.
+  private static Engine engineFor(Command command, Prepared prepared) {
+    var log = prepared.work().resolve("worker.log");
+    return new Engine(workerJar(), log, timesOf(command, prepared));
   }
 
   /// Where a run keeps what its coverage pass measured, for `mutants` to estimate by: `run`'s only.

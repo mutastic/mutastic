@@ -282,28 +282,43 @@ final class Coverage {
   TestTimes.Measured measured() {
     var keys = new HashMap<Integer, String>();
     lineIds.forEach((key, id) -> keys.put(id, key));
-    var lines = new HashMap<String, Duration>();
-    var byClass = new HashMap<String, Duration>();
-    var methods = new HashSet<String>();
+    var reached = new Reached();
     linesByTest.forEach(
         (test, ran) -> {
           var took = durations.get(test);
           if (took != null) {
-            var reached = ran.stream().map(keys::get).toList();
-            reached.forEach(key -> lines.merge(key, took, Duration::plus));
-            reached.stream().map(Coverage::methodOf).distinct().forEach(methods::add);
-            reached.stream()
-                .map(Coverage::classOf)
-                .distinct()
-                .forEach(name -> byClass.merge(name, took, Duration::plus));
+            reached.by(took, ran.stream().map(keys::get).toList());
           }
         });
     onlyAtLoad.stream()
         .map(keys::get)
-        .forEach(key -> lines.put(key, byClass.getOrDefault(classOf(key), Duration.ZERO)));
+        .forEach(key -> reached.lines.put(key, reached.classTime(classOf(key))));
     var classes = new HashSet<String>();
     lineIds.keySet().forEach(key -> classes.add(classOf(key)));
-    return new TestTimes.Measured(classes, lines, methods, timeOfEveryTest());
+    return new TestTimes.Measured(classes, reached.lines, reached.methods, timeOfEveryTest());
+  }
+
+  /// What the tests reached, added up as each is told: each line's and each class's tests' time
+  /// between them, and the methods any of them ran.
+  private static final class Reached {
+    final Map<String, Duration> lines = new HashMap<>();
+    final Set<String> methods = new HashSet<>();
+    private final Map<String, Duration> classes = new HashMap<>();
+
+    /// A test that took `took` and ran the lines with these keys.
+    void by(Duration took, List<String> keys) {
+      keys.forEach(key -> lines.merge(key, took, Duration::plus));
+      keys.stream().map(Coverage::methodOf).distinct().forEach(methods::add);
+      keys.stream()
+          .map(Coverage::classOf)
+          .distinct()
+          .forEach(name -> classes.merge(name, took, Duration::plus));
+    }
+
+    /// What the tests that reach any line of the class took between them.
+    Duration classTime(String className) {
+      return classes.getOrDefault(className, Duration.ZERO);
+    }
   }
 
   /// `com/example/Pricing#discount(I)I` of a line's key.
