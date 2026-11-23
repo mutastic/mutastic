@@ -8,9 +8,11 @@ repositories {
     mavenCentral()
 }
 
+// 25, not the 17 the other samples use: the gatherer examples (streams/Batches, Statement) call
+// java.util.stream.Gatherers, final in Java 24.
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 

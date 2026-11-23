@@ -819,10 +819,12 @@ final class Mutations {
           .findFirst();
     }
 
-    /// What the code around the site shows: a capacity, a wait, a thread's settings, a log line.
+    /// What the code around the site shows: a capacity, a wait, a thread's settings, a gatherer's
+    /// size, a log line.
     private Optional<String> aroundTheSite(Found found, int at) {
       return SiteSkips.reason(found.operator(), found.label(), code, at)
           .or(() -> threads.reason(found.operator(), found.label(), at))
+          .or(() -> GathererSizes.reason(found.operator(), found.label(), code, at))
           .or(() -> LoggedValues.reason(found.operator(), at, stores, outputs));
     }
 

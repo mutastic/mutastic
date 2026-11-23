@@ -81,7 +81,12 @@ public record OperatorDocs(String base) {
           "returns",
           List.of("return-value", "replace-body", "remove-throw"),
           "streams",
-          List.of("stream-stage-removal", "stream-match-swap", "other-stage-removal"));
+          List.of(
+              "stream-stage-removal",
+              "stream-match-swap",
+              "other-stage-removal",
+              "swap-window",
+              "swap-fold-scan"));
 
   /// The shipped rules whose row is named as mutastic's own operators' are: the id's name, after
   /// its namespace.
@@ -91,7 +96,9 @@ public record OperatorDocs(String base) {
           "library/unchecked-arithmetic",
           "library/reverse-ordering",
           "library/swap-ends",
-          "library/plain-division");
+          "library/plain-division",
+          "stream/swap-window",
+          "stream/swap-fold-scan");
 
   /// The rows named otherwise: for what the operator changes, as they were before the ids were
   /// settled, and kept so that links to them hold. `predicate/remove-not` and `optional/no-default`

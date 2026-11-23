@@ -1647,6 +1647,22 @@
         "java": "Thread.ofPlatform().stackSize(1 << 20).unstarted(task);",
         "rust": "let builder = thread::Builder::new().stack_size(64 * 1024);"
       }
+    },
+    {
+      "id": "mutastic:gatherer-sizes",
+      "editions": [
+        "java"
+      ],
+      "scope": "site",
+      "description": "How many calls `Gatherers.mapConcurrent` runs at once, while it stays above zero.",
+      "reasons": {
+        "java": [
+          "arid: only sets how many run at once"
+        ]
+      },
+      "examples": {
+        "java": "items.stream().gather(Gatherers.mapConcurrent(4, this::price)).toList();"
+      }
     }
   ],
   "decisions": [
@@ -2396,6 +2412,36 @@
       "surface": "human output",
       "summary": "Rust's `Left out` row, after Reports, names the code it doesn't mutate: unsafe, and what a `cfg` leaves out of the build",
       "reason": "Rust doesn't mutate unsafe code unless `--unsafe` says to, nor code a `cfg` leaves out of the build: the row names both. Java has no such code. In both, the row starts with the tests `--exclude-tests` leaves out."
+    },
+    {
+      "id": "N75",
+      "kind": "engine",
+      "editions": [
+        "java"
+      ],
+      "surface": "operators",
+      "summary": "`stream/swap-window`, in extended: Java 24's `Gatherers.windowFixed` and `windowSliding` swap",
+      "reason": "Gatherers are Java's. Rust's nearest pair, a slice's `chunks` and `windows`, is a method of a slice rather than a stage of an iterator: an operator of its own for the Rust edition to decide on."
+    },
+    {
+      "id": "N76",
+      "kind": "engine",
+      "editions": [
+        "java"
+      ],
+      "surface": "operators",
+      "summary": "`stream/swap-fold-scan`, in extended: Java 24's `Gatherers.fold` and `scan` swap",
+      "reason": "Gatherers are Java's. Rust's `Iterator::fold` and `scan` take different closures (`scan`'s holds its state by reference and gives an `Option`), and `fold` ends the chain, so neither can become the other."
+    },
+    {
+      "id": "N77",
+      "kind": "engine",
+      "editions": [
+        "java"
+      ],
+      "surface": "operators",
+      "summary": "The arid rule `mutastic:gatherer-sizes`: `Gatherers.mapConcurrent`'s number of calls at once, while it stays above zero",
+      "reason": "Java's `mapConcurrent` runs its calls on virtual threads and keeps their order, so how many run at once changes only how long they take. Rust has no gatherers, so nothing to skip."
     }
   ]
 }

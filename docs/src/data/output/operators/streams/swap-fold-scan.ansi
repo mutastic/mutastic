@@ -1,0 +1,16 @@
+ [41;30;1m ✗ MISSED [0m no test tells [1mscan[0m from [1mfold[0m in balances()
+    [2m┌─[0m src/main/java/com/example/streams/Statement.java:9
+    [2m│[0m
+ [2m 8[0m [2m│[0m   public static List<Integer> balances(List<Integer> payments) {
+ [2m 9[0m [2m│[0m     return payments.stream().gather(Gatherers.scan(() -> 0, Integer::sum)).toList();
+    [2m│[0m                                               [1;31m^^^^ scan changed to fold[0m
+ [2m10[0m [2m│[0m   }
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mreturn payments.stream().gather(Gatherers.scan(() -> 0, Integer::sum)).toList();
+              [32m+ [0mreturn payments.stream().gather(Gatherers.fold(() -> 0, Integer::sum)).toList();
+    [2m=[0m [1;34m[1mnote[0m[0m: covered by StatementTest#aPayment (its 1 covering test still passes)
+    [2m=[0m [32m[1mhelp[0m[0m: use more than one element, and assert every result
+
+    [2mdone when [0m mutastic verify m646ef48e samples/operator-docs[2m passes[0m
+    [2mreproduce [0m mutastic run --only=m646ef48e samples/operator-docs
+    [2mor ignore [0m mutastic ignore m646ef48e --reason="<why>" samples/operator-docs

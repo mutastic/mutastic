@@ -4,24 +4,10 @@ import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Operator;
 import java.lang.classfile.ClassModel;
 import java.lang.classfile.CodeElement;
-import java.lang.classfile.Instruction;
 import java.lang.classfile.MethodModel;
-import java.lang.classfile.Opcode;
-import java.lang.classfile.instruction.ArrayStoreInstruction;
 import java.lang.classfile.instruction.ConstantInstruction;
-import java.lang.classfile.instruction.ConvertInstruction;
-import java.lang.classfile.instruction.FieldInstruction;
-import java.lang.classfile.instruction.InvokeDynamicInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
-import java.lang.classfile.instruction.LabelTarget;
 import java.lang.classfile.instruction.LoadInstruction;
-import java.lang.classfile.instruction.NewObjectInstruction;
-import java.lang.classfile.instruction.NewReferenceArrayInstruction;
-import java.lang.classfile.instruction.StackInstruction;
-import java.lang.classfile.instruction.TypeCheckInstruction;
-import java.lang.constant.ConstantDescs;
-import java.lang.constant.MethodTypeDesc;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -118,44 +104,6 @@ final class ThreadSettings {
     }
   }
 
-  /// A call, or javac's `invokedynamic`, that takes the value pushed at a place in the code: where
-  /// the value is among those it takes (`0` an instance call's receiver), where the call is, and
-  /// what's pushed after the value, as far as it's known, bottom first: `new
-  /// java/util/concurrent/LinkedBlockingQueue()V` for a queue made with no bound.
-  private record Taken(Instruction call, int position, int index, List<String> after) {
-    String owner() {
-      return call instanceof InvokeInstruction invoke ? invoke.owner().asInternalName() : "";
-    }
-
-    String name() {
-      return switch (call) {
-        case InvokeInstruction invoke -> invoke.name().stringValue();
-        case InvokeDynamicInstruction indy -> indy.bootstrapMethod().methodName();
-        default -> "";
-      };
-    }
-
-    /// The type of the parameter the value is, if the value isn't the receiver.
-    Optional<String> parameter() {
-      if (!(call instanceof InvokeInstruction invoke)) {
-        return Optional.empty();
-      }
-      int index = position - (invoke.opcode() == Opcode.INVOKESTATIC ? 0 : 1);
-      var type = invoke.typeSymbol();
-      return index >= 0 && index < type.parameterCount()
-          ? Optional.of(type.parameterType(index).descriptorString())
-          : Optional.empty();
-    }
-
-    String called() {
-      return ThreadSettings.called(owner(), name());
-    }
-
-    boolean is(String owner, String name, int position) {
-      return owner().equals(owner) && name().equals(name) && this.position == position;
-    }
-  }
-
   private final List<CodeElement> code;
   private final Facts facts;
 
@@ -199,6 +147,10 @@ final class ThreadSettings {
     return called.equals("builder.stackSize") ? Optional.of(STACK) : Optional.empty();
   }
 
+  private static String called(Taken call) {
+    return called(call.owner(), call.name());
+  }
+
   /// `thread.setName`, `builder.name`, `guava.setNameFormat`: a call by what it's on, if it's a
   /// thread, one of its builders or Guava's; empty for any other.
   private static String called(String owner, String name) {
@@ -213,7 +165,8 @@ final class ThreadSettings {
 
   /// A number changed to `to`, where the number goes straight into a thread's or a pool's setting.
   private Optional<String> number(int at, long to) {
-    return taken(at).flatMap(call -> setting(call, to).or(() -> largestPoolSize(at, call, to)));
+    return Taken.of(code, at)
+        .flatMap(call -> setting(call, to).or(() -> largestPoolSize(at, call, to)));
   }
 
   /// A priority stays a hint from 1 to 10, and throws outside; a name's start index throws below
@@ -243,12 +196,12 @@ final class ThreadSettings {
   }
 
   private static boolean isPriority(Taken call) {
-    return PRIORITIES.contains(call.called()) && call.position() == 1;
+    return PRIORITIES.contains(called(call)) && call.position() == 1;
   }
 
   /// The number a `Thread.Builder`'s names count up from.
   private static boolean isNameStart(Taken call) {
-    return call.called().equals("builder.name") && call.position() == 2;
+    return called(call).equals("builder.name") && call.position() == 2;
   }
 
   /// `new Thread(group, task, name, stackSize)`, or a builder's `stackSize(n)`.
@@ -300,7 +253,7 @@ final class ThreadSettings {
       if (code.get(at) instanceof LoadInstruction load
           && load.slot() == slot
           && load.opcode().name().startsWith("ALOAD")) {
-        var first = taken(at);
+        var first = Taken.of(code, at);
         if (first.isEmpty()
             || !makesText(first.get())
             || !goesThroughTextInto(at, ThreadSettings::namesAThread)) {
@@ -315,7 +268,7 @@ final class ThreadSettings {
   /// Following the value at `code[at]` through what only makes text of it, whether it ends in a
   /// call `into` takes.
   private boolean goesThroughTextInto(int at, java.util.function.Predicate<Taken> into) {
-    var next = taken(at);
+    var next = Taken.of(code, at);
     while (next.isPresent()) {
       var call = next.get();
       if (into.test(call)) {
@@ -324,13 +277,13 @@ final class ThreadSettings {
       if (!makesText(call)) {
         return false;
       }
-      next = taken(call.index());
+      next = Taken.of(code, call.index());
     }
     return false;
   }
 
   private static boolean namesAThread(Taken call) {
-    var called = call.called();
+    var called = called(call);
     return call.parameter().filter("Ljava/lang/String;"::equals).isPresent()
         && (called.equals("thread.<init>") || NAMING.contains(called));
   }
@@ -347,94 +300,6 @@ final class ThreadSettings {
           name.equals("<init>") || name.equals("append") || name.equals("toString");
       default -> false;
     };
-  }
-
-  /// Follows the value at `code[at]` along straight code to the call that takes it; none if a label
-  /// comes first, or an instruction that does anything else with it.
-  private Optional<Taken> taken(int at) {
-    var after = new ArrayList<String>();
-    for (int index = at + 1; index < code.size(); index++) {
-      switch (code.get(index)) {
-        case LabelTarget _ -> {
-          return Optional.empty();
-        }
-        case Instruction instruction when takes(instruction) >= 0 -> {
-          int takes = takes(instruction);
-          if (takes > after.size()) {
-            return Optional.of(
-                new Taken(instruction, takes - after.size() - 1, index, List.copyOf(after)));
-          }
-          called(instruction, takes, after);
-        }
-        case Instruction instruction -> {
-          if (!followed(instruction, after)) {
-            return Optional.empty();
-          }
-        }
-        default -> {}
-      }
-    }
-    return Optional.empty();
-  }
-
-  /// The values a call takes off the stack, its receiver included; `-1` for what isn't a call.
-  private static int takes(Instruction instruction) {
-    return switch (instruction) {
-      case InvokeInstruction call ->
-          call.typeSymbol().parameterCount() + (call.opcode() == Opcode.INVOKESTATIC ? 0 : 1);
-      case InvokeDynamicInstruction indy -> indy.typeSymbol().parameterCount();
-      default -> -1;
-    };
-  }
-
-  /// A call that takes only values pushed after ours: what it leaves in their place. A constructor
-  /// leaves the object `new` made, which says how: `new X()V` for one given nothing.
-  private static void called(Instruction instruction, int takes, List<String> after) {
-    var taken = after.subList(after.size() - takes, after.size());
-    var receiver = taken.isEmpty() ? "" : taken.getFirst();
-    taken.clear();
-    MethodTypeDesc type =
-        switch (instruction) {
-          case InvokeInstruction call -> call.typeSymbol();
-          case InvokeDynamicInstruction indy -> indy.typeSymbol();
-          default -> throw new IllegalArgumentException("not a call: " + instruction);
-        };
-    if (instruction instanceof InvokeInstruction call && call.name().equalsString("<init>")) {
-      var made = "new " + call.owner().asInternalName();
-      if (receiver.equals(made) && !after.isEmpty() && after.getLast().equals(made)) {
-        after.set(after.size() - 1, made + type.descriptorString());
-      }
-    } else if (!type.returnType().equals(ConstantDescs.CD_void)) {
-      after.add("?");
-    }
-  }
-
-  /// What an instruction that isn't a call does to the values pushed after ours; false if it does
-  /// anything with ours but widen it, or this doesn't follow it.
-  private static boolean followed(Instruction instruction, List<String> after) {
-    boolean ours = after.isEmpty();
-    switch (instruction) {
-      case LoadInstruction _, ConstantInstruction _ -> after.add("?");
-      case FieldInstruction field when field.opcode() == Opcode.GETSTATIC -> after.add("?");
-      case NewObjectInstruction made -> after.add("new " + made.className().asInternalName());
-      case StackInstruction dup when dup.opcode() == Opcode.DUP && !ours ->
-          after.add(after.getLast());
-      case Instruction same when ours -> {
-        return same.opcode() == Opcode.I2L || same.opcode() == Opcode.CHECKCAST;
-      }
-      case FieldInstruction field when field.opcode() == Opcode.GETFIELD && !ours ->
-          after.set(after.size() - 1, "?");
-      case ConvertInstruction _, TypeCheckInstruction _ when !ours ->
-          after.set(after.size() - 1, "?");
-      case NewReferenceArrayInstruction _ when !ours -> after.set(after.size() - 1, "?");
-      case ArrayStoreInstruction _ when after.size() >= 3 -> {
-        after.subList(after.size() - 3, after.size()).clear();
-      }
-      default -> {
-        return false;
-      }
-    }
-    return true;
   }
 
   private static boolean isCall(InvokeInstruction call, String owner, String name) {

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Gatherers;
 
 /// Each arid rule's example, as the docs show it, in a method named for the rule: `waits` for
 /// `mutastic:waits`. The example is the rule's line, word for word.
@@ -79,5 +80,13 @@ class Examples {
 
   Thread stackSizes(Runnable task) {
     return Thread.ofPlatform().stackSize(1 << 20).unstarted(task);
+  }
+
+  List<Integer> gathererSizes(List<Integer> items) {
+    return items.stream().gather(Gatherers.mapConcurrent(4, this::price)).toList();
+  }
+
+  Integer price(Integer item) {
+    return item;
   }
 }

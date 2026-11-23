@@ -47,6 +47,8 @@ class ShownChangeTruthTest {
           new Fixture("library/Swaps.java", "library/swap-math"),
           new Fixture("library/Orderings.java", "library/reverse-ordering"),
           new Fixture("library/Ends.java", "library/swap-ends"),
+          new Fixture("streams/Gathering.java", "stream/swap-window", Inputs.NUMBERS),
+          new Fixture("streams/Gathering.java", "stream/swap-fold-scan", Inputs.NUMBERS),
           new Fixture("rules/Endless.java", "stream/remove-stage"),
           new Fixture("rules/Optionals.java", "optional/swap-present"),
           new Fixture("rules/Optionals.java", "optional/empty"),

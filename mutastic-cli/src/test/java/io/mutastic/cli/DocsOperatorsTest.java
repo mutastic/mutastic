@@ -127,6 +127,8 @@ class DocsOperatorsTest {
           new Example("stream/remove-stage", "streams", "Orders"),
           new Example("stream/swap-match", "streams", "Forms"),
           new Example("stream/remove-other-stage", "streams", "Totals"),
+          new Example("stream/swap-window", "streams", "Batches"),
+          new Example("stream/swap-fold-scan", "streams", "Statement"),
           new Example("optional/swap-present", "optional", "Badges"),
           new Example("optional/empty", "optional", "Pages"),
           new Example("optional/remove-filter", "optional", "Nicknames"),

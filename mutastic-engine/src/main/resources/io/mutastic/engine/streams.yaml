@@ -44,3 +44,25 @@
   headline.peek: no test checks what `.peek(…)` does in {method}
   help: add a test with a value `.{name}(…)` changes, and assert the result
   help.peek: add a test that asserts what `.peek(…)` does to each element
+
+# In extended: Java 24's gatherers. Each pair takes the same arguments and gives the same type, so
+# one swaps for the other with nothing else changed, in a class that can call either.
+- id: stream/swap-window
+  explanation: `Gatherers.windowFixed` and `windowSliding` swap places. It goes unnoticed when no test has more elements than a window holds.
+  tier: extended
+  owners: java.util.stream.Gatherers
+  methods: windowFixed, windowSliding
+  rewrite: rename windowFixed->windowSliding, windowSliding->windowFixed
+  changed: "{name} changed to {to}"
+  headline: no test tells `{name}` from `{to}` in {method}
+  help: use more elements than a window holds, and assert the windows
+
+- id: stream/swap-fold-scan
+  explanation: `Gatherers.fold` and `scan` swap places, one result at the end for one after each element. It goes unnoticed when every test has exactly one element.
+  tier: extended
+  owners: java.util.stream.Gatherers
+  methods: fold, scan
+  rewrite: rename fold->scan, scan->fold
+  changed: "{name} changed to {to}"
+  headline: no test tells `{name}` from `{to}` in {method}
+  help: use more than one element, and assert every result
