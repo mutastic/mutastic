@@ -7,6 +7,7 @@ import io.mutastic.api.Policy;
 import io.mutastic.api.RealPath;
 import io.mutastic.api.Rule;
 import io.mutastic.engine.CallRules;
+import io.mutastic.report.LeftOut;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
@@ -33,6 +34,8 @@ import org.jspecify.annotations.Nullable;
 ///     reason: protobuf output
 ///   - mutate: com.acme.Money#toString
 ///     reason: shown to customers
+///   - output: com.acme.AuditLog#*
+///     reason: the audit trail, which ops read and tests don't
 /// plugins:
 ///   - build/libs/acme-filters.jar
 ///   - mutiny.yaml
@@ -41,6 +44,9 @@ import org.jspecify.annotations.Nullable;
 /// operators:
 ///   - stronger
 ///   - -stream/swap-match
+/// exclude-tests:
+///   - test: CheckoutRaceTest#paysOnce
+///     reason: shares port 8080 with the payment stub; fixing in 412
 /// gate:
 ///   operators:
 ///     - stronger
@@ -51,6 +57,8 @@ import org.jspecify.annotations.Nullable;
 /// operators run as `operators:` chooses, or a rules file (`.yaml`) of call operators. `operators:`
 /// chooses as `--operators` does, which replaces it. `gate:`'s `operators:` chooses for `gate open`
 /// alone, in place of `operators:`, so an agent's task can be held to more than everyday runs.
+/// `exclude-tests:` names tests every run leaves out, as `--exclude-tests` does, which adds to
+/// them: each with a reason, which the summary shows, as a test left out may be a broken one.
 ///
 /// A module uses the nearest `mutastic.yaml` at or above its directory, however it's run, so the
 /// same module gets the same rules from the build's top as from its own directory. A file adds
@@ -61,20 +69,23 @@ import org.jspecify.annotations.Nullable;
 ///   and the gate runs `operators`
 /// @param places where each plugin, filter and operator is listed, `mutastic.yaml line 7`, for an
 ///   error about it to say: by [#place]'s key
+/// @param excludedTests the tests every run leaves out, each with its reason
 record Configuration(
     List<Rule> rules,
     List<Path> plugins,
     List<String> filters,
     List<String> operators,
     List<String> gateOperators,
-    Map<String, String> places) {
+    Map<String, String> places,
+    List<LeftOut> excludedTests) {
   static final String FILE = "mutastic.yaml";
   static final Configuration NONE =
       new Configuration(List.of(), List.of(), List.of(), List.of(), List.of(), Map.of());
 
   /// The sections a file has, each at most once.
   private static final List<String> SECTIONS =
-      List.of("extends:", "rules:", "plugins:", "filters:", "operators:", "gate:");
+      List.of(
+          "extends:", "rules:", "plugins:", "filters:", "operators:", "exclude-tests:", "gate:");
 
   /// What [#place] calls `gate:`'s `operators:`.
   static final String GATE_OPERATORS = "gate: operators:";
@@ -86,6 +97,18 @@ record Configuration(
     operators = List.copyOf(operators);
     gateOperators = List.copyOf(gateOperators);
     places = Map.copyOf(places);
+    excludedTests = List.copyOf(excludedTests);
+  }
+
+  /// A configuration that leaves out no tests.
+  Configuration(
+      List<Rule> rules,
+      List<Path> plugins,
+      List<String> filters,
+      List<String> operators,
+      List<String> gateOperators,
+      Map<String, String> places) {
+    this(rules, plugins, filters, operators, gateOperators, places, List.of());
   }
 
   /// Where `item` of `section` (`operators:`) is listed, `mutastic.yaml line 7`; just the file if
@@ -166,8 +189,9 @@ record Configuration(
   }
 
   /// This file's say over `parent`'s: its rules first, so a module's own reason is the one shown,
-  /// then the parent's; the plugins and filters of both; and its operators, and its gate's, if it
-  /// chooses any, in place of the parent's, as `--operators` replaces them.
+  /// then the parent's; the plugins and filters of both; its operators, and its gate's, if it
+  /// chooses any, in place of the parent's, as `--operators` replaces them; and the tests both
+  /// leave out, each once, with this file's reason.
   private Configuration over(Configuration parent) {
     var placed = new java.util.HashMap<>(parent.places);
     placed.putAll(places);
@@ -177,7 +201,16 @@ record Configuration(
         joined(filters, parent.filters),
         operators.isEmpty() ? parent.operators : operators,
         gateOperators.isEmpty() ? parent.gateOperators : gateOperators,
-        placed);
+        placed,
+        eachTestOnce(excludedTests, parent.excludedTests));
+  }
+
+  /// `first`'s tests, then each of `then`'s not already there: a test once, with the first reason.
+  private static List<LeftOut> eachTestOnce(List<LeftOut> first, List<LeftOut> then) {
+    var byTest = new LinkedHashMap<String, LeftOut>();
+    java.util.stream.Stream.concat(first.stream(), then.stream())
+        .forEach(test -> byTest.putIfAbsent(test.test(), test));
+    return List.copyOf(byTest.values());
   }
 
   /// `first` then `then`, each once.
@@ -195,7 +228,8 @@ record Configuration(
     for (int i = 0; i < plugins.size(); i++) {
       placed.put("plugins: " + moved.get(i), place("plugins:", plugins.get(i).toString()));
     }
-    return new Configuration(rules, moved, filters, operators, gateOperators, placed);
+    return new Configuration(
+        rules, moved, filters, operators, gateOperators, placed, excludedTests);
   }
 
   /// The rules, the filters `filters:` names, found in the plugins, and the operators the plugins
@@ -290,7 +324,16 @@ record Configuration(
     private final List<String> operators = new ArrayList<>();
     private final List<String> gateOperators = new ArrayList<>();
     private final Map<String, String> places = new java.util.HashMap<>();
+    private final List<LeftOut> excludedTests = new ArrayList<>();
     private @Nullable Path extended;
+
+    /// The test under `exclude-tests:` being read, until its `reason:`.
+    private @Nullable String pendingTest;
+
+    private @Nullable String pendingTestReason;
+
+    /// What a rule starts with: `- skip:`, `- mutate:` or `- output:`.
+    private static final List<String> VERBS = List.of("skip", "mutate", "output");
 
     /// What `gate:` takes, as an error says it.
     private static final String GATE_SHAPE =
@@ -323,7 +366,14 @@ record Configuration(
         }
       }
       requireReason();
-      return new Configuration(rules, plugins, filters, operators, gateOperators, places);
+      return new Configuration(
+          rules,
+          plugins,
+          filters,
+          operators,
+          gateOperators,
+          places,
+          eachTestOnce(excludedTests, List.of()));
     }
 
     private void read(String line) {
@@ -343,9 +393,29 @@ record Configuration(
         case "plugins:" -> plugins.add(Path.of(placed(item)));
         case "filters:" -> filters.add(placed(item));
         case "operators:" -> operators.add(placed(item));
+        case "exclude-tests:" -> excludedTest(item);
         case "gate:" -> gate(item);
         default -> throw error("a list item needs a section above it");
       }
+    }
+
+    /// A line under `exclude-tests:`: `- test: <name>`, which ends the one before it, or the
+    /// `reason:` under it.
+    private void excludedTest(String item) {
+      if (pendingTest != null && item.startsWith("reason:")) {
+        if (pendingTestReason != null) {
+          throw error("the test `%s` has one `reason:`".formatted(pendingTest));
+        }
+        pendingTestReason = value(item.substring("reason:".length()));
+        return;
+      }
+      var listed = item.startsWith("- ") ? value(item.substring(2)) : "";
+      var test = listed.startsWith("test:") ? value(listed.substring("test:".length())) : "";
+      if (test.isEmpty()) {
+        throw error("a test to leave out is `- test: <name>`, then `reason: …`");
+      }
+      requireReason();
+      pendingTest = test;
     }
 
     /// A line under `gate:`: `operators:`, then its list under it.
@@ -438,18 +508,20 @@ record Configuration(
       return false;
     }
 
-    /// `- skip: <pattern>` or `- mutate: <pattern>`, which ends the rule before it.
+    /// `- skip: <pattern>`, `- mutate: <pattern>` or `- output: <pattern>`, which ends the rule
+    /// before it.
     private void newRule(String item) {
       var listed = listed(item);
       int colon = listed.indexOf(':');
       var verb = colon < 0 ? "" : listed.substring(0, colon);
-      if (!verb.equals("skip") && !verb.equals("mutate")) {
-        var close = io.mutastic.api.Nearest.name(verb, List.of("skip", "mutate"));
+      if (!VERBS.contains(verb)) {
+        var close = io.mutastic.api.Nearest.name(verb, VERBS);
         throw error(
             close
                 .map(rule -> "%s: isn't a rule. There's one called %s:.".formatted(verb, rule))
                 .orElse(
-                    "a rule is `- skip: <pattern>` or `- mutate: <pattern>`, then `reason: …`"));
+                    "a rule is `- skip: <pattern>`, `- mutate: <pattern>` or `- output:"
+                        + " <pattern>`, then `reason: …`"));
       }
       requireReason();
       pendingVerb = verb;
@@ -462,7 +534,9 @@ record Configuration(
       if (!"mutate".equals(pendingVerb)) {
         throw error(
             "`arid:` goes on a `mutate:` rule: it says which arid skips to bring back, and a"
-                + " `skip:` rule skips everything it covers");
+                + ("skip".equals(pendingVerb)
+                    ? " `skip:` rule skips everything it covers"
+                    : "n `output:` rule's calls are all skipped as `mutastic:output`"));
       }
       if (aridGiven) {
         throw error("the rule `mutate: %s` has one `arid:` list".formatted(pendingTarget));
@@ -499,9 +573,10 @@ record Configuration(
     }
 
     /// Every skip says why: a rule without a reason is an error, not "no reason given". The rule
-    /// read so far is complete, and kept.
+    /// read so far is complete, and kept; so is a test left out, which says why too.
     private void requireReason() {
       aridIndent = -1;
+      requireTestReason();
       if (pendingVerb == null) {
         return;
       }
@@ -512,7 +587,7 @@ record Configuration(
       requireAridIds();
       rules.add(
           new Rule(
-              pendingVerb.equals("mutate"),
+              Rule.Kind.valueOf(pendingVerb.toUpperCase(java.util.Locale.ROOT)),
               java.util.Objects.requireNonNull(pendingTarget),
               pendingReason,
               pendingArid));
@@ -520,6 +595,21 @@ record Configuration(
       pendingReason = null;
       pendingArid.clear();
       aridGiven = false;
+    }
+
+    /// A test left out without a reason may be a broken test hidden: its reason is shown with it.
+    private void requireTestReason() {
+      if (pendingTest == null) {
+        return;
+      }
+      if (pendingTestReason == null || pendingTestReason.isEmpty()) {
+        throw error(
+            "the test `%s` needs a `reason:` under it: why it's left out, which the summary shows"
+                .formatted(pendingTest));
+      }
+      excludedTests.add(new LeftOut(pendingTest, Optional.of(pendingTestReason)));
+      pendingTest = null;
+      pendingTestReason = null;
     }
 
     /// An `arid:` with no ids is an error: leaving it out brings back every arid skip.

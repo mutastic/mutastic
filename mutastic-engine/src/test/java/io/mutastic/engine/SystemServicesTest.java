@@ -35,7 +35,7 @@ class SystemServicesTest {
     assertThat(failed.getMessage())
         .contains("the project provides java.lang.System$LoggerFinder in META-INF/services")
         .contains("mutastic loads the project in class loaders of its own")
-        .contains("To run without those tests: --exclude-tests=LoggingTest\n")
+        .doesNotContain("--exclude-tests")
         .endsWith("Their output is in worker.log.");
   }
 

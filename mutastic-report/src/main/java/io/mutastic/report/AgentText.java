@@ -235,19 +235,27 @@ public final class AgentText {
         .collect(Collectors.joining());
   }
 
+  /// What an agent does about a test that can't pass here: never leave it out itself, as a test
+  /// left out may be a broken one hidden, but tell the person, or propose it to them.
+  static final String PROPOSE_LEAVING_OUT =
+      "tell the person, or propose leaving it out under `exclude-tests:` in mutastic.yaml with its"
+          + " reason, for them to decide";
+
   /// A test that caught mutants, then failed on its own with no mutant in, run again after them: it
-  /// passed among the others, so it counts on what something else sets up or leaves behind.
+  /// passed among the others, so it counts on what something else sets up or leaves behind. Never
+  /// the way past it, leaving it out: that's the person's call.
   private static String failingAloneLine(FlakyTest why) {
     return ("flaky: %s passes among the others but fails on its own, with no mutant in (run again"
             + " after the mutants, it failed%s): it counts on something another test or the run"
             + " sets up or leaves behind. It's left out, so its catches don't count: the mutants it"
             + " reached ran again without it, and the run can't pass until it passes on its own."
-            + " Make it set up what it needs and clean up what it leaves, or run without it with"
-            + " `--exclude-tests=%s`. Never remove, disable or loosen it to get a run through\n")
+            + " Make it set up what it needs and clean up what it leaves. If it can't be made to"
+            + " pass on its own now, don't leave it out yourself: %s. Never remove, disable or"
+            + " loosen it to get a run through\n")
         .formatted(
             shortName(why.test()),
             why.failedWith().map(failed -> " with " + Untrusted.value(failed)).orElse(""),
-            testClass(why.test()));
+            PROPOSE_LEAVING_OUT);
   }
 
   /// Decisions the code has outgrown: say so, since the mutants they covered ran.
@@ -289,9 +297,8 @@ public final class AgentText {
     if (why.isPresent() && why.get().failedOutside() && outside.isPresent()) {
       return ("It failed with %s, from outside the code (the network, a database, a file), and"
               + " nothing in the test varies: that's the environment, and changing the test or the"
-              + " code to get past it would hide it, so leave both, tell the person, and run"
-              + " without it with `--exclude-tests=%s`.")
-          .formatted(Untrusted.value(outside.get()), testClass(test));
+              + " code to get past it would hide it, so leave both and %s.")
+          .formatted(Untrusted.value(outside.get()), PROPOSE_LEAVING_OUT);
     }
     if (why.isPresent() && !why.get().reaches().isEmpty()) {
       return ("The code it runs reaches %s, which answers differently every run: making that the"
@@ -316,13 +323,6 @@ public final class AgentText {
             why.outsideCause()
                 .map(failed -> " (it failed with %s)".formatted(Untrusted.value(failed)))
                 .orElse(""));
-  }
-
-  /// `QuoteClientTest`, the class `--exclude-tests` takes, of `com.example.QuoteClientTest#a`.
-  private static String testClass(String test) {
-    var name = shortName(test);
-    int hash = name.indexOf('#');
-    return hash < 0 ? name : name.substring(0, hash);
   }
 
   /// The tests whose catches can't be trusted, strongest signal first.

@@ -442,16 +442,17 @@ class GateTest {
   }
 
   /// A task that changes no line mutastic mutates is still held to the gate's other checks: it
-  /// mustn't take a test away, or ignore a mutant or add one to the baseline itself. Without them,
-  /// an agent passes by deleting the test that fails, once the rest pass. Its own ignore or
-  /// baseline entry holds it where git doesn't see `.mutastic/` too. An ignore the person accepts
-  /// between turns is still the task's to start from, and a task that changed nothing passes at
-  /// once.
+  /// mustn't take a test away, leave one out under `exclude-tests:`, or ignore a mutant or add one
+  /// to the baseline itself. Without them, an agent passes by deleting the test that fails, once
+  /// the rest pass. Its own ignore or baseline entry holds it where git doesn't see `.mutastic/`
+  /// too. An ignore the person accepts between turns is still the task's to start from, and a task
+  /// that changed nothing passes at once.
   @ParameterizedTest
   @ValueSource(
       strings = {
         "deletes-file",
         "removes-test",
+        "excludes",
         "ignores",
         "baselines",
         "ignores-unseen",
@@ -487,7 +488,7 @@ class GateTest {
               %s}
               """
                   .formatted(failing));
-      case "removes-test" ->
+      case "removes-test", "excludes" ->
           Files.writeString(
               pricingTest,
               original.substring(0, original.lastIndexOf('}')) + "\n" + failing + "}\n");
@@ -522,6 +523,18 @@ class GateTest {
           case "removes-test" -> {
             Files.writeString(pricingTest, original);
             yield fewer;
+          }
+          case "excludes" -> {
+            Files.writeString(
+                project.resolve("mutastic.yaml"),
+                """
+                exclude-tests:
+                  - test: PricingTest#shippingIsFreeFromForty
+                    reason: in the way
+                """);
+            yield "mutastic gate: the task left out PricingTest#shippingIsFreeFromForty under"
+                + " exclude-tests: in mutastic.yaml itself, which takes a test away, and leaving a"
+                + " test out is a person's call";
           }
           case "ignores", "ignores-unseen" -> {
             var id = aMissedMutant();

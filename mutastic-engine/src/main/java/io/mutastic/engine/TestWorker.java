@@ -74,6 +74,10 @@ final class TestWorker implements AutoCloseable {
   /// The test whose code ended the worker's JVM, if the worker said one did since the last command.
   private @Nullable String exitedDuring;
 
+  /// The single test methods it leaves out of each class it runs, `PricingTest#bigOrders` or
+  /// `com.example.PricingTest#bigOrders`: every overload and row of each.
+  private List<String> methodsLeftOut = List.of();
+
   /// `log` collects the tests' own output, for when a baseline fails for reasons only the tests'
   /// output explains.
   TestWorker(Project project, Path workerJar, Path log, ClassesToWarm toWarm, Path resources) {
@@ -84,10 +88,16 @@ final class TestWorker implements AutoCloseable {
     this.resources = resources;
   }
 
+  /// This worker, leaving out these test methods; told before it starts.
+  TestWorker leavingOut(List<String> methods) {
+    methodsLeftOut = List.copyOf(methods);
+    return this;
+  }
+
   /// A worker for the same project, not yet started, that writes its tests' output to `log` and
   /// warms the same classes when it starts.
   TestWorker another(Path log) {
-    return new TestWorker(project, workerJar, log, toWarm, resources);
+    return new TestWorker(project, workerJar, log, toWarm, resources).leavingOut(methodsLeftOut);
   }
 
   /// The tests' result with every class in `instrumented` swapped for its instrumented copy.
@@ -741,7 +751,8 @@ final class TestWorker implements AutoCloseable {
             + join(Stream.concat(project.testClasses().stream(), project.testResources().stream())),
         "--resource-copy=" + resources,
         "--include-tags=" + String.join(",", project.tests().includeTags()),
-        "--exclude-tags=" + String.join(",", project.tests().excludeTags()));
+        "--exclude-tags=" + String.join(",", project.tests().excludeTags()),
+        "--exclude-methods=" + String.join(",", methodsLeftOut));
   }
 
   private Process launch(WorkerTemp temp) {

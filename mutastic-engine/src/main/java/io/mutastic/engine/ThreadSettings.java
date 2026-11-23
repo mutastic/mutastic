@@ -112,7 +112,7 @@ final class ThreadSettings {
       if (!isCall(call, THREAD, "getName")) {
         return false;
       }
-      var outputs = new OutputCalls(code, method);
+      var outputs = new OutputCalls(code, method, List.of());
       return !new ThreadSettings(code, NONE)
           .goesThroughTextInto(at, taken -> outputs.writes(taken.index()));
     }

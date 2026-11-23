@@ -112,10 +112,14 @@ public final class Worker {
   /// [FailedCase].
   private final Map<String, String> failedCases = new java.util.LinkedHashMap<>();
 
-  /// The JUnit tags the build's test task runs by: every run here is filtered the same way.
-  record Tags(List<String> include, List<String> exclude) {
+  /// The JUnit tags the build's test task runs by, and the test methods the run leaves out: every
+  /// run here is filtered the same way.
+  record Tags(List<String> include, List<String> exclude, LeftOutMethods leftOut) {
     static Tags of(String[] args) {
-      return new Tags(values(args, "--include-tags="), values(args, "--exclude-tags="));
+      return new Tags(
+          values(args, "--include-tags="),
+          values(args, "--exclude-tags="),
+          new LeftOutMethods(values(args, "--exclude-methods=")));
     }
 
     void filter(LauncherDiscoveryRequestBuilder request) {
@@ -124,6 +128,9 @@ public final class Worker {
       }
       if (!exclude.isEmpty()) {
         request.filters(TagFilter.excludeTags(exclude));
+      }
+      if (!leftOut.methods().isEmpty()) {
+        request.filters(leftOut);
       }
     }
 

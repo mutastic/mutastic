@@ -213,10 +213,12 @@ final class Options {
               "--exclude-tests",
               Kind.REPEATED,
               Group.RUNNING,
-              "CLASS",
+              "TEST",
               List.of(),
-              "A test class to leave out of the run, by its name or full name: one that can't run"
-                  + " reliably here, with a race or a fixed port; the summary names it",
+              "A test class to leave out of the run, by its name or full name, or one method of"
+                  + " it, PricingTest#bigOrders: one that can't run reliably here, with a race or a"
+                  + " fixed port; the summary names it. mutastic.yaml's exclude-tests: leaves one"
+                  + " out of every run, with its reason",
               MUTANTS_RUN,
               "excludeTests",
               false,
