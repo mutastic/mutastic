@@ -237,7 +237,10 @@ table is written:
   `rstest_tests::discounts::case_2_at_the_edge`. A card says which case caught a mutant, or reached
   it and let it through, and the gate counts each case, so taking a row away is taking a test away.
   The number in a name is the row's place, so name your cases, `#[case::at_the_edge(100, 10)]`, and
-  a row put in above doesn't rename the others.
+  a row put in above doesn't rename the others. `verify` and `explain` show the row as written
+  after the test that caught a mutant, `rstest_tests::discounts::case_2_at_the_edge (case
+  #[case::at_the_edge(100, 10)])`, as does a test that fails with no mutant in, and the
+  `mutant-finished` event has it as `caughtCase`.
 - **A loop over rows in one `#[test]` is one test,** however many rows it has, and a card can't say
   which row failed. Put the row in the assertion's message,
   `assert_eq!(subtract(a, b), difference, "subtract({a}, {b})")`, so the test's own output does.
@@ -309,7 +312,8 @@ When some code is out of every test's reach, the result also gives the score of 
 reach (`74.1% where tests reach`, and `coveredScore` in `--format=jsonl`): how well the tests check
 what they run, apart from what they don't. The threshold is always on the whole score. The code no
 test reaches is listed once per method, with the lines its mutants are on, since one test that calls
-the method reaches them all. In the Java edition, `--each-mutant` lists each line.
+the method reaches them all; `--each-mutant` lists each line. Where mutastic finds one, `try:` gives
+an assertion to start it with: see [Suggested tests](/concepts/suggested-tests/#where-it-goes).
 
 ## When a catch isn't the mutant's
 
@@ -338,7 +342,7 @@ for tests that fail before any mutant: see [Troubleshooting](/guides/troubleshoo
 </div>
 <div slot="rust">
 
-The run doesn't pass while such a test is there, whatever the score, and exits with status 2, as
+The run doesn't pass while such a test is there, whatever the score, and exits with status 3, as
 for a test that fails with no mutant in: see [Troubleshooting](/rust/troubleshooting/).
 
 </div>
@@ -411,7 +415,7 @@ arithmetic alone.
 | Kind | Means | For example |
 |---|---|---|
 | `unviable:` | It doesn't compile | `unviable: doesn't compile (E0308: mismatched types)` |
-| `arid:` | Code a test could check, but none should have to ([why](/concepts/arid/)) | `arid: only writes output`, for a `println!` or `log::warn!` statement removed; `arid: only feeds a log line`, for a `let` that only output macros read; `arid: only checks the value is there`, for an `x.unwrap();` statement removed; `arid: only names a thread`, for a `thread::Builder`'s name: [every rule](/reference/arid/) |
+| `arid:` | Code a test could check, but none should have to ([why](/concepts/arid/)) | `arid: only writes output`, for a `println!` or `log::warn!` statement removed; `arid: only feeds a log line`, for a `let` that only output macros read; `arid: only decides whether output is written`, for `if log_enabled!(Level::Debug)` around nothing but output; `arid: only calls audit::record (<reason>)`, for a call an [`output:` rule](/rust/reference/configuration/#mutasticyaml) names; `arid: only checks the value is there`, for an `x.unwrap();` statement removed; `arid: only names a thread`, for a `thread::Builder`'s name; `arid: only sizes a collection's first allocation`, for a number given to `Vec::with_capacity`: [every rule](/reference/arid/) |
 | `equivalent:` | No test can tell it from the code ([what that means](/concepts/equivalence/)) | a `?` that only passes on a formatter's error |
 | `user:` | The project's own decision, in `mutastic.yaml` or `.mutastic/ignores.yaml` | ``user: written by a code generator (rule `skip: shop::generated::**`)`` |
 | `twin:` | It always does what another mutant at its place does, and that one runs for it ([Twins](#twins)) | `twin: same as m2e329a72`, for `n < 10`, which `is_small` returns, made `true` by `mutastic/remove-conditional`: the same code `mutastic/return-value` makes |
@@ -515,6 +519,7 @@ See [`mutastic verify`](/rust/reference/verify/) for the command itself.
 |---|---|
 | 0 | The run passed, or every mutant `verify` named is caught, skipped, or crashed where a crash proves nothing |
 | 1 | The score is under the threshold, or a mutant `verify` named is missed or not covered |
-| 2 | mutastic couldn't run: not a Cargo package, a test that fails with no mutant in, a build that fails for a reason no mutant explains; or a test that caught mutants fails on its own, with no mutant in, so its catches can't be trusted |
+| 2 | mutastic couldn't run: not a Cargo package, a build that fails for a reason no mutant explains, a mistake in the command |
+| 3 | A test fails with no mutant in, so the run stops; or a test that caught mutants fails on its own, with no mutant in, so its catches can't be trusted. Leaving it out with a reason, under `exclude-tests:` in `mutastic.yaml`, is the way past it |
 
 </EditionOnly>

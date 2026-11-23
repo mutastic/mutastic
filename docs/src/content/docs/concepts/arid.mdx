@@ -71,7 +71,8 @@ with a way to check it.
 - **By the exact code, never by a name.** A rule matches what the compiled code does: a call to a
   logger's type or to `System.out`, a `Thread.sleep`, the constructor of one of the JDK's
   collections. A method called `log` or a variable called `timeout` is nothing special. In the Rust
-  edition, a rule matches the syntax: an output macro such as `info!` used as a statement.
+  edition, a rule matches the syntax: an output macro such as `info!` used as a statement, or a
+  value a `let` works out only for output macros to read.
 - **Only where the value goes nowhere else.** Text that goes straight into a log call is arid; the
   same text returned, stored or compared is counted. Arithmetic that only sizes a new
   `ArrayList` is arid; the same arithmetic used as a loop's bound is counted. A value worked out
@@ -183,14 +184,19 @@ rule takes.
 </div>
 <div slot="rust">
 
-A `mutate:` rule in `mutastic.yaml` brings back every arid skip in the code it covers. The Rust
-edition has no annotations, so the rule is the only way:
+A `mutate:` rule in `mutastic.yaml` brings back the arid skips in the code it covers: the rules
+its `arid:` names, by the ids the Java edition uses, or every rule without it. The Rust edition has
+no annotations, so the rule is the only way:
 
 ```yaml
 rules:
   - mutate: crate::report::Summary::of
+    arid: [mutastic:output]
     reason: the summary is printed for people to read, and the tests check it
 ```
+
+`mutastic explain` on a skipped mutant names its rule, links to its section of [Arid
+rules](/reference/arid/) and prints the rule to copy.
 
 The Rust edition never changes what's inside a macro's arguments. So the biggest kinds of arid code
 in Java, log lines, `println!` and `format!` text, the messages of `assert!`, `panic!` and `expect`,

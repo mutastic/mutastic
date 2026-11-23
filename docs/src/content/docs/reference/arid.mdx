@@ -255,7 +255,10 @@ reason, and a `mutate:` rule takes it back. A `write!` goes to a writer the code
 may read, so it counts. Nothing inside a macro's arguments gets a mutant, and a value a `let`
 works out only for output macros to read, `let took = a - b; info!("{took}");`, is skipped as
 `arid: only feeds a log line`, by syntax: every read of the name in the function is an output
-macro's argument, and no other binding has that name.
+macro's argument, and no other binding has that name. An `output:` rule in `mutastic.yaml` names
+a function or a macro of your own that only writes output, `- output: crate::audit::record` with a
+`reason:`, and a statement that calls it is skipped under this rule too, as `arid: only calls
+audit::record (…)`: see [Your own output calls](/guides/configuration/#your-own-output-calls).
 </EditionOnly>
 
 **Changed in:** 0.1.0, the first release. 1.0.0: a string that only goes into output. 1.3.0: its id;

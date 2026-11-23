@@ -182,6 +182,19 @@ and the receiver's values are named by its fields or `new`'s parameters:
 
 `--format=agent` gives the same test under `test to add in`.
 
+A function no test reaches at all gets a starting point instead: under *Not covered*, `try:` and an
+assertion to start its first test with (`start with:` in `--format=agent`, one for each call found,
+up to ten), found the same way, so the test it starts catches one of the function's mutants. Here
+`postage()` has no test, and the crate's root has no test module yet, so the call is written with
+`super::`:
+
+<RustOutput name="concepts/starting-point" />
+
+`zone()` and `label()` get none. `zone()` is the crate's own, so only its callers give it inputs,
+and a test of it alone might test what can't happen; `label()` takes text, which mutastic doesn't
+make up. And where no input tried reaches the line, or none tells the code from its mutant, there's
+nothing to say: no assertion is better than one that's guessed.
+
 </div>
 </EditionTabs>
 

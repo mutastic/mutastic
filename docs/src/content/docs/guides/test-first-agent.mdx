@@ -155,8 +155,8 @@ mutastic run fixtures/pricing --since=HEAD --format=agent
 The `rules:` line comes first: tests only, and never production code changed to make a mutant go
 away. `decline:` is its honest way out, when a mutant's case can't happen. Then a card for each
 line the tests don't check, with the test to add, today's value and the mutant's, and the
-`done when` command. `not covered` is the line no test reaches yet: the cards' test below 30
-reaches it.
+`done when` command. `not covered` is the line no test reaches yet, with an assertion to start
+with that reaches it: the cards' test below 30 reaches it too.
 
 ### Triangulate
 

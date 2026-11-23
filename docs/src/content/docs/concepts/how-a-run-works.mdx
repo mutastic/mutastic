@@ -156,7 +156,9 @@ each. The time limit is set from how long its tests took in the coverage pass.
 Each test process gets an empty temporary directory of its own, deleted once it ends: `TMPDIR`, and
 `TMP` and `TEMP` on Windows, which `std::env::temp_dir()` and the `tempfile` crate read. A file one
 mutant's tests leave there, as a mutant that removes a `remove_file` does, can't make the next
-mutant's tests pass.
+mutant's tests pass, and nothing is left on your machine. The coverage pass's processes get one
+each too. It's made inside the temporary directory mutastic is given, so a `TMPDIR` you set still
+picks the disk.
 
 A test process that dies without a test failing, by a signal or an abort, is run again one test at a
 time to see how it died. What that means depends on where the mutant is: see
@@ -227,7 +229,21 @@ One that changed result points at the test that caught it, in whichever run it w
 test is named as `! likely flaky: …`, with the mutants whose results it changed. With anything
 changed, a different result is just the change at work, and nothing is named. A mutant that's
 skipped, or that crashed where a crash proves nothing, is out of the score in either run, so a
-change to or from one isn't counted.
+change to or from one isn't counted. A run that leaves tests out, with `exclude-tests:` or
+`--exclude-tests`, isn't the same code as one that ran them: what only those tests caught is no
+sign that they're flaky.
+
+`--confirm-catches` finds the same kind of test within one run. Each test that fails against a
+mutant runs again, on its own against that mutant. If it passes this time, its catch doesn't count:
+the other tests that reach the mutant decide, the mutant's card says the test `failed once, then
+passed: flaky`, and the test is named as `! likely flaky: …; its catch of … didn't repeat when run
+again`. See [Confirming catches](/concepts/flaky-tests/#confirming-catches).
+
+`--kill-matrix` names every test that catches each mutant, not only the first: a run stops a
+mutant's tests at the first test binary with a failure, and with it the binaries after that one
+run too. Each caught mutant's event then has `caughtByAll`, the test `caughtBy` names first, and
+`mutation.json`'s `killedBy` lists them all. It's for measuring which tests catch what, and
+slower.
 
 A run of mutants asked for by id (`--only`) is judged on each one, as `verify` judges it, not on a
 score: it passes when each is caught, skipped, or crashed where a crash proves nothing, whatever

@@ -34,8 +34,9 @@ A test that passes among the others but fails on its own is found after the muta
 <div slot="rust">
 
 The Rust edition looks [before any mutant](#before-any-mutant), on every run, at no cost but a
-failing test's reruns. A test that caught mutants and fails on its own is found after the mutants:
-see [A test that fails on its own](#a-test-that-fails-on-its-own).
+failing test's reruns, and with `--confirm-catches` it [confirms catches](#confirming-catches), at
+one more test run per catch. A test that caught mutants and fails on its own is found after the
+mutants: see [A test that fails on its own](#a-test-that-fails-on-its-own).
 
 </div>
 </EditionTabs>
@@ -68,8 +69,10 @@ They have to pass then: a mutant is only caught when a test that passed fails.
   would be luck, so none count.
 - **A test that fails every time stops the run,** with how it failed, where its output is, and
   the command that runs it alone: the tests fail without any mutant, and nothing can be judged
-  against them. The exit status is 3 in the Java edition (see
-  [Troubleshooting](/guides/troubleshooting/)), and 2 in the Rust edition.
+  against them. The exit status is 3 in both editions (see
+  [Troubleshooting](/guides/troubleshooting/)). Its last line is the way past the test while it's
+  fixed, `exclude-tests:` in `mutastic.yaml` or `--exclude-tests` for one run: see [Fixing a flaky
+  test](#fixing-a-flaky-test). Stopping stays the default: no test is ever left out on its own.
 - **In the Java edition, a test class that fails as a whole,** in its setup or teardown (a `@BeforeAll`, JUnit 4's or
   TestNG's `@BeforeClass`, a class rule, a static initialiser), is run again as a class, all its
   tests with it. If it passes, its setup is flaky: the run goes on without the class and every
@@ -168,25 +171,35 @@ row. The run exits with status 3.
 The coverage pass already runs each test in a process of its own, so a test that needs another
 test to set it up stops the run there, before any mutant. What's left to find afterwards is what
 the mutants' runs left behind, most often a file a test writes and never removes: give it a file or
-directory of its own, and clean up what it leaves. The run exits with status 2, as for a test that
+directory of its own, and clean up what it leaves. The run exits with status 3, as for a test that
 fails with no mutant in.
 
 </div>
 </EditionTabs>
 
-<EditionOnly edition="java">
-
 ## Confirming catches
 
-With [`--confirm-catches`](/reference/run/#confirm-catches) (or `confirmCatches` in a build
-plugin), each test that catches a mutant is run once more against it. A catch that repeats
+With [`--confirm-catches`](/reference/run/#confirm-catches) (or, in the Java edition,
+`confirmCatches` in a build plugin), each test that catches a mutant is run once more against it. A catch that repeats
 counts. One that doesn't came from a flaky test: it doesn't count, and the mutant's other covering
 tests decide whether it's caught. The test is named as `! likely flaky: …`, and the mutant's card
 says so beside its covering tests (`… failed once, then passed: flaky`).
 
+<EditionOnly edition="rust">
+
+The Rust edition runs a test binary's covering tests together against a mutant, so every one of
+them that fails is known at once: confirming runs each of those again, on its own against the
+mutant, until one repeats. One whose catch doesn't is named as `! likely flaky: …; its catch of …
+didn't repeat when run again`. In `--format=jsonl` the mutant's event names it as
+`unconfirmedCatchBy`, and `run-finished`'s `likelyFlaky` gives `catch-not-repeated` as the reason.
+
+</EditionOnly>
+
 It costs one more test run for every catch, so the more mutants your tests catch, the longer a
 run takes. It's worth it in CI, where a score has to hold, or once a run has named a likely flaky
 test.
+
+<EditionOnly edition="java">
 
 ## A test that fails the same way everywhere
 
