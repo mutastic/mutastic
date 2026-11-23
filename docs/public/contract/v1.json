@@ -2293,6 +2293,17 @@
       "reason": "A JVM a test starts loads the classes as built, so neither the worker's mutants nor its coverage reach it. A Rust binary a test runs has every mutant built in and takes the one to run, and where to record coverage, from the environment the test process passes on."
     },
     {
+      "id": "N51",
+      "kind": "engine",
+      "editions": [
+        "java",
+        "rust"
+      ],
+      "surface": "errors",
+      "summary": "What raises `tests-stopped`, `tests-timed-out` and `no-tests`: a test that ends the tests' JVM, a coverage pass past its 10 minutes, test classes none of which ran on the JUnit Platform (Java); a test that ends its own test process, a test past its 5 minutes, tests that are all `#[ignore]`d (Rust)",
+      "reason": "Test runner: Java's tests share a JVM, and Rust runs each test in a process of its own, as `cargo test` lists them."
+    },
+    {
       "id": "N50",
       "kind": "engine",
       "editions": [
@@ -2335,29 +2346,6 @@
       "surface": "events",
       "summary": "`MUTASTIC_EVENTS`: a file a run writes its live events to, every second, for the Gradle plugin",
       "reason": "The Gradle plugin reads the run's live events from this file to draw its own progress line. `cargo mutastic` runs the binary itself, which draws its own."
-    },
-    {
-      "id": "G27",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "reports",
-      "summary": "No GitHub Actions annotations or job summary (`MUTASTIC_GITHUB=off`)",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "env:MUTASTIC_GITHUB"
-      ]
-    },
-    {
-      "id": "G30",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "errors",
-      "summary": "No `disk`, `no-tests`, `nothing-covered`, `tests-stopped` or `tests-timed-out` codes",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
     },
     {
       "id": "G38",
