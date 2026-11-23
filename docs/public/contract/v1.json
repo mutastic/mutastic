@@ -979,7 +979,7 @@
         {
           "label": "Reports",
           "optional": true,
-          "note": "Each file as typed from where mutastic runs: relative when it's below there, else absolute; with links on, an OSC 8 link to its absolute file:// URI. Shared by both editions; run-finished's reports stay relative to the project. With links on and an HTML report written (not a share's), each mutant id in the human output links to <stem>-mutants/<id>.html beside it, a page that opens the report at #/m/<id>: the fragment itself is lost by macOS's opener"
+          "note": "Each file as typed from where mutastic runs: relative when it's below there, else absolute, whole, with what can't be seen escaped as every value of the project's is; with links on, an OSC 8 link to its absolute file:// URI. Shared by both editions; run-finished's reports stay relative to the project. With links on and an HTML report written (not a share's), each mutant id in the human output links to <stem>-mutants/<id>.html beside it, a page that opens the report at #/m/<id>: the fragment itself is lost by macOS's opener"
         },
         {
           "label": "Left out",
@@ -1762,6 +1762,10 @@
     {
       "id": 22,
       "rule": "`mutastic.yaml`'s `- output: <pattern>`, with a `reason:` it can't do without and no `arid:` list, names a project's own calls that only write output: a Java method pattern (`com.acme.AuditLog#*`) or a Rust function or macro path (`crate::audit::record`, `metrics::counter`), matched by its last segments. Its calls are skipped as `mutastic:output`, said `arid: only calls <call> (<reason>)`, `<call>` the class's simple name and the method (`AuditLog#info`) or the path as written; in the Java edition a value only fed to one, `arid: only feeds <call> (<reason>)`; and a log level's check around nothing but output, `arid: only decides whether output is written`. A `mutate:` rule brings them back as any `mutastic:output` skip, and `MUTASTIC_ARID=audit` runs them. None by default."
+    },
+    {
+      "id": 23,
+      "rule": "`run --only` writes no report files, as a run of some mutants says nothing about the rest. When `--report` names one (anything but `none`), it says so after the result, on stderr in every format, word for word: `note: --report is left out with --only: a run of some mutants writes no reports, as it says nothing about the rest; run without --only to write them`. A note, not an error: the exit code and stdout are as without `--report`."
     }
   ],
   "differences": [

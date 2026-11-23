@@ -1088,9 +1088,12 @@ public final class HumanText {
   }
 
   /// Each report file as typed from where mutastic ran, linked to the file itself: a terminal
-  /// guessing a link from the text alone opened `/build/mutastic/mutation.html`.
+  /// guessing a link from the text alone opened `/build/mutastic/mutation.html`. A path is the
+  /// project's text, so what can't be seen in it is escaped; never cut, as it's a file to open.
   private List<String> reports(Run run) {
-    return run.reports().stream().map(file -> style.link(file, Here.shown(file))).toList();
+    return run.reports().stream()
+        .map(file -> style.link(file, Untrusted.escape(Here.shown(file))))
+        .toList();
   }
 
   /// The rows only some runs have: the change it was scoped to, an audit, where the misses are,
