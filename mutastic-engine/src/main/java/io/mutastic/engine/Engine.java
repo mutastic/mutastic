@@ -48,12 +48,20 @@ public final class Engine {
 
   private final Path workerJar;
   private final Path log;
+  private final Optional<Path> times;
 
   /// `workerJar` is the test worker, `mutastic-worker.jar`; `log` collects the tests' output
   /// (`worker.log`, and `worker-2.log` and so on for the other workers).
   public Engine(Path workerJar, Path log) {
+    this(workerJar, log, Optional.empty());
+  }
+
+  /// An engine that keeps what a whole run's coverage pass measured in `times`, for `mutants` to
+  /// estimate other operators by ([TestTimes]).
+  public Engine(Path workerJar, Path log, Optional<Path> times) {
     this.workerJar = workerJar;
     this.log = log;
+    this.times = times;
     this.logFrom = ByteBuddyJdk.size(log);
   }
 
@@ -574,7 +582,39 @@ public final class Engine {
     var workers = workersFor(project, options.workers(), plan.mutants().size(), methods(options));
     try {
       var ran = ran(project, plan, workers, listener);
+      keepTimes(project, plan, options);
       return ran.report(project, plan, options, Duration.ofNanos(System.nanoTime() - start));
+    } finally {
+      workers.forEach(TestWorker::close);
+    }
+  }
+
+  /// What a whole run's coverage pass measured, kept for `mutants` to estimate other operators by.
+  /// A part of a run measured only its part, so it keeps nothing.
+  private void keepTimes(Project project, Plan plan, Options options) {
+    if (times.isEmpty() || !plan.whole()) {
+      return;
+    }
+    var operators =
+        OperatorSet.active(options.policy()).stream()
+            .map(io.mutastic.api.Operator::id)
+            .sorted()
+            .collect(Collectors.joining(","));
+    var base = plan.mutants().stream().map(Mutant::id).collect(Collectors.toSet());
+    var measured = plan.mutantRun().coverage().measured();
+    var code = RunRecord.classesOf(project);
+    new TestTimes(TestTimes.RUN, java.time.Instant.now(), operators, code, base, measured)
+        .write(times.orElseThrow());
+  }
+
+  /// `mutants --estimate`: the coverage pass alone, over every class with a mutant `options` finds,
+  /// and no mutant run. What it measured, for [TestTimes].
+  public TestTimes.Measured measure(Project project, Options options, Listener listener) {
+    var plan = plan(project, options);
+    var workers = workersFor(project, 1, 1, methods(options));
+    try {
+      listener.coverageFinished(coveragePass(project, plan, workers.getFirst(), listener));
+      return plan.mutantRun().coverage().measured();
     } finally {
       workers.forEach(TestWorker::close);
     }

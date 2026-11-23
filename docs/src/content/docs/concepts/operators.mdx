@@ -136,6 +136,13 @@ the mutants it makes, a line each, and runs no test:
 mutastic mutants --operators=stronger
 ```
 
+The line before the count estimates what the set adds to the tests' time, from what the last run
+measured: `estimate: 31 more mutants than defaults, up to 7.7s more of tests, from the run of …`.
+It's "up to" because a caught mutant stops at its first failing test. With no run recorded, or one
+of other code or other operators, it says why there's no estimate rather than guess.
+`mutastic mutants --estimate` runs every test once, with no mutant in, and estimates `defaults`,
+`stronger` and `all`.
+
 A mutant's id doesn't depend on which operators run: choosing more adds mutants, and never changes
 the ids of the others.
 

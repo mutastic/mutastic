@@ -55,6 +55,9 @@ class MutantListTest {
             1 mutants
             """
                 .formatted(boundary.id()));
+    assertThat(list.of(List.of(boundary), List.of("estimate: a note")))
+        .as("a note goes after every mutant's line and before the count")
+        .endsWith("Pricing.discount()\nestimate: a note\n1 mutants\n");
   }
 
   @Test

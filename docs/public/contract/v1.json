@@ -135,7 +135,8 @@
       "name": "mutants",
       "synopsis": "mutastic mutants [DIR]",
       "options": [
-        "--operators"
+        "--operators",
+        "--estimate"
       ]
     }
   ],
@@ -202,6 +203,10 @@
       "kind": "repeated",
       "value": "OPERATORS",
       "default": "defaults"
+    },
+    {
+      "name": "--estimate",
+      "kind": "flag"
     },
     {
       "name": "--report",

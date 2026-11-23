@@ -265,6 +265,14 @@ final class Progress implements Listener, AutoCloseable {
     }
   }
 
+  /// The coverage pass of `mutants --estimate`, which runs no mutant: its line, and nothing of
+  /// mutants run.
+  void measured(CoveragePass pass) {
+    synchronized (lock) {
+      say(coverageLine(pass));
+    }
+  }
+
   private static String coverageLine(CoveragePass pass) {
     if (pass.tests() == 0) {
       return "coverage  no tests found · %s\n".formatted(count(pass.mutants(), "mutant"));

@@ -112,6 +112,53 @@ class CoverageTest {
     assertThat(coverage.coveringTests(inOf)).containsExactly("RatesTest#uses");
   }
 
+  @Test
+  void whatItKeepsCostsAMutantWhatItsCoveringTestsTook() throws Exception {
+    var rates = loadedRates();
+    var atLoad = new HashSet<>(RecordingProbes.LINES);
+    RecordingProbes.LINES.clear();
+    rates.getMethod("of", String.class).invoke(null, "gold");
+    coverage.recordLines("RatesTest#loads", atLoad);
+    coverage.recordLines("RatesTest#uses", new HashSet<>(RecordingProbes.LINES));
+    coverage.recordLines("PricingTest#elsewhere", Set.of());
+    coverage.recordOnlyAtLoad(atLoad);
+    coverage.recordTest("RatesTest#loads", Duration.ofMillis(3));
+    coverage.recordTest("RatesTest#uses", Duration.ofMillis(5));
+    coverage.recordTest("PricingTest#elsewhere", Duration.ofMillis(7));
+    var inParse = rates("parse", "(Ljava/lang/String;)Ljava/util/Map;", 19);
+    var inOf = rates("of", "(Ljava/lang/String;)I", 13);
+
+    var measured = coverage.measured();
+
+    for (var mutant : List.of(inParse, inOf)) {
+      assertThat(measured.cost(mutant)).isEqualTo(coverage.timeOf(coverage.coveringTests(mutant)));
+    }
+    assertThat(measured.cost(inParse)).isEqualTo(Duration.ofMillis(8));
+    assertThat(measured.cost(inOf)).isEqualTo(Duration.ofMillis(5));
+    assertThat(measured.every()).isEqualTo(Duration.ofMillis(15));
+  }
+
+  @Test
+  void aClassItDidNotInstrumentHasNoTimeToGive() {
+    var elsewhere =
+        new Mutant(
+            "io/mutastic/engine/fixture/Elsewhere",
+            "of",
+            "()I",
+            0,
+            3,
+            BuiltIn.MATH,
+            "IADD",
+            "ISUB",
+            Optional.empty());
+
+    var measured = coverage.measured();
+
+    assertThat(measured.holds(elsewhere)).isFalse();
+    assertThat(measured.holds(elsewhere.skippedFor("arid: a test"))).isTrue();
+    assertThat(measured.holds(rates("of", "(Ljava/lang/String;)I", 13))).isFalse();
+  }
+
   /// Rates, instrumented and loaded, with only its own calls recorded.
   private Class<?> loadedRates() throws Exception {
     var bytes = coverage.instrument(MutationsTest.model(Rates.class));
