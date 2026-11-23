@@ -92,6 +92,16 @@ Annotations are matched by simple name, so your own work. Or depend on
 `io.mutastic:mutastic-annotations`, a small jar with `@DoNotMutate` and `@DoMutate` and nothing
 else. mutastic reads them from the class files, so the jar is never needed at run time.
 
+The JDK's own `@Generated` (`javax.annotation.processing.Generated`, and the older
+`javax.annotation.Generated` and `jakarta.annotation.Generated`) never reaches the class file: it's
+kept for the source alone. Annotation processors such as Dagger, MapStruct and AutoValue put it on
+the classes they write, and so do generators such as OpenAPI Generator and jOOQ. So for a Java
+class, mutastic also reads the source file: when the file's top-level type has `@Generated` on it,
+that type's mutants, and those of every type nested in it, are skipped as `generated:`. Comments
+and strings that mention `@Generated` don't count, and neither does `@Generated` on one member. The
+source has to be in one of the module's source directories: Maven includes where annotation
+processors write, and mutastic adds it for Gradle.
+
 ## mutastic.yaml
 
 A project's own say goes in `mutastic.yaml`, in its directory:

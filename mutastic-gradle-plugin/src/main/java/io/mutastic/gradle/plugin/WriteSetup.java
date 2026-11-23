@@ -19,6 +19,7 @@ import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
 import org.gradle.api.file.ConfigurableFileCollection;
+import org.gradle.api.file.Directory;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
@@ -31,6 +32,7 @@ import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.api.tasks.testing.Test;
 import org.gradle.api.tasks.testing.junitplatform.JUnitPlatformOptions;
 import org.gradle.api.tasks.testing.testng.TestNGOptions;
@@ -199,6 +201,7 @@ public abstract class WriteSetup extends DefaultTask {
     task.getClasses().from(main.getOutput().getClassesDirs());
     task.getResources().from(resources(project, main));
     task.getSources().from(project.provider(() -> sourceDirs(main)));
+    task.getSources().from(processorOutput(project, main));
     task.getTestClasses().from(tests.map(test -> test.getOutput().getClassesDirs()));
     task.getTestResources().from(tests.map(test -> resources(project, test)));
     task.getTestSources().from(tests.map(WriteSetup::sourceDirs));
@@ -360,6 +363,17 @@ public abstract class WriteSetup extends DefaultTask {
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
+  }
+
+  /// Where javac's annotation processors write the sources of what they generate,
+  /// `build/generated/sources/annotationProcessor/java/main`, which Gradle leaves out of the source
+  /// set: those classes are the module's, and only their source says they're generated, as
+  /// `javax.annotation.processing.Generated` is kept for the source alone.
+  private static Provider<Directory> processorOutput(Project project, SourceSet set) {
+    return project
+        .getTasks()
+        .named(set.getCompileJavaTaskName(), JavaCompile.class)
+        .flatMap(compile -> compile.getOptions().getGeneratedSourceOutputDirectory());
   }
 
   /// A set's source directories: Java's, and Kotlin's when its plugin is there.

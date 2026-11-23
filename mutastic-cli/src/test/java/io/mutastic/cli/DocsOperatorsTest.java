@@ -138,7 +138,8 @@ class DocsOperatorsTest {
   @TempDir Path work;
 
   /// Each example's card, from one run of the sample with every operator: the card that holds the
-  /// example's missed mutant, as mutastic prints it in colour.
+  /// example's missed mutant, as mutastic prints it in colour. A run shows 50 cards, so a card past
+  /// those comes from a run of its mutants alone, which prints the same card.
   @Test
   void eachCardIsWhatMutasticPrints() throws Exception {
     var project = Samples.copy(SAMPLE, work.resolve("operator-docs"));
@@ -155,9 +156,18 @@ class DocsOperatorsTest {
       var ids = missed.getOrDefault(example.file() + " " + example.mutator(), List.of());
       assertThat(ids).as("%s missed in %s", example.operator(), example.type()).isNotEmpty();
       var card = cardOf(run.out(), ids);
+      if (card.isEmpty()) {
+        card = cardOf(only(project, ids), ids);
+      }
       assertThat(card).as("the card for %s in %s", example.operator(), example.type()).isNotEmpty();
       shown(example.card(), card.replace(project.toString(), "samples/operator-docs"));
     }
+  }
+
+  /// What a run of only `ids` prints: their card, when the whole run had more cards than it shows.
+  private static String only(Path project, List<String> ids) throws Exception {
+    var only = "--only=" + String.join(",", ids);
+    return Samples.mutastic(TERMINAL, "run", project.toString(), "--operators=all", only).out();
   }
 
   /// Every test a page adds catches every mutant on the card it follows: each is added to its test

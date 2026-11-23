@@ -6,6 +6,12 @@
 fun sourceDirs(set: SourceSet): Set<File> =
     set.java.srcDirs + ((set.extensions.findByName("kotlin") as? SourceDirectorySet)?.srcDirs ?: emptySet())
 
+// Where javac's annotation processors write what they generate, which Gradle leaves out of the
+// source set: those classes are the module's, and only their source says they're generated.
+fun processorOutput(project: Project, set: SourceSet): Set<File> =
+    setOfNotNull(project.tasks.named<JavaCompile>(set.compileJavaTaskName).get()
+        .options.generatedSourceOutputDirectory.asFile.orNull)
+
 // A property of the Kotlin plugin's model, read by name: this script can't see the plugin's types.
 fun Any.kotlinProperty(name: String): Any? = withGroovyBuilder { getProperty(name) }
 
@@ -51,8 +57,10 @@ fun javaSuite(project: Project, task: TaskProvider<Test>): Suite {
     val test = sourceSets.find { set ->
         set.name != "main" && set.output.classesDirs.files.any { it in task.get().testClassesDirs.files }
     } ?: sourceSets["test"]
-    fun side(set: SourceSet) = Side(set.output.classesDirs, set.output.resourcesDir, sourceDirs(set), set.classesTaskName)
-    return Suite(task, side(main), side(test), test.runtimeClasspathConfigurationName, "jar")
+    fun side(set: SourceSet, sources: Set<File>) = Side(set.output.classesDirs, set.output.resourcesDir, sources, set.classesTaskName)
+    return Suite(
+        task, side(main, sourceDirs(main) + processorOutput(project, main)), side(test, sourceDirs(test)),
+        test.runtimeClasspathConfigurationName, "jar")
 }
 
 // A JVM target's suite: its `main` and `test` compilations, and its Test task, `desktopTest` for
