@@ -93,6 +93,19 @@ class PricingSampleTest {
         .isEqualTo(
             "mutastic: PASS · score 90.9% (threshold 80) · 1 missed, 0 not covered, 10 caught of 11 mutants");
     assertThat(run.out()).contains("   - if (total >= 100) {", "   + if (total > 100) {");
+    // The files written, named where an agent reads first, so it doesn't run again to get one.
+    var reports = project.resolve("build/mutastic").toAbsolutePath().normalize();
+    assertThat(run.out().lines().skip(1).findFirst().orElseThrow())
+        .isEqualTo("reports: %s/mutation.json · %s/mutation.html".formatted(reports, reports));
+  }
+
+  @Test
+  void agentTextNamesNoReportWhenNoneIsWritten() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+
+    var run = Samples.mutastic("run", project.toString(), "--format=agent", "--report=none");
+
+    assertThat(run.out()).startsWith("mutastic: PASS · ").doesNotContain("reports:");
   }
 
   @Test

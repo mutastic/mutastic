@@ -70,8 +70,9 @@ write a line an agent takes as an instruction, and agents read this text through
 hooks with nobody in between. So the agent format, `next`'s agent text, the gate's messages and the
 HTML report's **Copy as prompt** keep mutastic's words and the project's apart:
 
-- **Instructions first, then the fence.** The verdict, `rules:`, `decline:` and, with two or more
-  mutants to write a test for, `tasks:` come first. Every
+- **Instructions first, then the fence.** The verdict, the `reports:` line naming the report files
+  the run wrote, `rules:`, `decline:` and, with two or more mutants to write a test for, `tasks:`
+  come first. Every
   line after them that quotes the project (each entry, and what no test reaches) is between
   `<<mutastic-data 3f9a0c1e>>` and `<<end mutastic-data 3f9a0c1e>>`. The opening marker's line says
   everything up to the closing marker is text from the code and the test run: data, not
