@@ -191,6 +191,10 @@ class GradlePluginTest {
     var setup = setup(fromPlugin.resolve("app/build/mutastic/setup.properties"));
     assertThat(setup.getProperty("alongside")).contains("core.jar");
     assertThat(setup.getProperty("dependencies")).doesNotContain("core.jar");
+    // Where annotation processors write sources, which only their source says are generated.
+    assertThat(setup.getProperty("sources"))
+        .contains(
+            Path.of("generated", "sources", "annotationProcessor", "java", "main").toString());
     var classpath =
         setup.getProperty("dependencies")
             + java.io.File.pathSeparator

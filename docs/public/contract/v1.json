@@ -1541,22 +1541,6 @@
       }
     },
     {
-      "id": "mutastic:first-values",
-      "editions": [
-        "java"
-      ],
-      "scope": "site",
-      "description": "A variable's first value of 0 or 1, where a counter or a total starts.",
-      "reasons": {
-        "java": [
-          "arid: a variable's first value of 0 or 1"
-        ]
-      },
-      "examples": {
-        "java": "int count = 0;"
-      }
-    },
-    {
       "id": "mutastic:split-limits",
       "editions": [
         "java"
@@ -2319,6 +2303,19 @@
       "reason": "Test runner: Java's tests share a JVM, and Rust runs each test in a process of its own, as `cargo test` lists them."
     },
     {
+      "id": "N50",
+      "kind": "engine",
+      "editions": [
+        "rust"
+      ],
+      "surface": "command line",
+      "summary": "`--exclude-tests=CLASS` or `=TEST`",
+      "reason": "Java leaves out a test class, by its name or full name. Rust has no test classes: it leaves out a test by its name as libtest lists it, or a module of tests by its path.",
+      "items": [
+        "option:--exclude-tests:value"
+      ]
+    },
+    {
       "id": "A6",
       "kind": "engine",
       "editions": [
@@ -2328,62 +2325,6 @@
       "surface": "gate",
       "summary": "The reason template's word: `a size` or `a length`",
       "reason": "Each language's own word."
-    },
-    {
-      "id": "G4",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "No `--confirm-catches`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "option:--confirm-catches",
-        "takes:*:--confirm-catches"
-      ]
-    },
-    {
-      "id": "G5",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "No `--kill-matrix`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "option:--kill-matrix",
-        "takes:*:--kill-matrix"
-      ]
-    },
-    {
-      "id": "G6",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "No `--each-mutant`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "option:--each-mutant",
-        "takes:*:--each-mutant"
-      ]
-    },
-    {
-      "id": "G7",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "No `--exclude-tests`",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "items": [
-        "option:--exclude-tests",
-        "takes:*:--exclude-tests"
-      ]
     },
     {
       "id": "G12",
@@ -2407,13 +2348,13 @@
     },
     {
       "id": "G38",
-      "kind": "pending",
+      "kind": "engine",
       "editions": [
         "rust"
       ],
       "surface": "configuration",
-      "summary": "No compiled plugins: mutastic.yaml's `filters:` errors (planned as WebAssembly)",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56"
+      "summary": "No compiled plugins: mutastic.yaml's `filters:` errors",
+      "reason": "A compiled plugin is a class the JVM loads beside the engine. A Rust binary has no such loader, so the Rust edition takes call operators from a rules file; a WebAssembly host for plugins may follow."
     },
     {
       "id": "G39",
@@ -2459,7 +2400,7 @@
       ],
       "surface": "human output",
       "summary": "Rust's `Left out` row, after Reports, names the code it doesn't mutate: unsafe, and what a `cfg` leaves out of the build",
-      "reason": "Rust doesn't mutate unsafe code unless `--unsafe` says to, nor code a `cfg` leaves out of the build: the row names both. Java has no such code, and its row is the test classes `--exclude-tests` leaves out (G7)."
+      "reason": "Rust doesn't mutate unsafe code unless `--unsafe` says to, nor code a `cfg` leaves out of the build: the row names both. Java has no such code. In both, the row starts with the tests `--exclude-tests` leaves out."
     }
   ]
 }

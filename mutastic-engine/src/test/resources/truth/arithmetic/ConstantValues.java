@@ -215,6 +215,89 @@ class ConstantValues {
     return letter + ":" + number;
   }
 
+  /// A first value of `0` or `1` is where a total, a product, a count or an index starts, and what
+  /// it starts at shows in what the method gives.
+  static int aCounterFromZero(int a, int b) {
+    int total = 0;
+    return total + a;
+  }
+
+  static int aCounterFromZeroClaim(int a, int b, int value) {
+    int total = value;
+    return total + a;
+  }
+
+  static long aTotalFromOne(int a, int b) {
+    long total = 1L;
+    return total * a;
+  }
+
+  static long aTotalFromOneClaim(int a, int b, long value) {
+    long total = value;
+    return total * a;
+  }
+
+  static double aSumFromZero(int a, int b) {
+    double sum = 0.0;
+    return sum + a;
+  }
+
+  static double aSumFromZeroClaim(int a, int b, double value) {
+    double sum = value;
+    return sum + a;
+  }
+
+  static int aLoopFromZero(int a, int b) {
+    int[] values = {a, b};
+    int total = a;
+    for (int i = 0; i < values.length; i++) {
+      total += values[i];
+    }
+    return total;
+  }
+
+  static int aLoopFromZeroClaim(int a, int b, int value) {
+    int[] values = {a, b};
+    int total = a;
+    for (int i = value; i < values.length; i++) {
+      total += values[i];
+    }
+    return total;
+  }
+
+  static int aCountFromZero(int a, int b) {
+    int count = 0;
+    if (a > b) {
+      count++;
+    }
+    return count;
+  }
+
+  static int aCountFromZeroClaim(int a, int b, int value) {
+    int count = value;
+    if (a > b) {
+      count++;
+    }
+    return count;
+  }
+
+  static boolean aStartCompared(int a, int b) {
+    int start = 1;
+    return a > start;
+  }
+
+  static boolean aStartComparedClaim(int a, int b, int value) {
+    int start = value;
+    return a > start;
+  }
+
+  /// Given another value before anything reads it: skipped as equivalent.
+  static int anOverwrittenStart(int a, int b) {
+    int total = 0;
+    total = a + b;
+    return total;
+  }
+
   // Skipped as arid: what a test sees doesn't change, or it's a size.
 
   static int anArraySize(int a, int b) {
@@ -237,30 +320,6 @@ class ConstantValues {
   static int aWaitClaim(int a, int b, long value) throws InterruptedException {
     Thread.sleep(value);
     return a;
-  }
-
-  static int aCounterFromZero(int a, int b) {
-    int total = 0;
-    return total + a;
-  }
-
-  static long aTotalFromOne(int a, int b) {
-    long total = 1L;
-    return total * a;
-  }
-
-  static double aSumFromZero(int a, int b) {
-    double sum = 0.0;
-    return sum + a;
-  }
-
-  static int aLoopFromZero(int a, int b) {
-    int[] values = {a, b};
-    int total = a;
-    for (int i = 0; i < values.length; i++) {
-      total += values[i];
-    }
-    return total;
   }
 
   static int aSplitsLimit(int a, int b) {

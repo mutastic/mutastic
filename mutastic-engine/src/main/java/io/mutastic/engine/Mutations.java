@@ -271,8 +271,10 @@ final class Mutations {
     judges.forEach(filter -> filter.prepare(classes));
   }
 
-  /// Tells the operators that change a class as a whole of the project, before any of its classes.
+  /// Tells the operators that change a class as a whole of the project, before any of its classes,
+  /// and the annotations where its sources are.
   void prepareFor(Project project) {
+    annotated.prepareFor(project);
     inlineBodies.prepareFor(project);
     wholeClasses.prepareFor(project);
   }

@@ -309,14 +309,37 @@ class ArithmeticTruthTest {
         .allMatch(change -> change.endsWith("(arid: only sets how long to wait)"));
     assertThat(constants.changesIn("aSplitsLimit"))
         .contains("constant -1 to 0 (arid: only limits a split)");
-    for (var start : List.of("aCounterFromZero", "aTotalFromOne", "aSumFromZero")) {
+  }
+
+  /// Where a total, a product, a count or an index starts shows in what the code gives, so its
+  /// mutants run, and their claims hold: `valueClaimsThatLie` runs each.
+  @Test
+  void aVariablesFirstValueIsChanged() {
+    var starts =
+        List.of(
+            "aCounterFromZero",
+            "aTotalFromOne",
+            "aSumFromZero",
+            "aLoopFromZero",
+            "aCountFromZero",
+            "aStartCompared");
+    for (var start : starts) {
       assertThat(constants.changesIn(start))
           .as(start)
           .isNotEmpty()
-          .allMatch(change -> change.endsWith("(arid: a variable's first value of 0 or 1)"));
+          .noneMatch(change -> change.contains("("));
     }
-    assertThat(constants.changesIn("aLoopFromZero"))
-        .contains("constant 0 to 1 (arid: a variable's first value of 0 or 1)");
+    assertThat(constants.changesIn("aCounterFromZero"))
+        .containsExactly("constant 0 to 1", "constant 0 to -1");
+    assertThat(constants.changesIn("aLoopFromZero")).contains("constant 0 to 1");
+  }
+
+  @Test
+  void aFirstValueNothingReadsIsSkippedAsEquivalent() throws Exception {
+    assertThat(constants.changesIn("anOverwrittenStart"))
+        .isNotEmpty()
+        .allMatch(change -> change.endsWith("(equivalent: nothing reads the value it's given)"));
+    assertThat(constants.skippedThatDiffer()).isEmpty();
   }
 
   @Test
