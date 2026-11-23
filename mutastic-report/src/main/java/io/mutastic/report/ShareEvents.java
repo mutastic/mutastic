@@ -125,19 +125,25 @@ public final class ShareEvents {
   public MutantResult result(Mutant mutant) {
     var fields = java.util.Objects.requireNonNull(results.get(mutant.id()), mutant.id());
     return new MutantResult(
-        mutant,
-        status(fields),
-        strings(fields, "coveredBy"),
-        text(fields, "caughtBy"),
-        text(fields, "caughtWith"),
-        text(fields, "failureOrigin"),
-        (int) number(fields, "testsRun"),
-        text(fields, "unconfirmedCatchBy"),
-        inputs(fields),
-        object(fields, "suggestion").map(ShareEvents::suggestion),
-        Duration.ofMillis(number(fields, "durationMs")),
-        text(fields, "falseCatchBy"),
-        strings(fields, "caughtByAll"));
+            mutant,
+            status(fields),
+            strings(fields, "coveredBy"),
+            text(fields, "caughtBy"),
+            text(fields, "caughtWith"),
+            text(fields, "failureOrigin"),
+            (int) number(fields, "testsRun"),
+            text(fields, "unconfirmedCatchBy"),
+            inputs(fields),
+            object(fields, "suggestion").map(ShareEvents::suggestion),
+            Duration.ofMillis(number(fields, "durationMs")),
+            text(fields, "falseCatchBy"),
+            strings(fields, "caughtByAll"))
+        .withCaughtCase(object(fields, "caughtCase").map(ShareEvents::caughtCase));
+  }
+
+  private static io.mutastic.api.TestCase caughtCase(Map<String, Object> fields) {
+    return new io.mutastic.api.TestCase(
+        (int) number(fields, "index"), text(fields, "name").orElse(""));
   }
 
   /// The status its result had, by the name the events give it.

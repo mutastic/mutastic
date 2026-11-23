@@ -290,29 +290,37 @@ public final class Engine {
         TestWorker.Baseline baseline,
         ByteBuddyJdk.Written written,
         List<String> services) {
-      var failures = baseline.failures();
       var messages = baseline.messages();
       var log = written.log();
       var where = loadedElsewhere(services) + ByteBuddyJdk.said(written);
       if (failing.size() == 1) {
         var test = failing.getFirst();
         var said = messages.getOrDefault(test, "");
-        return "%s%s fails without any mutant, so mutastic can't judge one.%s%s\nIts output is in %s."
+        return "%s fails without any mutant, so mutastic can't judge one.%s%s\nIts output is in %s."
             .formatted(
-                test,
-                asAWhole(test, failures),
+                named(test, baseline),
                 said.isBlank() ? "" : "\nIt failed: " + said,
                 where,
                 shown(log));
       }
-      var named =
+      var listed =
           failing.stream()
               .limit(NAMED)
-              .map(test -> "  " + test + asAWhole(test, failures) + saying(test, messages))
+              .map(test -> "  " + named(test, baseline) + saying(test, messages))
               .collect(Collectors.joining("\n"));
       var more = failing.size() > NAMED ? "\n  and %d more".formatted(failing.size() - NAMED) : "";
       return "%d tests fail without any mutant, so mutastic can't judge one:\n%s%s%s\nTheir output is in %s."
-          .formatted(failing.size(), named, more, where, shown(log));
+          .formatted(failing.size(), listed, more, where, shown(log));
+    }
+
+    /// `a.BTest#adds(int, int) (case [2] 2, 2, 5)`: the test, the case of it that failed first when
+    /// it runs a table of them, and for a class, that it failed as a whole.
+    private static String named(String test, TestWorker.Baseline baseline) {
+      var failedCase =
+          java.util.Optional.ofNullable(baseline.cases().get(test))
+              .map(failed -> " (case " + failed.name() + ")")
+              .orElse("");
+      return test + failedCase + asAWhole(test, baseline.failures());
     }
 
     /// `log` from where the person is, when it's inside it.
@@ -1414,7 +1422,8 @@ public final class Engine {
               last.failure(),
               last.origin(),
               run.testsRun() + last.testsRun(),
-              last.portClash()),
+              last.portClash(),
+              last.failedCase()),
           after.unconfirmed().or(() -> unconfirmed));
     }
 
@@ -1422,17 +1431,18 @@ public final class Engine {
         Trial trial, List<String> covering, Tested tested, Map<String, List<Long>> inputs) {
       var run = tested.run();
       return new MutantResult(
-          trial.mutant(),
-          run.status(),
-          covering,
-          run.failedTest(),
-          run.failure(),
-          run.origin(),
-          run.testsRun(),
-          tested.unconfirmed(),
-          inputs,
-          Optional.empty(),
-          trial.took());
+              trial.mutant(),
+              run.status(),
+              covering,
+              run.failedTest(),
+              run.failure(),
+              run.origin(),
+              run.testsRun(),
+              tested.unconfirmed(),
+              inputs,
+              Optional.empty(),
+              trial.took())
+          .withCaughtCase(run.failedCase());
     }
 
     /// A mutant no test reaches, with the first test to write for it when suggestions are on.

@@ -6,6 +6,7 @@ import io.mutastic.api.BuildJava;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Project;
 import io.mutastic.api.Status;
+import io.mutastic.api.TestCase;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -103,11 +104,22 @@ final class TestWorker implements AutoCloseable {
   ///
   /// @param failures each failing test's exception and its causes, `a.B>c.D`
   /// @param messages each failing test's message, its first line: what its assertion said
+  /// @param cases each failing test's case that failed, when it runs a table of them
   record Baseline(
       boolean passed,
       List<String> failing,
       Map<String, String> failures,
-      Map<String, String> messages) {}
+      Map<String, String> messages,
+      Map<String, TestCase> cases) {
+
+    Baseline(
+        boolean passed,
+        List<String> failing,
+        Map<String, String> failures,
+        Map<String, String> messages) {
+      this(passed, failing, failures, messages, Map.of());
+    }
+  }
 
   /// The tests' JVM stopped, or didn't finish, in the coverage pass, with no mutant in: the cause
   /// is in the tests, not in mutastic.
@@ -217,20 +229,24 @@ final class TestWorker implements AutoCloseable {
   private static final class Failed {
     private final Map<String, String> failures = new java.util.LinkedHashMap<>();
     private final Map<String, String> messages = new java.util.LinkedHashMap<>();
+    private final Map<String, TestCase> cases = new java.util.LinkedHashMap<>();
 
-    /// `FAILURE`, the test, its exception's chain and, from this release's worker, its message.
+    /// `FAILURE`, the test, its exception's chain, its message and its case.
     void heard(String[] parts) {
       failures.put(parts[1], parts[2]);
       messages.put(parts[1], parts.length > 3 ? parts[3] : "");
+      failedCase(parts, 4).ifPresent(failed -> cases.put(parts[1], failed));
     }
 
-    /// `DONE PASSED`, or `DONE FAILED` and the tests that failed.
+    /// `DONE PASSED`, or `DONE FAILED` and the tests that failed: each once, though the worker says
+    /// a test once for each of its cases that failed.
     Baseline baseline(String[] done) {
       return new Baseline(
           done[1].equals("PASSED"),
-          Arrays.asList(done).subList(Math.min(2, done.length), done.length),
+          Arrays.stream(done).skip(2).distinct().toList(),
           failures,
-          messages);
+          messages,
+          cases);
     }
   }
 
@@ -256,16 +272,28 @@ final class TestWorker implements AutoCloseable {
   /// @param origin where the failure came from: `assertion`, `test`, `code` or `unknown`
   /// @param portClash whether a port in use caused the failure, which with workers side by side can
   ///   be another worker's doing
+  /// @param failedCase the case of `failedTest` that failed, when it runs a table of them
   record Run(
       Status status,
       Optional<String> failedTest,
       Optional<String> failure,
       Optional<String> origin,
       int testsRun,
-      boolean portClash) {
+      boolean portClash,
+      Optional<TestCase> failedCase) {
 
     Run(Status status, int testsRun) {
       this(status, Optional.empty(), Optional.empty(), Optional.empty(), testsRun, false);
+    }
+
+    Run(
+        Status status,
+        Optional<String> failedTest,
+        Optional<String> failure,
+        Optional<String> origin,
+        int testsRun,
+        boolean portClash) {
+      this(status, failedTest, failure, origin, testsRun, portClash, Optional.empty());
     }
 
     /// `test`, the `testsRun`th, ran code that ended the JVM with `status`.
@@ -311,7 +339,8 @@ final class TestWorker implements AutoCloseable {
         after.failure(),
         after.origin(),
         run.testsRun() + after.testsRun(),
-        after.portClash());
+        after.portClash(),
+        after.failedCase());
   }
 
   private Run result(String command, List<String> tests, Duration timeout) {
@@ -340,7 +369,8 @@ final class TestWorker implements AutoCloseable {
     return Run.exited(test, current.process().exitValue(), at < 0 ? tests.size() : at + 1);
   }
 
-  /// `RESULT PASSED <ran>` or `RESULT FAILED <ran> <test> <exception> <origin> <port-clash or ->`.
+  /// `RESULT PASSED <ran>` or `RESULT FAILED <ran> <test> <exception> <origin> <port-clash or ->
+  /// <case's index or -> <case's name or ->`.
   private static Run parsed(String answer) {
     var parts = answer.split("\t", -1);
     return switch (parts[1]) {
@@ -352,9 +382,18 @@ final class TestWorker implements AutoCloseable {
               Optional.of(parts[4]),
               Optional.of(parts[5]),
               Integer.parseInt(parts[2]),
-              parts[6].equals("port-clash"));
+              parts[6].equals("port-clash"),
+              failedCase(parts, 7));
       default -> throw new IllegalStateException("the worker said: " + answer);
     };
+  }
+
+  /// The case at `at` in a worker's line, its index then its name, unless the index is `-`.
+  static Optional<TestCase> failedCase(String[] parts, int at) {
+    if (parts.length < at + 2 || parts[at].equals("-")) {
+      return Optional.empty();
+    }
+    return Optional.of(new TestCase(Integer.parseInt(parts[at]), parts[at + 1]));
   }
 
   /// How `test` fares on its own with no mutant in, within `timeout`: missed if it passes, caught

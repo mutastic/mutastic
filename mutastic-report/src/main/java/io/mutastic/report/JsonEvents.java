@@ -208,12 +208,24 @@ public final class JsonEvents {
   private static void putCatch(Map<String, Object> fields, MutantResult result) {
     result.caughtBy().ifPresent(test -> fields.put("caughtBy", test));
     result.failure().ifPresent(failure -> fields.put("caughtWith", failure));
+    result.caughtCase().ifPresent(failed -> fields.put("caughtCase", caughtCase(result, failed)));
     if (!result.caughtByAll().isEmpty()) {
       fields.put("caughtByAll", result.caughtByAll());
     }
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
     result.unconfirmed().ifPresent(test -> fields.put("unconfirmedCatchBy", test));
     result.falseCatchBy().ifPresent(test -> fields.put("falseCatchBy", test));
+  }
+
+  /// `{"test": "a.BTest#adds(int, int, int)", "index": 2, "name": "[2] 2, 3, 5"}`: the case of the
+  /// catching test that failed, and the test it's a case of.
+  private static Map<String, Object> caughtCase(
+      MutantResult result, io.mutastic.api.TestCase failed) {
+    var fields = new LinkedHashMap<String, Object>();
+    fields.put("test", result.caughtBy().orElse(""));
+    fields.put("index", failed.index());
+    fields.put("name", failed.name());
+    return fields;
   }
 
   /// The test to write, when one was found, and the call it was found by, whole: what a share's

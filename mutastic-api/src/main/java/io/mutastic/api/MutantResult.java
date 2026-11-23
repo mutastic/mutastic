@@ -28,6 +28,8 @@ import java.util.Optional;
 ///   without it, and this result is what the other covering tests made of it
 /// @param caughtByAll with `--kill-matrix`, every covering test that catches it, in the order they
 ///   ran, the first being `caughtBy`; empty otherwise
+/// @param caughtCase the case of `caughtBy` that failed, when it runs a table of cases: evidence of
+///   this run, as its index moves when a case is added before it
 @Internal
 public record MutantResult(
     Mutant mutant,
@@ -42,12 +44,45 @@ public record MutantResult(
     Optional<Suggestion> suggestion,
     Duration took,
     Optional<String> falseCatchBy,
-    List<String> caughtByAll) {
+    List<String> caughtByAll,
+    Optional<TestCase> caughtCase) {
 
   public MutantResult {
     coveredBy = listed(mutant, coveredBy);
     inputs = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(inputs));
     caughtByAll = List.copyOf(caughtByAll);
+  }
+
+  /// A result that names no case: its catcher, if it has one, runs no table of them.
+  public MutantResult(
+      Mutant mutant,
+      Status status,
+      List<String> coveredBy,
+      Optional<String> caughtBy,
+      Optional<String> failure,
+      Optional<String> failureOrigin,
+      int testsRun,
+      Optional<String> unconfirmed,
+      java.util.Map<String, List<Long>> inputs,
+      Optional<Suggestion> suggestion,
+      Duration took,
+      Optional<String> falseCatchBy,
+      List<String> caughtByAll) {
+    this(
+        mutant,
+        status,
+        coveredBy,
+        caughtBy,
+        failure,
+        failureOrigin,
+        testsRun,
+        unconfirmed,
+        inputs,
+        suggestion,
+        took,
+        falseCatchBy,
+        caughtByAll,
+        Optional.empty());
   }
 
   /// A result without every catcher: the run stopped at the first.
@@ -167,7 +202,8 @@ public record MutantResult(
         suggestion,
         took,
         falseCatchBy,
-        caughtByAll);
+        caughtByAll,
+        caughtCase);
   }
 
   /// The same result with a suggested test.
@@ -185,7 +221,8 @@ public record MutantResult(
         found,
         took,
         falseCatchBy,
-        caughtByAll);
+        caughtByAll,
+        caughtCase);
   }
 
   /// The same result, its catch by `test` found false: the mutant's result without that test.
@@ -203,7 +240,8 @@ public record MutantResult(
         suggestion,
         took,
         Optional.of(test),
-        caughtByAll);
+        caughtByAll,
+        caughtCase);
   }
 
   /// The same result, with every covering test that catches it (`--kill-matrix`).
@@ -221,6 +259,26 @@ public record MutantResult(
         suggestion,
         took,
         falseCatchBy,
-        tests);
+        tests,
+        caughtCase);
+  }
+
+  /// The same result, naming the case of its catcher that failed.
+  public MutantResult withCaughtCase(Optional<TestCase> failed) {
+    return new MutantResult(
+        mutant,
+        status,
+        coveredBy,
+        caughtBy,
+        failure,
+        failureOrigin,
+        testsRun,
+        unconfirmed,
+        inputs,
+        suggestion,
+        took,
+        falseCatchBy,
+        caughtByAll,
+        failed);
   }
 }

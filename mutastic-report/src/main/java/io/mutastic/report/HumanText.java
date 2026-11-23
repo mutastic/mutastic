@@ -600,9 +600,10 @@ public final class HumanText {
   private static String outcome(MutantResult result) {
     return switch (result.status()) {
       case CAUGHT ->
-          "caught by %s%s"
+          "caught by %s%s%s"
               .formatted(
                   AgentText.shortName(result.caughtBy().orElse("a test")),
+                  AgentText.inCase(result),
                   result
                       .failureOrigin()
                       .map(origin -> by(origin, result.failure().orElse("")))
@@ -1363,9 +1364,12 @@ public final class HumanText {
     return switch (result.status()) {
       case CAUGHT ->
           detectedFate(
-              "%s is %s by %s"
+              "%s is %s by %s%s"
                   .formatted(
-                      id, words.detected, AgentText.shortName(result.caughtBy().orElse("a test"))));
+                      id,
+                      words.detected,
+                      AgentText.shortName(result.caughtBy().orElse("a test")),
+                      AgentText.inCase(result)));
       case TIMED_OUT ->
           detectedFate(
               "%s is %s: its tests stopped finishing in time".formatted(id, words.detected));

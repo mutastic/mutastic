@@ -1097,7 +1097,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "4729e3f5e2a37ca4a6b69c9390b46059bb2c9772c105f8032f5c162a216db76a"
+      "sha256": "abe9db05dfe84ea4bfc1627fab476e7fc6c9678038f26c8b786fca69923de010"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1728,6 +1728,10 @@
     {
       "id": 21,
       "rule": "A mutant one of mutastic's own arid rules skipped names the rule: `skipRule` in `mutant-finished`, `mutastic.skipRule` in mutation.json, and in `explain` and the HTML report with its docs section (decision 20) and the `mutastic.yaml` rule that runs it, `- mutate: <its method>` with `arid: [<id>]` and `reason: <why a test should check it>`. A `mutate:` rule's optional `arid:` list, of known ids only (an unknown one is refused, with a close one when there is one), brings back only those rules' skips; without it, every arid skip in the code it covers."
+    },
+    {
+      "id": 70,
+      "rule": "Each edition keeps its own test identity for a table of cases: Java's test is the method, its parameterized, repeated and dynamic invocations its cases; Rust's is each case as libtest lists it, rstest's `#[case]` and test-case's `#[test_case]` rows. When the test that catches a mutant is one case of such a table, the case is named as evidence of this run, keyed by the test it's written as, its position among that test's cases in this run (from 1) and what it's called (Java: its display name; Rust: its row as written): `caughtCase` `{test, index, name}` in `mutant-finished`, and ` (case <name>)` after the catching test wherever a line names it (`verify`, `explain`, the agent format). A test that fails with no mutant in names its case the same way. The index moves when a case is added before it, so nothing keys on it across runs."
     },
     {
       "id": 22,
