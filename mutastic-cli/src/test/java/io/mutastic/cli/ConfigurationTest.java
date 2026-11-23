@@ -5,9 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 import io.mutastic.api.Rule;
+import io.mutastic.report.LeftOut;
 import io.mutastic.report.Schemas;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -61,7 +63,7 @@ class ConfigurationTest {
     assertThatThrownBy(() -> Configuration.read(project))
         .hasMessage(
             "mutastic.yaml line 1: garbage isn't a section; the sections are extends:, rules:,"
-                + " plugins:, filters:, operators: and gate:");
+                + " plugins:, filters:, operators:, exclude-tests: and gate:");
   }
 
   /// A list on its section's line is read by YAML but not by mutastic, which says how to write it.
@@ -312,6 +314,72 @@ class ConfigurationTest {
 
     Files.writeString(module.resolve("mutastic.yaml"), text + "operators:\n  - defaults\n");
     assertThat(Configuration.read(module).operators()).containsExactly("defaults");
+  }
+
+  /// `exclude-tests:` leaves tests out of every run, each with its reason: a test left out without
+  /// one may be a broken test hidden. A module's file adds its parent's, each test once, with the
+  /// module's reason. The Rust edition's `config.rs` has the same cases.
+  @Test
+  void aTestLeftOutSaysWhy() throws Exception {
+    var text =
+        """
+        exclude-tests:
+          - test: CheckoutRaceTest
+            reason: shares port 8080 with the payment stub
+          - test: "com.acme.PricingTest#bigOrders"
+            reason: rounding changes next week
+        """;
+    write(text);
+    assertThat(Configuration.read(project).excludedTests())
+        .extracting(LeftOut::test, LeftOut::reason)
+        .containsExactly(
+            tuple("CheckoutRaceTest", Optional.of("shares port 8080 with the payment stub")),
+            tuple("com.acme.PricingTest#bigOrders", Optional.of("rounding changes next week")));
+    assertThat(Schemas.yamlProblems("mutastic-yaml/v1.json", text)).isEmpty();
+
+    var module = Files.createDirectories(project.resolve("core"));
+    Files.writeString(
+        module.resolve("mutastic.yaml"),
+        """
+        extends: ../mutastic.yaml
+        exclude-tests:
+          - test: CheckoutRaceTest
+            reason: the module's own
+        """);
+    assertThat(Configuration.read(module).excludedTests())
+        .extracting(LeftOut::test, LeftOut::reason)
+        .containsExactly(
+            tuple("CheckoutRaceTest", Optional.of("the module's own")),
+            tuple("com.acme.PricingTest#bigOrders", Optional.of("rounding changes next week")));
+  }
+
+  @Test
+  void aTestLeftOutWithoutAReasonIsRefused() throws Exception {
+    var refused =
+        java.util.Map.of(
+            "exclude-tests:\n  - test: RacyTest\n",
+            "mutastic.yaml line 2: the test `RacyTest` needs a `reason:` under it: why it's left"
+                + " out, which the summary shows",
+            "exclude-tests:\n  - test: a\n    reason: ''\noperators:\n  - stronger\n",
+            "mutastic.yaml line 4: the test `a` needs a `reason:` under it: why it's left out,"
+                + " which the summary shows",
+            "exclude-tests:\n  - test: a\n  - test: b\n    reason: r\n",
+            "mutastic.yaml line 3: the test `a` needs a `reason:` under it: why it's left out,"
+                + " which the summary shows",
+            "exclude-tests:\n  - test: a\n    reason: r\n    reason: s\n",
+            "mutastic.yaml line 4: the test `a` has one `reason:`",
+            "exclude-tests:\n  - RacyTest\n",
+            "mutastic.yaml line 2: a test to leave out is `- test: <name>`, then `reason: …`",
+            "exclude-tests:\n  reason: r\n",
+            "mutastic.yaml line 2: a test to leave out is `- test: <name>`, then `reason: …`");
+    for (var each : refused.entrySet()) {
+      write(each.getKey());
+      assertThatThrownBy(() -> Configuration.read(project))
+          .as(each.getKey())
+          .hasMessage(each.getValue());
+    }
+    assertThat(Schemas.yamlProblems("mutastic-yaml/v1.json", "exclude-tests:\n  - test: a\n"))
+        .isNotEmpty();
   }
 
   /// A file that isn't there, or a loop, is named, never skipped.

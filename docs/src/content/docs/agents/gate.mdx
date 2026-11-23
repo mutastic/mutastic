@@ -77,7 +77,10 @@ line can break a test too. Since only the mutants on those lines run, a stronger
   turned off, each row of a table of cases counted as a test. The check counts them again and
   compares them with the count `gate open` started: fewer cases run, or more skipped, holds the
   task. If that count couldn't finish (the tests failed at the start, or it was stopped), the check
-  says so when it passes, and counts from the source instead;
+  says so when it passes, and counts from the source instead. A test the task left out under
+  [`exclude-tests:`](/guides/configuration/#leaving-a-test-out) in `mutastic.yaml` is a test taken
+  away too: leaving one out is your call, so the agent finds out whether the change or the test is
+  wrong, then tells you, or proposes leaving it out with its reason;
 - **the tests pass.** When a test that was there when the task started fails, the gate says so,
   and tells the agent to find out whether the change or the test is wrong, and to ask you if it
   isn't sure, rather than rewrite what the test expects. Every mutant is caught by a test made to

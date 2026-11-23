@@ -44,6 +44,29 @@
         "examples": ["defaults", "stronger", "extended", "all", "annotations", "-stream/swap-match"]
       }
     },
+    "exclude-tests": {
+      "type": ["array", "null"],
+      "description": "Tests every run leaves out, each with its reason: a test that fails here on its own, until it's fixed. `--exclude-tests` adds to these for one run. What only they reach counts as not covered, so the score can only fall; the summary names each with its reason, and `mutastic gate` counts one a task adds as a test taken away.",
+      "items": {
+        "type": "object",
+        "description": "`test:`, then `reason:` under it.",
+        "required": ["test", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "test": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The test, as `--exclude-tests` takes it: in Java a class by its name or full name, or one method of it, `Class#method`; in Rust a test's name as a run shows it, or a module of tests by its path.",
+            "examples": ["CheckoutRaceTest", "com.acme.CheckoutRaceTest#paysOnce", "checkout::tests::pays_once"]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Why it's left out: shown with it in the summary and in `run-finished`."
+          }
+        }
+      }
+    },
     "gate": {
       "type": ["object", "null"],
       "description": "What `mutastic gate` holds an agent's task to, apart from everyday runs.",
