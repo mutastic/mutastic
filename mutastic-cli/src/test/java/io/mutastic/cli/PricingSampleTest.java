@@ -96,7 +96,9 @@ class PricingSampleTest {
     // The files written, named where an agent reads first, so it doesn't run again to get one.
     var reports = project.resolve("build/mutastic").toAbsolutePath().normalize();
     assertThat(run.out().lines().skip(1).findFirst().orElseThrow())
-        .isEqualTo("reports: %s/mutation.json · %s/mutation.html".formatted(reports, reports));
+        .isEqualTo(
+            "reports: %s · %s"
+                .formatted(reports.resolve("mutation.json"), reports.resolve("mutation.html")));
   }
 
   @Test
