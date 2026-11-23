@@ -22,11 +22,11 @@ permissions:
 jobs:
   tests:
     runs-on: windows-latest
-    # A share takes 5 to 14 minutes. Past the tests' own limits (five minutes a test, 20 for the
+    # A share takes 5 to 16 minutes. Past the tests' own limits (five minutes a test, 25 for the
     # step), so a test that hangs fails, says where, and its reports are kept, rather than the job
     # being cut off. A runner that stops answering doesn't keep to the step's limit, only to this
     # one, and then the share runs again: at 45 minutes that took an hour to find out.
-    timeout-minutes: 25
+    timeout-minutes: 30
     env:
       TESTS: >-
         ${{ inputs.share == 1
@@ -67,7 +67,7 @@ jobs:
       # failures in full (the test task logs them, CardsTest as a diff), and the runner's state
       # (windows-dump.ps1), on every share so a failure has a healthy share to compare with.
       - shell: pwsh
-        timeout-minutes: 20
+        timeout-minutes: 25
         run: |
           # A failing native command mustn't end the script: what follows has to run.
           $PSNativeCommandUseErrorActionPreference = $false
