@@ -131,8 +131,9 @@ final class TextConstants {
       InvokeInstruction call, int at, Supertypes supertypes, OutputCalls outputs) {
     var code = outputs.code();
     var owner = call.owner().asInternalName();
-    if (outputs.writes(at)) {
-      return Optional.of(OutputCalls.REASON);
+    var output = outputs.fed(at, OutputCalls.REASON);
+    if (output.isPresent()) {
+      return output;
     }
     if (call.name().equalsString("<init>") && isThrowable(owner, code, at, supertypes)) {
       return Optional.of("arid: only an exception's message");

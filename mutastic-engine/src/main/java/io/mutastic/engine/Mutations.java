@@ -185,7 +185,13 @@ final class Mutations {
         new Wrappers(module),
         supertypes,
         module,
-        scanned.threads());
+        scanned.threads(),
+        outputRules());
+  }
+
+  /// The project's `output:` rules: its own calls that only write output.
+  private List<Rule> outputRules() {
+    return policy.rules().stream().filter(rule -> rule.kind() == Rule.Kind.OUTPUT).toList();
   }
 
   /// The mutants at where their code really is, and those in code copied in from outside the module
@@ -351,7 +357,7 @@ final class Mutations {
   private Optional<Rule> rule(ClassModel model, String member, boolean mutate) {
     var className = model.thisClass().asInternalName().replace('/', '.');
     return policy.rules().stream()
-        .filter(rule -> rule.mutate() == mutate && rule.covers(className, member))
+        .filter(rule -> (mutate ? rule.mutate() : rule.skip()) && rule.covers(className, member))
         .findFirst();
   }
 
@@ -410,7 +416,8 @@ final class Mutations {
         Wrappers wrappers,
         Supertypes supertypes,
         Map<String, ClassModel> module,
-        ThreadSettings.Facts threads) {
+        ThreadSettings.Facts threads,
+        List<Rule> outputRules) {
       this.model = model;
       this.module = module;
       this.wrappers = wrappers;
@@ -430,7 +437,7 @@ final class Mutations {
       this.defaultStandIns = kotlin ? KotlinDefaults.places(code) : Set.of();
       this.operands = method.code().map(Operands::new).orElseThrow();
       this.stores = new Stores(code);
-      this.outputs = new OutputCalls(code, method);
+      this.outputs = new OutputCalls(code, method, outputRules);
       this.threads = new ThreadSettings(code, threads);
     }
 

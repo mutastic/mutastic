@@ -82,11 +82,56 @@ class SchemaCompatibilityTest {
         .anyMatch(problem -> problem.endsWith("the field `reason` is gone"));
 
     var fewer = (ObjectNode) released.deepCopy();
-    ((ArrayNode) fewer.at("/$defs/rule/oneOf")).remove(1);
+    var kinds = (ArrayNode) fewer.at("/$defs/rule/oneOf");
+    int had = kinds.size();
+    kinds.remove(1);
     assertThat(SchemaCompatibility.breaks(released, fewer, "mutastic.yaml"))
         .singleElement()
         .satisfies(
-            problem -> assertThat(problem).endsWith("`oneOf` had 2 alternatives, and has 1"));
+            problem ->
+                assertThat(problem)
+                    .endsWith("`oneOf` had %d alternatives, and has %d".formatted(had, had - 1)));
+  }
+
+  /// A new kind of rule is kept when no file the released schema took can be one: it requires a
+  /// field the released kinds refuse, and comes after them. One a released file could match, one
+  /// put before the others, and one in what mutastic writes are breaks.
+  @Test
+  void aNewKindOfRuleIsKeptOnlyWhenNoReleasedFileCanBeOne() {
+    var released = Schemas.read(Schemas.PUBLISHED.resolve("mutastic-yaml/v1.json"));
+    int had = released.at("/$defs/rule/oneOf").size();
+    var grows = "`oneOf` had %d alternatives, and has %d".formatted(had, had + 1);
+
+    var apart = (ObjectNode) released.deepCopy();
+    kind((ArrayNode) apart.at("/$defs/rule/oneOf"), "audit");
+    assertThat(SchemaCompatibility.breaks(released, apart, "mutastic.yaml")).isEmpty();
+
+    var overlapping = (ObjectNode) released.deepCopy();
+    kind((ArrayNode) overlapping.at("/$defs/rule/oneOf"), "skip");
+    assertThat(SchemaCompatibility.breaks(released, overlapping, "mutastic.yaml"))
+        .singleElement()
+        .satisfies(problem -> assertThat(problem).endsWith(grows));
+
+    var first = (ObjectNode) released.deepCopy();
+    var kinds = (ArrayNode) first.at("/$defs/rule/oneOf");
+    kinds.insert(0, kind(kinds.arrayNode(), "audit").get(0));
+    assertThat(SchemaCompatibility.breaks(released, first, "mutastic.yaml")).isNotEmpty();
+
+    assertThat(SchemaCompatibility.breaks(released, apart))
+        .as("in what mutastic writes, a reader would meet a shape it doesn't know")
+        .singleElement()
+        .satisfies(problem -> assertThat(problem).endsWith(grows));
+  }
+
+  /// Adds a kind of rule that requires `field` and a reason, and takes nothing else.
+  private static ArrayNode kind(ArrayNode kinds, String field) {
+    var kind = kinds.addObject();
+    kind.putArray("required").add(field).add("reason");
+    kind.put("additionalProperties", false);
+    var properties = kind.putObject("properties");
+    properties.putObject(field).put("type", "string");
+    properties.putObject("reason").put("type", "string");
+    return kinds;
   }
 
   @Test
