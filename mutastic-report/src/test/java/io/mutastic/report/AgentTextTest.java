@@ -367,7 +367,9 @@ class AgentTextTest {
         .contains("It failed with ConnectException, from outside the code")
         .contains("nothing in the test varies: that's the environment")
         .contains(
-            "so leave both, tell the person, and run without it with `--exclude-tests=QuoteClientTest`")
+            "so leave both and tell the person, or propose leaving it out under `exclude-tests:` in"
+                + " mutastic.yaml with its reason, for them to decide.")
+        .doesNotContain("--exclude-tests")
         .doesNotContain("likely safe");
     assertThat(withEvidence(random))
         .contains("The code it runs reaches new Random(), which answers differently every run")
@@ -542,11 +544,14 @@ class AgentTextTest {
                 + " on something another test or the run sets up or leaves behind.",
             "flaky: OtherTest#c passes among the others but fails on its own, with no mutant in"
                 + " (run again after the mutants, it failed):",
-            "`--exclude-tests=PricingTest`",
+            "If it can't be made to pass on its own now, don't leave it out yourself: tell the"
+                + " person, or propose leaving it out under `exclude-tests:` in mutastic.yaml with"
+                + " its reason, for them to decide.",
             "the run can't pass until it passes on its own",
             "all still pass with the change (PricingTest#b failed against it, but fails on its own"
                 + " with no mutant in too: that catch doesn't count)",
             "no test reaches these lines, or only a flaky one does");
+    assertThat(output).doesNotContain("--exclude-tests");
     assertThat(AgentText.failingAlone(report(List.of(), List.of(), List.of()))).isEmpty();
   }
 

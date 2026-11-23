@@ -66,11 +66,15 @@
         "java": [
           "arid: only writes output",
           "arid: only feeds a log line",
-          "arid: only decides whether output is written"
+          "arid: only decides whether output is written",
+          "arid: only calls <call> (<reason>)",
+          "arid: only feeds <call> (<reason>)"
         ],
         "rust": [
           "arid: only writes output",
-          "arid: only feeds a log line"
+          "arid: only feeds a log line",
+          "arid: only decides whether output is written",
+          "arid: only calls <call> (<reason>)"
         ]
       },
       "examples": {

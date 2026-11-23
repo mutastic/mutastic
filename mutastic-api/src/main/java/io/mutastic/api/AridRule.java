@@ -39,7 +39,9 @@ public enum AridRule {
       "System.out.println(\"Saved \" + id);",
       "arid: only writes output",
       "arid: only feeds a log line",
-      "arid: only decides whether output is written"),
+      "arid: only decides whether output is written",
+      "arid: only calls <call> (<reason>)",
+      "arid: only feeds <call> (<reason>)"),
   MESSAGES(
       "mutastic:messages",
       Scope.SITE,
@@ -216,11 +218,11 @@ public enum AridRule {
     return Arrays.stream(values()).map(AridRule::id).toList();
   }
 
-  /// A reason as a pattern: `<field>` is any name.
+  /// A reason as a pattern: `<field>` is any name, and `<reason>` a project's own words.
   private static Pattern pattern(String reason) {
     return Pattern.compile(
-        Arrays.stream(reason.split("<[a-z]+>", -1))
-            .map(Pattern::quote)
+        Arrays.stream(reason.replace("<reason>", "\u0000").split("<[a-z]+>", -1))
+            .map(part -> Pattern.quote(part).replace("\u0000", "\\E.+\\Q"))
             .reduce((before, after) -> before + "[^`\\s]+" + after)
             .orElseThrow());
   }

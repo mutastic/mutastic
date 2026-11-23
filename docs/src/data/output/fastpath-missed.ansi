@@ -1,0 +1,18 @@
+ [41;30;1m ✗ MISSED [0m no test checks [1mread()[0m at [1mdigits.length() == 9[0m[2m · mb0e29482[0m
+    [2m┌─[0m src/main/java/com/example/fastpath/Digits.java:9
+    [2m│[0m
+ [2m 8[0m [2m│[0m   public static long read(String digits) {
+ [2m 9[0m [2m│[0m     if (digits.length() > 9) {
+    [2m│[0m                         [1;31m^ > changed to >=[0m
+ [2m10[0m [2m│[0m       return readCarefully(digits);
+    [2m│[0m
+    [2m=[0m mutant  [1;31m- [0mif (digits.length() > 9) {
+              [32m+ [0mif (digits.length() >= 9) {
+    [2m=[0m also    [1;31m✗[0m no test needs [1mdigits.length() > 9[0m to be false in [1mread()[0m [2m· m061d8040[0m
+              [32m+ [0mif (true) {
+    [2m=[0m [1;34m[1mnote[0m[0m: covered by DigitsTest#readsAFewDigits, DigitsTest#readsMoreThanAnIntHolds, DigitsTest#readsNineDigits and 1 more (all 4 covering tests still pass)
+    [2m=[0m [32m[1mhelp[0m[0m: test [1mread()[0m with [1mdigits.length() = 9[0m and assert the result
+
+    [2mdone when [0m mutastic verify mb0e29482,m061d8040 samples/fastpath[2m passes[0m
+    [2mreproduce [0m mutastic run --only=mb0e29482,m061d8040 samples/fastpath
+    [2mor ignore [0m mutastic ignore <id> --reason="<why>" samples/fastpath for each of mb0e29482, m061d8040

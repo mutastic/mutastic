@@ -4,6 +4,7 @@ description: "Tell mutastic what not to mutate, and why: annotations, mutastic.y
 ---
 
 import { Code } from '@astrojs/starlight/components';
+import EditionOnly from '../../../components/EditionOnly.astro';
 import without from '../../../data/output/configured-without.ansi?raw';
 import configured from '../../../data/output/configured.ansi?raw';
 import explained from '../../../data/output/configured-explain.ansi?raw';
@@ -115,6 +116,8 @@ rules:
   - mutate: com.acme.Worker#run      # only what one arid rule skips: its waits
     arid: [mutastic:waits]
     reason: callers rely on run() returning once the work is done
+  - output: com.acme.AuditLog#*      # your own output calls, skipped as log calls are
+    reason: the audit trail, which ops read and tests don't
 plugins:
   - build/libs/acme-filters.jar      # a jar: filters and operators of your own
   - mutiny.yaml                      # a rules file: call operators, as data
@@ -123,6 +126,9 @@ filters:
 operators:
   - defaults                         # which operators run, as --operators chooses
   - -stream/swap-match
+exclude-tests:
+  - test: CheckoutRaceTest#paysOnce  # a test every run leaves out, with why
+    reason: shares port 8080 with the payment stub until it's fixed
 gate:
   operators:
     - stronger                       # what the gate holds an agent's task to
@@ -149,6 +155,32 @@ file's first line:
 ```
 
 See [Schemas and stability](/reference/schemas/).
+
+### Leaving a test out
+
+A test that fails on its own, with no mutant in, stops the run: mutastic can't tell a mutant it
+catches from one it would fail on anyway, and the message ends in how to leave it out. Fix it if
+you can. Until then, `exclude-tests:` leaves it out of every run, with the reason a reviewer reads:
+
+```yaml
+exclude-tests:
+  - test: PricingTest#bigOrdersGetTenPercentOff
+    reason: expects the old discount until the pricing change lands
+```
+
+A test is named as [`--exclude-tests`](/reference/run/#exclude-tests) takes it: a test class by its
+name or full name, which leaves out every test in it, or one method, `Class#method`, with every
+overload and every row of it. A test without a `reason:` is an error. The summary's `Left out` row
+names each test with its reason, the Score row ends in `· 1 test left out`, and `run-finished`
+lists them as `testsLeftOut`. A left-out test can't make a mutant look caught: what only it reaches
+counts as not covered, so the score can only fall. A run with other tests left out is other code
+than one that ran them, never compared as the same. `--exclude-tests` adds to the file's tests for
+one run. With `extends:`, the file's own come first, then the other file's, and a test named in
+both keeps this file's reason.
+
+Leaving a test out is a person's call, as a test left out may be a broken one hidden: an agent's
+output never offers it, and [`mutastic gate`](/agents/gate/) holds a task that adds one as a task
+that took a test away.
 
 ### In a build of several modules
 
@@ -178,6 +210,33 @@ Ignores are the run's: `.mutastic/` beside the directory the run is on, the top'
 An annotation on the code comes first, then a rule, then mutastic's own filters, then a plugin's: its verdict on a whole method, and last its verdict on one mutant. A `mutate:` rule, like `@DoMutate`, brings back every mutant mutastic would call arid in the code it covers, a whole method or one call in it, and never generated or equivalent code. Every rule needs a reason, which is shown with each mutant it skips.
 
 Every arid skip is one rule's, by an id that never changes: `mutastic:output`, `mutastic:waits`, `mutastic:capacity` and the rest. An `arid:` list on a `mutate:` rule brings back only those rules' skips, so a team whose tests measure its pauses can count its sleeps and still leave its log lines out. `@DoMutate(arid = "mutastic:waits")` does the same in the code. `mutastic explain` on a skipped mutant names its rule, links to its docs and prints the rule to copy.
+
+### Your own output calls
+
+mutastic knows the common loggers, but not the wrapper your team logs through, an audit log, or a
+metric nobody's tests read. Without a rule, each of their calls is a mutant that only a test of the
+log text would catch. An `output:` rule names them, with a reason, and mutastic skips them as it
+skips a logger's calls, under `mutastic:output`:
+
+```yaml title="mutastic.yaml"
+rules:
+  - output: com.acme.AuditLog#*
+    reason: the audit trail, which ops read and tests don't
+```
+
+A removed call says `arid: only calls AuditLog#info (the audit trail, which ops read and tests
+don't)`. So does a string or a value that only goes into one, as `arid: only feeds AuditLog#info
+(…)`, and a check like `if (audit.enabled())` around nothing but those calls. The pattern names the
+methods called, as `skip:` names the code: `Class#method`, `*` for one name, `**` for any depth.
+The skips are arid like the rest: a `mutate:` rule brings them back, and `MUTASTIC_ARID=audit` runs
+them. None are output until a rule says so, since some teams test their metrics.
+
+<EditionOnly edition="rust">
+**In the Rust edition:** an `output:` rule names a function or a macro by its path,
+`crate::audit::record` or `metrics::counter`, and a statement that calls it is skipped as
+`arid: only calls audit::record (…)`. The path in the code may be shorter, `audit::record` or
+`record` after a `use`: its segments are matched against the end of the rule's.
+</EditionOnly>
 
 ## Ignoring one mutant
 

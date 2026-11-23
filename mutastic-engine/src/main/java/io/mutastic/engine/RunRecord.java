@@ -70,6 +70,25 @@ public record RunRecord(
     return new RunRecord(projectOf(project), "", codeOf(roots), tool, report.score(), results);
   }
 
+  /// The same record, of a run that left out these tests (`--exclude-tests`, `exclude-tests:`): the
+  /// tests that ran are part of what it ran, so a run with other tests left out is never "the same
+  /// code", and what flips between them isn't taken for a flaky test's doing. With none left out,
+  /// the code is as it was, so a record from before still compares.
+  public RunRecord leavingOut(List<String> tests) {
+    if (tests.isEmpty()) {
+      return this;
+    }
+    var named = tests.stream().sorted().collect(Collectors.joining("\n"));
+    try {
+      var digest = MessageDigest.getInstance("SHA-256");
+      digest.update((code + "\n" + named).getBytes(StandardCharsets.UTF_8));
+      var without = HexFormat.of().formatHex(digest.digest());
+      return new RunRecord(project, operators, without, tool, score, results);
+    } catch (NoSuchAlgorithmException e) {
+      throw new AssertionError("every JDK has SHA-256", e);
+    }
+  }
+
   /// The same record, of a run that used these operators.
   public RunRecord under(List<Operator> active) {
     var ids = active.stream().map(Operator::id).sorted().collect(Collectors.joining(","));

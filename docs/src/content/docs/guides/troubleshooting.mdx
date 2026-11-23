@@ -241,10 +241,11 @@ itself:
   writes it, or give each test a place of its own (JUnit's `@TempDir`).
 
 Fix the test rather than what it checks: loosening the assertion makes its catches count again
-without making them true. If a test class can't be made to run on its own yet, leave it out with
-[`--exclude-tests`](/reference/run/#exclude-tests): the run then passes or fails on the other
-tests, and the lines only it reached count as not covered. There's no switch to count its catches
-anyway: they're known to be false.
+without making them true. If a test can't be made to run on its own yet, leave it out, with its
+reason, under [`exclude-tests:`](/guides/configuration/#leaving-a-test-out) in `mutastic.yaml`, or
+for one run with [`--exclude-tests`](/reference/run/#exclude-tests): the run then passes or fails
+on the other tests, and the lines only it reached count as not covered. There's no switch to count
+its catches anyway: they're known to be false.
 
 ## 4: mutastic itself went wrong
 

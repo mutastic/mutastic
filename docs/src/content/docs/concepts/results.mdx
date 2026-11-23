@@ -201,16 +201,21 @@ left in `main`, the one line, stays not covered, and gets no such advice. mutast
 
 A parameterised method is one test, however many cases it runs. Each row of a `@CsvSource`, each
 value of a `@ValueSource`, each `Arguments.of(…)` a `@MethodSource` returns, and each row of a
-JUnit 4 `Parameterized` class is a case of the method that declares it, so mutastic names the
-method, by its class and its parameters' types, `CalculatorTest#addsMixed(int, int, int)`, and
-never the case. A `@RepeatedTest`, a `@TestFactory`'s dynamic tests and a JUnit 4
-`Parameterized` class's test (`SubtractJUnit4Test#subtracts`) are one test each the same way.
+JUnit 4 `Parameterized` class is a case of the method that declares it, so mutastic runs and
+names the method, by its class and its parameters' types, `CalculatorTest#addsMixed(int, int,
+int)`. A `@RepeatedTest`, a `@TestFactory`'s dynamic tests and a JUnit 4 `Parameterized` class's
+test (`SubtractJUnit4Test#subtracts`) are one test each the same way.
 
 That holds everywhere a test is named or counted:
 
-- **Caught by** names the method one of whose cases failed. It doesn't say which case yet, or show
-  a custom `@ParameterizedTest(name = …)`: when only one row catches a mutant, the card names the
-  method, not the row.
+- **Caught by** names the method, then the first of its cases that failed, as JUnit names it:
+  `CalculatorTest#addsMixed(int, int, int) (case [2] 2, 3, 5)` in `verify` and `explain`, and
+  `caughtCase` in `--format=jsonl`. A custom `@ParameterizedTest(name = …)` shows as written. The
+  number is the case's place in this run, so a row added above it moves it: it says which row
+  caught the mutant this time, and isn't a name to keep. A JUnit 4 `Parameterized` class's cases
+  aren't named yet.
+- **A test that fails with no mutant in** is named the same way, with the first of its cases that
+  failed and what that case said.
 - **Covered by** and "its 1 covering test" count methods, not cases.
 - **Re-running a test** runs every one of its cases: against a mutant, to confirm a catch, and in
   `--kill-matrix`.

@@ -63,6 +63,8 @@ final class Gate {
   ///   turns
   /// @param operators the operators the open chose, as it chose them (`stronger`), which every
   ///   check runs: empty in a file an older gate wrote, whose checks choose as `gate open` would
+  /// @param excluded the tests under `exclude-tests:` in `mutastic.yaml` when it opened: one the
+  ///   task adds is a test taken away. Empty in a file an older gate wrote, which kept none
   record State(
       String session,
       String base,
@@ -73,9 +75,11 @@ final class Gate {
       String tree,
       Map<String, String> red,
       Optional<Set<String>> stopped,
-      List<String> operators) {
+      List<String> operators,
+      Optional<Set<String>> excluded) {
     State {
       operators = List.copyOf(operators);
+      excluded = excluded.map(Set::copyOf);
       ignored = Set.copyOf(ignored);
       baselined = baselined.map(Set::copyOf);
       red = Map.copyOf(red);
@@ -94,17 +98,29 @@ final class Gate {
           now,
           red,
           Optional.empty(),
-          operators);
+          operators,
+          excluded);
     }
 
     State passed() {
-      return new State(session, base, ignored, baselined, shape, 0, "", red, stopped, operators);
+      return new State(
+          session, base, ignored, baselined, shape, 0, "", red, stopped, operators, excluded);
     }
 
     /// The agent let stop, with what's ignored `now`.
     State stoppedWith(Set<String> now) {
       return new State(
-          session, base, ignored, baselined, shape, blocks, tree, red, Optional.of(now), operators);
+          session,
+          base,
+          ignored,
+          baselined,
+          shape,
+          blocks,
+          tree,
+          red,
+          Optional.of(now),
+          operators,
+          excluded);
     }
 
     /// These, and the tests that failed at this check too.
@@ -112,7 +128,8 @@ final class Gate {
       var all = new TreeMap<>(red);
       all.putAll(failed);
       return new State(
-          session, base, ignored, baselined, shape, blocks, tree, all, stopped, operators);
+          session, base, ignored, baselined, shape, blocks, tree, all, stopped, operators,
+          excluded);
     }
 
     /// A new prompt, with what's ignored `now`: the ignores the person made between turns, after
@@ -131,7 +148,17 @@ final class Gate {
         }
       }
       return new State(
-          session, base, kept, baselined, shape, blocks, tree, red, Optional.empty(), operators);
+          session,
+          base,
+          kept,
+          baselined,
+          shape,
+          blocks,
+          tree,
+          red,
+          Optional.empty(),
+          operators,
+          excluded);
     }
 
     /// Whether the agent was sent back, and has changed nothing since.
@@ -169,7 +196,8 @@ final class Gate {
           properties.getProperty("tree", ""),
           redIn(properties),
           stopped,
-          operatorsIn(properties.getProperty("operators", "")));
+          operatorsIn(properties.getProperty("operators", "")),
+          Optional.ofNullable(properties.getProperty("excluded")).map(State::ids));
     }
 
     /// Operators as [#FILE] keeps them, `stronger,-stream`: none in a file an older gate wrote.
@@ -222,6 +250,8 @@ final class Gate {
       if (!operators.isEmpty()) {
         properties.setProperty("operators", String.join(",", operators));
       }
+      excluded.ifPresent(
+          tests -> properties.setProperty("excluded", String.join(",", new TreeSet<>(tests))));
       return properties;
     }
 

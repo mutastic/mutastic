@@ -42,7 +42,7 @@ public final class HumanText {
   /// What the run knows beyond the report: when it started, how long reading the build took, the
   /// report files written, and whether it was one mutant asked for by id.
   ///
-  /// @param leftOut the test classes `--exclude-tests` left out, which the summary names
+  /// @param leftOut the tests the run left out, which the summary names, each with its reason
   /// @param build how long the build tool took building what the run needs, of `setup`
   /// @param pages beside the HTML report the run wrote, the folder of a page for each mutant it
   ///   didn't catch, which opens the report on it: what the ids link to
@@ -53,7 +53,7 @@ public final class HumanText {
       Duration setup,
       List<Path> reports,
       boolean oneMutant,
-      List<String> leftOut,
+      List<LeftOut> leftOut,
       Duration build,
       Optional<Path> pages,
       Duration slept) {
@@ -68,7 +68,7 @@ public final class HumanText {
         Duration setup,
         List<Path> reports,
         boolean oneMutant,
-        List<String> leftOut,
+        List<LeftOut> leftOut,
         Duration build,
         Optional<Path> pages) {
       this(startedAt, setup, reports, oneMutant, leftOut, build, pages, Duration.ZERO);
@@ -80,7 +80,7 @@ public final class HumanText {
         Duration setup,
         List<Path> reports,
         boolean oneMutant,
-        List<String> leftOut,
+        List<LeftOut> leftOut,
         Duration build) {
       this(startedAt, setup, reports, oneMutant, leftOut, build, Optional.empty());
     }
@@ -91,7 +91,7 @@ public final class HumanText {
         Duration setup,
         List<Path> reports,
         boolean oneMutant,
-        List<String> leftOut) {
+        List<LeftOut> leftOut) {
       this(startedAt, setup, reports, oneMutant, leftOut, Duration.ZERO);
     }
 
@@ -600,9 +600,10 @@ public final class HumanText {
   private static String outcome(MutantResult result) {
     return switch (result.status()) {
       case CAUGHT ->
-          "caught by %s%s"
+          "caught by %s%s%s"
               .formatted(
                   AgentText.shortName(result.caughtBy().orElse("a test")),
+                  AgentText.inCase(result),
                   result
                       .failureOrigin()
                       .map(origin -> by(origin, result.failure().orElse("")))
@@ -1057,12 +1058,33 @@ public final class HumanText {
       rows.put("Reports", String.join(style.dim(" · "), reports(run)));
     }
     if (!run.leftOut().isEmpty()) {
-      rows.put("Left out", String.join(", ", run.leftOut()) + style.dim(" (--exclude-tests)"));
+      rows.put("Left out", leftOutRow(run.leftOut()));
     }
     if (!run.oneMutant()) { // one mutant has a fate, not a score
-      rows.put("Score", scoreRow(report, comparison));
+      rows.put("Score", scoreRow(report, comparison) + testsLeftOut(report, run));
     }
     return rows;
+  }
+
+  /// Each test left out on a line of its own: one from `mutastic.yaml` with its reason, as a test
+  /// left out may be a broken one hidden, and one given for this run marked so.
+  private String leftOutRow(List<LeftOut> leftOut) {
+    return leftOut.stream()
+        .map(
+            test ->
+                test.reason()
+                    .map(reason -> Untrusted.value(test.test()) + ": " + Untrusted.value(reason))
+                    .orElse(Untrusted.value(test.test()) + style.dim(" (--exclude-tests)")))
+        .collect(Collectors.joining("\n"));
+  }
+
+  /// ` · 2 tests left out`, after a score over fewer tests than the build runs: their mutants can
+  /// only count as not covered, so it can only be lower, and it's said where it's read.
+  private String testsLeftOut(Report report, Run run) {
+    int count = run.leftOut().size();
+    return count == 0 || report.score().isEmpty()
+        ? ""
+        : style.dim("  · %s left out".formatted(count(count, "test")));
   }
 
   /// Each report file as typed from where mutastic ran, linked to the file itself: a terminal
@@ -1342,9 +1364,12 @@ public final class HumanText {
     return switch (result.status()) {
       case CAUGHT ->
           detectedFate(
-              "%s is %s by %s"
+              "%s is %s by %s%s"
                   .formatted(
-                      id, words.detected, AgentText.shortName(result.caughtBy().orElse("a test"))));
+                      id,
+                      words.detected,
+                      AgentText.shortName(result.caughtBy().orElse("a test")),
+                      AgentText.inCase(result)));
       case TIMED_OUT ->
           detectedFate(
               "%s is %s: its tests stopped finishing in time".formatted(id, words.detected));

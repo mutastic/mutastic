@@ -45,7 +45,8 @@ class FalseCatchesTest {
             "flaky: LedgerTest#aNewLedgerIsEmpty passes among the others but fails on its own",
             "flaky: LedgerTest#recordingAddsToTheTotal passes among the others but fails on its"
                 + " own",
-            "or run without it with `--exclude-tests=FeesTest`",
+            "don't leave it out yourself: tell the person, or propose leaving it out under"
+                + " `exclude-tests:` in mutastic.yaml with its reason, for them to decide",
             "covered by: FeesTest#aFeeIsNeverNegative; all still pass with the change"
                 + " (FeesTest#chargesTheConfiguredPercent failed against it, but fails on its own"
                 + " with no mutant in too: that catch doesn't count)",

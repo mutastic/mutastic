@@ -96,6 +96,9 @@ public final class Worker {
   private String lastOrigin = "unknown";
   private boolean lastPortClash;
 
+  /// The case the first failure of the last `RUN`'s test was, if it was one: see [FailedCase].
+  private String firstCase = FailedCase.NONE;
+
   /// Each failing test's exception and its causes, `java.io.UncheckedIOException>java.net
   /// .ConnectException`: for the coverage pass's `FAILURE` lines, which say why a test that then
   /// passed was flaky.
@@ -105,10 +108,18 @@ public final class Worker {
   /// with no mutant in.
   private final Map<String, String> messages = new java.util.LinkedHashMap<>();
 
-  /// The JUnit tags the build's test task runs by: every run here is filtered the same way.
-  record Tags(List<String> include, List<String> exclude) {
+  /// Each failing test's case, the one it failed in, when it runs a table of them: see
+  /// [FailedCase].
+  private final Map<String, String> failedCases = new java.util.LinkedHashMap<>();
+
+  /// The JUnit tags the build's test task runs by, and the test methods the run leaves out: every
+  /// run here is filtered the same way.
+  record Tags(List<String> include, List<String> exclude, LeftOutMethods leftOut) {
     static Tags of(String[] args) {
-      return new Tags(values(args, "--include-tags="), values(args, "--exclude-tags="));
+      return new Tags(
+          values(args, "--include-tags="),
+          values(args, "--exclude-tags="),
+          new LeftOutMethods(values(args, "--exclude-methods=")));
     }
 
     void filter(LauncherDiscoveryRequestBuilder request) {
@@ -117,6 +128,9 @@ public final class Worker {
       }
       if (!exclude.isEmpty()) {
         request.filters(TagFilter.excludeTags(exclude));
+      }
+      if (!leftOut.methods().isEmpty()) {
+        request.filters(leftOut);
       }
     }
 
@@ -380,6 +394,7 @@ public final class Worker {
     Probes.reset();
     failures.clear();
     messages.clear();
+    failedCases.clear();
     var scopes = new TestScopes(Worker::id, framework == null);
     var planned = new PlannedTests(Worker::id, count -> protocol.println("TESTS\t" + count));
     var starting = new TestsStarting(Worker::id, test -> protocol.println("STARTED\t" + test));
@@ -391,13 +406,25 @@ public final class Worker {
     reportOnlyAtLoad();
     reportValues();
     reportLoaded();
-    failures.forEach(
-        (test, chain) ->
-            protocol.println(
-                "FAILURE\t" + test + "\t" + chain + "\t" + messages.getOrDefault(test, "")));
+    reportFailures();
     protocol.println("CASES\t" + cases.ran() + "\t" + cases.skipped());
     protocol.println(
         "DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
+  }
+
+  /// `FAILURE`, each failing test, its exception's chain, its message and its case.
+  private void reportFailures() {
+    failures.forEach(
+        (test, chain) ->
+            protocol.println(
+                "FAILURE\t"
+                    + test
+                    + "\t"
+                    + chain
+                    + "\t"
+                    + messages.getOrDefault(test, "")
+                    + "\t"
+                    + failedCases.getOrDefault(test, FailedCase.NONE)));
   }
 
   /// Answers `TEST` with how long each test takes alone (see [TestTimes]).
@@ -458,6 +485,7 @@ public final class Worker {
     for (String test : tests) {
       ran++;
       var started = new StartedTests();
+      firstCase = FailedCase.NONE;
       List<String> failing;
       try {
         failing = executeSaid(test, loader, started);
@@ -513,7 +541,9 @@ public final class Worker {
         + "\t"
         + lastOrigin
         + "\t"
-        + (lastPortClash ? "port-clash" : "-");
+        + (lastPortClash ? "port-clash" : "-")
+        + "\t"
+        + firstCase;
   }
 
   private List<String> execute(
@@ -576,7 +606,8 @@ public final class Worker {
   }
 
   /// Adds each failure's id to `failing` and keeps the last one's exception, origin and port clash
-  /// for the `RESULT` line.
+  /// for the `RESULT` line, with the case of the first. A test of many cases is named with the
+  /// first that failed, and its message: the lowest row that shows the mutant.
   private TestExecutionListener recordingFailures(List<String> failing) {
     return new TestExecutionListener() {
       @Override
@@ -585,13 +616,20 @@ public final class Worker {
         // `@BeforeAll`) fails the class, and its tests never start. A case an assumption aborts
         // didn't fail: it checked nothing, and is counted as skipped ([TestCases]).
         if (result.getStatus() == TestExecutionResult.Status.FAILED) {
+          var failedCase = FailedCase.of(test);
+          if (failing.isEmpty()) {
+            firstCase = failedCase;
+          }
           failing.add(id(test));
           lastFailure = "unknown";
           lastOrigin = "unknown";
           lastPortClash = false;
           result.getThrowable().ifPresent(Worker.this::remember);
+          failedCases.putIfAbsent(id(test), failedCase);
           result.getThrowable().ifPresent(thrown -> failures.put(id(test), causes(thrown)));
-          result.getThrowable().ifPresent(thrown -> messages.put(id(test), message(thrown)));
+          result
+              .getThrowable()
+              .ifPresent(thrown -> messages.putIfAbsent(id(test), message(thrown)));
           System.err.println("FAILED\t" + id(test));
           result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
         }
