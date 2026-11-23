@@ -251,6 +251,19 @@ final class Options {
               "",
               "mutastic run --operators=stronger"),
           new Option(
+              "--estimate",
+              Kind.FLAG,
+              Group.RUNNING,
+              "",
+              List.of(),
+              "Run every test once, with no mutant in, and estimate what defaults, stronger and all"
+                  + " would take",
+              EnumSet.of(Main.Subcommand.MUTANTS),
+              "",
+              false,
+              "",
+              "mutastic mutants --estimate"),
+          new Option(
               "--experimental",
               Kind.REPEATED,
               Group.RUNNING,

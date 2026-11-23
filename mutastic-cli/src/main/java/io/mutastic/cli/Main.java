@@ -15,6 +15,7 @@ import io.mutastic.engine.OperatorSet;
 import io.mutastic.engine.RunRecord;
 import io.mutastic.engine.RunRecords;
 import io.mutastic.engine.Shard;
+import io.mutastic.engine.TestTimes;
 import io.mutastic.report.AgentText;
 import io.mutastic.report.Explanation;
 import io.mutastic.report.FailOnNew;
@@ -389,7 +390,7 @@ public final class Main {
     var human = humanText(command, output, prepared.sources());
     showFileLines(command, output, human, prepared);
     progress.nameMutants(human::running);
-    var engine = new Engine(workerJar(), prepared.work().resolve("worker.log"));
+    var engine = engineFor(command, prepared);
     var options = options(command, terminal, prepared);
     var passes = new Passes(engine, options, progress, tool, shares);
     if (command.subcommand() != Subcommand.RUN) {
@@ -398,6 +399,21 @@ public final class Main {
           : single(command, prepared, passes, output);
     }
     return fullRun(command, prepared, passes, output);
+  }
+
+  /// The engine a run runs on, logging to the module's work directory and keeping its tests' times
+  /// there when it's `run`.
+  private static Engine engineFor(Command command, Prepared prepared) {
+    var log = prepared.work().resolve("worker.log");
+    return new Engine(workerJar(), log, timesOf(command, prepared));
+  }
+
+  /// Where a run keeps what its coverage pass measured, for `mutants` to estimate by: `run`'s only.
+  /// The engine keeps it only from a whole run, as a part measures only its part.
+  private static Optional<Path> timesOf(Command command, Prepared prepared) {
+    return command.subcommand() == Subcommand.RUN
+        ? Optional.of(TestTimes.file(prepared.work()))
+        : Optional.empty();
   }
 
   /// A run that mutates nothing and runs every test, quietly.
@@ -434,10 +450,98 @@ public final class Main {
   /// run.
   private static int listed(Command command, Prepared prepared, Output output, Terminal terminal) {
     var engine = new Engine(workerJar(), prepared.work().resolve("worker.log"));
-    var found = engine.find(prepared.project(), options(command, terminal, prepared));
+    var listing = new Listing(command, prepared, engine, terminal);
+    var notes =
+        command.estimate()
+            ? measuredEstimates(listing, output.progress())
+            : recordedEstimate(listing);
+    var found = listing.find(command);
     output.progress().finished();
-    output.out().print(new MutantList(prepared.sources()).of(found.all()));
+    output.out().print(new MutantList(prepared.sources()).of(found, notes));
     return PASSED;
+  }
+
+  /// Progress of the coverage pass of `mutants --estimate`: its line, and nothing of mutants run,
+  /// as it runs none.
+  private static final class Measuring extends ForwardingListener {
+    private final Progress progress;
+
+    Measuring(Progress progress) {
+      super(progress);
+      this.progress = progress;
+    }
+
+    @Override
+    public void coverageFinished(io.mutastic.api.CoveragePass pass) {
+      progress.measured(pass);
+    }
+  }
+
+  /// What `mutants` lists with, and finds the mutants of a set by.
+  private record Listing(Command command, Prepared prepared, Engine engine, Terminal terminal) {
+    /// The mutants `under` finds: its operators, or the project's.
+    List<io.mutastic.api.Mutant> find(Command under) {
+      return engine.find(prepared.project(), options(under, terminal, prepared)).all();
+    }
+
+    /// The command under the project's own operators, as a run without `--operators` has them.
+    Command configured() {
+      return command.withOperators(List.of());
+    }
+
+    Estimates estimates() {
+      return new Estimates(ids -> setNamed(ids, command, prepared));
+    }
+
+    /// The code and operators the project has now, to judge a record by.
+    Estimates.Now now() {
+      return new Estimates.Now(
+          RunRecord.classesOf(prepared.project()), operatorIds(policy(configured(), prepared)));
+    }
+  }
+
+  /// With `--operators`, what the set adds to the tests' time by the record a run kept; without,
+  /// nothing, so a plain listing is as it always was. Never runs anything.
+  private static List<String> recordedEstimate(Listing listing) {
+    if (listing.command().operators().isEmpty()) {
+      return List.of();
+    }
+    var recorded = TestTimes.read(TestTimes.file(listing.prepared().work()));
+    var listed = listing.find(listing.command());
+    return List.of(listing.estimates().of(recorded, listing.now(), listed));
+  }
+
+  /// `--estimate`: a coverage pass over every class with a mutant, kept as the project's record,
+  /// then what each named set's mutants would take by it.
+  private static List<String> measuredEstimates(Listing listing, Progress progress) {
+    var times = measuredTimes(listing, progress);
+    times.write(TestTimes.file(listing.prepared().work()));
+    var estimates = listing.estimates();
+    var command = listing.command();
+    return Stream.of("defaults", "stronger", "all")
+        .map(set -> estimates.ofSet(times, set, listing.find(command.withOperators(List.of(set)))))
+        .toList();
+  }
+
+  /// The coverage pass of `--estimate`, over every class with a mutant under any operator, as a
+  /// record of the project's own operators and their mutants.
+  private static TestTimes measuredTimes(Listing listing, Progress progress) {
+    var prepared = listing.prepared();
+    var everyOperator = listing.command().withOperators(List.of("all"));
+    var measured =
+        listing
+            .engine()
+            .measure(
+                prepared.project(),
+                options(everyOperator, listing.terminal(), prepared),
+                new Measuring(progress));
+    var now = listing.now();
+    var base =
+        listing.find(listing.configured()).stream()
+            .map(io.mutastic.api.Mutant::id)
+            .collect(Collectors.toSet());
+    var at = java.time.Instant.now();
+    return new TestTimes(TestTimes.COVERAGE_PASS, at, now.operators(), now.code(), base, measured);
   }
 
   /// Where `run`'s live events go as it runs: stdout with `--format=jsonl`, a `progress` event on
@@ -1556,7 +1660,9 @@ public final class Main {
 
   /// What a run does besides running its mutants: look for a test to suggest for each missed one,
   /// and with `forceCoverage` (`--force-coverage`) run the coverage pass even with none to run.
-  record Extras(boolean suggestions, boolean forceCoverage) {}
+  /// With `estimate` (`mutants --estimate`), the coverage pass runs to time the tests for the
+  /// estimates `mutants` gives.
+  record Extras(boolean suggestions, boolean forceCoverage, boolean estimate) {}
 
   /// What a run must clear to pass: its score reaching `threshold`, or with `failOnNew`
   /// (`--fail-on-new`), no miss that the project's baseline doesn't hold, whatever the score.
@@ -2554,7 +2660,9 @@ public final class Main {
         "List the mutants, without running a test",
         "One line each: its id, place, operator, the change, and the method it's in; the last"
             + " line counts them. The build compiles the code, as the mutants are in its classes,"
-            + " and no test runs. With --operators, it shows what those would add before a run.",
+            + " and no test runs. With --operators, it shows what those would add before a run,"
+            + " and the line before the count estimates what they add to the tests' time, by the"
+            + " last run's record; --estimate runs every test once to measure them first.",
         "0 once they're listed.",
         List.of("mutastic mutants", "mutastic mutants samples/pricing --operators=stronger"));
 
@@ -2777,6 +2885,11 @@ public final class Main {
       return extras.forceCoverage();
     }
 
+    /// `mutants --estimate`: a coverage pass, to estimate each named set of operators by.
+    boolean estimate() {
+      return extras.estimate();
+    }
+
     boolean killMatrix() {
       return catches.every();
     }
@@ -2905,7 +3018,7 @@ public final class Main {
           workers,
           // The tests always run: a change with no mutant on its lines (a constant, an import, a
           // log line) can still break one, and the gate mustn't pass it.
-          new Extras(extras.suggestions(), true),
+          new Extras(extras.suggestions(), true, false),
           List.of(),
           testsFrom,
           operators,
@@ -3022,6 +3135,7 @@ public final class Main {
       private Optional<String> progress = Optional.empty();
       private boolean suggestions = true;
       private boolean forceCoverage = false;
+      private boolean estimate = false;
       private @Nullable List<RequestedReport> reports = null;
       private Optional<String> vocabulary = Optional.empty();
       private final List<String> testsFrom = new ArrayList<>();
@@ -3226,6 +3340,7 @@ public final class Main {
           case "--each-mutant" -> eachMutant = true;
           case "--no-suggestions" -> suggestions = false;
           case "--force-coverage" -> forceCoverage = true;
+          case "--estimate" -> estimate = true;
           default -> {
             return false;
           }
@@ -3522,7 +3637,7 @@ public final class Main {
             only,
             new Catches(confirmCatches, killMatrix),
             workers,
-            new Extras(suggestions, forceCoverage),
+            new Extras(suggestions, forceCoverage, estimate),
             reports == null ? DEFAULT_REPORTS : List.copyOf(reports),
             List.copyOf(testsFrom),
             List.copyOf(operators),

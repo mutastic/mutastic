@@ -436,6 +436,12 @@ mutastic mutants fixtures/checkout --operators=stronger
 </div>
 </EditionTabs>
 
+The line before the count is an estimate, from what the last run's coverage pass measured: what
+the set's extra mutants would add to the tests' time, at most, as a caught mutant stops at its
+first failing test. Where that run measured nothing, or the code has changed since, it says so
+instead of guessing; `mutastic mutants --estimate` runs every test once, with no mutant in, and
+estimates `defaults`, `stronger` and `all`.
+
 With every test so far in, the defaults catch everything. `stronger` finds one more:
 
 <EditionTabs>
