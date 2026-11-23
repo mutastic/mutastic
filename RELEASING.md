@@ -88,14 +88,16 @@ version can never be changed or removed.
      the patch it has.
    - **The Rust docs pin.** The docs a tag deploys show the Rust edition's pages from
      `docs/rust-edition.json` as it is at that tag, for as long as that release line is published,
-     so move the pin before tagging, not after. For `X.Y.0`: once the Rust edition's `vX.Y.0` tag
-     is pushed (its release can stay a draft), set `ref` to it. A shared page whose mutastic-rs
-     source changed since its stamp stops the tag's docs build (`scripts/check-editions.mjs`):
-     bring each such page's Rust side up to date, then stamp it, and only after the pin moves, as
-     CI reads the pin: `MUTASTIC_RS_DOCS=pinned npm run stamp-shared -- <page> …` in `docs/`.
-     Commit both with `main` green. Publish the Rust draft only once
-     this release's GitHub release has its CLI attached: the native `mutastic X.Y.0` finds nothing
-     to run until then.
+     so move the pin before tagging, not after. For `X.Y.0`: once the Rust edition's release commit
+     (`chore(release): version X.Y.0`) is on its `main`, set `version` to `X.Y.0` and `commit` to
+     that commit's full hash. Its tag comes after this release is published, so the pin names the
+     commit, and the docs build checks that commit's `Cargo.toml` is that version. A shared page
+     whose mutastic-rs source changed since its stamp stops the tag's docs build
+     (`scripts/check-editions.mjs`): bring each such page's Rust side up to date, then stamp it,
+     and only after the pin moves, as CI reads the pin: `MUTASTIC_RS_DOCS=pinned npm run
+     stamp-shared -- <page> …` in `docs/`. Commit both with `main` green. The Rust edition's
+     `vX.Y.0` is tagged only once this release's GitHub release has its CLI attached: its release
+     workflow builds nothing until then, as the native `mutastic X.Y.0` would find nothing to run.
    - **Files on Central.** Central counts every file against a monthly limit
      ([Usage](https://central.sonatype.com/publishing/usage)). `checkCentralFiles` keeps a release
      small enough for four a month; look at the usage before a second release in a month.
