@@ -253,9 +253,11 @@ stops. The message names the test that was running. Exits with 3.
 
 ### `no-tests`
 
-The module has test classes, but none ran on the JUnit Platform: a runner mutastic doesn't run, or
-filters that leave out every test. A module with no tests at all isn't an error: its mutants are
-not covered. Exits with 2.
+The module has tests, but none ran on the JUnit Platform: JUnit 4 tests with no engine to run
+them, a runner mutastic doesn't run, every test disabled, or filters that leave out every test.
+Scored, that would be a 0% that blames the tests, when it's mutastic that didn't run them. A
+module with no tests at all isn't an error: its mutants are not covered. The same goes for test
+classes that hold no test, such as a module's test fixtures alone. Exits with 2.
 
 ### `nothing-covered`
 

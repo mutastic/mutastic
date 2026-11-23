@@ -33,6 +33,68 @@ class NothingRunsTest {
         .doesNotContain("internal error");
   }
 
+  /// Test classes that are only helpers declare no test, so the module has none: a report with
+  /// every mutant not covered, as with no test classes at all. Before, the run stopped as if tests
+  /// had been there and not run.
+  @Test
+  void onlyHelpersInTheTestsIsEveryMutantNotCovered() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+    delete(project.resolve("src/test"));
+    var fixtures = project.resolve("src/test/java/com/example/pricing/Fixtures.java");
+    Files.createDirectories(fixtures.getParent());
+    Files.writeString(
+        fixtures,
+        """
+        package com.example.pricing;
+
+        final class Fixtures {
+          static Pricing pricing() {
+            return new Pricing();
+          }
+        }
+        """);
+
+    var run = Samples.mutastic("run", project.toString(), "--format=brief");
+
+    assertThat(run.exit()).isEqualTo(Main.FAILED);
+    assertThat(run.out())
+        .contains("     Tests  none found (mutastic runs JUnit Platform tests)")
+        .contains("     Score  0.0%");
+    assertThat(project.resolve("build/mutastic/mutation.json")).exists();
+  }
+
+  /// Tests that are there and don't run, here every one disabled, stop the run: scored, that would
+  /// be a 0% that blames the tests, when it's mutastic that didn't run them.
+  @Test
+  void testsThatDontRunStopTheRun() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("pricing"));
+    delete(project.resolve("src/test/java"));
+    var disabled = project.resolve("src/test/java/com/example/pricing/PricingTest.java");
+    Files.createDirectories(disabled.getParent());
+    Files.writeString(
+        disabled,
+        """
+        package com.example.pricing;
+
+        import org.junit.jupiter.api.Disabled;
+        import org.junit.jupiter.api.Test;
+
+        class PricingTest {
+          @Disabled
+          @Test
+          void prices() {}
+        }
+        """);
+
+    var run = Samples.mutastic("run", project.toString(), "--format=brief", "--report=none");
+
+    assertThat(run.exit()).isEqualTo(Main.USAGE);
+    assertThat(run.err())
+        .contains("mutastic: no test ran in pricing, so there's nothing to judge a mutant by.")
+        .doesNotContain("internal error");
+    assertThat(run.out()).doesNotContain("Score");
+  }
+
   /// Tests that ran and passed while the coverage pass recorded nothing measured nothing: the run
   /// stops and says so, rather than scoring every mutant not covered. Seen with a coverage agent
   /// that kept mutastic's probes out of a Quarkus project; a suite that never calls the code is the
