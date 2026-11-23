@@ -80,12 +80,12 @@ version can never be changed or removed.
      for a minor release. A minor release's notes say which scores move, and how.
    - **Ids.** Run `./gradlew :mutastic-cli:exportIds`. If `src/test/ids/ids.tsv` changes, it's an
      operator new since the last release: commit it, so its ids are held from this release on.
-   - **The Rust edition.** From 1.0.0 the editions release each minor version together: for
-     `X.Y.0`, the Rust edition's `X.Y.0` is ready to publish beside this one (`RELEASING.md` in
-     `mutastic/mutastic-rs`), as the native `mutastic X.Y.z` runs the newest Java `X.Y.*`. A patch
-     (`X.Y.Z+1`) may ship alone: everyone on the native `X.Y.*` gets it within a day, once its
-     GitHub release is published. Until the CLI is attached, the native `mutastic` keeps running
-     the patch it has.
+   - **The Rust edition.** From 1.0.0 the editions release each minor version together, Java
+     published first, then Rust tagged: for `X.Y.0`, the Rust edition's release commit is on its
+     `main` (`RELEASING.md` in `mutastic/mutastic-rs`), and its tag waits for this release, as the
+     native `mutastic X.Y.z` runs the newest Java `X.Y.*`. A patch (`X.Y.Z+1`) may ship alone:
+     everyone on the native `X.Y.*` gets it within a day, once its GitHub release is published.
+     Until the CLI is attached, the native `mutastic` keeps running the patch it has.
    - **The Rust docs pin.** The docs a tag deploys show the Rust edition's pages from
      `docs/rust-edition.json` as it is at that tag, for as long as that release line is published,
      so move the pin before tagging, not after. For `X.Y.0`: once the Rust edition's release commit
@@ -117,7 +117,9 @@ version can never be changed or removed.
    awk '/^## X\.Y\.Z /{on=1; next} /^## /{on=0} on' CHANGELOG.md > notes.md
    gh release create vX.Y.Z --target main --notes-file notes.md
    ```
-3. Approve the `release` job when GitHub asks. It builds, uploads, and attaches the CLI.
+3. Approve the `release` job when GitHub asks. It builds, uploads, and attaches the CLI. For
+   `X.Y.0`, the Rust edition's `vX.Y.0` is tagged now, not before: its release workflow builds
+   nothing until this release has its CLI.
 4. In the Central Portal, under *Deployments*, wait for the deployment to show *Validated*, look
    at what's in it, then press *Publish*, or *Drop* to throw it away. It reaches Maven Central
    within about half an hour.
