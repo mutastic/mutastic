@@ -29,6 +29,14 @@ fun jvmTargets(project: Project): List<Any> {
 fun compilation(target: Any, name: String): Any =
     (target.kotlinProperty("compilations") as NamedDomainObjectCollection<*>).getByName(name)!!
 
+// The java a Test task runs its tests with. Gradle 7 gives the task a launcher only when the build
+// has a toolchain; without one, its `executable`, which is the JDK Gradle runs on unless the build
+// set another. Read by name: Gradle 9 says `executable` is never null, and it can be.
+fun testJava(task: Test): String =
+    task.javaLauncher.orNull?.executablePath?.asFile?.absolutePath
+        ?: task.withGroovyBuilder { getProperty("executable") } as String?
+        ?: File(System.getProperty("java.home"), if (File.separatorChar == '\\') "bin/java.exe" else "bin/java").absolutePath
+
 // Whether mutastic can run on the module: it has Java's plugin, or a JVM target.
 fun isJvmModule(project: Project): Boolean =
     project.plugins.hasPlugin("java") || jvmTargets(project).isNotEmpty()
@@ -196,7 +204,7 @@ fun mutasticTasks(project: Project) = with(project) {
             val own = (main.classesDirs.files + test.classesDirs.files +
                 listOfNotNull(main.resourcesDir, test.resourcesDir)).map { it.absolutePath }.toSet()
             val setup = java.util.Properties()
-            setup["java"] = task.javaLauncher.get().executablePath.asFile.absolutePath
+            setup["java"] = testJava(task)
             setup["jvmArgs"] = (task.allJvmArgs + quarkus).joinToString("\n")
             setup["workingDirectory"] = task.workingDir.absolutePath
             setup["classes"] = main.classesDirs.files.joinToString(separator)

@@ -150,6 +150,9 @@ to the top of the repository. A module with settings of its own still finds the 
 top, and that wrapper builds the module. A wrapper that has lost its executable bit, as a checkout
 can leave it, runs with `sh`. On Windows, it's `gradlew.bat` or `mvnw.cmd`.
 
+mutastic reads builds on Gradle 7.3 or later, the first Gradle that runs on JDK 17. On an older
+one it says which JDK that Gradle runs on at most.
+
 With no wrapper, mutastic runs the `gradle` or `mvn` on your `PATH`, and says so before it builds,
 with that tool's path and version:
 
