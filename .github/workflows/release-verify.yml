@@ -1,0 +1,111 @@
+# A release once it's out, as a person gets it, on Linux, macOS and Windows: the CLI's zip from the
+# GitHub release, checked against its SHA256SUMS; the Maven plugin from Central; and the Gradle
+# plugin through the Plugin Portal. Each runs on samples/pricing, as the release's tag has it, in a
+# cache of its own, and must finish with its reports and the score line PricingSampleTest expects.
+# Nothing here is built from the tree: 1.3.0 passed every test and still shipped a CLI that failed
+# on real code, as nothing ran what Central served.
+#
+# It starts on its own when a release is published, and waits for the rest, which is done by hand:
+# the release job's approval, Publish in the Central Portal, then portal.yml. Run by hand, it checks
+# a release already out:
+#   gh workflow run release-verify.yml -f version=X.Y.Z
+# A failure says what failed in the run's summary. A version on Central can never be changed or
+# removed, so a failure is fixed forward, in the next patch. .github/release-verify.sh has the
+# steps, to run on a machine of your own too. Actions are pinned to a commit: a tag can be moved.
+name: Release verify
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The release to check, X.Y.Z.
+        required: true
+        type: string
+      wait:
+        description: Minutes to wait for every piece of it to be served.
+        required: false
+        type: number
+        default: 30
+
+permissions:
+  contents: read
+
+jobs:
+  # Everything the release is made of, served: by GitHub, Central and the Plugin Portal. Polled here,
+  # once, rather than by each runner. After a release is published, the rest is done by hand, so it
+  # waits up to four hours; run by hand, half an hour, for Central's mirrors to catch up.
+  published:
+    # A pre-release's tag isn't a plain version, and the release job doesn't publish it.
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    timeout-minutes: 260
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github
+      - id: version
+        env:
+          GIVEN: ${{ inputs.version || github.event.release.tag_name }}
+        run: |
+          version=${GIVEN#v}
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::$GIVEN isn't a version X.Y.Z"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "## mutastic $version, as it's served" >> "$GITHUB_STEP_SUMMARY"
+      - name: Wait for every piece of it
+        run: bash .github/release-verify.sh wait "${{ steps.version.outputs.version }}" "${{ inputs.wait || 240 }}"
+      # GitHub attests each asset of an immutable release; without that, the digests GitHub took
+      # as each was uploaded, which a SHA256SUMS swapped later wouldn't match.
+      - name: The release's assets, against GitHub's record of them
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.version.outputs.version }}
+        run: bash .github/release-assets.sh "$TAG"
+
+  # Each way a person gets mutastic, on each system, with nothing cached.
+  run:
+    needs: published
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        step: [cli, maven, gradle]
+    name: ${{ matrix.step }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.published.outputs.version }}
+    steps:
+      # The steps from here, and the sample and the line it expects from the release's tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: v${{ needs.published.outputs.version }}
+          path: release
+          sparse-checkout: |
+            samples/pricing
+            samples/maven-modules
+            mutastic-cli/src/test/java/io/mutastic/cli/PricingSampleTest.java
+          sparse-checkout-cone-mode: false
+      # The sample's tests run on 17, mutastic on 25 (the last listed is JAVA_HOME). No cache.
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            25
+      - if: matrix.step == 'maven'
+        run: mvn -v
+      - name: ${{ matrix.step }}
+        working-directory: release
+        run: |
+          echo "## ${{ matrix.step }} on ${{ matrix.os }}" >> "$GITHUB_STEP_SUMMARY"
+          bash ../.github/release-verify.sh "${{ matrix.step }}" "$VERSION"

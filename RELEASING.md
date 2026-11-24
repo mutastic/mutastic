@@ -188,3 +188,29 @@ version can never be changed or removed.
 
 If validation fails, drop the deployment, fix the cause, delete the GitHub release and its tag, and
 release again. Nothing reached Central, so the version is still free.
+
+## Before tagging
+
+Run the candidate: the CLI built from the release commit, over a share of every sample's mutants
+(`scripts/candidate-run.sh`, a few minutes). It fails when a run crashes (`internal`), can't run
+(`run-failed`), or finds the tests fail without any mutant, outside the samples built to. Run it on
+the release's branch, or locally:
+```sh
+gh workflow run candidate-run.yml --ref <branch>
+scripts/candidate-run.sh             # --of=N for a smaller share, or name samples to run
+```
+Don't tag a candidate that fails: its run's summary and artifact say which sample, and how.
+
+## After a release
+
+`release-verify.yml` checks the release as a person gets it, on Linux, macOS and Windows, with
+nothing cached: the CLI's zip against its SHA256SUMS and GitHub's record of each asset, the Maven
+plugin from Central, and the Gradle plugin through the Plugin Portal, each on `samples/pricing`,
+where it must print the score line `PricingSampleTest` expects. It starts on its own when the
+release is published and waits up to four hours for the steps above that are done by hand. Once
+`portal.yml` has run, look at it in *Actions*; to check a release again, or once a wait ran out:
+```sh
+gh workflow run release-verify.yml -f version=X.Y.Z
+```
+A failure's summary says what failed and where. Central can't change or remove a version, so fix
+forward: card it, fix the cause, release `X.Y.Z+1`.
