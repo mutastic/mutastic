@@ -37,7 +37,7 @@ unresolved='could not be resolved|Could not (find|transfer|resolve)|Failed to re
 forget
 for attempt in 1 2 3 4; do
   failed=""
-  for sample in maven-modules maven-suites maven-by-name maven-selection; do
+  for sample in maven-modules maven-suites maven-by-name maven-selection maven-assertions; do
     rm -rf "${work:?}/$sample"
     mkdir -p "$work"
     cp -R "samples/$sample" "$work/$sample"
