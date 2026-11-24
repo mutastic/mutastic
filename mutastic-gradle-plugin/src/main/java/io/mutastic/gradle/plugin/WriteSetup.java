@@ -224,10 +224,27 @@ public abstract class WriteSetup extends DefaultTask {
     }
   }
 
+  /// The java the test task runs its tests with, as the init script finds it: its launcher, which a
+  /// build can clear; else its `executable`, the JDK Gradle runs on unless the build set another;
+  /// and last, Gradle's own.
+  private static String testJava(Test test) {
+    var launcher = test.getJavaLauncher();
+    if (launcher.isPresent()) {
+      return launcher.get().getExecutablePath().toString();
+    }
+    String executable = test.getExecutable();
+    return executable != null
+        ? executable
+        : new File(
+                System.getProperty("java.home"),
+                File.separatorChar == '\\' ? "bin/java.exe" : "bin/java")
+            .getAbsolutePath();
+  }
+
   /// The single values the setup file holds, read from the test task.
   private static Map<String, String> values(Test test) {
     var values = new java.util.TreeMap<String, String>();
-    values.put("java", test.getJavaLauncher().get().getExecutablePath().toString());
+    values.put("java", testJava(test));
     values.put("workingDirectory", test.getWorkingDir().getAbsolutePath());
     values.put("testIncludes", String.join("\n", test.getIncludes()));
     values.put("testExcludes", String.join("\n", test.getExcludes()));
