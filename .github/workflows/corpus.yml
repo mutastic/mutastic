@@ -64,7 +64,7 @@ jobs:
           tool: just@1.59.0
       - id: entries
         env:
-          ONLY: ${{ inputs.only }}
+          ONLY: ${{ inputs.only || (github.event_name == 'push' && 'gson failsafe concurrency-limits testcontainers-quickstart kotlinpoet commons-lang jsoup picnic') || '' }}
         run: |
           entries=$(just corpus --matrix "$ONLY")
           echo "entries=$entries" >> "$GITHUB_OUTPUT"

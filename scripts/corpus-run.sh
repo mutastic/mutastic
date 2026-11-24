@@ -158,11 +158,13 @@ run_one() {
         --shard=1/"$shard" --threshold=0) > "$out/$name.agent.txt" 2> "$out/$name.agent.log"
       agent_status=$?
     fi
-    # The build's own logs, beside the events, for a failure to be read from the artifact.
+    # mutastic's logs of the build and the workers (Gradle's build/mutastic, Maven's
+    # target/mutastic), beside the events, for a failure to be read from the artifact.
     local log
     while IFS= read -r log; do
       cp "$log" "$out/$name.$(basename "$log")"
-    done < <(find "$project" -maxdepth 5 -path '*/build/mutastic/*.log' 2> /dev/null)
+    done < <(find "$project" -maxdepth 5 \( -path '*/build/mutastic/*.log' \
+      -o -path '*/target/mutastic/*.log' \) 2> /dev/null)
   fi
 
   local line verdict
