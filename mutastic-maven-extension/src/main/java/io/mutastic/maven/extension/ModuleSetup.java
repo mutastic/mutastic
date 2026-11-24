@@ -93,7 +93,7 @@ final class ModuleSetup {
   private static List<String> patterns(List<String> surefirePatterns) {
     var patterns = new ArrayList<String>();
     for (String pattern : surefirePatterns) {
-      for (String each : COMMA.splitAsStream(pattern).toList()) {
+      for (String each : COMMA.splitAsStream(pattern).collect(Collectors.toUnmodifiableList())) {
         var trimmed = each.strip();
         if (trimmed.startsWith("%regex[") && trimmed.endsWith("]")) {
           patterns.add("regex:" + trimmed.substring("%regex[".length(), trimmed.length() - 1));
@@ -109,7 +109,11 @@ final class ModuleSetup {
   private static List<String> commaSeparated(@Nullable String value) {
     return value == null
         ? List.of()
-        : COMMA.splitAsStream(value).map(String::strip).filter(tag -> !tag.isEmpty()).toList();
+        : COMMA
+            .splitAsStream(value)
+            .map(String::strip)
+            .filter(tag -> !tag.isEmpty())
+            .collect(Collectors.toUnmodifiableList());
   }
 
   private static String lines(List<String> values) {
@@ -125,9 +129,15 @@ final class ModuleSetup {
             .flatMap(module -> outputs(module).stream())
             .collect(Collectors.toUnmodifiableSet());
     var classpath = dependencies();
-    var others = classpath.stream().filter(path -> !modules.contains(path)).toList();
+    var others =
+        classpath.stream()
+            .filter(path -> !modules.contains(path))
+            .collect(Collectors.toUnmodifiableList());
     setup.put("dependencies", joined(others));
-    setup.put("alongside", joined(classpath.stream().filter(modules::contains).toList()));
+    setup.put(
+        "alongside",
+        joined(
+            classpath.stream().filter(modules::contains).collect(Collectors.toUnmodifiableList())));
   }
 
   /// What another module sees of `project`: its classes, or its jar once packaged.

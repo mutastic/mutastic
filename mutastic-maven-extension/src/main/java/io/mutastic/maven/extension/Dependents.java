@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.maven.MavenExecutionException;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.project.MavenProject;
@@ -29,7 +30,7 @@ final class Dependents {
                 .map(MavenProject::getBasedir)
                 .map(basedir -> root.relativize(basedir.toPath().normalize()).toString())
                 .sorted()
-                .toList();
+                .collect(Collectors.toUnmodifiableList());
     try {
       Files.createDirectories(file.toAbsolutePath().getParent());
       Files.writeString(file, String.join("\n", paths));

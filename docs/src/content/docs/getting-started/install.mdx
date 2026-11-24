@@ -145,6 +145,9 @@ A build is made for one Gradle or Maven, the one its wrapper downloads. Another 
 build file that calls something only newer Gradle has fails before anything is built. So mutastic
 runs the wrapper whenever there is one.
 
+mutastic reads builds on Maven 3.6.3 or later, the oldest Maven the current compiler and Surefire
+plugins run on.
+
 It looks for `gradlew` or `mvnw` in the directory you run it on, then in each directory above, up
 to the top of the repository. A module with settings of its own still finds the wrapper at the
 top, and that wrapper builds the module. A wrapper that has lost its executable bit, as a checkout
