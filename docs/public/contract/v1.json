@@ -1123,7 +1123,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "a6a86ce7118e27fbd61fabe4e295cf41abbc8f11c9a5fad2b49b29b26f6301e6"
+      "sha256": "eb7ec115dd7b2cd1491d999b55d3abd58aced2dcc4fd0c8a4be09f193091e3c1"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1138,7 +1138,7 @@
     "reportAdditions": {
       "id": "mutastic.report/v1",
       "url": "https://docs.mutastic.io/schemas/report/v1.json",
-      "sha256": "fa833754331f81a4c7024e88ea5c0c6179fdacc474731f715a0ccad5f2fa8fc4"
+      "sha256": "4c348fb257d087dc5d106d7c9b10c09847bb35eb754f4ae7830e74e54be45138"
     }
   },
   "events": {
@@ -1786,6 +1786,10 @@
     {
       "id": 24,
       "rule": "`run --at=PATH:LINE` and `mutants --at` (`PATH:FROM-TO` for lines FROM to TO, 1-based and inclusive; several split by commas or given again) choose the mutants on those lines of one of the module's source files, of those the run would have: its own operators, and with `--since` those on the change. PATH is split from its lines at the last `:LINE` or `:FROM-TO`, so a Windows drive stays in it; it's absolute, from the working directory or from the project, with `\\` or `/` between its parts. A mutant is on a line when the line overlaps the lines its card points at: Java from javac's line, where its statement starts, to the line of its place (`location.line`), in the file kotlinc's SMAP maps inlined code to; Rust its claim's start to end. In a build of several modules or a workspace, a PATH names its module or member when the command names none. `--at` is refused with `--only`, `--from-shards` and `--fail-on-new`. A file outside the module's sources is refused with code `outside-sources`, naming them; lines with no mutant on them, with code `no-mutant-at`: `no mutant on Pricing.java:16; there are on 17, 18 and 20. To see them:` (for one line `there's one on 17. To see it:`) and the `mutants --at` command over the nearest lines that have one, at most five. A run is of some mutants, as `--only`'s is (decisions 3 and 23, the note naming `--at`): each one's fate, no Score row, no comparison, record or reports, and it passes when each is caught or skipped. The human formats put one line before the fates, counting them: `lines 17–20 of Pricing.java: 6 mutants, 5 caught, 1 missed` (`line 17 of …` for one; several joined with `and`; each fate named in the run's vocabulary, a fate none had left out). `run-started` and `run-finished` carry `at`, each PATH from the project with `/` and its lines as given; `run-finished` has no `only`."
+    },
+    {
+      "id": 25,
+      "rule": "A property test's random inputs are pinned where its framework takes a seed from outside the test, so a mutant only some inputs catch is caught in every run or in none: one seed for a run, the same for the coverage pass and every mutant, and for every run unless the person sets the framework's own variable (Rust: `PROPTEST_RNG_SEED`, else 0, which proptest reads from 1.7.0, so an older one is unseeded and named `proptest <version>` in the note; Java: each framework's seed setting, else 0). `run-started` records it as `propertyTests` `{frameworks, seed, seeded, unseeded}` (`frameworks`: the property-testing frameworks the project's tests use, by their names; `seed`, a string of decimal digits, and `seeded`, those that drew from it, only when one did; `unseeded`: those whose seed can't be set from outside). A framework that can't be seeded is named, never guessed at: a run whose project uses one ends with this line on stderr, in every format, word for word: `note: property tests in <names> run with their own seeds, which mutastic can't set: a mutant only some of their inputs catch can be caught in one run and missed in the next` (`<names>` as `a`, `a and b`, `a, b and c`). A mutant's run turns shrinking off where the framework lets it be (one counterexample catches it). When a property catches a mutant, the input it failed on is evidence of this run: `caughtInput`, one line, as the framework prints it (`xs = [0, 0]`), at most 300 characters then `…`, in `mutant-finished` and as `mutastic.caughtInput` in mutation.json; after the catching test and any case wherever a line names it, `` with `<input>` `` (`verify`, `explain`, a caught card). In a run of every mutant it's the first input that failed, unshrunk; in a run of mutants named by id (`run --only`, `verify`, `explain`) the catching property runs once more with shrinking on, and it's the shrunk one. jqwik is detected only, never run with a seed or named from: its tests run as ordinary tests, and it's listed in `unseeded`."
     }
   ],
   "differences": [
@@ -2471,6 +2475,17 @@
       "surface": "operators",
       "summary": "The arid rule `mutastic:gatherer-sizes`: `Gatherers.mapConcurrent`'s number of calls at once, while it stays above zero",
       "reason": "Java's `mapConcurrent` runs its calls on virtual threads and keeps their order, so how many run at once changes only how long they take. Rust has no gatherers, so nothing to skip."
+    },
+    {
+      "id": "N79",
+      "kind": "pending",
+      "editions": [
+        "java"
+      ],
+      "surface": "events",
+      "summary": "Property tests (decision 25): `run-started`'s `propertyTests`, `mutant-finished`'s `caughtInput` and mutation.json's `mutastic.caughtInput`, the `` with `<input>` `` after a catching test, shrinking off on a mutant's run, and the note on frameworks that can't be seeded: the Rust edition has them first",
+      "issue": "https://github.com/mutastic/mutastic/issues/202",
+      "decision": 25
     }
   ]
 }
