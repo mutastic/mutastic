@@ -82,7 +82,7 @@ class ArchitectureTest {
   static final ArchRule buildToolsKnowOnlyTheApi =
       noClasses()
           .that()
-          .resideInAPackage("io.mutastic.gradle..")
+          .resideInAnyPackage("io.mutastic.gradle..", "io.mutastic.maven..")
           .should()
           .dependOnClassesThat()
           .resideInAnyPackage(
