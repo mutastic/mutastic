@@ -82,6 +82,12 @@
           }
         }
       }
+    },
+    "timeout-ceiling": {
+      "type": "string",
+      "pattern": "^[0-9]+[smh]$",
+      "description": "The most one mutant's tests may take in all, a whole number above 0 with its unit: a mutant stopped there is timed out, with a note that says so. Without it, ten minutes or twenty times the suite's own time, whichever is longer. The Rust edition reads it; the Java edition doesn't yet.",
+      "examples": ["30m", "90s", "2h"]
     }
   },
   "$defs": {
