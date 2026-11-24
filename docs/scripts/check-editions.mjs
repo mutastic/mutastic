@@ -11,6 +11,13 @@
 // It also warns where the editions' captured output differs in shape (scripts/compare-captures.mjs).
 // A release or CI build (DOCS_VERSION set) stops; a local one says what's wrong and carries on, so
 // a page being written can be read.
+//
+// Run on its own, it checks the Rust docs a build would read, without building the site, and exits
+// 1 with what's wrong; with --stale, it prints only the shared pages whose Rust sources changed,
+// one to a line, the pages `npm run stamp-shared --` takes. scripts/release-check.sh and
+// scripts/docs-pin-rust.sh run it at the pin:
+//
+//   MUTASTIC_RS_DOCS=pinned node docs/scripts/check-editions.mjs [--stale]
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,7 +31,7 @@ import {
   SHARED,
 } from '../src/edition-pages.mjs';
 import { captureWarnings } from './compare-captures.mjs';
-import { pinnedRef } from './rust-docs.mjs';
+import { pinnedRef, rustDocs } from './rust-docs.mjs';
 import { readManifest, staleSources } from './shared-sources.mjs';
 
 const content = fileURLToPath(new URL('../src/content/docs/', import.meta.url));
@@ -67,6 +74,21 @@ export async function checkEditions(
   unlisted = [],
   awaiting = [],
 ) {
+  const problems = await editionProblems(rust, unplaced, gone, dir, unlisted, awaiting);
+  // The two editions' captured output, paired by scenario and masked: a warning for now, as the
+  // masks still let through what each fixture does differently (scripts/compare-captures.mjs).
+  if (dir !== undefined) {
+    const captures = captureWarnings(dir);
+    if (captures.length > 0) console.warn(`[check-editions] ${captures.join('\n')}`);
+  }
+  if (problems.length === 0) return;
+  const message = `The Java and Rust editions don't line up:\n  - ${problems.join('\n  - ')}`;
+  if (process.env.DOCS_VERSION) throw new Error(message);
+  console.warn(`[check-editions] ${message}`);
+}
+
+/** What checkEditions finds wrong, each as a sentence; its parameters are checkEditions's. */
+async function editionProblems(rust, unplaced, gone, dir, unlisted, awaiting) {
   const java = await javaPages();
   const problems = [];
   const need = (pages, path, edition, why) => {
@@ -108,16 +130,14 @@ export async function checkEditions(
     }
   }
   problems.push(...sharedSources(dir, awaiting));
-  // The two editions' captured output, paired by scenario and masked: a warning for now, as the
-  // masks still let through what each fixture does differently (scripts/compare-captures.mjs).
-  if (dir !== undefined) {
-    const captures = captureWarnings(dir);
-    if (captures.length > 0) console.warn(`[check-editions] ${captures.join('\n')}`);
-  }
-  if (problems.length === 0) return;
-  const message = `The Java and Rust editions don't line up:\n  - ${problems.join('\n  - ')}`;
-  if (process.env.DOCS_VERSION) throw new Error(message);
-  console.warn(`[check-editions] ${message}`);
+  return problems;
+}
+
+/** Each source of a shared page that changed in the Rust docs at `dir`, as staleSources gives it. */
+function staleShared(dir, awaiting) {
+  const shared = new Set(SHARED.map(([page]) => page));
+  // A page waiting for its Rust side has none in these docs yet: its sources are the next release's.
+  return staleSources(dir).filter(({ page, gone }) => shared.has(page) && !(gone && awaiting.includes(page)));
 }
 
 /** Each shared page whose Rust sources changed since it was written, or that has none recorded. */
@@ -132,8 +152,7 @@ function sharedSources(dir, awaiting = []) {
     if (!shared.has(page)) problems.push(`'${page}' in src/shared-sources.json isn't a shared page (SHARED in src/edition-pages.mjs)`);
   }
   if (dir === undefined) return problems;
-  // A page waiting for its Rust side has none in these docs yet: its sources are the next release's.
-  const stale = staleSources(dir).filter(({ page, gone }) => shared.has(page) && !(gone && awaiting.includes(page)));
+  const stale = staleShared(dir, awaiting);
   for (const { page, source, commit, gone } of stale) {
     const file = `docs/${source.split('#')[0]}`;
     const what = source.includes('#') ? `the section '#${source.split('#')[1]}' of ${file}` : file;
@@ -149,4 +168,35 @@ function sharedSources(dir, awaiting = []) {
     problems.push(`once the shared page says what mutastic-rs now does, record its sources again: npm run stamp-shared -- ${pages}`);
   }
   return problems;
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  let loaded;
+  // What rust-docs says goes to stderr, so the standard output is only the answer.
+  const log = console.log;
+  console.log = console.error;
+  try {
+    loaded = rustDocs();
+  } catch (error) {
+    console.error(`[check-editions] ${error.message}`);
+    process.exit(1);
+  } finally {
+    console.log = log;
+  }
+  if (loaded === undefined) {
+    console.error('[check-editions] no Rust docs to read: set MUTASTIC_RS_DOCS (pinned, or a docs/ folder)');
+    process.exit(1);
+  }
+  if (process.argv.includes('--stale')) {
+    const pages = new Set(staleShared(loaded.dir, loaded.awaiting).map(({ page }) => page));
+    for (const page of pages) console.log(page);
+  } else {
+    const { pages, unplaced, shared, dir, unlisted, awaiting } = loaded;
+    const problems = await editionProblems(pages, unplaced, shared, dir, unlisted, awaiting);
+    if (problems.length > 0) {
+      console.error(`The Java and Rust editions don't line up:\n  - ${problems.join('\n  - ')}`);
+      process.exit(1);
+    }
+    console.log(`[check-editions] the editions line up, with the Rust docs from ${dir}`);
+  }
 }

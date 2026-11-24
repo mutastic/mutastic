@@ -73,7 +73,12 @@ version can never be changed or removed.
 
 1. **Check the promises** ([Compatibility](docs/src/content/docs/reference/compatibility.mdx)).
    The build already fails on a moved mutant id, a break in the plugin API and a break in the
-   events format; these are left to you:
+   events format. `scripts/release-check.sh X.Y.Z` checks what a release needs beyond that, all at
+   once, and lists what's wrong: the changelog's rules, the ids, the Rust docs pin and the shared
+   pages' stamps, and the files on Central. It writes nothing tracked and publishes nothing, so run
+   it as often as you like; CI runs it on the release pull request too, the part that needs no
+   build in Commits and the ids and Central in CI's merge queue run. What it can't judge is left to
+   you:
    - **Scores.** Read the *Scoring changes* and *Score corrections* that
      `scripts/changelog.sh preview` prints, the entries waiting in `changes/`. A patch release
      (`X.Y.Z+1`) may have score corrections, which only drop mutants that could never run, such as
@@ -81,9 +86,11 @@ version can never be changed or removed.
      could lower a score, add a mutant or fail a run that passed. It has no scoring changes:
      anything else that moves a score (an operator into or out of the default set, a filter that
      skips more or less, a change to timeouts, mutants newly found) waits for a minor release. A
-     minor release's notes say which scores move, and how.
-   - **Ids.** Run `./gradlew :mutastic-cli:exportIds`. If `src/test/ids/ids.tsv` changes, it's an
-     operator new since the last release: commit it, so its ids are held from this release on.
+     minor release's notes say which scores move, and how. `release-check` fails a patch with a
+     scoring change, and a release with no entries at all.
+   - **Ids.** When `release-check` says `./gradlew :mutastic-cli:exportIds` changed
+     `src/test/ids/ids.tsv`, it's an operator new since the last release: read the diff and commit
+     it, so its ids are held from this release on.
    - **The Rust edition.** From 1.0.0 the editions release each minor version together, Java
      published first, then Rust tagged: for `X.Y.0`, the Rust edition's release commit is on its
      `main` (`RELEASING.md` in `mutastic/mutastic-rs`), and its tag waits for this release, as the
@@ -93,18 +100,24 @@ version can never be changed or removed.
    - **The Rust docs pin.** The docs a tag deploys show the Rust edition's pages from
      `docs/rust-edition.json` as it is at that tag, for as long as that release line is published,
      so move the pin before tagging, not after. For `X.Y.0`: once the Rust edition's release commit
-     (`chore(release): version X.Y.0`) is on its `main`, set `version` to `X.Y.0` and `commit` to
-     that commit's full hash. Its tag comes after this release is published, so the pin names the
-     commit, and the docs build checks that commit's `Cargo.toml` is that version. A shared page
-     whose mutastic-rs source changed since its stamp stops the tag's docs build
-     (`scripts/check-editions.mjs`): bring each such page's Rust side up to date, then stamp it,
-     and only after the pin moves, as CI reads the pin: `MUTASTIC_RS_DOCS=pinned npm run
-     stamp-shared -- <page> …` in `docs/`. Commit both with `main` green. The Rust edition's
+     (`chore(release): version X.Y.0`) is on its `main`, move the pin to it:
+     ```sh
+     scripts/docs-pin-rust.sh <commit>   # the release commit's hash, or a mutastic-rs branch or tag
+     ```
+     It sets `commit` to that commit's full hash and `version` to what its `Cargo.toml` says (its
+     tag comes after this release is published, so the pin names the commit, and the docs build
+     checks the two agree). Then it stamps again each shared page whose mutastic-rs source changed
+     since its stamp, the pages `scripts/check-editions.mjs` names, which would otherwise stop the
+     tag's docs build. A stamp says the page is up to date, so bring each page it lists up to date
+     with the Rust edition, from the diff it prints, before you commit. Commit the pin, the stamps
+     and the pages with `main` green; `release-check` fails while the pin isn't an `X.Y.*` or a
+     stamp is stale. The Rust edition's
      `vX.Y.0` is tagged only once this release's GitHub release has its CLI attached: its release
      workflow builds nothing until then, as the native `mutastic X.Y.0` would find nothing to run.
    - **Files on Central.** Central counts every file against a monthly limit
      ([Usage](https://central.sonatype.com/publishing/usage)). `checkCentralFiles` keeps a release
-     small enough for four a month; look at the usage before a second release in a month.
+     small enough for four a month, and `release-check` runs it; look at the usage before a second
+     release in a month.
 2. **The release's notes.** Each entry since the last release is a file in `changes/`
    ([changes/README.md](changes/README.md)), so pull requests don't conflict over `CHANGELOG.md`.
    Read them as one section, then gather them into `CHANGELOG.md` as `## X.Y.Z (D Mon YYYY)`,
@@ -115,12 +128,15 @@ version can never be changed or removed.
    ```
    Edit the section if it needs it, a paragraph above a section's entries or one at the top, and
    commit it with the deleted files as `chore(release): version X.Y.Z`: only a commit with the
-   `release` scope may edit `CHANGELOG.md`. With `main` green, create the release from that
-   section; its tag gives the version:
+   `release` scope may edit `CHANGELOG.md`. With `main` green and nothing wrong, create the release
+   from that section; its tag gives the version:
    ```sh
-   awk '/^## X\.Y\.Z /{on=1; next} /^## /{on=0} on' CHANGELOG.md > notes.md
+   scripts/release-check.sh X.Y.Z                        # says it's ready, or lists what isn't
+   scripts/changelog.sh notes X.Y.Z > notes.md           # the section, without its heading
    gh release create vX.Y.Z --target main --notes-file notes.md
    ```
+   The release workflow reads the same section: a release whose tag has none stops before
+   anything is uploaded, and one created without notes is given them.
 3. Approve the `release` job when GitHub asks. It builds, uploads, and attaches the CLI. For
    `X.Y.0`, the Rust edition's `vX.Y.0` is tagged now, not before: its release workflow builds
    nothing until this release has its CLI.
