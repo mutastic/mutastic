@@ -133,6 +133,17 @@ run_one() {
   # shellcheck disable=SC2086 # the command, a word at a time
   (cd "$project" && timeout -k 30 "$test_limit" $test) > "$out/$name.own-tests.log" 2>&1
   status=$?
+  # Central turns away a burst of downloads from a runner with 429 (Too Many Requests) now and
+  # then: once, a minute later, rather than call the project red.
+  if [ "$status" -ne 0 ] &&
+    grep -q 'Too Many Requests\|status code 429' "$out/$name.own-tests.log"; then
+    echo "corpus: $name's dependencies were turned away (429); again in a minute…" >&2
+    mv "$out/$name.own-tests.log" "$out/$name.own-tests-429.log"
+    sleep 60
+    # shellcheck disable=SC2086
+    (cd "$project" && timeout -k 30 "$test_limit" $test) > "$out/$name.own-tests.log" 2>&1
+    status=$?
+  fi
   if [ "$status" -ne 0 ] && [[ "$expect" != refused:* ]]; then
     red="its own \`$test\` fails (exit $status), so mutastic didn't run"
     [ "$status" -eq 124 ] && red="its own \`$test\` took over ${test_limit}s, so mutastic didn't run"

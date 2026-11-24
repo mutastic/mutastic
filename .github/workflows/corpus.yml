@@ -23,9 +23,6 @@
 name: Corpus
 
 on:
-  # TEMPORARY: the pull request's own run, removed before it merges.
-  push:
-    branches: [corpus-nightly]
   schedule:
     - cron: "41 4 * * *"
   workflow_dispatch:
@@ -64,7 +61,7 @@ jobs:
           tool: just@1.59.0
       - id: entries
         env:
-          ONLY: ${{ inputs.only || (github.event_name == 'push' && 'gson failsafe concurrency-limits testcontainers-quickstart kotlinpoet commons-lang jsoup picnic') || '' }}
+          ONLY: ${{ inputs.only }}
         run: |
           entries=$(just corpus --matrix "$ONLY")
           echo "entries=$entries" >> "$GITHUB_OUTPUT"
