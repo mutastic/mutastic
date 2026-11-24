@@ -34,6 +34,28 @@ class TestLoaderTest {
         .isEqualTo("io.mutastic.worker.fixture.Other");
   }
 
+  /// A parameterized test taking a class of the tests beside the code takes the run's copy of it:
+  /// selected by the type the build gave it, the copy has no such method.
+  @Test
+  void aCopysMethodTakesCopiesOfTheSplitTestClassesItsParametersName() throws Exception {
+    var production =
+        new ProductionLoader(
+            List.of(),
+            Map.of(),
+            roots(),
+            new TestSplit(Set.of(COUNTER), Set.of()),
+            ClassLoader.getPlatformClassLoader());
+    var tests = new TestLoader(roots(), production, 3);
+
+    assertThat(tests.parametersOfCopy("")).isEmpty();
+    assertThat(tests.parametersOfCopy(COUNTER + ", int, java.lang.String"))
+        .isEqualTo(COUNTER + "__m3, int, java.lang.String");
+    assertThat(tests.parametersOfCopy(COUNTER + "$Step[][]," + COUNTER + "[]"))
+        .isEqualTo(COUNTER + "__m3$Step[][], " + COUNTER + "__m3[]");
+    assertThat(tests.parametersOfCopy("[[L" + COUNTER + ";, [I"))
+        .isEqualTo("[[L" + COUNTER + "__m3;, [I");
+  }
+
   private static List<Path> roots() throws Exception {
     return List.of(
         Path.of(CounterTest.class.getProtectionDomain().getCodeSource().getLocation().toURI()));
