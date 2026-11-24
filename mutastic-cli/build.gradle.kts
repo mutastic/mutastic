@@ -348,7 +348,8 @@ val checkDocsModel by tasks.registering {
     doLast {
         if (!committed.exists() || committed.readText() != written.get().readText()) {
             throw GradleException(
-                "docs/src/data/commands.json is out of date: ./gradlew :mutastic-cli:exportDocsModel",
+                "docs/src/data/commands.json is out of date: just docs-output " +
+                    "(./gradlew :mutastic-cli:exportDocsModel)",
             )
         }
     }

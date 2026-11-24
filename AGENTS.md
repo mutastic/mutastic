@@ -5,18 +5,25 @@ mutastic is a mutation-testing tool for Java. Read the [README](README.md) for w
 the build; the rest are judgement, written down so they're designed around rather than met as a
 build failure.
 
+Use `just <verb>`: `just --list` shows them. Run `just check` before a pull request; `just ci` is
+what CI runs. Call `./gradlew` directly only when no recipe exists. The words are the same in
+mutastic-rs, so a command learned here works there.
+
 ## Build
 
 ```sh
-./gradlew build          # compile, Error Prone and NullAway, format, Checkstyle, tests, ArchUnit,
-                         # and the branch-coverage floor (65%, target 85%)
-./gradlew spotlessApply  # format the code
-./gradlew coverageReport # build/reports/jacoco/coverageReport/html, over every module's tests
-./gradlew lockDependencies --write-locks  # after changing a version: rewrites gradle.lockfile
-./gradlew :mutastic-cli:exportDocsModel    # after changing an option or command: the docs' reference
-./gradlew :mutastic-cli:exportDocsOutput   # after changing what a command prints: the output the docs show
-./gradlew :mutastic-cli:exportCards        # after changing a card's words: every card on the samples; read the diff
-./gradlew :mutastic-cli:installDist && ./mutastic-cli/build/install/mutastic/bin/mutastic run samples/pricing
+just setup        # once per clone: the commit message hook, and the docs site's packages
+just check        # compile, Error Prone and NullAway, format, Checkstyle, tests, ArchUnit,
+                  # and the branch-coverage floor (65%, target 85%)
+just fmt          # format the code
+just test -p mutastic-cli --tests '*CommandTest'  # one module's tests, or one class's
+just coverage     # build/reports/jacoco/coverageReport/html, over every module's tests
+just lock         # after changing a version: rewrites gradle.lockfile
+just docs-output  # after changing an option, a command or what one prints: the docs'
+                  # reference and the output they show
+just cards        # after changing a card's words: every card on the samples; read the diff
+just ids          # after a new operator: the kept ids; read the diff
+just run run samples/pricing  # builds the mutastic command, then runs it
 ```
 
 The engine runs on JDK 25 (the ClassFile API); the worker is built for 17, the oldest JDK a
@@ -62,15 +69,15 @@ applied by google-java-format through Spotless: that is the spec, not taste.
     `revert`, with `!` or a `BREAKING CHANGE:` footer for a breaking change. The scope, optional, is
     the module or area: `engine`, `worker`, `cli`, `report`, `api`, `plugins`, `gradle`, `maven`,
     `samples`, `docs`, `ci` or `release`. [Commit messages](CONTRIBUTING.md#commit-messages) has
-    examples from this log. `.githooks/commit-msg` checks each message (`git config core.hooksPath
-    .githooks`), and CI checks every new commit. Commits before 9 Nov 2026 use the older style and
-    are never reworded.
+    examples from this log. `.githooks/commit-msg` checks each message (`just setup` turns it
+    on), and CI checks every new commit. Commits before 9 Nov 2026 use the older style and are
+    never reworded.
 
     A pull request's title becomes its squash merge's subject with " (#<number>)" added, so keep
-    it to 44 characters (43 from #100); CI checks it. Merge with `sh .githooks/merge-pr <number>
-    [body-file]`, never `gh pr merge` by hand: it checks the whole message, body wrapped at 72,
-    and once CI is green adds the pull request to the merge queue, which lands it only if it
-    still passes merged with the latest main. It returns once queued; `--wait` waits for it to
+    it to 44 characters (43 from #100); CI checks it. Merge with `just merge <number>
+    [body-file]` (`.githooks/merge-pr`), never `gh pr merge` by hand: it checks the whole
+    message, body wrapped at 72, and once CI is green adds the pull request to the merge queue,
+    which lands it only if it still passes merged with the latest main. It returns once queued; `--wait` waits for it to
     land (run it in the background, as the queue can take an hour), and prints the commit. The
     queue takes the body from the pull request's description, which merge-pr sets: don't edit
     it after. See [Commit messages](CONTRIBUTING.md#commit-messages).

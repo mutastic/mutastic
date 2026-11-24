@@ -18,7 +18,7 @@ import org.opentest4j.AssertionFailedError;
 /// People and agents both act on these words, so a change to any of them is a diff to read, not a
 /// surprise: this fails until the copy is written again.
 ///
-/// To write it: `./gradlew :mutastic-cli:exportCards`.
+/// To write it: `just cards` (`./gradlew :mutastic-cli:exportCards`).
 class CardsTest {
   private static final Path SAMPLES = Path.of(System.getProperty("mutastic.samples"));
   private static final Path CARDS = Path.of(System.getProperty("mutastic.cards"));
@@ -126,7 +126,7 @@ class CardsTest {
     if (!text.equals(written)) {
       // The diff in the message, so a CI log shows what changed without the test reports.
       throw new AssertionFailedError(
-          "src/test/cards/%s/%s: ./gradlew :mutastic-cli:exportCards%n%s%s"
+          "src/test/cards/%s/%s: just cards (./gradlew :mutastic-cli:exportCards)%n%s%s"
               .formatted(sample, name, diff(written, text), said),
           written,
           text);

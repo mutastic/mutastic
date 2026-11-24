@@ -17,25 +17,29 @@ Everyone taking part in issues, pull requests and discussions agrees to the
 
 You need a JDK to run Gradle. Gradle fetches the JDKs the build uses (25 for mutastic, 17 for the
 worker and the code it tests). The Maven plugin's and Maven samples' tests also need `mvn` on the
-`PATH`, and the docs need Node 24.
+`PATH`, the docs need Node 24, and the build's commands need [just](https://just.systems) 1.59.0
+or later: `brew install just`, `scoop install just`, `winget install --id Casey.Just` or
+`cargo install just --locked`. On Windows, recipes run in Git Bash's `sh`.
 
 ```sh
 git clone https://github.com/mutastic/mutastic.git
 cd mutastic
-./gradlew build
+just setup
+just check
 ```
 
-`./gradlew build` runs everything CI does: compilation with every warning an error, Error Prone
-and NullAway, the formatter, Checkstyle, the tests (end-to-end ones included, which run real Gradle
-and Maven builds), the architecture rules and the coverage floor. It takes a few minutes.
+`just setup` turns on the commit message hook and installs the docs site's packages, once per
+clone. `just check` runs everything a pull request needs to pass: compilation with every warning
+an error, Error Prone and NullAway, the formatter, Checkstyle, the tests (end-to-end ones included,
+which run real Gradle and Maven builds), the architecture rules and the coverage floor. It takes a
+few minutes.
 
 Useful along the way:
 
 ```sh
-./gradlew spotlessApply                                   # format the code
-./gradlew :mutastic-cli:test --tests '*CommandTest'       # one module's tests, or one class's
-./gradlew :mutastic-cli:installDist                       # the mutastic command, built from here
-./mutastic-cli/build/install/mutastic/bin/mutastic run samples/pricing
+just fmt                                         # format the code
+just test -p mutastic-cli --tests '*CommandTest' # one module's tests, or one class's
+just run run samples/pricing                     # the mutastic command, built from here, run
 ```
 
 [ARCHITECTURE.md](ARCHITECTURE.md) explains how the pieces fit, and `samples/` holds the small
@@ -44,14 +48,11 @@ projects the end-to-end tests run on.
 ## Commands
 
 A job spelled in Gradle's words is spelled differently in the Rust edition, and again after a
-change of build tool. So the everyday ones are also recipes in the [justfile](justfile), a word
-each, meaning the same in both editions: `just` lists them, `just check` runs everything a pull
-request needs to pass (`./gradlew build`), and `just ci` what CI runs. Each is one line over Gradle
-or a script, so the commands above still work without it.
-
-Install [just](https://just.systems) 1.59.0 or later with `brew install just`,
-`scoop install just`, `winget install --id Casey.Just` or `cargo install just --locked`. On
-Windows, recipes run in Git Bash's `sh`.
+change of build tool. So the everyday ones are recipes in the [justfile](justfile), a word each,
+meaning the same in both editions: `just --list` shows them, `just check` runs everything a pull
+request needs to pass, and `just ci` what CI runs. Each is one line over Gradle or a script, which
+the justfile shows (`just check` is `./gradlew build`), so the work can still be done without it.
+Call `./gradlew` directly only for a job no recipe covers.
 
 ## Making a change
 
@@ -65,19 +66,18 @@ Windows, recipes run in Git Bash's `sh`.
   - A catch it can't trust (a flaky test, a port clash) counts as not caught.
 - **Tests:** a change in behaviour comes with a test that fails without it.
 - **Docs:** user-facing changes update the docs in `docs/` (see [docs/README.md](docs/README.md)).
-  After changing an option or a command, run `./gradlew :mutastic-cli:exportDocsModel`; the build
-  fails until the docs' reference matches. After changing what a command prints, run
-  `./gradlew :mutastic-cli:exportDocsOutput`, for the output the docs show.
+  After changing an option, a command or what one prints, run `just docs-output`: it writes the
+  docs' reference, which the build fails without, and the output the docs show.
 - **The changelog:** a change someone using mutastic would notice gets an entry, as a file of its
   own in `changes/<section>/` ([changes/README.md](changes/README.md) has the sections and the
   shape). Don't edit `CHANGELOG.md`: a release gathers the files into it, and CI fails a pull
   request that edits it, as pull requests that all added to its end conflicted in the merge queue.
 - **The HTML report:** the page both editions embed is `report-ui/`: its markup, styles and
-  script in `src/`, and the fonts. After changing them, run `node report-ui/build.mjs` and commit
-  `report.html` and its checksum with them; `node --test report-ui/test/*.test.mjs` renders it in
-  Chrome. `node report-ui/build.mjs --embed mutation.json out.html` puts a run's report in it, to
+  script in `src/`, and the fonts. After changing them, run `just report-ui` and commit `report.html`
+  and its checksum with them; `node --test report-ui/test/*.test.mjs` renders it in Chrome (`just
+  ci` runs it too). `just report-ui --embed mutation.json out.html` puts a run's report in it, to
   look at.
-- **Dependencies:** pin exact versions, then `./gradlew lockDependencies --write-locks`.
+- **Dependencies:** pin exact versions, then `just lock`.
 
 ## Keeping the editions level
 
@@ -124,7 +124,7 @@ the entry out. So the list only shrinks when the editions really meet. A differe
 1. Add it to the contract: to `options`, and to each command's `options` in the order help lists
    them. If one edition will have it first, add a `pending` difference for the other, with items
    `option:--name` and `takes:*:--name` and an issue.
-2. Add it here, run `./gradlew :mutastic-cli:exportDocsModel`, and `ContractTest` passes.
+2. Add it here, run `just docs-output`, and `ContractTest` passes.
 3. mutastic-rs pins the contract by commit, one file to a pull request in `contract/pins`, and
    reads it at the newest. When the Rust side is written, its contract check fails with "now
    matches". Take `rust` out of the pending entry in a mutastic PR, merge it, then pin that merge
@@ -139,7 +139,7 @@ contract first, then each edition.
 **Adding an arid rule:** give it an id in `AridRule` (`mutastic-api`), short and as people say
 it, `mutastic:` and a plural noun where one fits; add it to the contract's `arid` with the edition
 that has it, and its example to the engine's `truth/arid/Examples.java` in a method named for it.
-`./gradlew :mutastic-cli:exportDocsOutput` writes the docs' list. Another edition joins the rule
+`just docs-output` writes the docs' list. Another edition joins the rule
 by adding itself to the rule's `editions`, `reasons` and `examples`, in a mutastic PR merged
 back to back with its own. An id never changes once released.
 
@@ -209,11 +209,8 @@ Commits before 9 Nov 2026 use the older style, a long subject that says why, and
 rewritten.
 
 `.githooks/commit-msg` checks each message as you commit, and lets merge, revert, `fixup!` and
-`squash!` commits through as git writes them. Turn it on once in each clone:
-
-```sh
-git config core.hooksPath .githooks
-```
+`squash!` commits through as git writes them. `just setup` turns it on, once in each clone
+(`git config core.hooksPath .githooks`, if that's all you want).
 
 CI runs the same check on each new commit in a push or pull request (`.githooks/check-commits`),
 counting from the commit that added the hook. `sh .githooks/test-commit-msg` tests the hook.
@@ -229,7 +226,7 @@ can still turn `main` red once merged beside another one, so the queue tests eac
 merged with the latest `main` and every pull request ahead of it, with the same checks, and
 merges it only if that passes. One that fails there leaves the queue, and `main` stays green.
 
-Merge with `.githooks/merge-pr`, not `gh pr merge` by hand. It writes the subject from the title,
+Merge with `just merge` (`.githooks/merge-pr`), not `gh pr merge` by hand. It writes the subject from the title,
 takes the body from a file (wrapped at 72) or leaves it empty, checks the whole message with
 `commit-msg`, and adds the pull request to the queue for the commit the checks ran on, once none has
 failed: the queue takes it only once they all pass. The queue writes the squash commit from the
@@ -244,9 +241,9 @@ request still goes through it, as the rules let no one merge past it, and withou
 past the checks where the rules let an admin. The message is checked either way.
 
 ```sh
-sh .githooks/merge-pr 59                   # subject "<title> (#59)", no body; queued
-sh .githooks/merge-pr 59 body.txt          # with a body that says why
-sh .githooks/merge-pr --wait 59 body.txt   # and wait for it to land on main
+just merge 59                   # subject "<title> (#59)", no body; queued
+just merge 59 body.txt          # with a body that says why
+just merge 59 body.txt --wait   # and wait for it to land on main
 ```
 
 ## Licence

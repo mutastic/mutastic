@@ -26,7 +26,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 /// `lastStableRelease` (gradle.properties) names that release. Before 1.0.0 the format may change,
 /// so there's nothing to hold it to, and no earlier release's files may stand in.
 ///
-/// To write the `.read` files: `./gradlew :mutastic-cli:exportIds`, then read the diff.
+/// To write the `.read` files: `just ids` (`./gradlew :mutastic-cli:exportIds`), then read the
+/// diff.
 class RulesFileFormatTest {
   private static final boolean WRITE = Boolean.getBoolean("mutastic.ids.write");
   private static final String LAST_STABLE = System.getProperty("mutastic.lastStableRelease", "");

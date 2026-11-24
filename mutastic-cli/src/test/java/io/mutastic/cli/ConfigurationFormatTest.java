@@ -22,8 +22,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 /// and are read now and held to it. A key may be added; none may be taken away or read another way.
 ///
 /// `lastStableRelease` (gradle.properties) names that release; [CommandLineCompatibilityTest]
-/// checks it's the one kept. To write the `.read` files: `./gradlew :mutastic-cli:exportIds`, then
-/// read the diff.
+/// checks it's the one kept. To write the `.read` files: `just ids` (`./gradlew
+/// :mutastic-cli:exportIds`), then read the diff.
 class ConfigurationFormatTest {
   private static final boolean WRITE = Boolean.getBoolean("mutastic.ids.write");
   private static final String LAST_STABLE = System.getProperty("mutastic.lastStableRelease", "");

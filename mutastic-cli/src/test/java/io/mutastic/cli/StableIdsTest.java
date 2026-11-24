@@ -36,7 +36,7 @@ import org.junit.jupiter.api.io.TempDir;
 /// keeps holding every mutant. Only an operator that's new adds ids freely: write the list again
 /// before a release, so the release's ids are held from then on.
 ///
-/// To write it: `./gradlew :mutastic-cli:exportIds`, then read the diff.
+/// To write it: `just ids` (`./gradlew :mutastic-cli:exportIds`), then read the diff.
 class StableIdsTest {
   private static final Path IDS = Path.of(System.getProperty("mutastic.ids"));
   private static final Path PLUGINS_JAR = Path.of(System.getProperty("mutastic.pluginsJar"));
@@ -59,7 +59,7 @@ class StableIdsTest {
         .as("ids that are gone or name another mutant: users' ignores and baselines name these")
         .isEmpty();
     assertThat(added(kept, found))
-        .as("new mutants of operators already kept: ./gradlew :mutastic-cli:exportIds")
+        .as("new mutants of operators already kept: just ids (./gradlew :mutastic-cli:exportIds)")
         .isEmpty();
   }
 

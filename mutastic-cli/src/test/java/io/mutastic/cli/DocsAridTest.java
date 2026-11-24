@@ -24,7 +24,7 @@ import tools.jackson.databind.json.JsonMapper;
 /// least must be caught by an assertion. The guide takes `samples/sales` through a run, its audit,
 /// an ignore and the `mutate:` rule it adds.
 ///
-/// To write their output: `./gradlew :mutastic-cli:exportDocsOutput`.
+/// To write their output: `just docs-output` (`./gradlew :mutastic-cli:exportDocsOutput`).
 class DocsAridTest {
   private static final Path SAMPLES = Path.of(System.getProperty("mutastic.samples"));
   private static final Path PAGES = Path.of(System.getProperty("mutastic.docs"));

@@ -14,7 +14,7 @@ import tools.jackson.databind.json.JsonMapper;
 /// output it shows is what mutastic prints, on a sample, with that code in its `run-failed` event,
 /// so neither the page nor an agent reading the event can drift from the binary.
 ///
-/// To write its outputs: `./gradlew :mutastic-cli:exportDocsOutput`.
+/// To write its outputs: `just docs-output` (`./gradlew :mutastic-cli:exportDocsOutput`).
 class ErrorsPageTest {
   private static final Path SAMPLES = Path.of(System.getProperty("mutastic.samples"));
   private static final Path PAGE =

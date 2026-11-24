@@ -20,7 +20,7 @@ import tools.jackson.databind.node.ObjectNode;
 
 /// The arid rules the engine has are the contract's (`arid`), and the docs' copy of them,
 /// docs/src/data/arid.json, is what both say: the docs page renders it, so it's never typed by
-/// hand. `./gradlew :mutastic-cli:exportDocsOutput` writes it again.
+/// hand. `just docs-output` (`./gradlew :mutastic-cli:exportDocsOutput`) writes it again.
 class AridRulesTest {
   private static final Path EXPORT =
       Path.of(System.getProperty("mutastic.docsOutput")).resolveSibling("arid.json");
@@ -86,7 +86,7 @@ class AridRulesTest {
     }
 
     assertThat(Files.readString(EXPORT, StandardCharsets.UTF_8))
-        .as("docs/src/data/arid.json: ./gradlew :mutastic-cli:exportDocsOutput")
+        .as("docs/src/data/arid.json: just docs-output (./gradlew :mutastic-cli:exportDocsOutput)")
         .isEqualTo(written);
   }
 
