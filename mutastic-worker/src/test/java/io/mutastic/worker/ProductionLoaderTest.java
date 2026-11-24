@@ -15,6 +15,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 class ProductionLoaderTest {
   private static final String COUNTER = "io.mutastic.worker.fixture.CounterTest";
+  private static final String FRAMES = "io.mutastic.worker.fixture.packaged.Frames";
 
   /// `@MethodSource("com.example.UtilTest#cases")` names a test class in a string, which renaming
   /// can't reach: JUnit loads it by its original name through the test copy's loader.
@@ -97,6 +98,37 @@ class ProductionLoaderTest {
     var root = Worker.root(jar);
 
     assertThat(RootsLoader.classFile(List.of(root), COUNTER)).isEqualTo(bytes);
+  }
+
+  /// A test may read its package's annotations, as jsoup's checks for `@NullMarked`: the JDK reads
+  /// them from `package-info` through the package's loader.
+  @Test
+  void aPackagesAnnotationsAreSeen() throws Exception {
+    var frames = Class.forName(FRAMES, false, production());
+
+    assertThat(frames.getPackage().getDeclaredAnnotations())
+        .extracting(annotation -> annotation.annotationType().getSimpleName())
+        .containsExactly("Noted");
+  }
+
+  /// A frame of a class the worker loads reads as a frame of a class on the build's class path
+  /// does: no loader's name in front.
+  @Test
+  void aFrameReadsAsTheClassPathsDo() throws Exception {
+    var frames = Class.forName(FRAMES, true, production());
+
+    var here = (String) frames.getMethod("here").invoke(null);
+
+    assertThat(here).startsWith(FRAMES + ".here(Frames.java:");
+  }
+
+  private static ProductionLoader production() throws Exception {
+    return new ProductionLoader(
+        roots(),
+        Map.of(),
+        List.of(),
+        new TestSplit(Set.of(), Set.of()),
+        ClassLoader.getPlatformClassLoader());
   }
 
   private static List<Path> roots() throws Exception {

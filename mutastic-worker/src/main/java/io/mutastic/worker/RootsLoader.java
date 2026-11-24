@@ -15,14 +15,18 @@ import org.jspecify.annotations.Nullable;
 /// Loads classes and resources from the project's own directories before asking its parent, as
 /// Gradle's test classpath puts them first. JUnit, the project's dependencies and [Probes] come
 /// from the worker's own classpath, through the parent.
+///
+/// Unnamed, as the build's class path loader is to a test: a named loader's name starts each frame
+/// of its classes' stacks (`mutastic-production//org.jsoup.Selector.select(…)`), and a test that
+/// reports its caller from a frame's text (jsoup's query warnings) failed here and not there.
 abstract class RootsLoader extends ClassLoader {
   private final List<Path> roots;
   private final List<Path> resourceRoots;
 
   /// `roots` hold the classes it defines; `resourceRoots` are where it finds resources itself,
   /// before its parent.
-  RootsLoader(String name, List<Path> roots, List<Path> resourceRoots, ClassLoader parent) {
-    super(name, parent);
+  RootsLoader(List<Path> roots, List<Path> resourceRoots, ClassLoader parent) {
+    super(parent);
     this.roots = List.copyOf(roots);
     this.resourceRoots = List.copyOf(resourceRoots);
   }
@@ -39,18 +43,38 @@ abstract class RootsLoader extends ClassLoader {
       var loaded = findLoadedClass(name);
       if (loaded == null) {
         var bytes = bytesFor(name);
-        if (bytes == null) {
-          loaded = super.loadClass(name, false);
-        } else {
-          loaded = defineClass(name, bytes, 0, bytes.length);
-          defined(name, loaded);
-        }
+        loaded = bytes == null ? super.loadClass(name, false) : define(name, bytes);
       }
       if (resolve) {
         resolveClass(loaded);
       }
       return loaded;
     }
+  }
+
+  /// This loader's own class of `name`, for the JDK's lookups that ask for one without going
+  /// through [#loadClass]: a package's annotations are read from its `package-info` class with
+  /// `loadClass(Module, String)`, which comes here. Without it a package's `@NullMarked` was never
+  /// seen.
+  @Override
+  protected Class<?> findClass(String name) throws ClassNotFoundException {
+    synchronized (getClassLoadingLock(name)) {
+      var loaded = findLoadedClass(name);
+      if (loaded != null) {
+        return loaded;
+      }
+      var bytes = bytesFor(name);
+      if (bytes == null) {
+        throw new ClassNotFoundException(name);
+      }
+      return define(name, bytes);
+    }
+  }
+
+  private Class<?> define(String name, byte[] bytes) {
+    var loaded = defineClass(name, bytes, 0, bytes.length);
+    defined(name, loaded);
+    return loaded;
   }
 
   @Override

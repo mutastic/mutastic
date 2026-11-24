@@ -13,7 +13,7 @@ final class TestLoader extends RootsLoader {
   private final int run;
 
   TestLoader(List<Path> roots, ProductionLoader production, int run) {
-    super("mutastic-tests", roots, List.of(), production);
+    super(roots, List.of(), production);
     this.production = production;
     this.run = run;
   }
