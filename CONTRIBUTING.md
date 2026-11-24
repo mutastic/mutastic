@@ -41,6 +41,18 @@ Useful along the way:
 [ARCHITECTURE.md](ARCHITECTURE.md) explains how the pieces fit, and `samples/` holds the small
 projects the end-to-end tests run on.
 
+## Commands
+
+A job spelled in Gradle's words is spelled differently in the Rust edition, and again after a
+change of build tool. So the everyday ones are also recipes in the [justfile](justfile), a word
+each, meaning the same in both editions: `just` lists them, `just check` runs everything a pull
+request needs to pass (`./gradlew build`), and `just ci` what CI runs. Each is one line over Gradle
+or a script, so the commands above still work without it.
+
+Install [just](https://just.systems) 1.59.0 or later with `brew install just`,
+`scoop install just`, `winget install --id Casey.Just` or `cargo install just --locked`. On
+Windows, recipes run in Git Bash's `sh`.
+
 ## Making a change
 
 - **Follow [AGENTS.md](AGENTS.md).** It's the conventions the code is held to and why: one
