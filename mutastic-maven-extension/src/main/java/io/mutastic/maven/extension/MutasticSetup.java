@@ -1,6 +1,8 @@
 package io.mutastic.maven.extension;
 
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
+import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -77,17 +79,7 @@ public class MutasticSetup extends AbstractMavenLifecycleParticipant {
     session.setCurrentProject(project);
     try {
       boolean failsafe = suite.equals("integration-test") || suite.equals("integrationTest");
-      var execution = testExecution(session, failsafe);
-      if (failsafe && execution == null) {
-        throw new MavenExecutionException(
-            String.format(
-                "mutastic: no test suite integration-test in %s; its build has no Failsafe",
-                project.getArtifactId()),
-            project.getFile());
-      }
-      var settings = new Surefire(session, execution);
-      new ModuleSetup(project, settings, new Launcher(session, project, repositories), failsafe)
-          .write(file, Java.of(settings, session, toolchains), session.getProjects());
+      writeSuite(session, project, file, failsafe);
     } catch (MavenExecutionException e) {
       throw e;
     } catch (Exception e) {
@@ -97,18 +89,54 @@ public class MutasticSetup extends AbstractMavenLifecycleParticipant {
     }
   }
 
+  private void writeSuite(MavenSession session, MavenProject project, Path file, boolean failsafe)
+      throws Exception {
+    var plan =
+        lifecycle
+            .calculateExecutionPlan(session, failsafe ? "integration-test" : "test")
+            .getMojoExecutions();
+    var execution = testExecution(plan, failsafe);
+    if (failsafe && execution == null) {
+      throw new MavenExecutionException(
+          String.format(
+              "mutastic: no test suite integration-test in %s; its build has no Failsafe",
+              project.getArtifactId()),
+          project.getFile());
+    }
+    var settings = new Surefire(session, execution);
+    new ModuleSetup(project, settings, new Launcher(session, project, repositories), failsafe)
+        .write(
+            file,
+            Java.of(settings, session, toolchains),
+            session.getProjects(),
+            sources(session, project, plan));
+  }
+
   /// Surefire's `test`, or Failsafe's `integration-test`, in the module's build plan, which
   /// evaluates its settings as the build would.
-  private @Nullable MojoExecution testExecution(MavenSession session, boolean failsafe)
-      throws Exception {
+  private static @Nullable MojoExecution testExecution(List<MojoExecution> plan, boolean failsafe) {
     var phase = failsafe ? "integration-test" : "test";
     var plugin = failsafe ? "maven-failsafe-plugin" : "maven-surefire-plugin";
-    for (MojoExecution execution :
-        lifecycle.calculateExecutionPlan(session, phase).getMojoExecutions()) {
+    for (MojoExecution execution : plan) {
       if (execution.getArtifactId().equals(plugin) && execution.getGoal().equals(phase)) {
         return execution;
       }
     }
     return null;
+  }
+
+  /// The source directories the build compiles: the project's, then any a compile of its own names
+  /// (`compileSourceRoots`), as a multi-release build names its Java 11 sources for the compile
+  /// into `META-INF/versions/11`. Without them, those classes' mutants have no source.
+  private static List<String> sources(
+      MavenSession session, MavenProject project, List<MojoExecution> plan) throws Exception {
+    var roots = new LinkedHashSet<>(project.getCompileSourceRoots());
+    for (MojoExecution execution : plan) {
+      if (execution.getArtifactId().equals("maven-compiler-plugin")
+          && execution.getGoal().equals("compile")) {
+        roots.addAll(new Surefire(session, execution).list("compileSourceRoots"));
+      }
+    }
+    return List.copyOf(roots);
   }
 }

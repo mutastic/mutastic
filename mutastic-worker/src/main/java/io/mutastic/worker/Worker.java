@@ -914,13 +914,15 @@ public final class Worker {
   }
 
   /// A directory as it is; a jar as the root of what's in it, as another module of the build
-  /// reaches a module's tests.
+  /// reaches a module's tests. A multi-release jar's classes are the ones this JDK would load from
+  /// it, `META-INF/versions/11`'s over the base on 11 and later, as the JVM's own class path does;
+  /// a directory is never read that way, on the class path or here.
   static Path root(Path entry) {
     if (!entry.toString().endsWith(".jar") || !Files.isRegularFile(entry)) {
       return entry;
     }
     try {
-      return FileSystems.newFileSystem(entry).getPath("/");
+      return FileSystems.newFileSystem(entry, Map.of("releaseVersion", "runtime")).getPath("/");
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }

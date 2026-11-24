@@ -77,6 +77,28 @@ class ProductionLoaderTest {
     assertThat(production.getResource(entry)).hasProtocol("jar");
   }
 
+  /// A multi-release jar's versioned class is the one this JDK loads, as on the JVM's class path:
+  /// another module of the build may be one.
+  @Test
+  void aMultiReleaseJarsVersionedClassWins(@TempDir Path dir) throws Exception {
+    var jar = dir.resolve("fixture.jar");
+    var entry = COUNTER.replace('.', '/') + ".class";
+    var bytes = Files.readAllBytes(roots().get(0).resolve(entry));
+    var manifest = new java.util.jar.Manifest();
+    manifest.getMainAttributes().put(java.util.jar.Attributes.Name.MANIFEST_VERSION, "1.0");
+    manifest.getMainAttributes().put(java.util.jar.Attributes.Name.MULTI_RELEASE, "true");
+    try (var out = new JarOutputStream(Files.newOutputStream(jar), manifest)) {
+      out.putNextEntry(new JarEntry(entry));
+      out.write(new byte[] {0});
+      out.putNextEntry(new JarEntry("META-INF/versions/11/" + entry));
+      out.write(bytes);
+    }
+
+    var root = Worker.root(jar);
+
+    assertThat(RootsLoader.classFile(List.of(root), COUNTER)).isEqualTo(bytes);
+  }
+
   private static List<Path> roots() throws Exception {
     return List.of(
         Path.of(CounterTest.class.getProtectionDomain().getCodeSource().getLocation().toURI()));

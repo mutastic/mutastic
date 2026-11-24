@@ -11,7 +11,8 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.jspecify.annotations.Nullable;
 
 /// Surefire's settings for one module, evaluated as Maven evaluates them for the plugin: `${…}`
-/// from properties and the project. A module without Surefire has none of them.
+/// from properties and the project. A module without Surefire has none of them. The compiler's are
+/// read the same way, for the source directories a compile names.
 final class Surefire {
   private final @Nullable MojoExecution execution;
   private final @Nullable PluginParameterExpressionEvaluator evaluator;
