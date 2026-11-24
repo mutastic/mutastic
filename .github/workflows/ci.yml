@@ -55,11 +55,11 @@ jobs:
           NUMBER: ${{ github.event.pull_request.number }}
           COUNT: ${{ github.event.pull_request.changed_files }}
           # What the build never reads: the top-level Markdown pages, the changelog's entries and
-          # scripts, the release's scripts, the citation, the templates and picture under .github,
-          # the workflows other than this one, the release workflow's script, the justfile's verb list
-          # (Commits reads it), and the hooks. The justfile isn't one: every job here runs the build
+          # scripts, the release's scripts and Central's, the citation, the templates and picture
+          # under .github, the workflows other than this one, the release workflow's scripts, the
+          # justfile's verb list (Commits reads it), and the hooks. The justfile isn't one: every job here runs the build
           # through it.
-          UNREAD: '^([^/]+\.md|changes/.*|scripts/(changelog|test-changelog|release-check|docs-pin-rust)\.sh|CITATION\.cff|\.github/(ISSUE_TEMPLATE/.*|PULL_REQUEST_TEMPLATE\.md|pip\.webp|release-tested\.sh|just-verbs\.txt|workflows/(commits|docs|nightly|portal|release)\.yml)|\.githooks/.*)$'
+          UNREAD: '^([^/]+\.md|changes/.*|scripts/(changelog|test-changelog|release-check|docs-pin-rust|central|test-central)\.sh|CITATION\.cff|\.github/(ISSUE_TEMPLATE/.*|PULL_REQUEST_TEMPLATE\.md|pip\.webp|release-(tested|summary)\.sh|just-verbs\.txt|workflows/(commits|docs|nightly|portal|release)\.yml)|\.githooks/.*)$'
         run: |
           code=true
           if [ "$EVENT" = pull_request ] &&

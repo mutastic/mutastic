@@ -49,9 +49,11 @@ rebuilt from its tag with them for as long as it's published.
 ## Deploying
 
 `.github/workflows/docs.yml` builds the site on every change. docs.mutastic.io describes the latest
-release, so it's deployed from each release's tag, to the Pages project's production branch,
-`release`. main and each pull request deploy to preview addresses of their own
-(`main.mutastic-docs.pages.dev`), since main documents what isn't released yet.
+release, so the release workflow (`release.yml`) builds it from the release's tag before the
+release is approved, and deploys it to the Pages project's production branch, `release`, once the
+release is out; `gh workflow run docs.yml --ref main -f release=true` deploys it again. main and
+each pull request deploy to preview addresses of their own (`main.mutastic-docs.pages.dev`), since
+main documents what isn't released yet.
 
 It deploys once these exist; the vault's *Mutastic hosting and DNS setup* has the whole checklist:
 

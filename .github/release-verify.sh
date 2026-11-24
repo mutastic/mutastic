@@ -135,10 +135,10 @@ wait_for_release() {
     [ ${#waiting[@]} -eq 0 ] && return 0
     if [ "$(date +%s)" -ge "$deadline" ]; then
       for entry in "${waiting[@]}"; do note "- ✗ ${entry%%|*}: not at ${entry#*|}"; done
-      failed "not all of it was served within $minutes minutes. The release job attaches the CLI \
-once approved; Central serves a deployment about half an hour after it's published in the Central \
-Portal; the Plugin Portal has it once portal.yml has run on the tag. Do what's left, then run this \
-again: \`gh workflow run release-verify.yml -f version=$version\`"
+      failed "not all of it was served within $minutes minutes. release.yml's publish job, once \
+approved, publishes Central's deployment and the Gradle plugin, then the GitHub release with the \
+CLI; Central's mirrors and the Plugin Portal can lag behind. Look at that run for a failed step, \
+then run this again: \`gh workflow run release-verify.yml -f version=$version\`"
     fi
     sleep 60
   done
