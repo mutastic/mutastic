@@ -323,7 +323,10 @@ class DocsOperatorsTest {
       written = card;
     }
     assertThat(written)
-        .as("docs/src/data/output/operators/%s: ./gradlew :mutastic-cli:exportDocsOutput", name)
+        .as(
+            "docs/src/data/output/operators/%s: just docs-output"
+                + " (./gradlew :mutastic-cli:exportDocsOutput)",
+            name)
         .isEqualTo(card);
   }
 }

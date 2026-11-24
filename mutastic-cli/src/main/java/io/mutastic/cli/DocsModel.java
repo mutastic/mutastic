@@ -11,8 +11,9 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 /// The commands and options as the docs reference reads them, `commands.json`: written from the
-/// same declarations as the parser and `--help` ([Options], the commands, [Help]'s lists), by
-/// `./gradlew :mutastic-cli:exportDocsModel`. The build fails while the committed copy differs.
+/// same declarations as the parser and `--help` ([Options], the commands, [Help]'s lists), by `just
+/// docs-output` (`./gradlew :mutastic-cli:exportDocsModel`). The build fails while the committed
+/// copy differs.
 ///
 /// Each option is spelled as each runner writes it: `--threshold=N` on the command line,
 /// `-Dmutastic.threshold` or `<threshold>` for Maven, `-Pmutastic.threshold` or `threshold = …` for

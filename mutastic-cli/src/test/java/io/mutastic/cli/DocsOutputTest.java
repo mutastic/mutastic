@@ -21,7 +21,7 @@ import tools.jackson.databind.json.JsonMapper;
 /// is the samples' own: a block marked `{/* from: path */}` is that file's text, word for word, and
 /// the test the quickstart adds is the one its tour adds.
 ///
-/// To write it: `./gradlew :mutastic-cli:exportDocsOutput`.
+/// To write it: `just docs-output` (`./gradlew :mutastic-cli:exportDocsOutput`).
 class DocsOutputTest {
   private static final Path SAMPLE = Path.of(System.getProperty("mutastic.samples"), "pricing");
   private static final Path OUTPUT = Path.of(System.getProperty("mutastic.docsOutput"));
@@ -1072,7 +1072,9 @@ class DocsOutputTest {
       written = output;
     }
     assertThat(withoutTimings(written))
-        .as("docs/src/data/output/%s: ./gradlew :mutastic-cli:exportDocsOutput", name)
+        .as(
+            "docs/src/data/output/%s: just docs-output (./gradlew :mutastic-cli:exportDocsOutput)",
+            name)
         .isEqualTo(withoutTimings(output));
   }
 
