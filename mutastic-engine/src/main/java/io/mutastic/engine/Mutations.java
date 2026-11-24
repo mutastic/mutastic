@@ -215,9 +215,9 @@ final class Mutations {
   }
 
   /// The mutants, with any of a plugin's or rules file's that wouldn't load skipped as unviable:
-  /// mutastic's own operators are built to verify, and a failure of theirs stops the run, but a
-  /// rule can't know every call it will meet. A removed assignment is checked too: javac's table of
-  /// variables says it has a value, but another compiler's might not be so exact.
+  /// mutastic's own operators are built to verify, and are checked only as each runs ([#applied]),
+  /// but a rule can't know every call it will meet. A removed assignment is checked too: javac's
+  /// table of variables says it has a value, but another compiler's might not be so exact.
   private List<Mutant> viable(ClassModel model, List<Mutant> found) {
     var checked = new ArrayList<Mutant>(found.size());
     for (Mutant mutant : found) {
@@ -881,6 +881,60 @@ final class Mutations {
     return context.transformClass(model, changing(model, mutant));
   }
 
+  /// A mutant's class, as it would load, or why it wouldn't.
+  sealed interface Applied {
+    /// The mutated class, which verifies. Not a record: its bytes are an array.
+    final class Loads implements Applied {
+      private final byte[] bytes;
+
+      Loads(byte[] bytes) {
+        this.bytes = bytes;
+      }
+
+      byte[] bytes() {
+        return bytes;
+      }
+    }
+
+    /// Why the mutated class wouldn't load, as the JDK's verifier says it.
+    record Unviable(String why) implements Applied {}
+  }
+
+  /// The mutant's class, checked to load. One of mutastic's own operators that makes a class the
+  /// JVM would reject has a bug, but on code its author didn't foresee (another compiler's) the
+  /// mutant proves nothing either way: it's withdrawn as unviable, and the run goes on.
+  Applied applied(ClassModel model, Mutant mutant) {
+    String why;
+    try {
+      var bytes = apply(model, mutant);
+      var errors = verify(bytes);
+      if (errors.isEmpty()) {
+        return new Applied.Loads(bytes);
+      }
+      why = firstLine(errors.getFirst().getMessage());
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      why = firstLine(e.getMessage());
+    }
+    return new Applied.Unviable(mutantsFault(model, mutant, why));
+  }
+
+  /// Why the mutant wouldn't load, if it wouldn't, for a mutant about to run that has no need of
+  /// its class: only the mutated method is verified.
+  Optional<String> unviableToRun(ClassModel model, Mutant mutant) {
+    return whyUnviable(model, mutant).map(why -> mutantsFault(model, mutant, why));
+  }
+
+  /// `why`, once it's sure the mutant is what doesn't load: the class as built does. When it
+  /// doesn't either (a supertype mutastic can't find), the fault is in how mutastic reads the
+  /// project, and withdrawing every mutant of the class would hide it: the run stops instead.
+  private String mutantsFault(ClassModel model, Mutant mutant, String why) {
+    if (!verifiesAsItIs(model)) {
+      throw new IllegalStateException(
+          "mutant " + mutant.id() + " doesn't verify, nor does its class as built: " + why);
+    }
+    return why;
+  }
+
   /// The mutated class, for verifying: with only the mutated method in it, when the class as it is
   /// verifies. A method's verifying depends on its own code and the class hierarchy, never on the
   /// other methods, so what it says of the mutant is the same, and verifying a class costs a pass
@@ -897,7 +951,15 @@ final class Mutations {
   }
 
   private boolean verifiesAsItIs(ClassModel model) {
-    return verifiesAsItIs.computeIfAbsent(model, unchanged -> context.verify(unchanged).isEmpty());
+    return verifiesAsItIs.computeIfAbsent(model, this::verifies);
+  }
+
+  private boolean verifies(ClassModel model) {
+    try {
+      return context.verify(model).isEmpty();
+    } catch (IllegalArgumentException e) {
+      return false;
+    }
   }
 
   private ClassTransform changing(ClassModel model, Mutant mutant) {

@@ -34,7 +34,12 @@ class KotlinOutputTest {
           "Holder",
           "InlinesKt",
           "HelpersKt",
-          "ResourcesKt");
+          "ResourcesKt",
+          "Placer",
+          "Placer$WhenMappings",
+          "Align",
+          "Style",
+          "Cell");
 
   /// Each test finds its own, for its own classes, not shared from a `@BeforeAll`: a mutant is only
   /// run against the tests that reach its line, and what a `@BeforeAll` reaches is no test's.
@@ -77,6 +82,50 @@ class KotlinOutputTest {
         || mutant.original().equals("TABLESWITCH")
         || mutant.replacement().contains("label")
         || mutant.replacement().contains("$0");
+  }
+
+  /// `style?.align ?: Align.Start` is two tests, and each keeps the value it tested on the stack as
+  /// it jumps: the first the style, the second the alignment. Swapping them as `&&` and `||` sent a
+  /// style where an alignment was expected, a class the JVM rejects, and the run stopped (corpus
+  /// A12). It's no connector, and the mutants it does have load.
+  @Test
+  void aSafeCallWithADefaultIsNoConnectorAndItsMutantsLoad() {
+    var starts = of("Placer", "starts").toList();
+
+    assertThat(starts)
+        .isNotEmpty()
+        .noneMatch(mutant -> mutant.operator() == io.mutastic.api.BuiltIn.LOGICAL_CONNECTOR)
+        .anyMatch(mutant -> mutant.original().equals("IFNULL"));
+    var placer = model("Placer");
+    var ready = new Mutations(resolvingTheShapes(), Policy.NONE);
+    assertThat(starts)
+        .filteredOn(mutant -> mutant.skipped().isEmpty())
+        .allSatisfy(
+            mutant ->
+                assertThat(ready.applied(placer, mutant))
+                    .as(mutant.toString())
+                    .isInstanceOf(Mutations.Applied.Loads.class));
+  }
+
+  /// A context whose verifier knows these classes' supertypes, and the one of the stdlib's that
+  /// `when` throws, as a run's knows the project's and its libraries'.
+  private static ClassFile resolvingTheShapes() {
+    var shapes =
+        java.lang.classfile.ClassHierarchyResolver.ofResourceParsing(
+            type ->
+                KotlinOutputTest.class.getResourceAsStream(
+                    "/kotlin/" + type.displayName() + ".class"));
+    var stdlib =
+        java.lang.classfile.ClassHierarchyResolver.of(
+            List.of(),
+            Map.of(
+                java.lang.constant.ClassDesc.of("kotlin.NoWhenBranchMatchedException"),
+                java.lang.constant.ClassDesc.of("java.lang.RuntimeException")));
+    return ClassFile.of(
+        ClassFile.ClassHierarchyResolverOption.of(
+            java.lang.classfile.ClassHierarchyResolver.defaultResolver()
+                .orElse(shapes)
+                .orElse(stdlib)));
   }
 
   @Test
