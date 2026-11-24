@@ -2,9 +2,9 @@
  [2m  Classes[0m  [32m[1m1 clean[0m[0m[2m (1)[0m
  [2m  Mutants[0m  [32m✓ [1m4 caught[0m[0m[2m (4)[0m
  [2m  Changed[0m  4 lines in 1 file since HEAD
- [2mTest runs[0m  6[2m (40 without coverage selection)[0m
- [2m Start at[0m  01:19:55
- [2m Duration[0m  1.7s [2m(setup 0ms, build 446ms, coverage 211ms, mutants 50ms, checking 985ms)[0m
+ [2mTest runs[0m  8[2m (40 without coverage selection)[0m
+ [2m Start at[0m  19:09:22
+ [2m Duration[0m  1.6s [2m(setup 0ms, build 411ms, coverage 214ms, mutants 48ms, checking 956ms, reports 7ms)[0m
  [2m    Tests[0m  10 on JDK 17 · 1 worker
  [2m  Reports[0m  samples/pricing/build/mutastic/mutation.json[2m · [0msamples/pricing/build/mutastic/mutation.html
  [2m    Score[0m  [32m[1m100.0%[0m[0m  [42;30;1m PASS [0m [32mEvery mutant was caught.[0m

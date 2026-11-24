@@ -5,8 +5,8 @@
  [2m  Classes[0m  [32m[1m1 clean[0m[0m[2m | [0m[1;31m[1m1 with misses[0m[0m[2m (2)[0m
  [2m  Mutants[0m  [32m✓ [1m1 caught[0m[0m[2m · [0m[33m○ 5 not covered[0m[2m · [0m[2m2 skipped (1 arid, 1 twin)[0m[2m (8)[0m
  [2mTest runs[0m  1[2m (1 without coverage selection)[0m
- [2m Start at[0m  14:15:31
- [2m Duration[0m  2.5s [2m(setup 0ms, build 1.3s, coverage 208ms, mutants 25ms, checking 948ms)[0m
+ [2m Start at[0m  19:09:06
+ [2m Duration[0m  2.3s [2m(setup 0ms, build 1.1s, coverage 186ms, mutants 19ms, checking 941ms, reports 12ms)[0m
  [2m    Tests[0m  1 on JDK 17 · 1 worker
  [2m  Reports[0m  samples/configured/build/mutastic/mutation.json[2m · [0msamples/configured/build/mutastic/mutation.html
  [2m    Score[0m  [1;31m[1m16.7%[0m[0m  [41;30;1m FAIL [0m [1;31mBelow the threshold of 80: 0 missed, 5 not covered.[0m[2m  · 100.0% where tests reach[0m
