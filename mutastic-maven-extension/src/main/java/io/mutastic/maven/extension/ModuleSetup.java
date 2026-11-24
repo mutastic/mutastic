@@ -39,8 +39,10 @@ final class ModuleSetup {
     this.failsafe = failsafe;
   }
 
-  /// Writes the setup to `file`, `java` running the tests, with the `reactor`'s modules.
-  void write(Path file, String java, Collection<MavenProject> reactor) throws Exception {
+  /// Writes the setup to `file`, `java` running the tests, with the `reactor`'s modules and the
+  /// `sources` the build compiles.
+  void write(Path file, String java, Collection<MavenProject> reactor, List<String> sources)
+      throws Exception {
     var build = project.getBuild();
     var setup = new Properties();
     setup.put("java", java);
@@ -49,11 +51,11 @@ final class ModuleSetup {
     setup.put(
         "workingDirectory",
         workingDirectory != null ? workingDirectory : project.getBasedir().getPath());
-    setup.put("classes", build.getOutputDirectory());
+    setup.put("classes", joined(classes()));
     setup.put("resources", "");
     setup.put("testClasses", build.getTestOutputDirectory());
     setup.put("testResources", "");
-    setup.put("sources", joined(project.getCompileSourceRoots()));
+    setup.put("sources", joined(sources));
     setup.put("testSources", joined(project.getTestCompileSourceRoots()));
     putClasspath(setup, reactor);
     setup.put("outputs", joined(outputs(project)));
@@ -148,7 +150,20 @@ final class ModuleSetup {
         Path.of(build.getDirectory(), build.getFinalName() + ".jar").toString());
   }
 
-  /// The test classpath without the module's own directories, which the worker loads itself.
+  /// The module's classes: its output directory, then any directory inside it that Surefire's
+  /// `additionalClasspathElements` adds. A multi-release build compiles its Java 11 classes into
+  /// `META-INF/versions/11` there, which a class loader never reads in a directory, and names that
+  /// directory to put them on the tests' classpath, after the rest: they're the module's own code,
+  /// so the worker loads them with it, where a mutant of them can be swapped in.
+  private List<String> classes() throws Exception {
+    var classes = new ArrayList<String>();
+    classes.add(project.getBuild().getOutputDirectory());
+    additional().stream().filter(this::isInOutput).forEach(classes::add);
+    return classes;
+  }
+
+  /// The test classpath without the module's own directories, which the worker loads itself, and
+  /// what Surefire adds to it after.
   private List<String> dependencies() throws Exception {
     var build = project.getBuild();
     var own = Set.of(build.getOutputDirectory(), build.getTestOutputDirectory());
@@ -158,8 +173,29 @@ final class ModuleSetup {
         dependencies.add(element);
       }
     }
+    additional().stream().filter(element -> !isInOutput(element)).forEach(dependencies::add);
     launcher.addTo(dependencies);
     return dependencies;
+  }
+
+  /// Surefire's `additionalClasspathElements`, each split at commas as Surefire splits them.
+  private List<String> additional() throws Exception {
+    var elements = new ArrayList<String>();
+    for (String entry : surefire.list("additionalClasspathElements")) {
+      COMMA
+          .splitAsStream(entry)
+          .map(String::strip)
+          .filter(element -> !element.isEmpty())
+          .forEach(elements::add);
+    }
+    return elements;
+  }
+
+  /// Whether `element` is inside the module's output directory, but not the directory itself.
+  private boolean isInOutput(String element) {
+    var output = Path.of(project.getBuild().getOutputDirectory()).toAbsolutePath().normalize();
+    var path = Path.of(element).toAbsolutePath().normalize();
+    return path.startsWith(output) && !path.equals(output);
   }
 
   /// `-ea` when Surefire runs the tests with assertions on, as it does unless `enableAssertions` is

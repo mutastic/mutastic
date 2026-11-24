@@ -2073,12 +2073,20 @@ public final class Engine {
     }
   }
 
-  /// Every class in the directories, by binary name, in a stable order.
+  /// Every class in the directories, by binary name, in a stable order: the class each name loads,
+  /// as the test classpath has them. That's a directory's file at the class's own path, the first
+  /// directory's of a name: so not a multi-release layout's `META-INF/versions/11`, which no class
+  /// loader reads from a directory, unless the build puts that directory on the classpath itself.
   private static Map<String, ClassModel> classesIn(List<Path> roots, ClassFile context) {
     var models = new java.util.TreeMap<String, ClassModel>();
-    for (Path file : classFiles(roots)) {
-      var model = ClassFileVersion.parse(context, file);
-      models.put(model.thisClass().asInternalName().replace('/', '.'), model);
+    for (Path root : roots) {
+      for (Path file : classFiles(List.of(root))) {
+        var model = ClassFileVersion.parse(context, file);
+        var name = model.thisClass().asInternalName();
+        if (root.resolve(name + ".class").equals(file)) {
+          models.putIfAbsent(name.replace('/', '.'), model);
+        }
+      }
     }
     return models;
   }
