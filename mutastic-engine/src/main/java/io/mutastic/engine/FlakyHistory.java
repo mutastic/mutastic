@@ -1,6 +1,5 @@
 package io.mutastic.engine;
 
-import io.mutastic.api.WatchedTest;
 import java.util.Map;
 import java.util.Set;
 
@@ -19,11 +18,5 @@ public record FlakyHistory(Map<String, RunRecord.Entry> sameCode, Set<String> wa
   public FlakyHistory {
     sameCode = Map.copyOf(sameCode);
     watched = Set.copyOf(watched);
-  }
-
-  /// How many more times a catch by `test` is run against its mutant before it counts:
-  /// [WatchedTest#CONFIRMATIONS] for a watched test, once with `--confirm-catches`, else none.
-  int confirmationsOf(String test, boolean confirmCatches) {
-    return watched.contains(test) ? WatchedTest.CONFIRMATIONS : confirmCatches ? 1 : 0;
   }
 }

@@ -975,15 +975,7 @@ public final class HumanText {
   private void warnings(Report report, StringBuilder out) {
     var lines = new ArrayList<String>();
     report.flaky().forEach(test -> lines.add(flakyWarning(test, report.whyFlaky(test))));
-    for (var named : report.likelyFlaky()) {
-      if (!named.mutants(LikelyFlaky.CHANGED).isEmpty()) {
-        lines.add(changedBetweenRunsWarning(named));
-      }
-      if (!named.mutants(LikelyFlaky.NOT_REPEATED).isEmpty()) {
-        lines.add(unconfirmedWarning(named));
-      }
-    }
-    report.watched().forEach(watched -> lines.add(watchedWarning(watched)));
+    lines.addAll(likelyFlakyWarnings(report));
     Suspects.unrelatedCatches(report).forEach(note -> lines.add(unrelatedCatchesNote(note)));
     if (!report.staleIgnores().isEmpty()) {
       lines.add(staleIgnoresWarning(report));
@@ -997,6 +989,22 @@ public final class HumanText {
       out.append('\n');
       lines.forEach(line -> out.append(line).append('\n'));
     }
+  }
+
+  /// A line for each reason a test was named likely flaky, the strongest first, then one for each
+  /// test watched since an earlier run named it.
+  private List<String> likelyFlakyWarnings(Report report) {
+    var lines = new ArrayList<String>();
+    for (var named : report.likelyFlaky()) {
+      if (!named.mutants(LikelyFlaky.CHANGED).isEmpty()) {
+        lines.add(changedBetweenRunsWarning(named));
+      }
+      if (!named.mutants(LikelyFlaky.NOT_REPEATED).isEmpty()) {
+        lines.add(unconfirmedWarning(named));
+      }
+    }
+    report.watched().forEach(watched -> lines.add(watchedWarning(watched)));
+    return lines;
   }
 
   private String staleIgnoresWarning(Report report) {

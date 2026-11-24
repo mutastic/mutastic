@@ -905,7 +905,7 @@ public final class Engine {
     var mutantRun = plan.mutantRun();
     return new LikelyFlakyGuard(
         mutantRun.coverage(),
-        mutantRun.history(),
+        mutantRun.confirming().history(),
         () -> first.another(named(log, "flaky")),
         (mutant, worker) -> mutantRun.run(mutant, worker).result());
   }
@@ -1003,8 +1003,7 @@ public final class Engine {
             models,
             mutations,
             coverage,
-            options.confirmCatches(),
-            options.history(),
+            new Confirming(options.confirmCatches(), options.history()),
             options.suggestions(),
             options.auditArid(),
             java.util.Collections.synchronizedList(new ArrayList<>()),
@@ -1477,8 +1476,7 @@ public final class Engine {
   /// mutant share the ClassFile context's caches, so they take turns; only the tests run side by
   /// side. Coverage is only read once the coverage pass is over.
   ///
-  /// @param history what earlier runs say of the tests: a watched test's catch is run
-  ///   [io.mutastic.api.WatchedTest#CONFIRMATIONS] more times, and counts only if it fails each
+  /// @param confirming how many more times a catch is run against its mutant before it counts
   /// @param audited each arid mutant's result when run anyway, in an audit
   /// @param killMatrix whether a caught mutant runs its other covering tests too, to name each that
   ///   catches it
@@ -1489,8 +1487,7 @@ public final class Engine {
       Map<String, ClassModel> models,
       Mutations mutations,
       Coverage coverage,
-      boolean confirmCatches,
-      FlakyHistory history,
+      Confirming confirming,
       boolean suggestions,
       boolean auditArid,
       List<MutantResult> audited,
@@ -1618,7 +1615,7 @@ public final class Engine {
         return new Tested(run, Optional.empty());
       }
       var catcher = run.failedTest().orElseThrow();
-      int confirmations = history.confirmationsOf(catcher, confirmCatches);
+      int confirmations = confirming.timesFor(catcher);
       for (int time = 0; time < confirmations; time++) {
         if (trial.run(List.of(catcher)).status() == Status.MISSED) {
           return testedAfter(trial, covering, run, Optional.of(catcher));

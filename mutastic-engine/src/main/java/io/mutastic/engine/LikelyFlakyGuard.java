@@ -51,6 +51,26 @@ final class LikelyFlakyGuard {
 
   Named check(FalseCatchGuard.Guarded guarded, Listener listener) {
     var current = new ArrayList<>(guarded.results());
+    var named = namedFirst(guarded, current);
+    var handled = new LinkedHashSet<>(guarded.failingAlone().keySet());
+    try (var worker = new LazyWorker(newWorker)) {
+      for (var toDrop = unhandled(current, named, handled);
+          !toDrop.isEmpty();
+          toDrop = unhandled(current, named, handled)) {
+        handled.addAll(toDrop);
+        listener.checking(STEP, 0, 0);
+        new WithoutTests(coverage, rerun, worker.get(), listener)
+            .runAgain(toDrop, current, MutantResult::withFlakyCatchBy)
+            .forEach((test, mutants) -> accused(named, test).rerun().addAll(mutants));
+      }
+    }
+    return new Named(current, named.values().stream().map(Accused::named).toList());
+  }
+
+  /// The tests named before any is dealt with: each that failed on its own, which [FalseCatchGuard]
+  /// has dealt with already, and each whose catch changed since the last run.
+  private Map<String, Accused> namedFirst(
+      FalseCatchGuard.Guarded guarded, List<MutantResult> current) {
     var named = new LinkedHashMap<String, Accused>();
     guarded
         .failingAlone()
@@ -64,25 +84,7 @@ final class LikelyFlakyGuard {
                         guarded.rerun().getOrDefault(test, List.of())));
     changedSinceLastRun(current)
         .forEach((test, mutants) -> accused(named, test).because(LikelyFlaky.CHANGED, mutants));
-    var handled = new LinkedHashSet<>(guarded.failingAlone().keySet());
-    TestWorker worker = null;
-    try {
-      for (var toDrop = unhandled(current, named, handled);
-          !toDrop.isEmpty();
-          toDrop = unhandled(current, named, handled)) {
-        worker = worker == null ? newWorker.get() : worker;
-        handled.addAll(toDrop);
-        listener.checking(STEP, 0, 0);
-        FalseCatchGuard.runAgainWithout(
-                toDrop, current, coverage, rerun, worker, listener, MutantResult::withFlakyCatchBy)
-            .forEach((test, mutants) -> accused(named, test).rerun().addAll(mutants));
-      }
-    } finally {
-      if (worker != null) {
-        worker.close();
-      }
-    }
-    return new Named(current, named.values().stream().map(Accused::named).toList());
+    return named;
   }
 
   /// The tests named and not yet dealt with, once the catches that didn't repeat in `results` have

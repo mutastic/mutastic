@@ -304,29 +304,24 @@ final class Shares {
     var byTest = new java.util.LinkedHashMap<String, io.mutastic.api.LikelyFlaky>();
     events.stream()
         .flatMap(share -> share.likelyFlaky().stream())
-        .forEach(
-            named ->
-                byTest.merge(
-                    named.test(),
-                    named,
-                    (one, other) -> {
-                      var byReason = new java.util.LinkedHashMap<String, List<String>>();
-                      Stream.of(one, other)
-                          .forEach(
-                              each ->
-                                  each.byReason()
-                                      .forEach(
-                                          (reason, mutants) ->
-                                              byReason
-                                                  .computeIfAbsent(
-                                                      reason,
-                                                      ignored -> new java.util.ArrayList<>())
-                                                  .addAll(mutants)));
-                      var rerun = new java.util.ArrayList<>(one.rerun());
-                      rerun.addAll(other.rerun());
-                      return new io.mutastic.api.LikelyFlaky(one.test(), byReason, rerun);
-                    }));
+        .forEach(named -> byTest.merge(named.test(), named, Shares::together));
     return List.copyOf(byTest.values());
+  }
+
+  /// One test as two shares named it: every reason, with every mutant, and every mutant run again.
+  private static io.mutastic.api.LikelyFlaky together(
+      io.mutastic.api.LikelyFlaky one, io.mutastic.api.LikelyFlaky other) {
+    var byReason = new java.util.LinkedHashMap<String, List<String>>();
+    Stream.of(one, other)
+        .flatMap(each -> each.byReason().entrySet().stream())
+        .forEach(
+            entry ->
+                byReason
+                    .computeIfAbsent(entry.getKey(), ignored -> new java.util.ArrayList<>())
+                    .addAll(entry.getValue()));
+    var rerun = new java.util.ArrayList<>(one.rerun());
+    rerun.addAll(other.rerun());
+    return new io.mutastic.api.LikelyFlaky(one.test(), byReason, rerun);
   }
 
   private static Duration longest(Stream<Duration> durations) {
