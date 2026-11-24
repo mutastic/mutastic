@@ -18,6 +18,7 @@ import io.mutastic.api.Project;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import io.mutastic.api.Suggestion;
+import io.mutastic.engine.tests.StartFailure;
 import io.mutastic.engine.tests.TestFrameworks;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -149,6 +150,21 @@ public final class Engine {
                   + " JUnit Platform: JUnit 5, and JUnit 4 and TestNG through their engines, as"
                   + " the build's test task picks them")
               .formatted(project.name()));
+    }
+
+    /// The tests couldn't start: the platform found no engine for them, or an engine failed to find
+    /// them. The worker's exception is the headline, then what the framework says to change.
+    NoTestsRan(Project project, StartFailure failure, Path log) {
+      super(
+          "the tests in %s can't start on the JUnit Platform: %s\n%sThe worker's output is in %s."
+              .formatted(
+                  project.name(),
+                  failure.said(),
+                  TestFrameworks.of(project.dependencies())
+                      .unstarted(failure)
+                      .map(said -> said + " ")
+                      .orElse(""),
+                  BaselineFailed.shown(log)));
     }
   }
 

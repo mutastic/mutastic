@@ -274,7 +274,11 @@ The module has tests, but none ran on the JUnit Platform: JUnit 4 tests with no 
 them, a runner mutastic doesn't run, every test disabled, or filters that leave out every test.
 Scored, that would be a 0% that blames the tests, when it's mutastic that didn't run them. A
 module with no tests at all isn't an error: its mutants are not covered. The same goes for test
-classes that hold no test, such as a module's test fixtures alone. Exits with 2.
+classes that hold no test, such as a module's test fixtures alone.
+
+Tests the platform can't start at all are `no-tests` too, with the exception that stopped them as
+the headline and what to change after it: TestNG older than 6.14.3, the oldest TestNG's engine
+runs, or JUnit 3 alone, which runs on the platform only with JUnit 4's runner. Exits with 2.
 
 ### `nothing-covered`
 

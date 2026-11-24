@@ -8,6 +8,7 @@ import io.mutastic.api.Project;
 import io.mutastic.api.PropertyTests;
 import io.mutastic.api.Status;
 import io.mutastic.api.TestCase;
+import io.mutastic.engine.tests.StartFailure;
 import io.mutastic.engine.tests.TestFrameworks;
 import java.io.BufferedReader;
 import java.io.File;
@@ -153,6 +154,12 @@ final class TestWorker implements AutoCloseable {
     }
   }
 
+  /// The tests couldn't start in the coverage pass: the worker said why ([StartFailure]).
+  private Engine.NoTestsRan unstarted(String[] parts) {
+    var failure = StartFailure.of(parts[1], parts[2], parts[3], parts[4]);
+    return new Engine.NoTestsRan(project, failure, log);
+  }
+
   /// @param listener hears how many tests have run of how many there are, as they run
   Baseline cover(
       Map<String, byte[]> instrumented,
@@ -178,6 +185,7 @@ final class TestWorker implements AutoCloseable {
         case "DONE" -> {
           return failed.baseline(parts);
         }
+        case "UNSTARTED" -> throw unstarted(parts);
         default -> throw new IllegalStateException("the worker said: " + answer);
       }
     }

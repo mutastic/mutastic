@@ -2,6 +2,7 @@ package io.mutastic.engine.tests;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 /// What a project's tests need from mutastic to run on the JUnit Platform, which the worker drives,
 /// beyond what the project has: an engine for TestNG's tests ([TestNg]), or for JUnit 4's when the
@@ -35,5 +36,13 @@ public final class TestFrameworks {
   /// nothing runs them on the platform, and the platform when there's none.
   public List<Path> support() {
     return FRAMEWORKS.stream().flatMap(framework -> framework.support(classpath).stream()).toList();
+  }
+
+  /// What the tests failing to start as `failure` means, from the first framework that knows: what
+  /// to change. Empty when none does.
+  public Optional<String> unstarted(StartFailure failure) {
+    return FRAMEWORKS.stream()
+        .flatMap(framework -> framework.unstarted(classpath, failure).stream())
+        .findFirst();
   }
 }
