@@ -137,9 +137,14 @@ version can never be changed or removed.
    ```
    The release workflow reads the same section: a release whose tag has none stops before
    anything is uploaded, and one created without notes is given them.
-3. Approve the `release` job when GitHub asks. It builds, uploads, and attaches the CLI. For
-   `X.Y.0`, the Rust edition's `vX.Y.0` is tagged now, not before: its release workflow builds
-   nothing until this release has its CLI.
+3. Approve the `release` job when GitHub asks. Before it asks, the workflow checks the tag's
+   commit is on `main` and that CI passed on it, in the merge queue or on the push to `main`, and
+   stops otherwise, naming the run that's missing or red: tag only a commit `main` has, once it's
+   green. The tests aren't run again, as the queue ran them on that very tree. The job builds what
+   ships and checks what only a release can (the plugin API, the ids, the files on Central and the
+   plugin for the portal), then uploads, and attaches the CLI: a few minutes, where the whole
+   build on one runner took 52 for 1.3.1. For `X.Y.0`, the Rust edition's `vX.Y.0` is tagged now,
+   not before: its release workflow builds nothing until this release has its CLI.
 4. In the Central Portal, under *Deployments*, wait for the deployment to show *Validated*, look
    at what's in it, then press *Publish*, or *Drop* to throw it away. It reaches Maven Central
    within about half an hour.
