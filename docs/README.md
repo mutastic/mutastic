@@ -1,12 +1,12 @@
 # docs.mutastic.io
 
 mutastic's documentation: [Astro Starlight](https://starlight.astro.build), deployed to
-Cloudflare Pages.
+Cloudflare Pages. From the repository's root:
 
 ```sh
-npm ci
-npm run dev      # http://localhost:4321, reloading as you edit
-npm run build    # dist/, as deployed
+just setup       # once: the site's packages (npm ci), and the commit message hook
+just docs-dev    # http://localhost:4321, reloading as you edit
+just docs-build  # dist/, as deployed
 ```
 
 ## Where the content comes from
@@ -17,17 +17,13 @@ npm run build    # dist/, as deployed
   an option or a command, regenerate it:
 
   ```sh
-  ./gradlew :mutastic-cli:exportDocsModel
+  just docs-output
   ```
 
-  `./gradlew build` fails while the committed file and the code disagree.
+  `just check` fails while the committed file and the code disagree.
 - **The output the docs show** (`src/data/output/`) is mutastic's own, on the pricing sample:
   `DocsOutputTest` fails while it differs from what the CLI prints. After changing what a command
-  prints, write it again:
-
-  ```sh
-  ./gradlew :mutastic-cli:exportDocsOutput
-  ```
+  prints, write it again, with the same `just docs-output`.
 
   A file named for a command (`explain.ansi`) appears on that command's reference page.
 - **Every command the docs show is checked**: `DocsCommandsTest` parses each `mutastic …`,
