@@ -1123,7 +1123,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "eb7ec115dd7b2cd1491d999b55d3abd58aced2dcc4fd0c8a4be09f193091e3c1"
+      "sha256": "cd1b8fd42ebfc2988eeeaeef9c453101e13152a7ef457f75de86b84848b2e852"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1138,7 +1138,7 @@
     "reportAdditions": {
       "id": "mutastic.report/v1",
       "url": "https://docs.mutastic.io/schemas/report/v1.json",
-      "sha256": "4c348fb257d087dc5d106d7c9b10c09847bb35eb754f4ae7830e74e54be45138"
+      "sha256": "2fce058d7d69302ffca450d459ad3b2736528f6955b13dc8d5e84e6c7f1dec54"
     }
   },
   "events": {
@@ -1794,6 +1794,10 @@
     {
       "id": 26,
       "rule": "A mutant's time limit comes from each test that reaches it, by its own time: how long it takes run plainly, with no mutant in and nothing recorded. Where the coverage pass's recording makes a test far slower than it runs plainly (Rust: one that made 100,000 calls on a thread and took 50 ms or more there), the test runs once more plainly to time it; any other is counted at its time in the coverage pass. Each test may take five times its own time and a second. Tests that run side by side, as a Rust binary's do, share their limits out rather than add them up: the run's limit is the longest test's limit, plus the others' added up and divided by how many tests run at once in one worker's share of the machine (one at a time, their sum). No run of a mutant's tests is stopped sooner than 10 s. Above them all is the ceiling, the most one mutant's tests may take in all: `mutastic.yaml`'s `timeout-ceiling:`, a whole number above 0 with its unit (`s`, `m` or `h`: `30m`, `90s`, `2h`), else ten minutes or twenty times the whole suite's own time, whichever is longer. A mutant stopped at the ceiling is timed out with a note that says so, `ran for the most a mutant's tests may, <time> (timeout-ceiling:)` (`<time>` as `10m00s`): its card says `its tests ran for the most a mutant's tests may, 10m00s (timeout-ceiling:)`."
+    },
+    {
+      "id": 27,
+      "rule": "A test named likely flaky in a run has none of its catches count in that run, whatever named it: with the code and mutastic unchanged, a mutant it caught changed result since the last run (`changed-since-last-run`); a catch of it didn't repeat when confirmed (`catch-not-repeated`); or, run again after the mutants on its own with no mutant in, it failed (`fails-alone`). Once the mutants have run and before anything is reported, each test so named is left out of coverage, and each mutant it reached, caught or missed, runs again without it, where the other covering tests decide; a test those runs newly name is handled the same way. The revised result is sent as `mutant-revised` with `flakyCatchBy` naming the test when it had caught the mutant (`falseCatchBy` when it failed on its own), and as `mutastic.flakyCatchBy` in mutation.json. So no score, threshold, gate or `--fail-on-new` passes on its catches. The run remembers it: `last-runs/flaky-watch.tsv` in the module's work directory, beside the run records, so whatever keeps those between runs (a CI cache) keeps it too; one test per line, `<test>\\t<runs held>`, sorted by test, written when it changes and removed when it's empty. Only a full run, or the `--from-shards` merge, writes it: a test named there is written with 0 runs held, or set back to 0. A share reads it and confirms against it but never writes it, as shares may run side by side on one work directory and each sees only part of a test's catches; the merge names the tests any share named, and counts a run held from the shares together. In every later run, each catch a watched test makes is confirmed by running that test against the mutant 3 more times: it counts only if it fails all 3, else the test is named again (`catch-not-repeated`). A full run (or a merge) in which a watched test caught a mutant and every catch held adds 1 to its runs held, and at 3 it's forgotten; a run in which it caught nothing leaves it as it was, as does a share or a run of some mutants (`--only`, `--at`, `--since`, `verify`, `explain`), which confirms its catches all the same. The cost falls on the watched test's catches alone. Why 3: a test that fails 1 time in 3 on its own, as persistasaurus's did, makes a false catch that counts 1 time in 3 unchecked, 1 in 9 with one confirmation (`--confirm-catches`), and 1 in 81 watched; and a false catch holds 3 confirmations 1 time in 27, so 3 runs held by false catches alone is luck of 1 in about 20,000. Every format says it. `run-finished` lists each named test in `likelyFlaky` (`reasons` can now be `fails-alone` too, and `rerun` lists the mutants run again without it) and each test watched from an earlier run in `watched` (`{test, held, needed: 3, confirmations: 3}`, and `released: true` in the run that forgets it). The human formats add a sentence to each likely-flaky line, `None of its catches count: <n> mutants it reached ran again without it, and the next runs confirm each catch it makes 3 times.` (`1 mutant`), and say each watched test once: `! watched: <test>, likely flaky in an earlier run: each catch it made had to repeat 3 times; <held> of 3 runs held` (`…; 3 of 3 runs held, so it's no longer watched`). The agent format has the same lines without `! `, among its head lines where the likely-flaky lines are now."
     }
   ],
   "differences": [
@@ -2490,6 +2494,18 @@
       "summary": "mutastic.yaml's `timeout-ceiling:` and a mutant's limit taken from each covering test's own time, side by side, not their summed coverage time: the Rust edition has them first",
       "issue": "https://github.com/mutastic/mutastic/issues/207",
       "decision": 26
+    },
+    {
+      "id": "N81",
+      "kind": "pending",
+      "editions": [
+        "java",
+        "rust"
+      ],
+      "surface": "events",
+      "summary": "A likely-flaky test's catches don't count, and later runs confirm a watched test's catches 3 times (decision 27): `run-finished`'s `watched` and `likelyFlaky[].rerun`, the `fails-alone` reason, `flakyCatchBy` in `mutant-revised` and mutation.json, `last-runs/flaky-watch.tsv`, and the lines that say so: neither edition has them yet",
+      "issue": "https://github.com/mutastic/mutastic/issues/225",
+      "decision": 27
     }
   ]
 }
