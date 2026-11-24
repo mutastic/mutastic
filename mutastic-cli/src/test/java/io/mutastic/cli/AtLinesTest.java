@@ -141,7 +141,7 @@ class AtLinesTest {
     assertThat(run.err())
         .contains(
             "mutastic: src/test/java/com/example/pricing/PricingTest.java isn't in the module's"
-                + " sources: --at takes a line of the code mutastic mutates, in src/main/java");
+                + " sources: --at takes a line of the code mutastic mutates, in src/main/java\n");
   }
 
   @Test
@@ -190,7 +190,7 @@ class AtLinesTest {
         .containsExactly("18");
     assertThat(failed(elsewhere).get("code").asString()).isEqualTo("no-mutant-at");
     assertThat(failed(elsewhere).get("message").asString())
-        .startsWith("no mutant on Pricing.java:25; there are on 18.");
+        .isEqualTo("no mutant on Pricing.java:25; there's one on 18. To see it:");
   }
 
   /// From the top of a build of several modules, the file picks its module.

@@ -48,9 +48,9 @@ final class AtMutants {
         .toList();
   }
 
-  /// `no mutant on Pricing.java:16; there are on 17, 18 and 20`, and the command that lists them;
-  /// or, with none in the file, the command that lists the module's. Said as typed: a failure's
-  /// lines are escaped where they're shown.
+  /// `no mutant on Pricing.java:16; there are on 17, 18 and 20`, or `there's one on 17` for one
+  /// line, and the command that lists them; or, with none in the file, the command that lists the
+  /// module's. Said as typed: a failure's lines are escaped where they're shown.
   private static Main.UsageException none(
       AtFiles.Lines lines, List<Mutant> inFile, SourceView sources) {
     var asked = lines.at().typed(lines.name());
@@ -66,10 +66,11 @@ final class AtMutants {
     var around = new At(lines.at().path(), nearest.getFirst(), nearest.getLast());
     return new Main.UsageException(
         NONE,
-        "no mutant on %s; there are on %s. To see them:\n  %s"
+        "no mutant on %s; %s. To see %s:\n  %s"
             .formatted(
                 asked,
-                listed,
+                nearest.size() == 1 ? "there's one on " + listed : "there are on " + listed,
+                nearest.size() == 1 ? "it" : "them",
                 invocation.command(List.of("mutants", "--at=" + around.typed(lines.shown())))));
   }
 

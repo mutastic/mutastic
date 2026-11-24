@@ -2332,8 +2332,7 @@ public final class Main {
     return new Display(
         progressAndEvents(output.progress(), events),
         (report, comparison, written, writing) ->
-            events.runFinished(
-                report, comparison, listed(prepared, written), command.partial()));
+            events.runFinished(report, comparison, listed(prepared, written), command.partial()));
   }
 
   /// The files written, as `run-finished` lists them: from the project where they're in it.

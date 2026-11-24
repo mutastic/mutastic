@@ -132,7 +132,11 @@ final class AtFiles {
           "there's no file %s, from here or from the project: --at takes a path from either"
               .formatted(at.path()));
     }
-    var named = roots.stream().map(root -> shown(directory, root)).toList();
+    var named =
+        roots.stream()
+            .map(root -> shown(directory, root))
+            .filter(root -> !generated(root))
+            .toList();
     return new Main.UsageException(
         OUTSIDE_SOURCES,
         "%s isn't in the module's sources: --at takes a line of the code mutastic mutates, in %s"
@@ -140,6 +144,18 @@ final class AtFiles {
                 shown(directory, there.getFirst()),
                 named.isEmpty() ? "none here" : Options.listed(named, "or")));
   }
+
+  /// Whether a source root is one the build writes, as an annotation processor's output: a person
+  /// doesn't look there for code to test, so the refusal doesn't name it.
+  private static boolean generated(String root) {
+    return GENERATED.matcher(root).find();
+  }
+
+  /// `build/generated/…` (Gradle) or `target/generated-sources/…` (Maven), at any depth.
+  private static final java.util.regex.Pattern GENERATED =
+      java.util.regex.Pattern.compile(
+          "(?<before>^|[/\\\\])(?<output>build[/\\\\]generated|target[/\\\\]generated-sources)"
+              + "(?<after>[/\\\\]|$)");
 
   /// What an `--at` outside the module's sources is called.
   static final String OUTSIDE_SOURCES = "outside-sources";
