@@ -152,9 +152,15 @@ final class ModuleSetup {
     return dependencies;
   }
 
-  /// `argLine`, with its late `@{…}` properties, then each system property as `-Dname=value`.
+  /// `-ea` when Surefire runs the tests with assertions on, as it does unless `enableAssertions` is
+  /// false; then `argLine`, with its late `@{…}` properties; then each system property as
+  /// `-Dname=value`. Gradle's test task has `-ea` in its JVM arguments already.
   private List<String> jvmArgs() throws Exception {
     var args = new ArrayList<String>();
+    var assertions = surefire.value("enableAssertions");
+    if (assertions == null || Boolean.parseBoolean(assertions.strip())) {
+      args.add("-ea");
+    }
     var argLine = surefire.value("argLine");
     if (argLine != null) {
       WORDS.splitAsStream(late(argLine).strip()).filter(arg -> !arg.isEmpty()).forEach(args::add);

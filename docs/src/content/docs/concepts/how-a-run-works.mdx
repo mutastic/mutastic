@@ -18,7 +18,9 @@ changed.
 mutastic runs your build with its own code loaded, which compiles your code and tests and records
 what the tests would run with: their JDK, JVM arguments, working directory and classpath. For
 Gradle that's an init script reading the `test` task; for Maven, an extension reading Surefire's
-settings after `mvn test-compile`. The build plugins read the same from inside the build.
+settings after `mvn test-compile`. The build plugins read the same from inside the build. The
+tests run with assertions on (`-ea`) when the build runs them so: Gradle's `test` task and Surefire
+both do unless they're told not to.
 
 ## Mutants in the class files
 
