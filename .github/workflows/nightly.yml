@@ -51,7 +51,10 @@ jobs:
             17
             25
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-      - run: ./gradlew :mutastic-cli:installDist
+      - uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
+        with:
+          tool: just@1.59.0
+      - run: just install
       # Last night's run record of this share, so tonight's says what changed since. Restored and
       # saved apart, so a night whose share fails still keeps its record (the combined cache action
       # saves only when the job succeeds).
@@ -64,9 +67,7 @@ jobs:
           key: mutastic-share-${{ matrix.module }}-${{ matrix.share }}-of-${{ matrix.of }}-${{ github.run_id }}
           restore-keys: mutastic-share-${{ matrix.module }}-${{ matrix.share }}-of-${{ matrix.of }}-
       - name: mutastic run, on a share of the module
-        run: |
-          mutastic-cli/build/install/mutastic/bin/mutastic run ":${{ matrix.module }}" \
-            --threshold=0 --shard=${{ matrix.share }}/${{ matrix.of }} ${{ matrix.args }}
+        run: just self-shard ${{ matrix.module }} ${{ matrix.share }}/${{ matrix.of }} ${{ matrix.args }}
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: always()
         with:
@@ -97,7 +98,10 @@ jobs:
             17
             25
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-      - run: ./gradlew :mutastic-cli:installDist
+      - uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
+        with:
+          tool: just@1.59.0
+      - run: just install
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: share-mutastic-engine-*
@@ -120,20 +124,9 @@ jobs:
             score-history.tsv
           key: mutastic-nightly-${{ github.run_id }}
           restore-keys: mutastic-nightly-
+      # Each module's floor is in the justfile's self-merge.
       - name: Each module's floor, on all its shares
-        run: |
-          failed=0
-          floor() {
-            mutastic-cli/build/install/mutastic/bin/mutastic run ":$1" --from-shards="shares/$1" \
-              --threshold="$2" --format=jsonl > "$1.jsonl" || failed=1
-            grep '"reason":"run-finished"' "$1.jsonl" \
-              | python3 -c 'import json,sys; e=json.load(sys.stdin); print(sys.argv[1], e["mutants"], "mutants, score", e["score"], "against", e["threshold"], "passed" if e["passed"] else "FAILED")' "$1" \
-              || true
-          }
-          floor mutastic-engine 53
-          floor mutastic-report 60
-          floor mutastic-api 50
-          exit $failed
+        run: just self-merge shares
       - name: Score history
         if: always()
         run: |

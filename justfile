@@ -13,6 +13,10 @@ gradle := if os_family() == "windows" { "./gradlew.bat" } else { "./gradlew" }
 launcher := if os_family() == "windows" { "mutastic.bat" } else { "mutastic" }
 mutastic := "mutastic-cli/build/install/mutastic/bin/" + launcher
 
+# Windows CI's two shares of the CLI's end-to-end tests (test-windows).
+windows-share-1 := "--tests io.mutastic.cli.CardsTest --tests io.mutastic.cli.PricingSampleTest --tests io.mutastic.cli.MavenPluginTest"
+windows-share-2 := "--tests io.mutastic.cli.GradlePluginTest --tests io.mutastic.cli.GateTest --tests io.mutastic.cli.QuarkusTest"
+
 # Turns on the commit message hook and installs the docs site's packages
 [group('setup')]
 setup:
@@ -56,10 +60,8 @@ check:
 
 # What CI runs on a pull request: the build, the SBOM and the HTML report's page
 [group('check')]
-ci:
+ci: && report-ui-check
     {{ gradle }} build cyclonedxBom
-    node report-ui/build.mjs --check
-    node --test report-ui/test/*.test.mjs
 
 # Writes the coverage report over every module's tests, in build/reports/jacoco
 [group('check')]
@@ -108,7 +110,90 @@ lock:
 changelog-preview *args:
     sh scripts/changelog.sh preview "$@"
 
+# Checks the changelog's entries, and that only a release edits CHANGELOG.md
+[group('merge')]
+changelog-check *args:
+    sh scripts/changelog.sh check "$@"
+
 # Merges a pull request through the merge queue: just merge 59 body.txt [--wait]
 [group('merge')]
 merge N *body:
     sh .githooks/merge-pr "$@"
+
+# CI's jobs, each a part of what `just ci` runs, so a job can be run here as CI runs it.
+
+# The build without the CLI's end-to-end tests and the coverage floor, which have jobs of their own
+[group('ci')]
+ci-build:
+    {{ gradle }} build cyclonedxBom -x :mutastic-cli:test -x coverageReport -x coverageCheck
+
+# Runs a share of the CLI's end-to-end test classes: just test-cli 2/4
+[group('ci')]
+test-cli SHARE:
+    {{ gradle }} :mutastic-cli:test -Pmutastic.shard="$1"
+
+# Runs Windows share 1 (cards, both build tools) or 2 (Gradle plugin, gate, Quarkus) of the CLI's
+[group('ci')]
+test-windows SHARE:
+    {{ gradle }} :mutastic-cli:test {{ if SHARE == "1" { windows-share-1 } else if SHARE == "2" { windows-share-2 } else { error("A Windows share is 1 or 2, not " + SHARE) } }} --continue
+
+# Checks report.html is the build of report-ui's sources, and renders each view in Chrome
+[group('ci')]
+report-ui-check:
+    node report-ui/build.mjs --check
+    node --test report-ui/test/*.test.mjs
+
+# Checks the coverage floor over the build's coverage and the CLI shares', a folder each in DIR
+[group('ci')]
+[script('bash')]
+coverage-merge DIR:
+    set -euo pipefail
+    # Each share's files, named apart, where the coverage tasks read the CLI's.
+    outside=mutastic-cli/build/jacoco/outside
+    mkdir -p "$outside"
+    for shard in "$1"/*; do
+      name=$(basename "$shard")
+      cp "$shard/test.exec" "$outside/$name-test.exec"
+      for file in "$shard"/outside/*.exec; do
+        cp "$file" "$outside/$name-$(basename "$file")"
+      done
+    done
+    {{ gradle }} coverageReport coverageCheck -x test
+
+# Runs mutastic on a share of one of its modules, no threshold: just self-shard mutastic-engine 1/4
+[group('ci')]
+self-shard MODULE SHARE *args: install
+    m="$1" s="$2" && shift 2 && {{ mutastic }} run ":$m" --threshold=0 --shard="$s" "$@"
+
+# Puts each module's shares, in DIR/<module>, together as its whole run, held to its floor
+[group('ci')]
+[script('bash')]
+self-merge DIR: install
+    set -uo pipefail
+    shares="$1"
+    failed=0
+    floor() {
+      {{ mutastic }} run ":$1" --from-shards="$shares/$1" \
+        --threshold="$2" --format=jsonl > "$1.jsonl" || failed=1
+      grep '"reason":"run-finished"' "$1.jsonl" \
+        | python3 -c 'import json,sys; e=json.load(sys.stdin); print(sys.argv[1], e["mutants"], "mutants, score", e["score"], "against", e["threshold"], "passed" if e["passed"] else "FAILED")' "$1" \
+        || true
+    }
+    # Floors under the scores, raised as tests are added: never lowered.
+    floor mutastic-engine 53
+    floor mutastic-report 60
+    floor mutastic-api 50
+    exit $failed
+
+# Checks the justfile's format, and that its verbs are those .github/just-verbs.txt lists
+[group('ci')]
+[script('bash')]
+justfile-check:
+    set -euo pipefail
+    just="{{ just_executable() }}"
+    "$just" --justfile justfile --fmt --check
+    if ! "$just" --justfile justfile --summary | tr ' ' '\n' | diff -u .github/just-verbs.txt -; then
+      echo "The verbs aren't those .github/just-verbs.txt lists (-), but the justfile's (+)." >&2
+      echo "People and agents type them: keep a verb, or say it's gone in the list and the docs." >&2
+      exit 1
+    fi

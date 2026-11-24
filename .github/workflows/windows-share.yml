@@ -27,11 +27,6 @@ jobs:
     # being cut off. A runner that stops answering doesn't keep to the step's limit, only to this
     # one, and then the share runs again: at 45 minutes that took an hour to find out.
     timeout-minutes: 30
-    env:
-      TESTS: >-
-        ${{ inputs.share == 1
-        && '--tests io.mutastic.cli.CardsTest --tests io.mutastic.cli.PricingSampleTest --tests io.mutastic.cli.MavenPluginTest'
-        || '--tests io.mutastic.cli.GradlePluginTest --tests io.mutastic.cli.GateTest --tests io.mutastic.cli.QuarkusTest' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
@@ -41,6 +36,9 @@ jobs:
             17
             25
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
+        with:
+          tool: just@1.59.0
       # The Maven samples' plugins and dependencies, as on Linux (the cli job). Only the first
       # share runs Maven.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -66,13 +64,17 @@ jobs:
       # run on node. So this step prints what it can itself: whether Java still starts, the
       # failures in full (the test task logs them, CardsTest as a diff), and the runner's state
       # (windows-dump.ps1), on every share so a failure has a healthy share to compare with.
+      #
+      # The tests are the justfile's test-windows, which names each share's classes. just runs it
+      # in Git Bash's sh, on the runner's PATH, and sh runs gradlew.bat; just's exit code is the
+      # tests'.
       - shell: pwsh
         timeout-minutes: 25
         run: |
           # A failing native command mustn't end the script: what follows has to run.
           $PSNativeCommandUseErrorActionPreference = $false
           Get-PSDrive C, D | Format-Table Name, @{n='FreeGB'; e={[math]::Round($_.Free / 1GB, 1)}}
-          .\gradlew.bat :mutastic-cli:test ${{ env.TESTS }} --continue
+          just test-windows ${{ inputs.share }}
           $tests = $LASTEXITCODE
           Get-PSDrive C, D | Format-Table Name, @{n='FreeGB'; e={[math]::Round($_.Free / 1GB, 1)}}
           & "$env:JAVA_HOME\bin\java.exe" -version 2>$null

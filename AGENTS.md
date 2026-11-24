@@ -6,8 +6,8 @@ the build; the rest are judgement, written down so they're designed around rathe
 build failure.
 
 Use `just <verb>`: `just --list` shows them. Run `just check` before a pull request; `just ci` is
-what CI runs. Call `./gradlew` directly only when no recipe exists. The words are the same in
-mutastic-rs, so a command learned here works there.
+what CI runs, each job a recipe in the `ci` group. Call `./gradlew` directly only when no recipe
+exists. The words are the same in mutastic-rs, so a command learned here works there.
 
 ## Build
 
