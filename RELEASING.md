@@ -9,6 +9,32 @@ published (`.github/workflows/release.yml`). It uploads to the Central Portal bu
 you check the upload and publish it by hand. Until then it can be dropped. Once published, a
 version can never be changed or removed.
 
+## The release train
+
+From 1.4.0, a minor release leaves every second Tuesday, both editions together for `X.Y.0`, this
+one first, then the Rust edition's, whose
+[RELEASING.md](https://github.com/mutastic/mutastic-rs/blob/main/RELEASING.md#the-release-train)
+has this same section. Tuesday is a proposal: the day is Brian's to change. A change that misses a
+train waits for the next one.
+
+- **The cut-off.** A train takes the `changes/` entries merged by the day before it.
+- **The gates.** It leaves only when mutastic-rs's nightly corpus (`corpus.yml`) is green, the
+  Java edition's corpus to come; `scripts/release-check.sh X.Y.0` passes in both editions
+  ([Each release](#each-release)); and the candidate run passes (`candidate-run.yml`,
+  [Before tagging](#before-tagging)).
+- **A release candidate,** `vX.Y.0-rc1`, is a GitHub pre-release only, never a Central release:
+  each one costs about 244 files of Central's monthly budget. The native `mutastic` already skips
+  `-rc` tags, as they aren't plain versions (mutastic-rs's RELEASING.md,
+  [A bad Java patch](https://github.com/mutastic/mutastic-rs/blob/main/RELEASING.md#a-bad-java-patch)),
+  so nobody is moved onto one. Publishing it starts `release.yml`: reject its `release` approval
+  if it asks. The job takes only a `vX.Y.Z` tag, so it would upload nothing anyway.
+- **Patches,** between trains, only for a regression or a security fix, never a feature.
+- **Central's budget.** Before a second release in a month, check the
+  [Usage Center](https://central.sonatype.com/publishing/usage). Before an urgent release that
+  would go over a limit, write to central-support first.
+- **Who decides.** Brian decides a patch. Agents never cut a release on their own: when asked,
+  they prepare the release commit.
+
 ## Once
 
 1. **The namespace.** On [central.sonatype.com](https://central.sonatype.com), go to *Namespaces*,
