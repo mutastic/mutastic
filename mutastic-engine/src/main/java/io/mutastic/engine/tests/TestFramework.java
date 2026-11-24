@@ -2,6 +2,7 @@ package io.mutastic.engine.tests;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 /// A test framework a worker can run a project's tests with: what it needs from mutastic, beyond
 /// what the project has, and how the worker must run it. One part per framework, so what a
@@ -17,5 +18,11 @@ interface TestFramework {
   /// framework mode.
   default boolean loadsTheApp(TestClasspath classpath) {
     return false;
+  }
+
+  /// What `failure`, the worker's tests failing to start, means for this framework, when it's this
+  /// framework's doing: what to change, said to the person. Empty when it isn't.
+  default Optional<String> unstarted(TestClasspath classpath, StartFailure failure) {
+    return Optional.empty();
   }
 }

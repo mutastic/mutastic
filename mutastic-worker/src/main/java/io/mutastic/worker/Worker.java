@@ -61,6 +61,7 @@ import org.junit.platform.launcher.core.LauncherFactory;
 /// | `SHRINK`: the next `RUN` or `FRESH` shrinks a failing property's input, as the framework would, leaving the mutant in place | nothing |
 /// | `FRESH <test>...`: the same, with every class loaded anew, so static initialisers run with the staged classes | as for `RUN` |
 /// | `SUGGEST <class> <method> <descriptor> <base64> <inputs> <receiver>`: find inputs where a mutant changes the result; inputs are `1;2\|3;4`, `-` for none; the receiver is `-` for a static method, else a constructor descriptor whose arguments start each input, or for an inner class its outer class's receiver, `>`, then its own | `SUGGESTED <inputs> <today> <with mutant> <stuck or ->`, or `SUGGESTED -` |
+/// | `COVER` answers `UNSTARTED <exception> <message> <cause> <cause's message>` in place of `DONE` when the tests can't start: no engine runs them, or an engine fails to find them | |
 /// | `EXIT` | nothing; the worker exits |
 /// | a test ends the JVM (`System.exit`) during `RUN` or `FRESH` | `EXITED <test>` as it goes, in place of `RESULT`; the engine reads the status from the process |
 ///
@@ -418,7 +419,18 @@ public final class Worker {
     var planned = new PlannedTests(Worker::id, count -> protocol.println("TESTS\t" + count));
     var starting = new TestsStarting(Worker::id, test -> protocol.println("STARTED\t" + test));
     var cases = new TestCases();
-    var failing = execute(tests, production(), planned, starting, timingTests(), scopes, cases);
+    List<String> failing;
+    try {
+      failing = execute(tests, production(), planned, starting, timingTests(), scopes, cases);
+    } catch (RuntimeException | LinkageError e) {
+      unstarted(e);
+      return;
+    }
+    reportCoverage(scopes, cases, failing);
+  }
+
+  /// What the coverage pass recorded, ending in `DONE` and the tests that failed.
+  private void reportCoverage(TestScopes scopes, TestCases cases, List<String> failing) {
     Probes.flush();
     scopes.credit();
     reportLines();
@@ -429,6 +441,24 @@ public final class Worker {
     protocol.println("CASES\t" + cases.ran() + "\t" + cases.skipped());
     protocol.println(
         "DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
+  }
+
+  /// The tests couldn't start: the platform found no engine for them, or an engine failed to find
+  /// them, as TestNG's does on a TestNG older than it runs. Said as `UNSTARTED`, the exception, its
+  /// message, and its first cause's class and message (`-` for none), so the engine names the cause
+  /// rather than a JVM that stopped.
+  private void unstarted(Throwable thrown) {
+    thrown.printStackTrace(System.err);
+    var cause = thrown.getCause();
+    protocol.println(
+        "UNSTARTED\t"
+            + thrown.getClass().getName()
+            + "\t"
+            + message(thrown)
+            + "\t"
+            + (cause == null ? "-" : cause.getClass().getName())
+            + "\t"
+            + (cause == null ? "-" : message(cause)));
   }
 
   /// `FAILURE`, each failing test, its exception's chain, its message and its case.
