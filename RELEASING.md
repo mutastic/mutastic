@@ -146,31 +146,29 @@ version can never be changed or removed.
 7. From 1.0.0 on, hold the next release to this one: its plugin API, events format, rules files,
    `mutastic.yaml` and command line.
    Before 1.0.0 skip this step: anything may change, and the checks have nothing to compare with.
-   Once the release is on Central, set `lastStableRelease` in `gradle.properties` to its version,
-   so `checkApiCompatibility` compares the plugin API with its jar, and keep its schemas, rules
-   files, `mutastic.yaml` files and `commands.json` beside it, so `SchemaCompatibilityTest`,
-   `RulesFileFormatTest`, `ConfigurationFormatTest` and `CommandLineCompatibilityTest` compare
-   with them
-   ([Schemas and stability](docs/src/content/docs/reference/schemas.mdx) says what counts as
-   breaking):
+   Once the release is on Central, hold it, on a branch from `main`:
    ```sh
-   V=X.Y.Z
-   S=mutastic-report/src/test/resources/io/mutastic/report/released
-   for schema in events mutastic-yaml rules; do cp docs/public/schemas/$schema/v1.json $S/$schema-v1.json; done
-   R=mutastic-cli/src/test/resources/rules
-   git rm -rq $R; mkdir -p $R/$V
-   cp mutastic-engine/src/main/resources/io/mutastic/engine/streams.yaml docs/src/data/plugins/*.yaml $R/$V/
-   C=mutastic-cli/src/test/resources/released
-   mkdir -p $C/$V/configured $C/$V/every-key
-   cp docs/src/data/commands.json $C/$V/
-   cp samples/configured/mutastic.yaml $C/$V/configured/
-   # One with every key: the last release's, with any key this one added
-   cp $C/*/every-key/mutastic.yaml $C/$V/every-key/
-   git rm -rq $(ls -d $C/*/ | grep -v "/$V/$")
-   ./gradlew :mutastic-cli:exportIds   # writes each rules file's and mutastic.yaml's .read beside it
+   scripts/hold-release.sh X.Y.Z   # refuses until X.Y.Z's mutastic-api jar is on Central
    ```
-   Commit them together. Until a release does, a field added since the last one can still change
-   or go.
+   It sets `lastStableRelease` in `gradle.properties` to X.Y.Z, so `checkApiCompatibility`
+   compares the plugin API with its jar, and keeps its schemas, rules files, `mutastic.yaml` files
+   and `commands.json`, as the tag `vX.Y.Z` has them, in place of the last release's, so
+   `SchemaCompatibilityTest`, `RulesFileFormatTest`, `ConfigurationFormatTest` and
+   `CommandLineCompatibilityTest` compare with them
+   ([Schemas and stability](docs/src/content/docs/reference/schemas.mdx) says what counts as
+   breaking). Then it runs `exportIds`, which writes each rules file's and `mutastic.yaml`'s
+   `.read` beside it. Running it again changes nothing.
+
+   The every-key `mutastic.yaml` is the last release's, with any key this one added: the script
+   copies the last release's and lists the schema's keys it doesn't use, marking those new since
+   the last release. Add the ones this release added, as #183 did for 1.3.0, and run the script
+   again for their `.read`. `scripts/test-hold-release.sh`, in CI's build job, checks the script
+   still writes #183's tree.
+
+   Commit them together as `build: hold the next release to X.Y.Z`, in a pull request of its own.
+   Until a release does, a field added since the last one can still change or go. (Later, the
+   publish job will run the script once Central has the release and open that pull request
+   itself; until then it's run by hand.)
 
 If validation fails, drop the deployment, fix the cause, delete the GitHub release and its tag, and
 release again. Nothing reached Central, so the version is still free.
