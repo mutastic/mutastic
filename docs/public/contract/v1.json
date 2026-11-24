@@ -1790,6 +1790,10 @@
     {
       "id": 25,
       "rule": "A property test's random inputs are pinned where its framework takes a seed from outside the test, so a mutant only some inputs catch is caught in every run or in none: one seed for a run, the same for the coverage pass and every mutant, and for every run unless the person sets the framework's own variable (Rust: `PROPTEST_RNG_SEED`, else 0, which proptest reads from 1.7.0, so an older one is unseeded and named `proptest <version>` in the note; Java: each framework's seed setting, else 0). `run-started` records it as `propertyTests` `{frameworks, seed, seeded, unseeded}` (`frameworks`: the property-testing frameworks the project's tests use, by their names; `seed`, a string of decimal digits, and `seeded`, those that drew from it, only when one did; `unseeded`: those whose seed can't be set from outside). A framework that can't be seeded is named, never guessed at: a run whose project uses one ends with this line on stderr, in every format, word for word: `note: property tests in <names> run with their own seeds, which mutastic can't set: a mutant only some of their inputs catch can be caught in one run and missed in the next` (`<names>` as `a`, `a and b`, `a, b and c`). A mutant's run turns shrinking off where the framework lets it be (one counterexample catches it). When a property catches a mutant, the input it failed on is evidence of this run: `caughtInput`, one line, as the framework prints it (`xs = [0, 0]`), at most 300 characters then `…`, in `mutant-finished` and as `mutastic.caughtInput` in mutation.json; after the catching test and any case wherever a line names it, `` with `<input>` `` (`verify`, `explain`, a caught card). In a run of every mutant it's the first input that failed, unshrunk; in a run of mutants named by id (`run --only`, `verify`, `explain`) the catching property runs once more with shrinking on, and it's the shrunk one. jqwik is detected only, never run with a seed or named from: its tests run as ordinary tests, and it's listed in `unseeded`."
+    },
+    {
+      "id": 26,
+      "rule": "A mutant's time limit comes from each test that reaches it, by its own time: how long it takes run plainly, with no mutant in and nothing recorded. Where the coverage pass's recording makes a test far slower than it runs plainly (Rust: one that made 100,000 calls on a thread and took 50 ms or more there), the test runs once more plainly to time it; any other is counted at its time in the coverage pass. Each test may take five times its own time and a second. Tests that run side by side, as a Rust binary's do, share their limits out rather than add them up: the run's limit is the longest test's limit, plus the others' added up and divided by how many tests run at once in one worker's share of the machine (one at a time, their sum). No run of a mutant's tests is stopped sooner than 10 s. Above them all is the ceiling, the most one mutant's tests may take in all: `mutastic.yaml`'s `timeout-ceiling:`, a whole number above 0 with its unit (`s`, `m` or `h`: `30m`, `90s`, `2h`), else ten minutes or twenty times the whole suite's own time, whichever is longer. A mutant stopped at the ceiling is timed out with a note that says so, `ran for the most a mutant's tests may, <time> (timeout-ceiling:)` (`<time>` as `10m00s`): its card says `its tests ran for the most a mutant's tests may, 10m00s (timeout-ceiling:)`."
     }
   ],
   "differences": [
@@ -2486,6 +2490,17 @@
       "summary": "Property tests (decision 25): `run-started`'s `propertyTests`, `mutant-finished`'s `caughtInput` and mutation.json's `mutastic.caughtInput`, the `` with `<input>` `` after a catching test, shrinking off on a mutant's run, and the note on frameworks that can't be seeded: the Rust edition has them first",
       "issue": "https://github.com/mutastic/mutastic/issues/202",
       "decision": 25
+    },
+    {
+      "id": "N80",
+      "kind": "pending",
+      "editions": [
+        "java"
+      ],
+      "surface": "configuration",
+      "summary": "mutastic.yaml's `timeout-ceiling:` and a mutant's limit taken from each covering test's own time, side by side, not their summed coverage time: the Rust edition has them first",
+      "issue": "https://github.com/mutastic/mutastic/issues/207",
+      "decision": 26
     }
   ]
 }
