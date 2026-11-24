@@ -560,11 +560,11 @@
     },
     "watched": {
       "type": "object",
-      "description": "A test named likely flaky in an earlier run and remembered in `flaky-watch.tsv` (decision 27): each catch it makes counts only if it repeats `confirmations` more times.",
+      "description": "A test named likely flaky in an earlier run and remembered in `last-runs/flaky-watch.tsv` (decision 27): each catch it makes counts only if it repeats `confirmations` more times.",
       "required": ["test", "held", "needed", "confirmations"],
       "properties": {
         "test": { "$ref": "#/$defs/test" },
-        "held": { "type": "integer", "minimum": 0, "description": "Runs of every mutant in a row, this one included, in which it caught mutants and every catch held." },
+        "held": { "type": "integer", "minimum": 0, "description": "Full runs (or `--from-shards` merges) in a row, this one included, in which it caught mutants and every catch held. A share never adds to it." },
         "needed": { "const": 3, "description": "How many such runs before it's forgotten." },
         "confirmations": { "const": 3, "description": "How many more times each of its catches is run." },
         "released": { "const": true, "description": "It held for `needed` runs, so it's forgotten after this run. Only there when it was." }
