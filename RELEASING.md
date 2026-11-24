@@ -1,7 +1,8 @@
 # Releasing mutastic
 
 Every library module is published to Maven Central as `io.mutastic:<module>`, signed. The CLI's
-distribution is attached to the GitHub release, and the Gradle plugin also goes to the Gradle Plugin
+distribution and a CycloneDX SBOM are attached to the GitHub release, each attested
+([Checking a download](#checking-a-download)), and the Gradle plugin also goes to the Gradle Plugin
 Portal, once its release is on Central. The tag also deploys that release's docs to
 [docs.mutastic.io](https://docs.mutastic.io). A release starts when a GitHub release is
 published (`.github/workflows/release.yml`). It uploads to the Central Portal but doesn't publish:
@@ -142,9 +143,10 @@ version can never be changed or removed.
    stops otherwise, naming the run that's missing or red: tag only a commit `main` has, once it's
    green. The tests aren't run again, as the queue ran them on that very tree. The job builds what
    ships and checks what only a release can (the plugin API, the ids, the files on Central and the
-   plugin for the portal), then uploads, and attaches the CLI: a few minutes, where the whole
-   build on one runner took 52 for 1.3.1. For `X.Y.0`, the Rust edition's `vX.Y.0` is tagged now,
-   not before: its release workflow builds nothing until this release has its CLI.
+   plugin for the portal), then uploads: a few minutes, where the whole build on one runner took
+   52 for 1.3.1. A job without the secrets then attests the CLI's archives, `SHA256SUMS` and the
+   SBOM, and attaches them. For `X.Y.0`, the Rust edition's `vX.Y.0` is tagged now, not before:
+   its release workflow builds nothing until this release has its CLI.
 4. In the Central Portal, under *Deployments*, wait for the deployment to show *Validated*, look
    at what's in it, then press *Publish*, or *Drop* to throw it away. It reaches Maven Central
    within about half an hour.
@@ -191,8 +193,9 @@ version can never be changed or removed.
    publish job will run the script once Central has the release and open that pull request
    itself; until then it's run by hand.)
 
-If validation fails, drop the deployment, fix the cause, delete the GitHub release and its tag, and
-release again. Nothing reached Central, so the version is still free.
+If validation fails, drop the deployment and fix the cause. Nothing reached Central, but don't
+delete the GitHub release and tag it again: once releases are immutable, a tag can't be used twice,
+and anyone who downloaded its assets has them. Release `X.Y.Z+1` instead.
 
 ## Before tagging
 
@@ -209,13 +212,28 @@ Don't tag a candidate that fails: its run's summary and artifact say which sampl
 ## After a release
 
 `release-verify.yml` checks the release as a person gets it, on Linux, macOS and Windows, with
-nothing cached: the CLI's zip against its SHA256SUMS and GitHub's record of each asset, the Maven
-plugin from Central, and the Gradle plugin through the Plugin Portal, each on `samples/pricing`,
-where it must print the score line `PricingSampleTest` expects. It starts on its own when the
-release is published and waits up to four hours for the steps above that are done by hand. Once
-`portal.yml` has run, look at it in *Actions*; to check a release again, or once a wait ran out:
+nothing cached: the CLI's zip against its SHA256SUMS, GitHub's record of each asset and the release
+workflow's attestation of it, the Maven plugin from Central, and the Gradle plugin through the
+Plugin Portal, each on `samples/pricing`, where it must print the score line `PricingSampleTest`
+expects. It starts on its own when the release is published and waits up to four hours for the
+steps above that are done by hand. Once `portal.yml` has run, look at it in *Actions*; to check a
+release again, or once a wait ran out:
 ```sh
 gh workflow run release-verify.yml -f version=X.Y.Z
 ```
 A failure's summary says what failed and where. Central can't change or remove a version, so fix
 forward: card it, fix the cause, release `X.Y.Z+1`.
+
+## Checking a download
+
+`SHA256SUMS` is made beside the archives, so a file swapped along with it still matches. Each
+asset of every release after 1.3.1 (the CLI's zip and tar, `SHA256SUMS` and the SBOM,
+`mutastic-X.Y.Z.cdx.json`) is also attested: GitHub's signed record that the release workflow built
+it, at the release's tag. Check one with the GitHub CLI:
+```sh
+gh attestation verify mutastic-X.Y.Z.zip --repo mutastic/mutastic
+```
+`--signer-workflow mutastic/mutastic/.github/workflows/release.yml --source-ref refs/tags/vX.Y.Z`
+holds it to that workflow and tag, as `release-verify.yml` does, and `--predicate-type
+https://cyclonedx.org/bom` checks the archive's SBOM attestation instead: the SBOM says what the
+release is made of.

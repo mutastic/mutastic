@@ -273,6 +273,12 @@ allprojects {
         includeConfigs = listOf("runtimeClasspath")
     }
 }
+// The SBOM over every module, which a release attaches, is named for the release: the root project
+// has no group or version of its own.
+tasks.withType<org.cyclonedx.gradle.CyclonedxAggregateTask>().configureEach {
+    componentGroup = "io.mutastic"
+    componentVersion = provider { project(":mutastic-cli").version.toString() }
+}
 
 jacoco {
     toolVersion = "0.8.14"

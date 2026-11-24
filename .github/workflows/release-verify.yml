@@ -41,6 +41,10 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
     runs-on: ubuntu-latest
     timeout-minutes: 260
+    permissions:
+      contents: read
+      # `gh attestation verify`, which reads the release's attestations.
+      attestations: read
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -58,7 +62,8 @@ jobs:
       - name: Wait for every piece of it
         run: bash .github/release-verify.sh wait "${{ steps.version.outputs.version }}" "${{ inputs.wait || 240 }}"
       # GitHub attests each asset of an immutable release; without that, the digests GitHub took
-      # as each was uploaded, which a SHA256SUMS swapped later wouldn't match.
+      # as each was uploaded, which a SHA256SUMS swapped later wouldn't match. And release.yml's
+      # attestation of each, as built by it at the release's tag.
       - name: The release's assets, against GitHub's record of them
         env:
           GH_TOKEN: ${{ github.token }}
