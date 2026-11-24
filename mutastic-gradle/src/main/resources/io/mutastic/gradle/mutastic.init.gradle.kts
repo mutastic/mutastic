@@ -122,6 +122,29 @@ fun suiteOf(project: Project): Suite {
     return kotlinSuite(target, task)
 }
 
+// The JUnit Platform launcher mutastic's worker needs, when the test classpath has the platform and
+// no launcher: Gradle 8 runs the platform with a launcher of its own, so many builds never declare
+// one. The build's own, from its repositories, at its engine's version, as the platform runs only
+// on one version of each; none when it can't be resolved, and mutastic then says what to add.
+fun launcher(project: Project, classpath: List<String>): List<String> {
+    if (classpath.any { File(it).name.startsWith("junit-platform-launcher-") }) {
+        return emptyList()
+    }
+    val engine = Regex("junit-platform-engine-(?<version>\\d[^/\\\\]*)\\.jar")
+    val version = classpath.mapNotNull { engine.matchEntire(File(it).name) }
+        .map { (it.groups as MatchNamedGroupCollection)["version"]!!.value }
+        .lastOrNull() ?: return emptyList()
+    val launcher = project.configurations.detachedConfiguration(
+        project.dependencies.create("org.junit.platform:junit-platform-launcher:$version"))
+    launcher.isTransitive = false
+    return try {
+        launcher.files.map { it.absolutePath }
+    } catch (e: org.gradle.api.artifacts.ResolveException) {
+        project.logger.warn("mutastic: no junit-platform-launcher $version to resolve", e)
+        emptyList()
+    }
+}
+
 // When the module asked for has no Java code: which modules do, to suggest one.
 rootProject {
     tasks.register("mutasticModules") {
@@ -221,7 +244,8 @@ fun mutasticTasks(project: Project) = with(project) {
                 .artifactView { componentFilter { it is org.gradle.api.artifacts.component.ProjectComponentIdentifier } }
                 .files.files.map { it.absolutePath }.toSet()
             val classpath = task.classpath.files.map { it.absolutePath }.filterNot { it in own }
-            setup["dependencies"] = classpath.filterNot { it in modules }.joinToString(separator)
+            setup["dependencies"] = (classpath.filterNot { it in modules } + launcher(project, classpath))
+                .joinToString(separator)
             setup["alongside"] = classpath.filter { it in modules }.joinToString(separator)
             // What another module sees of this one: taken off its classpath when its tests run
             // over this module's mutants, so the mutated classes are the ones loaded.

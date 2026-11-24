@@ -25,4 +25,10 @@ interface TestFramework {
   default Optional<String> unstarted(TestClasspath classpath, StartFailure failure) {
     return Optional.empty();
   }
+
+  /// Why a worker can't run `classpath`'s tests with this framework, told before one starts: what
+  /// to add or change, said to the person. Empty when it can.
+  default Optional<String> refusal(TestClasspath classpath) {
+    return Optional.empty();
+  }
 }

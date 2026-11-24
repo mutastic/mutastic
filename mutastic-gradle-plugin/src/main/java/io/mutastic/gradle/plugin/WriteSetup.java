@@ -91,6 +91,11 @@ public abstract class WriteSetup extends DefaultTask {
   @Internal
   public abstract ConfigurableFileCollection getClasspath();
 
+  /// The JUnit Platform launcher the worker needs, when the test task's classpath has the platform
+  /// and none ([PlatformLauncher]).
+  @Internal
+  public abstract ConfigurableFileCollection getLauncher();
+
   /// What another module sees of this one: its classes, resources and jar.
   @Internal
   public abstract ConfigurableFileCollection getModuleOutputs();
@@ -185,6 +190,10 @@ public abstract class WriteSetup extends DefaultTask {
   private static void fromTheTestTask(
       WriteSetup task, Project project, Provider<Test> suite, String built) {
     task.getClasspath().from(suite.map(Test::getClasspath));
+    task.getLauncher()
+        .from(
+            project.provider(
+                () -> PlatformLauncher.missingFrom(project, suite.get().getClasspath())));
     task.getValues().putAll(suite.map(WriteSetup::values));
     task.getJvmArgs().set(suite.map(Test::getAllJvmArgs));
     task.getProjectPath().set(project.getPath());
@@ -266,10 +275,22 @@ public abstract class WriteSetup extends DefaultTask {
     setup.setProperty("testSources", paths(getTestSources().getFiles()));
     var modules =
         getModules().getFiles().stream().map(File::getAbsolutePath).collect(Collectors.toSet());
-    setup.setProperty("dependencies", classpath(path -> !modules.contains(path)));
+    setup.setProperty("dependencies", dependencies(modules));
     setup.setProperty("alongside", classpath(modules::contains));
     setup.setProperty("outputs", paths(getModuleOutputs().getFiles()));
     store(setup, getProjectPath().get());
+  }
+
+  /// The test classpath's libraries, without the build's `modules`, and the launcher the worker
+  /// needs when it has none.
+  private String dependencies(Set<String> modules) {
+    var dependencies = new ArrayList<String>();
+    var libraries = classpath(path -> !modules.contains(path));
+    if (!libraries.isEmpty()) {
+      dependencies.add(libraries);
+    }
+    getLauncher().getFiles().forEach(launcher -> dependencies.add(launcher.getAbsolutePath()));
+    return String.join(SEPARATOR, dependencies);
   }
 
   /// The source set whose classes the test task runs: `test` for `test`, `integrationTest` for a

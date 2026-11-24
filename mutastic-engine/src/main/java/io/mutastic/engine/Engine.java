@@ -168,6 +168,15 @@ public final class Engine {
     }
   }
 
+  /// A worker can't run the tests as their classpath is: a framework says what to add or change.
+  public static final class TestsCantRun extends CantRun {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    TestsCantRun(Project project, String said) {
+      super("mutastic can't run the tests in %s. %s".formatted(project.name(), said));
+    }
+  }
+
   /// The tests ran and passed, but the coverage pass recorded no line of any class with a mutant:
   /// it measured nothing, so no score can be given.
   ///
