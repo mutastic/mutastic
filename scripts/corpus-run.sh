@@ -170,12 +170,14 @@ run_one() {
       agent_status=$?
     fi
     # mutastic's logs of the build and the workers (Gradle's build/mutastic, Maven's
-    # target/mutastic), beside the events, for a failure to be read from the artifact.
+    # target/mutastic), and the setup it read (the tests' JDK and classpath), beside the events,
+    # for a failure to be read from the artifact.
     local log
     while IFS= read -r log; do
       cp "$log" "$out/$name.$(basename "$log")"
     done < <(find "$project" -maxdepth 5 \( -path '*/build/mutastic/*.log' \
-      -o -path '*/target/mutastic/*.log' \) 2> /dev/null)
+      -o -path '*/target/mutastic/*.log' -o -path '*/build/mutastic/setup*.properties' \
+      -o -path '*/target/mutastic/setup*.properties' \) 2> /dev/null)
   fi
 
   local line verdict
