@@ -227,6 +227,11 @@ coverage-merge DIR:
     done
     {{ gradle }} coverageReport coverageCheck -x test
 
+# Runs one project of the corpus as the nightly does, in GitHub Actions only: just corpus NAME
+[group('ci')]
+corpus *args:
+    bash scripts/corpus-run.sh "$@"
+
 # Runs mutastic on a share of one of its modules, no threshold: just self-shard mutastic-engine 1/4
 [group('ci')]
 self-shard MODULE SHARE *args: install

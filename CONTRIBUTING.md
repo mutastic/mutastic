@@ -55,10 +55,10 @@ the justfile shows (`just check` is `./gradlew build`), so the work can still be
 Call `./gradlew` directly only for a job no recipe covers.
 
 CI calls the same recipes. Each job runs its part of `just ci` as a recipe in the `ci` group, such
-as `just test-cli 2/4` for a quarter of the CLI's tests, so a job that fails can be run here as CI
-ran it. Commits checks the justfile's format and that its verbs are those
-[.github/just-verbs.txt](.github/just-verbs.txt) lists: after adding or removing a recipe, run
-`just --summary | tr ' ' '\n' > .github/just-verbs.txt`.
+as `just test-cli 2/4` for a quarter of the CLI's tests, and the corpus runs `just corpus`, so a
+job that fails can be run here as CI ran it. Commits checks the justfile's format and that its
+verbs are those [.github/just-verbs.txt](.github/just-verbs.txt) lists: after adding or removing a
+recipe, run `just --summary | tr ' ' '\n' > .github/just-verbs.txt`.
 
 ## Making a change
 
@@ -163,6 +163,33 @@ back to back with its own. An id never changes once released.
 folders), masks ids, paths, timings, names and code, and warns where the shapes differ
 (`docs/scripts/compare-captures.mjs`; `node docs/scripts/compare-captures.mjs <mutastic-rs docs>`
 lists them). Warnings for now, while the masks settle.
+
+## The corpus
+
+The samples show one feature each. The bugs that matter turn up in the combinations people write:
+a loop's slots read twice, a test helper in another package, a Maven wrapper older than 3.9.6. So
+every night, and before every release, mutastic runs on a corpus of real projects,
+[corpus/corpus.yaml](corpus/corpus.yaml), each pinned to a commit
+([.github/workflows/corpus.yml](.github/workflows/corpus.yml)). Each project's job clones it, on
+the JDK its entry names, runs its own tests, then a share of its mutants as events and again for
+an agent, and passes when what the corpus expects of it holds: a score, the refusal it names, or
+the known bug it fails with today. The run's page has a table of every project against the last
+good night, and the run is red when a project that was good then fails now, or when a known bug's
+project scores.
+
+- **Adding a project:** pick one for a shape the others don't cover, and say which in `shapes`.
+  Pin a commit, the whole hash. Set `jdk`, and `shard` so a share is 30 to 60 mutants. Set
+  `expect` to `score`; to `refused:<code>` with a `note` saying why refusing it is right; or to
+  `known:<bug>` with `fails:`, the code it fails with, and a `note`. Then run the workflow for it
+  alone: `gh workflow run corpus.yml -f only=<name>`. The header of corpus.yaml says the same.
+- **Fixing a known bug:** the night after the fix merges, its projects score, and the run says
+  "now passes, update expect": change their `expect` to `score`, and drop `fails:`.
+- **Every corpus failure becomes a sample or fixture.** The pull request that fixes one adds the
+  smallest project that shows it, so the tests catch it from then on, not only the nightly.
+- **Corpus projects are other people's code:** they're cloned, built and run in GitHub Actions
+  only, with Docker stopped. `just corpus <name>` runs one as its job does, and on your machine it
+  runs only an entry whose `git` is a `file://` URL, a fixture standing in for a project, from a
+  corpus file `CORPUS_FILE` names.
 
 ## Pull requests
 

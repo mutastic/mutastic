@@ -1,0 +1,78 @@
+# The corpus: real projects mutastic runs on every night, and before every release
+# (.github/workflows/corpus.yml, scripts/corpus-run.sh). The samples show one feature each; these
+# hold the combinations people write, where the bugs that matter turned up (a loop's slots read
+# twice, a test helper in another package, a Maven wrapper older than 3.9.6).
+#
+# One project a line:
+#   name     what the results call it, unique: letters, digits, _, . or -
+#   git      the repository, quoted
+#   commit   the full commit it runs at: a pin, never a branch or tag, so a night that fails is
+#            mutastic's change, not the project's
+#   dir      the build's directory, relative to the clone
+#   module   the module to run, as `mutastic run` takes it (:core); none for the build's root
+#   args     more for `mutastic run`, such as --tests-from=:other; none usually
+#   test     the project's own test command, when the one worked out isn't right (a Kotlin
+#            multiplatform build has jvmTest, not test); none usually
+#   jdk      the JDK the build runs on (JAVA_HOME): 17, 21 or 25. mutastic itself runs on 25
+#   shard    N for --shard=1/N: a share of about 30 to 60 mutants (64 is the most N can be)
+#   shapes   what it covers that the others don't
+#   expect   score: a run that ends with its reports and a score, and an intact agent head;
+#            refused:<code>, when refusing it is right today: it passes when that code comes back;
+#            known:<bug>, when a known mutastic bug stops it today, with the code it fails with in
+#            fails: it passes while it fails that way, and fails the night once it scores
+#            ("now passes, update expect"), so a fix moves it to score
+#   fails    for known:<bug>, the code it fails with today
+#   note     why, for a refusal or a known bug
+#
+# To add a project:
+# 1. Pick it for a shape the others don't cover, and say which in shapes.
+# 2. Pin a commit, the whole hash.
+# 3. Set shard so a share is 30 to 60 mutants (`mutastic mutants <dir>` counts them, on its last
+#    line), and the job fits in its time.
+# 4. Set expect, and a note for anything but score.
+# Then run the workflow on your branch with only: <name>.
+#
+# The known bugs are the Java corpus survey's (24 Nov 2026, mutastic 1.3.0; A1 is fixed in 1.3.1):
+#   A2  a Maven wrapper below 3.9.6 reads as no Java code
+#   A3  Maven runs without -ea, so tests of assert fail
+#   A4  renamed test classes (X__mN) break tests that reach a test class in another package
+#   A5  production classes aren't on the app class loader, so Java serialization can't find them
+#   A6  Gradle 7: the injected setup reads test.javaLauncher, which has no value there
+#   A7a Gradle 8 builds that don't declare junit-platform-launcher: the worker doesn't start
+#   A7b a JDK 8 or 11 test toolchain is reported as an internal error, not refused
+#   A8  a test engine that can't start (TestNG below 6.14.3, JUnit 3 or 4 alone) reads as
+#       System.exit
+# and those its first run found (24 Nov 2026, on GitHub's runners):
+#   A11 a multi-release jar's classes (META-INF/versions/N) aren't loaded, so tests that reach
+#       them fail
+#   A12 a Kotlin mutant that doesn't verify stops the run with an internal error
+# A failure here becomes a fixture or sample in the pull request that fixes it. Docker is off in
+# the jobs, so no project here needs it to pass.
+- {name: spring-petclinic, git: "https://github.com/spring-projects/spring-petclinic", commit: 500158f732419217507c7656904b8e6aa1bcc0d6, dir: ., jdk: 17, shard: 7, shapes: [spring-boot, webmvctest, datajpatest, mockmvc, testcontainers-disabled-without-docker, maven-and-gradle-in-one-dir, java-serialization-test], expect: "known:A5", fails: red-baseline, note: "VetTests#serialization can't find Vet (A5); without that test it scores 72.1%. Gradle is picked over Maven"}
+- {name: petclinic-microservices-customers, git: "https://github.com/spring-petclinic/spring-petclinic-microservices", commit: e8b747ab522721076cacb5cf688eb8a54ba8c5c9, dir: ., module: ":spring-petclinic-customers-service", jdk: 17, shard: 2, shapes: [spring-boot, spring-cloud, multi-module-maven, webmvctest, mockmvc], expect: score}
+- {name: petclinic-microservices-admin, git: "https://github.com/spring-petclinic/spring-petclinic-microservices", commit: e8b747ab522721076cacb5cf688eb8a54ba8c5c9, dir: ., module: ":spring-petclinic-admin-server", jdk: 17, shard: 1, shapes: [module-with-no-tests], expect: score}
+- {name: jpa-showcase, git: "https://github.com/spring-projects/spring-data-examples", commit: 7747029e6157cb780862826b6ae87c88d7a4df3c, dir: ., module: ":jpa/showcase", jdk: 25, shard: 1, shapes: [spring-boot, nested-maven-modules, test-application-in-production-package, jdk25, mvnw-3.8.4], expect: "known:A2", fails: module-without-java, note: "its wrapper is Maven 3.8.4 (A2); on 3.9.6 it scores 34.4%"}
+- {name: quarkus-getting-started, git: "https://github.com/quarkusio/quarkus-quickstarts", commit: b3e90af5f60b94a1acb14736be97e34127f079ec, dir: getting-started, jdk: 17, shard: 1, shapes: [quarkus, quarkustest, rest-assured], expect: score}
+- {name: quarkus-rest-json, git: "https://github.com/quarkusio/quarkus-quickstarts", commit: b3e90af5f60b94a1acb14736be97e34127f079ec, dir: rest-json-quickstart, jdk: 17, shard: 1, shapes: [quarkus, quarkustest, failsafe-it-classes], expect: score}
+- {name: realworld-micronaut, git: "https://github.com/alexey-lapin/realworld-backend-micronaut", commit: 7687abbea9be3f70c5aa1609b6575ddc3d8b17d1, dir: ., module: ":service", jdk: 17, shard: 64, shapes: [micronaut-4, lombok, multi-module-gradle, kotlin-dsl, included-build-logic, generated-definition-classes, jvm-test-suites], expect: score, note: "scores, but names its generated $Definition classes .java (A9)"}
+- {name: spring-boot-realworld, git: "https://github.com/gothinkster/spring-boot-realworld-example-app", commit: ee17e31aafe733d98c4853c8b9a74d7f2f6c924a, dir: ., jdk: 17, shard: 1, shapes: [spring-boot-2.6, lombok, mybatis, mockmvc, gradle-7.4], expect: "known:A6", fails: build-failed, note: "Gradle 7.4: the injected setup reads test.javaLauncher (A6)"}
+- {name: picnic, git: "https://github.com/JakeWharton/picnic", commit: 6bbc3aaafa0d7dbdb2376488c48d6b329cbb2d8d, dir: ., module: ":picnic", test: "./gradlew :picnic:jvmTest", jdk: 17, shard: 8, shapes: [kotlin-multiplatform, gradle-8.3], expect: "known:A12", fails: internal, note: "past 1.3.0's loop bug (A1), a mutant of SimpleLayout::draw doesn't verify (A12)"}
+- {name: klaxon, git: "https://github.com/cbeust/klaxon", commit: 1173bdc568a6d339b45cf24a6a9c5c2f6847f42d, dir: ., module: ":klaxon", jdk: 17, shard: 1, shapes: [kotlin, testng, gradle-7.3, buildsrc], expect: "known:A6", fails: build-failed, note: "Gradle 7.3: the injected setup reads test.javaLauncher (A6)"}
+- {name: gson, git: "https://github.com/google/gson", commit: fcd416909db2bea96eb916bcfb2d0a83cb9b86c3, dir: ., module: ":gson", jdk: 17, shard: 64, shapes: [junit4, multi-module-maven, no-wrapper, release-8, error-prone, test-only-modules, module-info], expect: "known:A8", fails: tests-stopped, note: "past 1.3.0's loop bug (A1), JUnit 4 alone under Surefire has no JUnit Platform engine to start, reported as System.exit (A8, as joda-time's JUnit 3)"}
+- {name: concurrency-limits, git: "https://github.com/Netflix/concurrency-limits", commit: 39c74f7ef47fb48cd605be98870b51896f4b2fae, dir: ., module: ":concurrency-limits-core", test: "./gradlew :concurrency-limits-core:testClasses", jdk: 17, shard: 16, shapes: [junit4-vintage, junit5, gradle-8.6, toolchains-11-17, no-launcher-dependency, timing-tests], expect: "known:A7a", fails: internal, note: "it declares no junit-platform-launcher (A7a); with one it scores 33.3%. Its own BlockingLimiterTest#testTimeout fails on GitHub's runners too, a timer, so its own tests are only compiled"}
+- {name: failsafe, git: "https://github.com/failsafe-lib/failsafe", commit: 8ae344fda21eb00c32a34bbd9517babe5b6fadc5, dir: ., module: ":core", test: "mvn -B -ntp test -am -pl core -Dtest=!RateLimiterTest -Dsurefire.failIfNoSpecifiedTests=false", jdk: 17, shard: 46, shapes: [testng-6.9.10, multi-module-maven, no-wrapper, concurrency], expect: "known:A8", fails: tests-stopped, note: "TestNG 6.9.10 can't start under mutastic, reported as System.exit (A8); on TestNG 7.5.1 it meets A4. Its own RateLimiterTest is timed and fails on GitHub's runners, so its own tests leave it out"}
+- {name: jcommander, git: "https://github.com/cbeust/jcommander", commit: 1b4fb692dd00a46ac2d36f961ecf8a3e9707542d, dir: ., jdk: 21, shard: 36, shapes: [testng-7, gradle-9.7, jdk21, test-helpers-in-other-packages], expect: "known:A4", fails: red-baseline, note: "7 tests reach a renamed test class from another package (A4); without them it scores 60.6%"}
+- {name: jopt-simple, git: "https://github.com/jopt-simple/jopt-simple", commit: 1f80fe268d2b038b44702ac12cdc95e5060a92b1, dir: ., jdk: 17, shard: 24, shapes: [junit5, gradle-8.13, toolchain-17], expect: score}
+- {name: jsoup, git: "https://github.com/jhy/jsoup", commit: 5e3c2843106967cba8ac1b12e6f821518fb2f5d2, dir: ., jdk: 17, shard: 64, shapes: [junit5, multi-release-jar, release-8, no-wrapper, local-jetty], expect: "known:A11", fails: red-baseline, note: "past 1.3.0's loop bug (A1), 181 tests can't load HttpClientExecutor$ProxyWrap from META-INF/versions/11 (A11)"}
+- {name: commons-lang, git: "https://github.com/apache/commons-lang", commit: 562de6e40e0742f471adefcf05bd4b273d995028, dir: ., jdk: 17, shard: 64, shapes: [junit5, release-8, huge-suite], expect: "known:A4", fails: red-baseline, note: "past 1.3.0's loop bug (A1), 26 tests see a renamed test class's name, ClassUtilsTest__m1$3 (A4)"}
+- {name: joda-money, git: "https://github.com/JodaOrg/joda-money", commit: 2e8a1fd4263de2ce6fcc9c2ae703d559dd86c61e, dir: ., jdk: 21, shard: 31, shapes: [junit5, jdk21, tested-asserts], expect: "known:A3", fails: red-baseline, note: "7 tests of assert fail without -ea (A3); with it, it scores 75.0%"}
+- {name: testcontainers-quickstart, git: "https://github.com/testcontainers/testcontainers-java-spring-boot-quickstart", commit: c2fa0b2287a97026e153c9d9ee3aab5b7e96ba02, dir: ., test: "./gradlew testClasses", jdk: 17, shard: 1, shapes: [testcontainers, spring-boot-3.1, maven-and-gradle-in-one-dir, gradle-8.1.1, toolchain-vendor-adoptium, no-launcher-dependency], expect: "known:A7a", fails: internal, note: "it declares no junit-platform-launcher (A7a). Its tests need Docker, which is off, so its own tests are only compiled: once A7a is fixed, expect refused:red-baseline"}
+- {name: blackjack-ensemble-blue, git: "https://github.com/tedyoung/blackjack-ensemble-blue", commit: aec5e95f1c42c181759cf4baaa7a13c06e9fd96a, dir: ., jdk: 25, shard: 16, shapes: [spring-boot, jdk25, mvnw-3.9.6, hexagonal, upstream-red-test], expect: "refused:red-baseline", note: "GameServiceTest#whenGameOverPayoutIsAddedToPlayerAccountBalance is red upstream; without it, it scores 70.3%"}
+- {name: persistasaurus, git: "https://github.com/gunnarmorling/persistasaurus", commit: 1e2176b91259343d3ac175f0faac876b0efa743c, dir: ., jdk: 25, shard: 7, shapes: [jdk25, mvnw-3.8.4, sqlite, bytebuddy], expect: "known:A2", fails: module-without-java, note: "its wrapper is Maven 3.8.4 (A2); on 3.9.6 it scores 86.4%"}
+- {name: javapoet, git: "https://github.com/square/javapoet", commit: 714e05ca60179285746604452324262b126dcb2d, dir: ., jdk: 17, shard: 1, shapes: [junit4.12, compile-testing, source-1.8], expect: "refused:build-failed", note: "1.13.0's tests don't compile on JDK 17, as with mvn test"}
+- {name: kotlinpoet, git: "https://github.com/square/kotlinpoet", commit: 97e504bbcece8100b653c5d7d7cd1bba0a55b0b3, dir: ., module: ":kotlinpoet", test: "./gradlew :kotlinpoet:jvmTest", jdk: 17, shard: 64, shapes: [kotlin, gradle-9.9, tests-that-print-class-names], expect: "known:A4", fails: red-baseline, note: "34 tests see a renamed test class's name, X__m1 (A4)"}
+- {name: petclinic-kotlin, git: "https://github.com/spring-petclinic/spring-petclinic-kotlin", commit: 9823b3aa97988854668e608750db88502775caa7, dir: ., jdk: 17, shard: 6, shapes: [kotlin, spring-boot, webmvctest, gradle-9.9, java-serialization-test], expect: "known:A5", fails: red-baseline, note: "its serialization test can't find Vet (A5); without that test it scores 59.1%"}
+- {name: kotlin-result, git: "https://github.com/michaelbull/kotlin-result", commit: a528dd0f2e40522df0a45287ffcf46fbd9893d56, dir: ., module: ":kotlin-result", test: "./gradlew :kotlin-result:jvmTest", jdk: 21, shard: 29, shapes: [kotlin-multiplatform, toolchain-8-tests], expect: "known:A7b", fails: internal, note: "its tests run on a JDK 8 toolchain, reported as an internal error (A7b); once fixed, expect a refusal naming JDK 8"}
+- {name: retrofit-converters-gson, git: "https://github.com/square/retrofit", commit: 3ab0f1a2c18666adb79ebf4eacef6fbc40d3e801, dir: ., module: ":retrofit-converters:gson", jdk: 17, shard: 1, shapes: [junit4, multi-module-gradle, toolchain-8-tests], expect: "known:A7b", fails: internal, note: "its tests run on a JDK 8 toolchain, reported as an internal error (A7b); once fixed, expect a refusal naming JDK 8"}
+- {name: retrofit-core, git: "https://github.com/square/retrofit", commit: 3ab0f1a2c18666adb79ebf4eacef6fbc40d3e801, dir: ., module: ":retrofit", args: ["--tests-from=:retrofit:java-test"], jdk: 17, shard: 33, shapes: [module-with-no-tests, tests-in-sibling-module, helper-only-test-module, toolchain-8-tests], expect: "known:A7b", fails: internal, note: "its tests run on a JDK 8 toolchain, reported as an internal error (A7b); once fixed, expect a refusal naming JDK 8"}
+- {name: joda-time, git: "https://github.com/JodaOrg/joda-time", commit: d451f7cf7b56628d8e390c649ecc865235701727, dir: ., jdk: 17, shard: 1, shapes: [junit3, source-1.5], expect: "refused:build-failed", note: "source 1.5 needs JDK 8, which mutastic doesn't run tests on; on 8 it would meet A8 (JUnit 3 alone)"}

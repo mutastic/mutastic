@@ -6,6 +6,7 @@ changelog-preview
 check
 ci
 ci-build
+corpus
 coverage
 coverage-merge
 docs-build
