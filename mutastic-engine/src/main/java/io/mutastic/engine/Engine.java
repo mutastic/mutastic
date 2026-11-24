@@ -8,6 +8,7 @@ import io.mutastic.api.CoveragePass;
 import io.mutastic.api.FlakyTest;
 import io.mutastic.api.Ghost;
 import io.mutastic.api.Ignore;
+import io.mutastic.api.LikelyFlaky;
 import io.mutastic.api.Listener;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantCost;
@@ -458,6 +459,8 @@ public final class Engine {
   ///   `PricingTest#bigOrders`, the workers leave out of each class they run
   /// @param forceCoverage run the coverage pass even when no mutant is there to run
   ///   (`--force-coverage`), to check or time the tests; with none to run, otherwise, no test runs
+  /// @param history what earlier runs say of the tests' catches: the last run's results when
+  ///   nothing has changed, and the tests watched since one was named likely flaky
   public record Options(
       List<String> only,
       boolean confirmCatches,
@@ -471,7 +474,59 @@ public final class Engine {
       boolean killMatrix,
       Shard shard,
       List<String> testsLeftOut,
-      boolean forceCoverage) {
+      boolean forceCoverage,
+      FlakyHistory history) {
+    /// Options that know nothing of earlier runs' flaky tests.
+    public Options(
+        List<String> only,
+        boolean confirmCatches,
+        int workers,
+        boolean suggestions,
+        boolean auditArid,
+        java.util.Set<String> among,
+        Policy policy,
+        Optional<ChangedLines> changed,
+        boolean ghosts,
+        boolean killMatrix,
+        Shard shard,
+        List<String> testsLeftOut,
+        boolean forceCoverage) {
+      this(
+          only,
+          confirmCatches,
+          workers,
+          suggestions,
+          auditArid,
+          among,
+          policy,
+          changed,
+          ghosts,
+          killMatrix,
+          shard,
+          testsLeftOut,
+          forceCoverage,
+          FlakyHistory.NONE);
+    }
+
+    /// The same options, with what earlier runs say of the tests' catches (decision 27).
+    public Options withHistory(FlakyHistory known) {
+      return new Options(
+          only,
+          confirmCatches,
+          workers,
+          suggestions,
+          auditArid,
+          among,
+          policy,
+          changed,
+          ghosts,
+          killMatrix,
+          shard,
+          testsLeftOut,
+          forceCoverage,
+          known);
+    }
+
     /// Options that stop at a mutant's first catch.
     public Options(
         List<String> only,
@@ -515,7 +570,8 @@ public final class Engine {
           every,
           shard,
           testsLeftOut,
-          forceCoverage);
+          forceCoverage,
+          history);
     }
 
     /// The same options, for one share of the mutants (`--shard`).
@@ -533,7 +589,8 @@ public final class Engine {
           killMatrix,
           share,
           testsLeftOut,
-          forceCoverage);
+          forceCoverage,
+          history);
     }
 
     /// The same options, leaving out these tests the build runs (`--exclude-tests`).
@@ -551,7 +608,8 @@ public final class Engine {
           killMatrix,
           shard,
           leftOut,
-          forceCoverage);
+          forceCoverage,
+          history);
     }
 
     /// The same options, running the coverage pass even with no mutant to run, or not
@@ -570,7 +628,8 @@ public final class Engine {
           killMatrix,
           shard,
           testsLeftOut,
-          force);
+          force,
+          history);
     }
 
     /// Options without ghosts.
@@ -601,7 +660,8 @@ public final class Engine {
           killMatrix,
           shard,
           testsLeftOut,
-          forceCoverage);
+          forceCoverage,
+          history);
     }
 
     public Options {
@@ -755,7 +815,8 @@ public final class Engine {
       List<FlakyTest> flaky,
       List<Ghost> ghosts,
       Duration checking,
-      List<TestWorker> workers) {
+      List<TestWorker> workers,
+      List<LikelyFlaky> likelyFlaky) {
     /// The run's report, the whole of it having taken `took`.
     Report report(Project project, Plan plan, Options options, Duration took) {
       return new Report(
@@ -773,12 +834,16 @@ public final class Engine {
           plan.stale(),
           flaky,
           options.ghosts() ? Optional.of(ghosts) : Optional.empty(),
-          checking);
+          checking,
+          likelyFlaky,
+          List.of());
     }
   }
 
   /// Each mutant, then each catch checked on the unmutated code ([FalseCatchGuard]), once the
-  /// workers that ran them have gone with what their tests started (a server on a fixed port).
+  /// workers that ran them have gone with what their tests started (a server on a fixed port); then
+  /// each test the run names likely flaky left out, and what it reached run again
+  /// ([LikelyFlakyGuard]).
   private Ran ran(Project project, Plan plan, List<TestWorker> workers, Listener listener) {
     listener.mutantsFound(plan.mutants().size());
     var pass = coveragePass(project, plan, workers.getFirst(), listener);
@@ -789,13 +854,15 @@ public final class Engine {
     workers.forEach(TestWorker::close);
     listener.checking(FalseCatchGuard.STEP, 0, 0);
     var guarded = guard(plan, workers.getFirst()).check(results, listener);
+    var named = likelyFlakyGuard(plan, workers.getFirst()).check(guarded, listener);
     return new Ran(
         pass,
-        guarded.results(),
+        named.results(),
         flakyBoth(pass, plan.mutantRun(), project, guarded),
         ghosts,
         Duration.ofNanos(System.nanoTime() - checkingStart),
-        workers);
+        workers,
+        named.likelyFlaky());
   }
 
   /// What progress calls running the ghosts, after the mutants.
@@ -829,6 +896,17 @@ public final class Engine {
     return new FalseCatchGuard(
         mutantRun.coverage(),
         () -> first.another(named(log, "unmutated")),
+        (mutant, worker) -> mutantRun.run(mutant, worker).result());
+  }
+
+  /// What leaves out each test the run names likely flaky, once the mutants have run, and runs what
+  /// it reached again in a worker like `first` but new.
+  private LikelyFlakyGuard likelyFlakyGuard(Plan plan, TestWorker first) {
+    var mutantRun = plan.mutantRun();
+    return new LikelyFlakyGuard(
+        mutantRun.coverage(),
+        mutantRun.history(),
+        () -> first.another(named(log, "flaky")),
         (mutant, worker) -> mutantRun.run(mutant, worker).result());
   }
 
@@ -926,6 +1004,7 @@ public final class Engine {
             mutations,
             coverage,
             options.confirmCatches(),
+            options.history(),
             options.suggestions(),
             options.auditArid(),
             java.util.Collections.synchronizedList(new ArrayList<>()),
@@ -1398,6 +1477,8 @@ public final class Engine {
   /// mutant share the ClassFile context's caches, so they take turns; only the tests run side by
   /// side. Coverage is only read once the coverage pass is over.
   ///
+  /// @param history what earlier runs say of the tests: a watched test's catch is run
+  ///   [io.mutastic.api.WatchedTest#CONFIRMATIONS] more times, and counts only if it fails each
   /// @param audited each arid mutant's result when run anyway, in an audit
   /// @param killMatrix whether a caught mutant runs its other covering tests too, to name each that
   ///   catches it
@@ -1409,6 +1490,7 @@ public final class Engine {
       Mutations mutations,
       Coverage coverage,
       boolean confirmCatches,
+      FlakyHistory history,
       boolean suggestions,
       boolean auditArid,
       List<MutantResult> audited,
@@ -1536,8 +1618,11 @@ public final class Engine {
         return new Tested(run, Optional.empty());
       }
       var catcher = run.failedTest().orElseThrow();
-      if (confirmCatches && trial.run(List.of(catcher)).status() == Status.MISSED) {
-        return testedAfter(trial, covering, run, Optional.of(catcher));
+      int confirmations = history.confirmationsOf(catcher, confirmCatches);
+      for (int time = 0; time < confirmations; time++) {
+        if (trial.run(List.of(catcher)).status() == Status.MISSED) {
+          return testedAfter(trial, covering, run, Optional.of(catcher));
+        }
       }
       return new Tested(run, Optional.empty());
     }

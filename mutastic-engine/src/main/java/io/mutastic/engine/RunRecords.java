@@ -93,6 +93,7 @@ public final class RunRecords {
     try (Stream<Path> files = Files.list(others)) {
       return files
           .filter(file -> file.toString().endsWith(".tsv"))
+          .filter(file -> !file.getFileName().toString().equals(FlakyWatch.FILE))
           .sorted(
               Comparator.comparing(RunRecords::modified).thenComparing(Comparator.naturalOrder()))
           .toList();

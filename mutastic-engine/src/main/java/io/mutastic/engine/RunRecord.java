@@ -70,6 +70,20 @@ public record RunRecord(
     return new RunRecord(projectOf(project), "", codeOf(roots), tool, report.score(), results);
   }
 
+  /// What a run of `project` will be compared by, before it runs: its code, tests and mutastic,
+  /// with no results yet. What an earlier run found is then known before this one's mutants run.
+  public static RunRecord before(Project project, String tool) {
+    var roots = new java.util.ArrayList<>(project.classes());
+    roots.addAll(project.testClasses());
+    return new RunRecord(
+        projectOf(project), "", codeOf(roots), tool, OptionalDouble.empty(), Map.of());
+  }
+
+  /// Whether nothing `previous` ran has changed since: the code, the tests and mutastic.
+  public boolean sameCodeAndToolAs(RunRecord previous) {
+    return code.equals(previous.code()) && tool.equals(previous.tool());
+  }
+
   /// The same record, of a run that left out these tests (`--exclude-tests`, `exclude-tests:`): the
   /// tests that ran are part of what it ran, so a run with other tests left out is never "the same
   /// code", and what flips between them isn't taken for a flaky test's doing. With none left out,

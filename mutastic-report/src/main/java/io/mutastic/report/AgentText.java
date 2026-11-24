@@ -2,9 +2,11 @@ package io.mutastic.report;
 
 import io.mutastic.api.Comparison;
 import io.mutastic.api.FlakyTest;
+import io.mutastic.api.LikelyFlaky;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
+import io.mutastic.api.WatchedTest;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -96,7 +98,7 @@ public final class AgentText {
         .forEach(repeated -> out.append("note: %s\n".formatted(RepeatedIgnores.text(repeated))));
     comparison.ifPresent(found -> appendVsLastRun(out, report, found));
     out.append(reports(reports));
-    appendSuspects(out, report, comparison);
+    appendSuspects(out, report);
     appendUnrelatedCatches(out, report);
     if (!missed.isEmpty() || !notCovered.isEmpty()) {
       appendGaps(out, report, missed, notCovered);
@@ -358,23 +360,52 @@ public final class AgentText {
                 .orElse(""));
   }
 
-  /// The tests whose catches can't be trusted, strongest signal first.
-  private static void appendSuspects(
-      StringBuilder out, Report report, Optional<Comparison> comparison) {
-    for (var suspect : Suspects.changedBetweenRuns(comparison)) {
-      out.append(
-          "likely flaky: %s; with the code unchanged, whether it catches %s changed since the last run. "
-                  .formatted(shortName(suspect.test()), Untrusted.values(suspect.mutants()))
-              + "Its catches can't be trusted until it's fixed\n".formatted());
+  /// The tests whose catches can't be trusted, strongest signal first, each saying that none of its
+  /// catches count; then each test watched since an earlier run named it.
+  private static void appendSuspects(StringBuilder out, Report report) {
+    for (var named : report.likelyFlaky()) {
+      var changed = named.mutants(LikelyFlaky.CHANGED);
+      if (!changed.isEmpty()) {
+        out.append(
+            ("likely flaky: %s; with the code unchanged, whether it catches %s changed since the last"
+                    + " run. Its catches can't be trusted until it's fixed. %s\n")
+                .formatted(shortName(named.test()), Untrusted.values(changed), noneCount(named)));
+      }
+      var unconfirmed = named.mutants(LikelyFlaky.NOT_REPEATED);
+      if (!unconfirmed.isEmpty()) {
+        out.append(
+            "likely flaky: %s; its %s of %s didn't repeat when run again, so the other covering tests decided. %s\n"
+                .formatted(
+                    shortName(named.test()),
+                    unconfirmed.size() == 1 ? "catch" : "catches",
+                    Untrusted.values(unconfirmed),
+                    noneCount(named)));
+      }
     }
-    for (var suspect : Suspects.unconfirmed(report)) {
-      out.append(
-          "likely flaky: %s; its %s of %s didn't repeat when run again, so the other covering tests decided\n"
-              .formatted(
-                  shortName(suspect.test()),
-                  suspect.mutants().size() == 1 ? "catch" : "catches",
-                  Untrusted.values(suspect.mutants())));
+    for (var watched : report.watched()) {
+      out.append("watched: %s\n".formatted(watchedLine(watched)));
     }
+  }
+
+  /// `None of its catches count: 3 mutants it reached ran again without it, and the next runs
+  /// confirm each catch it makes 3 times.`
+  static String noneCount(LikelyFlaky named) {
+    int rerun = named.rerun().size();
+    return ("None of its catches count: %d %s it reached ran again without it, and the next runs"
+            + " confirm each catch it makes %d times.")
+        .formatted(rerun, rerun == 1 ? "mutant" : "mutants", WatchedTest.CONFIRMATIONS);
+  }
+
+  /// `PricingTest#bigOrders, likely flaky in an earlier run: each catch it made had to repeat 3
+  /// times; 1 of 3 runs held`, and `…, so it's no longer watched` once it has held enough.
+  static String watchedLine(WatchedTest watched) {
+    return "%s, likely flaky in an earlier run: each catch it made had to repeat %d times; %d of %d runs held%s"
+        .formatted(
+            shortName(watched.test()),
+            WatchedTest.CONFIRMATIONS,
+            watched.held(),
+            WatchedTest.NEEDED,
+            watched.released() ? ", so it's no longer watched" : "");
   }
 
   private static void appendUnrelatedCatches(StringBuilder out, Report report) {
@@ -526,14 +557,21 @@ public final class AgentText {
   }
 
   private static String coveredBy(MutantResult result) {
-    return "   %s; all still pass with the change%s%s"
+    return "   %s; all still pass with the change%s%s%s"
         .formatted(
             testsRun(result, ": "),
             result
                 .unconfirmed()
                 .map(test -> " (%s failed once, then passed: flaky)".formatted(shortName(test)))
                 .orElse(""),
-            result.falseCatchBy().map(test -> " (%s)".formatted(falseCatch(test))).orElse(""));
+            result.falseCatchBy().map(test -> " (%s)".formatted(falseCatch(test))).orElse(""),
+            result.flakyCatchBy().map(test -> " (%s)".formatted(flakyCatch(test))).orElse(""));
+  }
+
+  /// What a mutant's card says of the likely flaky test whose catch of it didn't count.
+  static String flakyCatch(String test) {
+    return "%s failed against it, but it's likely flaky: that catch doesn't count"
+        .formatted(shortName(test));
   }
 
   /// What a mutant's card says of the test whose catch of it was false.

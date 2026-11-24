@@ -263,6 +263,7 @@ public final class JsonEvents {
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
     result.unconfirmed().ifPresent(test -> fields.put("unconfirmedCatchBy", test));
     result.falseCatchBy().ifPresent(test -> fields.put("falseCatchBy", test));
+    result.flakyCatchBy().ifPresent(test -> fields.put("flakyCatchBy", test));
   }
 
   /// `{"test": "a.BTest#adds(int, int, int)", "index": 2, "name": "[2] 2, 3, 5"}`: the case of the
@@ -468,7 +469,10 @@ public final class JsonEvents {
     // Under other operators, nothing was compared: the event has no comparison, as with no last
     // run.
     comparison.filter(Comparison::compared).ifPresent(found -> putComparison(fields, found));
-    fields.put("likelyFlaky", Suspects.json(comparison, report));
+    fields.put("likelyFlaky", Suspects.json(report));
+    if (!report.watched().isEmpty()) {
+      fields.put("watched", Suspects.watched(report));
+    }
     fields.put("unrelatedCatches", unrelatedCatches(report));
     fields.put("reports", reports);
     putAudit(fields, AridAudit.of(report));

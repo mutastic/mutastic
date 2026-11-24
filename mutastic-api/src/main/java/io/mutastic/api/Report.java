@@ -26,6 +26,10 @@ import org.jspecify.annotations.Nullable;
 ///   none; never in the score, the counts or `results`. Empty when the run didn't look for ghosts.
 /// @param checking how long what follows the mutants took, of `took`: the ghosts, and each catch
 ///   checked on the unmutated code
+/// @param likelyFlaky the tests the run named likely flaky: none of their catches count, as each
+///   mutant one reached ran again without it
+/// @param watched the tests an earlier run named, whose catches this run confirmed
+///   [WatchedTest#CONFIRMATIONS] more times each
 @Internal
 public record Report(
     String project,
@@ -42,15 +46,56 @@ public record Report(
     List<Ignore> staleIgnores,
     List<FlakyTest> flakyEvidence,
     Optional<List<Ghost>> ghosts,
-    Duration checking) {
+    Duration checking,
+    List<LikelyFlaky> likelyFlaky,
+    List<WatchedTest> watched) {
 
   public Report {
+    likelyFlaky = List.copyOf(likelyFlaky);
+    watched = List.copyOf(watched);
     ghosts = ghosts.map(List::copyOf);
     staleIgnores = List.copyOf(staleIgnores);
     flakyEvidence = List.copyOf(flakyEvidence);
     results = List.copyOf(results);
     flaky = List.copyOf(flaky);
     audited = List.copyOf(audited);
+  }
+
+  /// A run that named no test likely flaky and watched none.
+  public Report(
+      String project,
+      int jdk,
+      List<MutantResult> results,
+      int tests,
+      List<String> flaky,
+      Duration coverage,
+      int workers,
+      int started,
+      Duration took,
+      List<MutantResult> audited,
+      Optional<ChangedLines> scope,
+      List<Ignore> staleIgnores,
+      List<FlakyTest> flakyEvidence,
+      Optional<List<Ghost>> ghosts,
+      Duration checking) {
+    this(
+        project,
+        jdk,
+        results,
+        tests,
+        flaky,
+        coverage,
+        workers,
+        started,
+        took,
+        audited,
+        scope,
+        staleIgnores,
+        flakyEvidence,
+        ghosts,
+        checking,
+        List.of(),
+        List.of());
   }
 
   /// A run whose checking after the mutants wasn't timed: one put together from shares, say.
@@ -197,7 +242,58 @@ public record Report(
         staleIgnores,
         flakyEvidence,
         ghosts,
-        checking);
+        checking,
+        likelyFlaky,
+        watched);
+  }
+
+  /// The same run, naming these tests likely flaky.
+  public Report withLikelyFlaky(List<LikelyFlaky> named) {
+    return new Report(
+        project,
+        jdk,
+        results,
+        tests,
+        flaky,
+        coverage,
+        workers,
+        started,
+        took,
+        audited,
+        scope,
+        staleIgnores,
+        flakyEvidence,
+        ghosts,
+        checking,
+        named,
+        watched);
+  }
+
+  /// The same run, saying what became of the tests it watched.
+  public Report withWatched(List<WatchedTest> watching) {
+    return new Report(
+        project,
+        jdk,
+        results,
+        tests,
+        flaky,
+        coverage,
+        workers,
+        started,
+        took,
+        audited,
+        scope,
+        staleIgnores,
+        flakyEvidence,
+        ghosts,
+        checking,
+        likelyFlaky,
+        watching);
+  }
+
+  /// The test named likely flaky as `test`, if the run named it.
+  public java.util.Optional<LikelyFlaky> likelyFlaky(String test) {
+    return likelyFlaky.stream().filter(named -> named.test().equals(test)).findFirst();
   }
 
   /// This run's results with `other`'s, a run of other tests (another module's) over the same
@@ -223,7 +319,9 @@ public record Report(
         staleIgnores,
         both(flakyEvidence, other.flakyEvidence()),
         ghosts,
-        checking.plus(other.checking()));
+        checking.plus(other.checking()),
+        both(likelyFlaky, other.likelyFlaky()),
+        both(watched, other.watched()));
   }
 
   /// `mine`, then `theirs`.

@@ -12,6 +12,8 @@ import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import io.mutastic.engine.ClassSources;
 import io.mutastic.engine.Engine;
+import io.mutastic.engine.FlakyHistory;
+import io.mutastic.engine.FlakyWatch;
 import io.mutastic.engine.OperatorSet;
 import io.mutastic.engine.RunRecord;
 import io.mutastic.engine.RunRecords;
@@ -608,13 +610,37 @@ public final class Main {
     }
   }
 
+  /// The run, saying what became of each test watched since an earlier run named it likely flaky
+  /// (decision 27). A full run of the module, or the `--from-shards` merge, keeps the watch it
+  /// leaves; a share or a run of some mutants confirms against it and leaves it as it was.
+  private static Tested watched(Command command, Prepared prepared, Tested tested) {
+    var watch = new FlakyWatch(prepared.work());
+    var before = watch.read();
+    var leftOut = LeftOut.names(prepared.leftOut());
+    var report = tested.report();
+    boolean keeps =
+        command.shard().isEmpty()
+            && !command.partial()
+            && report.scope().isEmpty()
+            && (report.testsRan() || command.fromShards().isPresent());
+    if (!keeps) {
+      return new Tested(
+          report.withWatched(FlakyWatch.unchanged(before, report, leftOut)), tested.otherTests());
+    }
+    var after = FlakyWatch.after(before, report, leftOut);
+    if (!after.watch().equals(before)) {
+      watch.write(after.watch());
+    }
+    return new Tested(report.withWatched(after.watched()), tested.otherTests());
+  }
+
   /// `run`: every mutant, or with `--shard` a share of them, or with `--from-shards` the shares'
   /// results put together; then the result, its record and its reports.
   private static int fullRun(Command command, Prepared prepared, Passes passes, Output output) {
     var judged = judgedOnNew(command, prepared);
     var display = display(command, prepared, output, judged);
     command.shard().ifPresent(shard -> Shares.forget(shareEvents(prepared, shard)));
-    var tested = passes.run(command, prepared, display.listener());
+    var tested = watched(command, prepared, passes.run(command, prepared, display.listener()));
     passes.progress().checking(RECORDING, 0, 0);
     var kept = kept(command, prepared, tested, judged);
     passes.progress().finished();
@@ -2148,7 +2174,33 @@ public final class Main {
         .withKillMatrix(command.killMatrix())
         .withShard(command.shard().orElse(Shard.WHOLE))
         .withTestsLeftOut(LeftOut.names(prepared.leftOut()))
-        .withForceCoverage(command.forceCoverage());
+        .withForceCoverage(command.forceCoverage())
+        .withHistory(history(command, prepared));
+  }
+
+  /// What earlier runs say of the tests' catches (decision 27): the module's watch, and, for a run
+  /// of every mutant (or a share), the last comparable run's results when nothing it ran has
+  /// changed since. A run of some mutants, of a change, or with another module's tests is compared
+  /// with no run, as its record isn't kept or its code is never the same.
+  private static FlakyHistory history(Command command, Prepared prepared) {
+    var watched = new FlakyWatch(prepared.work()).read().keySet();
+    if (command.subcommand() != Subcommand.RUN
+        || command.partial()
+        || command.since().isPresent()
+        || !command.testsFrom().isEmpty()) {
+      return new FlakyHistory(Map.of(), watched);
+    }
+    var now =
+        RunRecord.before(
+                prepared.project(),
+                RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())))
+            .under(OperatorSet.active(policy(command, prepared)))
+            .leavingOut(LeftOut.names(prepared.leftOut()));
+    var last =
+        new RunRecords(recordsOf(prepared, command.shard()))
+            .comparableTo(now)
+            .filter(now::sameCodeAndToolAs);
+    return new FlakyHistory(last.map(RunRecord::results).orElse(Map.of()), watched);
   }
 
   /// The project's say, from the module's nearest `mutastic.yaml` and the run's ignores, with the
