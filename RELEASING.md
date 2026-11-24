@@ -35,6 +35,32 @@ train waits for the next one.
 - **Who decides.** Brian decides a patch. Agents never cut a release on their own: when asked,
   they prepare the release commit.
 
+## The release, in order
+
+Each step is a recipe in `just --list`'s `release` group. **Brian's** publish, so only Brian runs
+them; an agent may run the rest. The sections below say what each does.
+
+1. `just release-prepare X.Y.Z`, from `main`: the release commit on `release-X.Y.Z` and its pull
+   request, `chore(release): version X.Y.Z`. For `X.Y.0`, `just release-prepare X.Y.0 <commit>`
+   names the Rust edition's release commit on its `main`, and moves the docs' Rust pin to it.
+   Read the section, and bring up to date any shared page it says it stamped.
+2. `just release-check X.Y.Z` on that branch: ready, or a list of what isn't.
+3. `just candidate`: the CLI from the release commit over every sample. Then merge the pull
+   request (`just merge`).
+4. **Brian's:** `just release X.Y.Z`, the GitHub release and its tag at `main`'s head.
+5. **Brian's:** approve the `release` job, then press *Publish* in the Central Portal.
+6. **Brian's:** `just release-portal X.Y.Z`, then approve its job.
+
+`release-verify.yml` then checks the release by itself (`just release-verify X.Y.Z` runs it
+again), and from 1.0.0 `just release-hold X.Y.Z` holds the next release to this one. For `X.Y.0`,
+the Rust edition's `vX.Y.0` is tagged once step 4's CLI is attached. `just docs-redeploy`
+(**Brian's**) deploys docs.mutastic.io again, should a tag's push not have.
+
+Brian's recipes ask before they run (`[confirm]`), but that isn't a safety boundary: `just --yes`
+or `JUST_YES` skips the question, and an agent's permission rules match only a command's text.
+What stands between a recipe and Central is the `release` environment's required reviewer: its
+jobs hold the publishing secrets, and run only once approved.
+
 ## Once
 
 1. **The namespace.** On [central.sonatype.com](https://central.sonatype.com), go to *Namespaces*,
@@ -131,16 +157,19 @@ train waits for the next one.
      ```sh
      scripts/docs-pin-rust.sh <commit>   # the release commit's hash, or a mutastic-rs branch or tag
      ```
+     `just release-prepare X.Y.0 <commit>` runs it in the release commit, and `just docs-pin-rust
+     <commit>` on its own.
      It sets `commit` to that commit's full hash and `version` to what its `Cargo.toml` says (its
      tag comes after this release is published, so the pin names the commit, and the docs build
      checks the two agree). Then it stamps again each shared page whose mutastic-rs source changed
      since its stamp, the pages `scripts/check-editions.mjs` names, which would otherwise stop the
-     tag's docs build. A stamp says the page is up to date, so bring each page it lists up to date
-     with the Rust edition, from the diff it prints, before you commit. Commit the pin, the stamps
-     and the pages with `main` green; `release-check` fails while the pin isn't an `X.Y.*` or a
-     stamp is stale. The Rust edition's
-     `vX.Y.0` is tagged only once this release's GitHub release has its CLI attached: its release
-     workflow builds nothing until then, as the native `mutastic X.Y.0` would find nothing to run.
+     tag's docs build (`just docs-stamp <page>…` stamps one again by hand, and `just docs-compare`
+     lists where the editions' captured output differs). A stamp says the page is up to date, so
+     bring each page it lists up to date with the Rust edition, from the diff it prints, before you
+     commit. Commit the pin, the stamps and the pages with `main` green; `release-check` fails
+     while the pin isn't an `X.Y.*` or a stamp is stale. The Rust edition's `vX.Y.0` is tagged
+     only once this release's GitHub release has its CLI attached: its release workflow builds
+     nothing until then, as the native `mutastic X.Y.0` would find nothing to run.
    - **Files on Central.** Central counts every file against a monthly limit
      ([Usage](https://central.sonatype.com/publishing/usage)). `checkCentralFiles` keeps a release
      small enough for four a month, and `release-check` runs it; look at the usage before a second
@@ -155,13 +184,16 @@ train waits for the next one.
    ```
    Edit the section if it needs it, a paragraph above a section's entries or one at the top, and
    commit it with the deleted files as `chore(release): version X.Y.Z`: only a commit with the
-   `release` scope may edit `CHANGELOG.md`. With `main` green and nothing wrong, create the release
-   from that section; its tag gives the version:
+   `release` scope may edit `CHANGELOG.md`. `just release-prepare X.Y.Z`
+   (`scripts/release-prepare.sh`) does that on a branch, checks it with `release-check --no-build`
+   and opens the pull request; `--dry-run` does it all here and stops before the push. With
+   `main` green and nothing wrong, create the release from that section; its tag gives the version:
    ```sh
    scripts/release-check.sh X.Y.Z                        # says it's ready, or lists what isn't
    scripts/changelog.sh notes X.Y.Z > notes.md           # the section, without its heading
    gh release create vX.Y.Z --target main --notes-file notes.md
    ```
+   `just release X.Y.Z`, Brian's, does the last two at `main`'s head.
    The release workflow reads the same section: a release whose tag has none stops before
    anything is uploaded, and one created without notes is given them.
 3. Approve the `release` job when GitHub asks. Before it asks, the workflow checks the tag's
@@ -178,7 +210,7 @@ train waits for the next one.
    within about half an hour.
 5. Once it's on Central, send the Gradle plugin to the portal, and approve the job:
    ```sh
-   gh workflow run portal.yml --ref vX.Y.Z
+   gh workflow run portal.yml --ref vX.Y.Z   # just release-portal X.Y.Z
    ```
    It runs on the tag, as the `release` environment only lets tags deploy, and checks the release
    is on Central first: the plugin's jars come from there. A plugin's first
@@ -188,7 +220,7 @@ train waits for the next one.
    describe `main`. `mutastic --help` links to `/vX.Y/`, so it has to exist. To deploy it again,
    every release line rebuilt from its own tag:
    ```sh
-   gh workflow run docs.yml --ref main -f release=true
+   gh workflow run docs.yml --ref main -f release=true   # just docs-redeploy
    ```
    Check the schemas are served at their `$id`s too:
    [/schemas/events/v1.json](https://docs.mutastic.io/schemas/events/v1.json).
@@ -197,7 +229,7 @@ train waits for the next one.
    Before 1.0.0 skip this step: anything may change, and the checks have nothing to compare with.
    Once the release is on Central, hold it, on a branch from `main`:
    ```sh
-   scripts/hold-release.sh X.Y.Z   # refuses until X.Y.Z's mutastic-api jar is on Central
+   scripts/hold-release.sh X.Y.Z   # just release-hold X.Y.Z; refuses until it's on Central
    ```
    It sets `lastStableRelease` in `gradle.properties` to X.Y.Z, so `checkApiCompatibility`
    compares the plugin API with its jar, and keeps its schemas, rules files, `mutastic.yaml` files
@@ -233,6 +265,8 @@ the release's branch, or locally:
 gh workflow run candidate-run.yml --ref <branch>
 scripts/candidate-run.sh             # --of=N for a smaller share, or name samples to run
 ```
+`just candidate` runs the script here, with the same arguments: the machine that prepared the
+release commit checks it, and `gh workflow run` covers a branch from anywhere.
 Don't tag a candidate that fails: its run's summary and artifact say which sample, and how.
 
 ## After a release
@@ -245,7 +279,7 @@ expects. It starts on its own when the release is published and waits up to four
 steps above that are done by hand. Once `portal.yml` has run, look at it in *Actions*; to check a
 release again, or once a wait ran out:
 ```sh
-gh workflow run release-verify.yml -f version=X.Y.Z
+gh workflow run release-verify.yml -f version=X.Y.Z   # just release-verify X.Y.Z
 ```
 A failure's summary says what failed and where. Central can't change or remove a version, so fix
 forward: card it, fix the cause, release `X.Y.Z+1`.

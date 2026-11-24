@@ -1,4 +1,5 @@
 build
+candidate
 cards
 changelog-check
 changelog-preview
@@ -8,8 +9,12 @@ ci-build
 coverage
 coverage-merge
 docs-build
+docs-compare
 docs-dev
 docs-output
+docs-pin-rust
+docs-redeploy
+docs-stamp
 fmt
 ids
 install
@@ -17,6 +22,12 @@ justfile-check
 lint
 lock
 merge
+release
+release-check
+release-hold
+release-portal
+release-prepare
+release-verify
 report-ui
 report-ui-check
 run
