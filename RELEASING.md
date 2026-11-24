@@ -74,10 +74,14 @@ version can never be changed or removed.
 1. **Check the promises** ([Compatibility](docs/src/content/docs/reference/compatibility.mdx)).
    The build already fails on a moved mutant id, a break in the plugin API and a break in the
    events format; these are left to you:
-   - **Scores.** Read the *Scoring changes* that `scripts/changelog.sh preview` prints, the
-     entries waiting in `changes/`. A patch release (`X.Y.Z+1`) has none: anything that moves a
-     score (an operator into or out of the default set, a filter that skips more or less) waits
-     for a minor release. A minor release's notes say which scores move, and how.
+   - **Scores.** Read the *Scoring changes* and *Score corrections* that
+     `scripts/changelog.sh preview` prints, the entries waiting in `changes/`. A patch release
+     (`X.Y.Z+1`) may have score corrections, which only drop mutants that could never run, such as
+     code the build never compiles counted by mistake: read each, and hold the patch back if one
+     could lower a score, add a mutant or fail a run that passed. It has no scoring changes:
+     anything else that moves a score (an operator into or out of the default set, a filter that
+     skips more or less, a change to timeouts, mutants newly found) waits for a minor release. A
+     minor release's notes say which scores move, and how.
    - **Ids.** Run `./gradlew :mutastic-cli:exportIds`. If `src/test/ids/ids.tsv` changes, it's an
      operator new since the last release: commit it, so its ids are held from this release on.
    - **The Rust edition.** From 1.0.0 the editions release each minor version together, Java
