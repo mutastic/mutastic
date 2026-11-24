@@ -157,10 +157,11 @@ verify_cli() {
   ) || failed "the CLI's zip or SHA256SUMS couldn't be downloaded from $github"
   local listed actual
   listed=$(awk -v name="mutastic-$version.zip" '$2 == name || $2 == "*" name { print $1 }' "$download/SHA256SUMS")
+  # From stdin: given a path with a backslash, as on Windows, sha256sum escapes its line with one.
   if command -v sha256sum > /dev/null; then
-    actual=$(sha256sum "$download/mutastic-$version.zip" | cut -d' ' -f1)
+    actual=$(sha256sum < "$download/mutastic-$version.zip" | cut -d' ' -f1)
   else
-    actual=$(shasum -a 256 "$download/mutastic-$version.zip" | cut -d' ' -f1)
+    actual=$(shasum -a 256 < "$download/mutastic-$version.zip" | cut -d' ' -f1)
   fi
   [ -n "$listed" ] || failed "SHA256SUMS doesn't list mutastic-$version.zip"
   [ "$listed" = "$actual" ] || failed "mutastic-$version.zip is $actual, but SHA256SUMS says $listed"

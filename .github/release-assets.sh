@@ -24,7 +24,8 @@ fail() {
   failed=1
 }
 sha256() {
-  if command -v sha256sum > /dev/null; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
+  # From stdin: given a path with a backslash, sha256sum escapes its line with one.
+  if command -v sha256sum > /dev/null; then sha256sum < "$1"; else shasum -a 256 < "$1"; fi | cut -d' ' -f1
 }
 
 note "### The assets of $repo $tag"
