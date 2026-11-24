@@ -18,8 +18,9 @@ has this same section. Tuesday is a proposal: the day is Brian's to change. A ch
 train waits for the next one.
 
 - **The cut-off.** A train takes the `changes/` entries merged by the day before it.
-- **The gates.** It leaves only when mutastic-rs's nightly corpus (`corpus.yml`) is green, the
-  Java edition's corpus to come; `scripts/release-check.sh X.Y.0` passes in both editions
+- **The gates.** It leaves only when both editions' nightly corpus (`corpus.yml`) is green, and
+  this one's run on the candidate too (`gh workflow run corpus.yml -f version=vX.Y.0-rc1`);
+  `scripts/release-check.sh X.Y.0` passes in both editions
   ([Each release](#each-release)); and the candidate run passes (`candidate-run.yml`,
   [Before tagging](#before-tagging)).
 - **A release candidate,** `vX.Y.0-rc1`, is a GitHub pre-release only, never a Central release:

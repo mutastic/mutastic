@@ -1,0 +1,246 @@
+# mutastic on the corpus (corpus/corpus.yaml): real projects, each pinned to a commit, a share of
+# each one's mutants, every night and before every release. The samples show one feature each;
+# real projects hold the combinations people write, and the bugs that matter turned up there: a
+# loop's slots read twice, a test helper in another package, a Maven wrapper older than 3.9.6.
+#
+# Each project is a job of its own (scripts/corpus-run.sh, through `just corpus`), on the JDK its
+# entry names, with mutastic on 25: cloned at its commit, its own tests, then mutastic as events
+# and again for an agent. A project passes when its expectation holds. The last job puts the result
+# lines in a table on the run's page, against the last good night's: a project that was good then
+# and fails now is the alert, named, and the run is red; so is one whose known bug now passes, until
+# its expect says score. A project that fails both times, one whose own tests fail, and a refusal or
+# known bug the corpus expects show in the table and leave the run green.
+#
+# mutastic is built from the workflow's commit, or with version: a release (1.3.1, its zip from the
+# GitHub release, checked against SHA256SUMS) or a tag or branch to build (v1.4.0-rc1). The corpus
+# and the scripts are always the workflow's. Before a release, run it on the candidate:
+#   gh workflow run corpus.yml -f version=v1.4.0-rc1
+# with only: <name> (or several, by spaces or commas), just those.
+#
+# Corpus projects are other people's code: they're cloned, built and run here, never on a
+# contributor's machine. Docker is stopped first, so none of them can need it. Actions are pinned to
+# a commit: a tag can be moved.
+name: Corpus
+
+on:
+  # TEMPORARY: the pull request's own run, removed before it merges.
+  push:
+    branches: [corpus-nightly]
+  schedule:
+    - cron: "41 4 * * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The mutastic to run, a release (1.3.1) or a tag or branch to build; this commit's when empty.
+        required: false
+        type: string
+        default: ""
+      only:
+        description: The projects to run, by name, spaces or commas between; all of them when empty.
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+# One run at a time: a second waits for the first.
+concurrency:
+  group: corpus
+  cancel-in-progress: false
+
+jobs:
+  # The corpus checked, and its entries, or those `only` picks, for the matrix.
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      entries: ${{ steps.entries.outputs.entries }}
+      names: ${{ steps.entries.outputs.names }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
+        with:
+          tool: just@1.59.0
+      - id: entries
+        env:
+          ONLY: ${{ inputs.only }}
+        run: |
+          entries=$(just corpus --matrix "$ONLY")
+          echo "entries=$entries" >> "$GITHUB_OUTPUT"
+          echo "names=$(jq -c '[.[].name]' <<< "$entries")" >> "$GITHUB_OUTPUT"
+          echo "Projects: $(jq -r '[.[].name] | join(" ")' <<< "$entries")"
+
+  # mutastic, once, for every project: built from the tree or the ref named, or a release's zip.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: A release, or a ref to build
+        id: which
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -z "$VERSION" ]; then
+            echo "kind=tree" >> "$GITHUB_OUTPUT"
+          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] &&
+              gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" --json assets \
+                --jq '.assets[].name' | grep -qx "mutastic-$VERSION.zip"; then
+            echo "kind=release" >> "$GITHUB_OUTPUT"
+          else
+            # A bare version with no zip is its tag, built.
+            ref=$VERSION
+            [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] && ref=v$VERSION
+            echo "kind=ref" >> "$GITHUB_OUTPUT"
+            echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          fi
+          echo "## mutastic: ${VERSION:-this commit}" >> "$GITHUB_STEP_SUMMARY"
+      - if: steps.which.outputs.kind == 'ref'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.which.outputs.ref }}
+          path: built
+      - if: steps.which.outputs.kind != 'release'
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            25
+      - if: steps.which.outputs.kind != 'release'
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Build mutastic
+        if: steps.which.outputs.kind != 'release'
+        env:
+          FROM: ${{ steps.which.outputs.kind == 'ref' && 'built' || '.' }}
+        run: |
+          (cd "$FROM" && ./gradlew -q :mutastic-cli:installDist)
+          tar -C "$FROM/mutastic-cli/build/install" -czf mutastic.tar.gz mutastic
+      - name: Download the release
+        if: steps.which.outputs.kind == 'release'
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          github=https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION
+          mkdir -p download && cd download
+          curl -fsSLO --retry 3 "$github/mutastic-$VERSION.zip"
+          curl -fsSLO --retry 3 "$github/SHA256SUMS"
+          grep -E "^[0-9a-f]{64} [ *]mutastic-$VERSION\.zip$" SHA256SUMS | sha256sum -c -
+          unzip -q "mutastic-$VERSION.zip" && mv "mutastic-$VERSION" mutastic
+          tar -czf ../mutastic.tar.gz mutastic
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutastic
+          path: mutastic.tar.gz
+          retention-days: 1
+
+  project:
+    name: ${{ matrix.entry.name }}
+    needs: [plan, build]
+    runs-on: ubuntu-latest
+    # Its own tests and two runs of a share, each held to 15 minutes by the script.
+    timeout-minutes: 50
+    # The night's verdict is the report job's: a project that fails both times is known, not news.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      # The account runs 20 jobs at once; a pull request's checks take up to 15 of them.
+      max-parallel: 6
+      matrix:
+        entry: ${{ fromJSON(needs.plan.outputs.entries) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # mutastic's JDK 25 first, then the project's, which the last listed makes JAVA_HOME. No cache:
+      # each project's dependencies are fetched fresh, as a new user's are.
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "25"
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.entry.jdk }}
+      - uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
+        with:
+          tool: just@1.59.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: mutastic
+      - run: mkdir -p bin && tar -C bin -xzf mutastic.tar.gz
+      # No project here may need Docker to pass, so none can: the daemon and its socket are stopped.
+      - run: sudo systemctl stop docker.socket docker.service
+      - name: Run ${{ matrix.entry.name }}
+        env:
+          NAME: ${{ matrix.entry.name }}
+          MUTASTIC_BIN: bin/mutastic/bin/mutastic
+          MUTASTIC_JAVA_HOME: ${{ env.JAVA_HOME_25_X64 }}
+        run: just corpus "$NAME"
+      # The result line, the runs' events, logs and agent text; not the clone.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: corpus-${{ matrix.entry.name }}
+          path: ${{ runner.temp }}/corpus/out/
+          retention-days: 7
+
+  # The result lines as one file and a table, against the last good night's: red when a project
+  # that was good then fails now, or a known bug now passes.
+  report:
+    needs: [plan, project]
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # To find the last good run and download its results.
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
+        with:
+          tool: just@1.59.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: corpus-*
+          path: results
+          merge-multiple: true
+      # The last nightly that passed, or with none yet (on a branch), this branch's last run that
+      # passed: its corpus-results.
+      - name: The last good run's results
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          RUN: ${{ github.run_id }}
+        run: |
+          mkdir -p previous
+          for filter in "--event=schedule" "--branch=$BRANCH"; do
+            for id in $(gh run list --repo "$REPO" --workflow=corpus.yml --status=success "$filter" \
+                --limit=10 --json databaseId --jq '.[].databaseId'); do
+              [ "$id" = "$RUN" ] && continue
+              if gh run download "$id" --repo "$REPO" --name corpus-results --dir previous 2> /dev/null; then
+                echo "Comparing with run $id."
+                exit 0
+              fi
+            done
+          done
+          echo "No earlier run to compare with."
+      - name: Put the results together
+        env:
+          NAMES: ${{ join(fromJSON(needs.plan.outputs.names), ' ') }}
+        run: |
+          mkdir -p results
+          status=0
+          # shellcheck disable=SC2086 # a word for each name
+          just corpus --summary results previous/corpus-results.jsonl $NAMES > summary.md || status=$?
+          tee -a "$GITHUB_STEP_SUMMARY" < summary.md
+          exit "$status"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: corpus-results
+          path: results/corpus-results.jsonl
+          if-no-files-found: error
+          retention-days: 90
