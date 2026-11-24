@@ -8,7 +8,7 @@
 #   scripts/central.sh wait ID STATE [MINUTES]  waits for VALIDATED or PUBLISHED (default 30)
 #   scripts/central.sh publish ID               publishes a VALIDATED deployment, once
 #   scripts/central.sh drop ID                  drops a VALIDATED or FAILED deployment
-#   scripts/central.sh served ID [MINUTES]      waits for repo1 to serve each of its POMs
+#   scripts/central.sh served ID [MINUTES]      waits for repo1 to serve each of its jars
 #
 # The token is the Central Portal user token, MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD,
 # joined by a colon and base64 encoded, as the API's docs say. CENTRAL_URL, REPO1_URL and
@@ -147,8 +147,9 @@ drop() {
   say "dropped deployment $1, which was $state"
 }
 
-# Each component's POM, from the purls a PUBLISHED status lists, served by repo1: what Maven and
-# Gradle download, which can be some minutes after Central says PUBLISHED.
+# Each component's POM, from the purls a PUBLISHED status lists, and its jar when it has one,
+# served by repo1: what Maven and Gradle download, which can be some minutes after Central says
+# PUBLISHED.
 served() {
   id=$1
   minutes=${2:-30}
@@ -161,7 +162,19 @@ served() {
   while :; do
     : > "$tmp/missing"
     while IFS= read -r pom; do
-      curl -fsSI --max-time 30 -o /dev/null "$repo1/$pom" || echo "$pom" >> "$tmp/missing"
+      if ! curl -fsS --max-time 30 -o "$tmp/pom" "$repo1/$pom" 2> /dev/null; then
+        echo "$pom" >> "$tmp/missing"
+        continue
+      fi
+      # A component packaged as a jar (the default) or a Maven plugin is a jar beside its POM;
+      # a plugin marker or a BOM is the POM alone.
+      packaging=$(sed -n 's|.*<packaging>\([^<]*\)</packaging>.*|\1|p' "$tmp/pom" | head -n 1)
+      case ${packaging:-jar} in
+        jar | maven-plugin)
+          jar=${pom%.pom}.jar
+          curl -fsSI --max-time 30 -o /dev/null "$repo1/$jar" || echo "$jar" >> "$tmp/missing"
+          ;;
+      esac
     done < "$tmp/poms"
     if [ ! -s "$tmp/missing" ]; then
       say "repo1 serves all $(wc -l < "$tmp/poms" | tr -d ' ') of deployment $id's components"

@@ -21,7 +21,8 @@ trap cleanup EXIT
 # The stand-in. Each case writes $tmp/case.json, then loads it:
 #   status   the responses to the status call in turn, [code, body]; the last repeats
 #   publish, drop   the code for POST and DELETE /api/v1/publisher/deployment/<id>
-#   repo1    per POM path, the codes for HEAD in turn; the last repeats
+#   repo1    per path, the codes for GET or HEAD in turn; the last repeats
+#   poms     per POM path, its body (a bare <project/> when not given)
 # Every request is written to $tmp/requests as "METHOD path", and the token checked.
 cat > "$tmp/stub.py" << 'EOF'
 import base64, http.server, json, sys
@@ -57,8 +58,10 @@ class Stub(http.server.BaseHTTPRequestHandler):
         with open(log_file, "a") as log:
             log.write(f"{self.command} {self.path}\n")
         if self.path.startswith("/repo1/"):
-            codes = case.get("repo1", {}).get(self.path[len("/repo1/"):], [404])
-            return self.answer(next_of(self.path, codes))
+            path = self.path[len("/repo1/"):]
+            code = next_of(self.path, case.get("repo1", {}).get(path, [404]))
+            body = case.get("poms", {}).get(path, "<project/>") if code == 200 and path.endswith(".pom") else ""
+            return self.answer(code, body.encode())
         if self.headers.get("Authorization") != expected:
             return self.answer(401, b'{"error":"bad token"}')
         if self.command == "POST" and self.path.startswith("/api/v1/publisher/status?id="):
@@ -136,7 +139,7 @@ central() {
   sh scripts/central.sh "$@"
 }
 st() { printf '[200, {"deploymentId": "%s", "deploymentName": "mutastic", "deploymentState": "%s"%s}]' "$id" "$1" "${2:-}"; }
-purls=', "purls": ["pkg:maven/io.mutastic/mutastic-api@1.4.0", "pkg:maven/io.mutastic/mutastic-cli@1.4.0"]'
+purls=', "purls": ["pkg:maven/io.mutastic/mutastic-api@1.4.0", "pkg:maven/io.mutastic/mutastic-cli@1.4.0", "pkg:maven/io.mutastic.gradle/io.mutastic.gradle.gradle.plugin@1.4.0"]'
 
 load "{\"status\": [$(st VALIDATED "$purls")]}"
 expect "status prints Central's JSON" 0 '"deploymentState": "VALIDATED"' central status "$id"
@@ -217,14 +220,22 @@ expect "no token" 1 "MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD must be s
 expect "an id that isn't one" 1 "isn't a deployment id" central status "../../etc"
 expect "a command it doesn't have" 2 "" central promote "$id"
 
-api=io/mutastic/mutastic-api/1.4.0/mutastic-api-1.4.0.pom
-cli=io/mutastic/mutastic-cli/1.4.0/mutastic-cli-1.4.0.pom
-load "{\"status\": [$(st PUBLISHED "$purls")], \"repo1\": {\"$api\": [200], \"$cli\": [404, 404, 200]}}"
-expect "served: waits for every component's POM" 0 "repo1 serves all 2 of deployment $id's components" central served "$id" 1
-requested "served: asks again for what's missing" 3 "HEAD /repo1/$cli"
+api=io/mutastic/mutastic-api/1.4.0/mutastic-api-1.4.0
+cli=io/mutastic/mutastic-cli/1.4.0/mutastic-cli-1.4.0
+marker=io/mutastic/gradle/io.mutastic.gradle.gradle.plugin/1.4.0/io.mutastic.gradle.gradle.plugin-1.4.0
+poms="\"poms\": {\"$marker.pom\": \"<project><packaging>pom</packaging></project>\"}"
+load "{\"status\": [$(st PUBLISHED "$purls")], $poms, \"repo1\": {\"$api.pom\": [200], \"$api.jar\": [200],
+  \"$cli.pom\": [404, 404, 200], \"$cli.jar\": [200], \"$marker.pom\": [200]}}"
+expect "served: waits for every component's POM and jar" 0 "repo1 serves all 3 of deployment $id's components" central served "$id" 1
+requested "served: asks again for what's missing" 3 "GET /repo1/$cli.pom"
+requested "served: a jar beside a jar's POM" 1 "HEAD /repo1/$cli.jar"
+requested "served: no jar beside a plugin marker's POM" 0 "HEAD /repo1/$marker.jar"
 
-load "{\"status\": [$(st PUBLISHED "$purls")], \"repo1\": {\"$api\": [200]}}"
-expect "served: names what repo1 doesn't have" 1 "$base/repo1/$cli" central served "$id" 0
+load "{\"status\": [$(st PUBLISHED "$purls")], $poms, \"repo1\": {\"$api.pom\": [200], \"$api.jar\": [200], \"$marker.pom\": [200]}}"
+expect "served: names a POM repo1 doesn't have" 1 "$base/repo1/$cli.pom" central served "$id" 0
+
+load "{\"status\": [$(st PUBLISHED "$purls")], $poms, \"repo1\": {\"$api.pom\": [200], \"$cli.pom\": [200], \"$cli.jar\": [200], \"$marker.pom\": [200]}}"
+expect "served: names a jar repo1 doesn't have" 1 "$base/repo1/$api.jar" central served "$id" 0
 
 load "{\"status\": [$(st PUBLISHING "$purls")]}"
 expect "served: only once it's published" 1 "is PUBLISHING, not PUBLISHED" central served "$id" 1
