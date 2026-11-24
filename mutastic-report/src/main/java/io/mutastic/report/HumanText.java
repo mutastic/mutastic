@@ -939,7 +939,10 @@ public final class HumanText {
         .forEach(
             repeated ->
                 lines.add(
-                    " %s %s".formatted(style.blue("note:"), code(RepeatedIgnores.text(repeated)))));
+                    " %s %s"
+                        .formatted(
+                            style.blue("note:"),
+                            code(RepeatedIgnores.text(repeated, Untrusted::value)))));
     if (!lines.isEmpty()) {
       out.append('\n');
       lines.forEach(line -> out.append(line).append('\n'));

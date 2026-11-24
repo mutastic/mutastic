@@ -23,7 +23,8 @@ class BaselineTest {
 
     assertThat(run.exit()).as(run.err()).isEqualTo(Main.FAILED);
     assertThat(run.out())
-        .contains("flaky: StockTest#aSaleReducesStock failed, then passed when run again");
+        .contains(
+            "flaky: [1] failed, then passed when run again", "\n[1] StockTest#aSaleReducesStock\n");
     // Only the flaky test reaches afterSale(): without it, nothing does, and nothing is caught by
     // it.
     assertThat(run.out())
@@ -44,10 +45,15 @@ class BaselineTest {
     assertThat(run.exit()).as(run.err()).isEqualTo(Main.PASSED);
     for (var testClass :
         List.of("JupiterSetupTest", "VintageSetupTest", "TestNgSetupTest", "JupiterTeardownTest")) {
+      // Named by a number before the fence, `[1] JupiterSetupTest` in it.
+      var named =
+          java.util.regex.Pattern.compile("\\n(?<ref>\\[\\d+\\]) " + testClass + "\\n")
+              .matcher(run.out());
+      assertThat(named.find()).as(run.out()).isTrue();
       assertThat(run.out())
           .contains(
               "flaky: %s as a whole (its setup or teardown, outside any test) failed, then passed when run again; left out of this run with every test in it, so their catches don't count."
-                  .formatted(testClass));
+                  .formatted(named.group("ref")));
     }
     // What only the flaky classes reach is reached by nothing, the teardown's too, whose test ran
     // and passed; what the healthy class checks is caught by it.

@@ -29,8 +29,10 @@ class FlakyRunsTest {
     assertThat(second.out())
         .contains(
             "vs last run: 57.1% → 42.9% (same code)",
-            "likely flaky: StockTest#restockingWorks; with the code unchanged, whether it catches",
-            "likely flaky: StockTest#restockingWorks; its catches of",
+            // Named by its number before the fence, after the flaky test and the reports.
+            "likely flaky: [5]; with the code unchanged, whether it catches",
+            "likely flaky: [5]; its catches of",
+            "\n[5] StockTest#restockingWorks\n",
             "(StockTest#restockingWorks failed once, then passed: flaky)");
   }
 

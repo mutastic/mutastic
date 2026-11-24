@@ -5,6 +5,7 @@ import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.function.UnaryOperator;
 
 /// Ignores that repeat: several in one method say the same thing again and again, which one `skip:`
 /// rule in `mutastic.yaml` says once, and goes on saying as the code changes. Google found turning
@@ -34,9 +35,11 @@ final class RepeatedIgnores {
   }
 
   /// `3 ignores in com.example.Pricing#discount: one rule says it once, `skip:
-  /// com.example.Pricing#discount` in mutastic.yaml`
-  static String text(Repeated repeated) {
+  /// com.example.Pricing#discount` in mutastic.yaml`, the method as `shown` shows it: a method's
+  /// name in a class file can say anything (a Kotlin one in backticks has spaces).
+  static String text(Repeated repeated, UnaryOperator<String> shown) {
+    var method = shown.apply(repeated.method());
     return "%d ignores in %s: one rule says it once, `skip: %s` in mutastic.yaml"
-        .formatted(repeated.count(), repeated.method(), repeated.method());
+        .formatted(repeated.count(), method, method);
   }
 }

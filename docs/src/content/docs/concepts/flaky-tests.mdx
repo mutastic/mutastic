@@ -212,8 +212,8 @@ times to tell which.
 
 The same evidence is in the other formats:
 
-- `--format=agent` writes each as a line of its own (`flaky: …`, `likely flaky: …`), with what to
-  do next.
+- `--format=agent` writes each as a line of its own (`flaky: [1] …`, `likely flaky: [2] …`), with
+  what to do next, the test named by its number in the fence that follows (`[1] StockTest#sells`).
 - `--format=jsonl`'s `run-finished` event lists each likely flaky test, its mutants and its
   reasons (`changed-since-last-run`, `catch-not-repeated`). A mutant whose catch didn't repeat says
   which test made it, as `unconfirmedCatchBy`.

@@ -38,13 +38,13 @@ class FalseCatchesTest {
                 + " 10 caught of 17 mutants (4 more skipped)");
     assertThat(run.out())
         .contains(
-            "flaky: FeesTest#chargesTheConfiguredPercent passes among the others but fails on its"
-                + " own, with no mutant in (run again after the mutants, it failed with"
-                + " AssertionFailedError): it counts on something another test or the run sets up"
-                + " or leaves behind.",
-            "flaky: LedgerTest#aNewLedgerIsEmpty passes among the others but fails on its own",
-            "flaky: LedgerTest#recordingAddsToTheTotal passes among the others but fails on its"
-                + " own",
+            // Each test and what it failed with is named by a number before the fence, and in it.
+            "flaky: [1] passes among the others but fails on its own, with no mutant in (run again"
+                + " after the mutants, it failed with [2]): it counts on something another test or"
+                + " the run sets up or leaves behind.",
+            "\n[1] FeesTest#chargesTheConfiguredPercent\n[2] AssertionFailedError\n",
+            "] LedgerTest#aNewLedgerIsEmpty\n",
+            "] LedgerTest#recordingAddsToTheTotal\n",
             "don't leave it out yourself: tell the person, or propose leaving it out under"
                 + " `exclude-tests:` in mutastic.yaml with its reason, for them to decide",
             "covered by: FeesTest#aFeeIsNeverNegative; all still pass with the change"
@@ -103,8 +103,8 @@ class FalseCatchesTest {
     assertThat(verify.out())
         .startsWith("mutastic: m886b61b4 is still missed")
         .contains(
-            "flaky: FeesTest#chargesTheConfiguredPercent passes among the others but fails on its"
-                + " own");
+            "flaky: [1] passes among the others but fails on its own",
+            "\n[1] FeesTest#chargesTheConfiguredPercent\n");
     assertThat(verify.exit()).isEqualTo(Main.TESTS_FAIL);
   }
 
@@ -139,7 +139,8 @@ class FalseCatchesTest {
         .startsWith(
             "mutastic gate: a test that caught mutants on the lines the task changed fails on its"
                 + " own, with no mutant in, so its catches don't count and the task isn't done.")
-        .contains("flaky: FeesTest#chargesTheConfiguredPercent passes among the others");
+        .contains(
+            "flaky: [1] passes among the others", "\n[1] FeesTest#chargesTheConfiguredPercent\n");
     assertThat(check.exit()).isEqualTo(Main.FAILED);
   }
 

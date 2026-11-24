@@ -51,8 +51,8 @@ class OperatorsTest {
     // With no earlier run under its own set, it says why it isn't compared.
     assertThat(aThirdSet.out())
         .contains(
-            "vs last run: not compared with the last run, which used other operators"
-                + " (defaults)");
+            "vs last run: not compared with the last run, which used other operators ([1])",
+            "\n[1] defaults\n");
   }
 
   @Test

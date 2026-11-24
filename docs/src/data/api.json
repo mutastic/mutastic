@@ -1579,6 +1579,16 @@
             },
             {
               "kind": "method",
+              "name": "notCompared",
+              "anchor": "notcompared-2",
+              "signature": "Optional<String> notCompared(UnaryOperator<String> shown)",
+              "doc": "The same, the last run's operators as `shown` shows them: they're read from its record, a file\nin the project's build.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
               "name": "sameness",
               "anchor": "sameness",
               "signature": "String sameness()",

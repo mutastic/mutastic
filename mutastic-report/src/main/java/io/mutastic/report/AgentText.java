@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 /// `--format agent`: what a coding agent needs to close each gap, and nothing it would have to
@@ -90,27 +91,62 @@ public final class AgentText {
         report.results().stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
     var out = new StringBuilder();
     appendVerdict(out, report, missed.size(), notCovered.size());
-    appendFlaky(out, report);
-    appendStaleIgnores(out, report);
-    RepeatedIgnores.in(report)
-        .forEach(repeated -> out.append("note: %s\n".formatted(RepeatedIgnores.text(repeated))));
-    comparison.ifPresent(found -> appendVsLastRun(out, report, found));
-    out.append(reports(reports));
-    appendSuspects(out, report, comparison);
-    appendUnrelatedCatches(out, report);
+    var quoted = appendNotices(out, report, comparison, reports);
+    var data = "";
     if (!missed.isEmpty() || !notCovered.isEmpty()) {
-      appendGaps(out, report, missed, notCovered);
+      appendRules(out, missed.size() + notCovered.size());
+      data = gaps(report, missed, notCovered);
+    }
+    // From here on, each line quotes the code or the test run: fenced, so none of it reads as
+    // mutastic's own instructions. The values the lines above name by `[1]` come first.
+    if (!quoted.isEmpty() || !data.isEmpty()) {
+      out.append(Untrusted.fence(quoted.lines() + data));
     }
     appendGhosts(out, report);
     return out.toString();
   }
 
+  /// The lines between the verdict and the rules, each in mutastic's words with the project's
+  /// values `[1]` in it: the flaky tests, the ignores that no longer hold or repeat, the last run,
+  /// the reports written, and the catches that can't be trusted. The values, [Quoted], go in the
+  /// fence.
+  private Quoted appendNotices(
+      StringBuilder out, Report report, Optional<Comparison> comparison, List<Path> reports) {
+    var quoted = new Quoted();
+    appendFlaky(out, report, quoted);
+    appendStaleIgnores(out, report, quoted);
+    RepeatedIgnores.in(report)
+        .forEach(
+            repeated ->
+                out.append("note: %s\n".formatted(RepeatedIgnores.text(repeated, quoted::ref))));
+    comparison.ifPresent(found -> appendVsLastRun(out, report, found, quoted));
+    out.append(reports(reports, quoted));
+    appendSuspects(out, report, comparison, quoted);
+    appendUnrelatedCatches(out, report, quoted);
+    return quoted;
+  }
+
+  /// Each missed mutant's entry, then the lines no test reaches.
+  private String gaps(Report report, List<MutantResult> missed, List<MutantResult> notCovered) {
+    var data = new StringBuilder();
+    appendMissed(data, missed);
+    if (!notCovered.isEmpty()) {
+      appendNotCovered(data, report, notCovered, missed.isEmpty());
+    }
+    return data.toString();
+  }
+
   /// Each mutant asked for by id, its fate first; then the tests that fail on their own, and the
   /// reports written.
   private String fates(Report report, List<Path> reports) {
-    return report.results().stream().map(this::oneMutant).collect(Collectors.joining("\n"))
-        + failingAlone(report)
-        + reports(reports);
+    var quoted = new Quoted();
+    var out =
+        report.results().stream()
+                .map(result -> oneMutant(result, quoted))
+                .collect(Collectors.joining("\n"))
+            + failingAlone(report, quoted)
+            + reports(reports, quoted);
+    return quoted.isEmpty() ? out : out + Untrusted.fence(quoted.lines());
   }
 
   /// Ghosts, with `--experimental=ghosts`: questions about what the code should do, never part of
@@ -131,15 +167,16 @@ public final class AgentText {
     out.append(Untrusted.fence(quoted.toString()));
   }
 
-  /// `reports: build/mutastic/mutation.json · build/mutastic/mutation.html`: the files the run
-  /// wrote, as the summary's Reports row names them, each as typed from where mutastic ran with
-  /// what can't be seen escaped. An agent that isn't told of them runs again to get one. Nothing
-  /// when none was written (`--report=none`).
-  static String reports(List<Path> written) {
+  /// `reports: [1] · [2]`: the files the run wrote, each [Quoted], as the summary's Reports row
+  /// names them, `[1] build/mutastic/mutation.json`: as typed from where mutastic ran. An agent
+  /// that isn't told of them runs again to get one. A path is the project's text, its build
+  /// directory and the reports a build file names being the project's, so it's in the fence.
+  /// Nothing when none was written (`--report=none`).
+  static String reports(List<Path> written, Quoted quoted) {
     return written.isEmpty()
         ? ""
         : written.stream()
-            .map(file -> Untrusted.escape(Here.shown(file)))
+            .map(file -> quoted.ref(Here.shown(file)))
             .collect(Collectors.joining(" · ", "reports: ", "\n"));
   }
 
@@ -148,9 +185,11 @@ public final class AgentText {
     return score.isPresent() ? "%.1f%%".formatted(score.getAsDouble()) : "none";
   }
 
-  private static void appendVsLastRun(StringBuilder out, Report report, Comparison found) {
-    if (found.notCompared().isPresent()) {
-      out.append("vs last run: %s\n".formatted(found.notCompared().get()));
+  private static void appendVsLastRun(
+      StringBuilder out, Report report, Comparison found, Quoted quoted) {
+    var notCompared = found.notCompared(quoted::ref);
+    if (notCompared.isPresent()) {
+      out.append("vs last run: %s\n".formatted(notCompared.get()));
       return;
     }
     out.append(
@@ -158,9 +197,8 @@ public final class AgentText {
             .formatted(percent(found.previousScore()), percent(report.score()), found.sameness()));
   }
 
-  /// The rules, each missed mutant's entry, then the lines no test reaches.
-  private void appendGaps(
-      StringBuilder out, Report report, List<MutantResult> missed, List<MutantResult> notCovered) {
+  /// The rules, how to decline, and with two or more mutants to write a test for, how to take them.
+  private void appendRules(StringBuilder out, int gaps) {
     out.append(
         "rules: %s; a fix counts when `%s` passes\n"
             .formatted(
@@ -170,19 +208,11 @@ public final class AgentText {
             .formatted(
                 MutantCommand.DECLINE,
                 MutantCommand.PROPOSE.command("<id>", sources.invocation())));
-    if (missed.size() + notCovered.size() > 1) {
+    if (gaps > 1) {
       out.append(
           "tasks: %s\n"
               .formatted(tasks(MutantCommand.DONE_WHEN.command("<id>", sources.invocation()))));
     }
-    // From here on, each line quotes the code or the test run: fenced, so none of it reads as
-    // mutastic's own instructions.
-    var quoted = new StringBuilder();
-    appendMissed(quoted, missed);
-    if (!notCovered.isEmpty()) {
-      appendNotCovered(quoted, report, notCovered, missed.isEmpty());
-    }
-    out.append(Untrusted.fence(quoted.toString()));
   }
 
   /// With two or more mutants to write a test for, how an agent takes them: a task list, then one
@@ -195,9 +225,9 @@ public final class AgentText {
   }
 
   /// The one mutant's fate, and for a missed one the rules and its entry.
-  private String oneMutant(MutantResult result) {
+  private String oneMutant(MutantResult result, Quoted quoted) {
     var out = new StringBuilder();
-    out.append("mutastic: %s %s\n".formatted(result.mutant().id(), fate(result)));
+    out.append("mutastic: %s %s\n".formatted(result.mutant().id(), fate(result, quoted)));
     if (result.status() == Status.MISSED) {
       out.append(
           "rules: %s; a fix counts when `%s` passes\n"
@@ -209,15 +239,21 @@ public final class AgentText {
     return out.toString();
   }
 
-  private String fate(MutantResult result) {
+  private String fate(MutantResult result, Quoted quoted) {
     return switch (result.status()) {
       case CAUGHT ->
           "is %s by %s%s"
-              .formatted(words.detected, result.caughtBy().orElse("a test"), inCase(result));
+              .formatted(
+                  words.detected,
+                  result.caughtBy().map(quoted::ref).orElse("a test"),
+                  result
+                      .caughtCase()
+                      .map(failed -> " (case " + quoted.ref(failed.name()) + ")")
+                      .orElse(""));
       case TIMED_OUT -> "is %s: its tests stopped finishing in time".formatted(words.detected);
       case MISSED -> "is still %s".formatted(words.undetected);
       case NOT_COVERED -> "isn't reached by any test";
-      case SKIPPED -> "is skipped: " + result.mutant().skipped().orElse("");
+      case SKIPPED -> "is skipped: " + quoted.ref(result.mutant().skipped().orElse(""));
     };
   }
 
@@ -259,8 +295,15 @@ public final class AgentText {
   /// A line for each test that caught mutants and fails on its own, saying what to do: for `verify`
   /// and the gate, as for a run.
   public static String failingAlone(Report report) {
+    var quoted = new Quoted();
+    var lines = failingAlone(report, quoted);
+    return quoted.isEmpty() ? lines : lines + Untrusted.fence(quoted.lines());
+  }
+
+  /// The same, each test and what it failed with [Quoted].
+  private static String failingAlone(Report report, Quoted quoted) {
     return report.failingAlone().stream()
-        .map(AgentText::failingAloneLine)
+        .map(why -> failingAloneLine(why, quoted))
         .collect(Collectors.joining());
   }
 
@@ -273,7 +316,7 @@ public final class AgentText {
   /// A test that caught mutants, then failed on its own with no mutant in, run again after them: it
   /// passed among the others, so it counts on what something else sets up or leaves behind. Never
   /// the way past it, leaving it out: that's the person's call.
-  private static String failingAloneLine(FlakyTest why) {
+  private static String failingAloneLine(FlakyTest why, Quoted quoted) {
     return ("flaky: %s passes among the others but fails on its own, with no mutant in (run again"
             + " after the mutants, it failed%s): it counts on something another test or the run"
             + " sets up or leaves behind. It's left out, so its catches don't count: the mutants it"
@@ -282,18 +325,18 @@ public final class AgentText {
             + " pass on its own now, don't leave it out yourself: %s. Never remove, disable or"
             + " loosen it to get a run through\n")
         .formatted(
-            shortName(why.test()),
-            why.failedWith().map(failed -> " with " + Untrusted.value(failed)).orElse(""),
+            quoted.ref(bareName(why.test())),
+            why.failedWith().map(failed -> " with " + quoted.ref(failed)).orElse(""),
             PROPOSE_LEAVING_OUT);
   }
 
   /// Decisions the code has outgrown: say so, since the mutants they covered ran.
-  private void appendStaleIgnores(StringBuilder out, Report report) {
+  private void appendStaleIgnores(StringBuilder out, Report report, Quoted quoted) {
     if (!report.staleIgnores().isEmpty()) {
       out.append(
           "stale ignores: %s no longer match their code, so their mutants ran; ask before removing them (%s)\n"
               .formatted(
-                  Untrusted.values(
+                  quoted.ids(
                       report.staleIgnores().stream().map(io.mutastic.api.Ignore::id).toList()),
                   sources.invocation().command(HumanText.PRUNE)));
     }
@@ -303,14 +346,15 @@ public final class AgentText {
   /// unseeded `Random`, the clock) can be made to answer the same every run, but one that failed on
   /// the network or a database would only be hidden by changing it. "Fix it first" told an agent to
   /// do the second as readily as the first.
-  private static void appendFlaky(StringBuilder out, Report report) {
+  private static void appendFlaky(StringBuilder out, Report report, Quoted quoted) {
     for (var test : report.flaky()) {
       var why = report.whyFlaky(test);
       out.append(
           why.filter(FlakyTest::failsAlone).isPresent()
-              ? failingAloneLine(why.get())
+              ? failingAloneLine(why.get(), quoted)
               : "flaky: %s failed, then passed when run again; %s. %s Never remove, disable or loosen it to get a run through\n"
-                  .formatted(whatFailed(test), leftOut(test), flakyAdvice(test, why)));
+                  .formatted(
+                      whatFailed(test, quoted::ref), leftOut(test), flakyAdvice(why, quoted)));
     }
   }
 
@@ -318,71 +362,71 @@ public final class AgentText {
   /// (its doing, even if it fails on the network, as a stand-in with a random delay does); it fails
   /// from outside with nothing of its own varying (the environment's doing); the code it runs
   /// varies; or nothing is known.
-  static String flakyAdvice(String test, Optional<FlakyTest> why) {
+  static String flakyAdvice(Optional<FlakyTest> why, Quoted quoted) {
     if (why.isPresent() && !why.get().reachesInTest().isEmpty()) {
-      return ownDoing(why.get());
+      return ownDoing(why.get(), quoted);
     }
     var outside = why.flatMap(FlakyTest::outsideCause);
     if (why.isPresent() && why.get().failedOutside() && outside.isPresent()) {
       return ("It failed with %s, from outside the code (the network, a database, a file), and"
               + " nothing in the test varies: that's the environment, and changing the test or the"
               + " code to get past it would hide it, so leave both and %s.")
-          .formatted(Untrusted.value(outside.get()), PROPOSE_LEAVING_OUT);
+          .formatted(quoted.ref(outside.get()), PROPOSE_LEAVING_OUT);
     }
     if (why.isPresent() && !why.get().reaches().isEmpty()) {
       return ("The code it runs reaches %s, which answers differently every run: making that the"
               + " same every time (a seed, a fixed clock, through the code's own seam) is likely"
               + " safe, so long as the test still checks what it did.")
-          .formatted(Untrusted.values(why.get().reaches()));
+          .formatted(quoted.refs(why.get().reaches()));
     }
     return "mutastic can't tell why%s: leave it unless the cause is plain in the code, and say in your final message that it's flaky."
         .formatted(
             why.flatMap(FlakyTest::failedWith)
-                .map(failed -> " (it failed with %s)".formatted(Untrusted.value(failed)))
+                .map(failed -> " (it failed with %s)".formatted(quoted.ref(failed)))
                 .orElse(""));
   }
 
   /// A test whose own code varies: making it the same every run is its fix.
-  private static String ownDoing(FlakyTest why) {
+  private static String ownDoing(FlakyTest why, Quoted quoted) {
     return ("Its own code reaches %s, which answers differently every run, so it makes its own"
             + " flakiness%s: making that the same every time is likely safe, and if it stands in"
             + " for something real (a slow service), keep that checked by a test of its own.")
         .formatted(
-            Untrusted.values(why.reachesInTest()),
+            quoted.refs(why.reachesInTest()),
             why.outsideCause()
-                .map(failed -> " (it failed with %s)".formatted(Untrusted.value(failed)))
+                .map(failed -> " (it failed with %s)".formatted(quoted.ref(failed)))
                 .orElse(""));
   }
 
   /// The tests whose catches can't be trusted, strongest signal first.
   private static void appendSuspects(
-      StringBuilder out, Report report, Optional<Comparison> comparison) {
+      StringBuilder out, Report report, Optional<Comparison> comparison, Quoted quoted) {
     for (var suspect : Suspects.changedBetweenRuns(comparison)) {
       out.append(
           "likely flaky: %s; with the code unchanged, whether it catches %s changed since the last run. "
-                  .formatted(shortName(suspect.test()), Untrusted.values(suspect.mutants()))
+                  .formatted(quoted.ref(bareName(suspect.test())), quoted.ids(suspect.mutants()))
               + "Its catches can't be trusted until it's fixed\n".formatted());
     }
     for (var suspect : Suspects.unconfirmed(report)) {
       out.append(
           "likely flaky: %s; its %s of %s didn't repeat when run again, so the other covering tests decided\n"
               .formatted(
-                  shortName(suspect.test()),
+                  quoted.ref(bareName(suspect.test())),
                   suspect.mutants().size() == 1 ? "catch" : "catches",
-                  Untrusted.values(suspect.mutants())));
+                  quoted.ids(suspect.mutants())));
     }
   }
 
-  private static void appendUnrelatedCatches(StringBuilder out, Report report) {
+  private static void appendUnrelatedCatches(StringBuilder out, Report report, Quoted quoted) {
     for (var note : Suspects.unrelatedCatches(report)) {
       out.append(
           ("note: %s caught %d mutants in %d different methods, each with %s thrown in the test itself; "
                   + "if it fails that way whatever changes, it may be flaky\n")
               .formatted(
-                  shortName(note.test()),
+                  quoted.ref(bareName(note.test())),
                   note.mutants().size(),
                   note.methods(),
-                  Untrusted.value(note.failure().substring(note.failure().lastIndexOf('.') + 1))));
+                  quoted.ref(note.failure().substring(note.failure().lastIndexOf('.') + 1))));
     }
   }
 
@@ -582,9 +626,14 @@ public final class AgentText {
   /// class that failed as a whole: `FlakySetupTest as a whole (its setup or teardown, outside any
   /// test)`.
   static String whatFailed(String test) {
+    return whatFailed(test, Untrusted::value);
+  }
+
+  /// The same, the test's name as `shown` shows it.
+  private static String whatFailed(String test, UnaryOperator<String> shown) {
     return test.contains("#")
-        ? shortName(test)
-        : shortName(test) + " as a whole (its setup or teardown, outside any test)";
+        ? shown.apply(bareName(test))
+        : shown.apply(bareName(test)) + " as a whole (its setup or teardown, outside any test)";
   }
 
   /// What leaving it out means: for a class, every test in it.
@@ -605,11 +654,15 @@ public final class AgentText {
   }
 
   static String shortName(String test) {
+    return Untrusted.value(bareName(test));
+  }
+
+  /// `PricingTest#bigOrders` for `com.example.PricingTest#bigOrders`, as the project has it.
+  static String bareName(String test) {
     int hash = test.indexOf('#');
     var className = hash < 0 ? test : test.substring(0, hash);
-    return Untrusted.value(
-        className.substring(className.lastIndexOf('.') + 1)
-            + (hash < 0 ? "" : test.substring(hash)));
+    return className.substring(className.lastIndexOf('.') + 1)
+        + (hash < 0 ? "" : test.substring(hash));
   }
 
   static List<String> shortNames(List<String> tests) {

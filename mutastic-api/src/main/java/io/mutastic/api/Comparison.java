@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.function.UnaryOperator;
 
 /// This run against the last one.
 ///
@@ -53,8 +54,16 @@ public record Comparison(
 
   /// `not compared with the last run, which used other operators (defaults)`, when it wasn't.
   public Optional<String> notCompared() {
+    return notCompared(UnaryOperator.identity());
+  }
+
+  /// The same, the last run's operators as `shown` shows them: they're read from its record, a file
+  /// in the project's build.
+  public Optional<String> notCompared(UnaryOperator<String> shown) {
     return otherOperators.map(
-        last -> "not compared with the last run, which used other operators (%s)".formatted(last));
+        last ->
+            "not compared with the last run, which used other operators (%s)"
+                .formatted(shown.apply(last)));
   }
 
   /// `same code`, `code changed` or `mutastic changed`: what explains a difference.
