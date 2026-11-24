@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
 /// Nothing in the build changes. A module below the build compiles with what it depends on (`-pl
 /// <module> -am`).
 final class MavenSetup {
-  private static final String EXTENSION_CLASS = "io/mutastic/maven/extension/MutasticSetup.class";
+  static final String EXTENSION_CLASS = "io/mutastic/maven/extension/MutasticSetup.class";
 
   private MavenSetup() {}
 

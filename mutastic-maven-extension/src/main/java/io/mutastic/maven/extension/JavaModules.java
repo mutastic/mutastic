@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.maven.MavenExecutionException;
 import org.apache.maven.execution.MavenSession;
 
@@ -21,7 +22,7 @@ final class JavaModules {
             .map(path -> path.toString().isEmpty() ? "." : path.toString())
             .map(path -> path.replace(java.io.File.separatorChar, '/'))
             .sorted()
-            .toList();
+            .collect(Collectors.toUnmodifiableList());
     try {
       Files.createDirectories(file.toAbsolutePath().getParent());
       Files.writeString(file, String.join("\n", paths));

@@ -80,8 +80,9 @@ public class MutasticSetup extends AbstractMavenLifecycleParticipant {
       var execution = testExecution(session, failsafe);
       if (failsafe && execution == null) {
         throw new MavenExecutionException(
-            "mutastic: no test suite integration-test in %s; its build has no Failsafe"
-                .formatted(project.getArtifactId()),
+            String.format(
+                "mutastic: no test suite integration-test in %s; its build has no Failsafe",
+                project.getArtifactId()),
             project.getFile());
       }
       var settings = new Surefire(session, execution);
