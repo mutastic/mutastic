@@ -1412,7 +1412,8 @@ public final class HumanText {
       case SKIPPED ->
           style.label("SKIPPED", Style.CYAN)
               + " "
-              + "%s is skipped: %s".formatted(id, result.mutant().skipped().orElse(""));
+              + "%s is skipped: %s"
+                  .formatted(id, Untrusted.value(result.mutant().skipped().orElse("")));
     };
   }
 

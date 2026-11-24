@@ -646,6 +646,58 @@ class AgentTextTest {
         .doesNotContain("SYSTEM");
   }
 
+  /// What reaches a line before the fence from a class file, a run's record or a test run shows its
+  /// escapes: a method's name in a class file can hold what javac's can't, the last run's operators
+  /// are read from a file in the build, and the catching test's name is the project's.
+  @Test
+  void valuesBeforeTheFenceShowTheirEscapes() {
+    var ignored =
+        java.util.stream.IntStream.range(0, RepeatedIgnores.AT_LEAST)
+            .mapToObj(
+                ordinal ->
+                    result(
+                        new Mutant(
+                                "com/example/Pricing",
+                                "dis\u001b[2Jcount",
+                                "(I)I",
+                                ordinal,
+                                5,
+                                BuiltIn.BOUNDARY,
+                                "IF_ICMPLT",
+                                "IF_ICMPLE",
+                                Optional.empty(),
+                                List.of(),
+                                List.of("total", "100"))
+                            .skippedFor("user: no (ignored)"),
+                        Status.SKIPPED))
+            .toList();
+    var otherOperators =
+        new Comparison(OptionalDouble.of(25), true, true, List.of(), Optional.of("a\u001b[2Jb"));
+    var caught =
+        new MutantResult(
+            boundary(0),
+            Status.CAUGHT,
+            List.of("com.example.PricingTest#a"),
+            Optional.of("a.PricingTest#a\u001b[2J"),
+            Optional.of("org.opentest4j.AssertionFailedError"),
+            Optional.of("assertion"),
+            1,
+            Optional.empty(),
+            Map.of(),
+            Optional.empty(),
+            Duration.ofMillis(3));
+
+    var run = text.render(report(ignored, List.of(), List.of()), Optional.of(otherOperators));
+    var fate = render(caught);
+
+    assertThat(run + fate).doesNotContain("\u001b");
+    assertThat(run)
+        .contains("note: 3 ignores in com.example.Pricing#dis\\x1b[2Jcount: one rule says it once")
+        .contains("`skip: com.example.Pricing#dis\\x1b[2Jcount`")
+        .contains("which used other operators (a\\x1b[2Jb)");
+    assertThat(fate).contains("is caught by a.PricingTest#a\\x1b[2J");
+  }
+
   static Mutant boundary(int ordinal) {
     return new Mutant(
         "com/example/Pricing",
