@@ -240,6 +240,23 @@ class HumanTextTest {
                 + " checking 50ms)\n");
   }
 
+  /// Writing the reports is part of the run: with thousands of tests it took longer than the
+  /// mutants, and Duration said only the rest.
+  @Test
+  void theDurationCountsWritingTheReports() {
+    var written =
+        new HumanText.Run(
+                LocalTime.of(9, 30, 5),
+                Duration.ofMillis(500),
+                List.of(Path.of("build/mutastic/mutation.json").toAbsolutePath()),
+                false)
+            .writtenIn(Duration.ofMillis(1200));
+    var text = text(HumanText.Detail.FULL, Vocabulary.PLAIN);
+
+    assertThat(text.render(report(missed(boundary(), Map.of())), Optional.empty(), written))
+        .contains("  Duration  2.1s (setup 500ms, coverage 200ms, mutants 200ms, reports 1.2s)\n");
+  }
+
   /// When the machine slept during the run, a line under Duration says how long: the time awake
   /// leaves it out.
   @Test

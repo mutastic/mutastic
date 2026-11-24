@@ -48,6 +48,8 @@ public final class HumanText {
   ///   didn't catch, which opens the report on it: what the ids link to
   /// @param slept how long the machine slept during the run, which Duration leaves out, when it's
   ///   worth saying (see [Slept]); else zero
+  /// @param writing how long writing `reports` took, which Duration counts: with thousands of tests
+  ///   it can take longer than the mutants did
   public record Run(
       LocalTime startedAt,
       Duration setup,
@@ -56,10 +58,29 @@ public final class HumanText {
       List<LeftOut> leftOut,
       Duration build,
       Optional<Path> pages,
-      Duration slept) {
+      Duration slept,
+      Duration writing) {
     public Run {
       reports = List.copyOf(reports);
       leftOut = List.copyOf(leftOut);
+    }
+
+    /// A run whose reports' writing wasn't timed.
+    public Run(
+        LocalTime startedAt,
+        Duration setup,
+        List<Path> reports,
+        boolean oneMutant,
+        List<LeftOut> leftOut,
+        Duration build,
+        Optional<Path> pages,
+        Duration slept) {
+      this(startedAt, setup, reports, oneMutant, leftOut, build, pages, slept, Duration.ZERO);
+    }
+
+    /// The same, its reports written in `took`.
+    public Run writtenIn(Duration took) {
+      return new Run(startedAt, setup, reports, oneMutant, leftOut, build, pages, slept, took);
     }
 
     /// A run the machine didn't sleep through.
@@ -1212,14 +1233,24 @@ public final class HumanText {
     var row =
         "%s %s"
             .formatted(
-                seconds(run.setup().plus(report.took())),
+                seconds(run.setup().plus(report.took()).plus(run.writing())),
                 style.dim("(" + String.join(", ", phases(report, run)) + ")"));
     return run.slept().isZero() ? row : row + "\n" + Slept.line(run.slept());
   }
 
   /// The run's time by phase, `setup 3.5s, build 9m41s, coverage 7m23s, mutants 34m12s, checking
-  /// 51.0s`: the build and the checking after the mutants where they were timed.
+  /// 51.0s, reports 1.2s`: the build and the checking after the mutants where they were timed, and
+  /// the reports where any were written.
   private static List<String> phases(Report report, Run run) {
+    var phases = runPhases(report, run);
+    if (!run.reports().isEmpty()) {
+      phases.add("reports " + seconds(run.writing()));
+    }
+    return phases;
+  }
+
+  /// The phases up to the reports.
+  private static List<String> runPhases(Report report, Run run) {
     var phases = new ArrayList<String>();
     phases.add("setup " + seconds(run.setup().minus(run.build())));
     if (!run.build().isZero()) {
@@ -1381,7 +1412,8 @@ public final class HumanText {
       case SKIPPED ->
           style.label("SKIPPED", Style.CYAN)
               + " "
-              + "%s is skipped: %s".formatted(id, result.mutant().skipped().orElse(""));
+              + "%s is skipped: %s"
+                  .formatted(id, Untrusted.value(result.mutant().skipped().orElse("")));
     };
   }
 

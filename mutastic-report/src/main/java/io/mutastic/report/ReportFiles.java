@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -304,14 +305,14 @@ public final class ReportFiles {
 
   private static List<Map<String, Object>> testDefinitions(
       List<String> ids, Optional<String> source) {
+    var declared = source.map(ReportFiles::declarations).orElse(Map.of());
     return ids.stream()
         .distinct()
         .sorted()
         .map(
             id -> {
               var test = pair("id", id, "name", testName(id));
-              source
-                  .flatMap(text -> testLocation(text, testName(id)))
+              Optional.ofNullable(declared.get(declaredName(testName(id))))
                   .ifPresent(location -> test.put("location", location));
               return test;
             })
@@ -322,20 +323,38 @@ public final class ReportFiles {
   /// name(`, or Kotlin's `fun name(` and `` fun `a name`( ``. Empty where the source doesn't show
   /// it.
   static Optional<Map<String, Object>> testLocation(String source, String test) {
-    var name = test.replaceFirst("[(\\[].*", "");
-    if (name.isEmpty()) {
-      return Optional.empty();
-    }
-    var declaration =
-        Pattern.compile("\\b(?:void|fun)\\s+`?(?<name>" + Pattern.quote(name) + ")`?\\s*\\(");
+    return Optional.ofNullable(declarations(source).get(declaredName(test)));
+  }
+
+  /// A test's name as its declaration has it: `bigOrders` for `bigOrders()`, and a case's test for
+  /// `[1] 2, 3`.
+  private static String declaredName(String test) {
+    return test.replaceFirst("[(\\[].*", "");
+  }
+
+  /// `void name(`, `fun name(` or `` fun `a name`( ``, the name in its group.
+  private static final Pattern DECLARATION =
+      Pattern.compile(
+          "\\b(?:void|fun)\\s+(?:`(?<quoted>[^`]+)`|(?<plain>\\p{javaJavaIdentifierPart}+))\\s*\\(");
+
+  /// Where each test of a source is declared, by [#declaredName], the first place it is: read once
+  /// for the class, as reading the source again for each of its tests took a class of 2000 tests
+  /// seconds.
+  private static Map<String, Map<String, Object>> declarations(String source) {
+    var found = new HashMap<String, Map<String, Object>>();
     var lines = source.lines().toList();
     for (int i = 0; i < lines.size(); i++) {
-      var found = declaration.matcher(lines.get(i));
-      if (found.find()) {
-        return Optional.of(Map.of("start", pair("line", i + 1, "column", found.start("name") + 1)));
+      var declaration = DECLARATION.matcher(lines.get(i));
+      while (declaration.find()) {
+        var group = declaration.group("quoted") != null ? "quoted" : "plain";
+        var name = declaredName(declaration.group(group));
+        if (!name.isEmpty()) {
+          found.putIfAbsent(
+              name, Map.of("start", pair("line", i + 1, "column", declaration.start(group) + 1)));
+        }
       }
     }
-    return Optional.empty();
+    return found;
   }
 
   /// Two fields in the order given. `Map.of` would iterate in an order that changes from one JVM to

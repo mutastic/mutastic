@@ -14,8 +14,8 @@
  [2m  Mutants[0m  [32m✓ [1m3 caught[0m[0m[2m · [0m[1;31m✗ [1m7 missed[0m[0m[2m (10)[0m
  [2m Worst at[0m  Checkout.discount() 4 ✗ · Checkout.pay() 3 ✗
  [2mTest runs[0m  17[2m (20 without coverage selection)[0m
- [2m Start at[0m  01:20:07
- [2m Duration[0m  1.9s [2m(setup 0ms, build 515ms, coverage 215ms, mutants 172ms, checking 975ms)[0m
+ [2m Start at[0m  19:09:33
+ [2m Duration[0m  1.7s [2m(setup 0ms, build 441ms, coverage 190ms, mutants 146ms, checking 949ms, reports 12ms)[0m
  [2m    Tests[0m  2 on JDK 17 · 1 worker
  [2m  Reports[0m  samples/checkout/build/mutastic/mutation.json[2m · [0msamples/checkout/build/mutastic/mutation.html
  [2m    Score[0m  [1;31m[1m30.0%[0m[0m  [41;30;1m FAIL [0m [1;31mBelow the threshold of 80: 7 missed, 0 not covered.[0m

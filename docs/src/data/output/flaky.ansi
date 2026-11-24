@@ -9,8 +9,8 @@
  [2m Worst at[0m  Stock.restock() 2 ✗
  [2m    Flaky[0m  1 test left out
  [2mTest runs[0m  5[2m (10 without coverage selection)[0m
- [2m Start at[0m  14:15:56
- [2m Duration[0m  1.8s [2m(setup 0ms, build 493ms, coverage 222ms, mutants 166ms, checking 939ms)[0m
+ [2m Start at[0m  19:09:30
+ [2m Duration[0m  1.7s [2m(setup 0ms, build 416ms, coverage 204ms, mutants 142ms, checking 945ms, reports 9ms)[0m
  [2m    Tests[0m  2 on JDK 17 · 1 worker
  [2m  Reports[0m  samples/flaky/build/mutastic/mutation.json[2m · [0msamples/flaky/build/mutastic/mutation.html
  [2m    Score[0m  [1;31m[1m42.9%[0m[0m  [41;30;1m FAIL [0m [1;31mBelow the threshold of 80: 2 missed, 2 not covered.[0m  [1;31m▼ 14.3 vs last run[0m[2m (same code)[0m[2m  · 60.0% where tests reach[0m

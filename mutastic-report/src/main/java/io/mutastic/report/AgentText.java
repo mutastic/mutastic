@@ -150,7 +150,8 @@ public final class AgentText {
 
   private static void appendVsLastRun(StringBuilder out, Report report, Comparison found) {
     if (found.notCompared().isPresent()) {
-      out.append("vs last run: %s\n".formatted(found.notCompared().get()));
+      // The last run's operators are read from its record, a file in the project's build.
+      out.append("vs last run: %s\n".formatted(Untrusted.escape(found.notCompared().get())));
       return;
     }
     out.append(
@@ -213,11 +214,14 @@ public final class AgentText {
     return switch (result.status()) {
       case CAUGHT ->
           "is %s by %s%s"
-              .formatted(words.detected, result.caughtBy().orElse("a test"), inCase(result));
+              .formatted(
+                  words.detected,
+                  Untrusted.value(result.caughtBy().orElse("a test")),
+                  inCase(result));
       case TIMED_OUT -> "is %s: its tests stopped finishing in time".formatted(words.detected);
       case MISSED -> "is still %s".formatted(words.undetected);
       case NOT_COVERED -> "isn't reached by any test";
-      case SKIPPED -> "is skipped: " + result.mutant().skipped().orElse("");
+      case SKIPPED -> "is skipped: " + Untrusted.value(result.mutant().skipped().orElse(""));
     };
   }
 

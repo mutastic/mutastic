@@ -963,6 +963,7 @@
         },
         {
           "label": "Duration",
+          "note": "The run's time, then its phases in brackets: setup, build where timed, coverage, mutants, checking where timed, and when report files were written, reports last, which the total counts",
           "under": [
             {
               "name": "slept",

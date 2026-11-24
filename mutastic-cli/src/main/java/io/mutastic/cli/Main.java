@@ -583,7 +583,7 @@ public final class Main {
     passes.progress().checking(RECORDING, 0, 0);
     var kept = kept(command, prepared, tested, judged);
     passes.progress().finished();
-    display.printer().print(tested.report(), kept.comparison(), kept.written());
+    display.printer().print(tested.report(), kept.comparison(), kept.written(), kept.writing());
     toGitHub(command, prepared, output.github(), tested.report());
     baselineNote(command, prepared, tested.report(), output);
     reportsLeftOut(command, output.err());
@@ -2185,10 +2185,11 @@ public final class Main {
     return result.status().detected() || result.status() == Status.SKIPPED;
   }
 
-  /// Prints a finished run's result.
+  /// Prints a finished run's result, with the reports written and how long writing them took.
   @FunctionalInterface
   private interface Printer {
-    void print(Report report, Optional<Comparison> comparison, List<Path> written);
+    void print(
+        Report report, Optional<Comparison> comparison, List<Path> written, Duration writing);
   }
 
   /// For one format: what hears about mutants as they finish, and what prints the result.
@@ -2203,20 +2204,26 @@ public final class Main {
         var agent = agentText(command, prepared, output, judged);
         yield new Display(
             output.progress(),
-            (report, comparison, written) ->
+            (report, comparison, written, writing) ->
                 output.out().print(agent.render(report, comparison, oneMutant, written)));
       }
-      default -> {
-        var plain = humanText(command, output, prepared.sources());
-        var human = judged.map(plain::failingOnNew).orElse(plain);
-        yield new Display(
-            output.progress(),
-            (report, comparison, written) ->
-                output
-                    .out()
-                    .print(human.render(report, comparison, run(command, prepared, written))));
-      }
+      default -> human(command, prepared, output, judged);
     };
+  }
+
+  /// A person's formats: the summary, its Duration counting the reports' writing.
+  private static Display human(
+      Command command, Prepared prepared, Output output, Optional<FailOnNew> judged) {
+    var plain = humanText(command, output, prepared.sources());
+    var human = judged.map(plain::failingOnNew).orElse(plain);
+    return new Display(
+        output.progress(),
+        (report, comparison, written, writing) ->
+            output
+                .out()
+                .print(
+                    human.render(
+                        report, comparison, run(command, prepared, written).writtenIn(writing))));
   }
 
   /// The agent format, judged on new misses with `--fail-on-new`.
@@ -2270,7 +2277,7 @@ public final class Main {
       // Each mutant's result is known only once every module's tests have run: all at the end.
       return new Display(
           output.progress(),
-          (report, comparison, written) -> {
+          (report, comparison, written, writing) -> {
             report.results().forEach(events::mutantFinished);
             events.runFinished(
                 report, comparison, listed(prepared, written), !command.only().isEmpty());
@@ -2278,7 +2285,7 @@ public final class Main {
     }
     return new Display(
         progressAndEvents(output.progress(), events),
-        (report, comparison, written) ->
+        (report, comparison, written, writing) ->
             events.runFinished(
                 report, comparison, listed(prepared, written), !command.only().isEmpty()));
   }
@@ -2305,8 +2312,10 @@ public final class Main {
   }
 
   /// What a full run keeps: its comparison with the last run, and the report files it wrote.
-  private record Kept(Optional<Comparison> comparison, List<Path> written) {
-    static final Kept NOTHING = new Kept(Optional.empty(), List.of());
+  ///
+  /// @param writing how long writing the reports took, which the summary's Duration counts
+  private record Kept(Optional<Comparison> comparison, List<Path> written, Duration writing) {
+    static final Kept NOTHING = new Kept(Optional.empty(), List.of(), Duration.ZERO);
   }
 
   /// Compares with the last run under the same operators before keeping this one, then writes the
@@ -2322,13 +2331,15 @@ public final class Main {
         measured
             ? recorded(command, prepared, report, tested.otherTests())
             : Optional.<Comparison>empty();
+    long writing = System.nanoTime();
     var written =
         new ArrayList<>(
             measured || !command.reports().equals(DEFAULT_REPORTS)
                 ? writeReports(command, prepared, report, judged)
                 : List.of());
     share.ifPresent(file -> written.add(file.toAbsolutePath().normalize()));
-    var kept = new Kept(comparison, List.copyOf(written));
+    var kept =
+        new Kept(comparison, List.copyOf(written), Duration.ofNanos(System.nanoTime() - writing));
     if (share.isPresent()) {
       keepShare(command, prepared, report, kept);
     }

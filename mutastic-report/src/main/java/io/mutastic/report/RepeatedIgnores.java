@@ -34,9 +34,11 @@ final class RepeatedIgnores {
   }
 
   /// `3 ignores in com.example.Pricing#discount: one rule says it once, `skip:
-  /// com.example.Pricing#discount` in mutastic.yaml`
+  /// com.example.Pricing#discount` in mutastic.yaml`. The method [Untrusted#escape]d: a name in a
+  /// class file can hold what javac's can't.
   static String text(Repeated repeated) {
+    var method = Untrusted.escape(repeated.method());
     return "%d ignores in %s: one rule says it once, `skip: %s` in mutastic.yaml"
-        .formatted(repeated.count(), repeated.method(), repeated.method());
+        .formatted(repeated.count(), method, method);
   }
 }

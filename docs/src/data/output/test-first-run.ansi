@@ -51,8 +51,8 @@
  [2m  Changed[0m  8 lines in 1 file since HEAD
  [2m Worst at[0m  Pricing.loyaltyCredit() 2 ✗
  [2mTest runs[0m  4[2m (16 without coverage selection)[0m
- [2m Start at[0m  01:19:07
- [2m Duration[0m  1.9s [2m(setup 0ms, build 520ms, coverage 233ms, mutants 115ms, checking 1.0s)[0m
+ [2m Start at[0m  19:07:56
+ [2m Duration[0m  1.7s [2m(setup 0ms, build 455ms, coverage 191ms, mutants 86ms, checking 950ms, reports 9ms)[0m
  [2m    Tests[0m  4 on JDK 17 · 1 worker
  [2m  Reports[0m  samples/pricing/build/mutastic/mutation.json[2m · [0msamples/pricing/build/mutastic/mutation.html
  [2m    Score[0m  [1;31m[1m40.0%[0m[0m  [41;30;1m FAIL [0m [1;31mBelow the threshold of 80: 2 missed, 1 not covered.[0m[2m  · 50.0% where tests reach[0m
