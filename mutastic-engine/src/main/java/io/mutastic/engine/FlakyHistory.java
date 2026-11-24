@@ -6,7 +6,7 @@ import java.util.Set;
 /// What earlier runs say about the tests' catches (decision 27): the last comparable run's results,
 /// when the code, the tests and mutastic are what it had, so a mutant whose result changed points
 /// at the test that caught it; and the tests watched since a run named them likely flaky, whose
-/// every catch is confirmed [WatchedTest#CONFIRMATIONS] more times.
+/// every catch is confirmed [io.mutastic.api.WatchedTest#CONFIRMATIONS] more times.
 ///
 /// @param sameCode the last comparable run's results by mutant id, only when nothing it ran has
 ///   changed since: empty otherwise, as a result that changed is then just the change at work
