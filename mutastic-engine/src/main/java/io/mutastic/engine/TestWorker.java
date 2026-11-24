@@ -8,6 +8,7 @@ import io.mutastic.api.Project;
 import io.mutastic.api.PropertyTests;
 import io.mutastic.api.Status;
 import io.mutastic.api.TestCase;
+import io.mutastic.engine.tests.TestFrameworks;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -56,6 +57,10 @@ final class TestWorker implements AutoCloseable {
   private static final String EXITED = "EXITED\t";
 
   private final Project project;
+
+  /// What the project's tests need to run, and how the worker runs them.
+  private final TestFrameworks frameworks;
+
   private final Path workerJar;
   private final Path log;
   private final ClassesToWarm toWarm;
@@ -83,6 +88,7 @@ final class TestWorker implements AutoCloseable {
   /// output explains.
   TestWorker(Project project, Path workerJar, Path log, ClassesToWarm toWarm, Path resources) {
     this.project = project;
+    this.frameworks = TestFrameworks.of(project.dependencies());
     this.workerJar = workerJar;
     this.log = log;
     this.toWarm = toWarm;
@@ -706,7 +712,7 @@ final class TestWorker implements AutoCloseable {
   /// to run on the JUnit Platform, when they need it ([TestFrameworks]); for a framework that loads
   /// the app itself, the project's own directories last, where it finds them, and no copy.
   private String classpath() {
-    boolean framework = TestFrameworks.loadsTheApp(project.dependencies());
+    boolean framework = frameworks.loadsTheApp();
     var own =
         framework
             ? Stream.of(
@@ -722,7 +728,7 @@ final class TestWorker implements AutoCloseable {
                 Stream.of(workerJar),
                 framework ? Stream.<Path>empty() : Stream.of(resources),
                 project.dependencies().stream(),
-                TestFrameworks.support(project.dependencies()).stream(),
+                frameworks.support().stream(),
                 own)
             .flatMap(each -> each));
   }
@@ -740,7 +746,7 @@ final class TestWorker implements AutoCloseable {
   /// The worker's system class loader, so the JDK's own service lookups find the project as they do
   /// in the build; not in framework mode, where the framework loads the app.
   private List<String> systemLoader() {
-    return TestFrameworks.loadsTheApp(project.dependencies())
+    return frameworks.loadsTheApp()
         ? List.of()
         : List.of(
             "-Djava.system.class.loader=io.mutastic.worker.SystemLoader",
@@ -751,7 +757,7 @@ final class TestWorker implements AutoCloseable {
 
   /// Framework mode, for tests run in a framework that loads the app itself.
   private List<String> mode() {
-    return TestFrameworks.loadsTheApp(project.dependencies()) ? List.of("--framework") : List.of();
+    return frameworks.loadsTheApp() ? List.of("--framework") : List.of();
   }
 
   /// However the engine exits, its worker goes too, and what the worker leaves.

@@ -4,6 +4,7 @@ import io.mutastic.api.ClassMutator;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Operator;
 import io.mutastic.api.Project;
+import io.mutastic.engine.tests.TestFrameworks;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.classfile.ClassModel;
@@ -45,7 +46,7 @@ final class WholeClasses {
 
   void prepareFor(Project project) {
     sources = project.sources();
-    frameworkLoadsTheApp = TestFrameworks.loadsTheApp(project.dependencies());
+    frameworkLoadsTheApp = TestFrameworks.of(project.dependencies()).loadsTheApp();
     mutators.forEach(mutator -> mutator.prepare(project));
   }
 

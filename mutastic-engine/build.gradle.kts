@@ -47,11 +47,11 @@ dependencies {
 
 tasks.processResources {
     from(testngEngine) {
-        into("io/mutastic/engine")
+        into("io/mutastic/engine/tests")
         rename { "testng-engine.jar" }
     }
     from(vintageEngine) {
-        into("io/mutastic/engine")
+        into("io/mutastic/engine/tests")
         rename { "vintage-engine.jar" }
     }
 }
