@@ -10,6 +10,62 @@ edition's changes are in [its own changelog](https://github.com/mutastic/mutasti
 What's merged since the last release waits in [`changes/`](changes/), one file for each entry,
 until the next release gathers it here.
 
+## 1.3.1 (24 Nov 2026)
+
+### Security
+
+- **The summary's `Reports` row escapes what can't be seen in a path.** A report's path with an ANSI
+  escape or a bidi control in it went to the terminal as it was, free to rewrite the screen; it's
+  now shown escaped, as every other value from the project is.
+- **The agent format escapes the last values it showed as they were.** A method's name in a
+  repeated-ignores note, the last run's operators in `vs last run`, and the catching test's name
+  and a skip's reason in a mutant's fate with `--only` went out unescaped, free to carry an ANSI
+  escape or a bidi control. Each is now shown escaped, `\x1b`, as every other value of the
+  project's is.
+
+### Changes
+
+- **Patches may correct a score upward, and never lower one.** A patch release used to promise
+  never to move a score. It now promises never to lower a score, never to add a mutant and never
+  to turn a passing run into a failing one: the one score change it may make is a correction that
+  drops mutants that could never run, such as code the build never compiles counted by mistake, so
+  a score can only rise. Its release notes list each under a new section, *Score corrections*.
+  Anything else that moves a score still waits for a minor release's *Scoring changes*. See
+  [Compatibility](https://docs.mutastic.io/reference/compatibility/#scores).
+
+### Fixes
+
+- **A loop whose index was stored just before it no longer stops the run.** 1.3.0 checked every
+  `while (i < n)` and `for` loop for the shape javac gives a for-each loop over an array, and when
+  the store six instructions before the loop was to its index or its bound, the run stopped with
+  `IllegalArgumentException: duplicate element`. Such a loop is now left as an ordinary loop, as it
+  was before 1.3.0.
+- **The agent format names the report files a run wrote.** It never said there were any, so an
+  agent took it there was no report and ran again with `--report=html`. A `reports:` line after the
+  verdict names them as the summary's Reports row does,
+  `reports: build/mutastic/mutation.json · build/mutastic/mutation.html`, and with `--report=none`
+  there's no such line.
+- **A Spring test configuration in the app's own package no longer fails every test.** A test
+  `@Configuration` or `@SpringBootConfiguration` in a package production code also uses, whose
+  component scan finds it, gave Spring two configurations: the one the tests named, as mutastic
+  ran it, and the class the scan found. Each declared the same beans, so Spring refused them and
+  every test failed with `Failed to load ApplicationContext` before any mutant ran. A test class
+  that Spring's scan can find is now the class the tests name.
+- **A module whose test classes are only helpers gets a report.** Test sources with a fixtures
+  class and no test stopped the run with `no-tests`, as if tests had been there and not run. The
+  module has no tests, so it's reported as one with no test classes is: every mutant not covered,
+  and the summary's Tests row says none were found. Tests that are there and don't run still stop
+  it.
+- **A run with `--only` says it writes no report when one is asked for.** `--report` with `--only`
+  was passed over in silence, so a person or an agent asking for `mutation.json` got none and no
+  reason. A note on stderr now says why: a run of some mutants says nothing about the rest. The
+  exit code is as it was.
+- **Writing the reports takes as long as the tests are many, not their square, and Duration counts
+  it.** Each test that covers a mutant is placed in its file for `mutation.json` and the HTML
+  report, and its file was read again for each test: with 2,000 tests in a class, the reports took
+  3.1s of a 7.5s run, while the Duration row said 4.1s. Each file is now read once, writing them
+  took 93ms, and the Duration row has a `reports` phase, in its total.
+
 ## 1.3.0 (23 Nov 2026)
 
 ### Card changes
