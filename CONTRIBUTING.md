@@ -54,6 +54,12 @@ request needs to pass, and `just ci` what CI runs. Each is one line over Gradle 
 the justfile shows (`just check` is `./gradlew build`), so the work can still be done without it.
 Call `./gradlew` directly only for a job no recipe covers.
 
+CI calls the same recipes. Each job runs its part of `just ci` as a recipe in the `ci` group, such
+as `just test-cli 2/4` for a quarter of the CLI's tests, so a job that fails can be run here as CI
+ran it. Commits checks the justfile's format and that its verbs are those
+[.github/just-verbs.txt](.github/just-verbs.txt) lists: after adding or removing a recipe, run
+`just --summary | tr ' ' '\n' > .github/just-verbs.txt`.
+
 ## Making a change
 
 - **Follow [AGENTS.md](AGENTS.md).** It's the conventions the code is held to and why: one
