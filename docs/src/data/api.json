@@ -2416,7 +2416,7 @@
           "name": "MutantResult",
           "slug": "mutantresult",
           "kind": "record",
-          "signature": "@Internal record MutantResult(\n    Mutant mutant,\n    Status status,\n    List<String> coveredBy,\n    Optional<String> caughtBy,\n    Optional<String> failure,\n    Optional<String> failureOrigin,\n    int testsRun,\n    Optional<String> unconfirmed,\n    Map<String, List<Long>> inputs,\n    Optional<Suggestion> suggestion,\n    Duration took,\n    Optional<String> falseCatchBy,\n    List<String> caughtByAll,\n    Optional<TestCase> caughtCase)",
+          "signature": "@Internal record MutantResult(\n    Mutant mutant,\n    Status status,\n    List<String> coveredBy,\n    Optional<String> caughtBy,\n    Optional<String> failure,\n    Optional<String> failureOrigin,\n    int testsRun,\n    Optional<String> unconfirmed,\n    Map<String, List<Long>> inputs,\n    Optional<Suggestion> suggestion,\n    Duration took,\n    Optional<String> falseCatchBy,\n    List<String> caughtByAll,\n    Optional<TestCase> caughtCase,\n    Optional<String> caughtInput)",
           "summary": "One mutant's outcome.",
           "doc": "One mutant's outcome.",
           "params": [
@@ -2463,6 +2463,10 @@
             {
               "name": "caughtCase",
               "doc": "the case of `caughtBy` that failed, when it runs a table of cases: evidence of this run, as its index moves when a case is added before it"
+            },
+            {
+              "name": "caughtInput",
+              "doc": "the input the property test `caughtBy` failed on, on one line as its framework prints it (`Arg 0: 18`), when a property caught it and its framework names one: evidence of this run, as another seed draws others"
             }
           ],
           "members": [
@@ -2470,6 +2474,16 @@
               "kind": "constructor",
               "name": "MutantResult",
               "anchor": "mutantresult",
+              "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy, List<String> caughtByAll, Optional<TestCase> caughtCase)",
+              "doc": "A result that names no input: no property caught it, or its framework named none.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "MutantResult",
+              "anchor": "mutantresult-2",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy, List<String> caughtByAll)",
               "doc": "A result that names no case: its catcher, if it has one, runs no table of them.",
               "params": [],
@@ -2479,7 +2493,7 @@
             {
               "kind": "constructor",
               "name": "MutantResult",
-              "anchor": "mutantresult-2",
+              "anchor": "mutantresult-3",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy)",
               "doc": "A result without every catcher: the run stopped at the first.",
               "params": [],
@@ -2489,7 +2503,7 @@
             {
               "kind": "constructor",
               "name": "MutantResult",
-              "anchor": "mutantresult-3",
+              "anchor": "mutantresult-4",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took)",
               "doc": "A result whose catch, if it has one, stands.",
               "params": [],
@@ -2562,6 +2576,16 @@
               "anchor": "withcaughtcase",
               "signature": "MutantResult withCaughtCase(Optional<TestCase> failed)",
               "doc": "The same result, naming the case of its catcher that failed.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withCaughtInput",
+              "anchor": "withcaughtinput",
+              "signature": "MutantResult withCaughtInput(Optional<String> input)",
+              "doc": "The same result, naming the input its catcher, a property test, failed on.",
               "params": [],
               "returns": "",
               "throws": []
@@ -3066,6 +3090,74 @@
               "anchor": "read",
               "signature": "static Project read(String name, Path file)",
               "doc": "The project in `file`, named `name` in reports.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "PropertyTests",
+          "slug": "propertytests",
+          "kind": "record",
+          "signature": "@Internal record PropertyTests(\n    List<String> frameworks,\n    Optional<String> seed,\n    List<String> seeded,\n    List<String> unseeded)",
+          "summary": "The property-testing frameworks a module's tests use, and the seed a run draws their inputs from.",
+          "doc": "The property-testing frameworks a module's tests use, and the seed a run draws their inputs\nfrom.\n\nA property draws its inputs at random. Drawn afresh in each JVM, a mutant only some inputs catch\nis caught in one run and missed in the next, and a property that fails for a rare input looks\nlike a flaky test. So where a framework takes its seed from outside the test, every test JVM of\na run, the coverage pass's and each mutant's, gets the same one, and every run the same one\nunless the person sets it: caught then means caught, every time. A framework that can't be\nseeded from outside is named, never guessed at.\n\n- QuickTheories reads the system property `QT_SEED` for each theory, unless the test calls\n  `withFixedSeed`.\n- Kotest's property tests read `kotest.proptest.default.seed`, unless a test's own\n  `PropTestConfig` names a seed.\n- junit-quickcheck seeds a parameter only from its `@When(seed=…)`, in the source.\n- jqwik is only detected, never seeded or read from: its tests run as ordinary tests.",
+          "params": [
+            {
+              "name": "frameworks",
+              "doc": "the frameworks the tests use, by name, in `Framework`'s order"
+            },
+            {
+              "name": "seed",
+              "doc": "the seed every test JVM is given, decimal: the person's, else `0`; empty when no framework the tests use takes one"
+            },
+            {
+              "name": "seeded",
+              "doc": "the frameworks that draw from `seed`"
+            },
+            {
+              "name": "unseeded",
+              "doc": "the frameworks whose seed can't be set from outside the test"
+            }
+          ],
+          "members": [
+            {
+              "kind": "field",
+              "name": "SEED",
+              "anchor": "seed",
+              "signature": "static final String SEED",
+              "doc": "The seed a run gives where the person hasn't set one: any fixed value, kept so a project's\nresults stay as they were.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "of",
+              "anchor": "of",
+              "signature": "static Optional<PropertyTests> of(Project project)",
+              "doc": "The property tests of `project`, when its tests use a framework: none otherwise.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "jvmArgs",
+              "anchor": "jvmargs",
+              "signature": "List<String> jvmArgs()",
+              "doc": "What every test JVM of the run is given, after the project's own arguments so it's the one\nseed: each seeded framework's seed property, and Kotest's saved failures off.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "note",
+              "anchor": "note",
+              "signature": "Optional<String> note()",
+              "doc": "The note a run ends with when some of the tests' frameworks can't be seeded, on stderr: their\nresults can change from run to run, and the run says so rather than hide it.",
               "params": [],
               "returns": "",
               "throws": []

@@ -4,6 +4,7 @@ import io.mutastic.api.ChangedLines;
 import io.mutastic.api.Comparison;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
+import io.mutastic.api.PropertyTests;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import java.io.PrintStream;
@@ -126,6 +127,12 @@ public final class JsonEvents {
   public record Share(int number, int of, String version, String code) {}
 
   public void runStarted(String project) {
+    runStarted(project, Optional.empty());
+  }
+
+  /// The run's start, with the property tests' frameworks when the project's tests use one, and the
+  /// seed their inputs were drawn from: a run with another seed is another draw.
+  public void runStarted(String project, Optional<PropertyTests> properties) {
     var fields = new LinkedHashMap<String, Object>();
     fields.put("project", project);
     fields.put("rule", MutantCommand.RULE);
@@ -134,7 +141,23 @@ public final class JsonEvents {
     if (!at.isEmpty()) {
       fields.put("at", at);
     }
+    properties.ifPresent(found -> fields.put("propertyTests", propertyTests(found)));
     emit("run-started", fields);
+  }
+
+  /// `{"frameworks": [...], "seed": "0", "seeded": [...], "unseeded": [...]}`: the seed and those
+  /// that drew from it only when one did, and the unseeded only when there are any.
+  private static Map<String, Object> propertyTests(PropertyTests properties) {
+    var fields = new LinkedHashMap<String, Object>();
+    fields.put("frameworks", properties.frameworks());
+    properties.seed().ifPresent(seed -> fields.put("seed", seed));
+    if (properties.seed().isPresent()) {
+      fields.put("seeded", properties.seeded());
+    }
+    if (!properties.unseeded().isEmpty()) {
+      fields.put("unseeded", properties.unseeded());
+    }
+    return fields;
   }
 
   private static Map<String, Object> shareFields(Share share) {
@@ -233,6 +256,7 @@ public final class JsonEvents {
     result.caughtBy().ifPresent(test -> fields.put("caughtBy", test));
     result.failure().ifPresent(failure -> fields.put("caughtWith", failure));
     result.caughtCase().ifPresent(failed -> fields.put("caughtCase", caughtCase(result, failed)));
+    result.caughtInput().ifPresent(input -> fields.put("caughtInput", input));
     if (!result.caughtByAll().isEmpty()) {
       fields.put("caughtByAll", result.caughtByAll());
     }

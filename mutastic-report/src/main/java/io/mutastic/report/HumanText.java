@@ -646,7 +646,7 @@ public final class HumanText {
           "caught by %s%s%s"
               .formatted(
                   AgentText.shortName(result.caughtBy().orElse("a test")),
-                  AgentText.inCase(result),
+                  AgentText.evidence(result),
                   result
                       .failureOrigin()
                       .map(origin -> by(origin, result.failure().orElse("")))
@@ -1445,7 +1445,7 @@ public final class HumanText {
                       id,
                       words.detected,
                       AgentText.shortName(result.caughtBy().orElse("a test")),
-                      AgentText.inCase(result)));
+                      AgentText.evidence(result)));
       case TIMED_OUT ->
           detectedFate(
               "%s is %s: its tests stopped finishing in time".formatted(id, words.detected));

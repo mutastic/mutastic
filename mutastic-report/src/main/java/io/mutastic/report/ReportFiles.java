@@ -415,11 +415,7 @@ public final class ReportFiles {
     var fields = new LinkedHashMap<String, Object>();
     fields.put("method", HumanText.methodLabel(result.mutant()));
     if (result.status() == Status.MISSED) {
-      var advice = sources.advice(result);
-      if (!advice.notes().isEmpty()) {
-        fields.put("evidence", advice.notes());
-      }
-      fields.put("fix", advice.fix());
+      putMissed(fields, result);
     }
     if (!result.inputs().isEmpty()) {
       fields.put("inputs", result.inputs());
@@ -427,6 +423,7 @@ public final class ReportFiles {
     SuggestedTest.of(result, sources)
         .ifPresent(test -> fields.put("suggestedTest", suggestedTest(test, result)));
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
+    result.caughtInput().ifPresent(input -> fields.put("caughtInput", input));
     Explanation.arid(result.mutant(), docs)
         .ifPresent(
             arid -> {
@@ -435,6 +432,15 @@ public final class ReportFiles {
               fields.put("bringBack", arid.bringBack());
             });
     return fields;
+  }
+
+  /// For a missed mutant, what its card says the tests did, and how to fix it.
+  private void putMissed(Map<String, Object> fields, MutantResult result) {
+    var advice = sources.advice(result);
+    if (!advice.notes().isEmpty()) {
+      fields.put("evidence", advice.notes());
+    }
+    fields.put("fix", advice.fix());
   }
 
   /// The source the mutant replaces, from where it starts to where it ends; the line's change where
