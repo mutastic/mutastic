@@ -9,6 +9,7 @@ import optionValue from '../../../data/output/errors-option-value.ansi?raw';
 import unknownCommand from '../../../data/output/errors-unknown-command.ansi?raw';
 import noDirectory from '../../../data/output/errors-no-directory.ansi?raw';
 import unknownId from '../../../data/output/errors-unknown-id.ansi?raw';
+import noMutantAt from '../../../data/output/errors-no-mutant-at.ansi?raw';
 import config from '../../../data/output/errors-config.ansi?raw';
 import buildFailed from '../../../data/output/errors-build-failed.ansi?raw';
 import testsStopped from '../../../data/output/errors-tests-stopped.ansi?raw';
@@ -139,6 +140,22 @@ command as that run printed it. With none close, the error ends in the command t
 project's mutants. One a slip away from an id of the project is named:
 
 <Code code={unknownId} lang="ansi" />
+
+### `no-mutant-at`
+
+`--at` asked for lines with no mutant on them, under the operators the run chooses and, with
+`--since`, on the change. A run of none would pass and say nothing, so it's refused: the message
+names the nearest lines that have one, and ends in the `mutants --at` command that lists them. The
+lines are read from the file as it is on disk, so save an editor's changes first.
+
+<Code code={noMutantAt} lang="ansi" />
+
+### `outside-sources`
+
+`--at` named a file that isn't one of the module's sources, a test say: only the code mutastic
+mutates has mutants. The message names the module's source directories. In a build of several
+modules, the file picks its module when none is named; one named stays, so a file of another module
+is outside its sources.
 
 ## Mistakes in a file or the environment
 

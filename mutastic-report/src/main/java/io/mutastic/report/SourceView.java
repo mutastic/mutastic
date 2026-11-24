@@ -157,6 +157,24 @@ public final class SourceView {
   /// Where a change is: its line, and 1-based columns on it with the end exclusive.
   public record Place(int line, int start, int end) {}
 
+  /// Lines of a source file, `first` to `last`, 1-based and inclusive.
+  public record Span(int first, int last) {
+    /// Whether any of lines `from` to `to` is one of these.
+    public boolean overlaps(int from, int to) {
+      return from <= last && to >= first;
+    }
+  }
+
+  /// The lines a mutant's card points at: from javac's line, where its statement starts, to the
+  /// line its place is on, which can be later (`return !over && location < 9` split over three
+  /// lines is all javac's first, though the `<` is on the third). For code kotlinc copied in from
+  /// an inline function, its lines in the file it was copied from, as the card has them.
+  public Span span(Mutant mutant) {
+    int placed = place(mutant).line();
+    int javac = Math.max(1, mutant.line());
+    return new Span(Math.min(javac, placed), Math.max(javac, placed));
+  }
+
   /// The advice for a mutant, its jump read the way the source has it.
   public Advice advice(Mutant mutant) {
     return escaped(advice(mutant, java.util.Map.of()));

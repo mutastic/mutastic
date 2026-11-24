@@ -24,6 +24,9 @@ final class Options {
 
   private static final Set<Main.Subcommand> RUNS = EnumSet.of(RUN);
 
+  /// The commands that take the lines of a source file to run or list the mutants of.
+  private static final Set<Main.Subcommand> AT = EnumSet.of(RUN, Main.Subcommand.MUTANTS);
+
   /// The commands that run the module's mutants, every one or those on a change.
   private static final Set<Main.Subcommand> MODULE_RUNS = EnumSet.of(RUN, NEXT);
 
@@ -108,6 +111,20 @@ final class Options {
               false,
               "",
               "mutastic run --only=m855c8e3c"),
+          new Option(
+              "--at",
+              Kind.REPEATED,
+              Group.RUNNING,
+              "PATH:LINE",
+              List.of(),
+              "Run, or list, only the mutants on a line of a source file, or with :FROM-TO on those"
+                  + " lines, under the run's operators; several split by commas. The run passes"
+                  + " when each is caught or skipped",
+              AT,
+              "at",
+              false,
+              "",
+              "mutastic run --at=src/main/java/com/example/pricing/Pricing.java:17"),
           new Option(
               "--tests-from",
               Kind.REPEATED,

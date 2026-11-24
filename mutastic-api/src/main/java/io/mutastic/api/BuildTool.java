@@ -52,6 +52,14 @@ public interface BuildTool {
   /// A build's directory, and a module of it: `:` for the build in the directory itself.
   record Address(Path directory, String module) {}
 
+  /// The module of the build in `build` whose directory is `directory`, below it, as the tool names
+  /// it: by default each directory between them a level of the module's path, as Gradle names
+  /// `libs/core` `:libs:core`.
+  default String moduleAt(Path build, Path directory) {
+    var below = build.relativize(directory).toString().replace(java.io.File.separatorChar, ':');
+    return ":" + below;
+  }
+
   /// The module's code and tests, and how its build runs them.
   ///
   /// @param module `:` for the build in `directory`, else the module as the tool names it

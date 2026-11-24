@@ -41,6 +41,8 @@ record Failure(int exit, String code, String said) {
           "environment",
           "git",
           "unknown-id",
+          AtMutants.NONE,
+          AtFiles.OUTSIDE_SOURCES,
           "no-directory",
           "no-project",
           "module-missing",

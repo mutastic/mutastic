@@ -1,0 +1,2 @@
+mutastic: no mutant on Pricing.java:16; there are on 17, 18, 20, 25 and 26. To see them:
+  mutastic mutants --at=src/main/java/com/example/pricing/Pricing.java:17-26 samples/pricing

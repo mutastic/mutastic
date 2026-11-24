@@ -300,6 +300,36 @@ class HumanTextTest {
     assertThat(lines.getLast()).contains(boundary(1).id() + " is still missed");
   }
 
+  /// `--at` counts the mutants on its lines before each one's fate, in the run's words, the fates
+  /// none had left out.
+  @Test
+  void mutantsOnSomeLinesAreCountedBeforeTheirFates() {
+    var askedFor =
+        new HumanText.Run(LocalTime.of(9, 30, 5), Duration.ofMillis(500), List.of(), true);
+    var report =
+        report(
+            missed(boundary(0), Map.of()),
+            MutantResult.skipped(boundary(1).skippedFor("user: by hand (ignored)")));
+
+    var plain =
+        text(HumanText.Detail.CONCISE, Vocabulary.PLAIN)
+            .at("lines 17–20 of Pricing.java")
+            .render(report, Optional.empty(), askedFor);
+    var classic =
+        text(HumanText.Detail.CONCISE, Vocabulary.CLASSIC)
+            .at("line 17 of Pricing.java")
+            .render(report(missed(boundary(0), Map.of())), Optional.empty(), askedFor);
+
+    assertThat(plain)
+        .contains("\n lines 17–20 of Pricing.java: 2 mutants, 1 missed, 1 skipped\n")
+        .doesNotContain("Score ");
+    assertThat(classic).contains("\n line 17 of Pricing.java: 1 mutant, 1 survived\n");
+    assertThat(
+            text(HumanText.Detail.CONCISE, Vocabulary.PLAIN)
+                .render(report, Optional.empty(), askedFor))
+        .doesNotContain(" of Pricing.java:");
+  }
+
   /// No mutants is no evidence either way: it passes, but never reads as a perfect score.
   @Test
   void nothingToScoreIsNeverAPerfectScore() {

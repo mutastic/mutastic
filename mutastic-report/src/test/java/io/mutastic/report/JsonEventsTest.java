@@ -405,6 +405,25 @@ class JsonEventsTest {
         .contains("\"coveredScore\":null");
   }
 
+  /// A run of the mutants on some lines (`--at`) names them in `run-started` and `run-finished`,
+  /// where it passes when each is caught, and names no mutant asked for by id.
+  @Test
+  void mutantsOnSomeLinesNameTheLines() {
+    var lines = List.of("src/main/java/com/example/Pricing.java:5-6");
+    var at = events.at(lines);
+
+    at.runStarted("sample");
+    at.runFinished(
+        report(List.of(result(boundary(0), Status.CAUGHT)), List.of(), List.of()),
+        Optional.empty(),
+        List.of(),
+        true);
+
+    var at5 = "\"at\":[\"src/main/java/com/example/Pricing.java:5-6\"]";
+    assertThat(lines().get(0)).contains(at5);
+    assertThat(lines().get(1)).contains("\"passed\":true," + at5).doesNotContain("\"only\"");
+  }
+
   /// A skipped mutant asked for by id passes, as the exit code says: there's nothing to catch.
   @Test
   void oneSkippedMutantPasses() {

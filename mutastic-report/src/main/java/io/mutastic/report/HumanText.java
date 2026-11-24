@@ -143,9 +143,22 @@ public final class HumanText {
   private final Optional<FailOnNew> failOnNew;
   private final OperatorDocs docs;
 
+  /// The lines a run of the mutants on them (`--at`) was asked for, as its count line names them:
+  /// `lines 17–20 of Pricing.java`; empty for any other run.
+  private final Optional<String> at;
+
   public HumanText(
       SourceView sources, int threshold, Style style, Detail detail, Vocabulary words) {
-    this(sources, threshold, style, detail, words, false, OperatorDocs.LATEST, Optional.empty());
+    this(
+        sources,
+        threshold,
+        style,
+        detail,
+        words,
+        false,
+        OperatorDocs.LATEST,
+        Optional.empty(),
+        Optional.empty());
   }
 
   private HumanText(
@@ -156,7 +169,8 @@ public final class HumanText {
       Vocabulary words,
       boolean eachMutant,
       OperatorDocs docs,
-      Optional<FailOnNew> failOnNew) {
+      Optional<FailOnNew> failOnNew,
+      Optional<String> at) {
     this.sources = sources.shown();
     this.threshold = threshold;
     this.style = style;
@@ -165,24 +179,32 @@ public final class HumanText {
     this.eachMutant = eachMutant;
     this.docs = docs;
     this.failOnNew = failOnNew;
+    this.at = at;
   }
 
   /// The same, with a card for every missed mutant, not one for each line's (`--each-mutant`).
   public HumanText eachMutant(boolean each) {
-    return new HumanText(sources, threshold, style, detail, words, each, docs, failOnNew);
+    return new HumanText(sources, threshold, style, detail, words, each, docs, failOnNew, at);
   }
 
   /// The same, with each change marked under its line linking to its operator in `docs`, when links
   /// are on.
   public HumanText withDocs(OperatorDocs docs) {
-    return new HumanText(sources, threshold, style, detail, words, eachMutant, docs, failOnNew);
+    return new HumanText(sources, threshold, style, detail, words, eachMutant, docs, failOnNew, at);
   }
 
   /// The same, passing a run on its misses the baseline doesn't hold, not on its score
   /// (`--fail-on-new`).
   public HumanText failingOnNew(FailOnNew judged) {
     return new HumanText(
-        sources, threshold, style, detail, words, eachMutant, docs, Optional.of(judged));
+        sources, threshold, style, detail, words, eachMutant, docs, Optional.of(judged), at);
+  }
+
+  /// The same, for a run of the mutants on `lines` (`--at`), `lines 17–20 of Pricing.java`: before
+  /// each one's fate, a line counts them and what happened to them.
+  public HumanText at(String lines) {
+    return new HumanText(
+        sources, threshold, style, detail, words, eachMutant, docs, failOnNew, Optional.of(lines));
   }
 
   /// Whether a run passes: on its new misses with `--fail-on-new`, else on its score.
@@ -1056,8 +1078,28 @@ public final class HumanText {
     appendRows(out, rows(report, comparison, run));
     if (run.oneMutant()) {
       out.append('\n');
+      at.ifPresent(lines -> out.append(" %s: %s\n".formatted(lines, counted(report))));
       out.append(report.results().isEmpty() ? " " + verdict(report) + "\n" : fates(report));
     }
+  }
+
+  /// `4 mutants, 3 caught, 1 missed`: how many there are, then how many had each fate, the fates
+  /// none had left out.
+  private String counted(Report report) {
+    int all = report.results().size();
+    var counts = new ArrayList<>(List.of(all + (all == 1 ? " mutant" : " mutants")));
+    var fates = new LinkedHashMap<String, Long>();
+    fates.put(words.detected, report.count(Status.CAUGHT) + report.count(Status.TIMED_OUT));
+    fates.put(words.undetected, report.count(Status.MISSED));
+    fates.put(words.notCovered, report.count(Status.NOT_COVERED));
+    fates.put("skipped", report.count(Status.SKIPPED));
+    fates.forEach(
+        (fate, count) -> {
+          if (count > 0) {
+            counts.add(count + " " + fate);
+          }
+        });
+    return String.join(", ", counts);
   }
 
   /// Why a run ran no test, as the Rust edition says it.

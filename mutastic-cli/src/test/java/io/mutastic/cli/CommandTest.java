@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -22,7 +21,7 @@ class CommandTest {
                 new Main.Shown(
                     Optional.empty(), "auto", "auto", Optional.empty(), Optional.empty(), false),
                 new Main.Bar(80, false),
-                List.of(),
+                Main.Chosen.EVERY,
                 new Main.Catches(false, false),
                 Optional.empty(),
                 new Main.Extras(true, false, false, false),
@@ -61,7 +60,7 @@ class CommandTest {
                     Optional.empty(),
                     false),
                 new Main.Bar(60, false),
-                List.of(),
+                Main.Chosen.EVERY,
                 new Main.Catches(false, false),
                 Optional.empty(),
                 new Main.Extras(true, false, false, false),
