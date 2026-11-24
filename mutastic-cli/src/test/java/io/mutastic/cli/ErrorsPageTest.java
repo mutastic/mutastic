@@ -46,6 +46,12 @@ class ErrorsPageTest {
     shown("unknown-command", project, "verfiy", "m855c8e3c", project.toString());
     shown("no-directory", project, "run", project.resolve("nosuch").toString());
     shown("unknown-id", project, "verify", "m855c83ec", project.toString());
+    shown(
+        "no-mutant-at",
+        project,
+        "run",
+        project.toString(),
+        "--at=src/main/java/com/example/pricing/Pricing.java:16");
   }
 
   @Test

@@ -1,7 +1,11 @@
 ---
 title: Changed lines, other tests and suites
-description: "Mutate only what a change touched, run another module's tests or another test suite, or run one mutant."
+description: "Mutate only what a change touched, run the mutants on a line, run another module's tests or another test suite, or run one mutant."
 ---
+
+import { Code } from '@astrojs/starlight/components';
+import atMutants from '../../../data/output/at-mutants.ansi?raw';
+import atRun from '../../../data/output/at-run.ansi?raw';
 
 ## Only what changed
 
@@ -36,6 +40,46 @@ A suite but `test` keeps its own run record and reports, under `suites/<name>/` 
 ## One run across CI jobs
 
 `--shard` splits a module's run across CI jobs, and `--from-shards` puts the shares back together: see [Running in CI](/guides/ci/#one-run-across-ci-jobs).
+
+## One line
+
+When you're fixing a line, or an agent is working on one function, you have a file and a line in
+hand, not mutant ids. `--at` takes them: `--at=<file>:<line>`, or `<file>:<from>-<to>` for the
+lines between, counted from 1 as an editor counts them. `mutants --at` lists what's there, and `run
+--at` runs it:
+
+```sh
+mutastic mutants --at=src/main/java/com/example/pricing/Pricing.java:17-20
+mutastic run --at=src/main/java/com/example/pricing/Pricing.java:17-20
+```
+
+<Code code={atMutants} lang="ansi" />
+
+A mutant is on a line when its card points at the line: from the line its statement starts on to
+the one its change is on, so each line of a statement written over several has its mutants. The
+operators are the run's own, as a full run would have them on those lines; with `--since`, only
+those on the change. Several files or spans go in one option, split by commas
+(`--at=Pricing.java:17,Tier.java:3-5`), or in several.
+
+The run is about those mutants, as [one mutant's](#one-mutant) is: it says each one's fate, after
+a line that counts them, and passes when every one is caught or skipped. It has no score, writes no
+report and isn't kept as the last run.
+
+<Code code={atRun} lang="ansi" />
+
+The path is absolute, or from where you run mutastic, or from the project, as a card prints it. The
+file must be one of the module's sources; in a build of several modules it picks its module, so
+`mutastic run --at=app/src/main/java/com/example/app/Checkout.java:9` from the build's top runs
+`:app`. Lines with no mutant on them are an error, never a run of none: it names the nearest lines
+that have one, and the `mutants --at` command that lists them. The lines are read from the file on
+disk, so an editor's unsaved changes aren't in them.
+
+From a build plugin it's `-Pmutastic.at` or `-Dmutastic.at`:
+
+```sh
+./gradlew mutasticRun -Pmutastic.at=src/main/java/com/example/pricing/Pricing.java:17
+mvn mutastic:run -Dmutastic.at=src/main/java/com/example/pricing/Pricing.java:17
+```
 
 ## One mutant
 

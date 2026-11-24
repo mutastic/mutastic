@@ -117,6 +117,21 @@ class DocsOutputTest {
     shown("run-again.ansi", project, mutastic("run", project.toString(), "--workers=4"));
   }
 
+  /// The scoping guide's one line: the mutants on some lines listed, then run, each one's fate
+  /// after the line that counts them.
+  @Test
+  void oneLine() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("lines").resolve("pricing"));
+    var lines = "--at=src/main/java/com/example/pricing/Pricing.java:17-20";
+
+    shown("at-mutants.ansi", project, mutastic("mutants", project.toString(), lines));
+    var run =
+        Samples.mutastic(
+            TERMINAL, "run", project.toString(), lines, "--format=concise", "--workers=1");
+    assertThat(run.exit()).as(run.err()).isEqualTo(Main.FAILED);
+    shown("at-run.ansi", project, run);
+  }
+
   /// The pricing sample in each format but `full` (the quickstart's run is that), each from a fresh
   /// copy, with one worker so mutants finish in the same order every time.
   @Test

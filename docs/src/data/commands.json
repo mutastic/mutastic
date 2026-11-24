@@ -11,7 +11,7 @@
       "exits": "0 when the score reaches the threshold, 1 when it doesn't; with --fail-on-new, 0 when every mutant no test catches is in the baseline, 1 when one isn't.",
       "takesMutantId": false,
       "examples": [{ "gradle": "./gradlew mutasticRun", "maven": "mvn mutastic:run", "commandLine": "mutastic run" }, { "gradle": "./gradlew mutasticRun -Pmutastic.threshold=70 -p samples/pricing", "maven": "mvn mutastic:run -Dmutastic.threshold=70 -f samples/pricing", "commandLine": "mutastic run samples/pricing --threshold=70" }, { "gradle": "./gradlew mutasticRun -Pmutastic.since=main", "maven": "mvn mutastic:run -Dmutastic.since=main", "commandLine": "mutastic run --since=main" }, { "gradle": "./gradlew :core:mutasticRun -Pmutastic.testsFrom=dependents", "maven": "mvn mutastic:run -Dmutastic.testsFrom=dependents -pl core", "commandLine": "mutastic run . :core --tests-from=dependents" }],
-      "options": ["--threshold", "--fail-on-new", "--since", "--only", "--tests-from", "--workers", "--confirm-catches", "--kill-matrix", "--shard", "--from-shards", "--no-suggestions", "--force-coverage", "--exclude-tests", "--suite", "--operators", "--experimental", "--report", "--format", "--each-mutant", "--vocabulary", "--color", "--hyperlinks", "--progress"]
+      "options": ["--threshold", "--fail-on-new", "--since", "--only", "--at", "--tests-from", "--workers", "--confirm-catches", "--kill-matrix", "--shard", "--from-shards", "--no-suggestions", "--force-coverage", "--exclude-tests", "--suite", "--operators", "--experimental", "--report", "--format", "--each-mutant", "--vocabulary", "--color", "--hyperlinks", "--progress"]
     },
     {
       "name": "verify",
@@ -110,7 +110,7 @@
       "exits": "0 once they're listed.",
       "takesMutantId": false,
       "examples": [{ "gradle": "", "maven": "", "commandLine": "mutastic mutants" }, { "gradle": "", "maven": "", "commandLine": "mutastic mutants samples/pricing --operators=stronger" }],
-      "options": ["--operators", "--estimate"]
+      "options": ["--at", "--operators", "--estimate"]
     }
   ],
   "options": [
@@ -169,6 +169,20 @@
       "maven": { "property": "-Dmutastic.only", "setting": null },
       "gradle": { "property": "-Pmutastic.only", "setting": null },
       "examples": { "run": { "gradle": "./gradlew mutasticRun -Pmutastic.only=m855c8e3c", "maven": "mvn mutastic:run -Dmutastic.only=m855c8e3c", "commandLine": "mutastic run --only=m855c8e3c", "gradleBuild": "", "mavenBuild": "" } }
+    },
+    {
+      "name": "--at",
+      "synopsis": "--at=PATH:LINE",
+      "kind": "repeated",
+      "group": "Running",
+      "value": "PATH:LINE",
+      "choices": [],
+      "help": "Run, or list, only the mutants on a line of a source file, or with :FROM-TO on those lines, under the run's operators; several split by commas. The run passes when each is caught or skipped",
+      "commands": ["mutants", "run"],
+      "environment": "",
+      "maven": { "property": "-Dmutastic.at", "setting": null },
+      "gradle": { "property": "-Pmutastic.at", "setting": null },
+      "examples": { "mutants": { "gradle": "", "maven": "", "commandLine": "mutastic mutants --at=src/main/java/com/example/pricing/Pricing.java:17", "gradleBuild": "", "mavenBuild": "" }, "run": { "gradle": "./gradlew mutasticRun -Pmutastic.at=src/main/java/com/example/pricing/Pricing.java:17", "maven": "mvn mutastic:run -Dmutastic.at=src/main/java/com/example/pricing/Pricing.java:17", "commandLine": "mutastic run --at=src/main/java/com/example/pricing/Pricing.java:17", "gradleBuild": "", "mavenBuild": "" } }
     },
     {
       "name": "--tests-from",

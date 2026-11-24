@@ -22,6 +22,7 @@
         "--fail-on-new",
         "--since",
         "--only",
+        "--at",
         "--workers",
         "--confirm-catches",
         "--kill-matrix",
@@ -135,6 +136,7 @@
       "name": "mutants",
       "synopsis": "mutastic mutants [DIR]",
       "options": [
+        "--at",
         "--operators",
         "--estimate"
       ]
@@ -160,6 +162,11 @@
       "name": "--only",
       "kind": "value",
       "value": "ID"
+    },
+    {
+      "name": "--at",
+      "kind": "repeated",
+      "value": "PATH:LINE"
     },
     {
       "name": "--workers",
@@ -418,6 +425,14 @@
     },
     {
       "code": "unknown-id",
+      "exit": 2
+    },
+    {
+      "code": "no-mutant-at",
+      "exit": 2
+    },
+    {
+      "code": "outside-sources",
       "exit": 2
     },
     {
@@ -1108,7 +1123,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "abe9db05dfe84ea4bfc1627fab476e7fc6c9678038f26c8b786fca69923de010"
+      "sha256": "a6a86ce7118e27fbd61fabe4e295cf41abbc8f11c9a5fad2b49b29b26f6301e6"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1767,6 +1782,10 @@
     {
       "id": 23,
       "rule": "`run --only` writes no report files, as a run of some mutants says nothing about the rest. When `--report` names one (anything but `none`), it says so after the result, on stderr in every format, word for word: `note: --report is left out with --only: a run of some mutants writes no reports, as it says nothing about the rest; run without --only to write them`. A note, not an error: the exit code and stdout are as without `--report`."
+    },
+    {
+      "id": 24,
+      "rule": "`run --at=PATH:LINE` and `mutants --at` (`PATH:FROM-TO` for lines FROM to TO, 1-based and inclusive; several split by commas or given again) choose the mutants on those lines of one of the module's source files, of those the run would have: its own operators, and with `--since` those on the change. PATH is split from its lines at the last `:LINE` or `:FROM-TO`, so a Windows drive stays in it; it's absolute, from the working directory or from the project, with `\\` or `/` between its parts. A mutant is on a line when the line overlaps the lines its card points at: Java from javac's line, where its statement starts, to the line of its place (`location.line`), in the file kotlinc's SMAP maps inlined code to; Rust its claim's start to end. In a build of several modules or a workspace, a PATH names its module or member when the command names none. `--at` is refused with `--only`, `--from-shards` and `--fail-on-new`. A file outside the module's sources is refused with code `outside-sources`, naming them; lines with no mutant on them, with code `no-mutant-at`: `no mutant on Pricing.java:16; there are on 17, 18 and 20. To see them:` (for one line `there's one on 17. To see it:`) and the `mutants --at` command over the nearest lines that have one, at most five. A run is of some mutants, as `--only`'s is (decisions 3 and 23, the note naming `--at`): each one's fate, no Score row, no comparison, record or reports, and it passes when each is caught or skipped. The human formats put one line before the fates, counting them: `lines 17–20 of Pricing.java: 6 mutants, 5 caught, 1 missed` (`line 17 of …` for one; several joined with `and`; each fate named in the run's vocabulary, a fate none had left out). `run-started` and `run-finished` carry `at`, each PATH from the project with `/` and its lines as given; `run-finished` has no `only`."
     }
   ],
   "differences": [
@@ -2452,6 +2471,23 @@
       "surface": "operators",
       "summary": "The arid rule `mutastic:gatherer-sizes`: `Gatherers.mapConcurrent`'s number of calls at once, while it stays above zero",
       "reason": "Java's `mapConcurrent` runs its calls on virtual threads and keeps their order, so how many run at once changes only how long they take. Rust has no gatherers, so nothing to skip."
+    },
+    {
+      "id": "N78",
+      "kind": "pending",
+      "editions": [
+        "rust"
+      ],
+      "surface": "command line",
+      "summary": "`--at=PATH:LINE[-LINE]` on `run` and `mutants`, and the events schema's `at` (decision 24): the Java edition has them first",
+      "issue": "https://github.com/mutastic/mutastic-rs/issues/166",
+      "decision": 24,
+      "items": [
+        "option:--at",
+        "takes:run:--at",
+        "takes:mutants:--at",
+        "schema:events"
+      ]
     }
   ]
 }

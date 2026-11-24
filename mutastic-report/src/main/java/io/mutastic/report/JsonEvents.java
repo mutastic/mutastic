@@ -35,6 +35,10 @@ public final class JsonEvents {
   private final Optional<Slept> clocks;
   private final List<LeftOut> leftOut;
 
+  /// The lines a run of the mutants on them (`--at`) was asked for, each as `PATH:LINE` or
+  /// `PATH:FROM-TO` from the project; empty for any other run.
+  private final List<String> at;
+
   public JsonEvents(PrintStream out, SourceView sources, int threshold) {
     this(out, sources, threshold, Optional.empty());
   }
@@ -52,7 +56,16 @@ public final class JsonEvents {
       int threshold,
       Optional<Share> share,
       OperatorDocs docs) {
-    this(out, sources, threshold, share, docs, Optional.empty(), Optional.empty(), List.of());
+    this(
+        out,
+        sources,
+        threshold,
+        share,
+        docs,
+        Optional.empty(),
+        Optional.empty(),
+        List.of(),
+        List.of());
   }
 
   private JsonEvents(
@@ -63,7 +76,8 @@ public final class JsonEvents {
       OperatorDocs docs,
       Optional<FailOnNew> failOnNew,
       Optional<Slept> clocks,
-      List<LeftOut> leftOut) {
+      List<LeftOut> leftOut,
+      List<String> at) {
     this.out = out;
     this.sources = sources;
     this.text = new AgentText(sources, threshold);
@@ -73,26 +87,33 @@ public final class JsonEvents {
     this.failOnNew = failOnNew;
     this.clocks = clocks;
     this.leftOut = List.copyOf(leftOut);
+    this.at = List.copyOf(at);
   }
 
   /// The same, passing a run on its misses the baseline doesn't hold, not on its score
   /// (`--fail-on-new`): `run-finished` says so, with the new misses by id.
   public JsonEvents failingOnNew(FailOnNew judged) {
     return new JsonEvents(
-        out, sources, threshold, share, docs, Optional.of(judged), clocks, leftOut);
+        out, sources, threshold, share, docs, Optional.of(judged), clocks, leftOut, at);
   }
 
   /// The same, for a run whose clocks read these when it started: `run-finished`'s `sleptMs` says
   /// how long the machine slept since, when it's worth saying (see [Slept]).
   public JsonEvents sleptFrom(Slept started) {
     return new JsonEvents(
-        out, sources, threshold, share, docs, failOnNew, Optional.of(started), leftOut);
+        out, sources, threshold, share, docs, failOnNew, Optional.of(started), leftOut, at);
   }
 
   /// The same, for a run that left out these tests: `run-finished`'s `testsLeftOut` names each,
   /// with its reason, or null for one given on the command line.
   public JsonEvents leavingOut(List<LeftOut> tests) {
-    return new JsonEvents(out, sources, threshold, share, docs, failOnNew, clocks, tests);
+    return new JsonEvents(out, sources, threshold, share, docs, failOnNew, clocks, tests, at);
+  }
+
+  /// The same, for a run of the mutants on these lines (`--at`), each `PATH:LINE` or `PATH:FROM-TO`
+  /// from the project: `run-started` and `run-finished` name them.
+  public JsonEvents at(List<String> lines) {
+    return new JsonEvents(out, sources, threshold, share, docs, failOnNew, clocks, leftOut, lines);
   }
 
   /// Which share of a split run this is, and what it ran on: the shares of one run are of the same
@@ -110,6 +131,9 @@ public final class JsonEvents {
     fields.put("rule", MutantCommand.RULE);
     fields.put("decline", MutantCommand.DECLINE);
     share.ifPresent(found -> fields.put("share", shareFields(found)));
+    if (!at.isEmpty()) {
+      fields.put("at", at);
+    }
     emit("run-started", fields);
   }
 
@@ -405,8 +429,8 @@ public final class JsonEvents {
   /// The last event: the totals, the score and verdict, and how this run compares with the last.
   ///
   /// @param reports the report files written
-  /// @param oneMutant the run was mutants asked for by id: `passed` says whether each is caught or
-  ///   skipped, not whether a score reaches the threshold
+  /// @param oneMutant the run was mutants asked for by id, or those on some lines (`--at`):
+  ///   `passed` says whether each is caught or skipped, not whether a score reaches the threshold
   public void runFinished(
       Report report, Optional<Comparison> comparison, List<String> reports, boolean oneMutant) {
     var fields = new LinkedHashMap<String, Object>();
@@ -576,7 +600,8 @@ public final class JsonEvents {
   }
 
   /// The score, the threshold, and whether the run passed: with `--fail-on-new`, on its new misses,
-  /// which it names, with how many the baseline holds.
+  /// which it names, with how many the baseline holds. A run of some mutants names them: the first
+  /// asked for by id (`only`), or the lines asked for (`at`).
   private void putVerdict(Map<String, Object> fields, Report report, boolean oneMutant) {
     fields.put("score", rounded(report.score()));
     fields.put("threshold", threshold);
@@ -586,7 +611,9 @@ public final class JsonEvents {
       fields.put("newMisses", failOnNew.get().newMisses(report));
       fields.put("inBaseline", failOnNew.get().inBaseline(report));
     }
-    if (oneMutant) {
+    if (oneMutant && !at.isEmpty()) {
+      fields.put("at", at);
+    } else if (oneMutant) {
       fields.put(
           "only", report.results().isEmpty() ? null : report.results().getFirst().mutant().id());
     }

@@ -48,6 +48,12 @@ public final class Maven implements BuildTool {
     return new Address(top, below.isEmpty() ? ":" : ":" + below);
   }
 
+  /// A module is named by its directory from the top of its build, `-pl`'s way: `:libs/core`.
+  @Override
+  public String moduleAt(Path build, Path directory) {
+    return ":" + build.relativize(directory).toString().replace(java.io.File.separatorChar, '/');
+  }
+
   @Override
   public List<String> dependents(Path directory, String module, Path workDirectory) {
     return MavenSetup.dependents(directory, module, workDirectory);

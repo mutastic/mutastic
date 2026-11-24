@@ -133,7 +133,7 @@ public final class Main {
       return answered.getAsInt();
     }
     try {
-      var command = enclosing(Command.parse(args));
+      var command = AtFiles.onItsModule(enclosing(Command.parse(args)));
       return nothingToGate(command) ? PASSED : run(command, out, err, terminal);
     } catch (RuntimeException e) {
       var failure = Failure.of(e, List.of(args), terminal.env());
@@ -391,7 +391,7 @@ public final class Main {
     showFileLines(command, output, human, prepared);
     progress.nameMutants(human::running);
     var engine = engineFor(command, prepared);
-    var options = options(command, terminal, prepared);
+    var options = onTheLines(prepared, engine, options(command, terminal, prepared));
     var passes = new Passes(engine, options, progress, tool, shares);
     if (command.subcommand() != Subcommand.RUN) {
       return command.subcommand().gate()
@@ -399,6 +399,19 @@ public final class Main {
           : single(command, prepared, passes, output);
     }
     return fullRun(command, prepared, passes, output);
+  }
+
+  /// With `--at`, the options for only the mutants on its lines, of those the run would have: under
+  /// its operators, and with `--since` on the change. Lines with none on them are refused.
+  private static Engine.Options onTheLines(
+      Prepared prepared, Engine engine, Engine.Options options) {
+    if (prepared.at().isEmpty()) {
+      return options;
+    }
+    var found = engine.find(prepared.project(), options).all();
+    var on = AtMutants.on(prepared.at(), found, prepared.sources());
+    return options.among(
+        on.stream().map(io.mutastic.api.Mutant::id).collect(java.util.stream.Collectors.toSet()));
   }
 
   /// The engine a run runs on, logging to the module's work directory and keeping its tests' times
@@ -455,7 +468,9 @@ public final class Main {
         command.estimate()
             ? measuredEstimates(listing, output.progress())
             : recordedEstimate(listing);
-    var found = listing.find(command);
+    var every = listing.find(command);
+    var found =
+        prepared.at().isEmpty() ? every : AtMutants.on(prepared.at(), every, prepared.sources());
     output.progress().finished();
     output.out().print(new MutantList(prepared.sources()).of(found, notes));
     return PASSED;
@@ -590,18 +605,24 @@ public final class Main {
     return exitCode(command, tested.report(), judged);
   }
 
-  /// With `--only`, the reports `--report` named aren't written, and a note on stderr says why, so
-  /// one asked for isn't missed in silence. A note, not a failure: the run's exit code is its own.
+  /// With `--only` or `--at`, the reports `--report` named aren't written, and a note on stderr
+  /// says why, so one asked for isn't missed in silence. A note, not a failure: the run's exit code
+  /// is its own.
   private static void reportsLeftOut(Command command, PrintStream err) {
-    if (!command.only().isEmpty() && command.extras().reportsNamed()) {
-      err.print(REPORTS_LEFT_OUT + "\n");
+    if (command.partial() && command.extras().reportsNamed()) {
+      err.print(reportsLeftOutWith(command.only().isEmpty() ? "--at" : "--only") + "\n");
     }
   }
 
   /// What a run with `--only` says of the reports `--report` named, as the Rust edition says it.
-  static final String REPORTS_LEFT_OUT =
-      "note: --report is left out with --only: a run of some mutants writes no reports, as it says"
-          + " nothing about the rest; run without --only to write them";
+  static final String REPORTS_LEFT_OUT = reportsLeftOutWith("--only");
+
+  /// What a run of some mutants, chosen by `option`, says of the reports `--report` named.
+  static String reportsLeftOutWith(String option) {
+    return ("note: --report is left out with %s: a run of some mutants writes no reports, as it says"
+            + " nothing about the rest; run without %s to write them")
+        .formatted(option, option);
+  }
 
   /// What progress calls writing the run's record and reports.
   private static final String RECORDING = "writing the record and reports";
@@ -723,7 +744,7 @@ public final class Main {
             .filter(set -> !set.equals(String.join(",", chosenOperators(command, prepared))))
             .isPresent()
         || report.scope().isPresent()
-        || !command.only().isEmpty()
+        || command.partial()
         || output.format().equals("jsonl")) {
       return;
     }
@@ -855,10 +876,10 @@ public final class Main {
             out);
   }
 
-  /// Only full runs compare, are kept and write reports: one mutant says nothing about the rest.
+  /// Only full runs compare, are kept and write reports: some mutants say nothing about the rest.
   private static Kept kept(
       Command command, Prepared prepared, Tested tested, Optional<FailOnNew> judged) {
-    return command.only().isEmpty() ? keep(command, prepared, tested, judged) : Kept.NOTHING;
+    return command.partial() ? Kept.NOTHING : keep(command, prepared, tested, judged);
   }
 
   /// A `gate` command, with what running it needs.
@@ -1687,6 +1708,17 @@ public final class Main {
     static final Bar ANY_SCORE = new Bar(0, false);
   }
 
+  /// Which of the module's mutants a command is of: those with the ids `only` (`--only`, or the one
+  /// `verify` or `explain` names), or those on the lines `at` (`--at`); every one when neither.
+  record Chosen(List<String> only, List<At> at) {
+    static final Chosen EVERY = new Chosen(List.of(), List.of());
+
+    Chosen {
+      only = List.copyOf(only);
+      at = List.copyOf(at);
+    }
+  }
+
   /// A run split across machines: the share this one runs (`--shard`), or the directory of the
   /// shares it's made of (`--from-shards`).
   record Sharing(Optional<Shard> shard, Optional<Path> from) {
@@ -1955,6 +1987,7 @@ public final class Main {
   ///
   /// @param clocks both clocks when the run started: when, and how long the machine slept since
   /// @param leftOut the tests the run leaves out: `mutastic.yaml`'s, then `--exclude-tests`'s
+  /// @param at the lines of the module's sources whose mutants the run is of (`--at`)
   private record Prepared(
       Path directory,
       Path work,
@@ -1963,7 +1996,8 @@ public final class Main {
       Duration setup,
       Duration build,
       Slept clocks,
-      List<LeftOut> leftOut) {
+      List<LeftOut> leftOut,
+      List<AtFiles.Lines> at) {
     /// When the run started, on the reader's clock.
     ZonedDateTime startedAt() {
       return clocks.clock().atZone(java.time.ZoneId.systemDefault());
@@ -1988,7 +2022,9 @@ public final class Main {
         new SourceView(directory, project.sources(), project.testSources())
             .withClassSources(new ClassSources(project.classes()))
             .withInvocation(invocation(command, directory));
-    return new Prepared(directory, work, project, sources, setup, built.took(), clocks, leftOut);
+    var at = AtFiles.of(command.at(), directory, project);
+    return new Prepared(
+        directory, work, project, sources, setup, built.took(), clocks, leftOut, at);
   }
 
   /// The tests a run leaves out: those under `exclude-tests:` in the module's nearest
@@ -2197,7 +2233,7 @@ public final class Main {
 
   private static Display display(
       Command command, Prepared prepared, Output output, Optional<FailOnNew> judged) {
-    var oneMutant = !command.only().isEmpty();
+    var oneMutant = command.partial();
     return switch (output.format()) {
       case "jsonl" -> jsonl(command, prepared, output, judged);
       case "agent" -> {
@@ -2214,7 +2250,7 @@ public final class Main {
   /// A person's formats: the summary, its Duration counting the reports' writing.
   private static Display human(
       Command command, Prepared prepared, Output output, Optional<FailOnNew> judged) {
-    var plain = humanText(command, output, prepared.sources());
+    var plain = onTheLines(humanText(command, output, prepared.sources()), prepared);
     var human = judged.map(plain::failingOnNew).orElse(plain);
     return new Display(
         output.progress(),
@@ -2224,6 +2260,16 @@ public final class Main {
                 .print(
                     human.render(
                         report, comparison, run(command, prepared, written).writtenIn(writing))));
+  }
+
+  /// With `--at`, the human formats with a line counting the mutants on its lines, and their fates:
+  /// `lines 17–20 of Pricing.java: 4 mutants, 3 caught, 1 missed`.
+  private static HumanText onTheLines(HumanText human, Prepared prepared) {
+    if (prepared.at().isEmpty()) {
+      return human;
+    }
+    var named = prepared.at().stream().map(AtFiles.Lines::named).map(Untrusted::value).toList();
+    return human.at(Options.listed(named, "and"));
   }
 
   /// The agent format, judged on new misses with `--fail-on-new`.
@@ -2242,7 +2288,7 @@ public final class Main {
         prepared.startedAt().toLocalTime(),
         prepared.setup(),
         written,
-        !command.only().isEmpty(),
+        command.partial(),
         prepared.leftOut(),
         prepared.build(),
         command.shard().isEmpty()
@@ -2265,7 +2311,8 @@ public final class Main {
         .map(shown::failingOnNew)
         .orElse(shown)
         .sleptFrom(prepared.clocks())
-        .leavingOut(prepared.leftOut());
+        .leavingOut(prepared.leftOut())
+        .at(prepared.at().stream().map(AtFiles.Lines::typed).toList());
   }
 
   /// JSON Lines: the run's start now, each mutant as it finishes, and the result at the end.
@@ -2279,15 +2326,13 @@ public final class Main {
           output.progress(),
           (report, comparison, written, writing) -> {
             report.results().forEach(events::mutantFinished);
-            events.runFinished(
-                report, comparison, listed(prepared, written), !command.only().isEmpty());
+            events.runFinished(report, comparison, listed(prepared, written), command.partial());
           });
     }
     return new Display(
         progressAndEvents(output.progress(), events),
         (report, comparison, written, writing) ->
-            events.runFinished(
-                report, comparison, listed(prepared, written), !command.only().isEmpty()));
+            events.runFinished(report, comparison, listed(prepared, written), command.partial()));
   }
 
   /// The files written, as `run-finished` lists them: from the project where they're in it.
@@ -2496,9 +2541,9 @@ public final class Main {
     if (!report.failingAlone().isEmpty()) {
       return TESTS_FAIL; // a test fails on the unmutated code, as before any mutant
     }
-    // One mutant asked for by id passes when it's caught or skipped, as `verify` does; a whole
-    // run, on its score, or with `--fail-on-new` on its new misses.
-    if (!command.only().isEmpty()) {
+    // Mutants asked for by id, or by their lines, pass when each is caught or skipped, as `verify`
+    // does; a whole run, on its score, or with `--fail-on-new` on its new misses.
+    if (command.partial()) {
       return report.results().stream().allMatch(Main::settled) ? PASSED : FAILED;
     }
     var passed =
@@ -2853,13 +2898,14 @@ public final class Main {
   /// @param extras what the run does besides running its mutants
   /// @param reports the report files to write after a full run
   /// @param experimental what's experimental that the run turns on: `ghosts`
+  /// @param chosen which of the module's mutants it's of: those asked for by id or by their lines
   record Command(
       Subcommand subcommand,
       Path directory,
       String module,
       Shown shown,
       Bar bar,
-      List<String> only,
+      Chosen chosen,
       Catches catches,
       Optional<Integer> workers,
       Extras extras,
@@ -2902,6 +2948,22 @@ public final class Main {
 
     boolean confirmCatches() {
       return catches.confirm();
+    }
+
+    /// The mutants asked for by id: `--only`'s, or the one a command such as `verify` is of.
+    List<String> only() {
+      return chosen.only();
+    }
+
+    /// The lines of source files whose mutants run, or are listed (`--at`).
+    List<At> at() {
+      return chosen.at();
+    }
+
+    /// Whether the run is of some mutants, asked for by id (`--only`) or by their lines (`--at`):
+    /// each one's fate is its result, not a score, and it keeps no record and writes no report.
+    boolean partial() {
+      return !chosen.only().isEmpty() || !chosen.at().isEmpty();
     }
 
     /// Look for a test to suggest for each missed mutant.
@@ -2959,7 +3021,7 @@ public final class Main {
           module,
           shown,
           bar,
-          only,
+          chosen,
           catches,
           workers,
           extras,
@@ -2986,7 +3048,7 @@ public final class Main {
           otherModule,
           shown,
           bar,
-          only,
+          chosen,
           catches,
           workers,
           extras,
@@ -3005,21 +3067,21 @@ public final class Main {
           sharing);
     }
 
-    /// The same command, running `chosen` operators: a gate check's, those its open chose.
-    Command withOperators(List<String> chosen) {
+    /// The same command, running the operators `named`: a gate check's, those its open chose.
+    Command withOperators(List<String> named) {
       return new Command(
           subcommand,
           directory,
           module,
           shown,
           bar,
-          only,
+          chosen,
           catches,
           workers,
           extras,
           reports,
           testsFrom,
-          List.copyOf(chosen),
+          List.copyOf(named),
           excludeTests,
           suite,
           since,
@@ -3042,7 +3104,7 @@ public final class Main {
           module,
           shown,
           Bar.ANY_SCORE,
-          List.of(),
+          Chosen.EVERY,
           catches,
           workers,
           // The tests always run: a change with no mutant on its lines (a constant, an import, a
@@ -3156,6 +3218,7 @@ public final class Main {
       private int threshold = DEFAULT_THRESHOLD;
       private boolean failOnNew = false;
       private List<String> only = List.of();
+      private final List<At> at = new ArrayList<>();
       private boolean confirmCatches = false;
       private boolean eachMutant = false;
       private Optional<Integer> workers = Optional.empty();
@@ -3344,6 +3407,7 @@ public final class Main {
           case "--threshold" -> threshold = number(option, given, 0, 100);
           case "--since" -> since(value);
           case "--only" -> only = onlyIds(given);
+          case "--at" -> at.addAll(At.parse(given));
           case "--tests-from" -> testsFrom.add(module(given));
           case "--operators" -> operators(given);
           case "--experimental" -> experimental.add(choice(option, given));
@@ -3663,7 +3727,7 @@ public final class Main {
             module,
             new Shown(format, colour, links, progress, vocabulary, eachMutant),
             bar(subcommand),
-            only,
+            new Chosen(only, at),
             new Catches(confirmCatches, killMatrix),
             workers,
             new Extras(suggestions, forceCoverage, estimate, reports != null && !reports.isEmpty()),
@@ -3686,12 +3750,26 @@ public final class Main {
       /// by id, each of which passes when it's caught; another command takes no notice of it, as a
       /// build plugin may pass it to each.
       private Bar bar(Subcommand subcommand) {
-        if (subcommand == Subcommand.RUN && failOnNew && !only.isEmpty()) {
+        if (!only.isEmpty() && !at.isEmpty()) {
           throw new UsageException(
-              "--fail-on-new judges a run of the module on its new misses: not with --only, whose"
-                  + " mutants each pass when they're caught");
+              "--only and --at both choose the mutants that run: give one, the ids or the lines");
+        }
+        var some = choosing();
+        if (subcommand == Subcommand.RUN && failOnNew && !some.isEmpty()) {
+          throw new UsageException(
+              ("--fail-on-new judges a run of the module on its new misses: not with %s, whose"
+                      + " mutants each pass when they're caught")
+                  .formatted(some));
         }
         return new Bar(threshold, failOnNew && subcommand == Subcommand.RUN);
+      }
+
+      /// The option that chose some of the mutants, `--only` or `--at`; empty when none did.
+      private String choosing() {
+        if (!only.isEmpty()) {
+          return "--only";
+        }
+        return at.isEmpty() ? "" : "--at";
       }
 
       /// A run is a share or made of them, not both; made of them, it runs no mutants itself, so
@@ -3717,6 +3795,7 @@ public final class Main {
         var given = new java.util.LinkedHashMap<String, Boolean>();
         given.put("--shard", shard.isPresent());
         given.put("a mutant asked for by id", !only.isEmpty());
+        given.put("--at", !at.isEmpty());
         given.put("--since", since.isPresent());
         given.put("--tests-from", !testsFrom.isEmpty());
         given.put("--force-coverage", forceCoverage);

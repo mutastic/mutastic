@@ -1,0 +1,19 @@
+
+[1;31m[1m Missed [0m[0m[2m────────────────────────────────────────────────────────────[0m
+ [1;31m✗[0m src/main/java/com/example/pricing/Pricing.java:17 no test checks [1mdiscount()[0m at [1mtotal == 100[0m [2mm855c8e3c[0m
+
+ [2m  Classes[0m  [32m[1m0 clean[0m[0m[2m | [0m[1;31m[1m1 with misses[0m[0m[2m (1)[0m
+ [2m  Mutants[0m  [32m✓ [1m5 caught[0m[0m[2m · [0m[1;31m✗ [1m1 missed[0m[0m[2m (6)[0m
+ [2m Worst at[0m  Pricing.discount() 1 ✗
+ [2mTest runs[0m  8[2m (18 without coverage selection)[0m
+ [2m Start at[0m  21:38:26
+ [2m Duration[0m  2.0s [2m(setup 0ms, build 574ms, coverage 252ms, mutants 170ms, checking 974ms)[0m
+ [2m    Tests[0m  3 on JDK 17 · 1 worker
+
+ lines 17–20 of Pricing.java: 6 mutants, 5 caught, 1 missed
+ [41;30;1m MISSED [0m [1;31mm855c8e3c is still missed · done when mutastic verify m855c8e3c samples/pricing passes[0m
+ [42;30;1m CAUGHT [0m [32mm53e1dc80 is caught by PricingTest#bigOrdersGetTenPercentOff[0m
+ [42;30;1m CAUGHT [0m [32mmfb551430 is caught by PricingTest#smallOrdersPayFullPrice[0m
+ [42;30;1m CAUGHT [0m [32mmabd5e44c is caught by PricingTest#bigOrdersGetTenPercentOff[0m
+ [42;30;1m CAUGHT [0m [32mmf7bb3882 is caught by PricingTest#bigOrdersGetTenPercentOff[0m
+ [42;30;1m CAUGHT [0m [32mm3264f639 is caught by PricingTest#smallOrdersPayFullPrice[0m
