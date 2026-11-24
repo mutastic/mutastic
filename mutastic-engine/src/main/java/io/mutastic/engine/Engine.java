@@ -168,6 +168,25 @@ public final class Engine {
     }
   }
 
+  /// The tests run on a JDK older than 17, the oldest mutastic's test workers run on: said before
+  /// one starts, naming the JDK, where a worker on JDK 8 stopped on an option it doesn't know and
+  /// one on 11 on its class files, both read as mutastic's own failure.
+  public static final class TestsJdkTooOld extends CantRun {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    /// The oldest JDK mutastic's test workers run on: the worker is built for it.
+    static final int OLDEST = 17;
+
+    TestsJdkTooOld(Project project, int jdk) {
+      super(
+          ("%s's tests run on JDK %d, %s, and mutastic's test workers run on JDK %d or later."
+                  + " Give the tests a JDK %d or later for mutastic's run: the test task's"
+                  + " toolchain in Gradle (java.toolchain, or the test task's javaLauncher), or"
+                  + " Surefire's jvm in Maven.")
+              .formatted(project.name(), jdk, project.java(), OLDEST, OLDEST));
+    }
+  }
+
   /// A worker can't run the tests as their classpath is: a framework says what to add or change.
   public static final class TestsCantRun extends CantRun {
     @java.io.Serial private static final long serialVersionUID = 1L;
@@ -695,19 +714,33 @@ public final class Engine {
   static int jdkOf(Path java) {
     var bin = java.toAbsolutePath().getParent();
     var home = bin == null ? null : bin.getParent();
-    return home == null ? Runtime.version().feature() : releaseOf(home.resolve("release"));
+    if (home == null) {
+      return Runtime.version().feature();
+    }
+    // JDK 8's `java` may be its JRE's, `jre/bin/java`, with the release file a directory up.
+    var jdk =
+        home.getFileName() != null
+                && home.getFileName().toString().equals("jre")
+                && !Files.exists(home.resolve("release"))
+                && home.getParent() != null
+            ? home.getParent()
+            : home;
+    return releaseOf(jdk.resolve("release"));
   }
+
+  /// `JAVA_VERSION="25.0.1"` in a JDK's release file, or `"1.8.0_392"` for JDK 8, whose version
+  /// `Runtime.Version` can't read.
+  private static final java.util.regex.Pattern RELEASE =
+      java.util.regex.Pattern.compile("(?m)^JAVA_VERSION=\"(?:1\\.)?(?<feature>\\d+)");
 
   /// The feature version a JDK's `release` file names; this JVM's when it names none.
   private static int releaseOf(Path release) {
     try {
-      for (String line : Files.readAllLines(release)) {
-        if (line.startsWith("JAVA_VERSION=")) {
-          var version = line.substring("JAVA_VERSION=".length()).replace("\"", "");
-          return Runtime.Version.parse(version).feature();
-        }
+      var matcher = RELEASE.matcher(Files.readString(release));
+      if (matcher.find()) {
+        return Integer.parseInt(matcher.group("feature"));
       }
-    } catch (IOException | IllegalArgumentException e) {
+    } catch (IOException e) {
       // no release file to read: this JVM's version stands in
     }
     return Runtime.version().feature();

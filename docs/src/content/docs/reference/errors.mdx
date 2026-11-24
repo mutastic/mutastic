@@ -237,6 +237,11 @@ finds a JDK 25 for itself; or upgrade the wrapper to a Gradle that runs on the b
 command that does it. A Gradle on the `PATH`, for a build with no wrapper, is checked the same way,
 and the way out is a wrapper. See [Troubleshooting](/guides/troubleshooting/#the-builds-gradle-cant-run-on-its-jdk).
 
+The tests' JDK is `build-jdk` too: tests that run on a JDK older than 17, such as a JDK 8 or 11
+toolchain, can't run in mutastic's test workers, which run on 17 or later. mutastic names the JDK,
+before any test runs. Give the tests a JDK 17 or later for mutastic's run: the test task's
+toolchain in Gradle, or Surefire's `jvm` in Maven.
+
 ```
 mutastic: shop's build runs on JDK 25, and its Gradle, 8.10.2, runs on JDK 23 at most.
 Set JAVA_HOME to a JDK 23 or older, and mutastic still finds its own JDK 25. Or upgrade the wrapper to Gradle 9.1.0 or later. Gradle's output is in build/mutastic/gradle.log. To upgrade, with JAVA_HOME at the older JDK:

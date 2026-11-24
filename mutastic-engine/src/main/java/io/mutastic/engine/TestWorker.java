@@ -155,9 +155,14 @@ final class TestWorker implements AutoCloseable {
   }
 
   /// Sends the coverage pass, with every class in `instrumented` staged; first stops a run whose
-  /// tests a worker can't run as their classpath is, before one starts: a framework says what to
-  /// add or change ([TestFrameworks#refusal]).
+  /// tests a worker can't run, before one starts: on a JDK older than the worker runs on
+  /// ([Engine.TestsJdkTooOld]), or with a classpath a framework says what to add to or change in
+  /// ([TestFrameworks#refusal]).
   private void startCovering(Map<String, byte[]> instrumented, List<String> testClasses) {
+    int testsJdk = Engine.jdkOf(project.java());
+    if (testsJdk < Engine.TestsJdkTooOld.OLDEST) {
+      throw new Engine.TestsJdkTooOld(project, testsJdk);
+    }
     var refusal = frameworks.refusal();
     if (refusal.isPresent()) {
       throw new Engine.TestsCantRun(project, refusal.get());

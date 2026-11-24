@@ -119,7 +119,7 @@ two apart.
 | What | Runs on |
 |---|---|
 | Your build: Gradle or Maven, compiling the code and tests | `JAVA_HOME`, or the `java` on the `PATH`, as you gave them |
-| Your tests, in mutastic's test workers | The JDK your build's `test` task, or Surefire, uses: its toolchain, else the build's own JDK |
+| Your tests, in mutastic's test workers | The JDK your build's `test` task, or Surefire, uses: its toolchain, else the build's own JDK. It must be JDK 17 or later |
 | mutastic itself, from the command line | `MUTASTIC_JAVA_HOME` when it's set; else the newest JDK 25 or later of `JAVA_HOME` and those installed |
 | mutastic itself, from the Gradle plugin | A JDK 25 toolchain, or the project's own JDK when it's newer (`javaLauncher`) |
 | mutastic itself, from the Maven plugin | A JDK 25 toolchain, else Maven's JDK if it's new enough, else `-Dmutastic.jdk` |

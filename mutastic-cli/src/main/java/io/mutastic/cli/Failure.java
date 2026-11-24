@@ -71,6 +71,7 @@ record Failure(int exit, String code, String said) {
           new Failure(Main.USAGE, "unknown-id", headline + closeId(unknown, args));
       case BuildTool.SetupFailed setup -> setup(setup, message, args, env);
       case Engine.NoTestsRan none -> withHint("no-tests", message, none, env);
+      case Engine.TestsJdkTooOld old -> withHint("build-jdk", message, old, env);
       case Engine.NothingCovered nothing -> withHint("nothing-covered", message, nothing, env);
       case Engine.CantRun cantRun -> withHint(OTHER, message, cantRun, env);
       case Shares.Refused refused -> withHint("shards", message, refused, env);
