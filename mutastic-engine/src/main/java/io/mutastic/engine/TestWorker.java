@@ -154,6 +154,18 @@ final class TestWorker implements AutoCloseable {
     }
   }
 
+  /// Sends the coverage pass, with every class in `instrumented` staged; first stops a run whose
+  /// tests a worker can't run as their classpath is, before one starts: a framework says what to
+  /// add or change ([TestFrameworks#refusal]).
+  private void startCovering(Map<String, byte[]> instrumented, List<String> testClasses) {
+    var refusal = frameworks.refusal();
+    if (refusal.isPresent()) {
+      throw new Engine.TestsCantRun(project, refusal.get());
+    }
+    instrumented.forEach(this::stage);
+    send("COVER\t" + String.join("\t", testClasses));
+  }
+
   /// The tests couldn't start in the coverage pass: the worker said why ([StartFailure]).
   private Engine.NoTestsRan unstarted(String[] parts) {
     var failure = StartFailure.of(parts[1], parts[2], parts[3], parts[4]);
@@ -166,8 +178,7 @@ final class TestWorker implements AutoCloseable {
       List<String> testClasses,
       Coverage coverage,
       io.mutastic.api.Listener listener) {
-    instrumented.forEach(this::stage);
-    send("COVER\t" + String.join("\t", testClasses));
+    startCovering(instrumented, testClasses);
     var failed = new Failed();
     var counted = new TestsCounted(coverage, listener);
     while (true) {

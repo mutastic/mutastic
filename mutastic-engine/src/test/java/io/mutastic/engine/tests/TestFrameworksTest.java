@@ -65,4 +65,28 @@ class TestFrameworksTest {
     assertThat(frameworks("quarkus-junit5-3.17.0.jar").loadsTheApp()).isTrue();
     assertThat(frameworks("junit-jupiter-5.12.2.jar").loadsTheApp()).isFalse();
   }
+
+  /// The build's platform with no launcher, when the build tool couldn't add the build's own: the
+  /// worker can't start, and mutastic's launcher would be another version, so it says what to add.
+  @Test
+  void aPlatformWithNoLauncherIsRefused() {
+    assertThat(
+            frameworks("junit-jupiter-engine-5.10.2.jar", "junit-platform-engine-1.10.2.jar")
+                .refusal())
+        .hasValueSatisfying(
+            said ->
+                assertThat(said)
+                    .contains("JUnit Platform 1.10.2")
+                    .contains("testRuntimeOnly(\"org.junit.platform:junit-platform-launcher\")"));
+    assertThat(support("junit-platform-engine-1.10.2.jar")).isEmpty();
+  }
+
+  @Test
+  void aPlatformWithItsLauncherRuns() {
+    assertThat(
+            frameworks("junit-platform-engine-1.10.2.jar", "junit-platform-launcher-1.10.2.jar")
+                .refusal())
+        .isEmpty();
+    assertThat(frameworks("commons-lang3-3.17.0.jar").refusal()).isEmpty();
+  }
 }

@@ -45,4 +45,12 @@ public final class TestFrameworks {
         .flatMap(framework -> framework.unstarted(classpath, failure).stream())
         .findFirst();
   }
+
+  /// Why a worker can't run these tests, from the first framework that says: what to add or change.
+  /// Empty when it can.
+  public Optional<String> refusal() {
+    return FRAMEWORKS.stream()
+        .flatMap(framework -> framework.refusal(classpath).stream())
+        .findFirst();
+  }
 }

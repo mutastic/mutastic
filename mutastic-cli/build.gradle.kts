@@ -157,6 +157,15 @@ tasks.test {
     doFirst { timeoutDumps.get().asFile.deleteRecursively() }
     // The end-to-end tests run mutastic against the sample projects, each its own Gradle build.
     systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
+    // A JDK 17 for the samples on a Gradle that can't run on 25 (gradle-no-launcher's 8.6): its
+    // copy's gradle.properties names it as the daemon's JDK.
+    systemProperty(
+        "mutastic.jdk17",
+        javaToolchains
+            .launcherFor { languageVersion = JavaLanguageVersion.of(17) }
+            .get()
+            .metadata.installationPath.asFile.absolutePath,
+    )
     // DocsCommandsTest parses every command the docs show.
     systemProperty("mutastic.docs", rootDir.resolve("docs/src/content/docs").absolutePath)
     // An input, so a change to the docs alone runs it again.
