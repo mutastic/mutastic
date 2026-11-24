@@ -2471,23 +2471,6 @@
       "surface": "operators",
       "summary": "The arid rule `mutastic:gatherer-sizes`: `Gatherers.mapConcurrent`'s number of calls at once, while it stays above zero",
       "reason": "Java's `mapConcurrent` runs its calls on virtual threads and keeps their order, so how many run at once changes only how long they take. Rust has no gatherers, so nothing to skip."
-    },
-    {
-      "id": "N78",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "`--at=PATH:LINE[-LINE]` on `run` and `mutants`, and the events schema's `at` (decision 24): the Java edition has them first",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/166",
-      "decision": 24,
-      "items": [
-        "option:--at",
-        "takes:run:--at",
-        "takes:mutants:--at",
-        "schema:events"
-      ]
     }
   ]
 }
