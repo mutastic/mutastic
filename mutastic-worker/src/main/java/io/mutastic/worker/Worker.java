@@ -57,7 +57,8 @@ import org.junit.platform.launcher.core.LauncherFactory;
 /// | `COVER <test>...`: run every test, recording lines and arguments | `TESTS <count>` as they start, `TEST <id> <nanos>`, `LINE <id> <ids>` and `VALUE <id> <parameter> <values>` lines, then `DONE PASSED` or `DONE FAILED <id>...` |
 /// | `COVER` answers also hold `LOADING <ids>`: the lines some test ran, but only while a class was loading, and `LOADED <class>...`: the production classes it loaded, in order | |
 /// | `WARM <class>...`: load and initialise them, with no mutant in, as a worker that didn't run `COVER` must before its first mutant | `WARMED`, or `NOT-WARMED <class>` for the first that couldn't be |
-/// | `RUN <test>...`: run in order until one fails | `RESULT PASSED <ran>`, `RESULT FAILED <ran> <test> <exception> <origin> <port-clash or ->` or `RESULT ERROR <why>`, after `AGED` if this worker is now worth replacing ([Aging]) |
+/// | `RUN <test>...`: run in order until one fails, property tests unshrunk ([Shrinking]) | `RESULT PASSED <ran>`, `RESULT FAILED <ran> <test> <exception> <origin> <port-clash or -> <case> <input>` (the case as [FailedCase] says it, the input as [CaughtInput] does) or `RESULT ERROR <why>`, after `AGED` if this worker is now worth replacing ([Aging]) |
+/// | `SHRINK`: the next `RUN` or `FRESH` shrinks a failing property's input, as the framework would, leaving the mutant in place | nothing |
 /// | `FRESH <test>...`: the same, with every class loaded anew, so static initialisers run with the staged classes | as for `RUN` |
 /// | `SUGGEST <class> <method> <descriptor> <base64> <inputs> <receiver>`: find inputs where a mutant changes the result; inputs are `1;2\|3;4`, `-` for none; the receiver is `-` for a static method, else a constructor descriptor whose arguments start each input, or for an inner class its outer class's receiver, `>`, then its own | `SUGGESTED <inputs> <today> <with mutant> <stuck or ->`, or `SUGGESTED -` |
 /// | `EXIT` | nothing; the worker exits |
@@ -98,6 +99,15 @@ public final class Worker {
 
   /// The case the first failure of the last `RUN`'s test was, if it was one: see [FailedCase].
   private String firstCase = FailedCase.NONE;
+
+  /// The input the first failure of the last `RUN`'s test names, if it's a property's: see
+  /// [CaughtInput].
+  private String firstInput = CaughtInput.NONE;
+
+  private final Shrinking shrinking = new Shrinking();
+
+  /// Whether the next `RUN` or `FRESH` shrinks what a failing property names (`SHRINK`).
+  private boolean shrinkNext;
 
   /// Each failing test's exception and its causes, `java.io.UncheckedIOException>java.net
   /// .ConnectException`: for the coverage pass's `FAILURE` lines, which say why a test that then
@@ -231,7 +241,7 @@ public final class Worker {
 
   private void handle(String[] command) throws Exception {
     var tests = Arrays.asList(command).subList(1, command.length);
-    if (!command[0].equals("CLASS") && !command[0].equals("RUN") && production != null) {
+    if (!keepsTheMutant(command[0]) && production != null) {
       inPlace.restore(production);
     }
     switch (command[0]) {
@@ -241,8 +251,15 @@ public final class Worker {
       case "RUN" -> runWithStaged(tests);
       case "FRESH" -> runFresh(tests);
       case "SUGGEST" -> suggest(command);
+      case "SHRINK" -> shrinkNext = true;
       default -> protocol.println("RESULT\tERROR\tunknown command " + command[0]);
     }
+  }
+
+  /// Whether `command` leaves the mutant in place for the next: staging one, running against it, or
+  /// saying how the next run shrinks.
+  private static boolean keepsTheMutant(String command) {
+    return command.equals("CLASS") || command.equals("RUN") || command.equals("SHRINK");
   }
 
   /// Covers with the staged classes, instrumented, in a new production loader that later commands
@@ -392,6 +409,7 @@ public final class Worker {
   }
 
   private void cover(List<String> tests) {
+    shrinking.set(true);
     Probes.reset();
     failures.clear();
     messages.clear();
@@ -482,11 +500,11 @@ public final class Worker {
 
   /// The engine orders tests fastest first; the worker stops at the first failure.
   private void run(List<String> tests, ProductionLoader loader) {
+    shrinkingAsAsked();
     int ran = 0;
     for (String test : tests) {
       ran++;
       var started = new StartedTests();
-      firstCase = FailedCase.NONE;
       List<String> failing;
       try {
         failing = executeSaid(test, loader, started);
@@ -510,8 +528,16 @@ public final class Worker {
     protocol.println("RESULT\tPASSED\t" + ran);
   }
 
+  /// Property tests unshrunk for this run, unless `SHRINK` asked for it once.
+  private void shrinkingAsAsked() {
+    shrinking.set(shrinkNext);
+    shrinkNext = false;
+  }
+
   /// One test of a `RUN`, said to be running while it runs, for if its code ends the JVM.
   private List<String> executeSaid(String test, ProductionLoader loader, StartedTests started) {
+    firstCase = FailedCase.NONE;
+    firstInput = CaughtInput.NONE;
     running = test;
     try {
       return execute(List.of(test), loader, started);
@@ -544,7 +570,9 @@ public final class Worker {
         + "\t"
         + (lastPortClash ? "port-clash" : "-")
         + "\t"
-        + firstCase;
+        + firstCase
+        + "\t"
+        + firstInput;
   }
 
   private List<String> execute(
@@ -619,7 +647,7 @@ public final class Worker {
         if (result.getStatus() == TestExecutionResult.Status.FAILED) {
           var failedCase = FailedCase.of(test);
           if (failing.isEmpty()) {
-            firstCase = failedCase;
+            firstFailure(failedCase, result);
           }
           failing.add(id(test));
           lastFailure = "unknown";
@@ -636,6 +664,16 @@ public final class Worker {
         }
       }
     };
+  }
+
+  /// The case and the input the first failure of a test names, for its `RESULT` line.
+  private void firstFailure(String failedCase, TestExecutionResult result) {
+    firstCase = failedCase;
+    firstInput =
+        result
+            .getThrowable()
+            .map(thrown -> CaughtInput.of(thrown, shrinking.off()))
+            .orElse(CaughtInput.NONE);
   }
 
   /// What the `RESULT` line says of a failure: its exception, origin and port clash.

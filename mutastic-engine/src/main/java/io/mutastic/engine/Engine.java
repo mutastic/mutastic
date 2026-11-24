@@ -859,9 +859,8 @@ public final class Engine {
     var coverage = new Coverage(context);
     var ghosts =
         options.ghosts() ? ghostsIn(models, mutations, options.shard()) : List.<Ghosts.Found>of();
-    var toRun = new ArrayList<>(mutants);
-    ghosts.forEach(ghost -> toRun.add(ghost.mutant()));
-    var instrumented = instrumentMutated(models, toRun, coverage, options.auditArid());
+    var instrumented =
+        instrumentMutated(models, withGhosts(mutants, ghosts), coverage, options.auditArid());
     var mutantRun =
         new MutantRun(
             models,
@@ -872,8 +871,16 @@ public final class Engine {
             options.auditArid(),
             java.util.Collections.synchronizedList(new ArrayList<>()),
             project,
-            options.killMatrix());
+            options.killMatrix(),
+            !options.only().isEmpty());
     return new Plan(mutants, mutantRun, instrumented, found.stale(), ghosts, whole(options));
+  }
+
+  /// The mutants to run, then the ghosts.
+  private static List<Mutant> withGhosts(List<Mutant> mutants, List<Ghosts.Found> ghosts) {
+    var toRun = new ArrayList<>(mutants);
+    ghosts.forEach(ghost -> toRun.add(ghost.mutant()));
+    return toRun;
   }
 
   private static boolean whole(Options options) {
@@ -1335,6 +1342,9 @@ public final class Engine {
   /// @param audited each arid mutant's result when run anyway, in an audit
   /// @param killMatrix whether a caught mutant runs its other covering tests too, to name each that
   ///   catches it
+  /// @param shrinkOnce whether the input a property catches a mutant with is shrunk, by running
+  ///   that test once more with shrinking on: in a run of mutants named by id, whose cards are read
+  ///   one by one
   private record MutantRun(
       Map<String, ClassModel> models,
       Mutations mutations,
@@ -1344,7 +1354,8 @@ public final class Engine {
       boolean auditArid,
       List<MutantResult> audited,
       Project project,
-      boolean killMatrix) {
+      boolean killMatrix,
+      boolean shrinkOnce) {
     /// At most this many sets of arguments to try per mutant.
     static final int CANDIDATES = 400;
 
@@ -1392,7 +1403,7 @@ public final class Engine {
     /// The mutant run against the tests that reach it.
     private Outcome tested(Mutant mutant, TestWorker worker, List<String> covering) {
       var trial = new Trial(worker, mutant, verifiedMutation(mutant), coverage);
-      var tested = testConfirmed(trial, covering);
+      var tested = shrunk(trial, testConfirmed(trial, covering));
       var inputs = coverage.inputs(mutant, covering);
       var result = resultOf(trial, covering, tested, inputs);
       if (killMatrix && tested.run().status() == Status.CAUGHT) {
@@ -1472,6 +1483,23 @@ public final class Engine {
       return new Tested(run, Optional.empty());
     }
 
+    /// With [#shrinkOnce], the input a property caught the mutant with, shrunk: its test runs once
+    /// more, with the mutant, as the framework would shrink it. A run of every mutant names the
+    /// first input that failed, as shrinking is off there.
+    private Tested shrunk(Trial trial, Tested tested) {
+      var run = tested.run();
+      boolean unshrunk = run.input().filter(TestWorker.CaughtInput::unshrunk).isPresent();
+      if (!shrinkOnce || !unshrunk || run.failedTest().isEmpty()) {
+        return tested;
+      }
+      trial.worker().shrinkNext();
+      var again = trial.run(List.of(run.failedTest().get()));
+      if (again.status() != Status.CAUGHT || again.input().isEmpty()) {
+        return tested;
+      }
+      return new Tested(run.withInput(again.input()), tested.unconfirmed());
+    }
+
     /// Not a catch: the tests after the one that failed decide, as if it had passed.
     private Tested testedAfter(
         Trial trial, List<String> covering, TestWorker.Run run, Optional<String> unconfirmed) {
@@ -1490,7 +1518,8 @@ public final class Engine {
               last.origin(),
               run.testsRun() + last.testsRun(),
               last.portClash(),
-              last.failedCase()),
+              last.failedCase(),
+              last.input()),
           after.unconfirmed().or(() -> unconfirmed));
     }
 
@@ -1509,7 +1538,8 @@ public final class Engine {
               inputs,
               Optional.empty(),
               trial.took())
-          .withCaughtCase(run.failedCase());
+          .withCaughtCase(run.failedCase())
+          .withCaughtInput(run.input().map(TestWorker.CaughtInput::text));
     }
 
     /// A mutant no test reaches, with the first test to write for it when suggestions are on.

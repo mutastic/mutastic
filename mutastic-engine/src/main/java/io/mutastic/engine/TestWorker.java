@@ -5,6 +5,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import io.mutastic.api.BuildJava;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Project;
+import io.mutastic.api.PropertyTests;
 import io.mutastic.api.Status;
 import io.mutastic.api.TestCase;
 import java.io.BufferedReader;
@@ -267,12 +268,19 @@ final class TestWorker implements AutoCloseable {
     return Arrays.stream(values.split(",", -1)).map(parse).collect(Collectors.toSet());
   }
 
+  /// The input a property test failed on, on one line as its framework says it.
+  ///
+  /// @param unshrunk whether it's the first that failed, from a framework whose shrinking a
+  ///   mutant's run turns off: a run with it on names a smaller one
+  record CaughtInput(String text, boolean unshrunk) {}
+
   /// The outcome of `tests`, run in order until one fails, with `bytes` in place of `className`.
   ///
   /// @param origin where the failure came from: `assertion`, `test`, `code` or `unknown`
   /// @param portClash whether a port in use caused the failure, which with workers side by side can
   ///   be another worker's doing
   /// @param failedCase the case of `failedTest` that failed, when it runs a table of them
+  /// @param input the input `failedTest` failed on, when it's a property test that names one
   record Run(
       Status status,
       Optional<String> failedTest,
@@ -280,7 +288,19 @@ final class TestWorker implements AutoCloseable {
       Optional<String> origin,
       int testsRun,
       boolean portClash,
-      Optional<TestCase> failedCase) {
+      Optional<TestCase> failedCase,
+      Optional<CaughtInput> input) {
+
+    Run(
+        Status status,
+        Optional<String> failedTest,
+        Optional<String> failure,
+        Optional<String> origin,
+        int testsRun,
+        boolean portClash,
+        Optional<TestCase> failedCase) {
+      this(status, failedTest, failure, origin, testsRun, portClash, failedCase, Optional.empty());
+    }
 
     Run(Status status, int testsRun) {
       this(status, Optional.empty(), Optional.empty(), Optional.empty(), testsRun, false);
@@ -305,6 +325,11 @@ final class TestWorker implements AutoCloseable {
           Optional.of("exit"),
           testsRun,
           false);
+    }
+
+    /// The same run, its failing test having named `named` as its input.
+    Run withInput(Optional<CaughtInput> named) {
+      return new Run(status, failedTest, failure, origin, testsRun, portClash, failedCase, named);
     }
 
     /// Whether a test's code ended the JVM with status 0, which the build reads as a pass.
@@ -340,7 +365,8 @@ final class TestWorker implements AutoCloseable {
         after.origin(),
         run.testsRun() + after.testsRun(),
         after.portClash(),
-        after.failedCase());
+        after.failedCase(),
+        after.input());
   }
 
   private Run result(String command, List<String> tests, Duration timeout) {
@@ -370,7 +396,7 @@ final class TestWorker implements AutoCloseable {
   }
 
   /// `RESULT PASSED <ran>` or `RESULT FAILED <ran> <test> <exception> <origin> <port-clash or ->
-  /// <case's index or -> <case's name or ->`.
+  /// <case's index or -> <case's name or -> <shrunk, unshrunk or -> <input>`.
   private static Run parsed(String answer) {
     var parts = answer.split("\t", -1);
     return switch (parts[1]) {
@@ -383,7 +409,8 @@ final class TestWorker implements AutoCloseable {
               Optional.of(parts[5]),
               Integer.parseInt(parts[2]),
               parts[6].equals("port-clash"),
-              failedCase(parts, 7));
+              failedCase(parts, 7),
+              input(parts, 9));
       default -> throw new IllegalStateException("the worker said: " + answer);
     };
   }
@@ -394,6 +421,20 @@ final class TestWorker implements AutoCloseable {
       return Optional.empty();
     }
     return Optional.of(new TestCase(Integer.parseInt(parts[at]), parts[at + 1]));
+  }
+
+  /// The input at `at` in a worker's line, how it was drawn then the input, unless that's `-`.
+  static Optional<CaughtInput> input(String[] parts, int at) {
+    if (parts.length < at + 2 || parts[at].equals("-")) {
+      return Optional.empty();
+    }
+    return Optional.of(new CaughtInput(parts[at + 1], parts[at].equals("unshrunk")));
+  }
+
+  /// The next run's property tests shrink a failing input as their framework would: for the
+  /// smallest input to name, once the mutant is caught. The mutant stays in place.
+  void shrinkNext() {
+    send("SHRINK");
   }
 
   /// How `test` fares on its own with no mutant in, within `timeout`: missed if it passes, caught
@@ -731,6 +772,8 @@ final class TestWorker implements AutoCloseable {
     command.add(project.java().toString());
     command.add(temp.jvmArg());
     command.addAll(project.jvmArgs());
+    // After the project's own, so every framework draws from the one seed.
+    PropertyTests.of(project).ifPresent(properties -> command.addAll(properties.jvmArgs()));
     command.addAll(measured());
     command.addAll(systemLoader());
     command.add("-javaagent:" + workerJar);

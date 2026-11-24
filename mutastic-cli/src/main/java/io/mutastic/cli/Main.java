@@ -6,6 +6,7 @@ import io.mutastic.api.Listener;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Policy;
 import io.mutastic.api.Project;
+import io.mutastic.api.PropertyTests;
 import io.mutastic.api.RealPath;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
@@ -393,12 +394,31 @@ public final class Main {
     var engine = engineFor(command, prepared);
     var options = onTheLines(prepared, engine, options(command, terminal, prepared));
     var passes = new Passes(engine, options, progress, tool, shares);
+    int exit = ran(new Gated(command, prepared, passes, output, terminal));
+    propertyNote(command, prepared, output.err());
+    return exit;
+  }
+
+  /// The command run: a gate's, one of some mutants', or `run`'s.
+  private static int ran(Gated run) {
+    var command = run.command();
     if (command.subcommand() != Subcommand.RUN) {
       return command.subcommand().gate()
-          ? gated(new Gated(command, prepared, passes, output, terminal))
-          : single(command, prepared, passes, output);
+          ? gated(run)
+          : single(command, run.prepared(), run.passes(), run.output());
     }
-    return fullRun(command, prepared, passes, output);
+    return fullRun(command, run.prepared(), run.passes(), run.output());
+  }
+
+  /// The note a run ends with when the project's property tests use a framework mutastic can't
+  /// seed, on stderr in every format: a mutant only some of their inputs catch can flip from run to
+  /// run. Not for shares put back together, which run no test.
+  private static void propertyNote(Command command, Prepared prepared, PrintStream err) {
+    if (command.fromShards().isEmpty()) {
+      PropertyTests.of(prepared.project())
+          .flatMap(PropertyTests::note)
+          .ifPresent(note -> err.print(note + "\n"));
+    }
   }
 
   /// With `--at`, the options for only the mutants on its lines, of those the run would have: under
@@ -1633,7 +1653,7 @@ public final class Main {
       var events =
           new JsonEvents(output.out(), prepared.sources(), command.threshold())
               .leavingOut(prepared.leftOut());
-      events.runStarted(prepared.project().name());
+      events.runStarted(prepared.project().name(), PropertyTests.of(prepared.project()));
       explainedEvents(events, report, twin, result);
       events.mutantExplained(result.mutant(), lastRun);
       return PASSED;
@@ -2207,7 +2227,7 @@ public final class Main {
       case CAUGHT, TIMED_OUT ->
           "is caught by "
               + Untrusted.value(result.caughtBy().orElse("a timeout"))
-              + AgentText.inCase(result);
+              + AgentText.evidence(result);
       case MISSED -> "is still missed";
       case NOT_COVERED -> "isn't reached by any test";
       case SKIPPED ->
@@ -2319,7 +2339,7 @@ public final class Main {
   private static Display jsonl(
       Command command, Prepared prepared, Output output, Optional<FailOnNew> judged) {
     var events = events(command, prepared, output, judged);
-    events.runStarted(prepared.project().name());
+    events.runStarted(prepared.project().name(), PropertyTests.of(prepared.project()));
     if (!command.testsFrom().isEmpty()) {
       // Each mutant's result is known only once every module's tests have run: all at the end.
       return new Display(
@@ -2405,7 +2425,7 @@ public final class Main {
                       shareOf(command, prepared),
                       operatorDocs())
                   .leavingOut(prepared.leftOut());
-          events.runStarted(prepared.project().name());
+          events.runStarted(prepared.project().name(), PropertyTests.of(prepared.project()));
           report.results().forEach(events::mutantFinished);
           events.runFinished(report, kept.comparison(), listed(prepared, kept.written()), false);
         });

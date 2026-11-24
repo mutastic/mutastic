@@ -58,6 +58,12 @@ The one mutant the tests missed, laid out:
 - **`doneWhen`** is the command that proves a fix, and **`rendered`** the whole miss in the agent
   format's words, for a coding agent to read as it is.
 
+For a project whose tests use a property-testing framework, `run-started`'s **`propertyTests`**
+says which (`frameworks`), the `seed` their inputs were drawn from and the frameworks that drew
+from it (`seeded`), and those mutastic can't seed (`unseeded`); a mutant a property caught has
+**`caughtInput`**, the input it failed on, as `mutation.json` has `mutastic.caughtInput`. See
+[Property tests](/concepts/results/#property-tests).
+
 [The schema](https://docs.mutastic.io/schemas/events/v1.json) gives every field, its type, whether
 every event has it, and the values it can take.
 

@@ -30,6 +30,9 @@ import java.util.Optional;
 ///   ran, the first being `caughtBy`; empty otherwise
 /// @param caughtCase the case of `caughtBy` that failed, when it runs a table of cases: evidence of
 ///   this run, as its index moves when a case is added before it
+/// @param caughtInput the input the property test `caughtBy` failed on, on one line as its
+///   framework prints it (`Arg 0: 18`), when a property caught it and its framework names one:
+///   evidence of this run, as another seed draws others
 @Internal
 public record MutantResult(
     Mutant mutant,
@@ -45,12 +48,47 @@ public record MutantResult(
     Duration took,
     Optional<String> falseCatchBy,
     List<String> caughtByAll,
-    Optional<TestCase> caughtCase) {
+    Optional<TestCase> caughtCase,
+    Optional<String> caughtInput) {
 
   public MutantResult {
     coveredBy = listed(mutant, coveredBy);
     inputs = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(inputs));
     caughtByAll = List.copyOf(caughtByAll);
+  }
+
+  /// A result that names no input: no property caught it, or its framework named none.
+  public MutantResult(
+      Mutant mutant,
+      Status status,
+      List<String> coveredBy,
+      Optional<String> caughtBy,
+      Optional<String> failure,
+      Optional<String> failureOrigin,
+      int testsRun,
+      Optional<String> unconfirmed,
+      java.util.Map<String, List<Long>> inputs,
+      Optional<Suggestion> suggestion,
+      Duration took,
+      Optional<String> falseCatchBy,
+      List<String> caughtByAll,
+      Optional<TestCase> caughtCase) {
+    this(
+        mutant,
+        status,
+        coveredBy,
+        caughtBy,
+        failure,
+        failureOrigin,
+        testsRun,
+        unconfirmed,
+        inputs,
+        suggestion,
+        took,
+        falseCatchBy,
+        caughtByAll,
+        caughtCase,
+        Optional.empty());
   }
 
   /// A result that names no case: its catcher, if it has one, runs no table of them.
@@ -203,7 +241,8 @@ public record MutantResult(
         took,
         falseCatchBy,
         caughtByAll,
-        caughtCase);
+        caughtCase,
+        caughtInput);
   }
 
   /// The same result with a suggested test.
@@ -222,7 +261,8 @@ public record MutantResult(
         took,
         falseCatchBy,
         caughtByAll,
-        caughtCase);
+        caughtCase,
+        caughtInput);
   }
 
   /// The same result, its catch by `test` found false: the mutant's result without that test.
@@ -241,7 +281,8 @@ public record MutantResult(
         took,
         Optional.of(test),
         caughtByAll,
-        caughtCase);
+        caughtCase,
+        caughtInput);
   }
 
   /// The same result, with every covering test that catches it (`--kill-matrix`).
@@ -260,7 +301,8 @@ public record MutantResult(
         took,
         falseCatchBy,
         tests,
-        caughtCase);
+        caughtCase,
+        caughtInput);
   }
 
   /// The same result, naming the case of its catcher that failed.
@@ -279,6 +321,27 @@ public record MutantResult(
         took,
         falseCatchBy,
         caughtByAll,
-        failed);
+        failed,
+        caughtInput);
+  }
+
+  /// The same result, naming the input its catcher, a property test, failed on.
+  public MutantResult withCaughtInput(Optional<String> input) {
+    return new MutantResult(
+        mutant,
+        status,
+        coveredBy,
+        caughtBy,
+        failure,
+        failureOrigin,
+        testsRun,
+        unconfirmed,
+        inputs,
+        suggestion,
+        took,
+        falseCatchBy,
+        caughtByAll,
+        caughtCase,
+        input);
   }
 }

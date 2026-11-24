@@ -2481,17 +2481,6 @@
       "reason": "Java's `mapConcurrent` runs its calls on virtual threads and keeps their order, so how many run at once changes only how long they take. Rust has no gatherers, so nothing to skip."
     },
     {
-      "id": "N79",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "events",
-      "summary": "Property tests (decision 25): `run-started`'s `propertyTests`, `mutant-finished`'s `caughtInput` and mutation.json's `mutastic.caughtInput`, the `` with `<input>` `` after a catching test, shrinking off on a mutant's run, and the note on frameworks that can't be seeded: the Rust edition has them first",
-      "issue": "https://github.com/mutastic/mutastic/issues/202",
-      "decision": 25
-    },
-    {
       "id": "N80",
       "kind": "pending",
       "editions": [

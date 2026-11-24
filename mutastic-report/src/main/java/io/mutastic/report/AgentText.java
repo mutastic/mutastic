@@ -217,7 +217,7 @@ public final class AgentText {
               .formatted(
                   words.detected,
                   Untrusted.value(result.caughtBy().orElse("a test")),
-                  inCase(result));
+                  evidence(result));
       case TIMED_OUT -> "is %s: its tests stopped finishing in time".formatted(words.detected);
       case MISSED -> "is still %s".formatted(words.undetected);
       case NOT_COVERED -> "isn't reached by any test";
@@ -606,6 +606,14 @@ public final class AgentText {
         .caughtCase()
         .map(failed -> " (case " + Untrusted.value(failed.name()) + ")")
         .orElse("");
+  }
+
+  /// What a line names after the catching test, as evidence of this run: the case of it that failed
+  /// ([#inCase]), then `` with `Arg 0: 18` `` when it's a property test that names the input it
+  /// failed on, the input [Untrusted#value]d, as it's the project's.
+  public static String evidence(MutantResult result) {
+    return inCase(result)
+        + result.caughtInput().map(input -> " with `" + Untrusted.value(input) + "`").orElse("");
   }
 
   static String shortName(String test) {

@@ -138,7 +138,8 @@ public final class ShareEvents {
             Duration.ofMillis(number(fields, "durationMs")),
             text(fields, "falseCatchBy"),
             strings(fields, "caughtByAll"))
-        .withCaughtCase(object(fields, "caughtCase").map(ShareEvents::caughtCase));
+        .withCaughtCase(object(fields, "caughtCase").map(ShareEvents::caughtCase))
+        .withCaughtInput(text(fields, "caughtInput"));
   }
 
   private static io.mutastic.api.TestCase caughtCase(Map<String, Object> fields) {
