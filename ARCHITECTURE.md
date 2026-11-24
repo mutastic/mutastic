@@ -36,6 +36,7 @@ The same run serves three entry points. The `mutastic` command reads the build f
 
 - `mutastic-api` depends on nothing of mutastic's.
 - The engine knows nothing of output, and the report module knows only the result model.
+- A part of the engine in a package of its own, such as `io.mutastic.engine.tests` (the test frameworks a worker runs: the JUnit Platform, TestNG, JUnit 4's vintage engine, Quarkus), knows nothing of the engine's core or of another part: the core uses each through its entry, `TestFrameworks`.
 - Build tools know only the api, and nothing names a build tool: the CLI finds them with `ServiceLoader`.
 - The worker and the Maven extension stand alone: they run inside the project's own JVM and build.
 - Nothing depends on `mutastic-annotations`, which is matched by simple name.

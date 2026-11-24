@@ -18,6 +18,7 @@ import io.mutastic.api.Project;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import io.mutastic.api.Suggestion;
+import io.mutastic.engine.tests.TestFrameworks;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.classfile.ClassFile;
@@ -199,7 +200,7 @@ public final class Engine {
     }
 
     private static String framework(Project project) {
-      return TestFrameworks.loadsTheApp(project.dependencies())
+      return TestFrameworks.of(project.dependencies()).loadsTheApp()
           ? "here: Quarkus, whose copies of the classes such an agent rewrites first"
           : "none known here";
     }

@@ -1,6 +1,7 @@
 package io.mutastic.cli;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
@@ -66,6 +67,22 @@ class ArchitectureTest {
           .should()
           .dependOnClassesThat()
           .resideInAnyPackage("io.mutastic.report..", "io.mutastic.cli..");
+
+  /// A part of the engine in a package of its own (`io.mutastic.engine.tests`, the test frameworks)
+  /// stands on the api alone: the engine's core uses it, never the other way round.
+  @ArchTest
+  static final ArchRule enginePartsKnowNothingOfTheCore =
+      noClasses()
+          .that()
+          .resideInAPackage("io.mutastic.engine.*..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("io.mutastic.engine");
+
+  /// Nor does one part know another: each is the engine's to combine.
+  @ArchTest
+  static final ArchRule enginePartsStandApart =
+      slices().matching("io.mutastic.engine.(*)..").should().notDependOnEachOther();
 
   /// The report renders a run from the result model, whoever ran it and however.
   @ArchTest
