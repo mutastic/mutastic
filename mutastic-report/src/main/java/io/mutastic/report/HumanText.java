@@ -925,9 +925,9 @@ public final class HumanText {
         .append(
             style.dim(
                 "(no test reaches these lines%s)"
-                    .formatted(report.flaky().isEmpty() ? "" : ", or only a flaky one does")))
+                    .formatted(AgentText.anyFlaky(report) ? ", or only a flaky one does" : "")))
         .append('\n');
-    appendNotCoveredLines(out, byLine);
+    appendNotCoveredLines(out, report, byLine);
     var uncovered =
         report.results().stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
     SuggestedTest.startingPoints(uncovered, sources, 1)
@@ -938,12 +938,15 @@ public final class HumanText {
 
   /// The first [#CARDS] places no test reaches, and how many more there are; under a place in a
   /// `main`, what to do about it.
-  private void appendNotCoveredLines(StringBuilder out, Map<String, List<Mutant>> byLine) {
+  private void appendNotCoveredLines(
+      StringBuilder out, Report report, Map<String, List<Mutant>> byLine) {
     byLine.entrySet().stream()
         .limit(CARDS)
         .forEach(
             entry -> {
               out.append(notCoveredLine(entry.getKey(), entry.getValue().size()));
+              AgentText.onlyLikelyFlaky(report, entry.getValue())
+                  .ifPresent(only -> out.append("     %s\n".formatted(style.dim(only))));
               OnlyFromMain.advice(entry.getValue(), sources)
                   .ifPresent(advice -> out.append("     %s\n".formatted(code(advice))));
             });
@@ -1438,7 +1441,7 @@ public final class HumanText {
   /// Each mutant's fate, one a line, when they were asked for by id.
   private String fates(Report report) {
     return report.results().stream()
-        .map(result -> " %s\n".formatted(fate(result)))
+        .map(result -> " %s\n".formatted(fate(report, result)))
         .collect(Collectors.joining());
   }
 
@@ -1460,7 +1463,7 @@ public final class HumanText {
   }
 
   /// `[MISSED] m855c8e3c is still missed`: one mutant's verdict, for a run that asked for it.
-  private String fate(MutantResult result) {
+  private String fate(Report report, MutantResult result) {
     var id = result.mutant().id();
     return switch (result.status()) {
       case CAUGHT ->
@@ -1475,13 +1478,19 @@ public final class HumanText {
           detectedFate(
               "%s is %s: its tests stopped finishing in time".formatted(id, words.detected));
       case MISSED -> missedFate(id);
-      case NOT_COVERED -> redFate(words.notCovered, "%s: no test reaches its line".formatted(id));
+      case NOT_COVERED -> notCoveredFate(report, result);
       case SKIPPED ->
           style.label("SKIPPED", Style.CYAN)
               + " "
               + "%s is skipped: %s"
                   .formatted(id, Untrusted.value(result.mutant().skipped().orElse("")));
     };
+  }
+
+  /// `m855c8e3c: no test reaches its line`, or which likely flaky test alone did.
+  private String notCoveredFate(Report report, MutantResult result) {
+    var why = AgentText.onlyLikelyFlaky(report, result).orElse("no test reaches its line");
+    return redFate(words.notCovered, "%s: %s".formatted(result.mutant().id(), why));
   }
 
   /// `m855c8e3c is still missed · done when mutastic verify m855c8e3c passes`.

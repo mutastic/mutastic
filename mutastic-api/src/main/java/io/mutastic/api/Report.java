@@ -291,6 +291,14 @@ public record Report(
         watching);
   }
 
+  /// The tests named likely flaky that reached the mutant `id` and were left out of its run again.
+  public List<String> likelyFlakyReaching(String id) {
+    return likelyFlaky.stream()
+        .filter(named -> named.rerun().contains(id))
+        .map(LikelyFlaky::test)
+        .toList();
+  }
+
   /// The test named likely flaky as `test`, if the run named it.
   public java.util.Optional<LikelyFlaky> likelyFlaky(String test) {
     return likelyFlaky.stream().filter(named -> named.test().equals(test)).findFirst();

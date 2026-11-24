@@ -88,6 +88,32 @@ class FlakyRunsTest {
     assertThat(watch(project)).isEqualTo("com.example.stock.StockTest#restockingWorks\t0\n");
   }
 
+  /// A mutant only a likely flaky test reached says so, in `verify` and in a run's list: it isn't a
+  /// mutant no test reaches, and a person shouldn't go and write the test that already exists.
+  @Test
+  void aMutantOnlyALikelyFlakyTestReachedSaysSo() throws Exception {
+    var project = Samples.copy(SAMPLE, work.resolve("flaky"));
+    watching(project, "com.example.stock.StockTest#restockingWorks\t0\n");
+
+    var verify = Samples.mutastic("verify", "m4b6a65ac", project.toString(), "--workers=1");
+    var agent =
+        Samples.mutastic(
+            "run", project.toString(), "--only=m4b6a65ac", "--format=agent", "--workers=1");
+    var human =
+        Samples.mutastic(
+            "run", project.toString(), "--only=m4b6a65ac", "--format=concise", "--workers=1");
+    var run = Samples.mutastic("run", project.toString(), "--format=agent", "--workers=1");
+
+    var only =
+        "only StockTest#restockingWorks reached it, and it's likely flaky: its catch didn't count";
+    assertThat(verify.out()).contains("m4b6a65ac isn't covered: " + only);
+    assertThat(agent.out())
+        .contains("m4b6a65ac isn't covered: " + only)
+        .doesNotContain("isn't reached");
+    assertThat(human.out() + human.err()).contains("m4b6a65ac: " + only);
+    assertThat(run.out()).contains("or only a flaky one does").contains("  " + only);
+  }
+
   /// A watched test whose every catch repeats has held a run; at the third, it's forgotten.
   @Test
   void aWatchedTestWhoseCatchesHoldIsForgottenAtItsThirdRun() throws Exception {

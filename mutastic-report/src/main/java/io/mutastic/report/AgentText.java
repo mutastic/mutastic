@@ -3,6 +3,7 @@ package io.mutastic.report;
 import io.mutastic.api.Comparison;
 import io.mutastic.api.FlakyTest;
 import io.mutastic.api.LikelyFlaky;
+import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
@@ -110,7 +111,9 @@ public final class AgentText {
   /// Each mutant asked for by id, its fate first; then the tests that fail on their own, and the
   /// reports written.
   private String fates(Report report, List<Path> reports) {
-    return report.results().stream().map(this::oneMutant).collect(Collectors.joining("\n"))
+    return report.results().stream()
+            .map(result -> oneMutant(report, result))
+            .collect(Collectors.joining("\n"))
         + failingAlone(report)
         + reports(reports);
   }
@@ -198,9 +201,9 @@ public final class AgentText {
   }
 
   /// The one mutant's fate, and for a missed one the rules and its entry.
-  private String oneMutant(MutantResult result) {
+  private String oneMutant(Report report, MutantResult result) {
     var out = new StringBuilder();
-    out.append("mutastic: %s %s\n".formatted(result.mutant().id(), fate(result)));
+    out.append("mutastic: %s %s\n".formatted(result.mutant().id(), fate(report, result)));
     if (result.status() == Status.MISSED) {
       out.append(
           "rules: %s; a fix counts when `%s` passes\n"
@@ -212,7 +215,7 @@ public final class AgentText {
     return out.toString();
   }
 
-  private String fate(MutantResult result) {
+  private String fate(Report report, MutantResult result) {
     return switch (result.status()) {
       case CAUGHT ->
           "is %s by %s%s"
@@ -222,7 +225,10 @@ public final class AgentText {
                   evidence(result));
       case TIMED_OUT -> "is %s: its tests stopped finishing in time".formatted(words.detected);
       case MISSED -> "is still %s".formatted(words.undetected);
-      case NOT_COVERED -> "isn't reached by any test";
+      case NOT_COVERED ->
+          onlyLikelyFlaky(report, result)
+              .map(only -> "isn't covered: " + only)
+              .orElse("isn't reached by any test");
       case SKIPPED -> "is skipped: " + Untrusted.value(result.mutant().skipped().orElse(""));
     };
   }
@@ -455,13 +461,15 @@ public final class AgentText {
         "\n%s (no test reaches these lines%s%s):\n"
             .formatted(
                 words.notCovered,
-                report.flaky().isEmpty() ? "" : ", or only a flaky one does",
+                anyFlaky(report) ? ", or only a flaky one does" : "",
                 noneMissed ? "" : "; fix the %s mutants first".formatted(words.undetected)));
     notCoveredByLine(notCovered)
         .forEach(
             (where, mutants) -> {
               int count = mutants.size();
               out.append("- %s (%d mutant%s)\n".formatted(where, count, count == 1 ? "" : "s"));
+              onlyLikelyFlaky(report, mutants)
+                  .ifPresent(only -> out.append("  %s\n".formatted(only)));
               OnlyFromMain.advice(mutants, sources)
                   .ifPresent(advice -> out.append("  %s\n".formatted(advice)));
               appendProposals(out, mutants);
@@ -566,6 +574,54 @@ public final class AgentText {
                 .orElse(""),
             result.falseCatchBy().map(test -> " (%s)".formatted(falseCatch(test))).orElse(""),
             result.flakyCatchBy().map(test -> " (%s)".formatted(flakyCatch(test))).orElse(""));
+  }
+
+  /// For a mutant that only tests named likely flaky reached, which were left out of it: `only
+  /// PricingTest#a reached it, and it's likely flaky: its catch didn't count`, or `… so it was left
+  /// out` for one that had reached it without catching it. Empty for any other mutant, so a person
+  /// isn't sent to write a test that already exists.
+  public static Optional<String> onlyLikelyFlaky(Report report, MutantResult result) {
+    var id = result.mutant().id();
+    var tests = report.likelyFlakyReaching(id);
+    if (result.status() != Status.NOT_COVERED || tests.isEmpty()) {
+      return Optional.empty();
+    }
+    boolean caught = caughtByOneOf(report, result, tests);
+    boolean one = tests.size() == 1;
+    return Optional.of(
+        "only %s reached it, and %s likely flaky: %s"
+            .formatted(
+                String.join(" and ", shortNames(tests)),
+                one ? "it's" : "they're",
+                caught
+                    ? (one ? "its catch didn't count" : "their catches didn't count")
+                    : (one ? "it was left out" : "they were left out")));
+  }
+
+  /// Whether one of `tests` had caught the mutant before its catch was taken away.
+  private static boolean caughtByOneOf(Report report, MutantResult result, List<String> tests) {
+    var id = result.mutant().id();
+    return tests.stream()
+        .anyMatch(
+            test ->
+                report.likelyFlaky(test).filter(named -> named.mutants().contains(id)).isPresent()
+                    || result.flakyCatchBy().filter(test::equals).isPresent()
+                    || result.falseCatchBy().filter(test::equals).isPresent());
+  }
+
+  /// For a line's mutants, when the first is one only tests named likely flaky reached: what
+  /// [#onlyLikelyFlaky(Report, MutantResult)] says of it.
+  static Optional<String> onlyLikelyFlaky(Report report, List<Mutant> mutants) {
+    return report.results().stream()
+        .filter(result -> result.mutant().id().equals(mutants.getFirst().id()))
+        .findFirst()
+        .flatMap(result -> onlyLikelyFlaky(report, result));
+  }
+
+  /// Whether a test the run left out as flaky, or named likely flaky, may be all that reached a
+  /// mutant it doesn't cover.
+  static boolean anyFlaky(Report report) {
+    return !report.flaky().isEmpty() || !report.likelyFlaky().isEmpty();
   }
 
   /// What a mutant's card says of the likely flaky test whose catch of it didn't count.

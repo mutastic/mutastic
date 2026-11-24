@@ -891,7 +891,7 @@ public final class Main {
     }
     var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
-    int exit = verified(report.results(), command.only(), out);
+    int exit = verified(report, command.only(), out);
     if (report.failingAlone().isEmpty()) {
       return exit;
     }
@@ -2251,7 +2251,8 @@ public final class Main {
   /// What `verify` says of each of its mutants, and whether every one passed. A twin is said with
   /// the result of the one it's the same as, which ran for it and decides; that one's own line
   /// comes only when it was named too.
-  private static int verified(List<MutantResult> results, List<String> named, PrintStream out) {
+  private static int verified(Report report, List<String> named, PrintStream out) {
+    var results = report.results();
     var byId = new HashMap<String, MutantResult>();
     results.forEach(result -> byId.put(result.mutant().id(), result));
     int exit = PASSED;
@@ -2261,10 +2262,10 @@ public final class Main {
       if (partner.isPresent()) {
         out.printf(
             "mutastic: %s is the same as %s, which %s\n",
-            mutant.id(), partner.get().mutant().id(), fate(partner.get()));
+            mutant.id(), partner.get().mutant().id(), fate(report, partner.get()));
         exit = Math.max(exit, settled(partner.get()) ? PASSED : FAILED);
       } else if (named.contains(mutant.id())) {
-        out.printf("mutastic: %s %s\n", mutant.id(), fate(result));
+        out.printf("mutastic: %s %s\n", mutant.id(), fate(report, result));
         exit = Math.max(exit, settled(result) ? PASSED : FAILED);
       }
     }
@@ -2274,14 +2275,17 @@ public final class Main {
   /// What `verify` says of one of its mutants after its id: caught, or skipped, which leaves
   /// nothing to catch, passes. A skipped mutant once read "isn't reached by any test", and an agent
   /// went looking for the test that should reach it.
-  private static String fate(MutantResult result) {
+  private static String fate(Report report, MutantResult result) {
     return switch (result.status()) {
       case CAUGHT, TIMED_OUT ->
           "is caught by "
               + Untrusted.value(result.caughtBy().orElse("a timeout"))
               + AgentText.evidence(result);
       case MISSED -> "is still missed";
-      case NOT_COVERED -> "isn't reached by any test";
+      case NOT_COVERED ->
+          AgentText.onlyLikelyFlaky(report, result)
+              .map(only -> "isn't covered: " + only)
+              .orElse("isn't reached by any test");
       case SKIPPED ->
           "is skipped (%s), so it isn't run and needs no test"
               .formatted(Untrusted.value(result.mutant().skipped().orElse("skipped")));

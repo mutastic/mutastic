@@ -216,6 +216,9 @@ not covered. Its line says so:
 ```
 
 So a threshold, a gate or `--fail-on-new` never passes on a catch the run itself doesn't trust.
+A mutant only such a test reached says so, rather than that no test reaches it, so you don't go
+and write the test that's already there: `only StockTest#restockingWorks reached it, and it's
+likely flaky: its catch didn't count`.
 
 ## Watched tests
 

@@ -63,10 +63,12 @@ record WithoutTests(
         && result.coveredBy().stream().anyMatch(tests::contains);
   }
 
-  /// The test that caught the mutant, if it's one of `tests`.
+  /// The test that caught the mutant, if it's one of `tests`: one whose catch counted, or one whose
+  /// catch didn't repeat, which failed against it all the same.
   private static @Nullable String caughtByOneOf(MutantResult result, Set<String> tests) {
-    return result.status() == Status.CAUGHT && result.caughtBy().filter(tests::contains).isPresent()
-        ? result.caughtBy().get()
-        : null;
+    if (result.status() == Status.CAUGHT && result.caughtBy().filter(tests::contains).isPresent()) {
+      return result.caughtBy().get();
+    }
+    return result.unconfirmed().filter(tests::contains).orElse(null);
   }
 }
