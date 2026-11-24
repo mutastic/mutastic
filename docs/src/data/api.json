@@ -648,6 +648,16 @@
             },
             {
               "kind": "method",
+              "name": "moduleAt",
+              "anchor": "moduleat",
+              "signature": "default String moduleAt(Path build, Path directory)",
+              "doc": "The module of the build in `build` whose directory is `directory`, below it, as the tool names\nit: by default each directory between them a level of the module's path, as Gradle names\n`libs/core` `:libs:core`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
               "name": "read",
               "anchor": "read",
               "signature": "Project read(Path directory, String module, Path workDirectory, String typed)",
