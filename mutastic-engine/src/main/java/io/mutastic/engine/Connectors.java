@@ -56,7 +56,39 @@ final class Connectors {
     }
     return next(code, at)
         .flatMap(second -> pair(code, at, second))
-        .filter(pair -> !anotherTest(code, pair));
+        .filter(pair -> !anotherTest(code, pair))
+        .filter(pair -> !carriesAValue(code, pair));
+  }
+
+  /// Whether the two jumps leave different values on the stack, so neither can go where the other
+  /// goes. Kotlin's `style?.align ?: Start` keeps each value it tests (`dup`, then the jump): the
+  /// first jump takes the style with it, the second the alignment, and the code between reads the
+  /// style the first left. Swapped, the first jump would bring a style where an alignment is
+  /// expected, and the class wouldn't load. javac's tests take only their own operands: the code
+  /// between pushes the second test's and reads nothing the first left. Code this can't follow (a
+  /// `dup`, a `swap`) is taken as javac's.
+  private static boolean carriesAValue(List<CodeElement> code, Pair pair) {
+    int depth = 0;
+    for (int index = pair.first() + 1; index < pair.second(); index++) {
+      if (!(code.get(index) instanceof Instruction instruction)) {
+        continue;
+      }
+      var effect = StackProducers.effect(instruction);
+      if (effect.isEmpty()) {
+        return false;
+      }
+      depth -= effect.get().pops();
+      if (depth < 0) {
+        return true;
+      }
+      depth += effect.get().pushes();
+    }
+    return depth != operands((BranchInstruction) code.get(pair.second()));
+  }
+
+  /// How many values a test's jump takes: two for a comparison of two, `IF_ICMPLT`, else one.
+  private static int operands(BranchInstruction test) {
+    return test.opcode().name().startsWith("IF_") ? 2 : 1;
   }
 
   /// The second test's jump: the next one, with only plain instructions on the same line between.
