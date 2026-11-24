@@ -37,6 +37,19 @@ jobs:
         run: |
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "tag $TAG isn't vX.Y.Z"; exit 1; }
           echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+      # The notes are the release's section of CHANGELOG.md (RELEASING.md makes them with the same
+      # command). A tag with no section stops here, before anything is uploaded; a release created
+      # without notes is given them.
+      - name: The notes, from CHANGELOG.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+          BODY: ${{ github.event.release.body }}
+        run: |
+          sh scripts/changelog.sh notes "$VERSION" > "$RUNNER_TEMP/notes.md"
+          if [[ -z "${BODY//[[:space:]]/}" ]]; then
+            gh release edit "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
       # Unsigned uploads are refused by Central, but only after the upload: say so first.
       - name: Every secret is set
         env:
