@@ -298,6 +298,53 @@ class MutationsTest {
     assertThat(println.skipped()).contains("arid: only writes output");
   }
 
+  /// A mutant of mutastic's own whose class wouldn't load is withdrawn as unviable, with the
+  /// verifier's reason, rather than stopping the run. The code here keeps the value its first test
+  /// tests, as Kotlin's `?.` does, behind a `dup` and `pop` the connector can't follow: so it takes
+  /// the pair as javac's, and the swap brings an `Object` where a `String` is returned.
+  @Test
+  void aMutantThatWouldntLoadIsUnviable() {
+    var model = ClassFile.of().parse(keepsWhatItTests());
+    var all = new Mutations(ClassFile.of(), Policy.NONE.withOperators(List.of("all"), List.of()));
+
+    var swapped =
+        all.find(model).stream()
+            .filter(mutant -> mutant.operator() == BuiltIn.LOGICAL_CONNECTOR)
+            .findFirst()
+            .orElseThrow();
+
+    assertThat(all.applied(model, swapped))
+        .asInstanceOf(
+            org.assertj.core.api.InstanceOfAssertFactories.type(Mutations.Applied.Unviable.class))
+        .extracting(Mutations.Applied.Unviable::why)
+        .asString()
+        .startsWith("Bad return type");
+  }
+
+  /// `static String named(Object value)`: `value?.toString() ?: "none"`, as Kotlin compiles it,
+  /// with a `dup` and `pop` between the tests.
+  private static byte[] keepsWhatItTests() {
+    var object = java.lang.constant.ConstantDescs.CD_Object;
+    var string = java.lang.constant.ConstantDescs.CD_String;
+    return ClassFile.of()
+        .build(
+            java.lang.constant.ClassDesc.of("com.example.Kept"),
+            type ->
+                type.withMethodBody(
+                    "named",
+                    java.lang.constant.MethodTypeDesc.of(string, object),
+                    ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC,
+                    code -> {
+                      var none = code.newLabel();
+                      var named = code.newLabel();
+                      code.lineNumber(1).aload(0).dup().ifnull(none).dup().pop();
+                      code.invokevirtual(
+                          object, "toString", java.lang.constant.MethodTypeDesc.of(string));
+                      code.dup().ifnonnull(named).labelBinding(none).pop().ldc("none");
+                      code.labelBinding(named).areturn();
+                    }));
+  }
+
   @Test
   void callsAreCountedApartFromInstructions() throws Exception {
     // The void-call operator doesn't move instruction sites: discount()'s branch is still site 0.

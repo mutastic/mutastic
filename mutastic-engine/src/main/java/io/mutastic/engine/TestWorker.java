@@ -441,6 +441,8 @@ final class TestWorker implements AutoCloseable {
               parts[6].equals("port-clash"),
               failedCase(parts, 7),
               input(parts, 9));
+      // A selector that finds nothing: mutastic's own error, which the worker says.
+      case "ERROR" -> throw new IllegalStateException(parts.length > 2 ? parts[2] : answer);
       default -> throw new IllegalStateException("the worker said: " + answer);
     };
   }
@@ -468,18 +470,30 @@ final class TestWorker implements AutoCloseable {
   }
 
   /// How `test` fares on its own with no mutant in, within `timeout`: missed if it passes, caught
-  /// with what it failed with if it fails, timed out if it doesn't finish. Empty if no test ran for
-  /// it, as for a selector that matches nothing.
-  Optional<Run> unmutated(String test, Duration timeout) {
+  /// with what it failed with if it fails, timed out if it doesn't finish.
+  Run unmutated(String test, Duration timeout) {
     var answer = testsRun("RUN\t" + test, timeout);
     if (answer.isEmpty()) {
       kill();
-      return Optional.of(new Run(Status.TIMED_OUT, 1));
+      return new Run(Status.TIMED_OUT, 1);
     }
     replaceIfAged();
-    return answer.get().startsWith("RESULT\tERROR")
-        ? Optional.empty()
-        : Optional.of(parsed(answer.get()));
+    return alone(test, parsed(answer.get()));
+  }
+
+  /// How JUnit says it couldn't discover what a selector names (since 5.13).
+  private static final String DISCOVERY_ISSUE =
+      "org.junit.platform.launcher.core.DiscoveryIssueException";
+
+  /// `run`, of `test` alone with no mutant in, unless finding it failed. Every test already ran
+  /// once, so a selector that finds nothing, or that JUnit can't discover, is mutastic's own error:
+  /// never the test failing on its own, nor a reason to drop its catches.
+  private static Run alone(String test, Run run) {
+    if (run.failure().filter(DISCOVERY_ISSUE::equals).isPresent()) {
+      throw new IllegalStateException(
+          "mutastic couldn't select " + test + " to run it on its own: JUnit couldn't discover it");
+    }
+    return run;
   }
 
   /// The first of `candidates` (one value per constructor parameter of `receiver`, then per method
@@ -538,7 +552,7 @@ final class TestWorker implements AutoCloseable {
       return false;
     }
     replaceIfAged();
-    return answer.get().startsWith("RESULT\tPASSED");
+    return alone(test, parsed(answer.get())).status() == Status.MISSED;
   }
 
   /// The answer to `command`, which runs tests, or empty if none came in time. What the tests left

@@ -1512,10 +1512,44 @@ public final class Engine {
         return new Outcome(MutantResult.skipped(mutant), false);
       }
       var covering = coverage.coveringTests(mutant);
-      if (covering.isEmpty()) {
-        return new Outcome(uncovered(mutant, worker), false);
+      if (covering.isEmpty() && !suggestsFor(mutant)) {
+        return new Outcome(unreached(mutant), false);
       }
-      return tested(mutant, worker, covering);
+      Mutations.Applied applied;
+      synchronized (mutations) {
+        applied = mutations.applied(model(mutant), mutant);
+      }
+      return switch (applied) {
+        case Mutations.Applied.Unviable unviable ->
+            new Outcome(withdrawn(mutant, unviable.why()), false);
+        case Mutations.Applied.Loads loads ->
+            covering.isEmpty()
+                ? new Outcome(uncovered(mutant, loads.bytes(), worker), false)
+                : tested(mutant, loads.bytes(), worker, covering);
+      };
+    }
+
+    /// A mutant no test reaches, and none is suggested for: its class isn't needed, only whether it
+    /// would load.
+    private MutantResult unreached(Mutant mutant) {
+      Optional<String> unviable;
+      synchronized (mutations) {
+        unviable = mutations.unviableToRun(model(mutant), mutant);
+      }
+      return unviable
+          .map(why -> withdrawn(mutant, why))
+          .orElseGet(() -> MutantResult.notCovered(mutant));
+    }
+
+    /// A mutant whose class wouldn't load, skipped: it proves nothing. Counted as caught it would
+    /// flatter the score, and as missed or not covered it would ask for a test no test can be.
+    private static MutantResult withdrawn(Mutant mutant, String why) {
+      return MutantResult.skipped(mutant.skippedFor("unviable: " + why));
+    }
+
+    /// Whether a mutant no test reaches gets a first test to write.
+    private boolean suggestsFor(Mutant mutant) {
+      return suggestions && isOnAnInstruction(mutant);
     }
 
     /// What `mutant` should take: the time its covering tests took in the coverage pass, every
@@ -1539,8 +1573,8 @@ public final class Engine {
     }
 
     /// The mutant run against the tests that reach it.
-    private Outcome tested(Mutant mutant, TestWorker worker, List<String> covering) {
-      var trial = new Trial(worker, mutant, verifiedMutation(mutant), coverage);
+    private Outcome tested(Mutant mutant, byte[] bytes, TestWorker worker, List<String> covering) {
+      var trial = new Trial(worker, mutant, bytes, coverage);
       var tested = shrunk(trial, testConfirmed(trial, covering));
       var inputs = coverage.inputs(mutant, covering);
       var result = resultOf(trial, covering, tested, inputs);
@@ -1589,21 +1623,6 @@ public final class Engine {
     private static boolean isOnAnInstruction(Mutant mutant) {
       return !(mutant.operator() instanceof ClassMutator)
           && !(mutant.operator() instanceof MissingNotification);
-    }
-
-    /// The mutant's class, mutated and checked to load.
-    private byte[] verifiedMutation(Mutant mutant) {
-      synchronized (mutations) {
-        var bytes = mutations.apply(model(mutant), mutant);
-        var errors = mutations.verify(bytes);
-        if (!errors.isEmpty()) {
-          // A mutant that won't load proves nothing, and counting it as caught would flatter the
-          // score: this is mutastic's bug, not the user's.
-          throw new IllegalStateException(
-              "mutant " + mutant.id() + " doesn't verify: " + errors.getFirst().getMessage());
-        }
-        return bytes;
-      }
     }
 
     /// The covering tests' run, and the catcher whose catch didn't repeat, if one didn't.
@@ -1683,17 +1702,14 @@ public final class Engine {
           .withCaughtInput(run.input().map(TestWorker.CaughtInput::text));
     }
 
-    /// A mutant no test reaches, with the first test to write for it when suggestions are on.
-    private MutantResult uncovered(Mutant mutant, TestWorker worker) {
-      var result = MutantResult.notCovered(mutant);
-      return suggestions && isOnAnInstruction(mutant)
-          ? result.withSuggestion(startingPoint(mutant, worker))
-          : result;
+    /// A mutant no test reaches, with the first test to write for it.
+    private MutantResult uncovered(Mutant mutant, byte[] bytes, TestWorker worker) {
+      return MutantResult.notCovered(mutant).withSuggestion(startingPoint(mutant, bytes, worker));
     }
 
     /// For a mutant no test reaches, the first test to write: a call a test in the class's own
     /// package could make, and its result, where the mutant changes it.
-    private Optional<Suggestion> startingPoint(Mutant mutant, TestWorker worker) {
+    private Optional<Suggestion> startingPoint(Mutant mutant, byte[] bytes, TestWorker worker) {
       Optional<String> receiver;
       synchronized (mutations) {
         receiver = Access.receiver(models, mutant, mutant.binaryName() + "Test");
@@ -1701,7 +1717,7 @@ public final class Engine {
       if (receiver.isEmpty()) {
         return Optional.empty();
       }
-      var trial = new Trial(worker, mutant, verifiedMutation(mutant), coverage);
+      var trial = new Trial(worker, mutant, bytes, coverage);
       return suggest(
           receiver.get(), trial, Map.of(), new Tests(mutant.binaryName() + "Test", List.of()));
     }
@@ -2155,12 +2171,20 @@ public final class Engine {
     }
   }
 
-  /// Every class in the directories, by binary name, in a stable order.
+  /// Every class in the directories, by binary name, in a stable order: the class each name loads,
+  /// as the test classpath has them. That's a directory's file at the class's own path, the first
+  /// directory's of a name: so not a multi-release layout's `META-INF/versions/11`, which no class
+  /// loader reads from a directory, unless the build puts that directory on the classpath itself.
   private static Map<String, ClassModel> classesIn(List<Path> roots, ClassFile context) {
     var models = new java.util.TreeMap<String, ClassModel>();
-    for (Path file : classFiles(roots)) {
-      var model = ClassFileVersion.parse(context, file);
-      models.put(model.thisClass().asInternalName().replace('/', '.'), model);
+    for (Path root : roots) {
+      for (Path file : classFiles(List.of(root))) {
+        var model = ClassFileVersion.parse(context, file);
+        var name = model.thisClass().asInternalName();
+        if (root.resolve(name + ".class").equals(file)) {
+          models.putIfAbsent(name.replace('/', '.'), model);
+        }
+      }
     }
     return models;
   }

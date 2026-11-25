@@ -117,10 +117,10 @@ final class FalseCatchGuard {
       var timeout =
           Engine.timeoutFor(
               test.contains("#") ? coverage.timeOf(test) : coverage.timeOfEveryTest());
-      worker
-          .unmutated(runnable.get(), timeout)
-          .filter(FalseCatchGuard::failed)
-          .ifPresent(run -> failing.put(test, run.failure().orElse("an unknown exception")));
+      var run = worker.unmutated(runnable.get(), timeout);
+      if (failed(run)) {
+        failing.put(test, run.failure().orElse("an unknown exception"));
+      }
     }
     return failing;
   }
