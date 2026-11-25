@@ -1014,8 +1014,7 @@ public final class Engine {
     var mutants = found.mutants();
     var mutations = found.mutations();
     var coverage = new Coverage(context);
-    var ghosts =
-        options.ghosts() ? ghostsIn(models, mutations, options.shard()) : List.<Ghosts.Found>of();
+    var ghosts = ghostsFor(options, models, mutations);
     var instrumented =
         instrumentMutated(models, withGhosts(mutants, ghosts), coverage, options.auditArid());
     var mutantRun =
@@ -1029,8 +1028,15 @@ public final class Engine {
             java.util.Collections.synchronizedList(new ArrayList<>()),
             project,
             options.killMatrix(),
-            !options.only().isEmpty());
+            !options.only().isEmpty(),
+            StaleState.in(project.testClasses()));
     return new Plan(mutants, mutantRun, instrumented, found.stale(), ghosts, options);
+  }
+
+  /// The ghosts of `options`' share of the classes, if it asks for them.
+  private static List<Ghosts.Found> ghostsFor(
+      Options options, Map<String, ClassModel> models, Mutations mutations) {
+    return options.ghosts() ? ghostsIn(models, mutations, options.shard()) : List.of();
   }
 
   /// The mutants to run, then the ghosts.
@@ -1520,6 +1526,8 @@ public final class Engine {
   /// @param shrinkOnce whether the input a property catches a mutant with is shrunk, by running
   ///   that test once more with shrinking on: in a run of mutants named by id, whose cards are read
   ///   one by one
+  /// @param staleState the tests whose catch is run again in a fresh loader before it counts, as
+  ///   their run can see state an earlier run left
   private record MutantRun(
       Map<String, ClassModel> models,
       Mutations mutations,
@@ -1530,7 +1538,8 @@ public final class Engine {
       List<MutantResult> audited,
       Project project,
       boolean killMatrix,
-      boolean shrinkOnce) {
+      boolean shrinkOnce,
+      StaleState staleState) {
     /// At most this many sets of arguments to try per mutant.
     static final int CANDIDATES = 400;
 
@@ -1616,7 +1625,7 @@ public final class Engine {
       var inputs = coverage.inputs(mutant, covering);
       var result = resultOf(trial, covering, tested, inputs);
       if (killMatrix && tested.run().status() == Status.CAUGHT) {
-        result = result.withCaughtByAll(everyCatcher(trial, covering, tested.run()));
+        result = result.withCaughtByAll(everyCatcher(trial, covering, tested.run(), staleState));
       }
       if (suggestions && isOnAnInstruction(mutant) && tested.run().status() == Status.MISSED) {
         var receiver = receiverFor(mutant, result.coveredBy().getFirst());
@@ -1636,14 +1645,18 @@ public final class Engine {
     /// Every covering test that catches the mutant, from the one that did first: each run picks up
     /// after the last test that failed, until the rest pass or one doesn't finish in time. A test
     /// that failed but isn't among `covering` (a class failing as a whole) ends it there.
+    ///
+    /// A catcher whose catch is stale ([#isStale]) isn't one, and the tests after it go on.
     private static List<String> everyCatcher(
-        Trial trial, List<String> covering, TestWorker.Run first) {
+        Trial trial, List<String> covering, TestWorker.Run first, StaleState staleState) {
       var catchers = new ArrayList<String>();
       var run = first;
       var rest = covering;
       while (run.status() == Status.CAUGHT && run.failedTest().isPresent()) {
         var catcher = run.failedTest().get();
-        catchers.add(catcher);
+        if (!isStale(trial, catcher, staleState)) {
+          catchers.add(catcher);
+        }
         int at = rest.indexOf(catcher);
         if (at < 0 || at == rest.size() - 1) {
           break;
@@ -1671,9 +1684,23 @@ public final class Engine {
         return new Tested(run, Optional.empty());
       }
       var catcher = run.failedTest().orElseThrow();
-      return confirming.repeats(run, () -> trial.run(List.of(catcher)))
-          ? new Tested(run, Optional.empty())
-          : testedAfter(trial, covering, run, Optional.of(catcher));
+      if (!confirming.repeats(run, () -> trial.run(List.of(catcher)))) {
+        return testedAfter(trial, covering, run, Optional.of(catcher));
+      }
+      return isStale(trial, catcher, staleState)
+          ? testedAfter(trial, covering, run, Optional.empty())
+          : new Tested(run, Optional.empty());
+    }
+
+    /// Whether `catcher`, a test whose run can see state an earlier run left ([StaleState]), passes
+    /// against the mutant in a fresh loader, where every static starts clean as in one run of the
+    /// build: then what it failed on was that state, not the mutant, and it's no catch. Not a sign
+    /// of a flaky test either, so it names no test likely flaky.
+    private static boolean isStale(Trial trial, String catcher, StaleState staleState) {
+      return FalseCatchGuard.runnable(catcher)
+          .filter(staleState::reaches)
+          .map(runnable -> trial.runFresh(List.of(runnable)).status() == Status.MISSED)
+          .orElse(false);
     }
 
     /// With [#shrinkOnce], the input a property caught the mutant with, shrunk: its test runs once
@@ -2189,6 +2216,16 @@ public final class Engine {
 
     TestWorker worker() {
       return worker;
+    }
+
+    /// `tests` against the mutant in a fresh loader, each allowed what it's allowed in [#run].
+    TestWorker.Run runFresh(List<String> tests) {
+      var timeout =
+          timeoutFor(
+              mutant.operator() instanceof ClassMutator
+                  ? coverage.timeOfEveryTest()
+                  : coverage.timeOf(tests));
+      return worker.runFresh(mutant.binaryName(), bytes, tests, timeout);
     }
 
     Mutant mutant() {
