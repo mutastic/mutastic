@@ -230,42 +230,55 @@ That holds everywhere a test is named or counted:
 
 ## Property tests
 
-A property test draws its inputs at random. Drawn afresh in each run, a mutant only some inputs
-catch would be caught in one run and missed in the next, and a property that fails for a rare input
-would look like a flaky test. So mutastic gives every test JVM of a run one seed, the coverage
-pass's and each mutant's, and every run the same one: a property catches a mutant in every run or
-in none.
+You run mutastic twice on the same code, and a mutant that was caught is now missed. Nothing
+changed but the luck of the draw: a property test picks its inputs at random, and only some of them
+catch that mutant. You can't tell whether your tests got weaker, and a property that fails only on a
+rare input looks like a flaky test.
 
-| Framework | Its seed | Its shrinking, on a mutant's run |
+So mutastic gives a run's property tests the same seed every time, where their framework takes one
+from outside the test. A mutant is then caught in every run or in none, and you don't have to set
+anything up.
+
+### The input that caught a mutant
+
+A property's name alone doesn't say what went wrong, so a caught mutant names the input too:
+``ListsTest#reversesTwice with `[0]` ``.
+
+- **In a run of every mutant,** it's the first input that failed. Shrinking it to a smaller one is
+  often the slow part, and one failing input is enough to catch a mutant, so mutastic turns
+  shrinking off where the framework lets it.
+- **With `run --only`, `verify` or `explain`,** the property runs once more with shrinking on, and
+  the smallest input is named.
+
+It's on one line, as the framework says it (Kotest's is `Arg 0: -1`), cut at 300 characters. The
+events and `mutation.json` have it as `caughtInput`
+([Schemas](/reference/schemas/)).
+
+### Try another seed
+
+Another seed draws other inputs, and can catch what this one missed. The seed is `0` until you give
+the test task the framework's own system property, such as `systemProperty("QT_SEED", "2")` in
+Gradle, or `<systemPropertyVariables>` in Surefire. It's then the seed for every framework in the
+run. A test that sets its own in code (`withFixedSeed`, `PropTestConfig(seed = …)`) keeps it.
+
+| Framework | Its seed | Shrinking turned off by |
 |---|---|---|
-| QuickTheories | `QT_SEED`, a system property | Off: `QT_SHRINKS=0` |
-| Kotest's property tests (`forAll`, `checkAll`) | `kotest.proptest.default.seed`, a system property; its saved failures are off (`kotest.proptest.seed.write-failed=false`) | Off: `PropertyTesting.defaultShrinkingMode` |
-| junit-quickcheck | Can't be set: it seeds a parameter only from its own `@When(seed = …)` | As its `@Property(shrink = …)` says |
-| jqwik | Not set: its tests run as ordinary tests, and nothing is read from them | As it does |
+| QuickTheories | `QT_SEED` | `QT_SHRINKS=0` |
+| Kotest (`forAll`, `checkAll`) | `kotest.proptest.default.seed`, with saved failures off (`kotest.proptest.seed.write-failed=false`) | `PropertyTesting.defaultShrinkingMode` |
+| junit-quickcheck | Only in the test, `@When(seed = …)` | Only in the test, `@Property(shrink = …)` |
 
-- **The seed is `0`,** unless you set one: give the test task the framework's system property,
-  `systemProperty("QT_SEED", "2")` in Gradle or `<systemPropertyVariables>` in Surefire, and it's
-  the run's seed, for every framework. A test that names its own in code (`withFixedSeed`,
-  `PropTestConfig(seed = …)`) keeps it. `run-started` records the seed in `propertyTests`:
-  `{"frameworks": ["junit-quickcheck", "quicktheories"], "seed": "0", "seeded": ["quicktheories"],
-  "unseeded": ["junit-quickcheck"]}`. Another seed is another draw, and can catch what this one
-  missed.
-- **A caught mutant names the input that caught it,** after the test, ``ListsTest#reversesTwice
-  with `[0]` `` in `verify`, `explain` and its card, `caughtInput` in `mutant-finished`, and
-  `mutastic.caughtInput` in `mutation.json`: on one line as the framework says it (Kotest's is
-  `Arg 0: -1`), cut at 300 characters. One counterexample is enough to catch a mutant, so a run of
-  every mutant turns shrinking off where the framework lets it, often the costly part of a failing
-  property, and names the first input that failed. A run of mutants named by id, `run --only`,
-  `verify` or `explain`, runs the catching property once more with shrinking on, and names the
-  smallest.
-- **A framework mutastic can't seed is named,** not guessed at. A run whose tests use one ends with
-  a note on stderr, in every format, and `propertyTests` lists it in `unseeded`:
+### When a seed can't be set
 
-  ```text
-  note: property tests in junit-quickcheck run with their own seeds, which mutastic can't set: a mutant only some of their inputs catch can be caught in one run and missed in the next
-  ```
+Some frameworks take no seed from outside the test, so their results can still change between runs.
+The run says which, in every format, on stderr:
 
-  To keep such a mutant's result steady, check its edge in a test of its own.
+```text
+note: property tests in junit-quickcheck run with their own seeds, which mutastic can't set: a mutant only some of their inputs catch can be caught in one run and missed in the next
+```
+
+To keep such a mutant's result steady, check its edge in a test of its own. `run-started` lists
+those frameworks as `unseeded` in `propertyTests`, beside the seed and the frameworks that drew from
+it.
 
 </EditionOnly>
 
