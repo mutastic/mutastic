@@ -130,13 +130,7 @@ final class MavenSetup {
           "module-missing",
           Modules.missing(module, javaModules(directory, arguments), request.typed()));
     }
-    var rest = new ArrayList<>(List.of("test-compile"));
-    if (!module.equals(":")) {
-      rest.addAll(List.of("-pl", module.substring(1), "-am"));
-    }
-    var built =
-        BuildErrors.command(mvn(directory).command(), directory, "-f", rest)
-            + arguments.buildEnding();
+    var built = built(request, arguments);
     return SetupFailed.noSuite(output.stream())
         .orElseGet(
             () ->
@@ -146,6 +140,17 @@ final class MavenSetup {
                         new BuildErrors.Build("Maven", name(directory, module), log, built),
                         output,
                         likely(directory))));
+  }
+
+  /// The command that builds what mutastic built, as the person would type it.
+  private static String built(BuildTool.Request request, BuildArguments arguments) {
+    var directory = request.directory();
+    var rest = new ArrayList<>(List.of("test-compile"));
+    if (!request.module().equals(":")) {
+      rest.addAll(List.of("-pl", request.module().substring(1), "-am"));
+    }
+    return BuildErrors.command(mvn(directory).command(), directory, "-f", rest)
+        + arguments.buildEnding();
   }
 
   /// `mvn test -Dtest='PricingTest#bigOrders'`, or Failsafe's `verify -Dit.test=` for its suite;

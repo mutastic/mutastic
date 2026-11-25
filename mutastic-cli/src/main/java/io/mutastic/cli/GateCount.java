@@ -45,7 +45,18 @@ final class GateCount {
   ///
   /// @param buildArguments what `gate open` was given after `--`, for this count alone: kept in no
   ///   file
-  record Module(String name, String suite, Optional<List<String>> buildArguments) {}
+  record Module(String name, String suite, Optional<List<String>> buildArguments) {
+    /// As the count's process takes them.
+    List<String> words() {
+      var words = new java.util.ArrayList<>(List.of(name, suite));
+      buildArguments.ifPresent(
+          given -> {
+            words.add(BuildArgs.START);
+            words.addAll(given);
+          });
+      return words;
+    }
+  }
 
   /// What the count found at the task's start.
   ///
@@ -80,16 +91,8 @@ final class GateCount {
                   tree,
                   project.isEmpty() ? "." : project,
                   copy.toString(),
-                  token,
-                  module.name(),
-                  module.suite()));
-      module
-          .buildArguments()
-          .ifPresent(
-              given -> {
-                arguments.add(BuildArgs.START);
-                arguments.addAll(given);
-              });
+                  token));
+      arguments.addAll(module.words());
       started(work, spawn(work, arguments), copy, token);
     } catch (IOException | RuntimeException e) {
       var failed = new Properties();

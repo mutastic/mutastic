@@ -459,9 +459,8 @@ public final class Main {
       List.of(
           "--since=HEAD", "--force-coverage", "--report=none", "--progress=none", "--format=jsonl");
 
-  /// The test cases a run of `project` runs and skips, with no mutant: what [GateCount] counts at a
-  /// gated task's start, in a process of its own.
-  static int[] countCases(
+  /// The command line of [#countCases].
+  private static List<String> countingArgs(
       Path project, String module, String suite, Optional<List<String>> buildArguments) {
     var args = new ArrayList<>(List.of("run", project.toString()));
     if (!module.equals(":")) {
@@ -474,6 +473,14 @@ public final class Main {
           words.add(BuildArgs.START);
           words.addAll(given);
         });
+    return words;
+  }
+
+  /// The test cases a run of `project` runs and skips, with no mutant: what [GateCount] counts at a
+  /// gated task's start, in a process of its own.
+  static int[] countCases(
+      Path project, String module, String suite, Optional<List<String>> buildArguments) {
+    var words = countingArgs(project, module, suite, buildArguments);
     var command = enclosing(Command.parse(words.toArray(String[]::new)));
     var terminal = Terminal.current();
     var tool = BuildArgs.on(BuildTools.of(project), command, project, terminal.env());
@@ -2101,19 +2108,19 @@ public final class Main {
   }
 
   /// A module read, and how long its build tool took building what the run needs.
-  private record Built(Project project, Duration took) {}
+  private record Read(Project project, Duration took) {}
 
   /// The module read through its build, which progress shows as it builds; or from what `--setup`
   /// says the build would, with nothing built.
-  private static Built built(
+  private static Read built(
       Command command, BuildTool tool, BuildTool.Request request, Progress progress) {
     if (command.setup().isPresent()) {
       var read = tool.read(request.directory(), command.module(), command.setup().get());
-      return new Built(read, Duration.ZERO);
+      return new Read(read, Duration.ZERO);
     }
     long start = System.nanoTime();
     var project = read(tool, request, progress);
-    return new Built(project, Duration.ofNanos(System.nanoTime() - start));
+    return new Read(project, Duration.ofNanos(System.nanoTime() - start));
   }
 
   /// The module read through its build, which progress shows as it builds.
@@ -2983,6 +2990,13 @@ public final class Main {
       Optional<String> vocabulary,
       boolean eachMutant) {}
 
+  /// How the project is built, and mutastic run on it.
+  ///
+  /// @param setup what a build plugin wrote of the project, so no build runs
+  /// @param commands how the commands offered run mutastic
+  /// @param arguments what was typed after `--` for the build tool: empty when nothing was
+  record Built(Optional<Path> setup, String commands, Optional<List<String>> arguments) {}
+
   /// A command line, read.
   ///
   /// @param workers empty for the default, which depends on the machine
@@ -2990,7 +3004,7 @@ public final class Main {
   /// @param reports the report files to write after a full run
   /// @param experimental what's experimental that the run turns on: `ghosts`
   /// @param chosen which of the module's mutants it's of: those asked for by id or by their lines
-  /// @param buildArguments what was typed after `--` for the build tool: empty when nothing was
+  /// @param built how the project is built, and mutastic run on it
   record Command(
       Subcommand subcommand,
       Path directory,
@@ -3008,13 +3022,26 @@ public final class Main {
       String suite,
       Optional<String> since,
       Optional<Ignoring> ignore,
-      Optional<Path> setup,
-      String commands,
+      Built built,
       Gating gating,
       java.util.Set<String> experimental,
       int top,
-      Sharing sharing,
-      Optional<List<String>> buildArguments) {
+      Sharing sharing) {
+    /// What a build plugin wrote of the project, with `--setup`.
+    Optional<Path> setup() {
+      return built.setup();
+    }
+
+    /// How the commands offered run mutastic.
+    String commands() {
+      return built.commands();
+    }
+
+    /// What was typed after `--` for the build tool: empty when nothing was.
+    Optional<List<String>> buildArguments() {
+      return built.arguments();
+    }
+
     Optional<String> format() {
       return shown.format();
     }
@@ -3125,13 +3152,11 @@ public final class Main {
           suite,
           since,
           Optional.of(how),
-          setup,
-          commands,
+          built,
           gating,
           experimental,
           top,
-          sharing,
-          buildArguments);
+          sharing);
     }
 
     /// The same command, on another build's directory and module.
@@ -3153,13 +3178,11 @@ public final class Main {
           suite,
           since,
           ignore,
-          setup,
-          commands,
+          built,
           gating,
           experimental,
           top,
-          sharing,
-          buildArguments);
+          sharing);
     }
 
     /// The same command, running the operators `named`: a gate check's, those its open chose.
@@ -3181,13 +3204,11 @@ public final class Main {
           suite,
           since,
           ignore,
-          setup,
-          commands,
+          built,
           gating,
           experimental,
           top,
-          sharing,
-          buildArguments);
+          sharing);
     }
 
     /// The run `gate check` makes: this command's project and operators, on the lines changed since
@@ -3213,13 +3234,11 @@ public final class Main {
           suite,
           Optional.of(base),
           Optional.empty(),
-          setup,
-          commands,
+          built,
           gating,
           experimental,
           top,
-          Sharing.NONE,
-          buildArguments);
+          Sharing.NONE);
     }
 
     static Command parse(String[] args) {
@@ -3838,13 +3857,11 @@ public final class Main {
             suite,
             since,
             Optional.empty(),
-            setup,
-            commands,
+            new Built(setup, commands, buildArguments),
             new Gating(hook, tries),
             java.util.Set.copyOf(experimental),
             top,
-            sharing(subcommand),
-            buildArguments);
+            sharing(subcommand));
       }
 
       /// What the run must clear. `--fail-on-new` judges a run of the module, not mutants asked for

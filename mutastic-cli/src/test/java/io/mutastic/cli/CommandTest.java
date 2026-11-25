@@ -32,13 +32,11 @@ class CommandTest {
                 "test",
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                "mutastic",
+                new Main.Built(Optional.empty(), "mutastic", Optional.empty()),
                 new Main.Gating("", 3),
                 java.util.Set.of(),
                 1,
-                Main.Sharing.NONE,
-                Optional.empty()));
+                Main.Sharing.NONE));
   }
 
   @Test
@@ -72,13 +70,11 @@ class CommandTest {
                 "test",
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                "mutastic",
+                new Main.Built(Optional.empty(), "mutastic", Optional.empty()),
                 new Main.Gating("", 3),
                 java.util.Set.of(),
                 1,
-                Main.Sharing.NONE,
-                Optional.empty()));
+                Main.Sharing.NONE));
   }
 
   /// What the build plugins pass: the setup they wrote, and their goals as the commands offered.

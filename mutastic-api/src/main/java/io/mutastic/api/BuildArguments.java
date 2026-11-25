@@ -40,35 +40,59 @@ public record BuildArguments(List<String> words, Optional<List<String>> typed) {
   ///
   /// @throws IllegalArgumentException when a quote isn't closed
   public static List<String> split(String words) {
-    var split = new ArrayList<String>();
-    var word = new StringBuilder();
-    boolean started = false;
-    char quote = 0;
+    var reading = new Splitting();
     for (int at = 0; at < words.length(); at++) {
-      char next = words.charAt(at);
-      if (quote != 0 && next == quote) {
-        quote = 0;
-      } else if (quote == 0 && (next == '\'' || next == '"')) {
+      reading.next(words.charAt(at));
+    }
+    return reading.split();
+  }
+
+  /// Words being split, a character at a time.
+  private static final class Splitting {
+    private static final char NONE = 0;
+
+    private final List<String> split = new ArrayList<>();
+    private final StringBuilder word = new StringBuilder();
+    private boolean started = false;
+    private char quote = NONE;
+
+    void next(char next) {
+      if (quote != NONE) {
+        inside(next);
+      } else if (next == '\'' || next == '"') {
         quote = next;
         started = true;
-      } else if (quote == 0 && Character.isWhitespace(next)) {
-        if (started) {
-          split.add(word.toString());
-        }
-        word.setLength(0);
-        started = false;
+      } else if (Character.isWhitespace(next)) {
+        end();
       } else {
         word.append(next);
         started = true;
       }
     }
-    if (quote != 0) {
-      throw new IllegalArgumentException("a %c isn't closed".formatted(quote));
+
+    private void inside(char next) {
+      if (next == quote) {
+        quote = NONE;
+      } else {
+        word.append(next);
+      }
     }
-    if (started) {
-      split.add(word.toString());
+
+    private void end() {
+      if (started) {
+        split.add(word.toString());
+      }
+      word.setLength(0);
+      started = false;
     }
-    return List.copyOf(split);
+
+    List<String> split() {
+      if (quote != NONE) {
+        throw new IllegalArgumentException("a %c isn't closed".formatted(quote));
+      }
+      end();
+      return List.copyOf(split);
+    }
   }
 
   /// `word` as a shell reads it back.

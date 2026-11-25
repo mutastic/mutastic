@@ -140,21 +140,26 @@ final class GradleArguments {
       }
       boolean isLong = word.startsWith("--");
       var bare = word.substring(isLong ? 2 : 1);
-      int equals = bare.indexOf('=');
-      var name = equals < 0 ? bare : bare.substring(0, equals);
-      var value = equals < 0 ? Optional.<String>empty() : Optional.of(bare.substring(equals + 1));
-      var letter = bare.isEmpty() ? "" : bare.substring(0, 1);
-      boolean known = REFUSED.containsKey(name) || WITH_VALUE.contains(name);
-      if (!isLong && !known && WITH_VALUE.contains(letter)) { // -xclasses, -Pkey=value
-        return Optional.of(
-            new Argument("-" + letter, letter, Optional.of(bare.substring(1)), List.of()));
+      var name = property(bare);
+      if (isLong || REFUSED.containsKey(name) || WITH_VALUE.contains(name)) {
+        var value =
+            name.equals(bare)
+                ? Optional.<String>empty()
+                : Optional.of(bare.substring(name.length() + 1));
+        return Optional.of(new Argument((isLong ? "--" : "-") + name, name, value, List.of()));
       }
-      var together =
-          isLong || known
-              ? List.<String>of()
-              : bare.chars().mapToObj(Character::toString).collect(Collectors.toList());
-      var typed = (isLong ? "--" : "-") + name;
-      return Optional.of(new Argument(typed, name, value, together));
+      return Optional.of(letters(bare));
+    }
+
+    /// `-xclasses` or `-Pkey=value`, an option of one letter with its value against it; else `-sm`,
+    /// several together.
+    private static Argument letters(String bare) {
+      var letter = bare.substring(0, 1);
+      if (WITH_VALUE.contains(letter)) {
+        return new Argument("-" + letter, letter, Optional.of(bare.substring(1)), List.of());
+      }
+      var together = bare.chars().mapToObj(Character::toString).toList();
+      return new Argument("-" + bare, bare, Optional.empty(), together);
     }
   }
 

@@ -61,6 +61,10 @@ final class BuildArgs {
           refused ->
               new Main.ConfigException("environment", VARIABLE + ": " + said(refused, tool)));
     }
+    return configured(tool, command, directory);
+  }
+
+  private static BuildArguments configured(BuildTool tool, Main.Command command, Path directory) {
     var configuration =
         Configuration.read(Configuration.nearest(module(directory, command.module()), directory));
     var configured = configuration.buildArguments();
