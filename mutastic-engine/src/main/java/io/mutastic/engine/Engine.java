@@ -926,7 +926,25 @@ public final class Engine {
       List<Ignore> stale,
       List<Ghosts.Found> ghosts,
       boolean whole,
-      Exclusions exclusions) {}
+      Exclusions exclusions) {
+    /// The plan for a run with `options`: whole or not, and the tests it leaves out.
+    Plan(
+        List<Mutant> mutants,
+        MutantRun mutantRun,
+        Map<String, byte[]> instrumented,
+        List<Ignore> stale,
+        List<Ghosts.Found> ghosts,
+        Options options) {
+      this(
+          mutants,
+          mutantRun,
+          instrumented,
+          stale,
+          ghosts,
+          Engine.whole(options),
+          new Exclusions(options.testsLeftOut()));
+    }
+  }
 
   /// A project's mutants as a run would have them, and the ignores that no longer hold.
   public record Mutants(List<Mutant> all, List<Ignore> stale) {}
@@ -1012,14 +1030,7 @@ public final class Engine {
             project,
             options.killMatrix(),
             !options.only().isEmpty());
-    return new Plan(
-        mutants,
-        mutantRun,
-        instrumented,
-        found.stale(),
-        ghosts,
-        whole(options),
-        new Exclusions(options.testsLeftOut()));
+    return new Plan(mutants, mutantRun, instrumented, found.stale(), ghosts, options);
   }
 
   /// The mutants to run, then the ghosts.
@@ -1158,6 +1169,12 @@ public final class Engine {
   /// runs none: every mutant is not covered there too.
   private CoveragePass coveragePass(
       Project project, Plan plan, TestWorker first, Listener listener) {
+    return measuredPass(project, plan, first, listener).withUnmatched(unmatched(project, plan));
+  }
+
+  /// The coverage pass, before it's checked for names that left out nothing.
+  private CoveragePass measuredPass(
+      Project project, Plan plan, TestWorker first, Listener listener) {
     var testClasses = testClassesToRun(project, plan.exclusions());
     if (testClasses.isEmpty()) {
       return noTests(plan);
@@ -1180,8 +1197,7 @@ public final class Engine {
     return new CoveragePass(
             first.jdk(), coverage.testCount(), coverageTook, plan.mutants().size(), flaky, evidence)
         .withCases(coverage.casesRan(), coverage.casesSkipped())
-        .withSeparateJvms(separate)
-        .withUnmatched(unmatched(project, plan));
+        .withSeparateJvms(separate);
   }
 
   /// Each test the run was told to leave out that names none of the module's tests (decision 28).

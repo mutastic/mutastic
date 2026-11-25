@@ -60,12 +60,12 @@ public final class TestNames {
     int depth = 0;
     int start = 0;
     for (int at = 0; at < names.length(); at++) {
-      char c = names.charAt(at);
-      if (c == '(') {
+      char next = names.charAt(at);
+      if (next == '(') {
         depth++;
-      } else if (c == ')') {
+      } else if (next == ')') {
         depth = Math.max(0, depth - 1);
-      } else if (c == ',' && depth == 0) {
+      } else if (next == ',' && depth == 0) {
         add(each, names.substring(start, at));
         start = at + 1;
       }

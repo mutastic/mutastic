@@ -983,15 +983,7 @@ public final class HumanText {
     if (!report.staleIgnores().isEmpty()) {
       lines.add(staleIgnoresWarning(report));
     }
-    report
-        .unmatched()
-        .forEach(
-            none ->
-                lines.add(
-                    " %s %s"
-                        .formatted(
-                            style.amber("! left out nothing:"),
-                            AgentText.unmatched(none, report))));
+    report.unmatched().forEach(none -> lines.add(unmatchedWarning(none, report)));
     RepeatedIgnores.in(report)
         .forEach(
             repeated ->
@@ -1001,6 +993,12 @@ public final class HumanText {
       out.append('\n');
       lines.forEach(line -> out.append(line).append('\n'));
     }
+  }
+
+  /// A test the run was told to leave out that named none of its tests (decision 28).
+  private String unmatchedWarning(io.mutastic.api.UnmatchedExclusion none, Report report) {
+    return " %s %s"
+        .formatted(style.amber("! left out nothing:"), AgentText.unmatched(none, report));
   }
 
   /// A line for each reason a test was named likely flaky, the strongest first, then one for each
