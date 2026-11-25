@@ -122,7 +122,12 @@ public record BuildArguments(List<String> words, Optional<List<String>> typed) {
 
   /// An argument mutastic can't give a build tool.
   ///
+  /// @param at which of the arguments it is, from 0
   /// @param name the argument without its value, `--tests`: a value may be a secret
   /// @param reason why not, as the rest of a sentence: `mutastic chooses the tests it runs`
-  public record Refused(String name, String reason) {}
+  public record Refused(int at, String name, String reason) {
+    /// What a word that isn't an option is called: it may be the value of the one before it, so
+    /// it's never said.
+    public static final String WORD = "a word that isn't an option";
+  }
 }

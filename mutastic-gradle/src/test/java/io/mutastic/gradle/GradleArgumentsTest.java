@@ -25,6 +25,9 @@ class GradleArgumentsTest {
         "--max-workers 2",
         "--init-script /x/init.gradle",
         "--no-daemon",
+        "--no-configuration-cache",
+        "-Dorg.gradle.parallel=true",
+        "-Dorg.gradle.caching=true",
         "--rerun-tasks",
         "-s"
       })
@@ -52,6 +55,11 @@ class GradleArgumentsTest {
         "-D mutastic.x=1",
         "clean",
         "--offline clean",
+        "-Dorg.gradle.configuration-cache=true",
+        "-Dorg.gradle.unsafe.configuration-cache=true",
+        "-D org.gradle.logging.level=quiet",
+        "--system-prop=org.gradle.console=rich",
+        "--configuration-cache=true",
         "-x compileJava",
         "-xcompileJava",
         "-x :app:compileJava",
@@ -73,11 +81,29 @@ class GradleArgumentsTest {
         .isPresent();
   }
 
+  /// A word that isn't an option may be the value of one before it.
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "SECRET",
+        "--unknown SECRET",
+        "--offline SECRET",
+        "-Pmutastic=SECRET",
+        "--tests=SECRET",
+        "-pSECRET",
+        "-Dorg.gradle.console=SECRET",
+        "--system-prop org.gradle.console=SECRET"
+      })
+  void aRefusalNeverSaysAWordThatCouldBeAValue(String arguments) {
+    assertThat(GradleArguments.refused(List.of(arguments.split(" ")), "test"))
+        .hasValueSatisfying(refused -> assertThat(refused.toString()).doesNotContain("SECRET"));
+  }
+
   /// The name, never a value, which may be a secret.
   @Test
   void aRefusalNamesTheArgumentWithoutItsValue() {
     assertThat(GradleArguments.refused(List.of("-Pmutastic.key=secret"), "test"))
-        .contains(new Refused("-Pmutastic.key", "it's a setting of mutastic's own"));
+        .contains(new Refused(0, "-P mutastic.key", "it's a setting of mutastic's own"));
     assertThat(GradleArguments.refused(List.of("--tests=Foo"), "test").map(Refused::name))
         .contains("--tests");
   }

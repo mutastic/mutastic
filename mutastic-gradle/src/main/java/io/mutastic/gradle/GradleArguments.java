@@ -89,9 +89,10 @@ final class GradleArguments {
   /// The first argument refused, for a run of `suite`.
   static Optional<Refused> refused(List<String> arguments, String suite) {
     for (int at = 0; at < arguments.size(); at++) {
+      int here = at;
       var argument = Argument.of(arguments.get(at));
       if (argument.isEmpty()) {
-        return Optional.of(new Refused(arguments.get(at), TASK));
+        return Optional.of(new Refused(here, Refused.WORD, TASK));
       }
       var read = argument.get();
       var value = read.value();
@@ -101,7 +102,7 @@ final class GradleArguments {
       }
       var refused = refused(read, value.orElse(""), suite);
       if (refused.isPresent()) {
-        return refused;
+        return refused.map(why -> new Refused(here, why.name(), why.reason()));
       }
     }
     return Optional.empty();
@@ -110,19 +111,34 @@ final class GradleArguments {
   private static Optional<Refused> refused(Argument read, String value, String suite) {
     var reason = REFUSED.get(read.name());
     if (reason != null) {
-      return Optional.of(new Refused(read.typed(), reason));
+      return Optional.of(new Refused(0, read.typed(), reason));
     }
-    if (PROPERTIES.contains(read.name()) && value.startsWith("mutastic")) {
-      return Optional.of(new Refused(read.typed() + property(value), OWN));
+    if (PROPERTIES.contains(read.name())) {
+      return refusedProperty(read, property(value));
     }
     if (Set.of("x", "exclude-task").contains(read.name()) && builds(value, suite)) {
-      return Optional.of(new Refused("%s %s".formatted(read.typed(), value), LEFT_OUT));
+      return Optional.of(new Refused(0, "%s %s".formatted(read.typed(), value), LEFT_OUT));
     }
     // `-mq`: options of one letter given together.
     return read.together().stream()
         .filter(REFUSED::containsKey)
         .findFirst()
-        .map(letter -> new Refused("-" + letter, String.valueOf(REFUSED.get(letter))));
+        .map(letter -> new Refused(0, "-" + letter, String.valueOf(REFUSED.get(letter))));
+  }
+
+  /// Gradle's own settings that stand for an option refused.
+  private static final Map<String, String> SETTINGS =
+      Map.of(
+          "org.gradle.configuration-cache", CACHED,
+          "org.gradle.unsafe.configuration-cache", CACHED,
+          "org.gradle.logging.level", OUTPUT,
+          "org.gradle.console", OUTPUT);
+
+  private static Optional<Refused> refusedProperty(Argument read, String name) {
+    boolean system = Set.of("D", "system-prop").contains(read.name());
+    var reason = name.startsWith("mutastic") ? OWN : system ? SETTINGS.get(name) : null;
+    return Optional.ofNullable(reason)
+        .map(why -> new Refused(0, "%s %s".formatted(read.typed(), name), why));
   }
 
   /// A property's name, without its value.

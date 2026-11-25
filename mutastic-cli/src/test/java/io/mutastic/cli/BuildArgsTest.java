@@ -104,6 +104,21 @@ class BuildArgsTest {
         .contains("  mutastic run --threshold=70 -- '-Pa=b c' --help\n");
   }
 
+  /// Once, whatever else the line has in it.
+  @Test
+  void anOfferedCommandEndsInWhatWasTypedOnce() {
+    var end = " -- -Pa";
+    assertThat(Failure.withEnding("x\n  mutastic run 'my app' :core\n", end))
+        .isEqualTo("x\n  mutastic run 'my app' :core -- -Pa\n");
+    assertThat(Failure.withEnding("  mutastic run 'a -- b'", end))
+        .isEqualTo("  mutastic run 'a -- b' -- -Pa");
+    assertThat(Failure.withEnding("  mutastic run x -- -Pa", end))
+        .isEqualTo("  mutastic run x -- -Pa");
+    assertThat(Failure.withEnding("  mutastic run x --", " --")).isEqualTo("  mutastic run x --");
+    assertThat(Failure.withEnding("  mutastic run --help\n  ./gradlew x", end))
+        .isEqualTo("  mutastic run --help\n  ./gradlew x");
+  }
+
   /// One set of arguments, one key; another, another; none, none. The key file is its owner's.
   @Test
   void theArgumentsStandInARecordUnderAKeyOfTheWorkDirectorys() throws Exception {

@@ -250,7 +250,7 @@ A build that needs an argument to run at all, where its JDKs are, say, or a feat
 it when mutastic builds it too. Put it after `--`:
 
 ```sh
-mutastic run . :app -- -Dorg.gradle.java.installations.paths=/opt/jdk-21 --offline
+mutastic run :app -- -Dorg.gradle.java.installations.paths=/opt/jdk-21 --offline
 ```
 
 Everything after the first `--` goes to the build tool, word for word, on each build call mutastic
@@ -284,7 +284,8 @@ it reads. It also refuses one that leaves out part of the build mutastic runs, a
 classes: Gradle's `-x compileJava` or `-x classes`, Maven's `-Dmaven.test.skip`, `-Dmaven.main.skip`
 and `--fail-never`. `-x spotlessCheck` is fine.
 
-A run with other arguments than the last is never compared as the same code.
+A run with other arguments than the last is never compared as the same code. In CI, [keep one more
+file](/guides/ci/#keep-the-run-record-between-runs) with the run record for that.
 
 ## Ignoring one mutant
 

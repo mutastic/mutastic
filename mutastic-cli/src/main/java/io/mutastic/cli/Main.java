@@ -2724,7 +2724,8 @@ public final class Main {
             + " (:app), or as Maven's -pl takes it (:services/api). The run passes when the score"
             + " reaches the threshold, or with --fail-on-new when every mutant no test catches is"
             + " in the baseline. A full run writes report files, keeps a record the next run"
-            + " compares with, and offers the commands to work on each missed mutant.",
+            + " compares with, and offers the commands to work on each missed mutant. A build that"
+            + " needs an argument, where its JDK is, say, gets what follows -- on the line.",
         "0 when the score reaches the threshold, 1 when it doesn't; with --fail-on-new, 0 when"
             + " every mutant no test catches is in the baseline, 1 when one isn't.",
         List.of(

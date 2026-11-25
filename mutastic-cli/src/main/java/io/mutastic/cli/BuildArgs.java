@@ -79,14 +79,10 @@ final class BuildArgs {
                     place(configuration, refused) + ": " + said(refused, tool)));
   }
 
-  /// Where the file lists what's refused: its line, when the item starts with it.
+  /// Where the file lists what's refused: its line.
   private static String place(Configuration configuration, BuildArguments.Refused refused) {
-    var first = refused.name().split(" ", 2)[0];
-    return configuration.buildArguments().orElse(List.of()).stream()
-        .filter(item -> item.startsWith(first))
-        .findFirst()
-        .map(item -> configuration.place(Configuration.BUILD_ARGS, item))
-        .orElse(Configuration.FILE);
+    var listed = configuration.buildArguments().orElse(List.of());
+    return configuration.place(Configuration.BUILD_ARGS, listed.get(refused.at()));
   }
 
   private static List<String> split(String variable) {

@@ -24,6 +24,8 @@ class MavenArgumentsTest {
         "-ntp",
         "--no-transfer-progress",
         "-fae",
+        "-ff",
+        "-llr",
         "--fail-at-end",
         "-T 2",
         "-U"
@@ -50,6 +52,8 @@ class MavenArgumentsTest {
         "--fil other",
         "-pl core",
         "-plcore",
+        "-fother/pom.xml",
+        "-lbuild.log",
         "-am",
         "-N",
         "-q",
@@ -64,9 +68,28 @@ class MavenArgumentsTest {
     assertThat(MavenArguments.refused(List.of(arguments.split(" ")))).isPresent();
   }
 
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "SECRET",
+        "--unknown SECRET",
+        "-o SECRET",
+        "-plSECRET",
+        "-fSECRET",
+        "-lSECRET",
+        "-rfSECRET",
+        "--file=SECRET",
+        "-Dtest=SECRET",
+        "-D test=SECRET"
+      })
+  void aRefusalNeverSaysAWordThatCouldBeAValue(String arguments) {
+    assertThat(MavenArguments.refused(List.of(arguments.split(" "))))
+        .hasValueSatisfying(refused -> assertThat(refused.toString()).doesNotContain("SECRET"));
+  }
+
   @Test
   void aRefusalNamesTheArgumentWithoutItsValue() {
     assertThat(MavenArguments.refused(List.of("-Dmutastic.key=secret")))
-        .contains(new Refused("-Dmutastic.key", "it's a setting of mutastic's own"));
+        .contains(new Refused(0, "-Dmutastic.key", "it's a setting of mutastic's own"));
   }
 }

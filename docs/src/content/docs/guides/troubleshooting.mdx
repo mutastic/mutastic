@@ -113,6 +113,24 @@ JDK:
 ./gradlew wrapper --gradle-version 9.1.0
 ```
 
+### The build needs an argument
+
+Your build works with `-Pci`, `--offline` or the directory of a JDK, and stops without it, so
+mutastic's run of it stops too, for want of that JDK, say:
+
+```text
+Cannot find a Java installation on your machine matching: {languageVersion=21}
+```
+
+Give mutastic what you give the build, after `--`:
+
+```sh
+mutastic run :app -- -Dorg.gradle.java.installations.paths=/opt/jdk-21
+```
+
+For every run, put it in `mutastic.yaml` or `MUTASTIC_BUILD_ARGS`. See [Arguments for the
+build](/guides/configuration/#arguments-for-the-build).
+
 ### The build fails with the Gradle on the PATH
 
 A build is made for the Gradle its wrapper names. When mutastic finds no wrapper, from the

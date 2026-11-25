@@ -493,10 +493,14 @@
           "name": "BuildArguments.Refused",
           "slug": "buildarguments-refused",
           "kind": "record",
-          "signature": "record Refused(String name, String reason)",
+          "signature": "record Refused(int at, String name, String reason)",
           "summary": "An argument mutastic can't give a build tool.",
           "doc": "An argument mutastic can't give a build tool.",
           "params": [
+            {
+              "name": "at",
+              "doc": "which of the arguments it is, from 0"
+            },
             {
               "name": "name",
               "doc": "the argument without its value, `--tests`: a value may be a secret"
@@ -506,7 +510,18 @@
               "doc": "why not, as the rest of a sentence: `mutastic chooses the tests it runs`"
             }
           ],
-          "members": []
+          "members": [
+            {
+              "kind": "field",
+              "name": "WORD",
+              "anchor": "word",
+              "signature": "static final String WORD",
+              "doc": "What a word that isn't an option is called: it may be the value of the one before it, so\nit's never said.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
         },
         {
           "name": "BuildErrors",

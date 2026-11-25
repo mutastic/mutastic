@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
@@ -71,16 +72,21 @@ record Failure(int exit, String code, String said) {
   }
 
   /// A command that takes the build tool's arguments, on a line of its own, to copy.
-  private static final java.util.regex.Pattern ON_ITS_LINE =
-      java.util.regex.Pattern.compile(
+  private static final Pattern ON_ITS_LINE =
+      Pattern.compile(
           "(?m)^  mutastic (?:run|verify|explain|ignore|next|baseline|gate|mutants)\\b"
-              + "(?!.* --help$)(?!.* -- ).*$");
+              + "(?!.* --help$).*$");
 
   /// Each command offered, ending in the build tool's arguments as they were typed.
-  private static String withEnding(String said, String ending) {
+  static String withEnding(String said, String ending) {
     return ON_ITS_LINE
         .matcher(said)
-        .replaceAll(line -> java.util.regex.Matcher.quoteReplacement(line.group() + ending));
+        .replaceAll(line -> Matcher.quoteReplacement(ended(line.group(), ending)));
+  }
+
+  /// Once: some are offered with it already.
+  private static String ended(String command, String ending) {
+    return command.endsWith(ending) ? command : command + ending;
   }
 
   private static Failure of(RuntimeException failure, Map<String, String> env, List<String> args) {

@@ -96,14 +96,15 @@ final class MavenArguments {
     for (int at = 0; at < arguments.size(); at++) {
       var word = arguments.get(at);
       if (!word.startsWith("-") || word.length() < 2) {
-        return Optional.of(new Refused(word, GOAL));
+        return Optional.of(new Refused(at, Refused.WORD, GOAL));
       }
       var bare = word.substring(word.startsWith("--") ? 2 : 1);
       var property = property(bare, at + 1 < arguments.size() ? arguments.get(at + 1) : "");
       var refused =
           property.isPresent() ? refusedProperty(property.get()) : refusedOption(word, name(bare));
       if (refused.isPresent()) {
-        return refused;
+        int here = at;
+        return refused.map(why -> new Refused(here, why.name(), why.reason()));
       }
       if (WITH_VALUE.contains(bare)) {
         at++; // its value
@@ -130,39 +131,54 @@ final class MavenArguments {
 
   private static Optional<Refused> refusedProperty(String name) {
     var reason = name.startsWith("mutastic.") ? OWN : PROPERTIES.get(name);
-    return Optional.ofNullable(reason).map(why -> new Refused("-D" + name, why));
+    return Optional.ofNullable(reason).map(why -> new Refused(0, "-D" + name, why));
   }
 
-  /// Maven takes a long option by any start of it, after one dash or two.
+  /// Maven takes a long option by any start of it, after one dash or two, and a short one with its
+  /// value against it.
   private static Optional<Refused> refusedOption(String word, String name) {
-    boolean isLong = word.startsWith("--");
-    var typed = (isLong ? "--" : "-") + name;
-    if (!isLong && SHORT.containsKey(name)) {
-      return Optional.of(new Refused(typed, String.valueOf(SHORT.get(name))));
-    }
-    if (!isLong && name.length() < 4) {
-      return Optional.empty(); // a short one, -ntp or -fae
-    }
     if (WITH_VALUE.contains(name) || KNOWN.contains(name)) {
       return Optional.empty();
     }
+    var shortened = word.startsWith("--") ? Optional.<String>empty() : shortened(name);
+    if (shortened.isPresent()) {
+      var option = shortened.get();
+      return Optional.of(new Refused(0, "-" + option, String.valueOf(SHORT.get(option))));
+    }
+    if (!word.startsWith("--") && name.length() < 4) {
+      return Optional.empty(); // a short one, -U or -nsu
+    }
     return LONG.keySet().stream()
-        .filter(refused -> refused.startsWith(name) || attached(isLong, name))
+        .filter(refused -> refused.startsWith(name))
         .sorted()
         .findFirst()
-        .map(refused -> new Refused(typed, String.valueOf(reason(refused, name))));
+        .map(refused -> new Refused(0, "--" + refused, String.valueOf(LONG.get(refused))));
   }
 
-  /// `-fpom.xml`, `-plcore` and `-lbuild.log`: a short option with its value against it.
-  private static boolean attached(boolean isLong, String name) {
-    return !isLong && (name.startsWith("pl") || name.startsWith("rf"));
-  }
+  /// Short options whose value can be against them, `-fpom.xml`, the longer first.
+  private static final List<String> AGAINST = List.of("pl", "rf", "f", "l");
 
-  private static String reason(String refused, String name) {
-    return attached(false, name) ? WHERE : String.valueOf(LONG.get(refused));
+  /// The refused short option `name` is, or starts with: `-file`, though, is a long one.
+  private static Optional<String> shortened(String name) {
+    if (SHORT.containsKey(name)) {
+      return Optional.of(name);
+    }
+    if (LONG.containsKey(name)) {
+      return Optional.empty();
+    }
+    return AGAINST.stream().filter(name::startsWith).findFirst();
   }
 
   /// Long options of Maven's that start as a refused one could.
   private static final Set<String> KNOWN =
-      Set.of("fail-fast", "fail-at-end", "no-transfer-progress", "offline");
+      Set.of(
+          "fae",
+          "ff",
+          "fos",
+          "llr",
+          "fail-fast",
+          "fail-at-end",
+          "legacy-local-repository",
+          "no-transfer-progress",
+          "offline");
 }
