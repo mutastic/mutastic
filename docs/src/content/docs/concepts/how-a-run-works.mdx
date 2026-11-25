@@ -136,7 +136,10 @@ Each worker is a JVM of its own, as Gradle's parallel test forks are, and runs t
 the mutant fastest first. Classes load once per worker, and each mutant is swapped in by class
 redefinition, so nothing restarts between mutants. Redefinition never reruns a static initialiser,
 so a mutant on a line the tests only ran while its class was loading runs in a fresh class loader,
-against every test that reaches its class. A worker that runs out of time is killed and replaced.
+against every test that reaches its class. A test that keeps state in a static (a count of its
+runs, a result it remembers) could carry it from one mutant's run to the next, so its catch runs
+again in a fresh class loader, where every static starts clean, and counts only if it fails there
+too. A worker that runs out of time is killed and replaced.
 
 Workers side by side can get in each other's way: tests that use a fixed port collide, and tests
 that share a lock, a database or a slow start run slower than they did alone. So neither a catch
