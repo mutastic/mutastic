@@ -436,6 +436,14 @@ last run under each other set of [operators](/concepts/operators/) you use; a su
 `test` keeps its own under `suites/<name>/`, and a share of a split run its own under
 `shares/N-of-M/`.
 
+**With arguments for the build, keep `build-args.key` too.** A job that passes [arguments to the
+build tool](/guides/configuration/#arguments-for-the-build) and doesn't keep that file, in the work
+directory beside the record, is compared as `code changed` every time, so its likely flaky tests
+aren't found between runs. The file is a random key the record stands the arguments by. Whoever has
+both it and the record can try guesses at a short secret among the arguments, so where others can
+read the cache, leave it out, or keep secrets out of the arguments. Shares of a split run don't need
+it.
+
 Restore the record before the run and save it after, even when the run fails, since a failing run
 is the one the next wants to compare with.
 

@@ -385,6 +385,145 @@
           ]
         },
         {
+          "name": "BuildArguments",
+          "slug": "buildarguments",
+          "kind": "record",
+          "signature": "@Internal record BuildArguments(List<String> words, Optional<List<String>> typed)",
+          "summary": "The arguments the build tool gets on each build call, and those of them typed on the command line, which the commands mutastic offers repeat: one from a variable or a file applies by itself and may be a secret, so it's never repeated.",
+          "doc": "The arguments the build tool gets on each build call, and those of them typed on the command\nline, which the commands mutastic offers repeat: one from a variable or a file applies by itself\nand may be a secret, so it's never repeated.",
+          "params": [
+            {
+              "name": "words",
+              "doc": "what the build tool gets, in order"
+            },
+            {
+              "name": "typed",
+              "doc": "the arguments typed after `--`: empty when none were"
+            }
+          ],
+          "members": [
+            {
+              "kind": "field",
+              "name": "NONE",
+              "anchor": "none",
+              "signature": "static final BuildArguments NONE",
+              "doc": "No arguments, and none typed.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "typed",
+              "anchor": "typed",
+              "signature": "static BuildArguments typed(List<String> arguments)",
+              "doc": "`arguments`, typed after `--`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "quiet",
+              "anchor": "quiet",
+              "signature": "static BuildArguments quiet(List<String> arguments)",
+              "doc": "`arguments`, from a variable or a file.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "split",
+              "anchor": "split",
+              "signature": "static List<String> split(String words)",
+              "doc": "`words` split as a person writes them in a variable: at spaces, but not inside single or\ndouble quotes, which go. A backslash is kept, so a Windows path needs no care, and nothing is\nexpanded.",
+              "params": [],
+              "returns": "",
+              "throws": [
+                {
+                  "name": "IllegalArgumentException",
+                  "doc": "when a quote isn't closed"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "quoted",
+              "anchor": "quoted",
+              "signature": "static String quoted(String word)",
+              "doc": "`word` as a shell reads it back.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "ending",
+              "anchor": "ending",
+              "signature": "String ending()",
+              "doc": "` -- -Pci --offline`, the end of each of mutastic's commands that's offered: empty when none\nwere typed.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "ending",
+              "anchor": "ending-2",
+              "signature": "static String ending(List<String> arguments)",
+              "doc": "` -- -Pci --offline`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "buildEnding",
+              "anchor": "buildending",
+              "signature": "String buildEnding()",
+              "doc": "` -Pci --offline`, the end of a build's own command that's offered.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "BuildArguments.Refused",
+          "slug": "buildarguments-refused",
+          "kind": "record",
+          "signature": "record Refused(int at, String name, String reason)",
+          "summary": "An argument mutastic can't give a build tool.",
+          "doc": "An argument mutastic can't give a build tool.",
+          "params": [
+            {
+              "name": "at",
+              "doc": "which of the arguments it is, from 0"
+            },
+            {
+              "name": "name",
+              "doc": "the argument without its value, `--tests`: a value may be a secret"
+            },
+            {
+              "name": "reason",
+              "doc": "why not, as the rest of a sentence: `mutastic chooses the tests it runs`"
+            }
+          ],
+          "members": [
+            {
+              "kind": "field",
+              "name": "WORD",
+              "anchor": "word",
+              "signature": "static final String WORD",
+              "doc": "What a word that isn't an option is called: it may be the value of the one before it, so\nit's never said.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
           "name": "BuildErrors",
           "slug": "builderrors",
           "kind": "class",
@@ -574,6 +713,41 @@
               "signature": "boolean recognises(Path directory)",
               "doc": "Whether `directory` is one of its builds.",
               "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withArguments",
+              "anchor": "witharguments",
+              "signature": "default BuildTool withArguments(BuildArguments arguments)",
+              "doc": "The same tool, giving its build these arguments on each call: reading the setup, the modules\nand the dependents. They never reach the tests.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "arguments",
+              "anchor": "arguments",
+              "signature": "default BuildArguments arguments()",
+              "doc": "The arguments its build gets.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "refused",
+              "anchor": "refused",
+              "signature": "default Optional<BuildArguments.Refused> refused(List<String> arguments, String suite)",
+              "doc": "The first of `arguments` that fights how mutastic drives the build, and why: empty when\nthere's none.",
+              "params": [
+                {
+                  "name": "suite",
+                  "doc": "the test suite the run is of"
+                }
+              ],
               "returns": "",
               "throws": []
             },

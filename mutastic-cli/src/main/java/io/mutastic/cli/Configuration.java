@@ -70,6 +70,8 @@ import org.jspecify.annotations.Nullable;
 /// @param places where each plugin, filter and operator is listed, `mutastic.yaml line 7`, for an
 ///   error about it to say: by [#place]'s key
 /// @param excludedTests the tests every run leaves out, each with its reason
+/// @param buildArguments what the build tool gets on each build call, from `build:`'s `args:`:
+///   empty when the file has none
 record Configuration(
     List<Rule> rules,
     List<Path> plugins,
@@ -77,7 +79,8 @@ record Configuration(
     List<String> operators,
     List<String> gateOperators,
     Map<String, String> places,
-    List<LeftOut> excludedTests) {
+    List<LeftOut> excludedTests,
+    Optional<List<String>> buildArguments) {
   static final String FILE = "mutastic.yaml";
   static final Configuration NONE =
       new Configuration(List.of(), List.of(), List.of(), List.of(), List.of(), Map.of());
@@ -85,7 +88,17 @@ record Configuration(
   /// The sections a file has, each at most once.
   private static final List<String> SECTIONS =
       List.of(
-          "extends:", "rules:", "plugins:", "filters:", "operators:", "exclude-tests:", "gate:");
+          "extends:",
+          "rules:",
+          "plugins:",
+          "filters:",
+          "operators:",
+          "exclude-tests:",
+          "gate:",
+          "build:");
+
+  /// What [#place] calls `build:`'s `args:`.
+  static final String BUILD_ARGS = "build: args:";
 
   /// What [#place] calls `gate:`'s `operators:`.
   static final String GATE_OPERATORS = "gate: operators:";
@@ -98,6 +111,7 @@ record Configuration(
     gateOperators = List.copyOf(gateOperators);
     places = Map.copyOf(places);
     excludedTests = List.copyOf(excludedTests);
+    buildArguments = buildArguments.map(List::copyOf);
   }
 
   /// A configuration that leaves out no tests.
@@ -108,7 +122,7 @@ record Configuration(
       List<String> operators,
       List<String> gateOperators,
       Map<String, String> places) {
-    this(rules, plugins, filters, operators, gateOperators, places, List.of());
+    this(rules, plugins, filters, operators, gateOperators, places, List.of(), Optional.empty());
   }
 
   /// Where `item` of `section` (`operators:`) is listed, `mutastic.yaml line 7`; just the file if
@@ -202,7 +216,8 @@ record Configuration(
         operators.isEmpty() ? parent.operators : operators,
         gateOperators.isEmpty() ? parent.gateOperators : gateOperators,
         placed,
-        eachTestOnce(excludedTests, parent.excludedTests));
+        eachTestOnce(excludedTests, parent.excludedTests),
+        buildArguments.isPresent() ? buildArguments : parent.buildArguments);
   }
 
   /// `first`'s tests, then each of `then`'s not already there: a test once, with the first reason.
@@ -229,7 +244,7 @@ record Configuration(
       placed.put("plugins: " + moved.get(i), place("plugins:", plugins.get(i).toString()));
     }
     return new Configuration(
-        rules, moved, filters, operators, gateOperators, placed, excludedTests);
+        rules, moved, filters, operators, gateOperators, placed, excludedTests, buildArguments);
   }
 
   /// The rules, the filters `filters:` names, found in the plugins, and the operators the plugins
@@ -341,6 +356,8 @@ record Configuration(
 
     private String section = "";
     private boolean gateKey;
+    private boolean buildKey;
+    private final List<String> buildArguments = new ArrayList<>();
     private @Nullable String pendingVerb;
     private @Nullable String pendingTarget;
     private @Nullable String pendingReason;
@@ -373,7 +390,8 @@ record Configuration(
           operators,
           gateOperators,
           places,
-          eachTestOnce(excludedTests, List.of()));
+          eachTestOnce(excludedTests, List.of()),
+          buildKey ? Optional.of(buildArguments) : Optional.empty());
     }
 
     private void read(String line) {
@@ -395,6 +413,7 @@ record Configuration(
         case "operators:" -> operators.add(placed(item));
         case "exclude-tests:" -> excludedTest(item);
         case "gate:" -> gate(item);
+        case "build:" -> build(item);
         default -> throw error("a list item needs a section above it");
       }
     }
@@ -435,6 +454,27 @@ record Configuration(
       gateOperators.add(listed);
     }
 
+    /// What `build:` takes, as an error says it.
+    private static final String BUILD_SHAPE =
+        "build: takes args:, a list under it:\n  build:\n    args:\n      - --offline";
+
+    /// A line under `build:`: `args:`, then its list under it.
+    private void build(String item) {
+      if (item.equals("args:")) {
+        if (buildKey) {
+          throw error("build: has args: once");
+        }
+        buildKey = true;
+        return;
+      }
+      if (!buildKey || !item.startsWith("- ")) {
+        throw error(BUILD_SHAPE);
+      }
+      var listed = listed(item);
+      places.put(BUILD_ARGS + " " + listed, "%s line %d".formatted(shown, number));
+      buildArguments.add(listed);
+    }
+
     /// A list item, kept with the line it's on.
     private String placed(String item) {
       var listed = listed(item);
@@ -449,6 +489,9 @@ record Configuration(
       var key = colon < 0 ? line : line.substring(0, colon + 1);
       if (key.equals("gate:")) {
         return error(GATE_SHAPE);
+      }
+      if (key.equals("build:")) {
+        return error(BUILD_SHAPE);
       }
       if (SECTIONS.contains(key)) {
         return error(

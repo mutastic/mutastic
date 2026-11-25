@@ -1,5 +1,6 @@
 package io.mutastic.cli;
 
+import io.mutastic.api.BuildArguments;
 import io.mutastic.api.BuildTool;
 import io.mutastic.engine.Engine;
 import java.util.ArrayList;
@@ -7,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
@@ -61,7 +63,33 @@ record Failure(int exit, String code, String said) {
           "internal");
 
   /// What `failure`, thrown running the command line `args`, says, and its exit status.
-  static Failure of(RuntimeException failure, List<String> args, Map<String, String> env) {
+  static Failure of(RuntimeException failure, List<String> typed, Map<String, String> env) {
+    var own = of(failure, env, BuildArgs.own(typed));
+    var ending = BuildArgs.typed(typed).map(BuildArguments::ending).orElse("");
+    return ending.isEmpty()
+        ? own
+        : new Failure(own.exit(), own.code(), withEnding(own.said(), ending));
+  }
+
+  /// A command that takes the build tool's arguments, on a line of its own, to copy.
+  private static final Pattern ON_ITS_LINE =
+      Pattern.compile(
+          "(?m)^  mutastic (?:run|verify|explain|ignore|next|baseline|gate|mutants)\\b"
+              + "(?!.* --help$).*$");
+
+  /// Each command offered, ending in the build tool's arguments as they were typed.
+  static String withEnding(String said, String ending) {
+    return ON_ITS_LINE
+        .matcher(said)
+        .replaceAll(line -> Matcher.quoteReplacement(ended(line.group(), ending)));
+  }
+
+  /// Once: some are offered with it already.
+  private static String ended(String command, String ending) {
+    return command.endsWith(ending) ? command : command + ending;
+  }
+
+  private static Failure of(RuntimeException failure, Map<String, String> env, List<String> args) {
     var message = String.valueOf(failure.getMessage());
     var headline = "mutastic: " + message + "\n";
     return switch (failure) {

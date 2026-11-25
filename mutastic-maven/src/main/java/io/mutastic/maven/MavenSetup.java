@@ -1,5 +1,6 @@
 package io.mutastic.maven;
 
+import io.mutastic.api.BuildArguments;
 import io.mutastic.api.BuildErrors;
 import io.mutastic.api.BuildJava;
 import io.mutastic.api.BuildTool;
@@ -93,20 +94,20 @@ final class MavenSetup {
     return workDirectory.resolve("maven.log");
   }
 
-  static Project read(BuildTool.Request request) {
+  static Project read(BuildTool.Request request, BuildArguments arguments) {
     var directory = request.directory();
     var module = request.module();
     try {
       Files.createDirectories(request.workDirectory());
       var out = request.workDirectory().resolve("maven-setup");
       var log = log(request.workDirectory());
-      if (mvn(directory, command(directory, module, out, request.suite()), log) != 0) {
-        throw failed(directory, module, request.typed(), log);
+      if (mvn(directory, command(request, out, arguments), log) != 0) {
+        throw failed(request, log, arguments);
       }
       var setup =
           out.resolve(module.equals(":") ? "" : module.substring(1)).resolve("setup.properties");
       if (!Files.isRegularFile(setup)) {
-        throw new SetupFailed("module-without-java", noJava(directory, module, request.typed()));
+        throw new SetupFailed("module-without-java", noJava(request, arguments));
       }
       return written(directory, module, setup);
     } catch (IOException e) {
@@ -119,18 +120,17 @@ final class MavenSetup {
 
   /// Why the build failed, from its log: a module the reactor hasn't got, a suite the module
   /// hasn't, else the log to read.
-  private static SetupFailed failed(Path directory, String module, String typed, Path log)
+  private static SetupFailed failed(BuildTool.Request request, Path log, BuildArguments arguments)
       throws IOException, InterruptedException {
+    var directory = request.directory();
+    var module = request.module();
     var output = Files.readAllLines(log);
     if (output.stream().anyMatch(line -> line.contains(NOT_IN_REACTOR))) {
       return new SetupFailed(
-          "module-missing", Modules.missing(module, javaModules(directory), typed));
+          "module-missing",
+          Modules.missing(module, javaModules(directory, arguments), request.typed()));
     }
-    var rest = new ArrayList<>(List.of("test-compile"));
-    if (!module.equals(":")) {
-      rest.addAll(List.of("-pl", module.substring(1), "-am"));
-    }
-    var built = BuildErrors.command(mvn(directory).command(), directory, "-f", rest);
+    var built = built(request, arguments);
     return SetupFailed.noSuite(output.stream())
         .orElseGet(
             () ->
@@ -142,10 +142,21 @@ final class MavenSetup {
                         likely(directory))));
   }
 
+  /// The command that builds what mutastic built, as the person would type it.
+  private static String built(BuildTool.Request request, BuildArguments arguments) {
+    var directory = request.directory();
+    var rest = new ArrayList<>(List.of("test-compile"));
+    if (!request.module().equals(":")) {
+      rest.addAll(List.of("-pl", request.module().substring(1), "-am"));
+    }
+    return BuildErrors.command(mvn(directory).command(), directory, "-f", rest)
+        + arguments.buildEnding();
+  }
+
   /// `mvn test -Dtest='PricingTest#bigOrders'`, or Failsafe's `verify -Dit.test=` for its suite;
   /// with `-pl` for a module, whose build makes what it uses first, and lets those have no such
   /// test. Surefire names a test by its class's simple name and its method.
-  static String testCommand(BuildTool.Request request, String test) {
+  static String testCommand(BuildTool.Request request, String test, BuildArguments arguments) {
     var directory = request.directory();
     var module = request.module();
     boolean failsafe = !request.suite().equals(BuildTool.DEFAULT_SUITE);
@@ -166,7 +177,8 @@ final class MavenSetup {
                   : "-Dsurefire.failIfNoSpecifiedTests=false"));
     }
     rest.add((failsafe ? "-Dit.test=" : "-Dtest=") + "'" + simple + "'");
-    return BuildErrors.command(mvn(directory).command(), directory, "-f", rest);
+    return BuildErrors.command(mvn(directory).command(), directory, "-f", rest)
+        + arguments.buildEnding();
   }
 
   /// What Maven says when `-pl` names a module its reactor hasn't got.
@@ -175,13 +187,13 @@ final class MavenSetup {
   /// A module whose directory has no `pom.xml` isn't one of the build's, unless the reactor lists
   /// it (a module can name a pom file of another name): said before its work directory is made, so
   /// a mistyped name leaves no directory behind.
-  static void checkModule(Path directory, String module, String typed) {
+  static void checkModule(Path directory, String module, String typed, BuildArguments arguments) {
     if (module.equals(":")
         || Files.isRegularFile(moduleDirectory(directory, module).resolve("pom.xml"))) {
       return;
     }
     try {
-      var modules = javaModules(directory);
+      var modules = javaModules(directory, arguments);
       if (!modules.contains(module)) {
         throw new SetupFailed("module-missing", Modules.missing(module, modules, typed));
       }
@@ -195,7 +207,8 @@ final class MavenSetup {
 
   /// The build's modules with Java code, `:` for the build's own directory, as its reactor lists
   /// them (a `validate` run, so quick). Its output goes to the build's own work directory.
-  private static List<String> javaModules(Path directory) throws IOException, InterruptedException {
+  private static List<String> javaModules(Path directory, BuildArguments arguments)
+      throws IOException, InterruptedException {
     var work = moduleDirectory(directory, ":").resolve("target/mutastic");
     Files.createDirectories(work);
     var listed = work.resolve("java-modules.txt");
@@ -203,6 +216,7 @@ final class MavenSetup {
     var command =
         commandOf(
             directory,
+            arguments,
             "-q",
             "-B",
             "validate",
@@ -227,13 +241,14 @@ final class MavenSetup {
   }
 
   /// The modules that depend on `module`, from the reactor's graph (a `validate` run, so quick).
-  static List<String> dependents(Path directory, String module, Path workDirectory) {
+  static List<String> dependents(
+      Path directory, String module, Path workDirectory, BuildArguments arguments) {
     try {
       Files.createDirectories(workDirectory);
       var listed = workDirectory.resolve("dependents.txt");
       Files.deleteIfExists(listed);
       var log = workDirectory.resolve("maven-dependents.log");
-      var command = dependentsCommand(directory, module, listed);
+      var command = dependentsCommand(directory, module, listed, arguments);
       if (mvn(directory, command, log) != 0 || !Files.exists(listed)) {
         throw new SetupFailed(
             "build-failed",
@@ -253,9 +268,11 @@ final class MavenSetup {
   }
 
   /// `mvn validate` with the extension asked for `module`'s dependents, into `listed`.
-  private static List<String> dependentsCommand(Path directory, String module, Path listed) {
+  private static List<String> dependentsCommand(
+      Path directory, String module, Path listed, BuildArguments arguments) {
     return commandOf(
         directory,
+        arguments,
         "-q",
         "-B",
         "validate",
@@ -265,16 +282,19 @@ final class MavenSetup {
   }
 
   /// Not `-q`: the log says what Maven is doing, for progress to show as it runs.
-  private static List<String> command(Path directory, String module, Path out, String suite) {
+  private static List<String> command(
+      BuildTool.Request request, Path out, BuildArguments arguments) {
+    var module = request.module();
     var command =
         new ArrayList<>(
             commandOf(
-                directory,
+                request.directory(),
+                arguments,
                 "-B",
                 "test-compile",
                 "-Dmaven.ext.class.path=" + extensionJar(),
                 "-Dmutastic.out=" + out,
-                "-Dmutastic.suite=" + suite));
+                "-Dmutastic.suite=" + request.suite()));
     if (!module.equals(":")) {
       command.addAll(List.of("-pl", module.substring(1), "-am"));
     }
@@ -297,10 +317,12 @@ final class MavenSetup {
     return mvn(directory, path());
   }
 
-  /// The build's Maven, then `arguments`.
-  private static List<String> commandOf(Path directory, String... arguments) {
+  /// The build's Maven, the person's arguments, then mutastic's own, `rest`: of a property set
+  /// twice, Maven reads the last.
+  private static List<String> commandOf(Path directory, BuildArguments arguments, String... rest) {
     var command = new ArrayList<>(mvn(directory).command());
-    command.addAll(List.of(arguments));
+    command.addAll(arguments.words());
+    command.addAll(List.of(rest));
     return List.copyOf(command);
   }
 
@@ -320,12 +342,14 @@ final class MavenSetup {
   }
 
   /// The module asked for has no Java code: say so, and name the modules that have some.
-  private static String noJava(Path directory, String module, String typed)
+  private static String noJava(BuildTool.Request request, BuildArguments arguments)
       throws IOException, InterruptedException {
-    var modules = javaModules(directory);
+    var directory = request.directory();
+    var module = request.module();
+    var modules = javaModules(directory, arguments);
     return module.equals(":")
-        ? Modules.atRoot(directory, modules, typed)
-        : Modules.withoutJava(directory, module, modules, typed);
+        ? Modules.atRoot(directory, modules, request.typed())
+        : Modules.withoutJava(directory, module, modules, request.typed());
   }
 
   /// `pricing`, or `app/services/api` for `:services/api`.

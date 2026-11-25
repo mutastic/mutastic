@@ -92,6 +92,6 @@ final class AtMutants {
   /// `--suite`.
   private static Invocation withoutOptions(Invocation invocation) {
     var target = invocation.target().stream().filter(word -> !word.startsWith("--")).toList();
-    return new Invocation(invocation.form(), invocation.launcher(), target);
+    return new Invocation(invocation.form(), invocation.launcher(), target, invocation.build());
   }
 }

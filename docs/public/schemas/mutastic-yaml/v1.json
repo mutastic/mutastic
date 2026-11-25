@@ -67,6 +67,22 @@
         }
       }
     },
+    "build": {
+      "type": ["object", "null"],
+      "description": "What mutastic gives the build tool when it builds the project.",
+      "additionalProperties": false,
+      "properties": {
+        "args": {
+          "type": ["array", "null"],
+          "description": "Arguments for Gradle, Maven or Cargo on each build call, and never for the tests. `MUTASTIC_BUILD_ARGS`, and what follows `--` on the command line, replace them.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "examples": ["--offline", "-Pci", "--features=postgres"]
+          }
+        }
+      }
+    },
     "gate": {
       "type": ["object", "null"],
       "description": "What `mutastic gate` holds an agent's task to, apart from everyday runs.",

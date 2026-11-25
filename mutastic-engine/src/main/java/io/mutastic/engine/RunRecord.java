@@ -103,6 +103,12 @@ public record RunRecord(
     }
   }
 
+  /// The same record, of a run whose build got arguments, which `key` stands for: a run built with
+  /// others is never "the same code". Empty for none, and then the code is as it was.
+  public RunRecord builtWith(String key) {
+    return key.isEmpty() ? this : leavingOut(List.of("build arguments " + key));
+  }
+
   /// The same record, of a run that used these operators.
   public RunRecord under(List<Operator> active) {
     var ids = active.stream().map(Operator::id).sorted().collect(Collectors.joining(","));

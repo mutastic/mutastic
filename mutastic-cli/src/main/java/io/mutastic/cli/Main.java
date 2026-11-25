@@ -155,11 +155,12 @@ public final class Main {
   /// read from the arguments alone: a failure can come before they're parsed, or from parsing them.
   private static Style linked(List<String> args, Terminal terminal) {
     var choice = "auto";
-    for (int at = 0; at < args.size(); at++) {
-      if (args.get(at).startsWith("--hyperlinks=")) {
-        choice = args.get(at).substring("--hyperlinks=".length());
-      } else if (args.get(at).equals("--hyperlinks") && at + 1 < args.size()) {
-        choice = args.get(at + 1);
+    var own = BuildArgs.own(args);
+    for (int at = 0; at < own.size(); at++) {
+      if (own.get(at).startsWith("--hyperlinks=")) {
+        choice = own.get(at).substring("--hyperlinks=".length());
+      } else if (own.get(at).equals("--hyperlinks") && at + 1 < own.size()) {
+        choice = own.get(at + 1);
       }
     }
     return terminal.links(choice) ? Style.PLAIN.withLinks() : Style.PLAIN;
@@ -171,7 +172,7 @@ public final class Main {
     try {
       return Command.parse(args.toArray(String[]::new)).directory().toString();
     } catch (RuntimeException e) {
-      return args.stream()
+      return BuildArgs.own(args).stream()
           .skip(Subcommand.at(args).map(command -> Subcommand.length(args)).orElse(1))
           .filter(arg -> !arg.startsWith("-") && !arg.startsWith(":"))
           .filter(arg -> !arg.matches("m[0-9a-f]{8}(,m[0-9a-f]{8})*"))
@@ -183,7 +184,8 @@ public final class Main {
   /// Whether stdout is an agent's or a program's, `--format=agent` or `jsonl`, as the command line
   /// asked (a format it doesn't have is no answer) or else the environment: then a failure is an
   /// event there too, its last. Not for a hook, whose stdout is its answer in the agent's own form.
-  private static boolean forAgents(List<String> args, Terminal terminal) {
+  private static boolean forAgents(List<String> typed, Terminal terminal) {
+    var args = BuildArgs.own(typed);
     if (args.stream().anyMatch(arg -> arg.startsWith("--hook"))) {
       return false;
     }
@@ -240,7 +242,7 @@ public final class Main {
   private static int run(Command command, PrintStream out, PrintStream err, Terminal terminal) {
     var directory = command.directory().toAbsolutePath().normalize();
     noBaselineToFailOn(command, directory);
-    var tool = BuildTools.of(directory);
+    var tool = BuildArgs.on(BuildTools.of(directory), command, directory, terminal.env());
     tool.checkModule(directory, command.module(), typed(directory));
     var nothingToDo = nothingToDo(command, directory);
     if (nothingToDo.isPresent()) {
@@ -457,17 +459,31 @@ public final class Main {
       List.of(
           "--since=HEAD", "--force-coverage", "--report=none", "--progress=none", "--format=jsonl");
 
-  /// The test cases a run of `project` runs and skips, with no mutant: what [GateCount] counts at a
-  /// gated task's start, in a process of its own.
-  static int[] countCases(Path project, String module, String suite) {
+  /// The command line of [#countCases].
+  private static List<String> countingArgs(
+      Path project, String module, String suite, Optional<List<String>> buildArguments) {
     var args = new ArrayList<>(List.of("run", project.toString()));
     if (!module.equals(":")) {
       args.add(module);
     }
     args.addAll(COUNTING);
-    var command = enclosing(Command.parse(withSuite(args, suite).toArray(String[]::new)));
+    var words = new ArrayList<>(withSuite(args, suite));
+    buildArguments.ifPresent(
+        given -> {
+          words.add(BuildArgs.START);
+          words.addAll(given);
+        });
+    return words;
+  }
+
+  /// The test cases a run of `project` runs and skips, with no mutant: what [GateCount] counts at a
+  /// gated task's start, in a process of its own.
+  static int[] countCases(
+      Path project, String module, String suite, Optional<List<String>> buildArguments) {
+    var words = countingArgs(project, module, suite, buildArguments);
+    var command = enclosing(Command.parse(words.toArray(String[]::new)));
     var terminal = Terminal.current();
-    var tool = BuildTools.of(project);
+    var tool = BuildArgs.on(BuildTools.of(project), command, project, terminal.env());
     var nowhere =
         new PrintStream(java.io.OutputStream.nullOutputStream(), true, StandardCharsets.UTF_8);
     try (var output = output(command, nowhere, nowhere, terminal)) {
@@ -867,7 +883,7 @@ public final class Main {
     return NextRun.keyOf(
         RunRecord.classesOf(prepared.project()),
         operatorIds(policy(command, prepared)),
-        command.since().orElse("-"),
+        command.since().orElse("-") + prepared.built(),
         RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())));
   }
 
@@ -1001,12 +1017,13 @@ public final class Main {
   private static String gatedFrom(Gated gated, String base, List<String> operators) {
     var set = String.join(",", operators);
     return ("mutastic gate: this task is gated from %s (operators: %s): before you finish, check"
-            + " the lines it changes with `mutastic run --since=%s%s --format=agent`; %s. %s\n")
+            + " the lines it changes with `mutastic run --since=%s%s --format=agent%s`; %s. %s\n")
         .formatted(
             base.substring(0, Math.min(7, base.length())),
             set,
             base,
             asRunWouldChoose(gated, operators) ? "" : " --operators=" + set,
+            gated.command().buildArguments().map(io.mutastic.api.BuildArguments::ending).orElse(""),
             whenItsDone(gated),
             MutantCommand.NO_REWRITE);
   }
@@ -1068,7 +1085,9 @@ public final class Main {
             operators,
             Optional.of(excludedTests(gated.prepared())))
         .write(gated.work());
-    var module = new GateCount.Module(gated.command().module(), gated.command().suite());
+    var module =
+        new GateCount.Module(
+            gated.command().module(), gated.command().suite(), gated.command().buildArguments());
     GateCount.start(gated.work(), directory, new Git(directory).tree(), module);
   }
 
@@ -1902,7 +1921,7 @@ public final class Main {
   /// help as the error. Empty when there's a command to run.
   private static java.util.OptionalInt answeredWithoutRunning(
       List<String> args, PrintStream out, PrintStream err) {
-    var asked = helpAsked(args);
+    var asked = helpAsked(BuildArgs.own(args));
     if (asked.isPresent()) {
       out.print(asked.get());
       return java.util.OptionalInt.of(PASSED);
@@ -2040,6 +2059,7 @@ public final class Main {
   /// @param clocks both clocks when the run started: when, and how long the machine slept since
   /// @param leftOut the tests the run leaves out: `mutastic.yaml`'s, then `--exclude-tests`'s
   /// @param at the lines of the module's sources whose mutants the run is of (`--at`)
+  /// @param built what stands for the arguments its build got; empty for none
   private record Prepared(
       Path directory,
       Path work,
@@ -2049,7 +2069,8 @@ public final class Main {
       Duration build,
       Slept clocks,
       List<LeftOut> leftOut,
-      List<AtFiles.Lines> at) {
+      List<AtFiles.Lines> at,
+      String built) {
     /// When the run started, on the reader's clock.
     ZonedDateTime startedAt() {
       return clocks.clock().atZone(java.time.ZoneId.systemDefault());
@@ -2072,8 +2093,10 @@ public final class Main {
             .withClassSources(new ClassSources(project.classes()))
             .withInvocation(invocation(command, directory));
     var at = AtFiles.of(command.at(), directory, project);
+    // A build plugin's own build got its own arguments, and mutastic ran none.
+    var with = command.setup().isPresent() ? "" : BuildArgsKey.of(work, tool.arguments().words());
     return new Prepared(
-        directory, work, project, sources, setup, built.took(), clocks, leftOut, at);
+        directory, work, project, sources, setup, built.took(), clocks, leftOut, at, with);
   }
 
   /// The tests a run leaves out: those under `exclude-tests:` in the module's nearest
@@ -2085,19 +2108,19 @@ public final class Main {
   }
 
   /// A module read, and how long its build tool took building what the run needs.
-  private record Built(Project project, Duration took) {}
+  private record Read(Project project, Duration took) {}
 
   /// The module read through its build, which progress shows as it builds; or from what `--setup`
   /// says the build would, with nothing built.
-  private static Built built(
+  private static Read built(
       Command command, BuildTool tool, BuildTool.Request request, Progress progress) {
     if (command.setup().isPresent()) {
       var read = tool.read(request.directory(), command.module(), command.setup().get());
-      return new Built(read, Duration.ZERO);
+      return new Read(read, Duration.ZERO);
     }
     long start = System.nanoTime();
     var project = read(tool, request, progress);
-    return new Built(project, Duration.ofNanos(System.nanoTime() - start));
+    return new Read(project, Duration.ofNanos(System.nanoTime() - start));
   }
 
   /// The module read through its build, which progress shows as it builds.
@@ -2121,7 +2144,7 @@ public final class Main {
   private static Invocation invocation(Command command, Path directory) {
     var here = Path.of("").toAbsolutePath().normalize();
     var target = withSuite(target(here, directory, command.module()), command.suite());
-    return Invocation.of(command.commands(), target);
+    return Invocation.of(command.commands(), target).building(command.buildArguments());
   }
 
   /// Where mutastic keeps the module's files, made or not.
@@ -2192,7 +2215,8 @@ public final class Main {
                 prepared.project(),
                 RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())))
             .under(OperatorSet.active(policy(command, prepared)))
-            .leavingOut(LeftOut.names(prepared.leftOut()));
+            .leavingOut(LeftOut.names(prepared.leftOut()))
+            .builtWith(prepared.built());
     var last =
         new RunRecords(recordsOf(prepared, command.shard()))
             .comparableTo(now)
@@ -2520,7 +2544,8 @@ public final class Main {
                 RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())),
                 report)
             .under(OperatorSet.active(policy(command, prepared)))
-            .leavingOut(LeftOut.names(prepared.leftOut()));
+            .leavingOut(LeftOut.names(prepared.leftOut()))
+            .builtWith(prepared.built());
     // Only an earlier run of the same project, in the same place, under the same operators, says
     // anything about this one. When the last run used others, it's said so instead.
     var comparison =
@@ -2699,7 +2724,8 @@ public final class Main {
             + " (:app), or as Maven's -pl takes it (:services/api). The run passes when the score"
             + " reaches the threshold, or with --fail-on-new when every mutant no test catches is"
             + " in the baseline. A full run writes report files, keeps a record the next run"
-            + " compares with, and offers the commands to work on each missed mutant.",
+            + " compares with, and offers the commands to work on each missed mutant. A build that"
+            + " needs an argument, where its JDK is, say, gets what follows -- on the line.",
         "0 when the score reaches the threshold, 1 when it doesn't; with --fail-on-new, 0 when"
             + " every mutant no test catches is in the baseline, 1 when one isn't.",
         List.of(
@@ -2965,6 +2991,13 @@ public final class Main {
       Optional<String> vocabulary,
       boolean eachMutant) {}
 
+  /// How the project is built, and mutastic run on it.
+  ///
+  /// @param setup what a build plugin wrote of the project, so no build runs
+  /// @param commands how the commands offered run mutastic
+  /// @param arguments what was typed after `--` for the build tool: empty when nothing was
+  record Built(Optional<Path> setup, String commands, Optional<List<String>> arguments) {}
+
   /// A command line, read.
   ///
   /// @param workers empty for the default, which depends on the machine
@@ -2972,6 +3005,7 @@ public final class Main {
   /// @param reports the report files to write after a full run
   /// @param experimental what's experimental that the run turns on: `ghosts`
   /// @param chosen which of the module's mutants it's of: those asked for by id or by their lines
+  /// @param built how the project is built, and mutastic run on it
   record Command(
       Subcommand subcommand,
       Path directory,
@@ -2989,12 +3023,26 @@ public final class Main {
       String suite,
       Optional<String> since,
       Optional<Ignoring> ignore,
-      Optional<Path> setup,
-      String commands,
+      Built built,
       Gating gating,
       java.util.Set<String> experimental,
       int top,
       Sharing sharing) {
+    /// What a build plugin wrote of the project, with `--setup`.
+    Optional<Path> setup() {
+      return built.setup();
+    }
+
+    /// How the commands offered run mutastic.
+    String commands() {
+      return built.commands();
+    }
+
+    /// What was typed after `--` for the build tool: empty when nothing was.
+    Optional<List<String>> buildArguments() {
+      return built.arguments();
+    }
+
     Optional<String> format() {
       return shown.format();
     }
@@ -3105,8 +3153,7 @@ public final class Main {
           suite,
           since,
           Optional.of(how),
-          setup,
-          commands,
+          built,
           gating,
           experimental,
           top,
@@ -3132,8 +3179,7 @@ public final class Main {
           suite,
           since,
           ignore,
-          setup,
-          commands,
+          built,
           gating,
           experimental,
           top,
@@ -3159,8 +3205,7 @@ public final class Main {
           suite,
           since,
           ignore,
-          setup,
-          commands,
+          built,
           gating,
           experimental,
           top,
@@ -3190,8 +3235,7 @@ public final class Main {
           suite,
           Optional.of(base),
           Optional.empty(),
-          setup,
-          commands,
+          built,
           gating,
           experimental,
           top,
@@ -3323,6 +3367,7 @@ public final class Main {
       private boolean accept = false;
       private Optional<Path> setup = Optional.empty();
       private String commands = "mutastic";
+      private Optional<List<String>> buildArguments = Optional.empty();
 
       private final Subcommand subcommand;
 
@@ -3338,6 +3383,11 @@ public final class Main {
       private boolean afterBareSince = false;
 
       void read(String arg, java.util.Deque<String> rest) {
+        if (arg.equals(BuildArgs.START)) {
+          buildArguments = Optional.of(List.copyOf(rest));
+          rest.clear();
+          return;
+        }
         boolean sinceBefore = afterBareSince;
         afterBareSince = false;
         // The build plugins' form of an option, `-Dmutastic.only=ID`: how they pass their settings,
@@ -3808,8 +3858,7 @@ public final class Main {
             suite,
             since,
             Optional.empty(),
-            setup,
-            commands,
+            new Built(setup, commands, buildArguments),
             new Gating(hook, tries),
             java.util.Set.copyOf(experimental),
             top,

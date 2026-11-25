@@ -110,6 +110,13 @@ final class Help {
                   + " SDKMAN, asdf, mise, Gradle, IntelliJ, Homebrew, macOS and Linux keep them."
                   + " Your build and its tests keep the `JAVA_HOME` and `PATH` you gave them."),
           new Entry(
+              "MUTASTIC_BUILD_ARGS",
+              "Arguments for the build tool, unless the command line gives some",
+              "Split at spaces, with quotes around an argument that has some: `--offline -Pci`. The"
+                  + " tests don't get them, and no command mutastic offers repeats them, so a secret"
+                  + " goes here rather than after `--`. It replaces `build:`'s `args:` in"
+                  + " `mutastic.yaml`."),
+          new Entry(
               "MUTASTIC_PROGRESS",
               "auto, bar, counter or none, when --progress isn't given",
               "For a Gradle or Maven build, or a CI job, that always wants the same. Any other"

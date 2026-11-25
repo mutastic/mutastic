@@ -63,7 +63,7 @@ class ConfigurationTest {
     assertThatThrownBy(() -> Configuration.read(project))
         .hasMessage(
             "mutastic.yaml line 1: garbage isn't a section; the sections are extends:, rules:,"
-                + " plugins:, filters:, operators:, exclude-tests: and gate:");
+                + " plugins:, filters:, operators:, exclude-tests:, gate: and build:");
   }
 
   /// A list on its section's line is read by YAML but not by mutastic, which says how to write it.
