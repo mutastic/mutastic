@@ -177,7 +177,7 @@ public final class Worker {
     this.tags = tags;
     this.protocol = protocol;
     var allRoots = concat(testRoots, productionRoots);
-    var scanned = new Scannable(Scannable.SPRING, allRoots, getClass().getClassLoader());
+    var scanned = new Scannable(Scannable.SPRING, allRoots, ClassLoader.getSystemClassLoader());
     this.splitTests =
         TestSplit.of(
             splitTests(productionRoots, testRoots), TestSplit.providersIn(allRoots), scanned);
@@ -289,7 +289,7 @@ public final class Worker {
     }
     var instrumented =
         new ProductionLoader(
-            productionRoots, staged, testRoots, splitTests, getClass().getClassLoader());
+            productionRoots, staged, testRoots, splitTests, ClassLoader.getSystemClassLoader());
     production = instrumented;
     SystemLoader.project(instrumented);
     cover(tests);
@@ -347,9 +347,16 @@ public final class Worker {
     }
     var fresh =
         new ProductionLoader(
-            productionRoots, staged, testRoots, splitTests, getClass().getClassLoader());
+            productionRoots, staged, testRoots, splitTests, ClassLoader.getSystemClassLoader());
     staged.clear();
-    run(tests, fresh);
+    // A library finds the project's classes by name through the system loader: it must find this
+    // run's, or a proxy it makes of one won't be the class the test asks for.
+    SystemLoader.project(fresh);
+    try {
+      run(tests, fresh);
+    } finally {
+      SystemLoader.project(production);
+    }
   }
 
   /// The same, with the staged classes swapped into the framework's copies of them.
@@ -414,7 +421,7 @@ public final class Worker {
     if (production == null) {
       production =
           new ProductionLoader(
-              productionRoots, Map.of(), testRoots, splitTests, getClass().getClassLoader());
+              productionRoots, Map.of(), testRoots, splitTests, ClassLoader.getSystemClassLoader());
       SystemLoader.project(production);
     }
     return production;
@@ -859,9 +866,11 @@ public final class Worker {
   }
 
   /// `[runner:com.example.FooTest]`, the vintage engine's runner for a JUnit 4 class, in the unique
-  /// id of a test with no source: the class it runs, unless the test has a source of its own.
+  /// id of a test with no method: the class it runs, unless the test has a method of its own. JUnit
+  /// 4 finds the class by name with its own loader, so the source is the class when that loader
+  /// sees the project's and none when it doesn't.
   private static java.util.Optional<String> runnerClass(TestIdentifier test) {
-    if (test.getSource().isPresent()) {
+    if (test.getSource().filter(source -> !(source instanceof ClassSource)).isPresent()) {
       return java.util.Optional.empty();
     }
     var matcher = RUNNER.matcher(test.getUniqueId());
