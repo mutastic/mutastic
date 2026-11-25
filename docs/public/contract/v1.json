@@ -362,6 +362,7 @@
     "MUTASTIC_GATE_BUDGET",
     "MUTASTIC_GATE_COUNT_WAIT",
     "MUTASTIC_JAVA_HOME",
+    "MUTASTIC_BUILD_ARGS",
     "MUTASTIC_PROGRESS",
     "MUTASTIC_TERM_PROGRESS",
     "MUTASTIC_HEARTBEAT",
@@ -1805,7 +1806,7 @@
     },
     {
       "id": 29,
-      "rule": "Everything after the first `--` on the command line goes, word for word, to the project's build tool on each build call mutastic makes: Gradle or Maven reading the setup, the modules and the dependents, and compiling the code and the tests; Cargo checking and building them. It never goes to the tests or the JVM or process they run in. One syntax for every build tool, `mutastic run DIR -- ARG...`, where nothing after the `--` is read as mutastic's own option, directory or id. `run`, `verify`, `explain`, `ignore`, `next`, `baseline`, `gate open`, `gate check` and `mutants` take it; a command that builds nothing refuses it with `option-not-taken`. `MUTASTIC_BUILD_ARGS` gives the same, split at spaces, with single or double quotes around a word that has some, a backslash kept as it is and nothing expanded; mutastic.yaml's `build:` has it as `args:`, a list, from the nearest file at or above the module's directory, and of a file and the one it `extends:` the nearer that has `args:`. The first of the three that's given is used whole, in place of the others, never added to them: the command line, the variable (blank is not given), the file. A bare `--` at the end gives none, so it turns the others off. An argument that fights how mutastic drives the build is refused before anything is built, named without its value and with the reason, as `option-value` from the command line, `environment` from the variable and `config`, with its line, from the file: one that chooses tests, what's built or where (a task, goal or target, the project's or module's directory, the profile), one that stops the build from running or never ends it (a dry run, a continuous build, help), and one that changes output mutastic reads. Each command mutastic offers to copy ends in the `--` and the arguments typed after it, each word quoted for a shell, as does a mistyped line corrected; arguments from the variable or the file apply by themselves and are never repeated, so a secret belongs in the build tool's own settings or the variable. Their values are in no event, report or record except as part of such a command. A run built with other arguments is never `same code` as the last: a hash of the arguments, in order, is part of the code's in the run record, a share and the queue `next` keeps, and with none the hash is as it was. Where features choose code, Cargo's `--features`, `--all-features` and `--no-default-features` decide which code is mutated too."
+      "rule": "Everything after the first `--` on the command line goes, word for word, to the project's build tool on each build call mutastic makes: Gradle or Maven reading the setup, the modules and the dependents, and compiling the code and the tests; Cargo checking and building them. It never goes to the tests or the JVM or process they run in. One syntax for every build tool, `mutastic run DIR -- ARG...`, where nothing after the `--` is read as mutastic's own option, directory or id. Every command takes it, `gate close` and `ignore` among them, since an edition may read the build for any; one that happens to build nothing has no use for it. `MUTASTIC_BUILD_ARGS` gives the same, split at spaces, with single or double quotes around a word that has some, a backslash kept as it is and nothing expanded; mutastic.yaml's `build:` has it as `args:`, a list, from the nearest file at or above the module's directory (found before the build is read, by the module's path; where no such directory is, as for a Gradle module with a `projectDir` of its own, the run's directory), and of a file and the one it `extends:` the nearer that has `args:`. The first of the three that's given is used whole, in place of the others, never added to them: the command line, the variable (blank is not given), the file. A bare `--` at the end gives none, so it turns the others off. An argument that fights how mutastic drives the build is refused before anything is built, named without its value and with the reason, as `option-value` from the command line, `environment` from the variable and `config`, with its line, from the file: one that chooses tests, what's built or where (a task, goal or target, the project's or module's directory, the profile), one that stops the build from running or never ends it (a dry run, a continuous build, help), and one that changes output mutastic reads. Each command mutastic offers to copy ends in the `--` and the arguments typed after it, each word quoted for a shell, as does a mistyped line corrected; arguments from the variable or the file apply by themselves and are never repeated, so a secret belongs in the build tool's own settings or the variable. Their values are in no event, report or record except as part of such a command. A run built with other arguments is never `same code` as the last, and `next` starts its queue again: an HMAC of the arguments, in order, under a random key is part of the code's hash in the run record and of the queue's key, and with none each is as it was. The key is a file of the module's work directory only its owner reads, in no record, share or report, so a short secret can't be guessed from a hash. A share holds nothing of the arguments, and shares are matched by their code as before. `gate check` doesn't use what `gate open` was given, which goes only to its count of the task's start and into no file: a hooked check gets the variable's or the file's. Gradle's `-x` is refused for a task that builds classes or resources (a compile task, `classes`, `testClasses`, `jar`, by path or written short) and taken for any other; Maven's `-Dmaven.main.skip`, `-Dmaven.test.skip`, `-Dmaven.resources.skip` and `--fail-never` are refused for the same reason. Where features choose code, Cargo's `--features`, `--all-features` and `--no-default-features` decide which code is mutated too."
     }
   ],
   "differences": [
@@ -2503,28 +2504,6 @@
       "summary": "mutastic.yaml's `timeout-ceiling:` and a mutant's limit taken from each covering test's own time, side by side, not their summed coverage time: the Rust edition has them first",
       "issue": "https://github.com/mutastic/mutastic/issues/207",
       "decision": 26
-    },
-    {
-      "id": "N81",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
-      "surface": "command line",
-      "summary": "Build arguments after `--`, `MUTASTIC_BUILD_ARGS` and mutastic.yaml's `build:` `args:` (decision 29): not in this edition yet",
-      "issue": "https://github.com/mutastic/mutastic/issues/61",
-      "decision": 29
-    },
-    {
-      "id": "N82",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "command line",
-      "summary": "Build arguments after `--`, `MUTASTIC_BUILD_ARGS` and mutastic.yaml's `build:` `args:` (decision 29): not in this edition yet",
-      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
-      "decision": 29
     }
   ]
 }

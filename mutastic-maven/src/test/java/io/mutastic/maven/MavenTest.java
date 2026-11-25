@@ -3,6 +3,7 @@ package io.mutastic.maven;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.mutastic.api.BuildArguments;
 import io.mutastic.api.BuildErrors;
 import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
@@ -117,14 +118,18 @@ class MavenTest {
     var real = directory.toRealPath().toString();
     var filter = List.of("-f", real, "test", "-Dtest=PricingTest#bigOrders");
 
-    var command = MavenSetup.testCommand(request, "com.example.PricingTest#bigOrders");
+    var command =
+        MavenSetup.testCommand(request, "com.example.PricingTest#bigOrders", BuildArguments.NONE);
 
     assertThat(command).startsWith("'" + wrapper.toRealPath() + "' -f '" + real + "' test");
     assertThat(argv(command)).isEqualTo(concat(List.of(wrapper.toRealPath().toString()), filter));
 
     assertThat(wrapper.toFile().setExecutable(false)).isTrue();
 
-    assertThat(argv(MavenSetup.testCommand(request, "com.example.PricingTest#bigOrders")))
+    assertThat(
+            argv(
+                MavenSetup.testCommand(
+                    request, "com.example.PricingTest#bigOrders", BuildArguments.NONE)))
         .isEqualTo(concat(List.of("sh", wrapper.toRealPath().toString()), filter));
 
     Files.delete(wrapper);

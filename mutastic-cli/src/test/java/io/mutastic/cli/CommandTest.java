@@ -37,7 +37,8 @@ class CommandTest {
                 new Main.Gating("", 3),
                 java.util.Set.of(),
                 1,
-                Main.Sharing.NONE));
+                Main.Sharing.NONE,
+                Optional.empty()));
   }
 
   @Test
@@ -76,7 +77,8 @@ class CommandTest {
                 new Main.Gating("", 3),
                 java.util.Set.of(),
                 1,
-                Main.Sharing.NONE));
+                Main.Sharing.NONE,
+                Optional.empty()));
   }
 
   /// What the build plugins pass: the setup they wrote, and their goals as the commands offered.

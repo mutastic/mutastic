@@ -1,5 +1,6 @@
 package io.mutastic.maven;
 
+import io.mutastic.api.BuildArguments;
 import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
 import io.mutastic.api.Project;
@@ -10,6 +11,31 @@ import java.util.List;
 /// Maven builds, read by running `mvn test-compile` with mutastic's extension (see [MavenSetup]). A
 /// module is named by its directory, as `-pl` takes it: `:services/api`.
 public final class Maven implements BuildTool {
+  private final BuildArguments arguments;
+
+  public Maven() {
+    this(BuildArguments.NONE);
+  }
+
+  private Maven(BuildArguments arguments) {
+    this.arguments = arguments;
+  }
+
+  @Override
+  public BuildTool withArguments(BuildArguments given) {
+    return new Maven(given);
+  }
+
+  @Override
+  public BuildArguments arguments() {
+    return arguments;
+  }
+
+  @Override
+  public java.util.Optional<BuildArguments.Refused> refused(List<String> given, String suite) {
+    return MavenArguments.refused(given);
+  }
+
   @Override
   public String name() {
     return "Maven";
@@ -33,7 +59,7 @@ public final class Maven implements BuildTool {
 
   @Override
   public void checkModule(Path directory, String module, String typed) {
-    MavenSetup.checkModule(directory, module, typed);
+    MavenSetup.checkModule(directory, module, typed, arguments);
   }
 
   /// A module's directory is named from the top of its build, the last directory up with a
@@ -56,7 +82,7 @@ public final class Maven implements BuildTool {
 
   @Override
   public List<String> dependents(Path directory, String module, Path workDirectory) {
-    return MavenSetup.dependents(directory, module, workDirectory);
+    return MavenSetup.dependents(directory, module, workDirectory, arguments);
   }
 
   @Override
@@ -73,12 +99,12 @@ public final class Maven implements BuildTool {
           "Maven builds have two test suites, test (Surefire) and integration-test (Failsafe), not "
               + request.suite());
     }
-    return MavenSetup.read(request);
+    return MavenSetup.read(request, arguments);
   }
 
   @Override
   public java.util.Optional<String> testCommand(Request request, String test) {
-    return java.util.Optional.of(MavenSetup.testCommand(request, test));
+    return java.util.Optional.of(MavenSetup.testCommand(request, test, arguments));
   }
 
   @Override

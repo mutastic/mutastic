@@ -1,5 +1,6 @@
 package io.mutastic.report;
 
+import io.mutastic.api.BuildArguments;
 import io.mutastic.api.BuildErrors;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +16,19 @@ import java.util.List;
 /// @param target the project as the command line names it, `samples/pricing :api`, and its test
 ///   suite when it isn't the default, `--suite=integrationTest`; empty when it's the directory
 ///   mutastic ran in, its root project and its default suite
-public record Invocation(Form form, String launcher, List<String> target) {
+/// @param build the arguments typed after `--` for the build tool: empty when none were typed
+public record Invocation(
+    Form form, String launcher, List<String> target, java.util.Optional<List<String>> build) {
+  /// With no arguments typed for the build tool.
+  public Invocation(Form form, String launcher, List<String> target) {
+    this(form, launcher, target, java.util.Optional.empty());
+  }
+
+  /// The same, its commands ending in the `--` and what was typed after it.
+  public Invocation building(java.util.Optional<List<String>> arguments) {
+    return new Invocation(form, launcher, target, arguments);
+  }
+
   /// Where mutastic was started from.
   public enum Form {
     /// `mutastic verify m855c8e3c samples/pricing :api`.
@@ -39,6 +52,7 @@ public record Invocation(Form form, String launcher, List<String> target) {
 
   public Invocation {
     target = List.copyOf(target);
+    build = build.map(List::copyOf);
   }
 
   /// `mutastic`, `maven`, `maven:<plugin>`, `gradle` or `gradle:<command>` (a build plugin's
@@ -76,6 +90,12 @@ public record Invocation(Form form, String launcher, List<String> target) {
     var all = new ArrayList<>(List.of("mutastic"));
     words.forEach(word -> all.add(quoted(word)));
     target.forEach(word -> all.add(quoted(word)));
+    // A build plugin's build has its own arguments: only the command line takes them.
+    build.ifPresent(
+        arguments -> {
+          all.add("--");
+          arguments.forEach(word -> all.add(Untrusted.escape(BuildArguments.quoted(word))));
+        });
     return all;
   }
 
