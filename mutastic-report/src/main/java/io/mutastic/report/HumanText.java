@@ -2,10 +2,12 @@ package io.mutastic.report;
 
 import io.mutastic.api.ClassMutator;
 import io.mutastic.api.Comparison;
+import io.mutastic.api.LikelyFlaky;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
+import io.mutastic.api.WatchedTest;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalTime;
@@ -229,7 +231,7 @@ public final class HumanText {
     if (GhostCards.any(report)) {
       out.append('\n').append(new GhostCards(sources).render(report));
     }
-    warnings(report, comparison, out);
+    warnings(report, out);
     summary(report, comparison, run, out);
     // Each id opens the HTML report on its mutant.
     return run.pages()
@@ -628,6 +630,7 @@ public final class HumanText {
       notes.add(AgentText.testsRun(result, " "));
     }
     result.falseCatchBy().ifPresent(test -> notes.add(AgentText.falseCatch(test)));
+    result.flakyCatchBy().ifPresent(test -> notes.add(AgentText.flakyCatch(test)));
     return notes;
   }
 
@@ -776,6 +779,7 @@ public final class HumanText {
                         "; %s failed once, then passed: flaky".formatted(AgentText.shortName(test)))
                 .orElse(""));
     result.falseCatchBy().ifPresent(test -> notes.add(AgentText.falseCatch(test)));
+    result.flakyCatchBy().ifPresent(test -> notes.add(AgentText.flakyCatch(test)));
     return notes;
   }
 
@@ -921,9 +925,9 @@ public final class HumanText {
         .append(
             style.dim(
                 "(no test reaches these lines%s)"
-                    .formatted(report.flaky().isEmpty() ? "" : ", or only a flaky one does")))
+                    .formatted(AgentText.anyFlaky(report) ? ", or only a flaky one does" : "")))
         .append('\n');
-    appendNotCoveredLines(out, byLine);
+    appendNotCoveredLines(out, report, byLine);
     var uncovered =
         report.results().stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
     SuggestedTest.startingPoints(uncovered, sources, 1)
@@ -934,12 +938,15 @@ public final class HumanText {
 
   /// The first [#CARDS] places no test reaches, and how many more there are; under a place in a
   /// `main`, what to do about it.
-  private void appendNotCoveredLines(StringBuilder out, Map<String, List<Mutant>> byLine) {
+  private void appendNotCoveredLines(
+      StringBuilder out, Report report, Map<String, List<Mutant>> byLine) {
     byLine.entrySet().stream()
         .limit(CARDS)
         .forEach(
             entry -> {
               out.append(notCoveredLine(entry.getKey(), entry.getValue().size()));
+              AgentText.onlyLikelyFlaky(report, entry.getValue())
+                  .ifPresent(only -> out.append("     %s\n".formatted(style.dim(only))));
               OnlyFromMain.advice(entry.getValue(), sources)
                   .ifPresent(advice -> out.append("     %s\n".formatted(code(advice))));
             });
@@ -968,12 +975,10 @@ public final class HumanText {
         uncovered, sources, eachMutant, mutant -> plain(Advice.method(mutant)));
   }
 
-  private void warnings(Report report, Optional<Comparison> comparison, StringBuilder out) {
+  private void warnings(Report report, StringBuilder out) {
     var lines = new ArrayList<String>();
     report.flaky().forEach(test -> lines.add(flakyWarning(test, report.whyFlaky(test))));
-    Suspects.changedBetweenRuns(comparison)
-        .forEach(suspect -> lines.add(changedBetweenRunsWarning(suspect)));
-    Suspects.unconfirmed(report).forEach(suspect -> lines.add(unconfirmedWarning(suspect)));
+    lines.addAll(likelyFlakyWarnings(report));
     Suspects.unrelatedCatches(report).forEach(note -> lines.add(unrelatedCatchesNote(note)));
     if (!report.staleIgnores().isEmpty()) {
       lines.add(staleIgnoresWarning(report));
@@ -987,6 +992,22 @@ public final class HumanText {
       out.append('\n');
       lines.forEach(line -> out.append(line).append('\n'));
     }
+  }
+
+  /// A line for each reason a test was named likely flaky, the strongest first, then one for each
+  /// test watched since an earlier run named it.
+  private List<String> likelyFlakyWarnings(Report report) {
+    var lines = new ArrayList<String>();
+    for (var named : report.likelyFlaky()) {
+      if (!named.mutants(LikelyFlaky.CHANGED).isEmpty()) {
+        lines.add(changedBetweenRunsWarning(named));
+      }
+      if (!named.mutants(LikelyFlaky.NOT_REPEATED).isEmpty()) {
+        lines.add(unconfirmedWarning(named));
+      }
+    }
+    report.watched().forEach(watched -> lines.add(watchedWarning(watched)));
+    return lines;
   }
 
   private String staleIgnoresWarning(Report report) {
@@ -1041,21 +1062,28 @@ public final class HumanText {
         : "; it reaches %s".formatted(Untrusted.values(why.get().reaches()));
   }
 
-  private String changedBetweenRunsWarning(Suspects.Suspect suspect) {
-    return " %s %s; with the code unchanged, whether it catches %s changed since the last run"
+  private String changedBetweenRunsWarning(LikelyFlaky named) {
+    return " %s %s; with the code unchanged, whether it catches %s changed since the last run. %s"
         .formatted(
             style.amber("! likely flaky:"),
-            AgentText.shortName(suspect.test()),
-            Untrusted.values(suspect.mutants()));
+            AgentText.shortName(named.test()),
+            Untrusted.values(named.mutants(LikelyFlaky.CHANGED)),
+            AgentText.noneCount(named));
   }
 
-  private String unconfirmedWarning(Suspects.Suspect suspect) {
-    return " %s %s; its %s of %s didn't repeat when run again"
+  private String unconfirmedWarning(LikelyFlaky named) {
+    var unconfirmed = named.mutants(LikelyFlaky.NOT_REPEATED);
+    return " %s %s; its %s of %s didn't repeat when run again. %s"
         .formatted(
             style.amber("! likely flaky:"),
-            AgentText.shortName(suspect.test()),
-            suspect.mutants().size() == 1 ? "catch" : "catches",
-            Untrusted.values(suspect.mutants()));
+            AgentText.shortName(named.test()),
+            unconfirmed.size() == 1 ? "catch" : "catches",
+            Untrusted.values(unconfirmed),
+            AgentText.noneCount(named));
+  }
+
+  private String watchedWarning(WatchedTest watched) {
+    return " %s %s".formatted(style.amber("! watched:"), AgentText.watchedLine(watched));
   }
 
   private String unrelatedCatchesNote(Suspects.UnrelatedCatches note) {
@@ -1413,7 +1441,7 @@ public final class HumanText {
   /// Each mutant's fate, one a line, when they were asked for by id.
   private String fates(Report report) {
     return report.results().stream()
-        .map(result -> " %s\n".formatted(fate(result)))
+        .map(result -> " %s\n".formatted(fate(report, result)))
         .collect(Collectors.joining());
   }
 
@@ -1435,7 +1463,7 @@ public final class HumanText {
   }
 
   /// `[MISSED] m855c8e3c is still missed`: one mutant's verdict, for a run that asked for it.
-  private String fate(MutantResult result) {
+  private String fate(Report report, MutantResult result) {
     var id = result.mutant().id();
     return switch (result.status()) {
       case CAUGHT ->
@@ -1450,13 +1478,19 @@ public final class HumanText {
           detectedFate(
               "%s is %s: its tests stopped finishing in time".formatted(id, words.detected));
       case MISSED -> missedFate(id);
-      case NOT_COVERED -> redFate(words.notCovered, "%s: no test reaches its line".formatted(id));
+      case NOT_COVERED -> notCoveredFate(report, result);
       case SKIPPED ->
           style.label("SKIPPED", Style.CYAN)
               + " "
               + "%s is skipped: %s"
                   .formatted(id, Untrusted.value(result.mutant().skipped().orElse("")));
     };
+  }
+
+  /// `m855c8e3c: no test reaches its line`, or which likely flaky test alone did.
+  private String notCoveredFate(Report report, MutantResult result) {
+    var why = AgentText.onlyLikelyFlaky(report, result).orElse("no test reaches its line");
+    return redFate(words.notCovered, "%s: %s".formatted(result.mutant().id(), why));
   }
 
   /// `m855c8e3c is still missed · done when mutastic verify m855c8e3c passes`.

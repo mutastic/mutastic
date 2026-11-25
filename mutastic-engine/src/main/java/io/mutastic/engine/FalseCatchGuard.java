@@ -14,7 +14,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
-import org.jspecify.annotations.Nullable;
 
 /// After every mutant has its result, each test that caught one runs again, once, on the unmutated
 /// code: on its own, in a new worker, as a worker started part-way through a run is, and after the
@@ -48,9 +47,12 @@ final class FalseCatchGuard {
     MutantResult run(Mutant mutant, TestWorker worker);
   }
 
-  /// The results, with each mutant a test that fails alone reached run again without it; and each
-  /// such test, by the exception it failed with on its own.
-  record Guarded(List<MutantResult> results, Map<String, String> failingAlone) {}
+  /// The results, with each mutant a test that fails alone reached run again without it; each such
+  /// test, by the exception it failed with on its own; and the mutants run again, by test.
+  record Guarded(
+      List<MutantResult> results,
+      Map<String, String> failingAlone,
+      Map<String, List<String>> rerun) {}
 
   private final Coverage coverage;
   private final Supplier<TestWorker> newWorker;
@@ -68,26 +70,23 @@ final class FalseCatchGuard {
     var current = new ArrayList<>(results);
     var found = new LinkedHashMap<String, String>();
     var checked = new HashSet<String>();
-    TestWorker worker = null;
-    try {
+    var rerunBy = new LinkedHashMap<String, List<String>>();
+    try (var worker = new LazyWorker(newWorker)) {
       for (var toCheck = unchecked(current, checked);
           !toCheck.isEmpty();
           toCheck = unchecked(current, checked)) {
-        worker = worker == null ? newWorker.get() : worker;
         checked.addAll(toCheck);
-        var failing = failingUnmutated(toCheck, worker, listener);
+        var failing = failingUnmutated(toCheck, worker.get(), listener);
         if (failing.isEmpty()) {
           break;
         }
         found.putAll(failing);
-        runAgainWithout(failing, current, worker, listener);
-      }
-    } finally {
-      if (worker != null) {
-        worker.close();
+        rerunBy.putAll(
+            new WithoutTests(coverage, rerun, worker.get(), listener)
+                .runAgain(failing.keySet(), current, MutantResult::withFalseCatchBy));
       }
     }
-    return new Guarded(current, found);
+    return new Guarded(current, found, rerunBy);
   }
 
   /// The tests that caught a mutant and haven't been checked, fastest first, as a mutant's run
@@ -148,43 +147,5 @@ final class FalseCatchGuard {
       name.append('$').append(nested.group("name"));
     }
     return Optional.of(name.toString());
-  }
-
-  /// Each mutant one of `failing` reached, run again without them, in place in `results`: they're
-  /// left out of coverage first, so no mutant runs them again.
-  private void runAgainWithout(
-      Map<String, String> failing,
-      List<MutantResult> results,
-      TestWorker worker,
-      Listener listener) {
-    coverage.exclude(List.copyOf(failing.keySet()));
-    for (int at = 0; at < results.size(); at++) {
-      var result = results.get(at);
-      if (!reached(result, failing)) {
-        continue;
-      }
-      var again = rerun.run(result.mutant(), worker);
-      var catcher = falseCatcher(result, failing);
-      if (catcher != null) {
-        again = again.withFalseCatchBy(catcher);
-      }
-      results.set(at, again);
-      listener.mutantRevised(again);
-    }
-  }
-
-  /// Whether one of `failing` reached the mutant, so its result may rest on it: a miss as much as a
-  /// catch, as a mutant that only passes because of what a test leaves behind isn't missed either.
-  private static boolean reached(MutantResult result, Map<String, String> failing) {
-    return result.status() != Status.SKIPPED
-        && result.coveredBy().stream().anyMatch(failing::containsKey);
-  }
-
-  /// The test that caught the mutant, if it's one of `failing`.
-  private static @Nullable String falseCatcher(MutantResult result, Map<String, String> failing) {
-    return result.status() == Status.CAUGHT
-            && result.caughtBy().filter(failing::containsKey).isPresent()
-        ? result.caughtBy().get()
-        : null;
   }
 }

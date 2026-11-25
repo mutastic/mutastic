@@ -280,20 +280,48 @@ final class Shares {
             .mapToInt(share -> Math.max(0, share.workersStarted() - share.workers()))
             .sum();
     return new Report(
-        project.name(),
-        events.getFirst().jdk(),
-        results,
-        events.stream().mapToInt(ShareEvents::tests).max().orElse(0),
-        List.copyOf(
-            new LinkedHashSet<>(events.stream().flatMap(share -> share.flaky().stream()).toList())),
-        longest(events.stream().map(ShareEvents::coverage)),
-        workers,
-        workers + replaced,
-        longest(events.stream().map(ShareEvents::took)),
-        List.of(),
-        Optional.empty(),
-        found.stale(),
-        events.stream().flatMap(share -> share.flakyEvidence().stream()).distinct().toList());
+            project.name(),
+            events.getFirst().jdk(),
+            results,
+            events.stream().mapToInt(ShareEvents::tests).max().orElse(0),
+            List.copyOf(
+                new LinkedHashSet<>(
+                    events.stream().flatMap(share -> share.flaky().stream()).toList())),
+            longest(events.stream().map(ShareEvents::coverage)),
+            workers,
+            workers + replaced,
+            longest(events.stream().map(ShareEvents::took)),
+            List.of(),
+            Optional.empty(),
+            found.stale(),
+            events.stream().flatMap(share -> share.flakyEvidence().stream()).distinct().toList())
+        .withLikelyFlaky(likelyFlaky(events));
+  }
+
+  /// The tests any share named likely flaky, once each: what named it in each share, and every
+  /// mutant it changed or that ran again without it, in all of them.
+  private static List<io.mutastic.api.LikelyFlaky> likelyFlaky(List<ShareEvents> events) {
+    var byTest = new java.util.LinkedHashMap<String, io.mutastic.api.LikelyFlaky>();
+    events.stream()
+        .flatMap(share -> share.likelyFlaky().stream())
+        .forEach(named -> byTest.merge(named.test(), named, Shares::together));
+    return List.copyOf(byTest.values());
+  }
+
+  /// One test as two shares named it: every reason, with every mutant, and every mutant run again.
+  private static io.mutastic.api.LikelyFlaky together(
+      io.mutastic.api.LikelyFlaky one, io.mutastic.api.LikelyFlaky other) {
+    var byReason = new java.util.LinkedHashMap<String, List<String>>();
+    Stream.of(one, other)
+        .flatMap(each -> each.byReason().entrySet().stream())
+        .forEach(
+            entry ->
+                byReason
+                    .computeIfAbsent(entry.getKey(), ignored -> new java.util.ArrayList<>())
+                    .addAll(entry.getValue()));
+    var rerun = new java.util.ArrayList<>(one.rerun());
+    rerun.addAll(other.rerun());
+    return new io.mutastic.api.LikelyFlaky(one.test(), byReason, rerun);
   }
 
   private static Duration longest(Stream<Duration> durations) {

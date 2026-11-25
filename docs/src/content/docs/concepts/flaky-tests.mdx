@@ -54,6 +54,8 @@ with `--confirm-catches`, the end of the output has every warning:
   and the `Flaky` row counts it.
 - `! likely flaky:` names a test whose catches can't be trusted: once because a mutant's result
   changed since the last run with the code unchanged, once because its catches didn't repeat.
+  None of its catches count: what it reached ran again without it, and the run remembers it (see
+  [When a test is named likely flaky](#when-a-test-is-named-likely-flaky)).
 - The score fell by 11.1 points with the code unchanged (`same code`). That drop is the flaky
   test's luck running out, not a change in the tests.
 
@@ -201,6 +203,49 @@ test.
 
 <EditionOnly edition="java">
 
+## When a test is named likely flaky
+
+In the run that names a test likely flaky, for whatever reason (a mutant it caught changed result
+since the last run with the same code, a catch of it didn't repeat when confirmed, or it failed on
+its own), none of its catches count. Once the mutants have run, it's left out, and each mutant it
+reached runs again without it: the other covering tests decide, and a mutant only it reached is
+not covered. Its line says so:
+
+```
+ ! likely flaky: StockTest#restockingWorks; its catches of m4b6a65ac, mb3b4bcf9 didn't repeat when run again. None of its catches count: 2 mutants it reached ran again without it, and the next runs confirm each catch it makes 3 times.
+```
+
+So a threshold, a gate or `--fail-on-new` never passes on a catch the run itself doesn't trust.
+A mutant only such a test reached says so, rather than that no test reaches it, so you don't go
+and write the test that's already there: `only StockTest#restockingWorks reached it, and it's
+likely flaky: its catch didn't count`.
+
+## Watched tests
+
+The run remembers each test it names, in `last-runs/flaky-watch.tsv` in the module's work
+directory, beside the run records: a line for each test, with the runs it has held. From then on,
+each catch it makes is run against its mutant 3 more times, and counts only if it fails every
+time; one that doesn't names it again, with `--confirm-catches` or without. The extra runs fall on
+that test's catches alone, never the rest of the suite.
+
+Why 3: a test that fails 1 time in 3 on its own, as one did on a real project, makes a false catch
+that counts 1 time in 3 unchecked, 1 in 9 confirmed once, and 1 in 81 confirmed 3 times.
+
+Once its catches have held for 3 full runs in a row, each catching something with every catch
+repeated, it's forgotten. Each run says where a watched test stands:
+
+```
+ ! watched: StockTest#restockingWorks, likely flaky in an earlier run: each catch it made had to repeat 3 times; 1 of 3 runs held
+```
+
+A run in which it catches nothing leaves it as it was. Only a full run, or putting shares together
+with `--from-shards`, changes the watch. A share confirms against it but never writes it, as shares
+can run side by side on one work directory and each sees only part of a test's catches. A run of
+some mutants (`--only`, `--at`, `--since`, `verify`) confirms against it too, and changes nothing.
+
+In CI, the watch lasts only as long as the run records do: keep the work directory's
+`last-run.tsv` and `last-runs/` between runs (in a cache, say) to keep both.
+
 ## A test that fails the same way everywhere
 
 One more pattern earns a `note:` rather than a warning: a test that catches mutants in several
@@ -214,9 +259,12 @@ The same evidence is in the other formats:
 
 - `--format=agent` writes each as a line of its own (`flaky: …`, `likely flaky: …`), with what to
   do next.
-- `--format=jsonl`'s `run-finished` event lists each likely flaky test, its mutants and its
-  reasons (`changed-since-last-run`, `catch-not-repeated`). A mutant whose catch didn't repeat says
-  which test made it, as `unconfirmedCatchBy`.
+- `--format=jsonl`'s `run-finished` event lists each likely flaky test in `likelyFlaky`, with its
+  mutants, its reasons (`changed-since-last-run`, `catch-not-repeated`, `fails-alone`) and `rerun`,
+  the mutants that ran again without it; and each watched test in `watched`, with the runs it has
+  held. A mutant whose catch didn't repeat says which test made it, as `unconfirmedCatchBy`; one run
+  again without a likely flaky test that had caught it names it as `flakyCatchBy`, in its
+  `mutant-revised` event and in mutation.json.
 
 </EditionOnly>
 
@@ -236,5 +284,5 @@ mutastic tells you which test; why it's flaky is in the test or the code it runs
 Until it's fixed, a test that can't run reliably under mutastic, with a race or a fixed port, can be left out of every run, with its reason, under [`exclude-tests:`](/guides/configuration/#leaving-a-test-out) in `mutastic.yaml`, or of one run with [`--exclude-tests=CheckoutRaceTest`](/reference/run/#exclude-tests). In the Java edition that's a test class by its name or full name, or one method, `CheckoutRaceTest#paysOnce`; in the Rust edition a test by its name, or a module of tests. The summary names each with its reason (`Left out  CheckoutRaceTest: shares port 8080 with the payment stub`), and the lines only it reached count as not covered, as for a flaky test mutastic leaves out itself.
 
 Once it's fixed, run mutastic again. A test that was left out is back in, and the mutants it
-covers are judged by it again. In the Java edition, a test named likely flaky stops being named
-once its catches repeat.
+covers are judged by it again. In the Java edition, a test named likely flaky is watched until
+its catches have held for 3 full runs, then forgotten.

@@ -139,7 +139,8 @@ public final class ShareEvents {
             text(fields, "falseCatchBy"),
             strings(fields, "caughtByAll"))
         .withCaughtCase(object(fields, "caughtCase").map(ShareEvents::caughtCase))
-        .withCaughtInput(text(fields, "caughtInput"));
+        .withCaughtInput(text(fields, "caughtInput"))
+        .withFlakyCatch(text(fields, "flakyCatchBy"));
   }
 
   private static io.mutastic.api.TestCase caughtCase(Map<String, Object> fields) {
@@ -190,6 +191,21 @@ public final class ShareEvents {
   /// The tests it found flaky and left out.
   public List<String> flaky() {
     return strings(end(), "flaky");
+  }
+
+  /// The tests it named likely flaky: each reason with every mutant the test changed, as the events
+  /// don't say which reason changed which.
+  public List<io.mutastic.api.LikelyFlaky> likelyFlaky() {
+    return maps(end(), "likelyFlaky").stream()
+        .map(
+            fields -> {
+              var mutants = strings(fields, "mutants");
+              var byReason = new java.util.LinkedHashMap<String, List<String>>();
+              strings(fields, "reasons").forEach(reason -> byReason.put(reason, mutants));
+              return new io.mutastic.api.LikelyFlaky(
+                  text(fields, "test").orElse(""), byReason, strings(fields, "rerun"));
+            })
+        .toList();
   }
 
   /// What it found of why each flaky test is flaky.

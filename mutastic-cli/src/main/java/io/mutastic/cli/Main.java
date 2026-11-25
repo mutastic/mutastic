@@ -12,6 +12,8 @@ import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import io.mutastic.engine.ClassSources;
 import io.mutastic.engine.Engine;
+import io.mutastic.engine.FlakyHistory;
+import io.mutastic.engine.FlakyWatch;
 import io.mutastic.engine.OperatorSet;
 import io.mutastic.engine.RunRecord;
 import io.mutastic.engine.RunRecords;
@@ -608,13 +610,37 @@ public final class Main {
     }
   }
 
+  /// The run, saying what became of each test watched since an earlier run named it likely flaky
+  /// (decision 27). A full run of the module, or the `--from-shards` merge, keeps the watch it
+  /// leaves; a share or a run of some mutants confirms against it and leaves it as it was.
+  private static Tested watched(Command command, Prepared prepared, Tested tested) {
+    var watch = new FlakyWatch(prepared.work());
+    var before = watch.read();
+    var leftOut = LeftOut.names(prepared.leftOut());
+    var report = tested.report();
+    boolean keeps =
+        command.shard().isEmpty()
+            && !command.partial()
+            && report.scope().isEmpty()
+            && (report.testsRan() || command.fromShards().isPresent());
+    if (!keeps) {
+      return new Tested(
+          report.withWatched(FlakyWatch.unchanged(before, report, leftOut)), tested.otherTests());
+    }
+    var after = FlakyWatch.after(before, report, leftOut);
+    if (!after.watch().equals(before)) {
+      watch.write(after.watch());
+    }
+    return new Tested(report.withWatched(after.watched()), tested.otherTests());
+  }
+
   /// `run`: every mutant, or with `--shard` a share of them, or with `--from-shards` the shares'
   /// results put together; then the result, its record and its reports.
   private static int fullRun(Command command, Prepared prepared, Passes passes, Output output) {
     var judged = judgedOnNew(command, prepared);
     var display = display(command, prepared, output, judged);
     command.shard().ifPresent(shard -> Shares.forget(shareEvents(prepared, shard)));
-    var tested = passes.run(command, prepared, display.listener());
+    var tested = watched(command, prepared, passes.run(command, prepared, display.listener()));
     passes.progress().checking(RECORDING, 0, 0);
     var kept = kept(command, prepared, tested, judged);
     passes.progress().finished();
@@ -865,7 +891,7 @@ public final class Main {
     }
     var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
-    int exit = verified(report.results(), command.only(), out);
+    int exit = verified(report, command.only(), out);
     if (report.failingAlone().isEmpty()) {
       return exit;
     }
@@ -2148,7 +2174,33 @@ public final class Main {
         .withKillMatrix(command.killMatrix())
         .withShard(command.shard().orElse(Shard.WHOLE))
         .withTestsLeftOut(LeftOut.names(prepared.leftOut()))
-        .withForceCoverage(command.forceCoverage());
+        .withForceCoverage(command.forceCoverage())
+        .withHistory(history(command, prepared));
+  }
+
+  /// What earlier runs say of the tests' catches (decision 27): the module's watch, and, for a run
+  /// of every mutant (or a share), the last comparable run's results when nothing it ran has
+  /// changed since. A run of some mutants, of a change, or with another module's tests is compared
+  /// with no run, as its record isn't kept or its code is never the same.
+  private static FlakyHistory history(Command command, Prepared prepared) {
+    var watched = new FlakyWatch(prepared.work()).read().keySet();
+    if (command.subcommand() != Subcommand.RUN
+        || command.partial()
+        || command.since().isPresent()
+        || !command.testsFrom().isEmpty()) {
+      return new FlakyHistory(Map.of(), watched);
+    }
+    var now =
+        RunRecord.before(
+                prepared.project(),
+                RunRecord.toolOf(List.of(codeSource(Engine.class), workerJar())))
+            .under(OperatorSet.active(policy(command, prepared)))
+            .leavingOut(LeftOut.names(prepared.leftOut()));
+    var last =
+        new RunRecords(recordsOf(prepared, command.shard()))
+            .comparableTo(now)
+            .filter(now::sameCodeAndToolAs);
+    return new FlakyHistory(last.map(RunRecord::results).orElse(Map.of()), watched);
   }
 
   /// The project's say, from the module's nearest `mutastic.yaml` and the run's ignores, with the
@@ -2199,7 +2251,8 @@ public final class Main {
   /// What `verify` says of each of its mutants, and whether every one passed. A twin is said with
   /// the result of the one it's the same as, which ran for it and decides; that one's own line
   /// comes only when it was named too.
-  private static int verified(List<MutantResult> results, List<String> named, PrintStream out) {
+  private static int verified(Report report, List<String> named, PrintStream out) {
+    var results = report.results();
     var byId = new HashMap<String, MutantResult>();
     results.forEach(result -> byId.put(result.mutant().id(), result));
     int exit = PASSED;
@@ -2209,10 +2262,10 @@ public final class Main {
       if (partner.isPresent()) {
         out.printf(
             "mutastic: %s is the same as %s, which %s\n",
-            mutant.id(), partner.get().mutant().id(), fate(partner.get()));
+            mutant.id(), partner.get().mutant().id(), fate(report, partner.get()));
         exit = Math.max(exit, settled(partner.get()) ? PASSED : FAILED);
       } else if (named.contains(mutant.id())) {
-        out.printf("mutastic: %s %s\n", mutant.id(), fate(result));
+        out.printf("mutastic: %s %s\n", mutant.id(), fate(report, result));
         exit = Math.max(exit, settled(result) ? PASSED : FAILED);
       }
     }
@@ -2222,14 +2275,17 @@ public final class Main {
   /// What `verify` says of one of its mutants after its id: caught, or skipped, which leaves
   /// nothing to catch, passes. A skipped mutant once read "isn't reached by any test", and an agent
   /// went looking for the test that should reach it.
-  private static String fate(MutantResult result) {
+  private static String fate(Report report, MutantResult result) {
     return switch (result.status()) {
       case CAUGHT, TIMED_OUT ->
           "is caught by "
               + Untrusted.value(result.caughtBy().orElse("a timeout"))
               + AgentText.evidence(result);
       case MISSED -> "is still missed";
-      case NOT_COVERED -> "isn't reached by any test";
+      case NOT_COVERED ->
+          AgentText.onlyLikelyFlaky(report, result)
+              .map(only -> "isn't covered: " + only)
+              .orElse("isn't reached by any test");
       case SKIPPED ->
           "is skipped (%s), so it isn't run and needs no test"
               .formatted(Untrusted.value(result.mutant().skipped().orElse("skipped")));

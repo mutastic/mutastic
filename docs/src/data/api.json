@@ -2028,6 +2028,96 @@
           "members": []
         },
         {
+          "name": "LikelyFlaky",
+          "slug": "likelyflaky",
+          "kind": "record",
+          "signature": "@Internal record LikelyFlaky(String test, Map<String, List<String>> byReason, List<String> rerun)",
+          "summary": "A test the run named likely flaky, and what came of it: none of its catches count in this run, as each mutant it reached ran again without it (decision 27).",
+          "doc": "A test the run named likely flaky, and what came of it: none of its catches count in this run,\nas each mutant it reached ran again without it (decision 27).",
+          "params": [
+            {
+              "name": "byReason",
+              "doc": "what named it, as the events say it, in this order: `changed-since-last-run`, `catch-not-repeated`, `fails-alone`; each with the mutants whose results it changed that way: a catch whose result changed since the last run with the same code, a catch that didn't repeat, or, when it failed on its own, every mutant it caught"
+            },
+            {
+              "name": "rerun",
+              "doc": "the mutants it reached that ran again without it"
+            }
+          ],
+          "members": [
+            {
+              "kind": "field",
+              "name": "CHANGED",
+              "anchor": "changed",
+              "signature": "static final String CHANGED",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "field",
+              "name": "NOT_REPEATED",
+              "anchor": "not_repeated",
+              "signature": "static final String NOT_REPEATED",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "field",
+              "name": "FAILS_ALONE",
+              "anchor": "fails_alone",
+              "signature": "static final String FAILS_ALONE",
+              "doc": "",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "reasons",
+              "anchor": "reasons",
+              "signature": "List<String> reasons()",
+              "doc": "What named it, in order.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "mutants",
+              "anchor": "mutants",
+              "signature": "List<String> mutants()",
+              "doc": "Every mutant whose result it changed, whatever the reason, sorted.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "mutants",
+              "anchor": "mutants-2",
+              "signature": "List<String> mutants(String reason)",
+              "doc": "The mutants it changed for `reason`: none when that didn't name it.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "onlyFailsAlone",
+              "anchor": "onlyfailsalone",
+              "signature": "boolean onlyFailsAlone()",
+              "doc": "Whether only failing on its own named it, which the run says in a line of its own.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
           "name": "Listener",
           "slug": "listener",
           "kind": "interface",
@@ -2416,7 +2506,7 @@
           "name": "MutantResult",
           "slug": "mutantresult",
           "kind": "record",
-          "signature": "@Internal record MutantResult(\n    Mutant mutant,\n    Status status,\n    List<String> coveredBy,\n    Optional<String> caughtBy,\n    Optional<String> failure,\n    Optional<String> failureOrigin,\n    int testsRun,\n    Optional<String> unconfirmed,\n    Map<String, List<Long>> inputs,\n    Optional<Suggestion> suggestion,\n    Duration took,\n    Optional<String> falseCatchBy,\n    List<String> caughtByAll,\n    Optional<TestCase> caughtCase,\n    Optional<String> caughtInput)",
+          "signature": "@Internal record MutantResult(\n    Mutant mutant,\n    Status status,\n    List<String> coveredBy,\n    Optional<String> caughtBy,\n    Optional<String> failure,\n    Optional<String> failureOrigin,\n    int testsRun,\n    Optional<String> unconfirmed,\n    Map<String, List<Long>> inputs,\n    Optional<Suggestion> suggestion,\n    Duration took,\n    Optional<String> falseCatchBy,\n    List<String> caughtByAll,\n    Optional<TestCase> caughtCase,\n    Optional<String> caughtInput,\n    Optional<String> flakyCatchBy)",
           "summary": "One mutant's outcome.",
           "doc": "One mutant's outcome.",
           "params": [
@@ -2467,6 +2557,10 @@
             {
               "name": "caughtInput",
               "doc": "the input the property test `caughtBy` failed on, on one line as its framework prints it (`Arg 0: 18`), when a property caught it and its framework names one: evidence of this run, as another seed draws others"
+            },
+            {
+              "name": "flakyCatchBy",
+              "doc": "a test the run named likely flaky that had caught the mutant, so its catch doesn't count: the mutant ran again without it, and this result is what the other covering tests made of it (decision 27). [`falseCatchBy`](#falsecatchby) instead when the test failed on its own."
             }
           ],
           "members": [
@@ -2474,6 +2568,16 @@
               "kind": "constructor",
               "name": "MutantResult",
               "anchor": "mutantresult",
+              "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy, List<String> caughtByAll, Optional<TestCase> caughtCase, Optional<String> caughtInput)",
+              "doc": "A result whose catch no test named likely flaky took away.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "MutantResult",
+              "anchor": "mutantresult-2",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy, List<String> caughtByAll, Optional<TestCase> caughtCase)",
               "doc": "A result that names no input: no property caught it, or its framework named none.",
               "params": [],
@@ -2483,7 +2587,7 @@
             {
               "kind": "constructor",
               "name": "MutantResult",
-              "anchor": "mutantresult-2",
+              "anchor": "mutantresult-3",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy, List<String> caughtByAll)",
               "doc": "A result that names no case: its catcher, if it has one, runs no table of them.",
               "params": [],
@@ -2493,7 +2597,7 @@
             {
               "kind": "constructor",
               "name": "MutantResult",
-              "anchor": "mutantresult-3",
+              "anchor": "mutantresult-4",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy)",
               "doc": "A result without every catcher: the run stopped at the first.",
               "params": [],
@@ -2503,7 +2607,7 @@
             {
               "kind": "constructor",
               "name": "MutantResult",
-              "anchor": "mutantresult-4",
+              "anchor": "mutantresult-5",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took)",
               "doc": "A result whose catch, if it has one, stands.",
               "params": [],
@@ -2586,6 +2690,26 @@
               "anchor": "withcaughtinput",
               "signature": "MutantResult withCaughtInput(Optional<String> input)",
               "doc": "The same result, naming the input its catcher, a property test, failed on.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withFlakyCatch",
+              "anchor": "withflakycatch",
+              "signature": "MutantResult withFlakyCatch(Optional<String> test)",
+              "doc": "The same result, its catch by `test` not counted if a test is given: as a share's events say.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withFlakyCatchBy",
+              "anchor": "withflakycatchby",
+              "signature": "MutantResult withFlakyCatchBy(String test)",
+              "doc": "The same result, its catch by `test`, a test named likely flaky, not counted: the mutant's\nresult without that test.",
               "params": [],
               "returns": "",
               "throws": []
@@ -3189,7 +3313,7 @@
           "name": "Report",
           "slug": "report",
           "kind": "record",
-          "signature": "@Internal record Report(\n    String project,\n    int jdk,\n    List<MutantResult> results,\n    int tests,\n    List<String> flaky,\n    Duration coverage,\n    int workers,\n    int started,\n    Duration took,\n    List<MutantResult> audited,\n    Optional<ChangedLines> scope,\n    List<Ignore> staleIgnores,\n    List<FlakyTest> flakyEvidence,\n    Optional<List<Ghost>> ghosts,\n    Duration checking)",
+          "signature": "@Internal record Report(\n    String project,\n    int jdk,\n    List<MutantResult> results,\n    int tests,\n    List<String> flaky,\n    Duration coverage,\n    int workers,\n    int started,\n    Duration took,\n    List<MutantResult> audited,\n    Optional<ChangedLines> scope,\n    List<Ignore> staleIgnores,\n    List<FlakyTest> flakyEvidence,\n    Optional<List<Ghost>> ghosts,\n    Duration checking,\n    List<LikelyFlaky> likelyFlaky,\n    List<WatchedTest> watched)",
           "summary": "A finished run: every mutant's result, in the order they were found.",
           "doc": "A finished run: every mutant's result, in the order they were found.",
           "params": [
@@ -3236,6 +3360,14 @@
             {
               "name": "checking",
               "doc": "how long what follows the mutants took, of `took`: the ghosts, and each catch checked on the unmutated code"
+            },
+            {
+              "name": "likelyFlaky",
+              "doc": "the tests the run named likely flaky: none of their catches count, as each mutant one reached ran again without it"
+            },
+            {
+              "name": "watched",
+              "doc": "the tests an earlier run named, whose catches this run confirmed [`WatchedTest#CONFIRMATIONS`](../watchedtest/#confirmations) more times each"
             }
           ],
           "members": [
@@ -3243,6 +3375,16 @@
               "kind": "constructor",
               "name": "Report",
               "anchor": "report",
+              "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores, List<FlakyTest> flakyEvidence, Optional<List<Ghost>> ghosts, Duration checking)",
+              "doc": "A run that named no test likely flaky and watched none.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "Report",
+              "anchor": "report-2",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores, List<FlakyTest> flakyEvidence, Optional<List<Ghost>> ghosts)",
               "doc": "A run whose checking after the mutants wasn't timed: one put together from shares, say.",
               "params": [],
@@ -3252,7 +3394,7 @@
             {
               "kind": "constructor",
               "name": "Report",
-              "anchor": "report-2",
+              "anchor": "report-3",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores, List<FlakyTest> flakyEvidence)",
               "doc": "A run without ghosts.",
               "params": [],
@@ -3262,7 +3404,7 @@
             {
               "kind": "constructor",
               "name": "Report",
-              "anchor": "report-3",
+              "anchor": "report-4",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores)",
               "doc": "A run with nothing known of why its flaky tests are flaky.",
               "params": [],
@@ -3272,7 +3414,7 @@
             {
               "kind": "constructor",
               "name": "Report",
-              "anchor": "report-4",
+              "anchor": "report-5",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took)",
               "doc": "A run without an audit.",
               "params": [],
@@ -3295,6 +3437,46 @@
               "anchor": "withresults",
               "signature": "Report withResults(List<MutantResult> kept)",
               "doc": "The same run, with only these of its results: what's shown when the rest aren't asked about.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withLikelyFlaky",
+              "anchor": "withlikelyflaky",
+              "signature": "Report withLikelyFlaky(List<LikelyFlaky> named)",
+              "doc": "The same run, naming these tests likely flaky.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withWatched",
+              "anchor": "withwatched",
+              "signature": "Report withWatched(List<WatchedTest> watching)",
+              "doc": "The same run, saying what became of the tests it watched.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "likelyFlakyReaching",
+              "anchor": "likelyflakyreaching",
+              "signature": "List<String> likelyFlakyReaching(String id)",
+              "doc": "The tests named likely flaky that reached the mutant `id` and were left out of its run again.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "likelyFlaky",
+              "anchor": "likelyflaky",
+              "signature": "Optional<LikelyFlaky> likelyFlaky(String test)",
+              "doc": "The test named likely flaky as `test`, if the run named it.",
               "params": [],
               "returns": "",
               "throws": []
@@ -3928,6 +4110,46 @@
               "anchor": "runs",
               "signature": "boolean runs(String className)",
               "doc": "Whether the build runs the top-level test class `className` (`com.example.PricingTest`).",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
+        },
+        {
+          "name": "WatchedTest",
+          "slug": "watchedtest",
+          "kind": "record",
+          "signature": "@Internal record WatchedTest(String test, int held, boolean released)",
+          "summary": "A test an earlier run named likely flaky, remembered in `last-runs/flaky-watch.tsv`: each catch it makes counts only if it repeats [`CONFIRMATIONS`](#confirmations) more times, until it has held for [`NEEDED`](#needed) full runs in a row (decision 27).",
+          "doc": "A test an earlier run named likely flaky, remembered in `last-runs/flaky-watch.tsv`: each catch\nit makes counts only if it repeats [`CONFIRMATIONS`](#confirmations) more times, until it has held for [`NEEDED`](#needed)\nfull runs in a row (decision 27).",
+          "params": [
+            {
+              "name": "held",
+              "doc": "full runs in a row, this one included when it's one, in which it caught mutants and every catch held"
+            },
+            {
+              "name": "released",
+              "doc": "whether this run made it [`NEEDED`](#needed), so it's forgotten after it"
+            }
+          ],
+          "members": [
+            {
+              "kind": "field",
+              "name": "CONFIRMATIONS",
+              "anchor": "confirmations",
+              "signature": "static final int CONFIRMATIONS",
+              "doc": "How many more times each catch a watched test makes is run against its mutant. A test that\nfails 1 time in 3 on its own, as one did on a real project, makes a false catch that counts 1\ntime in 3 unchecked, 1 in 9 confirmed once, and 1 in 81 confirmed 3 times.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "field",
+              "name": "NEEDED",
+              "anchor": "needed",
+              "signature": "static final int NEEDED",
+              "doc": "How many full runs in a row its catches must hold before it's forgotten: a false catch holds\n[`CONFIRMATIONS`](#confirmations) confirmations 1 time in 27, so 3 such runs by luck alone is 1 in about\n20,000.",
               "params": [],
               "returns": "",
               "throws": []
