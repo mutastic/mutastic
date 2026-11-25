@@ -3463,6 +3463,16 @@
             },
             {
               "kind": "method",
+              "name": "likelyFlakyReaching",
+              "anchor": "likelyflakyreaching",
+              "signature": "List<String> likelyFlakyReaching(String id)",
+              "doc": "The tests named likely flaky that reached the mutant `id` and were left out of its run again.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
               "name": "likelyFlaky",
               "anchor": "likelyflaky",
               "signature": "Optional<LikelyFlaky> likelyFlaky(String test)",

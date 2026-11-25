@@ -1634,13 +1634,9 @@ public final class Engine {
         return new Tested(run, Optional.empty());
       }
       var catcher = run.failedTest().orElseThrow();
-      int confirmations = confirming.timesFor(catcher);
-      for (int time = 0; time < confirmations; time++) {
-        if (trial.run(List.of(catcher)).status() == Status.MISSED) {
-          return testedAfter(trial, covering, run, Optional.of(catcher));
-        }
-      }
-      return new Tested(run, Optional.empty());
+      return confirming.repeats(run, () -> trial.run(List.of(catcher)))
+          ? new Tested(run, Optional.empty())
+          : testedAfter(trial, covering, run, Optional.of(catcher));
     }
 
     /// With [#shrinkOnce], the input a property caught the mutant with, shrunk: its test runs once

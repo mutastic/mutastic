@@ -485,10 +485,11 @@ final class TestWorker implements AutoCloseable {
   private static final String DISCOVERY_ISSUE =
       "org.junit.platform.launcher.core.DiscoveryIssueException";
 
-  /// `run`, of `test` alone with no mutant in, unless finding it failed. Every test already ran
-  /// once, so a selector that finds nothing, or that JUnit can't discover, is mutastic's own error:
-  /// never the test failing on its own, nor a reason to drop its catches.
-  private static Run alone(String test, Run run) {
+  /// `run`, of `test` alone, with no mutant in or confirming a catch, unless finding it failed.
+  /// Every test already ran once, so a selector that finds nothing, or that JUnit can't discover,
+  /// is mutastic's own error: never the test failing on its own, a catch that didn't repeat, nor a
+  /// reason to drop its catches.
+  static Run alone(String test, Run run) {
     if (run.failure().filter(DISCOVERY_ISSUE::equals).isPresent()) {
       throw new IllegalStateException(
           "mutastic couldn't select " + test + " to run it on its own: JUnit couldn't discover it");
