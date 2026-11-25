@@ -2494,17 +2494,6 @@
       "summary": "mutastic.yaml's `timeout-ceiling:` and a mutant's limit taken from each covering test's own time, side by side, not their summed coverage time: the Rust edition has them first",
       "issue": "https://github.com/mutastic/mutastic/issues/207",
       "decision": 26
-    },
-    {
-      "id": "N81",
-      "kind": "pending",
-      "editions": [
-        "rust"
-      ],
-      "surface": "events",
-      "summary": "A likely-flaky test's catches don't count, and later runs confirm a watched test's catches 3 times (decision 27): `run-finished`'s `watched` and `likelyFlaky[].rerun`, the `fails-alone` reason, `flakyCatchBy` in `mutant-revised` and mutation.json, `last-runs/flaky-watch.tsv`, and the lines that say so: the Java edition has them first",
-      "issue": "https://github.com/mutastic/mutastic/issues/225",
-      "decision": 27
     }
   ]
 }

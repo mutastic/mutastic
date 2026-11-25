@@ -402,15 +402,11 @@ count names the test as `falseCatchBy`.
 
 When every catch holds, nothing changes but the time: one run of each test that caught something.
 
-<EditionOnly edition="java">
-
 A test named [likely flaky](/concepts/flaky-tests/#when-a-test-is-named-likely-flaky), because a
 mutant it caught changed result since the last run with the same code or because a catch of it
 didn't repeat, is dealt with the same way: none of its catches count, and each mutant it reached
 runs again without it. Its card says so (`… failed against it, but it's likely flaky: that catch
 doesn't count`), and later runs confirm each catch it makes 3 times until it has held for 3 runs.
-
-</EditionOnly>
 
 <EditionOnly edition="java">
 
@@ -560,6 +556,7 @@ how it went:
 | `is caught by a timeout` | the tests ran out of time | yes |
 | `is still missed` | every test that reaches it passed | no |
 | `isn't reached by any test` | no test reaches it | no |
+| `isn't covered: only tests::restocking_works reached it, and it's likely flaky: its catch didn't count` | the only test that reached it was named [likely flaky](/concepts/flaky-tests/#when-a-test-is-named-likely-flaky), and its catch was dropped | no |
 | `is skipped (unviable: …), so it isn't run and needs no test` | it doesn't compile | yes |
 | `crashes, and no test can be said to catch it (…)` | it crashed where a crash proves nothing | yes |
 | `is the same as m2e329a72, which is still missed` | a twin: the one it's the same as ran for it, and its fate follows | as that one |
