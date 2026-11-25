@@ -56,7 +56,7 @@
           "test": {
             "type": "string",
             "minLength": 1,
-            "description": "The test, as `--exclude-tests` takes it: in Java a class by its name or full name, or one method of it, `Class#method`; in Rust a test's name as a run shows it, or a module of tests by its path.",
+            "description": "The test, as `--exclude-tests` takes it: in Java a class by its name or full name, one method of it, `Class#method`, or one overload by its parameter types, `Class#method(Cart, int)`; in Rust a test's name as a run shows it, or a module of tests by its path.",
             "examples": ["CheckoutRaceTest", "com.acme.CheckoutRaceTest#paysOnce", "checkout::tests::pays_once"]
           },
           "reason": {

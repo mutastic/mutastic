@@ -24,8 +24,9 @@ dependencies {
     // Found at run time as BuildTools: the CLI names none of them.
     runtimeOnly(project(":mutastic-gradle"))
     runtimeOnly(project(":mutastic-maven"))
-    // Not called, but shipped: the engine starts it as its own process, as a Java agent.
-    runtimeOnly(project(":mutastic-worker"))
+    // Shipped: the engine starts it as its own process, as a Java agent. Compiled against for its
+    // rule for test names (TestNames), which `--exclude-tests` is split by.
+    implementation(project(":mutastic-worker"))
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)

@@ -95,6 +95,7 @@ public final class AgentText {
     appendVerdict(out, report, missed.size(), notCovered.size());
     appendFlaky(out, report);
     appendStaleIgnores(out, report);
+    appendUnmatched(out, report);
     RepeatedIgnores.in(report)
         .forEach(repeated -> out.append("note: %s\n".formatted(RepeatedIgnores.text(repeated))));
     comparison.ifPresent(found -> appendVsLastRun(out, report, found));
@@ -309,6 +310,27 @@ public final class AgentText {
                       report.staleIgnores().stream().map(io.mutastic.api.Ignore::id).toList()),
                   sources.invocation().command(HumanText.PRUNE)));
     }
+  }
+
+  /// Each test the run was told to leave out that names none of its tests (decision 28).
+  private static void appendUnmatched(StringBuilder out, Report report) {
+    report
+        .unmatched()
+        .forEach(
+            none -> out.append("left out nothing: ").append(unmatched(none, report)).append('\n'));
+  }
+
+  /// `FooTest#bars names no test of pricing. There's one called FooTest#bar.`: a test the run was
+  /// told to leave out that left out nothing, and the test it's close to, offered and never acted
+  /// on.
+  public static String unmatched(io.mutastic.api.UnmatchedExclusion none, Report report) {
+    return "%s names no test of %s.%s"
+        .formatted(
+            Untrusted.value(none.test()),
+            Untrusted.value(report.project()),
+            none.closest()
+                .map(close -> " There's one called %s.".formatted(Untrusted.value(close)))
+                .orElse(""));
   }
 
   /// Each flaky test, and what to do about it by what mutastic saw: a test that's its own doing (an

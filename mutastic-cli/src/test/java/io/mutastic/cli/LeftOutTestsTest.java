@@ -87,6 +87,7 @@ class LeftOutTestsTest {
         .contains(
             "\"testsLeftOut\":[{\"test\":\""
                 + FAILING
-                + "\",\"reason\":\"rounding changes next week\"}]");
+                + "\",\"reason\":\"rounding changes next week\",\"matched\":true,"
+                + "\"maybe\":null}]");
   }
 }

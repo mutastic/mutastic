@@ -75,6 +75,7 @@ class FlakyWatchTest {
     assertThat(after.watched()).isEmpty();
     assertThat(FlakyWatch.unchanged(before, report, List.of("PricingTest"))).isEmpty();
     assertThat(FlakyWatch.leftOut(HELD, List.of("OtherTest", "PricingTest#idle"))).isFalse();
+    assertThat(FlakyWatch.leftOut(HELD + "(com.example.Cart)", List.of(HELD + "(Cart)"))).isTrue();
   }
 
   @Test

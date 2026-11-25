@@ -168,9 +168,15 @@ exclude-tests:
     reason: expects the old discount until the pricing change lands
 ```
 
-A test is named as [`--exclude-tests`](/reference/run/#exclude-tests) takes it: a test class by its
-name or full name, which leaves out every test in it, or one method, `Class#method`, with every
-overload and every row of it. A test without a `reason:` is an error. The summary's `Left out` row
+A test is named as [`--exclude-tests`](/reference/run/#exclude-tests) takes it, in any form a run
+prints it: a test class by its name or full name, which leaves out every test in it; one method,
+`Class#method`, with every overload and every row of it; or one overload with its parameter types,
+by their names or full names, `PricingTest#bigOrders(Cart, int)` or
+`com.example.PricingTest#bigOrders(com.example.Cart, int)`. A test without a `reason:` is an error.
+A name that matches none of the module's tests leaves nothing out, and the run says so: `! left out
+nothing: PricingTest#bigOrder names no test of pricing. There's one called PricingTest#bigOrders.`,
+and `matched: false` in `run-finished`. It's a warning, not an error, so a test removed or renamed
+since doesn't stop every run, nor does a name given to every module of a build. The summary's `Left out` row
 names each test with its reason, the Score row ends in `· 1 test left out`, and `run-finished`
 lists them as `testsLeftOut`. A left-out test can't make a mutant look caught: what only it reaches
 counts as not covered, so the score can only fall. A run with other tests left out is other code

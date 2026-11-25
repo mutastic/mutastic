@@ -30,6 +30,8 @@ import org.jspecify.annotations.Nullable;
 ///   mutant one reached ran again without it
 /// @param watched the tests an earlier run named, whose catches this run confirmed
 ///   [WatchedTest#CONFIRMATIONS] more times each
+/// @param unmatched each test the run was told to leave out that names none of its tests, so it
+///   left nothing out
 @Internal
 public record Report(
     String project,
@@ -48,9 +50,11 @@ public record Report(
     Optional<List<Ghost>> ghosts,
     Duration checking,
     List<LikelyFlaky> likelyFlaky,
-    List<WatchedTest> watched) {
+    List<WatchedTest> watched,
+    List<UnmatchedExclusion> unmatched) {
 
   public Report {
+    unmatched = List.copyOf(unmatched);
     likelyFlaky = List.copyOf(likelyFlaky);
     watched = List.copyOf(watched);
     ghosts = ghosts.map(List::copyOf);
@@ -59,6 +63,46 @@ public record Report(
     results = List.copyOf(results);
     flaky = List.copyOf(flaky);
     audited = List.copyOf(audited);
+  }
+
+  /// A run where every test it was told to leave out named one of its tests.
+  public Report(
+      String project,
+      int jdk,
+      List<MutantResult> results,
+      int tests,
+      List<String> flaky,
+      Duration coverage,
+      int workers,
+      int started,
+      Duration took,
+      List<MutantResult> audited,
+      Optional<ChangedLines> scope,
+      List<Ignore> staleIgnores,
+      List<FlakyTest> flakyEvidence,
+      Optional<List<Ghost>> ghosts,
+      Duration checking,
+      List<LikelyFlaky> likelyFlaky,
+      List<WatchedTest> watched) {
+    this(
+        project,
+        jdk,
+        results,
+        tests,
+        flaky,
+        coverage,
+        workers,
+        started,
+        took,
+        audited,
+        scope,
+        staleIgnores,
+        flakyEvidence,
+        ghosts,
+        checking,
+        likelyFlaky,
+        watched,
+        List.of());
   }
 
   /// A run that named no test likely flaky and watched none.
@@ -244,7 +288,8 @@ public record Report(
         ghosts,
         checking,
         likelyFlaky,
-        watched);
+        watched,
+        unmatched);
   }
 
   /// The same run, naming these tests likely flaky.
@@ -266,7 +311,8 @@ public record Report(
         ghosts,
         checking,
         named,
-        watched);
+        watched,
+        unmatched);
   }
 
   /// The same run, saying what became of the tests it watched.
@@ -288,7 +334,8 @@ public record Report(
         ghosts,
         checking,
         likelyFlaky,
-        watching);
+        watching,
+        unmatched);
   }
 
   /// The tests named likely flaky that reached the mutant `id` and were left out of its run again.
@@ -329,7 +376,15 @@ public record Report(
         ghosts,
         checking.plus(other.checking()),
         both(likelyFlaky, other.likelyFlaky()),
-        both(watched, other.watched()));
+        both(watched, other.watched()),
+        unmatchedByBoth(other));
+  }
+
+  /// The tests left out that named none of this run's tests nor `other`'s: one that named another
+  /// module's left those out.
+  private List<UnmatchedExclusion> unmatchedByBoth(Report other) {
+    var theirs = other.unmatched().stream().map(UnmatchedExclusion::test).toList();
+    return unmatched.stream().filter(mine -> theirs.contains(mine.test())).toList();
   }
 
   /// `mine`, then `theirs`.

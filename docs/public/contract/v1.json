@@ -1000,13 +1000,13 @@
         {
           "label": "Left out",
           "optional": true,
-          "note": "Each test the run leaves out on a line of its own: mutastic.yaml's `exclude-tests:` first, as `<test>: <reason>`, then those `--exclude-tests` adds, as `<test> (--exclude-tests)`; a test in both is named once, with its reason"
+          "note": "Each test the run leaves out on a line of its own: mutastic.yaml's `exclude-tests:` first, as `<test>: <reason>`, then those `--exclude-tests` adds, as `<test> (--exclude-tests)`; a test in both is named once, with its reason; a name that matches no test is named too, and said on its own `! left out nothing:` line (decision 28)"
         },
         {
           "label": "Score",
           "optional": true,
           "shape": "^\\d+(\\.\\d)?%  \\[(PASS|FAIL)\\] .+$",
-          "note": "Ends in `  · 1 test left out` or `  · N tests left out` when the run leaves tests out: their mutants can only count as not covered, so the score can only fall, and a score over fewer tests says so where it's read"
+          "note": "Ends in `  · 1 test left out` or `  · N tests left out` when the run leaves tests out: their mutants can only count as not covered, so the score can only fall, and a score over fewer tests says so where it's read; a name that left out nothing isn't counted (decision 28)"
         }
       ]
     },
@@ -1123,7 +1123,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "cd1b8fd42ebfc2988eeeaeef9c453101e13152a7ef457f75de86b84848b2e852"
+      "sha256": "a2bd6221a5451389f2a0c7cc5b2995ea38c367c6a65774319edd5e319cecdcdd"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1772,6 +1772,10 @@
       "rule": "A mutant one of mutastic's own arid rules skipped names the rule: `skipRule` in `mutant-finished`, `mutastic.skipRule` in mutation.json, and in `explain` and the HTML report with its docs section (decision 20) and the `mutastic.yaml` rule that runs it, `- mutate: <its method>` with `arid: [<id>]` and `reason: <why a test should check it>`. A `mutate:` rule's optional `arid:` list, of known ids only (an unknown one is refused, with a close one when there is one), brings back only those rules' skips; without it, every arid skip in the code it covers."
     },
     {
+      "id": 28,
+      "rule": "A name given to `--exclude-tests` or under mutastic.yaml's `exclude-tests:` is matched to the tests by one rule wherever a run leaves tests out (the coverage pass, each mutant's tests, the flaky watch, `verify`, `explain`, `next`, `baseline` and the gate), and it takes every form the edition prints a test in. Java: a test class by its name or full name, every test in it; `Class#method`, with every overload and every row; or `Class#method(types)`, the one overload with those parameter types, each type by its name or full name, so the test as `caughtBy`, `likelyFlaky` and the summary name it is a name it takes (`com.example.PricingTest#bigOrders(com.example.Cart, int)`, `PricingTest#bigOrders(Cart, int)`); a comma inside the parentheses doesn't split `--exclude-tests`. A parameterized test's rows have no name of their own. Rust: a test by its name as a run shows it, or a module of tests by its path (difference N50). A name that matches none of the module's tests, run or ignored, leaves nothing out, and a run whose tests ran says so. It's a warning, not an error: a test removed or renamed since it was listed, or one name given to every module of a build through a build plugin, mustn't stop every run, and a refusal could only come once the build and the tests' discovery have run. The human formats add a line among the warnings, ` ! left out nothing: <name> names no test of <project>.`, ending in ` There's one called <test>.` when a test is close to it by the close-name rule, compared with every form a run names the module's tests in: offered, never acted on. The agent format has the same line without `! `, among its head lines; `verify` prints it after the fates, `mutastic: left out nothing: …`. Each `testsLeftOut` entry of `run-finished` has `matched`, false for such a name, and `maybe`, the close test or null. The summary's `Left out` row still names it, and the Score row's `· N tests left out` doesn't count it. A run in which no test ran (no mutant to run, no tests) says nothing of it."
+    },
+    {
       "id": 70,
       "rule": "Each edition keeps its own test identity for a table of cases: Java's test is the method, its parameterized, repeated and dynamic invocations its cases; Rust's is each case as libtest lists it, rstest's `#[case]` and test-case's `#[test_case]` rows. When the test that catches a mutant is one case of such a table, the case is named as evidence of this run, keyed by the test it's written as, its position among that test's cases in this run (from 1) and what it's called (Java: its display name; Rust: its row as written): `caughtCase` `{test, index, name}` in `mutant-finished`, and ` (case <name>)` after the catching test wherever a line names it (`verify`, `explain`, the agent format). A test that fails with no mutant in names its case the same way. The index moves when a case is added before it, so nothing keys on it across runs."
     },
@@ -2374,8 +2378,9 @@
         "rust"
       ],
       "surface": "command line",
-      "summary": "`--exclude-tests=TEST` and `exclude-tests:` take a class or `Class#method` in Java, a test or a module of tests in Rust",
-      "reason": "Java leaves out a test class, by its name or full name, or one method of it, `PricingTest#bigOrders`, with every overload and row. Rust has no test classes: it leaves out a test by its name as libtest lists it, or a module of tests by its path."
+      "summary": "`--exclude-tests=TEST` and `exclude-tests:` take a class, `Class#method` or `Class#method(types)` in Java, a test or a module of tests in Rust",
+      "reason": "Java leaves out a test class, by its name or full name, or one method of it, `PricingTest#bigOrders`, with every overload and row, or one overload by its parameter types, `PricingTest#bigOrders(Cart, int)`, as a run names a test. Rust has no test classes or overloads: it leaves out a test by its name as libtest lists it, or a module of tests by its path.",
+      "decision": 28
     },
     {
       "id": "A6",

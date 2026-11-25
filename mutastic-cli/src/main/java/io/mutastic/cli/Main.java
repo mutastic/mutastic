@@ -40,6 +40,7 @@ import io.mutastic.report.SourceView;
 import io.mutastic.report.Style;
 import io.mutastic.report.Untrusted;
 import io.mutastic.report.Vocabulary;
+import io.mutastic.worker.TestNames;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
@@ -892,6 +893,11 @@ public final class Main {
     var report = passes.run(command, prepared, passes.progress()).report();
     passes.progress().finished();
     int exit = verified(report, command.only(), out);
+    report
+        .unmatched()
+        .forEach(
+            none ->
+                out.printf("mutastic: left out nothing: %s\n", AgentText.unmatched(none, report)));
     if (report.failingAlone().isEmpty()) {
       return exit;
     }
@@ -2059,10 +2065,7 @@ public final class Main {
     var built = built(command, tool, request, progress);
     progress.findingMutants();
     var leftOut = leftOut(command, built.project(), directory);
-    var project =
-        built
-            .project()
-            .withTests(built.project().tests().leavingOut(wholeClasses(LeftOut.names(leftOut))));
+    var project = built.project();
     var setup = Duration.ofNanos(System.nanoTime() - clocks.awake());
     var sources =
         new SourceView(directory, project.sources(), project.testSources())
@@ -2079,12 +2082,6 @@ public final class Main {
     var configured =
         Configuration.read(Configuration.nearest(project.workingDirectory(), directory));
     return LeftOut.of(configured.excludedTests(), command.excludeTests());
-  }
-
-  /// The tests left out whole, test classes: a method, `PricingTest#bigOrders`, is the workers' to
-  /// leave out of its class.
-  private static List<String> wholeClasses(List<String> tests) {
-    return tests.stream().filter(test -> !test.contains("#")).toList();
   }
 
   /// A module read, and how long its build tool took building what the run needs.
@@ -3569,14 +3566,11 @@ public final class Main {
         return value.strip();
       }
 
-      /// `--exclude-tests=RacyTest,com.example.PortTest,PricingTest#bigOrders`: test classes by
-      /// name or full name, or one method of one.
+      /// `--exclude-tests=RacyTest,com.example.PortTest,PricingTest#bigOrders(Cart, int)`: test
+      /// classes by name or full name, or one method of one, split as [TestNames#split] splits
+      /// them, since an overload's parameter types have commas of their own.
       private void excludeTests(String value) {
-        for (String name : value.split(",", -1)) {
-          if (!name.isBlank()) {
-            excludeTests.add(name.strip());
-          }
-        }
+        excludeTests.addAll(TestNames.split(value));
       }
 
       /// `--operators=stronger,-stream`: each word, checked when the project's operators are known.

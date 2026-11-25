@@ -1628,7 +1628,7 @@
           "name": "CoveragePass",
           "slug": "coveragepass",
           "kind": "record",
-          "signature": "@Internal record CoveragePass(\n    int jdk,\n    int tests,\n    Duration took,\n    int mutants,\n    List<String> flaky,\n    List<FlakyTest> flakyEvidence,\n    int cases,\n    int skippedCases,\n    List<String> separateJvms)",
+          "signature": "@Internal record CoveragePass(\n    int jdk,\n    int tests,\n    Duration took,\n    int mutants,\n    List<String> flaky,\n    List<FlakyTest> flakyEvidence,\n    int cases,\n    int skippedCases,\n    List<String> separateJvms,\n    List<UnmatchedExclusion> unmatched)",
           "summary": "What the coverage pass found, before any mutant runs.",
           "doc": "What the coverage pass found, before any mutant runs.",
           "params": [
@@ -1667,6 +1667,10 @@
             {
               "name": "separateJvms",
               "doc": "a note for each test class that runs one of the project's `main` classes in a JVM of its own, which neither mutants nor coverage reach"
+            },
+            {
+              "name": "unmatched",
+              "doc": "each test the run was told to leave out that names none of its tests"
             }
           ],
           "members": [
@@ -1674,6 +1678,16 @@
               "kind": "constructor",
               "name": "CoveragePass",
               "anchor": "coveragepass",
+              "signature": "CoveragePass(int jdk, int tests, Duration took, int mutants, List<String> flaky, List<FlakyTest> flakyEvidence, int cases, int skippedCases, List<String> separateJvms)",
+              "doc": "A pass where every test the run was told to leave out named one of its tests.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "CoveragePass",
+              "anchor": "coveragepass-2",
               "signature": "CoveragePass(int jdk, int tests, Duration took, int mutants, List<String> flaky, List<FlakyTest> flakyEvidence, int cases, int skippedCases)",
               "doc": "A pass that found no test running the project in a JVM of its own.",
               "params": [],
@@ -1683,7 +1697,7 @@
             {
               "kind": "constructor",
               "name": "CoveragePass",
-              "anchor": "coveragepass-2",
+              "anchor": "coveragepass-3",
               "signature": "CoveragePass(int jdk, int tests, Duration took, int mutants, List<String> flaky, List<FlakyTest> flakyEvidence)",
               "doc": "A pass whose cases weren't counted.",
               "params": [],
@@ -1693,7 +1707,7 @@
             {
               "kind": "constructor",
               "name": "CoveragePass",
-              "anchor": "coveragepass-3",
+              "anchor": "coveragepass-4",
               "signature": "CoveragePass(int jdk, int tests, Duration took, int mutants, List<String> flaky)",
               "doc": "A pass with nothing known of why its flaky tests are flaky.",
               "params": [],
@@ -1716,6 +1730,16 @@
               "anchor": "withseparatejvms",
               "signature": "CoveragePass withSeparateJvms(List<String> notes)",
               "doc": "This pass, with a note for each test class that runs the project in a JVM of its own.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withUnmatched",
+              "anchor": "withunmatched",
+              "signature": "CoveragePass withUnmatched(List<UnmatchedExclusion> none)",
+              "doc": "This pass, with each test the run was told to leave out that names none of its tests.",
               "params": [],
               "returns": "",
               "throws": []
@@ -3313,7 +3337,7 @@
           "name": "Report",
           "slug": "report",
           "kind": "record",
-          "signature": "@Internal record Report(\n    String project,\n    int jdk,\n    List<MutantResult> results,\n    int tests,\n    List<String> flaky,\n    Duration coverage,\n    int workers,\n    int started,\n    Duration took,\n    List<MutantResult> audited,\n    Optional<ChangedLines> scope,\n    List<Ignore> staleIgnores,\n    List<FlakyTest> flakyEvidence,\n    Optional<List<Ghost>> ghosts,\n    Duration checking,\n    List<LikelyFlaky> likelyFlaky,\n    List<WatchedTest> watched)",
+          "signature": "@Internal record Report(\n    String project,\n    int jdk,\n    List<MutantResult> results,\n    int tests,\n    List<String> flaky,\n    Duration coverage,\n    int workers,\n    int started,\n    Duration took,\n    List<MutantResult> audited,\n    Optional<ChangedLines> scope,\n    List<Ignore> staleIgnores,\n    List<FlakyTest> flakyEvidence,\n    Optional<List<Ghost>> ghosts,\n    Duration checking,\n    List<LikelyFlaky> likelyFlaky,\n    List<WatchedTest> watched,\n    List<UnmatchedExclusion> unmatched)",
           "summary": "A finished run: every mutant's result, in the order they were found.",
           "doc": "A finished run: every mutant's result, in the order they were found.",
           "params": [
@@ -3368,6 +3392,10 @@
             {
               "name": "watched",
               "doc": "the tests an earlier run named, whose catches this run confirmed [`WatchedTest#CONFIRMATIONS`](../watchedtest/#confirmations) more times each"
+            },
+            {
+              "name": "unmatched",
+              "doc": "each test the run was told to leave out that names none of its tests, so it left nothing out"
             }
           ],
           "members": [
@@ -3375,6 +3403,16 @@
               "kind": "constructor",
               "name": "Report",
               "anchor": "report",
+              "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores, List<FlakyTest> flakyEvidence, Optional<List<Ghost>> ghosts, Duration checking, List<LikelyFlaky> likelyFlaky, List<WatchedTest> watched)",
+              "doc": "A run where every test it was told to leave out named one of its tests.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "Report",
+              "anchor": "report-2",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores, List<FlakyTest> flakyEvidence, Optional<List<Ghost>> ghosts, Duration checking)",
               "doc": "A run that named no test likely flaky and watched none.",
               "params": [],
@@ -3384,7 +3422,7 @@
             {
               "kind": "constructor",
               "name": "Report",
-              "anchor": "report-2",
+              "anchor": "report-3",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores, List<FlakyTest> flakyEvidence, Optional<List<Ghost>> ghosts)",
               "doc": "A run whose checking after the mutants wasn't timed: one put together from shares, say.",
               "params": [],
@@ -3394,7 +3432,7 @@
             {
               "kind": "constructor",
               "name": "Report",
-              "anchor": "report-3",
+              "anchor": "report-4",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores, List<FlakyTest> flakyEvidence)",
               "doc": "A run without ghosts.",
               "params": [],
@@ -3404,7 +3442,7 @@
             {
               "kind": "constructor",
               "name": "Report",
-              "anchor": "report-4",
+              "anchor": "report-5",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took, List<MutantResult> audited, Optional<ChangedLines> scope, List<Ignore> staleIgnores)",
               "doc": "A run with nothing known of why its flaky tests are flaky.",
               "params": [],
@@ -3414,7 +3452,7 @@
             {
               "kind": "constructor",
               "name": "Report",
-              "anchor": "report-5",
+              "anchor": "report-6",
               "signature": "Report(String project, int jdk, List<MutantResult> results, int tests, List<String> flaky, Duration coverage, int workers, int started, Duration took)",
               "doc": "A run without an audit.",
               "params": [],
@@ -4115,6 +4153,25 @@
               "throws": []
             }
           ]
+        },
+        {
+          "name": "UnmatchedExclusion",
+          "slug": "unmatchedexclusion",
+          "kind": "record",
+          "signature": "@Internal record UnmatchedExclusion(String test, Optional<String> closest)",
+          "summary": "A test the run was told to leave out (`--exclude-tests`, `exclude-tests:`) that names none of its tests, so it left nothing out: a run says so rather than run as if it had (decision 28).",
+          "doc": "A test the run was told to leave out (`--exclude-tests`, `exclude-tests:`) that names none of\nits tests, so it left nothing out: a run says so rather than run as if it had (decision 28).",
+          "params": [
+            {
+              "name": "test",
+              "doc": "the name as it was given"
+            },
+            {
+              "name": "closest",
+              "doc": "the one test a run names that it's close to, by [`Nearest`](../nearest/)'s rule: offered, never acted on"
+            }
+          ],
+          "members": []
         },
         {
           "name": "WatchedTest",

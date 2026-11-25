@@ -983,6 +983,7 @@ public final class HumanText {
     if (!report.staleIgnores().isEmpty()) {
       lines.add(staleIgnoresWarning(report));
     }
+    report.unmatched().forEach(none -> lines.add(unmatchedWarning(none, report)));
     RepeatedIgnores.in(report)
         .forEach(
             repeated ->
@@ -992,6 +993,12 @@ public final class HumanText {
       out.append('\n');
       lines.forEach(line -> out.append(line).append('\n'));
     }
+  }
+
+  /// A test the run was told to leave out that named none of its tests (decision 28).
+  private String unmatchedWarning(io.mutastic.api.UnmatchedExclusion none, Report report) {
+    return " %s %s"
+        .formatted(style.amber("! left out nothing:"), AgentText.unmatched(none, report));
   }
 
   /// A line for each reason a test was named likely flaky, the strongest first, then one for each
@@ -1170,9 +1177,10 @@ public final class HumanText {
   }
 
   /// ` · 2 tests left out`, after a score over fewer tests than the build runs: their mutants can
-  /// only count as not covered, so it can only be lower, and it's said where it's read.
+  /// only count as not covered, so it can only be lower, and it's said where it's read. A name that
+  /// left out nothing isn't counted: its line says so.
   private String testsLeftOut(Report report, Run run) {
-    int count = run.leftOut().size();
+    int count = run.leftOut().size() - report.unmatched().size();
     return count == 0 || report.score().isEmpty()
         ? ""
         : style.dim("  · %s left out".formatted(count(count, "test")));
