@@ -751,7 +751,7 @@ final class TestWorker implements AutoCloseable {
   /// ([ResourceCopy]), then the project's test classpath, then what mutastic brings for its tests
   /// to run on the JUnit Platform, when they need it ([TestFrameworks]); for a framework that loads
   /// the app itself, the project's own directories last, where it finds them, and no copy.
-  private String classpath() {
+  private List<Path> classpath() {
     boolean framework = frameworks.loadsTheApp();
     var own =
         framework
@@ -763,14 +763,35 @@ final class TestWorker implements AutoCloseable {
                     project.testResources())
                 .flatMap(List::stream)
             : Stream.<Path>empty();
-    return join(
-        Stream.of(
-                Stream.of(workerJar),
-                framework ? Stream.<Path>empty() : Stream.of(resources),
-                project.dependencies().stream(),
-                frameworks.support().stream(),
-                own)
-            .flatMap(each -> each));
+    return Stream.of(
+            Stream.of(workerJar),
+            framework ? Stream.<Path>empty() : Stream.of(resources),
+            project.dependencies().stream(),
+            frameworks.support().stream(),
+            own)
+        .flatMap(each -> each)
+        .toList();
+  }
+
+  /// `-cp` and the main class, and the libraries the worker's system class loader defines: all of
+  /// the class path but the worker and the JUnit Platform ([PlatformJars]). A framework that loads
+  /// the app itself finds everything on the JDK's class path, as before.
+  private List<String> classpathArguments() {
+    var all = classpath();
+    if (frameworks.loadsTheApp()) {
+      return List.of("-cp", join(all.stream()), "io.mutastic.worker.Worker");
+    }
+    var onTheJdks =
+        all.stream()
+            .filter(entry -> entry.equals(workerJar) || PlatformJars.holdsThePlatform(entry));
+    var libraries =
+        all.stream()
+            .filter(entry -> !entry.equals(workerJar) && !PlatformJars.holdsThePlatform(entry));
+    return List.of(
+        "-Dmutastic.libraries=" + join(libraries),
+        "-cp",
+        join(onTheJdks),
+        "io.mutastic.worker.Worker");
   }
 
   /// For mutastic's own tests: the coverage agent its build measures the worker with, as the worker
@@ -823,7 +844,7 @@ final class TestWorker implements AutoCloseable {
     command.addAll(measured());
     command.addAll(systemLoader());
     command.add("-javaagent:" + workerJar);
-    command.addAll(List.of("-cp", classpath(), "io.mutastic.worker.Worker"));
+    command.addAll(classpathArguments());
     command.addAll(workerArgs());
     command.addAll(mode());
     return command;
