@@ -19,16 +19,16 @@ class ClassFileVersionTest {
 
   @Test
   void aClassFileThisJdkReadsIsRead() throws Exception {
-    var file = Files.write(work.resolve("Own.class"), ownBytes());
+    var file = Files.write(work.resolve("Read.class"), classBytes());
 
     assertThat(ClassFileVersion.parse(ClassFile.of(), file).thisClass().asInternalName())
-        .isEqualTo("io/mutastic/engine/ClassFileVersionTest");
+        .isEqualTo("io/mutastic/engine/ClassFileVersion");
   }
 
   @Test
   void aNewerJdksClassFileIsRefusedSayingWhichJdk() throws Exception {
     int latest = ClassFile.latestMajorVersion();
-    var bytes = ownBytes();
+    var bytes = classBytes();
     bytes[6] = (byte) ((latest + 1) >> 8);
     bytes[7] = (byte) (latest + 1);
     var file = Files.write(work.resolve("Pricing.class"), bytes);
@@ -62,10 +62,12 @@ class ClassFileVersionTest {
     return file.startsWith(here) ? here.relativize(file) : file;
   }
 
-  private static byte[] ownBytes() throws Exception {
+  /// A production class's file, not this test's: mutastic runs a test in a production package as a
+  /// renamed copy (`ClassFileVersionTest__m3`), whose name isn't the one its class file holds.
+  private static byte[] classBytes() throws Exception {
     try (var in =
         Objects.requireNonNull(
-            ClassFileVersionTest.class.getResourceAsStream("ClassFileVersionTest.class"))) {
+            ClassFileVersion.class.getResourceAsStream("ClassFileVersion.class"))) {
       return in.readAllBytes();
     }
   }
