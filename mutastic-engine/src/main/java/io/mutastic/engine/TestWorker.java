@@ -197,6 +197,7 @@ final class TestWorker implements AutoCloseable {
             coverage.recordValues(
                 parts[1], Integer.parseInt(parts[2]), commaSeparated(parts[3], Long::valueOf));
         case "FAILURE" -> failed.heard(parts);
+        case "LEFT-OUT" -> coverage.recordLeftOut(parts[1]);
         case "LOADED" -> toWarm.coverageLoaded(Arrays.asList(parts).subList(1, parts.length));
         case "DONE" -> {
           return failed.baseline(parts);

@@ -132,7 +132,16 @@ public final class Worker {
       return new Tags(
           values(args, "--include-tags="),
           values(args, "--exclude-tags="),
-          new LeftOutMethods(values(args, "--exclude-methods=")));
+          new LeftOutMethods(methods(args, "--exclude-methods=")));
+    }
+
+    /// The methods after `flag`, split as [TestNames#split] splits them: an overload's parameter
+    /// types have commas of their own.
+    private static List<String> methods(String[] args, String flag) {
+      return Arrays.stream(args)
+          .filter(arg -> arg.startsWith(flag))
+          .flatMap(arg -> TestNames.split(arg.substring(flag.length())).stream())
+          .toList();
     }
 
     void filter(LauncherDiscoveryRequestBuilder request) {
@@ -440,6 +449,7 @@ public final class Worker {
     reportValues();
     reportLoaded();
     reportFailures();
+    reportLeftOut();
     protocol.println("CASES\t" + cases.ran() + "\t" + cases.skipped());
     protocol.println(
         "DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
@@ -461,6 +471,12 @@ public final class Worker {
             + (cause == null ? "-" : cause.getClass().getName())
             + "\t"
             + (cause == null ? "-" : message(cause)));
+  }
+
+  /// `LEFT-OUT`, each test the run's names left out of the coverage pass, as [TestNames#id] names
+  /// it: so the engine can say of a name that left out none.
+  private void reportLeftOut() {
+    tags.leftOut().leftOut().forEach(test -> protocol.println("LEFT-OUT\t" + test));
   }
 
   /// `FAILURE`, each failing test, its exception's chain, its message and its case.
@@ -834,12 +850,10 @@ public final class Worker {
             .map(MethodSource.class::cast)
             .map(
                 method ->
-                    method.getClassName()
-                        + "#"
-                        + method.getMethodName()
-                        + (method.getMethodParameterTypes().isEmpty()
-                            ? ""
-                            : "(" + method.getMethodParameterTypes() + ")"))
+                    TestNames.id(
+                        method.getClassName(),
+                        method.getMethodName(),
+                        method.getMethodParameterTypes()))
             .or(() -> runnerClass(test))
             .orElse(test.getUniqueId()));
   }

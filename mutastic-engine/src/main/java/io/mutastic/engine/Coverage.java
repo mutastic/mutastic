@@ -52,6 +52,9 @@ final class Coverage {
   /// Lines the tests ran only while a class was loading: see [#onlyAtLoad].
   private final Set<Integer> onlyAtLoad = new HashSet<>();
 
+  /// The tests the run's names (`--exclude-tests`) left out, as the worker says them.
+  private final Set<String> leftOut = new java.util.LinkedHashSet<>();
+
   Coverage(ClassFile context) {
     this(context, WORKER_PROBES);
   }
@@ -94,6 +97,21 @@ final class Coverage {
 
   void recordTest(String test, Duration took) {
     durations.put(test, took);
+  }
+
+  /// A test the run's names left out of the pass, as the worker names it.
+  void recordLeftOut(String test) {
+    leftOut.add(test);
+  }
+
+  /// The tests the run's names left out of the pass.
+  Set<String> leftOut() {
+    return java.util.Collections.unmodifiableSet(leftOut);
+  }
+
+  /// The tests that ran in the pass, as the worker names them.
+  Set<String> testsRun() {
+    return java.util.Collections.unmodifiableSet(durations.keySet());
   }
 
   void recordLines(String test, Set<Integer> lines) {

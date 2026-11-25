@@ -14,6 +14,10 @@ java {
 
 dependencies {
     api(project(":mutastic-api"))
+    // The worker's own rule for which tests a name leaves out (TestNames), so the engine's choice
+    // of test classes and the flaky watch match names exactly as the worker's filter does. The
+    // worker depends on nothing, so nothing else of it comes along.
+    implementation(project(":mutastic-worker"))
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)

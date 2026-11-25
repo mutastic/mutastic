@@ -4,6 +4,7 @@ import io.mutastic.api.LikelyFlaky;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import io.mutastic.api.WatchedTest;
+import io.mutastic.worker.TestNames;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -124,22 +125,10 @@ public final class FlakyWatch {
   /// The watch to keep, and the tests it watched as this run left them.
   public record After(SortedMap<String, Integer> watch, List<WatchedTest> watched) {}
 
-  /// Whether a run leaving out `names` (`--exclude-tests`: a class by its name or full name, or one
-  /// method, `PricingTest#bigOrders`) leaves out `test`, `com.example.PricingTest#bigOrders`.
+  /// Whether a run leaving out `names` (`--exclude-tests`, in any form [TestNames] takes) leaves
+  /// out `test`, `com.example.PricingTest#bigOrders(int)`.
   static boolean leftOut(String test, List<String> names) {
-    int hash = test.indexOf('#');
-    var className = hash < 0 ? test : test.substring(0, hash);
-    var simpleName = className.substring(className.lastIndexOf('.') + 1);
-    var method = hash < 0 ? "" : test.substring(hash + 1).replaceFirst("\\(.*$", "");
-    for (String name : names) {
-      int at = name.indexOf('#');
-      var named = at < 0 ? name : name.substring(0, at);
-      boolean sameClass = named.equals(className) || named.equals(simpleName);
-      if (sameClass && (at < 0 || name.substring(at + 1).equals(method))) {
-        return true;
-      }
-    }
-    return false;
+    return names.stream().anyMatch(name -> TestNames.leavesOut(name, test));
   }
 
   private static boolean caughtSomething(Report report, String test) {

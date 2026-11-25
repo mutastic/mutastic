@@ -232,10 +232,13 @@ final class Options {
               Group.RUNNING,
               "TEST",
               List.of(),
-              "A test class to leave out of the run, by its name or full name, or one method of"
-                  + " it, PricingTest#bigOrders: one that can't run reliably here, with a race or a"
-                  + " fixed port; the summary names it. mutastic.yaml's exclude-tests: leaves one"
-                  + " out of every run, with its reason",
+              "A test to leave out of the run, in any form a run names it: a test class by its"
+                  + " name or full name; one method of it, PricingTest#bigOrders, with every"
+                  + " overload and row; or one overload by its parameter types, full or not,"
+                  + " PricingTest#bigOrders(Cart, int). One that can't run reliably here, with a"
+                  + " race or a fixed port; the summary names it, and says so of a name that"
+                  + " matches no test. mutastic.yaml's exclude-tests: leaves one out of every run,"
+                  + " with its reason",
               MUTANTS_RUN,
               "excludeTests",
               false,

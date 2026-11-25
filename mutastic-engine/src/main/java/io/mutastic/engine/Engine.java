@@ -836,7 +836,8 @@ public final class Engine {
           options.ghosts() ? Optional.of(ghosts) : Optional.empty(),
           checking,
           likelyFlaky,
-          List.of());
+          List.of(),
+          pass.unmatched());
     }
   }
 
@@ -924,7 +925,8 @@ public final class Engine {
       Map<String, byte[]> instrumented,
       List<Ignore> stale,
       List<Ghosts.Found> ghosts,
-      boolean whole) {}
+      boolean whole,
+      Exclusions exclusions) {}
 
   /// A project's mutants as a run would have them, and the ignores that no longer hold.
   public record Mutants(List<Mutant> all, List<Ignore> stale) {}
@@ -1010,7 +1012,14 @@ public final class Engine {
             project,
             options.killMatrix(),
             !options.only().isEmpty());
-    return new Plan(mutants, mutantRun, instrumented, found.stale(), ghosts, whole(options));
+    return new Plan(
+        mutants,
+        mutantRun,
+        instrumented,
+        found.stale(),
+        ghosts,
+        whole(options),
+        new Exclusions(options.testsLeftOut()));
   }
 
   /// The mutants to run, then the ghosts.
@@ -1137,10 +1146,10 @@ public final class Engine {
     return workers;
   }
 
-  /// The single test methods the run leaves out, `PricingTest#bigOrders`: a class left out whole
-  /// isn't in the project's test selection, so it never reaches a worker.
+  /// The tests the run leaves out, for the workers' filter: a method, `PricingTest#bigOrders`, or a
+  /// class nested in a test class. A top-level class left out whole never reaches a worker.
   private static List<String> methods(Options options) {
-    return options.testsLeftOut().stream().filter(test -> test.contains("#")).toList();
+    return options.testsLeftOut();
   }
 
   /// Every test once, on `first`, with coverage; flaky tests are left out of what it recorded. A
@@ -1149,7 +1158,7 @@ public final class Engine {
   /// runs none: every mutant is not covered there too.
   private CoveragePass coveragePass(
       Project project, Plan plan, TestWorker first, Listener listener) {
-    var testClasses = testClassesToRun(project);
+    var testClasses = testClassesToRun(project, plan.exclusions());
     if (testClasses.isEmpty()) {
       return noTests(plan);
     }
@@ -1171,12 +1180,24 @@ public final class Engine {
     return new CoveragePass(
             first.jdk(), coverage.testCount(), coverageTook, plan.mutants().size(), flaky, evidence)
         .withCases(coverage.casesRan(), coverage.casesSkipped())
-        .withSeparateJvms(separate);
+        .withSeparateJvms(separate)
+        .withUnmatched(unmatched(project, plan));
   }
 
-  /// The module's test classes that the build's selection runs, by binary name.
-  private static List<String> testClassesToRun(Project project) {
-    return testClassesIn(project.testClasses()).stream().filter(project.tests()::runs).toList();
+  /// Each test the run was told to leave out that names none of the module's tests (decision 28).
+  private static List<io.mutastic.api.UnmatchedExclusion> unmatched(Project project, Plan plan) {
+    var coverage = plan.mutantRun().coverage();
+    return plan.exclusions()
+        .unmatched(testClassesIn(project.testClasses()), coverage.leftOut(), coverage.testsRun());
+  }
+
+  /// The module's test classes that the build's selection runs, by binary name, but those the run
+  /// leaves out whole.
+  private static List<String> testClassesToRun(Project project, Exclusions exclusions) {
+    return testClassesIn(project.testClasses()).stream()
+        .filter(project.tests()::runs)
+        .filter(name -> !exclusions.leaveOutClass(name))
+        .toList();
   }
 
   /// What each flaky test reached, taken before they're left out of what the pass recorded.

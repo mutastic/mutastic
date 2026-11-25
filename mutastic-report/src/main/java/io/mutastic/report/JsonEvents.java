@@ -497,16 +497,22 @@ public final class JsonEvents {
   private void putTestsLeftOut(Map<String, Object> fields, Report report) {
     fields.put("flaky", report.flaky());
     fields.put("flakyEvidence", flakyEvidence(report));
-    fields.put("testsLeftOut", testsLeftOut());
+    fields.put("testsLeftOut", testsLeftOut(report));
   }
 
   /// Each test the run left out, and why: `reason` is null for one `--exclude-tests` gave.
-  private List<Map<String, Object>> testsLeftOut() {
+  /// `matched` is false for one that names none of the run's tests, so it left nothing out, and
+  /// `maybe` the test it's close to, if any (decision 28).
+  private List<Map<String, Object>> testsLeftOut(Report report) {
     var all = new java.util.ArrayList<Map<String, Object>>();
     for (var test : leftOut) {
+      var unmatched =
+          report.unmatched().stream().filter(none -> none.test().equals(test.test())).findFirst();
       var fields = new LinkedHashMap<String, Object>();
       fields.put("test", test.test());
       fields.put("reason", test.reason());
+      fields.put("matched", unmatched.isEmpty());
+      fields.put("maybe", unmatched.flatMap(io.mutastic.api.UnmatchedExclusion::closest));
       all.add(fields);
     }
     return all;
