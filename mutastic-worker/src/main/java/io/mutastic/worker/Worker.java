@@ -29,7 +29,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
+import org.junit.platform.commons.JUnitException;
 import org.junit.platform.engine.TestExecutionResult;
+import org.junit.platform.engine.discovery.MethodSelector;
 import org.junit.platform.engine.support.descriptor.ClassSource;
 import org.junit.platform.engine.support.descriptor.MethodSource;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
@@ -534,28 +536,36 @@ public final class Worker {
     int ran = 0;
     for (String test : tests) {
       ran++;
-      var started = new StartedTests();
-      List<String> failing;
-      try {
-        failing = executeSaid(test, loader, started);
-      } catch (RuntimeException e) {
-        // Finding the tests failed: TestNG makes the test classes as it finds them, so a mutant
-        // that breaks a test class's constructor breaks it here, before any test can fail.
-        remember(e);
-        protocol.println(failedResult(ran, test));
-        return;
-      }
-      // A selector that matches nothing runs nothing and fails nothing: that's not a pass.
-      if (started.count == 0 && failing.isEmpty()) {
-        protocol.println("RESULT\tERROR\tno test ran for " + test);
-        return;
-      }
-      if (!failing.isEmpty()) {
-        protocol.println(failedResult(ran, test));
+      var ending = runOne(test, ran, loader);
+      if (ending != null) {
+        protocol.println(ending);
         return;
       }
     }
     protocol.println("RESULT\tPASSED\t" + ran);
+  }
+
+  /// The `RESULT` line that ends a `RUN` at `test`, the `ran`th of its tests: a failure, or a
+  /// selector that ran nothing; null if it passed.
+  private @Nullable String runOne(String test, int ran, ProductionLoader loader) {
+    var started = new StartedTests();
+    List<String> failing;
+    try {
+      failing = executeSaid(test, loader, started);
+    } catch (Unselectable e) {
+      e.printStackTrace(System.err);
+      return "RESULT\tERROR\t" + e.getMessage();
+    } catch (RuntimeException e) {
+      // Finding the tests failed: TestNG makes the test classes as it finds them, so a mutant
+      // that breaks a test class's constructor breaks it here, before any test can fail.
+      remember(e);
+      return failedResult(ran, test);
+    }
+    // A selector that matches nothing runs nothing and fails nothing: that's not a pass.
+    if (started.count == 0 && failing.isEmpty()) {
+      return "RESULT\tERROR\tmutastic selected " + test + ", and no test ran";
+    }
+    return failing.isEmpty() ? null : failedResult(ran, test);
   }
 
   /// Property tests unshrunk for this run, unless `SHRINK` asked for it once.
@@ -656,12 +666,36 @@ public final class Worker {
       request.selectors(
           hash < 0
               ? selectClass(loader.loadClass(loader.copyOf(test)))
-              : selectMethod(
-                  loader.loadClass(loader.copyOf(test.substring(0, hash))),
-                  method(test),
-                  parameters(test)));
+              : methodOfCopy(loader, test, hash));
     }
     return request.build();
+  }
+
+  /// The method `test` names, on this run's copy of its class, by the types it takes as the copy
+  /// declares them. It's looked up here, so a selector that finds no method is said as what it is:
+  /// mutastic's own error, not a failure of the test.
+  private static MethodSelector methodOfCopy(TestLoader loader, String test, int hash)
+      throws ClassNotFoundException {
+    var selector =
+        selectMethod(
+            loader.loadClass(loader.copyOf(test.substring(0, hash))),
+            method(test),
+            loader.parametersOfCopy(parameters(test)));
+    try {
+      selector.getJavaMethod();
+    } catch (JUnitException e) {
+      throw new Unselectable(test, e);
+    }
+    return selector;
+  }
+
+  /// A test mutastic couldn't select again by the id it recorded: its own error, never the test's.
+  private static final class Unselectable extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
+    Unselectable(String test, Throwable cause) {
+      super("mutastic couldn't select " + test + ": " + message(cause), cause);
+    }
   }
 
   /// Adds each failure's id to `failing` and keeps the last one's exception, origin and port clash
