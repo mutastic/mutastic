@@ -3,6 +3,8 @@ package io.mutastic.report;
 import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Status;
+import io.mutastic.output.Glyphs;
+import io.mutastic.output.Style;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -114,7 +116,9 @@ public final class Explanation {
 
   private String heading() {
     var title = " About this mutant ";
-    return "\n" + style.bold(title) + style.dim("─".repeat(Math.max(4, 66 - title.length())));
+    return "\n"
+        + style.bold(title)
+        + style.dim(Glyphs.RULE.repeat(Math.max(4, 66 - title.length())));
   }
 
   /// `IF_ICMPLT → IF_ICMPLE`, then what each does, then how the jump relates to the source.

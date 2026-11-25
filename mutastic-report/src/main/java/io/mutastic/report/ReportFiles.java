@@ -4,6 +4,7 @@ import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
+import io.mutastic.output.Json;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;

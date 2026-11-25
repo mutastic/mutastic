@@ -7,6 +7,8 @@ import io.mutastic.api.MutantResult;
 import io.mutastic.api.PropertyTests;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
+import io.mutastic.output.Envelope;
+import io.mutastic.output.Style;
 import java.io.PrintStream;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -714,12 +716,7 @@ public final class JsonEvents {
   }
 
   private void emit(String reason, Map<String, Object> fields) {
-    var event = new LinkedHashMap<String, Object>();
-    event.put("schema", SCHEMA);
-    event.put("edition", EDITION);
-    event.put("reason", reason);
-    event.putAll(fields);
-    out.print(Json.write(event) + "\n");
+    out.print(Envelope.line(SCHEMA, EDITION, reason, fields));
     out.flush();
   }
 }

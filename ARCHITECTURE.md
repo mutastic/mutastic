@@ -21,7 +21,7 @@ The same run serves three entry points. The `mutastic` command reads the build f
 | `mutastic-api` | 25 | The result model every other module shares: a project, its mutants and their results |
 | `mutastic-engine` | 25 | Finds, applies and verifies mutants; coverage; runs the worker |
 | `mutastic-worker` | 17 | Runs your tests on your JDK; a Java agent for swapping classes |
-| `mutastic-report` | 25 | The formats: for people, for agents, JSON Lines, and the report files |
+| `mutastic-report` | 25 | The formats: for people, for agents, JSON Lines, and the report files; and the output kit they're drawn with (`io.mutastic.output`) |
 | `mutastic-gradle` | 25 | Reads a Gradle build's setup, with an init script; a `BuildTool` |
 | `mutastic-maven` | 25 | Reads a Maven build's setup, with the extension; a `BuildTool` |
 | `mutastic-maven-extension` | 17 | Runs inside your Maven build and writes what Surefire would run |
@@ -37,6 +37,7 @@ The same run serves three entry points. The `mutastic` command reads the build f
 - `mutastic-api` depends on nothing of mutastic's.
 - The engine knows nothing of output, and the report module knows only the result model.
 - A part of the engine in a package of its own, such as `io.mutastic.engine.tests` (the test frameworks a worker runs: the JUnit Platform, TestNG, JUnit 4's vintage engine, Quarkus), knows nothing of the engine's core or of another part: the core uses each through its entry, `TestFrameworks`.
+- The output kit, `io.mutastic.output` (colour roles, glyphs and labels; escaping and the agent's fence; JSON and the events' envelope), knows nothing of mutastic: no mutants, cards or scores, only the JDK. It's carved out for the other tools in the family to share, and moves to a library of their own when the first of them uses it. `Nearest`, the rule for a close name, stands on the JDK alone too, and moves with it.
 - Build tools know only the api, and nothing names a build tool: the CLI finds them with `ServiceLoader`.
 - The worker and the Maven extension stand alone: they run inside the project's own JVM and build.
 - Nothing depends on `mutastic-annotations`, which is matched by simple name.

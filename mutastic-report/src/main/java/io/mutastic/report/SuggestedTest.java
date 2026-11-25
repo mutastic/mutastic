@@ -2,6 +2,7 @@ package io.mutastic.report;
 
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Suggestion;
+import io.mutastic.output.Style;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
