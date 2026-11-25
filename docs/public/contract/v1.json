@@ -1802,6 +1802,10 @@
     {
       "id": 27,
       "rule": "A test named likely flaky in a run has none of its catches count in that run, whatever named it: with the code and mutastic unchanged, a mutant it caught changed result since the last run (`changed-since-last-run`); a catch of it didn't repeat when confirmed (`catch-not-repeated`); or, run again after the mutants on its own with no mutant in, it failed (`fails-alone`). Once the mutants have run and before anything is reported, each test so named is left out of coverage, and each mutant it reached, caught or missed, runs again without it, where the other covering tests decide; a test those runs newly name is handled the same way. The revised result is sent as `mutant-revised` with `flakyCatchBy` naming the test when it had caught the mutant (`falseCatchBy` when it failed on its own), and as `mutastic.flakyCatchBy` in mutation.json. So no score, threshold, gate or `--fail-on-new` passes on its catches. The run remembers it: `last-runs/flaky-watch.tsv` in the module's work directory, beside the run records, so whatever keeps those between runs (a CI cache) keeps it too; one test per line, `<test>\\t<runs held>`, sorted by test, written when it changes and removed when it's empty. Only a full run, or the `--from-shards` merge, writes it: a test named there is written with 0 runs held, or set back to 0. A share reads it and confirms against it but never writes it, as shares may run side by side on one work directory and each sees only part of a test's catches; the merge names the tests any share named, and counts a run held from the shares together. In every later run, each catch a watched test makes is confirmed by running that test against the mutant 3 more times: it counts only if it fails all 3, else the test is named again (`catch-not-repeated`). A full run (or a merge) in which a watched test caught a mutant and every catch held adds 1 to its runs held, and at 3 it's forgotten; a run in which it caught nothing leaves it as it was, as does a share or a run of some mutants (`--only`, `--at`, `--since`, `verify`, `explain`), which confirms its catches all the same. The cost falls on the watched test's catches alone. Why 3: a test that fails 1 time in 3 on its own, as persistasaurus's did, makes a false catch that counts 1 time in 3 unchecked, 1 in 9 with one confirmation (`--confirm-catches`), and 1 in 81 watched; and a false catch holds 3 confirmations 1 time in 27, so 3 runs held by false catches alone is luck of 1 in about 20,000. Every format says it. `run-finished` lists each named test in `likelyFlaky` (`reasons` can now be `fails-alone` too, and `rerun` lists the mutants run again without it) and each test watched from an earlier run in `watched` (`{test, held, needed: 3, confirmations: 3}`, and `released: true` in the run that forgets it). The human formats add a sentence to each likely-flaky line, `None of its catches count: <n> mutants it reached ran again without it, and the next runs confirm each catch it makes 3 times.` (`1 mutant`), and say each watched test once: `! watched: <test>, likely flaky in an earlier run: each catch it made had to repeat 3 times; <held> of 3 runs held` (`…; 3 of 3 runs held, so it's no longer watched`). The agent format has the same lines without `! `, among its head lines where the likely-flaky lines are now."
+    },
+    {
+      "id": 29,
+      "rule": "Everything after the first `--` on the command line goes, word for word, to the project's build tool on each build call mutastic makes: Gradle or Maven reading the setup, the modules and the dependents, and compiling the code and the tests; Cargo checking and building them. It never goes to the tests or the JVM or process they run in. One syntax for every build tool, `mutastic run DIR -- ARG...`, where nothing after the `--` is read as mutastic's own option, directory or id. `run`, `verify`, `explain`, `ignore`, `next`, `baseline`, `gate open`, `gate check` and `mutants` take it; a command that builds nothing refuses it with `option-not-taken`. `MUTASTIC_BUILD_ARGS` gives the same, split at spaces, with single or double quotes around a word that has some, a backslash kept as it is and nothing expanded; mutastic.yaml's `build:` has it as `args:`, a list, from the nearest file at or above the module's directory, and of a file and the one it `extends:` the nearer that has `args:`. The first of the three that's given is used whole, in place of the others, never added to them: the command line, the variable (blank is not given), the file. A bare `--` at the end gives none, so it turns the others off. An argument that fights how mutastic drives the build is refused before anything is built, named without its value and with the reason, as `option-value` from the command line, `environment` from the variable and `config`, with its line, from the file: one that chooses tests, what's built or where (a task, goal or target, the project's or module's directory, the profile), one that stops the build from running or never ends it (a dry run, a continuous build, help), and one that changes output mutastic reads. Each command mutastic offers to copy ends in the `--` and the arguments typed after it, each word quoted for a shell, as does a mistyped line corrected; arguments from the variable or the file apply by themselves and are never repeated, so a secret belongs in the build tool's own settings or the variable. Their values are in no event, report or record except as part of such a command. A run built with other arguments is never `same code` as the last: a hash of the arguments, in order, is part of the code's in the run record, a share and the queue `next` keeps, and with none the hash is as it was. Where features choose code, Cargo's `--features`, `--all-features` and `--no-default-features` decide which code is mutated too."
     }
   ],
   "differences": [
@@ -2499,6 +2503,28 @@
       "summary": "mutastic.yaml's `timeout-ceiling:` and a mutant's limit taken from each covering test's own time, side by side, not their summed coverage time: the Rust edition has them first",
       "issue": "https://github.com/mutastic/mutastic/issues/207",
       "decision": 26
+    },
+    {
+      "id": "N81",
+      "kind": "pending",
+      "editions": [
+        "java"
+      ],
+      "surface": "command line",
+      "summary": "Build arguments after `--`, `MUTASTIC_BUILD_ARGS` and mutastic.yaml's `build:` `args:` (decision 29): not in this edition yet",
+      "issue": "https://github.com/mutastic/mutastic/issues/61",
+      "decision": 29
+    },
+    {
+      "id": "N82",
+      "kind": "pending",
+      "editions": [
+        "rust"
+      ],
+      "surface": "command line",
+      "summary": "Build arguments after `--`, `MUTASTIC_BUILD_ARGS` and mutastic.yaml's `build:` `args:` (decision 29): not in this edition yet",
+      "issue": "https://github.com/mutastic/mutastic-rs/issues/56",
+      "decision": 29
     }
   ]
 }
