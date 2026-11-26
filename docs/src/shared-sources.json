@@ -1,8 +1,8 @@
 {
   "concepts/results": {
-    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
+    "commit": "02b7f85032fc370d17f86d0a46273b380ec7b908",
     "sources": {
-      "concepts/results.md": "a8bf4935b4cb180c"
+      "concepts/results.md": "63de2a1abcf33906"
     }
   },
   "concepts/coverage-and-mutants": {
@@ -25,24 +25,24 @@
     }
   },
   "concepts/flaky-tests": {
-    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
+    "commit": "02b7f85032fc370d17f86d0a46273b380ec7b908",
     "sources": {
       "concepts/how-a-run-works.md#what-each-test-reaches": "39b9098379c64c5b",
       "troubleshooting.md#a-test-fails-before-any-mutant": "8c06f7dd25e9c303",
       "troubleshooting.md#a-test-is-flaky": "9e0b6b495704d441",
-      "differences-from-java.md#tests": "ad8b869261b40218"
+      "differences-from-java.md#tests": "b7911efaa66dc0a5"
     }
   },
   "concepts/output": {
-    "commit": "4d62c44a14e1eae0c8ce0b9980e662b2383a941f",
+    "commit": "02b7f85032fc370d17f86d0a46273b380ec7b908",
     "sources": {
-      "concepts/output.md": "20325cf6e38f0cf7"
+      "concepts/output.md": "dbb4696f9ffc2a8f"
     }
   },
   "concepts/how-a-run-works": {
-    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
+    "commit": "02b7f85032fc370d17f86d0a46273b380ec7b908",
     "sources": {
-      "concepts/how-a-run-works.md": "99b50aa2977030c6"
+      "concepts/how-a-run-works.md": "006fde46e29ca93e"
     }
   },
   "concepts/ids": {
@@ -52,9 +52,9 @@
     }
   },
   "guides/ci": {
-    "commit": "f59a503cf7e7b10d189cc762694b77ead269eab8",
+    "commit": "02b7f85032fc370d17f86d0a46273b380ec7b908",
     "sources": {
-      "concepts/how-a-run-works.md#one-run-across-ci-jobs": "f8fc71c9048e1937",
+      "concepts/how-a-run-works.md#one-run-across-ci-jobs": "4ea0250cee907f8d",
       "install.md#with-the-installer": "719cab4b0bd4ec96"
     }
   },
@@ -83,20 +83,20 @@
     }
   },
   "concepts/arid": {
-    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
+    "commit": "02b7f85032fc370d17f86d0a46273b380ec7b908",
     "sources": {
       "operators/calls.md#remove-void-call": "d8063dc6f8189833",
-      "reference/configuration.md#mutasticyaml": "d505afae61bd9f02",
-      "differences-from-java.md#whats-different-in-the-results": "dc8be6b46b9f6a7c"
+      "reference/configuration.md#mutasticyaml": "1f3fda28b8a9d5db",
+      "differences-from-java.md#whats-different-in-the-results": "b035599c42882776"
     }
   },
   "reference/arid": {
-    "commit": "a25d172724148cb1df0dc487e7b3253fc31d198d",
+    "commit": "02b7f85032fc370d17f86d0a46273b380ec7b908",
     "sources": {
       "operators/calls.md#remove-void-call": "d8063dc6f8189833",
       "operators/calls.md#remove-discarded-call": "aef7a264e0cf12e0",
-      "reference/configuration.md#mutasticyaml": "d505afae61bd9f02",
-      "differences-from-java.md#whats-different-in-the-results": "dc8be6b46b9f6a7c"
+      "reference/configuration.md#mutasticyaml": "1f3fda28b8a9d5db",
+      "differences-from-java.md#whats-different-in-the-results": "b035599c42882776"
     }
   }
 }
