@@ -59,6 +59,23 @@ fails_on_its_own() {
   esac
 }
 
+# Samples built to be refused, each with the one error code it must stop with: there, that
+# refusal is the run working. Refused with any other code, or not refused at all, it fails the
+# candidate like any other run.
+refused_as_built() {
+  case $1 in
+    # The build's JDK toolchain isn't installed (#253).
+    toolchain-missing | maven-toolchain-missing) echo build-jdk ;;
+    # Tests on JDK 8, and a Gradle too old for the JDK the build runs on.
+    toolchain-8 | gradle-no-launcher) echo build-jdk ;;
+    # Tests the JUnit Platform can't start: JUnit 3 alone, TestNG before 6.14.3.
+    junit3 | testng-old) echo no-tests ;;
+    # Classes compiled without line numbers (A10).
+    no-line-numbers) echo other ;;
+    *) echo "" ;;
+  esac
+}
+
 if [ ${#named[@]} -eq 0 ]; then
   for dir in samples/*/; do named+=("$(basename "$dir")"); done
 fi
@@ -116,7 +133,11 @@ run_one() {
   elif [ "$last" = none ]; then
     verdict="✗ ended without a last event (exit $status): it crashed or was stopped"
   elif [[ "$last" == run-failed* ]]; then
-    if [ -n "$own" ] && fails_on_its_own "$sample"; then
+    local refusal
+    refusal=$(refused_as_built "$sample")
+    if [ -n "$refusal" ] && [[ "$last" == "run-failed $refusal "* || "$last" == "run-failed $refusal" ]]; then
+      verdict="✓ refused with $refusal, as this sample is built to be"
+    elif [ -n "$own" ] && fails_on_its_own "$sample"; then
       verdict="✓ the tests fail without any mutant, as this sample is built to"
     else
       verdict="✗ $last (exit $status)"
