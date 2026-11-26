@@ -184,7 +184,9 @@ public final class Worker {
     var scanned = new Scannable(Scannable.SPRING, allRoots, ClassLoader.getSystemClassLoader());
     this.splitTests =
         TestSplit.of(
-            splitTests(productionRoots, testRoots), TestSplit.providersIn(allRoots), scanned);
+            splitTests(productionRoots, testRoots),
+            union(TestSplit.providersIn(allRoots), TestSplit.sharedByTheEngine()),
+            scanned);
     this.testClassNames = classNamesIn(testRoots);
     this.framework =
         framework ? new Framework(productionRoots, classNamesIn(productionRoots)) : null;
@@ -916,6 +918,12 @@ public final class Worker {
   private static String parameters(String test) {
     int open = test.indexOf('(');
     return open < 0 ? "" : test.substring(open + 1, test.length() - 1);
+  }
+
+  private static Set<String> union(Set<String> first, Set<String> second) {
+    var all = new HashSet<>(first);
+    all.addAll(second);
+    return all;
   }
 
   private static List<Path> concat(List<Path> first, List<Path> second) {

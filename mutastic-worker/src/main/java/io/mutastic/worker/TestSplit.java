@@ -44,6 +44,16 @@ record TestSplit(Set<String> renamed, Set<String> shared) {
     return new TestSplit(renamed, shared);
   }
 
+  /// The system property the engine names, separated by commas, the test classes a renamed copy
+  /// would break in, which run by their own names instead.
+  static final String SHARED = "mutastic.sharedTests";
+
+  /// The test classes the engine found a copy would break ([#SHARED]): none if it names none.
+  static Set<String> sharedByTheEngine() {
+    var named = System.getProperty(SHARED, "");
+    return named.isEmpty() ? Set.of() : Set.of(named.split(",", -1));
+  }
+
   /// The classes named for the JDK's services in the roots' `META-INF/services`.
   static Set<String> providersIn(List<Path> roots) throws IOException {
     var providers = new HashSet<String>();

@@ -51,6 +51,14 @@ class SpringProxiesTest {
         .contains("\"killed\":7");
   }
 
+  /// `ShopTest`'s context names one of its own classes, `ShopTest.Extra`: a test class, so a new
+  /// class each run, and Spring, which keeps a context for the worker's life, builds `ShopTest`'s
+  /// anew each run. So `prices()` returning null, which only building the context runs, is caught.
+  @Test
+  void aContextThatNamesATestClassIsBuiltForEachMutant() {
+    assertThat(mutant("prices()")).contains("\"status\":\"Killed\"");
+  }
+
   /// The one mutant of `Shop.<method>`.
   private static String mutant(String method) {
     var found =
