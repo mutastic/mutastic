@@ -15,7 +15,8 @@ import java.util.Locale;
 /// pin it, and a count with it in sizes nothing a run does.
 public final class MutantList {
   /// How a skipped mutant's reason starts when a tool wrote its code, as [Skip] says it.
-  private static final String GENERATED = Skip.Kind.GENERATED.name().toLowerCase(Locale.ROOT) + ": ";
+  private static final String GENERATED =
+      Skip.Kind.GENERATED.name().toLowerCase(Locale.ROOT) + ": ";
 
   private final SourceView sources;
 

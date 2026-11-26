@@ -56,8 +56,8 @@ public final class ClassSources implements Function<String, Optional<String>> {
     return Optional.of(current + ".java");
   }
 
-  /// The class `model` is declared in, if it's nested: a member class's outer class, or a local
-  /// or anonymous class's enclosing one.
+  /// The class `model` is declared in, if it's nested: a member class's outer class, or a local or
+  /// anonymous class's enclosing one.
   private static Optional<String> enclosing(ClassModel model) {
     var self = model.thisClass().asInternalName();
     var outer =

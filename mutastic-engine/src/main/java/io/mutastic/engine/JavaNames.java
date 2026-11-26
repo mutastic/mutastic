@@ -16,8 +16,8 @@ import java.util.Optional;
 final class JavaNames {
   private JavaNames() {}
 
-  /// `Shipping.Parcel` for `Shipping$Parcel`, and `$Cache` for itself: a `$` read as dividing
-  /// two names only between two other characters, as a name may start or end with one.
+  /// `Shipping.Parcel` for `Shipping$Parcel`, and `$Cache` for itself: a `$` read as dividing two
+  /// names only between two other characters, as a name may start or end with one.
   static String nested(String simpleBinaryName) {
     var written = new StringBuilder(simpleBinaryName);
     for (int at = 1; at < written.length() - 1; at++) {
@@ -35,8 +35,8 @@ final class JavaNames {
     return nested(internalName.substring(internalName.lastIndexOf('/') + 1));
   }
 
-  /// Whether [#nestedOf] writes each class as its source declares it: a class not among `models`
-  /// is taken as written, as nothing says otherwise.
+  /// Whether [#nestedOf] writes each class as its source declares it: a class not among `models` is
+  /// taken as written, as nothing says otherwise.
   static boolean writtenAsDeclared(List<String> internalNames, Map<String, ClassModel> models) {
     return internalNames.stream()
         .allMatch(

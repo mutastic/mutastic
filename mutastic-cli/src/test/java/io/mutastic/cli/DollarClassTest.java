@@ -13,7 +13,8 @@ import org.junit.jupiter.api.io.TempDir;
 /// `.Cache.size(9)`, which isn't Java, and `mutants` listed and counted the generated class's
 /// mutants, which a run skips (corpus survey A9).
 class DollarClassTest {
-  private static final Path SAMPLE = Path.of(System.getProperty("mutastic.samples"), "dollar-class");
+  private static final Path SAMPLE =
+      Path.of(System.getProperty("mutastic.samples"), "dollar-class");
 
   @TempDir Path work;
 
@@ -37,8 +38,7 @@ class DollarClassTest {
     var project = Samples.copy(SAMPLE, work.resolve("dollar-class"));
 
     var run =
-        Samples.mutastic(
-            Map.of("MUTASTIC_AGENT", "1"), "run", project.toString(), "--report=none");
+        Samples.mutastic(Map.of("MUTASTIC_AGENT", "1"), "run", project.toString(), "--report=none");
 
     assertThat(run.out())
         .as(run.err())
