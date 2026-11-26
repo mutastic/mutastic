@@ -9,14 +9,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /// Spring 5's CGLIB proxies, in the `spring-proxies` sample, on one worker so every mutant runs in
-/// one JVM. Spring keeps the proxy it made of `Prices` by the thread's context class loader, which
-/// was each run's own, and defines it beside `Prices`, in the loader that outlasts the runs: from
-/// the second run on, the JVM refused it as defined twice, and the test failed on that.
+/// one JVM. Spring keeps the proxy it made of `Prices` by the thread's context class loader, and
+/// defines it beside `Prices`, in the loader that outlasts the runs. With each run's own context
+/// loader, from the second run on the JVM refused it as defined twice and the test failed on that,
+/// which looked like a catch. With one context loader for the worker's life, as the build has one,
+/// Spring finds the proxy it made, and nothing is defined twice.
 ///
-/// Such a failure judged nothing, so it isn't a catch. `transactions()` returning null changes
-/// nothing `ShopTest` checks, since Spring takes a null bean, and its run failed only on the
-/// duplicate: the mutant survives, and names the test. `PricesTest`, which failed the same way when
-/// run again on its own, isn't taken for flaky, so its catches count.
+/// `transactions()` returning null changes nothing `ShopTest` checks, since Spring takes a null
+/// bean: the mutant survives, and no test failed on a class defined twice. `PricesTest` passes when
+/// run again on its own, so it isn't taken for flaky and its catches count.
 class SpringProxiesTest {
   private static final Path SAMPLE =
       Path.of(System.getProperty("mutastic.samples"), "spring-proxies");
@@ -35,14 +36,13 @@ class SpringProxiesTest {
   }
 
   @Test
-  void aFailureOnlyOnAClassDefinedTwiceIsntACatch() {
-    assertThat(mutant("transactions()"))
-        .contains("\"status\":\"Survived\"")
-        .contains("\"duplicateClassBy\":\"demo.ShopTest#theShopHasPrices\"");
+  void aMutantNoTestSeesSurvivesAndNothingIsDefinedTwice() {
+    assertThat(mutant("transactions()")).contains("\"status\":\"Survived\"");
+    assertThat(events).noneMatch(line -> line.contains("duplicateClassBy"));
   }
 
   @Test
-  void aTestThatFailedThatWayOnItsOwnIsntTakenForFlaky() {
+  void noTestIsTakenForFlaky() {
     assertThat(events)
         .filteredOn(line -> line.contains("\"reason\":\"run-finished\""))
         .singleElement()

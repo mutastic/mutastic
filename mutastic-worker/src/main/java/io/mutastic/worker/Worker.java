@@ -81,6 +81,10 @@ public final class Worker {
   private final TestSplit splitTests;
   private final Set<String> testClassNames;
   private final PrintStream protocol;
+
+  /// The context class loader of every run, for the worker's life ([ContextLoader]).
+  private final ContextLoader context = new ContextLoader(ClassLoader.getSystemClassLoader());
+
   private final Map<String, byte[]> staged = new HashMap<>();
   private final MutantInPlace inPlace = new MutantInPlace();
   private final Aging aging = new Aging(WORTH_A_NEW_WORKER);
@@ -651,7 +655,8 @@ public final class Worker {
     var loader = new TestLoader(testRoots, production, ++runs);
     var thread = Thread.currentThread();
     var previous = thread.getContextClassLoader();
-    thread.setContextClassLoader(loader);
+    context.runWith(loader);
+    thread.setContextClassLoader(context);
     try {
       var request = request(loader, tests);
       var failing = new ArrayList<String>();
