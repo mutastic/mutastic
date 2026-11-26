@@ -266,6 +266,41 @@ run. A test that sets its own in code (`withFixedSeed`, `PropTestConfig(seed = �
 | QuickTheories | `QT_SEED` | `QT_SHRINKS=0` |
 | Kotest (`forAll`, `checkAll`) | `kotest.proptest.default.seed`, with saved failures off (`kotest.proptest.seed.write-failed=false`) | `PropertyTesting.defaultShrinkingMode` |
 | junit-quickcheck | Only in the test, `@When(seed = …)` | Only in the test, `@Property(shrink = …)` |
+| proptastic | `proptastic.seed`, as `0x` and hex digits: `0x2a` | `proptastic.shrink=false` |
+
+### proptastic
+
+proptastic is the family's own property-testing library, made to work with mutastic. A property
+that catches a mutant on only some inputs needs the same inputs in every run, and a card is only
+useful when it says which input caught. proptastic takes its seed, its shrinking and where it
+writes from outside the test, so mutastic sets all three, and you set nothing.
+
+- **It's found by its class,** `io.proptastic.Proptastic`, on the test classpath: a jar under any
+  name, a shaded test kit that bundles it, or another module's classes.
+- **The seed is `0x0`,** or yours: `systemProperty("proptastic.seed", "0x2a")`. proptastic reads
+  seeds only as `0x` and hex digits, as its failures print them, and refuses a bare number, so a
+  seed it can't read gives way to the run's. `run-started` says it in decimal, `42`, as it does
+  for every framework.
+- **A run writes none of your files.** proptastic's saved failures, its events, its corpus and its
+  colour are off in every test JVM mutastic starts, so a mutant's failure is never replayed by the
+  runs after it, and two runs of the same code draw the same inputs. Your corpus isn't read, as one
+  that grew between two runs would change what they draw.
+- **The same test draws the same inputs in mutastic's copies of its class.** proptastic keys a
+  property's inputs on its test method's signature and the seed, never the class's name.
+- **The card names the input,** from proptastic's report: the line after its header. When a value
+  is wide or spans lines, proptastic stacks the report, each value four spaces in below its key,
+  and mutastic joins those lines onto one.
+
+```text
+expected: <[-17, 4, 9]> but was: <[]>
+
+sortsAsTheJdkDoes failed after 1 try (seed 0x0)
+  counterexample: xs = [9, -17, 4]
+          pin it: .example(List.of(9, -17, 4))
+```
+
+A full run names it as found, ``ListsTest#sortsAsTheJdkDoes with `xs = [9, -17, 4]` ``; `verify`,
+`explain` and `run --only` shrink it once, ``with `xs = [0]` ``.
 
 ### When a seed can't be set
 
@@ -305,6 +340,12 @@ table is written:
   and a caught mutant's card names the input that caught it, ``with `xs = [0]` ``, as
   `mutant-finished`'s `caughtInput` does. quickcheck, arbtest and bolero seed themselves, and a run
   of a package that uses them says so.
+- **A proptastic property draws the same inputs every run too.** mutastic finds proptastic in the
+  package's `Cargo.lock`, depended on directly or through a crate that wraps it, and gives every
+  test process `PROPTASTIC_SEED`, the run's seed as proptastic reads seeds, `0x0`, unless you set
+  your own. proptastic's events, saved failures, corpus and colour are off, so a run writes none of
+  your files; a mutant's run stops at the first counterexample (`PROPTASTIC_SHRINK=false`), and the
+  card names it from proptastic's report, its stacked form too, ``with `xs = [0, 0]` ``.
 
 </EditionOnly>
 

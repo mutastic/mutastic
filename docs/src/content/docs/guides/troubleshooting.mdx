@@ -45,8 +45,8 @@ the score, so it can't be what holds the score down. If that code is a contract 
 ### A mutant is caught in one run and missed in the next
 
 A property test draws its inputs at random, and a mutant only a few of them catch is caught by
-some draws and not others. mutastic seeds QuickTheories and Kotest's property tests, the same in
-every run, so theirs don't change unless the seed does. A run that ends with `note: property tests
+some draws and not others. mutastic seeds QuickTheories', Kotest's and proptastic's property
+tests, the same in every run, so theirs don't change unless the seed does. A run that ends with `note: property tests
 in junit-quickcheck run with their own seeds, which mutastic can't set: …` used a framework it
 can't seed: check that mutant's edge in a test of its own. See
 [Property tests](/concepts/results/#property-tests).
