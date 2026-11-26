@@ -63,6 +63,9 @@ final class TestWorker implements AutoCloseable {
 
   private final Project project;
 
+  /// [#sharedTests], once read.
+  private @Nullable Set<String> sharedTests;
+
   /// What the project's tests need to run, and how the worker runs them.
   private final TestFrameworks frameworks;
 
@@ -940,6 +943,7 @@ final class TestWorker implements AutoCloseable {
     command.addAll(measured());
     command.addAll(systemLoader());
     command.add("-javaagent:" + workerJar);
+    command.add("-Dmutastic.sharedTests=" + String.join(",", sharedTests()));
     command.addAll(classpathArguments());
     command.addAll(workerArgs());
     command.addAll(mode());
@@ -959,6 +963,17 @@ final class TestWorker implements AutoCloseable {
         "--include-tags=" + String.join(",", project.tests().includeTags()),
         "--exclude-tags=" + String.join(",", project.tests().excludeTags()),
         "--exclude-methods=" + String.join(",", methodsLeftOut));
+  }
+
+  /// The test classes the worker runs by their own names, not as copies ([SharedTests]): read from
+  /// the class files once, for every worker this starts.
+  private Set<String> sharedTests() {
+    var known = sharedTests;
+    if (known == null) {
+      known = SharedTests.in(project.classes(), project.testClasses());
+      sharedTests = known;
+    }
+    return known;
   }
 
   private Process launch(WorkerTemp temp) {
