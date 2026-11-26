@@ -19,7 +19,7 @@
 //       count from. mutastic-rs's contract/README.md says why.
 //
 // Node with no dependencies, so an edition needs only node on its path.
-import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -211,7 +211,9 @@ async function main(args) {
   }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Run as a script, from wherever it was fetched to: a temporary directory's path can be a link
+// (macOS's /var is /private/var), so the two are compared as real paths.
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   main(process.argv.slice(2)).catch((error) => {
     console.error(`contract: ${error.message}`);
     process.exitCode = 1;
