@@ -2100,7 +2100,10 @@
       "each": true,
       "surface": "human output",
       "summary": "explain's level line and site",
-      "reason": "The mutation level (`mutation.applied.level`)."
+      "reason": "The mutation level (`mutation.applied.level`).",
+      "items": [
+        "capture:explain"
+      ]
     },
     {
       "id": "N18",
@@ -2584,6 +2587,113 @@
       "surface": "events",
       "summary": "Where proptastic's counterexample is read",
       "reason": "A JVM test's failure is an exception, with a class; libtest gives a failing test's output as text, where a test's own message could say `counterexample:` too."
+    },
+    {
+      "id": "C1",
+      "editions": {
+        "rust": {
+          "kind": "engine"
+        }
+      },
+      "surface": "errors",
+      "summary": "A red baseline says mutastic runs each test alone, and that a test that passes with the others but fails alone leans on one of them",
+      "reason": "Rust runs each test in a process of its own, as `cargo test` lists them, so a test can fail alone that passes with the others; Java's tests share a JVM.",
+      "items": [
+        "capture:test-first-red",
+        "capture:test-first-refactor-red-100",
+        "capture:test-first-refactor-red-250"
+      ]
+    },
+    {
+      "id": "C2",
+      "editions": {
+        "rust": {
+          "kind": "pending",
+          "does": "types `rnu`, `clasic`, `rulez:` and a missing directory under another parent",
+          "issue": "https://github.com/mutastic/mutastic-rs/issues/196",
+          "target": "1.5.0"
+        }
+      },
+      "surface": "docs",
+      "summary": "The docs' error captures type the mistakes the contract's errorCases type: `verfiy`, `agnt`, `strem`, `nosuch`",
+      "reason": "Not a difference in what the editions do: the Rust docs' captures were typed with other mistakes, so their lines can't be compared.",
+      "items": [
+        "capture:errors-unknown-command",
+        "capture:errors-option-value",
+        "capture:errors-no-directory",
+        "capture:errors-config"
+      ]
+    },
+    {
+      "id": "C3",
+      "editions": {
+        "rust": {
+          "kind": "pending",
+          "does": "names every covering test",
+          "issue": "https://github.com/mutastic/mutastic-rs/issues/196",
+          "target": "1.5.0"
+        }
+      },
+      "surface": "human output",
+      "summary": "`covered by` names three covering tests and says how many more",
+      "reason": "A wording drift found by the capture comparison; which edition's way stays is for the issue.",
+      "items": [
+        "capture:test-first-refactor-run-100",
+        "capture:test-first-refactor-run-250"
+      ]
+    },
+    {
+      "id": "C4",
+      "editions": {
+        "rust": {
+          "kind": "pending",
+          "does": "writes setup's `phase-finished` before `run-started`",
+          "issue": "https://github.com/mutastic/mutastic-rs/issues/196",
+          "target": "1.5.0"
+        }
+      },
+      "surface": "events",
+      "summary": "`run-started` comes before the first `phase-finished`",
+      "reason": "An order drift found by the capture comparison; which edition's way stays is for the issue.",
+      "items": [
+        "capture:format-jsonl"
+      ]
+    },
+    {
+      "id": "C5",
+      "editions": {
+        "rust": {
+          "kind": "pending",
+          "does": "orders a card's lines otherwise, and its refactor fixture has no arid mutant",
+          "issue": "https://github.com/mutastic/mutastic-rs/issues/196",
+          "target": "1.5.0"
+        }
+      },
+      "surface": "docs",
+      "summary": "The test-first walk-through's cards and summaries read alike",
+      "reason": "The walk-through's captures differ in a card's lines and in what the fixtures hold; the issue sorts the drift from the fixture.",
+      "items": [
+        "capture:test-first-run",
+        "capture:test-first-agent-run",
+        "capture:test-first-refactor-after"
+      ]
+    },
+    {
+      "id": "C6",
+      "editions": {
+        "rust": {
+          "kind": "pending",
+          "does": "lists them in another order",
+          "issue": "https://github.com/mutastic/mutastic-rs/issues/196",
+          "target": "1.5.0"
+        }
+      },
+      "surface": "human output",
+      "summary": "`mutants` lists the pricing fixture's mutants in one order",
+      "reason": "An order drift found by the capture comparison; which edition's way stays is for the issue.",
+      "items": [
+        "capture:mutants"
+      ]
     }
   ]
 }

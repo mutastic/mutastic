@@ -8,7 +8,8 @@
 // scripts/shared-sources.mjs), since the shared page may no longer say what it does. A shared page
 // still waiting for its Rust side (AWAITING_RUST in src/edition-pages.mjs) is spared that, and the
 // mutastic-rs page it stands for, while the pin is the release it names, and fails once it isn't.
-// It also warns where the editions' captured output differs in shape (scripts/compare-captures.mjs).
+// It also fails where the editions' captured output differs in shape and the contract records no
+// difference for it, or records one that now matches (scripts/compare-captures.mjs).
 // A release or CI build (DOCS_VERSION set) stops; a local one says what's wrong and carries on, so
 // a page being written can be read.
 //
@@ -30,7 +31,7 @@ import {
   RUST_ONLY_WAY,
   SHARED,
 } from '../src/edition-pages.mjs';
-import { captureWarnings } from './compare-captures.mjs';
+import { captureProblems } from './compare-captures.mjs';
 import { pinnedRef, rustDocs } from './rust-docs.mjs';
 import { readManifest, staleSources } from './shared-sources.mjs';
 
@@ -75,12 +76,6 @@ export async function checkEditions(
   awaiting = [],
 ) {
   const problems = await editionProblems(rust, unplaced, gone, dir, unlisted, awaiting);
-  // The two editions' captured output, paired by scenario and masked: a warning for now, as the
-  // masks still let through what each fixture does differently (scripts/compare-captures.mjs).
-  if (dir !== undefined) {
-    const captures = captureWarnings(dir);
-    if (captures.length > 0) console.warn(`[check-editions] ${captures.join('\n')}`);
-  }
   if (problems.length === 0) return;
   const message = `The Java and Rust editions don't line up:\n  - ${problems.join('\n  - ')}`;
   if (process.env.DOCS_VERSION) throw new Error(message);
@@ -130,6 +125,8 @@ async function editionProblems(rust, unplaced, gone, dir, unlisted, awaiting) {
     }
   }
   problems.push(...sharedSources(dir, awaiting));
+  // The editions' captured output, paired by scenario and masked, against the contract's record.
+  if (dir !== undefined) problems.push(...captureProblems(dir));
   return problems;
 }
 

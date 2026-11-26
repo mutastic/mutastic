@@ -6,6 +6,7 @@ changelog-preview
 check
 ci
 ci-build
+contract-check
 corpus
 coverage
 coverage-merge

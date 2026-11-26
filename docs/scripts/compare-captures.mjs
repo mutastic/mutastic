@@ -39,13 +39,19 @@ function capturesOf(contract, edition, docs) {
   return edition === contract.reference ? join(root, path) : join(docs, path.replace(/^docs\//, ''));
 }
 
-/** The pairs to compare for `edition`: the scenarios named, and the captures at the same path in `samePath`. */
-export function pairs(dir, edition = 'rust', contract = load()) {
-  const { scenarios, samePath } = JSON.parse(readFileSync(mapping, 'utf8'));
+/** captures.json: the scenarios, and each edition's name for its capture of one. */
+export function readMapping() {
+  return JSON.parse(readFileSync(mapping, 'utf8'));
+}
+
+/**
+ * The pairs to compare for `edition`: each scenario, by the edition's name for it or, when
+ * captures.json gives none, the scenario's own, so a new edition names its captures by scenario
+ * and edits nothing shared; and the captures at the same path in `samePath`.
+ */
+export function pairs(dir, edition = 'rust', contract = load(), { scenarios, samePath } = readMapping()) {
   const reference = contract.reference;
-  const paired = Object.entries(scenarios)
-    .filter(([, named]) => named[edition] !== undefined)
-    .map(([scenario, named]) => [scenario, named[reference], named[edition]]);
+  const paired = Object.entries(scenarios).map(([scenario, named]) => [scenario, named[reference], named[edition] ?? scenario]);
   // As it always has, this looks for `under` in the edition's docs folder, not its captures, so
   // `operators` pairs nothing yet: each language's operator examples are its own code.
   for (const under of samePath) {
@@ -125,13 +131,13 @@ export function shape(text, m = masks()) {
 }
 
 /** Each pair of `edition`'s whose shape differs from the reference's, with its first differing line. */
-export function compareCaptures(dir, edition = 'rust', contract = load()) {
+export function compareCaptures(dir, edition = 'rust', contract = load(), scenarios = readMapping()) {
   const differ = [];
   const same = [];
   const m = masks(contract);
   const reference = capturesOf(contract, contract.reference, dir);
   const theirs = capturesOf(contract, edition, dir);
-  for (const [scenario, j, r] of pairs(dir, edition, contract)) {
+  for (const [scenario, j, r] of pairs(dir, edition, contract, scenarios)) {
     const [left, right] = [read(reference, j), read(theirs, r)];
     if (left === undefined || right === undefined) {
       differ.push({ scenario, missing: left === undefined ? `${contract.reference} ${j}` : `${edition} ${r}` });
@@ -156,8 +162,8 @@ export function registered(contract, edition) {
 }
 
 /** What fails for `edition`: a pair that differs unregistered, a registered one that matches, one with no capture. */
-export function captureProblems(dir, edition = 'rust', contract = load()) {
-  const { differ, same } = compareCaptures(dir, edition, contract);
+export function captureProblems(dir, edition = 'rust', contract = load(), scenarios = readMapping()) {
+  const { differ, same } = compareCaptures(dir, edition, contract, scenarios);
   const known = registered(contract, edition);
   const problems = [];
   for (const d of differ) {

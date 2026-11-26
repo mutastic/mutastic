@@ -131,10 +131,16 @@ docs-pin-rust COMMIT:
 docs-stamp +PAGES:
     npm run --silent stamp-shared -- "$@"
 
-# Lists where the editions' captured output differs in shape, against a mutastic-rs docs folder
+# Fails where the editions' captured output differs in shape, unrecorded, against a mutastic-rs docs folder
 [group('docs')]
 docs-compare *RUST_DOCS:
     node docs/scripts/compare-captures.mjs "$@"
+
+# Checks the editions' contract beyond its schema, and tests its tooling
+[group('docs')]
+contract-check:
+    node docs/scripts/contract.mjs check
+    node --test docs/scripts/contract.test.mjs
 
 # The release, in RELEASING.md's order. Agents may run release-prepare, release-check,
 # release-verify, release-hold and candidate; release, release-portal and docs-redeploy are
