@@ -227,9 +227,8 @@ class BuildErrorsTest {
         .isEqualTo("mutastic run -- -Dx");
     assertThat(
             BuildErrors.noToolchain(
-                "Gradle",
-                new BuildErrors.Missing(jdk, ""),
-                "Install one, or tell Gradle where it is:",
+                new BuildErrors.Missing(
+                    "Gradle", jdk, "", "Install one, or tell Gradle where it is:"),
                 run,
                 typed,
                 log))
@@ -251,9 +250,7 @@ class BuildErrorsTest {
     assertThat(jdk.named()).isEqualTo("a JDK of version [17,) (temurin)");
     assertThat(
             BuildErrors.noToolchain(
-                "Maven",
-                new BuildErrors.Missing(jdk, " in ~/.m2/toolchains.xml"),
-                "Add it:",
+                new BuildErrors.Missing("Maven", jdk, " in ~/.m2/toolchains.xml", "Add it:"),
                 "mutastic run -- -t <file>",
                 BuildArguments.quiet(List.of("-Pci")),
                 Path.of(HERE, "target/mutastic/maven.log")))

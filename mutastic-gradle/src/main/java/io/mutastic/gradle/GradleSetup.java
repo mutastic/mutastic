@@ -163,9 +163,7 @@ final class GradleSetup {
     return new SetupFailed(
         "build-jdk",
         BuildErrors.noToolchain(
-            "Gradle",
-            new BuildErrors.Missing(jdk, ""),
-            "Install one, or tell Gradle where it is:",
+            new BuildErrors.Missing("Gradle", jdk, "", "Install one, or tell Gradle where it is:"),
             run,
             build.arguments(),
             log(request.workDirectory())));

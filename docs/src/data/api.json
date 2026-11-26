@@ -571,17 +571,9 @@
               "kind": "method",
               "name": "noToolchain",
               "anchor": "notoolchain",
-              "signature": "static String noToolchain(String tool, BuildErrors.Missing missing, String remedy, String run, BuildArguments arguments, Path log)",
+              "signature": "static String noToolchain(BuildErrors.Missing missing, String run, BuildArguments arguments, Path log)",
               "doc": "A build that stopped for want of the JDK its toolchain asks for: that, in a line; what to do;\nthe run again with the argument that tells the tool where one is; and how to give it to every\nrun. A run whose arguments came from `MUTASTIC_BUILD_ARGS` or `mutastic.yaml` loses them after\n`--`, which replaces them, so it's said to add it there.",
               "params": [
-                {
-                  "name": "missing",
-                  "doc": "what the tool said it found none of, and where it looked, said after \"found none\": empty, or ` in ~/.m2/toolchains.xml`"
-                },
-                {
-                  "name": "remedy",
-                  "doc": "what to do, ending in a colon: `Install one, or tell Gradle where it is:`"
-                },
                 {
                   "name": "run",
                   "doc": "the run, as [`run(String, String, BuildArguments, String)`](#run) has it"
@@ -671,10 +663,27 @@
           "name": "BuildErrors.Missing",
           "slug": "builderrors-missing",
           "kind": "record",
-          "signature": "record Missing(BuildErrors.Toolchain jdk, String where)",
-          "summary": "The JDK a toolchain asks for, and where the tool looked for it, said after \"found none\": empty, or ` in ~/.m2/toolchains.xml`.",
-          "doc": "The JDK a toolchain asks for, and where the tool looked for it, said after \"found none\":\nempty, or ` in ~/.m2/toolchains.xml`.",
-          "params": [],
+          "signature": "record Missing(\n    String tool,\n    BuildErrors.Toolchain jdk,\n    String where,\n    String remedy)",
+          "summary": "What a build tool found no JDK for, and what to do.",
+          "doc": "What a build tool found no JDK for, and what to do.",
+          "params": [
+            {
+              "name": "tool",
+              "doc": "`Gradle` or `Maven`"
+            },
+            {
+              "name": "jdk",
+              "doc": "the JDK the toolchain asks for"
+            },
+            {
+              "name": "where",
+              "doc": "where the tool looked, said after \"found none\": empty, or ` in ~/.m2/toolchains.xml`"
+            },
+            {
+              "name": "remedy",
+              "doc": "what to do, ending in a colon: `Install one, or tell Gradle where it is:`"
+            }
+          ],
           "members": []
         },
         {

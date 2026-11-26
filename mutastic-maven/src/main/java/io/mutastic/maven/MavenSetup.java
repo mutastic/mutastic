@@ -155,9 +155,11 @@ final class MavenSetup {
     return new SetupFailed(
         "build-jdk",
         BuildErrors.noToolchain(
-            "Maven",
-            new BuildErrors.Missing(jdk, MavenToolchain.WHERE),
-            "Add it to ~/.m2/toolchains.xml, or tell Maven which toolchains file has it:",
+            new BuildErrors.Missing(
+                "Maven",
+                jdk,
+                MavenToolchain.WHERE,
+                "Add it to ~/.m2/toolchains.xml, or tell Maven which toolchains file has it:"),
             run,
             arguments,
             log));

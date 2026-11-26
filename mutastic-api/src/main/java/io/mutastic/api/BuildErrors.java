@@ -200,14 +200,11 @@ public final class BuildErrors {
   /// run. A run whose arguments came from `MUTASTIC_BUILD_ARGS` or `mutastic.yaml` loses them after
   /// `--`, which replaces them, so it's said to add it there.
   ///
-  /// @param missing what the tool said it found none of, and where it looked, said after "found
-  ///   none": empty, or ` in ~/.m2/toolchains.xml`
-  /// @param remedy what to do, ending in a colon: `Install one, or tell Gradle where it is:`
   /// @param run the run, as [#run(String, String, BuildArguments, String)] has it
   /// @param arguments the build's arguments, which the run was given
   /// @param log the file the tool's output went to
   public static String noToolchain(
-      String tool, Missing missing, String remedy, String run, BuildArguments arguments, Path log) {
+      Missing missing, String run, BuildArguments arguments, Path log) {
     var replaced = !arguments.words().isEmpty() && arguments.typed().isEmpty();
     var every =
         replaced
@@ -218,18 +215,23 @@ public final class BuildErrors {
             + "%s %s's output is in %s.")
         .formatted(
             missing.jdk().named(),
-            tool,
+            missing.tool(),
             missing.where(),
-            remedy,
+            missing.remedy(),
             run,
             every,
-            tool,
+            missing.tool(),
             shown(log, here()));
   }
 
-  /// The JDK a toolchain asks for, and where the tool looked for it, said after "found none":
-  /// empty, or ` in ~/.m2/toolchains.xml`.
-  public record Missing(Toolchain jdk, String where) {}
+  /// What a build tool found no JDK for, and what to do.
+  ///
+  /// @param tool `Gradle` or `Maven`
+  /// @param jdk the JDK the toolchain asks for
+  /// @param where where the tool looked, said after "found none": empty, or ` in
+  ///   ~/.m2/toolchains.xml`
+  /// @param remedy what to do, ending in a colon: `Install one, or tell Gradle where it is:`
+  public record Missing(String tool, Toolchain jdk, String where, String remedy) {}
 
   /// `mutastic run app :core -- -Pci <argument>`: the run on the module, `typed` as the person
   /// would type its directory (empty where they are), with the arguments typed after `--` and then
