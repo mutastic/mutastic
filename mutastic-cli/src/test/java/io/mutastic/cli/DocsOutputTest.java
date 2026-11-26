@@ -2,6 +2,7 @@ package io.mutastic.cli;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.output.ProgressStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

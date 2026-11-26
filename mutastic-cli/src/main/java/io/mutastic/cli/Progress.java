@@ -7,6 +7,8 @@ import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantCost;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Status;
+import io.mutastic.output.ProgressStream;
+import io.mutastic.output.Ticker;
 import io.mutastic.report.LiveEvents;
 import java.io.PrintStream;
 import java.time.Duration;
@@ -33,7 +35,7 @@ final class Progress implements Listener, AutoCloseable {
   }
 
   /// The longest a log goes without a line, unless `MUTASTIC_HEARTBEAT` says otherwise.
-  static final Duration HEARTBEAT = Duration.ofSeconds(30);
+  static final Duration HEARTBEAT = ProgressStream.HEARTBEAT;
 
   /// How often the live block is redrawn, and a heartbeat's age checked.
   static final Duration TICK = Duration.ofMillis(100);
@@ -181,7 +183,7 @@ final class Progress implements Listener, AutoCloseable {
         if (tabbed()) {
           forgetTab = WaysOut.add(() -> stream.leaving(tab.cleared()), () -> {});
         }
-        ticker = Ticker.every(TICK, this::tick);
+        ticker = Ticker.every("mutastic-progress", TICK, this::tick);
       }
     }
   }

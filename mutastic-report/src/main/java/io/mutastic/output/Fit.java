@@ -1,8 +1,8 @@
-package io.mutastic.cli;
+package io.mutastic.output;
 
 /// How wide a line is on a terminal, and the line cut to fit one: its characters, less its colour
-/// and links. `PROGRESS.md` cuts every live line that's too wide, so none wraps.
-final class Fit {
+/// and links. A live line that's too wide is cut, so none wraps.
+public final class Fit {
   private Fit() {}
 
   private static final char ESC = '\u001b';
@@ -11,7 +11,7 @@ final class Fit {
 
   /// The columns `text` takes: each character but those of its escape sequences, a colour's (`ESC [
   /// … m`) or a link's (`ESC ] … ESC \`).
-  static int width(String text) {
+  public static int width(String text) {
     int width = 0;
     int at = 0;
     while (at < text.length()) {
@@ -56,7 +56,7 @@ final class Fit {
   }
 
   /// `text` cut to `columns`, ending in `…` when cut, with its colour closed.
-  static String cut(String text, int columns) {
+  public static String cut(String text, int columns) {
     if (width(text) <= columns) {
       return text;
     }

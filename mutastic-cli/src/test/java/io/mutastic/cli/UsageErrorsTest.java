@@ -2,6 +2,7 @@ package io.mutastic.cli;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.output.Correction;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;

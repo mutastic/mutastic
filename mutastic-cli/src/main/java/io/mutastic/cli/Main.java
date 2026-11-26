@@ -19,6 +19,7 @@ import io.mutastic.engine.RunRecord;
 import io.mutastic.engine.RunRecords;
 import io.mutastic.engine.Shard;
 import io.mutastic.engine.TestTimes;
+import io.mutastic.output.Correction;
 import io.mutastic.output.Style;
 import io.mutastic.report.AgentText;
 import io.mutastic.report.Explanation;

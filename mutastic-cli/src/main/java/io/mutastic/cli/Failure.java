@@ -3,6 +3,8 @@ package io.mutastic.cli;
 import io.mutastic.api.BuildArguments;
 import io.mutastic.api.BuildTool;
 import io.mutastic.engine.Engine;
+import io.mutastic.output.Correction;
+import io.mutastic.output.Remedies;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -278,54 +280,15 @@ record Failure(int exit, String code, String said) {
           "^  (?:mutastic |(?:sh )?(?:\\S*|'[^']*|\"[^\"]*)"
               + "(?:gradlew(?:\\.bat)?|mvnw(?:\\.cmd)?)['\"]? |gradle |mvn |tail )");
 
-  /// A close name the message offers: `There's one called --format.`
-  private static final Pattern OFFERED =
-      Pattern.compile("There's one called (?<name>\\S+?)[.,]?(?=\\s|$)");
-
   /// What went wrong, as the first line says it, without `mutastic: `.
   String message() {
     return said.lines().findFirst().orElse("").replaceFirst("^mutastic: ", "");
   }
 
   /// The commands the message ends in, each on a line of its own, set in by two spaces, with how
-  /// sure mutastic is of each, as rustc grades a suggestion: `exact` runs as it is; `placeholders`
-  /// has a part in `<…>` to fill in first; `maybe` is a close name, a guess at what was meant, to
-  /// check before running it.
+  /// sure mutastic is of each: [Remedies].
   List<Map<String, Object>> help() {
-    var offered = new ArrayList<String>();
-    var names = OFFERED.matcher(said);
-    while (names.find()) {
-      offered.add(names.group("name").replaceFirst(":$", ""));
-    }
-    var commands = new ArrayList<Map<String, Object>>();
-    for (String line : said.lines().toList()) {
-      if (COMMAND.matcher(line).find()) {
-        var command = line.strip();
-        var help = new LinkedHashMap<String, Object>();
-        help.put("applicability", applicability(command, offered));
-        help.put("command", command);
-        commands.add(help);
-      }
-    }
-    return commands;
-  }
-
-  private static String applicability(String command, List<String> offered) {
-    if (command.contains("<") || command.contains("…")) {
-      return "placeholders";
-    }
-    var words = List.of(command.split(" ", -1));
-    return words.stream().anyMatch(word -> offered.stream().anyMatch(name -> names(word, name)))
-        ? "maybe"
-        : "exact";
-  }
-
-  /// Whether `word` of a command is `name`, or gives it as an option's value or in a list.
-  private static boolean names(String word, String name) {
-    return word.equals(name)
-        || word.startsWith(name + "=")
-        || word.endsWith("=" + name)
-        || word.contains("," + name);
+    return Remedies.in(said, COMMAND);
   }
 
   /// The `run-failed` event's fields, after its schema, edition and reason, for a command run on
