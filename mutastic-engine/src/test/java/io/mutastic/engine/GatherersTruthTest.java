@@ -136,17 +136,17 @@ class GatherersTruthTest {
         failures.add(ClaimFixture.describe(mutant) + " always throws, and is skipped" + why);
       }
       var differs = false;
-      for (int a : SOME) {
-        for (int b : SOME) {
-          var mutated = sizes.outcomeOf(mutant, a, b);
-          var original = sizes.outcomeOfOriginal(method, a, b);
-          differs |= !mutated.equals(original);
-          if (throwing && !mutated.equals("threw IllegalArgumentException")) {
-            failures.add(ClaimFixture.describe(mutant) + " gives " + mutated);
-          }
-          if (why.equals(AT_ONCE) && !mutated.equals(original)) {
-            failures.add(ClaimFixture.describe(mutant) + " gives " + mutated + ", not " + original);
-          }
+      var mutatedOutcomes = sizes.outcomesOf(mutant, SOME);
+      var originalOutcomes = sizes.outcomesOfOriginal(method, SOME);
+      for (int pair = 0; pair < mutatedOutcomes.size(); pair++) {
+        var mutated = mutatedOutcomes.get(pair);
+        var original = originalOutcomes.get(pair);
+        differs |= !mutated.equals(original);
+        if (throwing && !mutated.equals("threw IllegalArgumentException")) {
+          failures.add(ClaimFixture.describe(mutant) + " gives " + mutated);
+        }
+        if (why.equals(AT_ONCE) && !mutated.equals(original)) {
+          failures.add(ClaimFixture.describe(mutant) + " gives " + mutated + ", not " + original);
         }
       }
       if (why.isEmpty() && !differs) {
