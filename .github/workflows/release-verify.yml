@@ -5,9 +5,10 @@
 # Nothing here is built from the tree: 1.3.0 passed every test and still shipped a CLI that failed
 # on real code, as nothing ran what Central served.
 #
-# It starts on its own when a release is published, and waits for the rest, which is done by hand:
-# the release job's approval, Publish in the Central Portal, then portal.yml. Run by hand, it checks
-# a release already out:
+# release.yml starts it once it has published the GitHub release, the last of the release's pieces
+# to go out (a release published by a workflow's token starts no workflow of its own). It also
+# starts when a person publishes a release, and then waits for the rest. Run by hand, it checks a
+# release already out:
 #   gh workflow run release-verify.yml -f version=X.Y.Z
 # A failure says what failed in the run's summary. A version on Central can never be changed or
 # removed, so a failure is fixed forward, in the next patch. .github/release-verify.sh has the
@@ -34,8 +35,9 @@ permissions:
 
 jobs:
   # Everything the release is made of, served: by GitHub, Central and the Plugin Portal. Polled here,
-  # once, rather than by each runner. After a release is published, the rest is done by hand, so it
-  # waits up to four hours; run by hand, half an hour, for Central's mirrors to catch up.
+  # once, rather than by each runner. Started by a release a person published, it waits up to four
+  # hours for the rest; run by hand, half an hour, and from release.yml an hour, for Central's
+  # mirrors and the Plugin Portal to catch up.
   published:
     # A pre-release's tag isn't a plain version, and the release job doesn't publish it.
     if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease

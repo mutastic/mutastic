@@ -97,6 +97,8 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
           TITLE: ${{ github.event.pull_request.title }}
       - run: sh scripts/test-changelog.sh
+      # The release's calls to Central, against a stand-in for its API: nothing reaches Central.
+      - run: sh scripts/test-central.sh
       # The docs' checks of the Rust pin.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: github.event_name != 'push'

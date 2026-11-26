@@ -139,7 +139,7 @@ docs-compare *RUST_DOCS:
 # The release, in RELEASING.md's order. Agents may run release-prepare, release-check,
 # release-verify, release-hold and candidate; release, release-portal and docs-redeploy are
 # Brian's. [confirm] only asks: `--yes` skips it, so the `release` environment's approval in CI is
-# what stands between a recipe and Central.
+# what stands between a recipe and a published release.
 
 # Runs the release candidate, the CLI from here over a share of every sample: just candidate --of=8
 [group('release')]
@@ -156,16 +156,22 @@ release-prepare VERSION *RUST_COMMIT:
 release-check VERSION:
     sh scripts/release-check.sh "$@"
 
-# TODO(#211): its one approval starts a release with a tag push; if it merges, change this recipe.
-
-# Brian's: publishes the GitHub release vVERSION at main's head, which uploads it to Central
-[confirm("Publish the GitHub release and tag at main's head? release.yml then uploads it to Central, waiting on the release environment's approval")]
+# Brian's: tags main's head vVERSION and pushes it, which stages the release for its one approval
+[confirm("Tag main's head and push it? release.yml then uploads it to Central unpublished, and publishes it only once the release environment's reviewer approves")]
 [group('release')]
 [script('bash')]
 release VERSION:
-    head=$(gh api 'repos/{owner}/{repo}/commits/main' --jq .sha) && sh scripts/changelog.sh notes "$1" > /dev/null && gh release create "v$1" --target "$head" --notes-file <(sh scripts/changelog.sh notes "$1")
+    set -euo pipefail
+    # An -rc is a GitHub pre-release, and its tag starts no release (RELEASING.md).
+    [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "release: '$1' isn't a version, X.Y.Z" >&2; exit 2; }
+    sh scripts/changelog.sh notes "$1" > /dev/null
+    git fetch --quiet origin main
+    head=$(git rev-parse FETCH_HEAD)
+    git tag "v$1" "$head"
+    git push origin "refs/tags/v$1"
+    echo "Pushed v$1 at $head: approve its release run once its summary reads right (gh run watch)"
 
-# Brian's: sends the Gradle plugin of vVERSION, once it's on Central, to the Plugin Portal
+# Brian's: sends the Gradle plugin of vVERSION to the Plugin Portal, should release.yml's step fail
 [confirm("Publish the Gradle plugin to the Gradle Plugin Portal? portal.yml runs on the tag, waiting on the release environment's approval")]
 [group('release')]
 release-portal VERSION:
@@ -181,7 +187,7 @@ release-verify VERSION:
 release-hold VERSION:
     sh scripts/hold-release.sh "$@"
 
-# Brian's: deploys docs.mutastic.io again, every release line's docs from its own tag
+# Brian's: deploys docs.mutastic.io again, every release line's docs from its own tag, by hand
 [confirm("Deploy docs.mutastic.io again, every release line rebuilt from its tag?")]
 [group('release')]
 docs-redeploy:

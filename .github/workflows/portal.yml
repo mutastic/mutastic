@@ -1,8 +1,9 @@
-# The Gradle plugin to the Gradle Plugin Portal, for a release already published on Maven Central:
-# started by hand on the release's tag (`gh workflow run portal.yml --ref v0.2.0`) once the Central
-# Portal shows it published, since the plugin's own dependency, the `mutastic` command, comes from
-# Central. Run on the tag, as the `release` environment only lets tags deploy. The portal reviews a plugin's first version by hand
-# before it's listed. RELEASING.md has the steps.
+# The Gradle plugin to the Gradle Plugin Portal, by hand: release.yml's publish job does this once
+# Central serves the release, so this is for when that step failed and running it again won't do.
+# Started on the release's tag (`gh workflow run portal.yml --ref v0.2.0`), for a release already
+# published on Maven Central, since the plugin's own dependency, the `mutastic` command, comes from
+# Central. Run on the tag, as the `release` environment only lets tags deploy. The portal reviews
+# a plugin's first version by hand before it's listed. RELEASING.md has the steps.
 #
 # Secrets live in the `release` environment, so its required reviewer approves this too. Actions
 # are pinned to a commit: a tag can be moved.

@@ -1,35 +1,65 @@
-# A release, when one is published on GitHub with a tag like v0.1.0: every library signed and
-# uploaded to Maven Central, and the CLI's distribution and the SBOM attached to the release, each
-# attested as built here, at the tag. The upload isn't published: that's done by hand from the
-# Central Portal, where until then it can be dropped. Once published, a version can never be
-# changed or removed. RELEASING.md has the steps.
+# A release, from a pushed tag like v1.4.0, with one approval: everything is built, uploaded and
+# attached first, where it can still be thrown away, and only then is anything published.
 #
-# The tests aren't run again here. The merge queue ran them on this very tree, in parallel jobs,
-# before it landed on main; run whole on one runner they took 25 minutes for 1.0.0 and 52 for
-# 1.3.1, against a 60-minute limit. So only a commit main has and CI passed is released, and the
-# job builds what ships and runs the checks only a release can.
+#   1. tested: the tag's commit is on main, and CI passed on it.
+#   2. stage: what ships built once, its checks, the upload to Maven Central as a deployment that
+#      isn't published, and Central's validation of it. docs: the release's docs built.
+#   3. draft: the CLI's archives, SHA256SUMS and the SBOM attested and attached to a draft GitHub
+#      release, and a summary for the approver, made by .github/release-summary.sh.
+#   4. publish, behind the `release` environment's required reviewer: Central publishes the
+#      deployment (scripts/central.sh), repo1 serves it, then the Gradle plugin goes to the
+#      Plugin Portal, whose build resolves it from there.
+#   5. undraft: the GitHub release published, which the native mutastic and the Rust edition's
+#      release wait for; release-verify.yml started. deploy-docs: docs.mutastic.io. hold: the
+#      pull request that holds the next release to this one (scripts/hold-release.sh).
 #
-# Secrets live in the `release` environment, so a required reviewer can stand between a tag and
-# Central. Actions are pinned to a commit: a tag can be moved.
+# Rejected, or failed before Central published it, the deployment is dropped (`drop`), and
+# nothing was published: the draft and the tag can be deleted and the version tagged again. Once
+# Central has published it, it can never be changed or removed, so a failure after that is fixed
+# forward: run the failed job again, or release X.Y.Z+1. RELEASING.md has the steps.
+#
+# A tag starts it, not a release created as a draft: GitHub starts no workflow for a draft, and a
+# draft's tag isn't pushed until it's published. So the draft is made here, its assets attached
+# before anyone can download it, as an immutable release requires.
+#
+# The tests aren't run again here: the merge queue ran them on this very tree before it landed on
+# main, and run whole on one runner they took 52 minutes for 1.3.1. So only a commit main has and
+# CI passed is released.
+#
+# Secrets: `stage` (only v* tags may deploy to it, with no reviewer) has the signing key and the
+# tokens the upload and the portal's check need; `release` (v* tags, a required reviewer) has the
+# tokens that publish. Each is used only in the steps that need it, and no job with them can write
+# to the repository. Actions are pinned to a commit: a tag can be moved.
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    # vX.Y.Z only. A release candidate's tag, v1.4.0-rc1, is a GitHub pre-release and never goes to
+    # Central: `v*` alone matched it at 1.4.0. `tested` refuses any other tag that gets this far.
+    tags: ["v*", "!v*-*"]
 
 permissions:
   contents: read
 
 jobs:
-  # Before anyone is asked to approve: the tag's commit is on main, and CI passed on it, in the
-  # merge queue or on the push to main. Otherwise it says which run is missing or red.
+  # Before anything is built: the tag is a version, its commit is on main, and CI passed on it, in
+  # the merge queue or on the push to main. Otherwise it says which run is missing or red.
   tested:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read # to compare the commit with main
       actions: read # to read CI's runs
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
+      - name: The version, from the tag
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::tag $TAG isn't vX.Y.Z, so it isn't released"; exit 1; }
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: .github
@@ -38,17 +68,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: sh .github/release-tested.sh "$GITHUB_REPOSITORY" "$(git rev-parse HEAD)"
 
-  release:
+  # Built once, as it will ship; checked as only a release can be; uploaded to Central as a
+  # deployment that isn't published until `publish` says so, and validated there.
+  stage:
     needs: tested
     runs-on: ubuntu-latest
-    # 52 minutes for 1.3.1, when it ran the whole build; without the tests, about 5.
-    timeout-minutes: 20
-    environment: release
-    # The job with the publishing secrets writes nothing to the repository: `attach` does that.
+    # About 5 minutes to build, and Central's validation usually a few more.
+    timeout-minutes: 40
+    environment: stage
     permissions:
       contents: read
+    env:
+      VERSION: ${{ needs.tested.outputs.version }}
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      deployment: ${{ steps.upload.outputs.deployment }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
@@ -58,17 +91,8 @@ jobs:
             17
             25
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-      - name: The version, from the tag
-        id: version
-        env:
-          TAG: ${{ github.event.release.tag_name }}
-        run: |
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "tag $TAG isn't vX.Y.Z"; exit 1; }
-          echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
       # The notes are the release's section of CHANGELOG.md (RELEASING.md makes them with the same
-      # command). A tag with no section stops here, before anything is uploaded; `attach` gives
-      # them to a release created without notes.
+      # command). A tag with no section stops here, before anything is uploaded.
       - name: The notes, from CHANGELOG.md
         run: |
           mkdir -p "$RUNNER_TEMP/release/assets"
@@ -85,33 +109,27 @@ jobs:
           GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
         run: |
           for name in MAVEN_CENTRAL_USERNAME MAVEN_CENTRAL_PASSWORD SIGNING_KEY SIGNING_KEY_ID SIGNING_KEY_PASSWORD GRADLE_PUBLISH_KEY GRADLE_PUBLISH_SECRET; do
-            [[ -n "${!name}" ]] || { echo "the release environment has no $name secret"; exit 1; }
+            [[ -n "${!name}" ]] || { echo "::error::the stage environment has no $name secret (RELEASING.md, Once)"; exit 1; }
           done
       # What ships, built as it will be uploaded, so a broken javadoc stops it before anything
-      # leaves; and the plugin API compared with the last release's jar, from Central, which the
-      # merge queue's build compared too but a release must not skip. Every module's dependencies
-      # come from gradle.lockfile, as in CI, through the same wrapper.
+      # leaves; and the plugin API compared with the last release's jar, from Central. Every
+      # module's dependencies come from gradle.lockfile, as in CI, through the same wrapper.
       - name: Build what ships
         run: ./gradlew assemble javadoc checkApiCompatibility -PreleaseVersion="$VERSION"
-      # Its ids all kept, and its files within Central's budget (RELEASING.md step 1). CI ran these
-      # in the merge queue for a "chore(release)" commit; a tag on any other commit gets them here.
+      # Its ids all kept, and its files within Central's budget (RELEASING.md). The count goes to
+      # the approver's summary.
       - name: The ids, and the files on Central
-        run: sh scripts/release-check.sh --build "$VERSION"
-      # The Gradle Plugin Portal's own checks, before anything is uploaded anywhere: the portal
-      # publish itself waits for Central (portal.yml), since the plugin's jars come from there.
+        run: |
+          sh scripts/release-check.sh --build "$VERSION" | tee "$RUNNER_TEMP/release-check.txt"
+          sed -n 's/^ *A release uploads \([0-9]*\) files.*/\1/p' "$RUNNER_TEMP/release-check.txt" > "$RUNNER_TEMP/release/files"
+          [[ -s "$RUNNER_TEMP/release/files" ]] || { echo "::error::release-check didn't say how many files a release uploads"; exit 1; }
+      # The Gradle Plugin Portal's own checks, before anything is uploaded anywhere, so a plugin
+      # the portal would refuse costs no Central deployment. The publish waits for Central.
       - name: Check the Gradle plugin for the portal
         run: ./gradlew :mutastic-gradle-plugin:publishPlugins --validate-only -PreleaseVersion="$VERSION"
         env:
           GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
           GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
-      - name: Upload to Maven Central
-        run: ./gradlew publishToMavenCentral -PreleaseVersion="$VERSION"
-        env:
-          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
-          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
-          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
-          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
-          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
       # The CLI's distribution, with its checksums, which the native mutastic (mutastic-rs) checks
       # the download against when it fetches the Java edition; and what the release is made of, as
       # a CycloneDX SBOM. The SBOM goes to the GitHub release only: Central counts every file
@@ -125,29 +143,105 @@ jobs:
           cd "$assets"
           sha256sum mutastic-"$VERSION".zip mutastic-"$VERSION".tar > SHA256SUMS
           cat SHA256SUMS
+      # USER_MANAGED (`automaticRelease = false` in build.gradle.kts): Central validates the
+      # deployment and holds it until it's published or dropped. The plugin says the deployment's
+      # id as it uploads; the id is kept even when the build fails after that, so it's dropped.
+      - name: Upload to Maven Central
+        id: upload
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          status=0
+          ./gradlew publishToMavenCentral -PreleaseVersion="$VERSION" 2>&1 | tee "$RUNNER_TEMP/upload.txt" || status=$?
+          deployment=$(sed -nE 's/.*deployment id: ([0-9a-fA-F-]+).*/\1/p' "$RUNNER_TEMP/upload.txt" | tail -n 1)
+          echo "deployment=$deployment" >> "$GITHUB_OUTPUT"
+          if [[ -z "$deployment" ]]; then
+            echo "::error::the upload named no deployment id: if one is in the Central Portal, drop it there"
+            exit 1
+          fi
+          echo "Central deployment $deployment"
+          exit "$status"
+      - name: Central validates it
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          DEPLOYMENT: ${{ steps.upload.outputs.deployment }}
+        run: |
+          sh scripts/central.sh wait "$DEPLOYMENT" VALIDATED 30
+          sh scripts/central.sh status "$DEPLOYMENT" > "$RUNNER_TEMP/release/central.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release
           path: ${{ runner.temp }}/release
+      # Anything that failed after the upload leaves a deployment nothing will publish.
+      - name: Drop the deployment
+        if: failure() && steps.upload.outputs.deployment != ''
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          DEPLOYMENT: ${{ steps.upload.outputs.deployment }}
+        run: sh scripts/central.sh drop "$DEPLOYMENT"
 
-  # The assets attested and attached to the release, and the notes given to one created without.
-  # GitHub's signed record of where each asset was built, this workflow at the tag's commit, lets a
-  # download be checked against more than a SHA256SUMS made beside it (`gh attestation verify`,
-  # RELEASING.md's *Checking a download*): the archives SHA256SUMS lists, SHA256SUMS itself and
-  # the SBOM, and the SBOM as what the archives are made of. No secrets here, and no build.
-  attach:
-    needs: release
+  # docs.mutastic.io as this release will have it, every release line from its own tag, built
+  # before the approval so a page that fails to build (1.1.0's link checker) stops the release
+  # while it can be. `deploy-docs` deploys it once the GitHub release is out. No secrets.
+  docs:
+    needs: tested
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # every release's tag: each release's docs are built from its own
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - run: npm ci
+      - run: node scripts/build-versions.mjs --release
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: docs
+          path: docs/dist
+          include-hidden-files: true # a file whose name starts with a dot is deployed too
+
+  # The assets attested and attached to a draft release, with its notes, and the approver's
+  # summary. GitHub's signed record of where each asset was built, this workflow at the tag's
+  # commit, lets a download be checked against more than a SHA256SUMS made beside it (`gh
+  # attestation verify`, RELEASING.md's *Checking a download*). No secrets here, and no build.
+  draft:
+    needs: [tested, stage]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write # to attach the assets, and the notes, to the release
+      contents: write # to make the draft release
       id-token: write # to sign the attestations
       attestations: write # to keep them in the repository
-    # Nothing is checked out: the workspace holds only what the release job built.
     env:
+      VERSION: ${{ needs.tested.outputs.version }}
+      TAG: ${{ github.ref_name }}
       ASSETS: release/assets
-      SBOM: release/assets/mutastic-${{ needs.release.outputs.version }}.cdx.json
+      SBOM: release/assets/mutastic-${{ needs.tested.outputs.version }}.cdx.json
+      GH_TOKEN: ${{ github.token }}
     steps:
+      # The summary's script, and the release's own limit on its files, from the tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            .github
+            build.gradle.kts
+          sparse-checkout-cone-mode: false
+          path: tree
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release
@@ -167,13 +261,204 @@ jobs:
         with:
           subject-checksums: ${{ env.ASSETS }}/SHA256SUMS
           sbom-path: ${{ env.SBOM }}
-      - name: Attach them to the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
-          BODY: ${{ github.event.release.body }}
+      # A run again finds its own draft, and replaces what it attached; a published release is
+      # never touched.
+      - name: The draft release, its assets attached
+        id: draft
         run: |
-          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" "$ASSETS"/*
-          if [[ -z "${BODY//[[:space:]]/}" ]]; then
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file release/notes.md
+          if draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2> /dev/null); then
+            [[ "$draft" == true ]] || { echo "::error::$TAG is already published, so it isn't released again"; exit 1; }
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "$ASSETS"/*
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "$VERSION" --notes-file release/notes.md
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+              --title "$VERSION" --notes-file release/notes.md "$ASSETS"/*
           fi
+          echo "url=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url)" >> "$GITHUB_OUTPUT"
+      - name: The summary, for the approver
+        env:
+          DRAFT: ${{ steps.draft.outputs.url }}
+        run: |
+          sh tree/.github/release-summary.sh "$VERSION" "$PWD/release/central.json" "$(cat release/files)" \
+            "$PWD/release/notes.md" "$DRAFT" >> "$GITHUB_STEP_SUMMARY"
+
+  # The one approval: the `release` environment's required reviewer reads the summary, then
+  # approves or rejects. Central first, as everything else points at it; then the Plugin Portal,
+  # whose publish resolves the plugin's dependencies from repo1.
+  publish:
+    needs: [tested, stage, docs, draft]
+    runs-on: ubuntu-latest
+    # Central says publishing takes up to about half an hour, and repo1 can lag behind it.
+    timeout-minutes: 120
+    environment: release
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.tested.outputs.version }}
+      DEPLOYMENT: ${{ needs.stage.outputs.deployment }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Central publishes it
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+        run: |
+          sh scripts/central.sh publish "$DEPLOYMENT"
+          sh scripts/central.sh wait "$DEPLOYMENT" PUBLISHED 60
+      # Published isn't served: the Plugin Portal and everyone else download from repo1.
+      - name: repo1 serves it
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+        run: sh scripts/central.sh served "$DEPLOYMENT" 45
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            25
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      # The portal reviews a plugin's first version by hand before it's listed.
+      - name: Publish to the Gradle Plugin Portal
+        run: ./gradlew :mutastic-gradle-plugin:publishPlugins -PreleaseVersion="$VERSION"
+        env:
+          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
+
+  # The GitHub release published, once what it points at is: the native mutastic fetches its CLI,
+  # and the Rust edition's X.Y.0 is tagged after this. Latest only when it's the highest version,
+  # so a patch to an older line doesn't take that from the newest. A release published by this
+  # workflow's token starts no workflow, so release-verify.yml is started here.
+  undraft:
+    needs: [tested, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # to publish the release
+      actions: write # to start release-verify.yml
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+      VERSION: ${{ needs.tested.outputs.version }}
+    steps:
+      - name: Publish the GitHub release
+        run: |
+          newest=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases \
+            --limit 1000 --json tagName --jq '.[].tagName' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true)
+          highest=$({ printf '%s\n' "$newest"; echo "$TAG"; } | sort -V | tail -n 1)
+          latest=$([[ "$highest" == "$TAG" ]] && echo true || echo false)
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest="$latest"
+          echo "Published $TAG (latest: $latest): $(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url)"
+      - name: Start release-verify.yml
+        run: gh workflow run release-verify.yml --repo "$GITHUB_REPOSITORY" --ref main -f version="$VERSION" -f wait=60
+
+  # docs.mutastic.io, as `docs` built it, once the release it describes is out. The Cloudflare
+  # token is the repository's, shared with docs.yml's previews: an environment's would need a
+  # second approval here.
+  deploy-docs:
+    needs: [docs, undraft]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: docs
+          path: dist
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]] ||
+            { echo "::error::no Cloudflare secrets (docs/README.md): deploy with gh workflow run docs.yml --ref main -f release=true"; exit 1; }
+          npx --yes wrangler@4.151.1 pages deploy dist --project-name=mutastic-docs --branch=release
+
+  # The next release held to this one (RELEASING.md, after a release): scripts/hold-release.sh on
+  # a branch from main, and a pull request of its own, left for a person to read and merge.
+  hold:
+    needs: [tested, deploy-docs]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # to push the branch
+      pull-requests: write # to open the pull request
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.tested.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0 # the tags: the script takes each file from the release's
+      # exportIds builds the CLI.
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            25
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Hold the next release to this one
+        run: |
+          branch=hold/$VERSION
+          git switch -c "$branch"
+          sh scripts/hold-release.sh "$VERSION" | tee "$RUNNER_TEMP/hold.txt"
+          git add -A gradle.properties mutastic-report/src/test/resources/io/mutastic/report/released \
+            mutastic-cli/src/test/resources/rules mutastic-cli/src/test/resources/released mutastic-cli/src/test/ids
+          if git diff --cached --quiet; then
+            echo "Holding $VERSION changes nothing: main already holds it"
+            exit 0
+          fi
+          printf '%s\n' "build: hold the next release to $VERSION" "" \
+            "RELEASING.md's hold for $VERSION, now on Maven Central, written by" \
+            "scripts/hold-release.sh in release.yml: lastStableRelease=$VERSION," \
+            "and $VERSION's schemas, rules files, commands.json and mutastic.yaml" \
+            "files in place of the last release's." > "$RUNNER_TEMP/message"
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -q -F "$RUNNER_TEMP/message"
+          git push origin "$branch"
+          {
+            echo "The hold for $VERSION, opened by the release workflow once $VERSION was published."
+            echo "Read what the script said, add any key $VERSION added to the every-key"
+            echo "\`mutastic.yaml\`, and run it again for their \`.read\` (RELEASING.md)."
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/hold.txt"
+            echo '```'
+            echo
+            echo "A pull request this workflow's token opens starts no checks: close and reopen"
+            echo "it, then merge it with \`just merge\`."
+          } > "$RUNNER_TEMP/body.md"
+          title="build: hold the next release to $VERSION"
+          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" --title "$title" \
+            --body-file "$RUNNER_TEMP/body.md" || {
+            echo "::error::$branch is pushed, but the pull request wasn't opened (does Settings, Actions let workflows create pull requests?): gh pr create --base main --head $branch --title \"$title\""
+            exit 1
+          }
+
+  # Rejected, or failed anywhere before Central published it: the deployment is dropped, and
+  # nothing was published. Once Central has published it, drop refuses and says to fix forward.
+  # A failure in stage drops its own deployment there.
+  drop:
+    needs: [stage, docs, draft, publish]
+    if: always() && needs.stage.result == 'success' && needs.publish.result != 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: stage
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts
+      - name: Drop the deployment
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          DEPLOYMENT: ${{ needs.stage.outputs.deployment }}
+        run: sh scripts/central.sh drop "$DEPLOYMENT"
