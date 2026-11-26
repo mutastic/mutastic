@@ -34,7 +34,9 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    # vX.Y.Z only. A release candidate's tag, v1.4.0-rc1, is a GitHub pre-release and never goes to
+    # Central: `v*` alone matched it at 1.4.0. `tested` refuses any other tag that gets this far.
+    tags: ["v*", "!v*-*"]
 
 permissions:
   contents: read
