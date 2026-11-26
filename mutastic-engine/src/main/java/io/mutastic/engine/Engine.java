@@ -1623,7 +1623,9 @@ public final class Engine {
       var trial = new Trial(worker, mutant, bytes, coverage);
       var tested = shrunk(trial, testConfirmed(trial, covering));
       var inputs = coverage.inputs(mutant, covering);
-      var result = resultOf(trial, covering, tested, inputs);
+      var result =
+          resultOf(trial, covering, tested, inputs)
+              .withDuplicateClass(tested.run().unjudged().stream().findFirst());
       if (killMatrix && tested.run().status() == Status.CAUGHT) {
         result = result.withCaughtByAll(everyCatcher(trial, covering, tested.run(), staleState));
       }

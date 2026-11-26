@@ -1124,7 +1124,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "a2bd6221a5451389f2a0c7cc5b2995ea38c367c6a65774319edd5e319cecdcdd"
+      "sha256": "18958c565a86d2a9ea284ac0b35cf0e25ed21e15ad5dd601bb89852191b97e73"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1139,7 +1139,7 @@
     "reportAdditions": {
       "id": "mutastic.report/v1",
       "url": "https://docs.mutastic.io/schemas/report/v1.json",
-      "sha256": "2fce058d7d69302ffca450d459ad3b2736528f6955b13dc8d5e84e6c7f1dec54"
+      "sha256": "fb3f8aeae0defbcdc625a445f450d9d886a26baf981a3f44e01a7d6f9615688c"
     }
   },
   "events": {
@@ -1807,6 +1807,10 @@
     {
       "id": 29,
       "rule": "Everything after the first `--` on the command line goes, word for word, to the project's build tool on each build call mutastic makes: Gradle or Maven reading the setup, the modules and the dependents, and compiling the code and the tests; Cargo checking and building them. It never goes to the tests or the JVM or process they run in. One syntax for every build tool, `mutastic run DIR -- ARG...`, where nothing after the `--` is read as mutastic's own option, directory or id. Every command takes it, `gate close` and `ignore` among them, since an edition may read the build for any; one that happens to build nothing has no use for it. `MUTASTIC_BUILD_ARGS` gives the same, split at spaces, with single or double quotes around a word that has some, a backslash kept as it is and nothing expanded; mutastic.yaml's `build:` has it as `args:`, a list, from the nearest file at or above the module's directory (found before the build is read, by the module's path; where no such directory is, as for a Gradle module with a `projectDir` of its own, the run's directory), and of a file and the one it `extends:` the nearer that has `args:`. The first of the three that's given is used whole, in place of the others, never added to them: the command line, the variable (blank is not given), the file. A bare `--` at the end gives none, so it turns the others off. An argument that fights how mutastic drives the build is refused before anything is built, named without its value and with the reason, as `option-value` from the command line, `environment` from the variable and `config`, with its line, from the file: one that chooses tests, what's built or where (a task, goal or target, the project's or module's directory, the profile), one that stops the build from running or never ends it (a dry run, a continuous build, help), and one that changes output mutastic reads. Each command mutastic offers to copy ends in the `--` and the arguments typed after it, each word quoted for a shell, as does a mistyped line corrected; arguments from the variable or the file apply by themselves and are never repeated, so a secret belongs in the build tool's own settings or the variable. Their values are in no event, report or record except as part of such a command. A run built with other arguments is never `same code` as the last, and `next` starts its queue again: an HMAC of the arguments, in order, under a random key is part of the code's hash in the run record and of the queue's key, and with none each is as it was. The key is a file of the module's work directory only its owner reads, in no record, share or report, so a short secret can't be guessed from a hash. Shares and `--from-shards` never use the key, which differs between jobs: shares are matched by their code, the compiled classes' in Java, and in Rust the sources' with the features the arguments turn on, so shares built with other features are refused. A word that isn't an option is refused without being said, as it may be a value. `gate check` doesn't use what `gate open` was given, which goes only to its count of the task's start and into no file: a hooked check gets the variable's or the file's. Gradle's `-x` is refused for a task that builds classes or resources (a compile task, `classes`, `testClasses`, `jar`, by path or written short) and taken for any other; Maven's `-Dmaven.main.skip`, `-Dmaven.test.skip`, `-Dmaven.resources.skip` and `--fail-never` are refused for the same reason. Where features choose code, Cargo's `--features`, `--all-features` and `--no-default-features` decide which code is mutated too."
+    },
+    {
+      "id": 30,
+      "rule": "A test that fails against a mutant only because the JVM refused a class as defined twice in one loader (`LinkageError: ... attempted duplicate class definition`, anywhere in its causes or what they suppressed) has judged nothing, so it isn't a catch: the run goes on to the mutant's other covering tests, which decide it, and the result names the test as `duplicateClassBy` in `mutant-finished` and as `mutastic.duplicateClassBy` in mutation.json. A card says it: `<test> failed against it, but only on a class mutastic's worker defined twice, which the build never does: that catch doesn't count`. Only an edition whose tests run in loaders of its own can see such a failure: the build runs every test under one loader, and a library that keeps what it generated by the thread's context class loader (Spring 5's CGLIB proxies) defines it again under each run's."
     }
   ],
   "differences": [
@@ -2504,6 +2508,16 @@
       "summary": "mutastic.yaml's `timeout-ceiling:` and a mutant's limit taken from each covering test's own time, side by side, not their summed coverage time: the Rust edition has them first",
       "issue": "https://github.com/mutastic/mutastic/issues/207",
       "decision": 26
+    },
+    {
+      "id": "N81",
+      "kind": "engine",
+      "editions": [
+        "java"
+      ],
+      "surface": "events",
+      "summary": "`duplicateClassBy`: a test that failed only on a class defined twice, which isn't a catch (decision 30)",
+      "reason": "The Java edition runs each mutant's tests in class loaders of its own, so a library can define a class twice there. Rust's tests have no class loaders, so nothing fails that way."
     }
   ]
 }

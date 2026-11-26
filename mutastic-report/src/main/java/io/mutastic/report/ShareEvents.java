@@ -140,7 +140,8 @@ public final class ShareEvents {
             strings(fields, "caughtByAll"))
         .withCaughtCase(object(fields, "caughtCase").map(ShareEvents::caughtCase))
         .withCaughtInput(text(fields, "caughtInput"))
-        .withFlakyCatch(text(fields, "flakyCatchBy"));
+        .withFlakyCatch(text(fields, "flakyCatchBy"))
+        .withDuplicateClass(text(fields, "duplicateClassBy"));
   }
 
   private static io.mutastic.api.TestCase caughtCase(Map<String, Object> fields) {

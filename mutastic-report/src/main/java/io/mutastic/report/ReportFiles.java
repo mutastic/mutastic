@@ -427,6 +427,7 @@ public final class ReportFiles {
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
     result.caughtInput().ifPresent(input -> fields.put("caughtInput", input));
     result.flakyCatchBy().ifPresent(test -> fields.put("flakyCatchBy", test));
+    result.duplicateClassBy().ifPresent(test -> fields.put("duplicateClassBy", test));
     Explanation.arid(result.mutant(), docs)
         .ifPresent(
             arid -> {

@@ -266,6 +266,7 @@ public final class JsonEvents {
     result.unconfirmed().ifPresent(test -> fields.put("unconfirmedCatchBy", test));
     result.falseCatchBy().ifPresent(test -> fields.put("falseCatchBy", test));
     result.flakyCatchBy().ifPresent(test -> fields.put("flakyCatchBy", test));
+    result.duplicateClassBy().ifPresent(test -> fields.put("duplicateClassBy", test));
   }
 
   /// `{"test": "a.BTest#adds(int, int, int)", "index": 2, "name": "[2] 2, 3, 5"}`: the case of the

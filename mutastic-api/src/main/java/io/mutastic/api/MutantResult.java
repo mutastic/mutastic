@@ -36,6 +36,10 @@ import java.util.Optional;
 /// @param flakyCatchBy a test the run named likely flaky that had caught the mutant, so its catch
 ///   doesn't count: the mutant ran again without it, and this result is what the other covering
 ///   tests made of it (decision 27). [#falseCatchBy] instead when the test failed on its own.
+/// @param duplicateClassBy a test that failed against the mutant only on a class the JVM refused as
+///   defined twice, which the worker's class loaders cause and the build never sees: that failure
+///   judged nothing, so it isn't a catch, and the mutant's other covering tests decide it (decision
+///   30)
 @Internal
 public record MutantResult(
     Mutant mutant,
@@ -53,12 +57,51 @@ public record MutantResult(
     List<String> caughtByAll,
     Optional<TestCase> caughtCase,
     Optional<String> caughtInput,
-    Optional<String> flakyCatchBy) {
+    Optional<String> flakyCatchBy,
+    Optional<String> duplicateClassBy) {
 
   public MutantResult {
     coveredBy = listed(mutant, coveredBy);
     inputs = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(inputs));
     caughtByAll = List.copyOf(caughtByAll);
+  }
+
+  /// A result no test failed against only on a class defined twice.
+  public MutantResult(
+      Mutant mutant,
+      Status status,
+      List<String> coveredBy,
+      Optional<String> caughtBy,
+      Optional<String> failure,
+      Optional<String> failureOrigin,
+      int testsRun,
+      Optional<String> unconfirmed,
+      java.util.Map<String, List<Long>> inputs,
+      Optional<Suggestion> suggestion,
+      Duration took,
+      Optional<String> falseCatchBy,
+      List<String> caughtByAll,
+      Optional<TestCase> caughtCase,
+      Optional<String> caughtInput,
+      Optional<String> flakyCatchBy) {
+    this(
+        mutant,
+        status,
+        coveredBy,
+        caughtBy,
+        failure,
+        failureOrigin,
+        testsRun,
+        unconfirmed,
+        inputs,
+        suggestion,
+        took,
+        falseCatchBy,
+        caughtByAll,
+        caughtCase,
+        caughtInput,
+        flakyCatchBy,
+        Optional.empty());
   }
 
   /// A result whose catch no test named likely flaky took away.
@@ -283,7 +326,8 @@ public record MutantResult(
         caughtByAll,
         caughtCase,
         caughtInput,
-        flakyCatchBy);
+        flakyCatchBy,
+        duplicateClassBy);
   }
 
   /// The same result with a suggested test.
@@ -304,7 +348,8 @@ public record MutantResult(
         caughtByAll,
         caughtCase,
         caughtInput,
-        flakyCatchBy);
+        flakyCatchBy,
+        duplicateClassBy);
   }
 
   /// The same result, its catch by `test` found false: the mutant's result without that test.
@@ -325,7 +370,8 @@ public record MutantResult(
         caughtByAll,
         caughtCase,
         caughtInput,
-        flakyCatchBy);
+        flakyCatchBy,
+        duplicateClassBy);
   }
 
   /// The same result, with every covering test that catches it (`--kill-matrix`).
@@ -346,7 +392,8 @@ public record MutantResult(
         tests,
         caughtCase,
         caughtInput,
-        flakyCatchBy);
+        flakyCatchBy,
+        duplicateClassBy);
   }
 
   /// The same result, naming the case of its catcher that failed.
@@ -367,7 +414,8 @@ public record MutantResult(
         caughtByAll,
         failed,
         caughtInput,
-        flakyCatchBy);
+        flakyCatchBy,
+        duplicateClassBy);
   }
 
   /// The same result, naming the input its catcher, a property test, failed on.
@@ -388,7 +436,8 @@ public record MutantResult(
         caughtByAll,
         caughtCase,
         input,
-        flakyCatchBy);
+        flakyCatchBy,
+        duplicateClassBy);
   }
 
   /// The same result, its catch by `test` not counted if a test is given: as a share's events say.
@@ -415,6 +464,33 @@ public record MutantResult(
         caughtByAll,
         caughtCase,
         caughtInput,
-        Optional.of(test));
+        Optional.of(test),
+        duplicateClassBy);
+  }
+
+  /// The same result, naming `test` as having failed against it only on a class defined twice, if a
+  /// test is given: as a share's events say, or a run found.
+  public MutantResult withDuplicateClass(Optional<String> test) {
+    return test.map(
+            named ->
+                new MutantResult(
+                    mutant,
+                    status,
+                    coveredBy,
+                    caughtBy,
+                    failure,
+                    failureOrigin,
+                    testsRun,
+                    unconfirmed,
+                    inputs,
+                    suggestion,
+                    took,
+                    falseCatchBy,
+                    caughtByAll,
+                    caughtCase,
+                    caughtInput,
+                    flakyCatchBy,
+                    Optional.of(named)))
+        .orElse(this);
   }
 }

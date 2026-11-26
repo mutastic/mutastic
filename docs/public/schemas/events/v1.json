@@ -339,6 +339,10 @@
           "$ref": "#/$defs/test",
           "description": "A test named likely flaky in this run that had caught the mutant, so its catch doesn't count (decision 27): the mutant ran again without it, and this result is what the other covering tests made of it. In `mutant-revised`; `falseCatchBy` instead when the test failed on its own."
         },
+        "duplicateClassBy": {
+          "$ref": "#/$defs/test",
+          "description": "A test that failed against the mutant only because the JVM refused a class as defined twice, which the Java edition's class loaders cause and the build never sees: that failure judged nothing, so it isn't a catch, and the mutant's other covering tests decided this result (decision 30)."
+        },
         "falseCatchBy": {
           "$ref": "#/$defs/test",
           "description": "A test that failed against the mutant and then failed on its own with no mutant in, so its catch wasn't the mutant's: the mutant ran again without it, and this result is what the other covering tests made of it. Only when the test that caught it turned out that way: in `mutant-revised`, or with `--tests-from` in the `mutant-finished` that comes at the end."

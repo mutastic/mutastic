@@ -587,7 +587,7 @@ public final class AgentText {
   }
 
   private static String coveredBy(MutantResult result) {
-    return "   %s; all still pass with the change%s%s%s"
+    return "   %s; all still pass with the change%s%s%s%s"
         .formatted(
             testsRun(result, ": "),
             result
@@ -595,7 +595,11 @@ public final class AgentText {
                 .map(test -> " (%s failed once, then passed: flaky)".formatted(shortName(test)))
                 .orElse(""),
             result.falseCatchBy().map(test -> " (%s)".formatted(falseCatch(test))).orElse(""),
-            result.flakyCatchBy().map(test -> " (%s)".formatted(flakyCatch(test))).orElse(""));
+            result.flakyCatchBy().map(test -> " (%s)".formatted(flakyCatch(test))).orElse(""),
+            result
+                .duplicateClassBy()
+                .map(test -> " (%s)".formatted(duplicateClass(test)))
+                .orElse(""));
   }
 
   /// For a mutant that only tests named likely flaky reached, which were left out of it: `only
@@ -649,6 +653,14 @@ public final class AgentText {
   /// What a mutant's card says of the likely flaky test whose catch of it didn't count.
   static String flakyCatch(String test) {
     return "%s failed against it, but it's likely flaky: that catch doesn't count"
+        .formatted(shortName(test));
+  }
+
+  /// What a mutant's card says of the test that failed against it only on a class the JVM refused
+  /// as defined twice: the worker's loaders, never the mutant, cause that.
+  static String duplicateClass(String test) {
+    return ("%s failed against it, but only on a class mutastic's worker defined twice, which the"
+            + " build never does: that catch doesn't count")
         .formatted(shortName(test));
   }
 
