@@ -11,6 +11,8 @@ import org.jspecify.annotations.Nullable;
 /// - Kotest's property tests read `PropertyTesting.defaultShrinkingMode` for each property: set to
 ///   `ShrinkingMode.Off`. Kotest 6 also reads a system property for it, but only once, as it
 ///   starts, and Kotest 5 none.
+/// - proptastic reads the system property `proptastic.shrink` as each property starts: `false`
+///   reports the first counterexample found.
 /// - junit-quickcheck shrinks as its `@Property(shrink=…)` says, which nothing outside the test
 ///   sets.
 ///
@@ -18,7 +20,11 @@ import org.jspecify.annotations.Nullable;
 final class Shrinking {
   private static final String QT_SHRINKS = "QT_SHRINKS";
 
+  private static final String PROPTASTIC_SHRINK = "proptastic.shrink";
+
   private final @Nullable String theirShrinks = System.getProperty(QT_SHRINKS);
+
+  private final @Nullable String theirProptastic = System.getProperty(PROPTASTIC_SHRINK);
 
   /// Kotest's `PropertyTesting`, once looked for: empty when the tests don't use Kotest.
   private @Nullable Kotest kotest;
@@ -35,9 +41,11 @@ final class Shrinking {
   void set(boolean shrink) {
     off = !shrink;
     if (shrink) {
-      restore(theirShrinks);
+      restore(QT_SHRINKS, theirShrinks);
+      restore(PROPTASTIC_SHRINK, theirProptastic);
     } else {
       System.setProperty(QT_SHRINKS, "0");
+      System.setProperty(PROPTASTIC_SHRINK, "false");
     }
     var found = kotest();
     if (found != null) {
@@ -50,11 +58,11 @@ final class Shrinking {
     return off;
   }
 
-  private static void restore(@Nullable String shrinks) {
-    if (shrinks == null) {
-      System.clearProperty(QT_SHRINKS);
+  private static void restore(String key, @Nullable String theirs) {
+    if (theirs == null) {
+      System.clearProperty(key);
     } else {
-      System.setProperty(QT_SHRINKS, shrinks);
+      System.setProperty(key, theirs);
     }
   }
 

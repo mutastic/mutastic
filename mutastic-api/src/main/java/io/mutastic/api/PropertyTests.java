@@ -1,11 +1,17 @@
 package io.mutastic.api;
 
+import java.io.IOException;
+import java.math.BigInteger;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
+import java.util.zip.ZipFile;
 import org.jspecify.annotations.Nullable;
 
 /// The property-testing frameworks a module's tests use, and the seed a run draws their inputs
@@ -23,11 +29,16 @@ import org.jspecify.annotations.Nullable;
 /// - Kotest's property tests read `kotest.proptest.default.seed`, unless a test's own
 ///   `PropTestConfig` names a seed.
 /// - junit-quickcheck seeds a parameter only from its `@When(seed=…)`, in the source.
+/// - proptastic reads `proptastic.seed` as each property starts, over the environment's
+///   `PROPTASTIC_SEED`, unless the chain says `.seed(n)`: `0x` and hex digits only, as its failures
+///   print seeds. It's found by its entry point's class on the test classpath, whatever its jar is
+///   called, and its random stream is keyed on the test method's signature, never its class, so a
+///   renamed copy of a test class draws what the class does.
 /// - jqwik is only detected, never seeded or read from: its tests run as ordinary tests.
 ///
 /// @param frameworks the frameworks the tests use, by name, in [Framework]'s order
 /// @param seed the seed every test JVM is given, decimal: the person's, else `0`; empty when no
-///   framework the tests use takes one
+///   framework the tests use takes one. proptastic is given it as `0x` and hex digits
 /// @param seeded the frameworks that draw from `seed`
 /// @param unseeded the frameworks whose seed can't be set from outside the test
 @Internal
@@ -46,6 +57,22 @@ public record PropertyTests(
   /// mutant's failure doesn't write to the person's home directory.
   static final String WRITE_FAILED = "kotest.proptest.seed.write-failed";
 
+  /// What every test JVM gives proptastic besides its seed, so a run's inputs hang on the code and
+  /// the seed alone, and it writes none of the person's files: no saved failures replayed first or
+  /// saved (a mutant's failure would decide the runs after it), no events (a mutant's would
+  /// overwrite the person's), no corpus, read or written (one that grew between two runs would make
+  /// them draw differently with the code unchanged), and no colour, so its report reads as text
+  /// whatever the person set.
+  static final List<String> PROPTASTIC_OFF =
+      List.of(
+          "-Dproptastic.replay=false",
+          "-Dproptastic.events=false",
+          "-Dproptastic.corpus=off",
+          "-Dproptastic.color=never");
+
+  /// The class proptastic is found by: its entry point, `forAll`'s.
+  static final String PROPTASTIC_ENTRY = "io/proptastic/Proptastic.class";
+
   public PropertyTests {
     frameworks = List.copyOf(frameworks);
     seeded = List.copyOf(seeded);
@@ -59,6 +86,7 @@ public record PropertyTests(
     JUNIT_QUICKCHECK("junit-quickcheck", null),
     QUICKTHEORIES("quicktheories", "QT_SEED"),
     KOTEST("kotest", "kotest.proptest.default.seed"),
+    PROPTASTIC("proptastic", "proptastic.seed"),
     JQWIK("jqwik", null);
 
     private final String said;
@@ -69,16 +97,38 @@ public record PropertyTests(
       this.seedProperty = seedProperty;
     }
 
-    /// Whether `jar`, a test classpath entry, is one of this framework's: by its file name, and for
-    /// jqwik by its group's directory in a Gradle or Maven cache too.
+    /// Whether `jar`, a test classpath entry, is one of this framework's: by its file name, for
+    /// jqwik by its group's directory in a Gradle or Maven cache too, and for proptastic by its
+    /// entry point's class, in a jar or a directory of classes.
     boolean holds(Path jar) {
       var name = jar.getFileName() == null ? "" : jar.getFileName().toString();
       return switch (this) {
         case JUNIT_QUICKCHECK -> name.startsWith("junit-quickcheck-");
         case QUICKTHEORIES -> name.startsWith("quicktheories-");
         case KOTEST -> name.startsWith("kotest-property");
+        case PROPTASTIC -> holdsClass(jar, PROPTASTIC_ENTRY);
         case JQWIK -> name.startsWith("jqwik-") || jqwikGroup(jar);
       };
+    }
+
+    /// Whether a classpath entry, a jar or a directory, holds the class file `entry`: looked at
+    /// once a run for each entry.
+    private static boolean holdsClass(Path jar, String entry) {
+      return LOOKED.computeIfAbsent(jar.toAbsolutePath().normalize(), path -> lookIn(path, entry));
+    }
+
+    private static boolean lookIn(Path path, String entry) {
+      if (Files.isDirectory(path)) {
+        return Files.isRegularFile(path.resolve(entry));
+      }
+      if (!Files.isRegularFile(path)) {
+        return false;
+      }
+      try (var zip = new ZipFile(path.toFile())) {
+        return zip.getEntry(entry) != null;
+      } catch (IOException e) {
+        return false;
+      }
     }
 
     private static boolean jqwikGroup(Path jar) {
@@ -87,13 +137,18 @@ public record PropertyTests(
     }
   }
 
+  /// Whether each classpath entry looked in holds proptastic's entry point.
+  private static final Map<Path, Boolean> LOOKED = new ConcurrentHashMap<>();
+
   /// The property tests of `project`, when its tests use a framework: none otherwise.
   public static Optional<PropertyTests> of(Project project) {
     return of(project.dependencies(), project.jvmArgs());
   }
 
   /// The property tests of a test classpath, `dependencies`, run with `jvmArgs`: the person's seed
-  /// is the first of the frameworks' seed properties they set there, as a whole number.
+  /// is the first of the frameworks' seed properties they set there, as a whole number, or for
+  /// proptastic as `0x` and hex digits. proptastic's `PROPTASTIC_SEED` isn't read: the system
+  /// property every test JVM is given beats it.
   static Optional<PropertyTests> of(List<Path> dependencies, List<String> jvmArgs) {
     var used =
         Arrays.stream(Framework.values())
@@ -122,16 +177,34 @@ public record PropertyTests(
         || !property(jvmArgs, FAIL_IF_SEEDED).orElse("").equals("true");
   }
 
-  /// The person's seed, the first of `seeded`'s they set as a whole number; else [#SEED].
+  /// The person's seed, decimal, the first of `seeded`'s they set as that framework reads one; else
+  /// [#SEED].
   private static String seed(List<Framework> seeded, List<String> jvmArgs) {
     return seeded.stream()
-        .flatMap(framework -> property(jvmArgs, requireSeedProperty(framework)).stream())
-        .filter(WHOLE.asMatchPredicate())
+        .flatMap(framework -> personsSeed(framework, jvmArgs).stream())
         .findFirst()
         .orElse(SEED);
   }
 
+  /// The seed the person set for `framework`, decimal, if it's one the framework reads: a whole
+  /// number, or for proptastic `0x` and hex digits.
+  private static Optional<String> personsSeed(Framework framework, List<String> jvmArgs) {
+    var set = property(jvmArgs, requireSeedProperty(framework));
+    if (framework != Framework.PROPTASTIC) {
+      return set.filter(WHOLE.asMatchPredicate());
+    }
+    return set.map(String::strip)
+        .filter(HEX.asMatchPredicate())
+        .map(hex -> new BigInteger(hex.substring(2), 16).toString());
+  }
+
   private static final Pattern WHOLE = Pattern.compile("[0-9]+");
+
+  /// A seed as proptastic reads it.
+  private static final Pattern HEX = Pattern.compile("0[xX][0-9a-fA-F]{1,16}");
+
+  /// The low 64 bits, as proptastic's seed has.
+  private static final BigInteger LONG_BITS = BigInteger.ONE.shiftLeft(64).subtract(BigInteger.ONE);
 
   private static String requireSeedProperty(Framework framework) {
     return java.util.Objects.requireNonNull(framework.seedProperty, framework.said);
@@ -151,18 +224,30 @@ public record PropertyTests(
   }
 
   /// What every test JVM of the run is given, after the project's own arguments so it's the one
-  /// seed: each seeded framework's seed property, and Kotest's saved failures off.
+  /// seed: each seeded framework's seed property, Kotest's saved failures off, and proptastic's
+  /// saved failures, events, corpus and colour off.
   public List<String> jvmArgs() {
     var args = new ArrayList<String>();
     for (var framework : Framework.values()) {
       if (seeded.contains(framework.said) && seed.isPresent()) {
-        args.add("-D" + requireSeedProperty(framework) + "=" + seed.get());
+        args.add("-D" + requireSeedProperty(framework) + "=" + said(framework, seed.get()));
       }
     }
     if (frameworks.contains(Framework.KOTEST.said)) {
       args.add("-D" + WRITE_FAILED + "=false");
     }
+    if (frameworks.contains(Framework.PROPTASTIC.said)) {
+      args.addAll(PROPTASTIC_OFF);
+    }
     return List.copyOf(args);
+  }
+
+  /// The seed as `framework` reads it: proptastic only as `0x` and hex digits, as its failures
+  /// print seeds (it refuses a bare number), of the low 64 bits; the others decimal.
+  private static String said(Framework framework, String seed) {
+    return framework == Framework.PROPTASTIC
+        ? "0x" + new BigInteger(seed).and(LONG_BITS).toString(16)
+        : seed;
   }
 
   /// The note a run ends with when some of the tests' frameworks can't be seeded, on stderr: their
