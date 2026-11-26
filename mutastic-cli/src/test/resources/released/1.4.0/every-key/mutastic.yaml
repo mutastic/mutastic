@@ -19,3 +19,6 @@ gate:
 exclude-tests:
   - test: com.acme.ClockTest#tickTock  # a test to leave out of every run
     reason: depends on the wall clock
+build:
+  args:
+    - --offline                      # given to the build tool on each build call, never the tests

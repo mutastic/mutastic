@@ -56,13 +56,29 @@
           "test": {
             "type": "string",
             "minLength": 1,
-            "description": "The test, as `--exclude-tests` takes it: in Java a class by its name or full name, or one method of it, `Class#method`; in Rust a test's name as a run shows it, or a module of tests by its path.",
+            "description": "The test, as `--exclude-tests` takes it: in Java a class by its name or full name, one method of it, `Class#method`, or one overload by its parameter types, `Class#method(Cart, int)`; in Rust a test's name as a run shows it, or a module of tests by its path.",
             "examples": ["CheckoutRaceTest", "com.acme.CheckoutRaceTest#paysOnce", "checkout::tests::pays_once"]
           },
           "reason": {
             "type": "string",
             "minLength": 1,
             "description": "Why it's left out: shown with it in the summary and in `run-finished`."
+          }
+        }
+      }
+    },
+    "build": {
+      "type": ["object", "null"],
+      "description": "What mutastic gives the build tool when it builds the project.",
+      "additionalProperties": false,
+      "properties": {
+        "args": {
+          "type": ["array", "null"],
+          "description": "Arguments for Gradle, Maven or Cargo on each build call, and never for the tests. `MUTASTIC_BUILD_ARGS`, and what follows `--` on the command line, replace them.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "examples": ["--offline", "-Pci", "--features=postgres"]
           }
         }
       }
@@ -82,6 +98,12 @@
           }
         }
       }
+    },
+    "timeout-ceiling": {
+      "type": "string",
+      "pattern": "^[0-9]+[smh]$",
+      "description": "The most one mutant's tests may take in all, a whole number above 0 with its unit: a mutant stopped there is timed out, with a note that says so. Without it, ten minutes or twenty times the suite's own time, whichever is longer. The Rust edition reads it; the Java edition doesn't yet.",
+      "examples": ["30m", "90s", "2h"]
     }
   },
   "$defs": {
