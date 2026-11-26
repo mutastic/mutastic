@@ -60,6 +60,43 @@ class MutantListTest {
         .endsWith("Pricing.discount()\nestimate: a note\n1 mutants\n");
   }
 
+  /// A run skips a mutant a tool wrote, so the list leaves it out and doesn't count it; a class
+  /// with no source in the roots is named by its own path, a `$` at its start kept.
+  @Test
+  void generatedMutantsArentListed() {
+    var own = mutant("com/example/$Cache", Optional.empty());
+    var generated =
+        mutant("com/example/$Cache$Definition", Optional.of("generated: @Generated on `size()`"));
+    var arid = mutant("com/example/$Cache", Optional.of("arid: a trivial getter"));
+    var list = new MutantList(new SourceView(project, List.of()));
+
+    assertThat(list.of(List.of(own, generated, arid)))
+        .isEqualTo(
+            """
+            %s com/example/$Cache.java:3:1 mutastic/return-value returns 0 instead in \
+            $Cache.size()
+            %s com/example/$Cache.java:3:1 mutastic/return-value returns 0 instead in \
+            $Cache.size()
+            2 mutants
+            """
+                .formatted(own.id(), arid.id()));
+  }
+
+  private static Mutant mutant(String className, Optional<String> skipped) {
+    return new Mutant(
+        className,
+        "size",
+        "()I",
+        skipped.map(String::length).orElse(0),
+        3,
+        BuiltIn.RETURN_VALUE,
+        "IRETURN",
+        "return 0",
+        skipped,
+        List.of(),
+        List.of());
+  }
+
   @Test
   void noMutantsIsACountOfNone() {
     var list = new MutantList(new SourceView(project, List.of()));

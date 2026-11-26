@@ -1808,7 +1808,7 @@ public final class Engine {
         String receiver, Trial trial, Map<String, List<Long>> inputs, Tests tests) {
       var mutant = trial.mutant();
       var shape = CallShape.of(mutant, receiver);
-      if (!shape.takesWholeNumbers()) {
+      if (!shape.takesWholeNumbers() || !writtenAsDeclared(shape)) {
         return Optional.empty();
       }
       var kotlin = isKotlin(mutant) ? kotlinCall(mutant) : Optional.<KotlinCall>empty();
@@ -1822,6 +1822,17 @@ public final class Engine {
           .worker()
           .suggest(mutant, receiver, trial.bytes(), candidates)
           .map(found -> suggestion(shape, found, kotlin, target));
+    }
+
+    /// Whether the call names each class it's on as the source declares it: not a top-level class
+    /// whose name holds a `$`, such as a framework's `$Cache$Definition`, which it would write as
+    /// nested, in a test that wouldn't compile.
+    private boolean writtenAsDeclared(CallShape shape) {
+      var named = new ArrayList<String>(List.of(shape.mutant().className()));
+      shape.receiver().forEach(made -> named.add(made.className()));
+      synchronized (mutations) {
+        return JavaNames.writtenAsDeclared(named, models);
+      }
     }
 
     /// The test class a suggestion goes in, and the tests that reach the mutant, first listed
@@ -2003,13 +2014,13 @@ public final class Engine {
 
         /// `Shipping(10)`, or `.Parcel(30)` for an inner class.
         String kotlin(List<Long> arguments) {
-          var nested = className.substring(className.lastIndexOf('/') + 1).replace('$', '.');
+          var nested = JavaNames.nestedOf(className);
           return (inner ? ".%s(%s)" : "%s(%s)")
               .formatted(inner ? simpleName() : nested, literals(parameters(), arguments));
         }
 
         String written(List<Long> arguments, Map<Integer, String> instead) {
-          var nested = className.substring(className.lastIndexOf('/') + 1).replace('$', '.');
+          var nested = JavaNames.nestedOf(className);
           return (inner ? ".new %s(%s)" : "new %s(%s)")
               .formatted(
                   inner ? simpleName() : nested,
@@ -2105,7 +2116,7 @@ public final class Engine {
         var on = new StringBuilder();
         if (call.kind() == KotlinCall.Kind.ON_THE_CLASS) {
           var className = mutant.className();
-          on.append(className.substring(className.lastIndexOf('/') + 1).replace('$', '.'));
+          on.append(JavaNames.nestedOf(className));
         }
         var each = eachArguments(receiverArguments);
         for (int index = 0; index < receiver.size(); index++) {
@@ -2122,7 +2133,7 @@ public final class Engine {
         var on = new StringBuilder();
         if (receiver.isEmpty()) {
           var className = mutant.className();
-          on.append(className.substring(className.lastIndexOf('/') + 1).replace('$', '.'));
+          on.append(JavaNames.nestedOf(className));
         }
         var each = eachArguments(receiverArguments);
         for (int index = 0; index < receiver.size(); index++) {

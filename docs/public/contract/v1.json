@@ -2499,6 +2499,16 @@
       "reason": "Java's `mapConcurrent` runs its calls on virtual threads and keeps their order, so how many run at once changes only how long they take. Rust has no gatherers, so nothing to skip."
     },
     {
+      "id": "N89",
+      "kind": "engine",
+      "editions": [
+        "java"
+      ],
+      "surface": "human output",
+      "summary": "`mutants` leaves out, and doesn't count, the mutants a run skips as generated: classes marked `@Generated` (Micronaut's `$Bean$Definition`), and code javac, kotlinc or Lombok wrote",
+      "reason": "The Java edition reads class files, which hold what tools wrote beside the code's own, and a run skips it by what the class file says. The Rust edition reads the source a person wrote."
+    },
+    {
       "id": "N80",
       "kind": "pending",
       "editions": [

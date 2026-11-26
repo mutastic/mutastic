@@ -549,9 +549,7 @@ public final class HumanText {
 
   /// The class a source file is named for: nested classes share their outer class's file.
   private static String outerClass(Mutant mutant) {
-    var name = mutant.className();
-    int dollar = name.indexOf('$', name.lastIndexOf('/') + 1);
-    return dollar < 0 ? name : name.substring(0, dollar);
+    return SourceNames.outerClass(mutant.className());
   }
 
   /// A missed mutant in full: the label and the gap, the code with the change marked, the mutant as
