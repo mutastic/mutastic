@@ -7,13 +7,22 @@ import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideOutsid
 import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.name;
 import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.nameMatching;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaField;
+import com.tngtech.archunit.core.domain.JavaModifier;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.lang.ConditionEvents;
+import com.tngtech.archunit.lang.SimpleConditionEvent;
+import java.util.List;
 import java.util.regex.Matcher;
 
 /// The rules from AGENTS.md that a compiler can't see: which layer may know about which, and the
@@ -195,4 +204,118 @@ class ArchitectureTest {
           .callMethod(Matcher.class, "start", int.class)
           .orShould()
           .callMethod(Matcher.class, "end", int.class);
+
+  /// Every package of ours is one a rule above is about, so a new one starts out under a rule, not
+  /// beside them all. The CLI may use anything: nothing may use it.
+  @ArchTest
+  static final ArchRule everyPackageHasItsRule =
+      classes()
+          .that()
+          .resideInAPackage("io.mutastic..")
+          .should()
+          .resideInAnyPackage(
+              "io.mutastic.annotations..",
+              "io.mutastic.api..",
+              "io.mutastic.cli..",
+              "io.mutastic.engine..",
+              "io.mutastic.gradle..",
+              "io.mutastic.maven..",
+              "io.mutastic.output..",
+              "io.mutastic.report..",
+              "io.mutastic.worker..")
+          .because("a package no rule names can depend on anything, unseen");
+
+  /// Only the worker swaps a thread's context loader, around the project's code it runs.
+  @ArchTest
+  static final ArchRule onlyTheWorkerSetsTheContextLoader =
+      noClasses()
+          .that()
+          .haveNameNotMatching("io\\.mutastic\\.worker\\.Worker(\\$.*)?")
+          .should()
+          .callMethod(Thread.class, "setContextClassLoader", ClassLoader.class)
+          .because(
+              "a context loader left set leaks the project's classes into whatever the thread"
+                  + " runs next");
+
+  /// Each place that reads the environment is one we chose: it changes a run without a word in the
+  /// command.
+  @ArchTest
+  static final ArchRule environmentReadWhereChosen =
+      noClasses()
+          .that()
+          .haveNameNotMatching(
+              "io\\.mutastic\\.(api\\.BuildJava|cli\\.Terminal|gradle\\.GradleSetup"
+                  + "|maven\\.MavenSetup)(\\$.*)?")
+          .should()
+          .callMethod(System.class, "getenv")
+          .orShould()
+          .callMethod(System.class, "getenv", String.class)
+          .because("the environment changes a run without a word in the command");
+
+  /// Each place that starts a process is one we chose.
+  @ArchTest
+  static final ArchRule processesStartedWhereChosen =
+      noClasses()
+          .that()
+          .haveNameNotMatching(
+              "io\\.mutastic\\.(api\\.BuildJava|cli\\.(GateCount|Git|Keys|WaysOut)"
+                  + "|engine\\.TestWorker|gradle\\.GradleSetup|maven\\.MavenSetup)(\\$.*)?")
+          .should()
+          .callConstructor(ProcessBuilder.class, String[].class)
+          .orShould()
+          .callConstructor(ProcessBuilder.class, List.class)
+          .because("a process can hang, outlive the run or differ by platform");
+
+  /// What a person reads goes out through the CLI and the output kit. The worker is the exception:
+  /// it runs in the project's own JVM, and its stderr is how it tells the engine what happened.
+  @ArchTest
+  static final ArchRule printedOnlyByTheCli =
+      noClasses()
+          .that()
+          .resideOutsideOfPackages("io.mutastic.cli..", "io.mutastic.output..")
+          .and()
+          .haveNameNotMatching("io\\.mutastic\\.worker\\.Worker(\\$.*)?")
+          .should()
+          .accessField(System.class, "out")
+          .orShould()
+          .accessField(System.class, "err")
+          .because("output written elsewhere skips the format, the colour and the closed stream");
+
+  /// Every rule here is one ArchUnit runs, and one that says what it means: a rule that a class
+  /// mustn't know another says `dependOn`, which sees signatures, fields and annotations, not
+  /// `access`, which sees only calls and field reads.
+  @ArchTest
+  static void everyRuleIsChecked(JavaClasses ignored) {
+    fields()
+        .that()
+        .haveRawType(ArchRule.class)
+        .should()
+        .beAnnotatedWith(ArchTest.class)
+        .andShould()
+        .beStatic()
+        .andShould(sayDependOnNotAccess())
+        .because("a rule ArchUnit doesn't run holds nothing, and one on accesses misses types")
+        .check(new ClassFileImporter().importClasses(ArchitectureTest.class));
+  }
+
+  private static ArchCondition<JavaField> sayDependOnNotAccess() {
+    return new ArchCondition<>("say depend on, not access classes") {
+      @Override
+      public void check(JavaField field, ConditionEvents events) {
+        if (!field.getModifiers().contains(JavaModifier.STATIC)) {
+          return;
+        }
+        String description;
+        try {
+          description = ((ArchRule) field.reflect().get(null)).getDescription();
+        } catch (IllegalAccessException e) {
+          throw new IllegalStateException(e);
+        }
+        boolean accesses = description.contains("access classes");
+        events.add(
+            new SimpleConditionEvent(
+                field, !accesses, field.getName() + " says \"" + description + "\""));
+      }
+    };
+  }
 }
