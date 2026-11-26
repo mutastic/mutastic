@@ -214,7 +214,8 @@ public final class BuildErrors {
             ? "After --, it replaces the arguments in MUTASTIC_BUILD_ARGS or mutastic.yaml: add it"
                 + " there instead."
             : "For every run, add it to build: args: in mutastic.yaml, or to MUTASTIC_BUILD_ARGS.";
-    return "the build needs %s for its toolchain, and %s found none%s.\n%s\n  %s\n%s %s's output is in %s."
+    return ("the build needs %s for its toolchain, and %s found none%s.\n%s\n  %s\n"
+            + "%s %s's output is in %s.")
         .formatted(
             missing.jdk().named(),
             tool,
