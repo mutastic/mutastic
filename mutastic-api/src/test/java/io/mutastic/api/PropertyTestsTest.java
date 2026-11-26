@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
@@ -132,7 +131,7 @@ class PropertyTestsTest {
   }
 
   /// proptastic reads only `0x` and hex digits, so the run's seed is given it so; it's given no
-  /// saved failures, events or corpus records to read or write, and the seed is said decimal.
+  /// saved failures, events or corpus to read or write, and the seed is said decimal.
   @Test
   void proptasticIsSeededInHexAndWritesNothing() throws IOException {
     var proptastic = jar("p.jar", "io/proptastic/Proptastic.class");
@@ -147,27 +146,23 @@ class PropertyTestsTest {
             "-Dproptastic.seed=0xff",
             "-Dproptastic.replay=false",
             "-Dproptastic.events=false",
-            "-Dproptastic.corpus.record=false");
+            "-Dproptastic.corpus=off");
     assertThat(PropertyTests.of(List.of(proptastic), List.of()).orElseThrow().jvmArgs())
         .startsWith("-Dproptastic.seed=0x0");
   }
 
-  /// The person's proptastic seed is `0x` and hex digits, in its system property, else its
-  /// variable; a bare number is one proptastic refuses, so the run's is given instead.
+  /// The person's proptastic seed is `0x` and hex digits; a bare number is one proptastic refuses,
+  /// so the run's is given instead.
   @Test
   void thePersonsProptasticSeedIsHex() throws IOException {
     var proptastic = List.of(jar("p.jar", "io/proptastic/Proptastic.class"));
-    var variable = Map.of("PROPTASTIC_SEED", "0x2A");
 
-    var property = PropertyTests.of(proptastic, List.of("-Dproptastic.seed=0x10"), variable);
-    var fromVariable = PropertyTests.of(proptastic, List.of(), variable);
-    var bare = PropertyTests.of(proptastic, List.of("-Dproptastic.seed=12345"), Map.of());
-    var wide =
-        PropertyTests.of(proptastic, List.of(), Map.of("PROPTASTIC_SEED", "0xffffffffffffffff"));
+    var set = PropertyTests.of(proptastic, List.of("-Dproptastic.seed=0x2A"));
+    var bare = PropertyTests.of(proptastic, List.of("-Dproptastic.seed=12345"));
+    var wide = PropertyTests.of(proptastic, List.of("-Dproptastic.seed=0xffffffffffffffff"));
 
-    assertThat(property.orElseThrow().seed()).contains("16");
-    assertThat(fromVariable.orElseThrow().seed()).contains("42");
-    assertThat(fromVariable.orElseThrow().jvmArgs()).startsWith("-Dproptastic.seed=0x2a");
+    assertThat(set.orElseThrow().seed()).contains("42");
+    assertThat(set.orElseThrow().jvmArgs()).startsWith("-Dproptastic.seed=0x2a");
     assertThat(bare.orElseThrow().seed()).contains("0");
     assertThat(wide.orElseThrow().seed()).contains("18446744073709551615");
     assertThat(wide.orElseThrow().jvmArgs()).startsWith("-Dproptastic.seed=0xffffffffffffffff");

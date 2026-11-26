@@ -158,6 +158,10 @@ tasks.test {
     doFirst { timeoutDumps.get().asFile.deleteRecursively() }
     // The end-to-end tests run mutastic against the sample projects, each its own Gradle build.
     systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
+    // ProptasticSampleTest runs samples/proptastic against its fixture of proptastic's surface,
+    // and against the library too once `-Pproptastic=io.proptastic:proptastic:<version>` (or that
+    // line in gradle.properties) names it: until it's on Maven Central, CI can't fetch it.
+    providers.gradleProperty("proptastic").orNull?.let { systemProperty("mutastic.proptastic", it) }
     // A JDK 17 for the samples on a Gradle that can't run on 25 (gradle-no-launcher's 8.6): its
     // copy's gradle.properties names it as the daemon's JDK.
     systemProperty(

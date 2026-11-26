@@ -29,7 +29,7 @@ import org.jspecify.annotations.Nullable;
 /// - Kotest's property tests read `kotest.proptest.default.seed`, unless a test's own
 ///   `PropTestConfig` names a seed.
 /// - junit-quickcheck seeds a parameter only from its `@When(seed=…)`, in the source.
-/// - proptastic reads `proptastic.seed` as each property starts, else the environment's
+/// - proptastic reads `proptastic.seed` as each property starts, over the environment's
 ///   `PROPTASTIC_SEED`, unless the chain says `.seed(n)`: `0x` and hex digits only, as its failures
 ///   print seeds. It's found by its entry point's class on the test classpath, whatever its jar is
 ///   called, and its random stream is keyed on the test method's signature, never its class, so a
@@ -57,18 +57,13 @@ public record PropertyTests(
   /// mutant's failure doesn't write to the person's home directory.
   static final String WRITE_FAILED = "kotest.proptest.seed.write-failed";
 
-  /// What every test JVM gives proptastic besides its seed, so a run neither reads nor writes the
-  /// person's files under the build directory: no saved failures replayed first or saved (a
-  /// mutant's failure would decide the runs after it), no events (a mutant's would overwrite the
-  /// person's), and nothing added to the corpus.
+  /// What every test JVM gives proptastic besides its seed, so a run's inputs hang on the code and
+  /// the seed alone, and it writes none of the person's files: no saved failures replayed first or
+  /// saved (a mutant's failure would decide the runs after it), no events (a mutant's would
+  /// overwrite the person's), and no corpus, read or written (one that grew between two runs would
+  /// make them draw differently with the code unchanged).
   static final List<String> PROPTASTIC_OFF =
-      List.of(
-          "-Dproptastic.replay=false",
-          "-Dproptastic.events=false",
-          "-Dproptastic.corpus.record=false");
-
-  /// proptastic's environment variable for its seed, read where its system property isn't set.
-  static final String PROPTASTIC_SEED = "PROPTASTIC_SEED";
+      List.of("-Dproptastic.replay=false", "-Dproptastic.events=false", "-Dproptastic.corpus=off");
 
   /// The class proptastic is found by: its entry point, `forAll`'s.
   static final String PROPTASTIC_ENTRY = "io/proptastic/Proptastic.class";
@@ -142,18 +137,14 @@ public record PropertyTests(
 
   /// The property tests of `project`, when its tests use a framework: none otherwise.
   public static Optional<PropertyTests> of(Project project) {
-    return of(project.dependencies(), project.jvmArgs(), System.getenv());
+    return of(project.dependencies(), project.jvmArgs());
   }
 
+  /// The property tests of a test classpath, `dependencies`, run with `jvmArgs`: the person's seed
+  /// is the first of the frameworks' seed properties they set there, as a whole number, or for
+  /// proptastic as `0x` and hex digits. proptastic's `PROPTASTIC_SEED` isn't read: the system
+  /// property every test JVM is given beats it.
   static Optional<PropertyTests> of(List<Path> dependencies, List<String> jvmArgs) {
-    return of(dependencies, jvmArgs, Map.of());
-  }
-
-  /// The property tests of a test classpath, `dependencies`, run with `jvmArgs` in `environment`:
-  /// the person's seed is the first of the frameworks' seed settings they set, as a whole number,
-  /// or for proptastic as `0x` and hex digits, in its system property or else its variable.
-  static Optional<PropertyTests> of(
-      List<Path> dependencies, List<String> jvmArgs, Map<String, String> environment) {
     var used =
         Arrays.stream(Framework.values())
             .filter(framework -> dependencies.stream().anyMatch(framework::holds))
@@ -162,10 +153,7 @@ public record PropertyTests(
       return Optional.empty();
     }
     var seeded = used.stream().filter(framework -> takesASeed(framework, jvmArgs)).toList();
-    var seed =
-        seeded.isEmpty()
-            ? Optional.<String>empty()
-            : Optional.of(seed(seeded, jvmArgs, environment));
+    var seed = seeded.isEmpty() ? Optional.<String>empty() : Optional.of(seed(seeded, jvmArgs));
     return Optional.of(
         new PropertyTests(
             names(used),
@@ -186,24 +174,21 @@ public record PropertyTests(
 
   /// The person's seed, decimal, the first of `seeded`'s they set as that framework reads one; else
   /// [#SEED].
-  private static String seed(
-      List<Framework> seeded, List<String> jvmArgs, Map<String, String> environment) {
+  private static String seed(List<Framework> seeded, List<String> jvmArgs) {
     return seeded.stream()
-        .flatMap(framework -> personsSeed(framework, jvmArgs, environment).stream())
+        .flatMap(framework -> personsSeed(framework, jvmArgs).stream())
         .findFirst()
         .orElse(SEED);
   }
 
   /// The seed the person set for `framework`, decimal, if it's one the framework reads: a whole
-  /// number, or for proptastic `0x` and hex digits, in its system property, else its variable.
-  private static Optional<String> personsSeed(
-      Framework framework, List<String> jvmArgs, Map<String, String> environment) {
+  /// number, or for proptastic `0x` and hex digits.
+  private static Optional<String> personsSeed(Framework framework, List<String> jvmArgs) {
     var set = property(jvmArgs, requireSeedProperty(framework));
     if (framework != Framework.PROPTASTIC) {
       return set.filter(WHOLE.asMatchPredicate());
     }
-    return set.or(() -> Optional.ofNullable(environment.get(PROPTASTIC_SEED)))
-        .map(String::strip)
+    return set.map(String::strip)
         .filter(HEX.asMatchPredicate())
         .map(hex -> new BigInteger(hex.substring(2), 16).toString());
   }
@@ -235,7 +220,7 @@ public record PropertyTests(
 
   /// What every test JVM of the run is given, after the project's own arguments so it's the one
   /// seed: each seeded framework's seed property, Kotest's saved failures off, and proptastic's
-  /// saved failures, events and corpus records.
+  /// saved failures, events and corpus off.
   public List<String> jvmArgs() {
     var args = new ArrayList<String>();
     for (var framework : Framework.values()) {
