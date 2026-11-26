@@ -17,6 +17,10 @@ import java.util.stream.Collectors;
 ///   turns that off), or `Unexpected error in property … with args [18] and seeds […]`.
 /// - QuickTheories: the lines after `Smallest found falsifying value(s) :-`.
 /// - Kotest: each `Arg 0: 18` line, without its `(shrunk from …)`.
+/// - proptastic: the fact on the line after its report's header, `shrunk counterexample: xs = [0,
+///   1]`, or without `shrunk` where it didn't shrink. Stacked, the key ends its line and the value
+///   is the lines below it, four spaces in. Only from its failure, by the class's name: the tests'
+///   copy of it isn't mutastic's to load.
 final class CaughtInput {
   /// What the protocol says for a failure that names no input.
   static final String NONE = "-\t";
@@ -39,6 +43,19 @@ final class CaughtInput {
 
   private static final String KOTEST = "Property failed after ";
 
+  private static final String PROPTASTIC_FAILURE = "io.proptastic.core.PropertyFailure";
+
+  /// proptastic's header: the test's name, then how it failed. `after N tries` is the one form a
+  /// run with shrinking on makes smaller; a pinned example or a flaky input never shrinks.
+  private static final Pattern PROPTASTIC_HEADER =
+      Pattern.compile("^\\S+ failed (?<how>after \\d+ tr(?:y|ies) \\(seed 0x[0-9a-f]+\\)|on .*)$");
+
+  private static final Pattern PROPTASTIC_FACT =
+      Pattern.compile("^ {2}(?<shrunk>shrunk )?counterexample:(?: (?<input>.*))?$");
+
+  /// The indent of a stacked fact's value.
+  private static final String STACKED = "    ";
+
   private static final Pattern KOTEST_ARG =
       Pattern.compile("^\\s*(?<arg>Arg \\d+: .*?)(?: \\(shrunk from .*\\))?$");
 
@@ -60,6 +77,10 @@ final class CaughtInput {
       var shrinkable = quickTheories(said).or(() -> kotest(said));
       if (shrinkable.isPresent()) {
         return (shrinkingOff ? "unshrunk\t" : "shrunk\t") + oneLine(shrinkable.get());
+      }
+      var proptastic = proptastic(cause, said);
+      if (proptastic.isPresent()) {
+        return proptastic.get();
       }
     }
     return NONE;
@@ -97,6 +118,34 @@ final class CaughtInput {
             .takeWhile(line -> !QUICKTHEORIES_END.matcher(line).matches())
             .collect(Collectors.joining("\n"));
     return Optional.of(value).filter(text -> !text.isBlank());
+  }
+
+  /// proptastic's counterexample, as the protocol says it: `unshrunk` when it was found after
+  /// random tries and not shrunk, as on a mutant's run.
+  static Optional<String> proptastic(Throwable thrown, String said) {
+    if (!thrown.getClass().getName().equals(PROPTASTIC_FAILURE)) {
+      return Optional.empty();
+    }
+    var lines = said.lines().toList();
+    for (int at = 1; at < lines.size(); at++) {
+      var header = PROPTASTIC_HEADER.matcher(lines.get(at - 1));
+      var fact = PROPTASTIC_FACT.matcher(lines.get(at));
+      if (header.matches() && fact.matches()) {
+        var input = fact.group("input");
+        var value =
+            input == null || input.isBlank() ? stacked(lines.subList(at + 1, lines.size())) : input;
+        boolean unshrunk = fact.group("shrunk") == null && header.group("how").startsWith("after ");
+        return Optional.of((unshrunk ? "unshrunk\t" : "shrunk\t") + oneLine(value));
+      }
+    }
+    return Optional.empty();
+  }
+
+  /// A stacked fact's value: the lines four spaces in, up to the next fact.
+  private static String stacked(List<String> below) {
+    return below.stream()
+        .takeWhile(line -> line.startsWith(STACKED))
+        .collect(Collectors.joining("\n"));
   }
 
   static Optional<String> kotest(String said) {

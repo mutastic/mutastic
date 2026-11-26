@@ -2,10 +2,17 @@ package io.mutastic.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
+import java.util.zip.ZipEntry;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class PropertyTestsTest {
   private static final Path GRADLE = Path.of("/home/me/.gradle/caches/modules-2/files-2.1");
@@ -103,5 +110,76 @@ class PropertyTestsTest {
                 + " one run and missed in the next");
     assertThat(PropertyTests.listed(List.of("a"))).isEqualTo("a");
     assertThat(PropertyTests.listed(List.of("a", "b", "c"))).isEqualTo("a, b and c");
+  }
+
+  @TempDir Path dir;
+
+  /// proptastic is found by its entry point's class, in a jar whatever it's called, shaded or
+  /// renamed, or in a directory of classes; a jar only named as its is isn't it.
+  @Test
+  void proptasticIsFoundByItsClassNotItsName() throws IOException {
+    var shaded = jar("testkit-all.jar", "io/proptastic/Proptastic.class");
+    var classes = Files.createDirectories(dir.resolve("classes/io/proptastic"));
+    Files.write(classes.resolve("Proptastic.class"), new byte[] {0});
+    var named = jar("proptastic-1.0.0.jar", "io/proptastic/Other.class");
+
+    for (var entry : List.of(shaded, dir.resolve("classes"))) {
+      assertThat(PropertyTests.of(List.of(JUNIT, entry), List.of()).orElseThrow().frameworks())
+          .as(entry.toString())
+          .containsExactly("proptastic");
+    }
+    assertThat(PropertyTests.of(List.of(named, dir.resolve("missing.jar")), List.of())).isEmpty();
+  }
+
+  /// proptastic reads only `0x` and hex digits, so the run's seed is given it so; it's given no
+  /// saved failures, events or corpus records to read or write, and the seed is said decimal.
+  @Test
+  void proptasticIsSeededInHexAndWritesNothing() throws IOException {
+    var proptastic = jar("p.jar", "io/proptastic/Proptastic.class");
+
+    var found = PropertyTests.of(List.of(proptastic, QUICKTHEORIES), List.of("-DQT_SEED=255"));
+
+    assertThat(found.orElseThrow().seed()).contains("255");
+    assertThat(found.orElseThrow().seeded()).containsExactly("quicktheories", "proptastic");
+    assertThat(found.orElseThrow().jvmArgs())
+        .containsExactly(
+            "-DQT_SEED=255",
+            "-Dproptastic.seed=0xff",
+            "-Dproptastic.replay=false",
+            "-Dproptastic.events=false",
+            "-Dproptastic.corpus.record=false");
+    assertThat(PropertyTests.of(List.of(proptastic), List.of()).orElseThrow().jvmArgs())
+        .startsWith("-Dproptastic.seed=0x0");
+  }
+
+  /// The person's proptastic seed is `0x` and hex digits, in its system property, else its
+  /// variable; a bare number is one proptastic refuses, so the run's is given instead.
+  @Test
+  void thePersonsProptasticSeedIsHex() throws IOException {
+    var proptastic = List.of(jar("p.jar", "io/proptastic/Proptastic.class"));
+    var variable = Map.of("PROPTASTIC_SEED", "0x2A");
+
+    var property = PropertyTests.of(proptastic, List.of("-Dproptastic.seed=0x10"), variable);
+    var fromVariable = PropertyTests.of(proptastic, List.of(), variable);
+    var bare = PropertyTests.of(proptastic, List.of("-Dproptastic.seed=12345"), Map.of());
+    var wide =
+        PropertyTests.of(proptastic, List.of(), Map.of("PROPTASTIC_SEED", "0xffffffffffffffff"));
+
+    assertThat(property.orElseThrow().seed()).contains("16");
+    assertThat(fromVariable.orElseThrow().seed()).contains("42");
+    assertThat(fromVariable.orElseThrow().jvmArgs()).startsWith("-Dproptastic.seed=0x2a");
+    assertThat(bare.orElseThrow().seed()).contains("0");
+    assertThat(wide.orElseThrow().seed()).contains("18446744073709551615");
+    assertThat(wide.orElseThrow().jvmArgs()).startsWith("-Dproptastic.seed=0xffffffffffffffff");
+  }
+
+  /// A jar in the test's directory holding one empty entry, `entry`.
+  private Path jar(String name, String entry) throws IOException {
+    var jar = dir.resolve(name);
+    try (var out = new JarOutputStream(Files.newOutputStream(jar), new Manifest())) {
+      out.putNextEntry(new ZipEntry(entry));
+      out.closeEntry();
+    }
+    return jar;
   }
 }

@@ -2,6 +2,7 @@ package io.mutastic.worker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.proptastic.core.PropertyFailure;
 import org.junit.jupiter.api.Test;
 
 /// Each framework's failure, as its source writes it, and the input read from it.
@@ -117,5 +118,82 @@ class CaughtInputTest {
     var cut = CaughtInput.of(tooLong, true).substring("shrunk\t".length());
     assertThat(cut.codePointCount(0, cut.length())).isEqualTo(CaughtInput.LONGEST + 1);
     assertThat(cut).startsWith("[0, 1, 2").endsWith("…");
+  }
+
+  /// proptastic's failure: the assertion's own message, a blank line, then its report, the
+  /// counterexample the fact under the header. Found after random tries with shrinking off, it's
+  /// unshrunk; shrunk, or from a pinned example or a flaky input, it's as small as it gets.
+  @Test
+  void proptasticNamesItsCounterexample() {
+    var unshrunk =
+        proptastic(
+            """
+            reversesTwice failed after 3 tries (seed 0x0)
+              counterexample: xs = [-7, 12]
+                      pin it: .example(List.of(-7, 12))""");
+    var shrunk =
+        proptastic(
+            """
+            reversesTwice failed after 3 tries (seed 0x0)
+              shrunk counterexample: xs = [0, 1]
+                             pin it: .example(List.of(0, 1))
+                              rerun: PROPTASTIC_SEED=0x0 ./gradlew test --tests 'ListsTest.reversesTwice'""");
+    var example =
+        proptastic(
+            """
+            reversesTwice failed on example 2 of 2 (via "mutastic: m1")
+              counterexample: xs = [3]""");
+    var flaky =
+        proptastic(
+            """
+            reversesTwice failed on try 4, then passed when that input ran again (seed 0x1f)
+              counterexample: xs = [9]
+                      pin it: .example(List.of(9))
+              ! flaky: the same input passed and failed""");
+
+    assertThat(CaughtInput.of(unshrunk, true)).isEqualTo("unshrunk\txs = [-7, 12]");
+    assertThat(CaughtInput.of(shrunk, false)).isEqualTo("shrunk\txs = [0, 1]");
+    assertThat(CaughtInput.of(example, true)).isEqualTo("shrunk\txs = [3]");
+    assertThat(CaughtInput.of(flaky, true)).isEqualTo("shrunk\txs = [9]");
+  }
+
+  /// Stacked, when a value spans lines or is wider than the line: each key on its own line, its
+  /// value four spaces in below, joined onto one line.
+  @Test
+  void proptasticsStackedCounterexampleIsJoined() {
+    var stacked =
+        proptastic(
+            """
+            sortsAsTheJdkDoes failed after 1 try (seed 0x0)
+              counterexample:
+                xs = [1475577793, -89898502,
+                      23]
+                n = 4
+              pin it:
+                .example(List.of(1475577793, -89898502, 23), 4)""");
+
+    assertThat(CaughtInput.of(stacked, true))
+        .isEqualTo("unshrunk\txs = [1475577793, -89898502, 23] n = 4");
+  }
+
+  /// The same words in a test's own failure, or anywhere but under proptastic's header, aren't its
+  /// counterexample.
+  @Test
+  void aCounterexampleLineOutsideProptasticsReportIsNotRead() {
+    var mimic =
+        new AssertionError(
+            """
+            reversesTwice failed after 3 tries (seed 0x0)
+              counterexample: from the user""");
+    var noHeader = proptastic("  counterexample: n = 3");
+
+    assertThat(CaughtInput.of(mimic, true)).isEqualTo(CaughtInput.NONE);
+    assertThat(CaughtInput.of(noHeader, true)).isEqualTo(CaughtInput.NONE);
+  }
+
+  /// proptastic's failure for `report`, after the assertion's own message, as it throws it.
+  private static PropertyFailure proptastic(String report) {
+    var original = new AssertionError("expected: <[1, 0]> but was: <[0, 1]>");
+    return new PropertyFailure(original.getMessage() + "\n\n" + report, original);
   }
 }
