@@ -182,6 +182,69 @@ public final class BuildErrors {
           "^(?:To see the full stack trace|Re-run Maven using|For more information about the"
               + " errors|-> \\[Help)");
 
+  /// The JDK a build's toolchain asks for, in the build's own words.
+  ///
+  /// @param version `21`, or a range such as Maven's `[17,)`
+  /// @param vendor the vendor asked for, `Eclipse Temurin`: empty for any
+  public record Toolchain(String version, Optional<String> vendor) {
+    /// `JDK 21`, `JDK 21 (Eclipse Temurin)`, or for a range `a JDK of version [17,)`.
+    public String named() {
+      var jdk =
+          version.matches("\\d+(?:\\.\\d+)*") ? "JDK " + version : "a JDK of version " + version;
+      return jdk + vendor.map(name -> " (" + name + ")").orElse("");
+    }
+  }
+
+  /// A build that stopped for want of the JDK its toolchain asks for: that, in a line; what to do;
+  /// the run again with the argument that tells the tool where one is; and how to give it to every
+  /// run. A run whose arguments came from `MUTASTIC_BUILD_ARGS` or `mutastic.yaml` loses them after
+  /// `--`, which replaces them, so it's said to add it there.
+  ///
+  /// @param missing what the tool said it found none of, and where it looked, said after "found
+  ///   none": empty, or ` in ~/.m2/toolchains.xml`
+  /// @param remedy what to do, ending in a colon: `Install one, or tell Gradle where it is:`
+  /// @param run the run, as [#run(String, String, BuildArguments, String)] has it
+  /// @param arguments the build's arguments, which the run was given
+  /// @param log the file the tool's output went to
+  public static String noToolchain(
+      String tool, Missing missing, String remedy, String run, BuildArguments arguments, Path log) {
+    var replaced = !arguments.words().isEmpty() && arguments.typed().isEmpty();
+    var every =
+        replaced
+            ? "After --, it replaces the arguments in MUTASTIC_BUILD_ARGS or mutastic.yaml: add it"
+                + " there instead."
+            : "For every run, add it to build: args: in mutastic.yaml, or to MUTASTIC_BUILD_ARGS.";
+    return "the build needs %s for its toolchain, and %s found none%s.\n%s\n  %s\n%s %s's output is in %s."
+        .formatted(
+            missing.jdk().named(),
+            tool,
+            missing.where(),
+            remedy,
+            run,
+            every,
+            tool,
+            shown(log, here()));
+  }
+
+  /// The JDK a toolchain asks for, and where the tool looked for it, said after "found none":
+  /// empty, or ` in ~/.m2/toolchains.xml`.
+  public record Missing(Toolchain jdk, String where) {}
+
+  /// `mutastic run app :core -- -Pci <argument>`: the run on the module, `typed` as the person
+  /// would type its directory (empty where they are), with the arguments typed after `--` and then
+  /// `argument`, which may have a `<…>` to fill in.
+  public static String run(String typed, String module, BuildArguments arguments, String argument) {
+    var words = new StringBuilder("mutastic run");
+    if (!typed.isEmpty()) {
+      words.append(' ').append(typed);
+    }
+    if (!module.equals(":")) {
+      words.append(' ').append(module);
+    }
+    var ending = arguments.ending();
+    return words.append(ending.isEmpty() ? " --" : ending).append(' ').append(argument).toString();
+  }
+
   /// A build tool's command as the person would type it from `here`: the tool, `./gradlew` from
   /// where it is or the one on the PATH; the build's directory, after `flag` (`-p`, `-f`), unless
   /// it's `here`; then `rest`.

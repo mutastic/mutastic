@@ -131,7 +131,8 @@ final class GradleSetup {
   }
 
   /// Why the build failed, from its log: a module with no Java code, a module the build hasn't got,
-  /// a suite the module hasn't, else Gradle's own output.
+  /// a JDK its toolchain asks for that Gradle found none of, a suite the module hasn't, else
+  /// Gradle's own output.
   private static SetupFailed failed(Build build, BuildTool.Request request)
       throws IOException, InterruptedException {
     var module = request.module();
@@ -145,7 +146,29 @@ final class GradleSetup {
       return new SetupFailed(
           "module-missing", Modules.missing(module, javaModules(build, workDirectory), typed));
     }
+    var toolchain = GradleToolchain.missing(output);
+    if (toolchain.isPresent()) {
+      return noToolchain(build, request, toolchain.get());
+    }
     return SetupFailed.noSuite(output.lines()).orElseGet(() -> buildFailed(build, request, output));
+  }
+
+  /// The build's toolchain asks for a JDK Gradle found none of: the run again, telling Gradle where
+  /// one is.
+  private static SetupFailed noToolchain(
+      Build build, BuildTool.Request request, BuildErrors.Toolchain jdk) {
+    var run =
+        BuildErrors.run(
+            request.typed(), request.module(), build.arguments(), GradleToolchain.argument(jdk));
+    return new SetupFailed(
+        "build-jdk",
+        BuildErrors.noToolchain(
+            "Gradle",
+            new BuildErrors.Missing(jdk, ""),
+            "Install one, or tell Gradle where it is:",
+            run,
+            build.arguments(),
+            log(request.workDirectory())));
   }
 
   /// The build failed: Gradle's errors, and the Gradle on the PATH when that's likely why.
