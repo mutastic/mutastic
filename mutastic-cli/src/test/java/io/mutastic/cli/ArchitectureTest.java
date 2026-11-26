@@ -1,6 +1,9 @@
 package io.mutastic.cli;
 
+import static com.tngtech.archunit.base.DescribedPredicate.not;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideOutsideOfPackage;
 import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.name;
 import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.nameMatching;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
@@ -17,6 +20,13 @@ import java.util.regex.Matcher;
 /// regex calls that read a group by number. Run here because the CLI's tests see every module.
 @AnalyzeClasses(packages = "io.mutastic", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {
+  /// The api's build types, and their nested classes: what a build tool reads a build with
+  /// (`BuildTool` and what it's given and answers), and the setup file the build plugins and the
+  /// Maven extension write (`ProjectSetup`, into a `Project`).
+  private static final String BUILD_TYPES =
+      "io\\.mutastic\\.api\\.(BuildTool|BuildArguments|BuildErrors|BuildJava|Wrappers|Modules"
+          + "|Project|ProjectSetup|TestSelection|RealPath|Nearest|Internal)(\\$.*)?";
+
   /// `Nearest` and its nested classes.
   private static final String NEAREST = "io\\.mutastic\\.api\\.Nearest(\\$.*)?";
 
@@ -140,6 +150,29 @@ class ArchitectureTest {
               "io.mutastic.report..",
               "io.mutastic.cli..",
               "io.mutastic.worker..");
+
+  /// Build reading is carved out for the other tools in the family, as the output kit is: the build
+  /// tools, the plugins and the Maven extension that write the setup file, and the api's build
+  /// types know no mutants, results or scores. They stay where they are, as moving the api's types
+  /// would change its public ones, until a sibling tool first reads a build.
+  @ArchTest
+  static final ArchRule buildReadingKnowsNoMutants =
+      noClasses()
+          .that()
+          .resideInAnyPackage("io.mutastic.gradle..", "io.mutastic.maven..")
+          .should()
+          .dependOnClassesThat(
+              resideInAPackage("io.mutastic.api").and(not(nameMatching(BUILD_TYPES))));
+
+  /// And the build types are a set of their own: none reaches into the rest of the api.
+  @ArchTest
+  static final ArchRule buildTypesStandApart =
+      classes()
+          .that()
+          .haveNameMatching(BUILD_TYPES)
+          .should()
+          .onlyDependOnClassesThat(
+              resideOutsideOfPackage("io.mutastic..").or(nameMatching(BUILD_TYPES)));
 
   /// The CLI finds build tools as [io.mutastic.api.BuildTool]s: it names none of them, so a new one
   /// is a module on the classpath, not a change here.
