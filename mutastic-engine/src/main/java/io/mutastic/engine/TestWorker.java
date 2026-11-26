@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -759,17 +760,71 @@ final class TestWorker implements AutoCloseable {
             new AtomicBoolean());
     running = started;
     forwardAnswers(started);
+    var answer = await(STARTUP);
     var ready =
-        await(STARTUP)
+        answer
             .filter(line -> line.startsWith("READY\t"))
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "the test worker didn't start; its output is in " + log));
+            .orElseThrow(() -> didntStart(started.process(), answer));
     jdk = Integer.parseInt(ready.substring("READY\t".length()));
     workersStarted++;
     return warmed(started);
   }
+
+  /// Why a worker didn't say it was ready: it said something else, it ended and its log's last
+  /// lines say why, or it was still starting when [#STARTUP] ran out. A busy machine can do that,
+  /// and it's neither mutastic's failure nor the tests'.
+  private Engine.TestsCantRun didntStart(Process process, Optional<String> answer) {
+    var ended = exitOf(process, answer.isEmpty() ? ENDING : Duration.ZERO);
+    var why =
+        answer.isPresent()
+            ? "Its test worker said `%s` where it should have said it was ready"
+                .formatted(answer.get())
+            : ended
+                .map(
+                    status ->
+                        "Its test worker ended with status %d before it was ready%s"
+                            .formatted(status, lastLines()))
+                .orElseGet(
+                    () ->
+                        ("Its test worker wasn't ready after %d seconds, which a busy machine can"
+                                + " cause, as can many runs starting workers at once: run it again,"
+                                + " or with fewer workers (`--workers=2`)")
+                            .formatted(STARTUP.toSeconds()));
+    kill();
+    var said = why.endsWith(".") ? why : why + ".";
+    return new Engine.TestsCantRun(project, said + " Its output is in " + log + ".");
+  }
+
+  /// How `process` ended, if it has within `wait`: its output can close a moment before it's gone.
+  private static Optional<Integer> exitOf(Process process, Duration wait) {
+    try {
+      return process.waitFor(wait.toMillis(), TimeUnit.MILLISECONDS)
+          ? Optional.of(process.exitValue())
+          : Optional.empty();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      return Optional.empty();
+    }
+  }
+
+  /// How long a worker whose output has closed has to be gone.
+  private static final Duration ENDING = Duration.ofSeconds(2);
+
+  /// `: <what the worker's log ends with>`, its last lines on one, or nothing if it said nothing.
+  private String lastLines() {
+    try {
+      var lines =
+          Files.readAllLines(log).stream().map(String::strip).filter(line -> !line.isEmpty());
+      var all = lines.toList();
+      var last = all.subList(Math.max(0, all.size() - LAST_LINES), all.size());
+      return last.isEmpty() ? "" : ": " + String.join(" / ", last);
+    } catch (IOException e) {
+      return "";
+    }
+  }
+
+  /// How many of a log's last lines a worker that ended says.
+  private static final int LAST_LINES = 3;
 
   /// The worker, with the classes the coverage pass loaded initialised; if it can't do that, a new
   /// one that doesn't try, as a class that can't be initialised stays that way ([ClassesToWarm]).
