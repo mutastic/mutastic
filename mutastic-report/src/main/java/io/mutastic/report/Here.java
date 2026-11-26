@@ -1,5 +1,6 @@
 package io.mutastic.report;
 
+import io.mutastic.output.Style;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.regex.MatchResult;

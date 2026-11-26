@@ -2,6 +2,7 @@ package io.mutastic.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.mutastic.output.Style;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 

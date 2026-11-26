@@ -1,5 +1,6 @@
 package io.mutastic.report;
 
+import io.mutastic.output.Style;
 import java.util.List;
 
 /// What `mutastic next` says: the head of the [Queue], or with `--top` its first few, each with why

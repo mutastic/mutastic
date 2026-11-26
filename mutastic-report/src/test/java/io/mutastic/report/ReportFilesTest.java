@@ -8,6 +8,7 @@ import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
+import io.mutastic.output.Json;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

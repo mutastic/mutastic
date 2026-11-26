@@ -1,11 +1,11 @@
-package io.mutastic.report;
+package io.mutastic.output;
 
 /// Colour for people reading a terminal, and nothing for anyone else. Every colour also has a glyph
 /// or word beside it, so the output reads the same without colour, for colour-blind readers, and
 /// when copied.
 ///
-/// Watermelon colours, used sparingly: green for caught, red only on a missed mutant's glyph, label
-/// and caret, never a whole card.
+/// Watermelon colours, used sparingly ([Paint] has the roles): green for what passed, red only on a
+/// failure's glyph, label and caret, never a whole block.
 public final class Style {
   public static final Style PLAIN = new Style(false, false, Labels.SQUARE);
   public static final Style COLOUR = new Style(true, false, Labels.SQUARE);
@@ -25,10 +25,10 @@ public final class Style {
   private static final String ROUND_RIGHT = "\ue0b4";
 
   /// Label backgrounds.
-  static final String RED = "41";
+  public static final String RED = "41";
 
-  static final String GREEN = "42";
-  static final String CYAN = "46";
+  public static final String GREEN = "42";
+  public static final String CYAN = "46";
 
   private final boolean colour;
   private final boolean links;
@@ -52,7 +52,7 @@ public final class Style {
   }
 
   /// A label, `MISSED` on red: a coloured block in a terminal, `[MISSED]` without colour.
-  String label(String text, String background) {
+  public String label(String text, String background) {
     if (!colour) {
       return "[" + text + "]";
     }
@@ -61,7 +61,7 @@ public final class Style {
     return switch (labels) {
       case SQUARE -> "\u001b[" + background + ";30;1m " + text + " \u001b[0m";
       case ROUNDED -> rounded(text, background, edge);
-      case OFF -> paint("1;" + edge, text);
+      case OFF -> paint(Paint.BOLD + ";" + edge, text);
     };
   }
 
@@ -78,44 +78,44 @@ public final class Style {
 
   /// `text` linking to `file`, when links are on. The line number stays in the text: whether
   /// terminals honour one in a `file:` URI varies.
-  String link(java.nio.file.Path file, String text) {
+  public String link(java.nio.file.Path file, String text) {
     return link(file.toUri().toString(), text);
   }
 
   /// `text` linking to `url`, when links are on.
-  String link(String url, String text) {
+  public String link(String url, String text) {
     return links ? "\u001b]8;;" + url + "\u001b\\" + text + "\u001b]8;;\u001b\\" : text;
   }
 
-  String red(String text) {
-    return paint("1;31", text);
+  public String red(String text) {
+    return paint(Paint.RED, text);
   }
 
-  String green(String text) {
-    return paint("32", text);
+  public String green(String text) {
+    return paint(Paint.GREEN, text);
   }
 
-  String amber(String text) {
-    return paint("33", text);
+  public String amber(String text) {
+    return paint(Paint.AMBER, text);
   }
 
-  String blue(String text) {
-    return paint("1;34", text);
+  public String blue(String text) {
+    return paint(Paint.BLUE, text);
   }
 
-  String cyan(String text) {
-    return paint("36", text);
+  public String cyan(String text) {
+    return paint(Paint.CYAN, text);
   }
 
-  String bold(String text) {
-    return paint("1", text);
+  public String bold(String text) {
+    return paint(Paint.BOLD, text);
   }
 
-  String dim(String text) {
-    return paint("2", text);
+  public String dim(String text) {
+    return paint(Paint.DIM, text);
   }
 
   private String paint(String code, String text) {
-    return colour ? "\u001b[" + code + "m" + text + "\u001b[0m" : text;
+    return Paint.paint(colour, code, text);
   }
 }

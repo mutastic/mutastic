@@ -1,4 +1,4 @@
-package io.mutastic.report;
+package io.mutastic.output;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

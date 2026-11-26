@@ -1,16 +1,17 @@
-package io.mutastic.report;
+package io.mutastic.output;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
-/// Just enough JSON for the event stream: maps, lists, strings, numbers, booleans. Keys keep the
+/// Just enough JSON for an event stream: maps, lists, strings, numbers, booleans. Keys keep the
 /// map's order, so events read the same every run.
-final class Json {
+public final class Json {
   private Json() {}
 
-  static String write(Object value) {
+  /// `value` as JSON, on one line.
+  public static String write(Object value) {
     var out = new StringBuilder();
     write(value, out);
     return out.toString();

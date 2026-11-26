@@ -8,6 +8,8 @@ import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import io.mutastic.api.WatchedTest;
+import io.mutastic.output.Glyphs;
+import io.mutastic.output.Style;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalTime;
@@ -370,7 +372,9 @@ public final class HumanText {
     }
     return "%s %s %s %s %s"
         .formatted(
-            missed.isEmpty() && uncovered.isEmpty() ? style.green("✓") : style.red("❯"),
+            missed.isEmpty() && uncovered.isEmpty()
+                ? style.green(Glyphs.PASS)
+                : style.red(Glyphs.POINTER),
             style.label(project, Style.CYAN),
             sources.file(results.getFirst().mutant()),
             style.dim("(") + String.join(style.dim(" | "), counts) + style.dim(")"),
@@ -416,7 +420,7 @@ public final class HumanText {
     int colon = where.lastIndexOf(" :");
     return "   %s %s %s %s"
         .formatted(
-            style.amber("○"),
+            style.amber(Glyphs.OPEN),
             where.substring(0, colon),
             style.dim(where.substring(colon + 1)),
             style.dim(
@@ -427,7 +431,7 @@ public final class HumanText {
   private String heading() {
     return "\n"
         + style.red(style.bold(" " + words.heading + " "))
-        + style.dim("─".repeat(60))
+        + style.dim(Glyphs.RULE.repeat(60))
         + "\n";
   }
 
@@ -436,7 +440,7 @@ public final class HumanText {
     var mutant = result.mutant();
     return " %s %s %s %s"
         .formatted(
-            style.red("✗"),
+            style.red(Glyphs.FAIL),
             location(mutant),
             code(sources.advice(result).headline()),
             style.dim(mutant.id()));
@@ -481,7 +485,7 @@ public final class HumanText {
           "     %s %s %s %s\n"
               .formatted(
                   style.dim("%-7s".formatted(place.line() + ":" + place.start())),
-                  style.red("✗"),
+                  style.red(Glyphs.FAIL),
                   code(sources.advice(result).headline()),
                   style.dim(result.mutant().id())));
     }
@@ -523,7 +527,7 @@ public final class HumanText {
     var linked = sources.path(mutant).map(path -> style.link(path, file)).orElse(file);
     return " %s %s  %s"
         .formatted(
-            style.blue("❯"),
+            style.blue(Glyphs.POINTER),
             style.bold(linked),
             style.dim(
                 "%d %s in %d method%s"
@@ -611,7 +615,7 @@ public final class HumanText {
     var lines = new ArrayList<String>();
     lines.add("");
     lines.add(" %s %s".formatted(outcomeLabel(result), style.bold(code(outcome(result)))));
-    lines.add(" %s %s %s".formatted(gutter, style.dim("┌─"), location(mutant)));
+    lines.add(" %s %s %s".formatted(gutter, style.dim(Glyphs.CORNER), location(mutant)));
     lines.addAll(frame(mutant, advice, place, width));
     addBeforeAndAfter(lines, mutant, advice, gutter);
     var notes = explainedNotes(result, advice);
@@ -637,8 +641,8 @@ public final class HumanText {
   private String outcomeLabel(MutantResult result) {
     return switch (result.status()) {
       case CAUGHT, TIMED_OUT ->
-          style.label("✓ " + words.detected.toUpperCase(Locale.ROOT), Style.GREEN);
-      case NOT_COVERED -> style.label("○ NOT COVERED", Style.CYAN);
+          style.label(Glyphs.PASS + " " + words.detected.toUpperCase(Locale.ROOT), Style.GREEN);
+      case NOT_COVERED -> style.label(Glyphs.OPEN + " NOT COVERED", Style.CYAN);
       default -> style.label("SKIPPED", Style.CYAN);
     };
   }
@@ -698,10 +702,11 @@ public final class HumanText {
     lines.add(
         " %s %s%s"
             .formatted(
-                style.label("✗ " + words.undetected.toUpperCase(Locale.ROOT), Style.RED),
+                style.label(
+                    Glyphs.FAIL + " " + words.undetected.toUpperCase(Locale.ROOT), Style.RED),
                 code(advice.headline()),
                 finding.mutants().size() > 1 ? style.dim(" · " + mutant.id()) : ""));
-    lines.add(" %s %s %s".formatted(gutter, style.dim("┌─"), location(mutant)));
+    lines.add(" %s %s %s".formatted(gutter, style.dim(Glyphs.CORNER), location(mutant)));
   }
 
   /// The changed line between the lines either side, the change marked under it; nothing when the
@@ -713,7 +718,7 @@ public final class HumanText {
     }
     var source = file.get();
     var gutter = " ".repeat(width);
-    var bar = style.dim("│");
+    var bar = style.dim(Glyphs.GUTTER);
     var lines = new ArrayList<String>();
     lines.add(" %s %s".formatted(gutter, bar));
     for (int number = Math.max(1, place.line() - 1);
@@ -744,7 +749,7 @@ public final class HumanText {
     return " %s %s %s"
         .formatted(
             gutter,
-            style.dim("│"),
+            style.dim(Glyphs.GUTTER),
             " ".repeat(place.start() - 1)
                 + operatorDocs.map(url -> style.link(url, marked)).orElse(marked));
   }
@@ -870,7 +875,7 @@ public final class HumanText {
   private String alsoMissed(MutantResult other) {
     return "also    %s %s %s"
         .formatted(
-            style.red("✗"),
+            style.red(Glyphs.FAIL),
             code(sources.advice(other).headline()),
             style.dim("· " + other.mutant().id()));
   }
@@ -889,7 +894,7 @@ public final class HumanText {
   /// Just the changed line, the change marked under it.
   private List<String> changedLine(
       List<String> source, SourceView.Place place, Advice advice, String gutter) {
-    var bar = style.dim("│");
+    var bar = style.dim(Glyphs.GUTTER);
     return List.of(
         " %s %s".formatted(gutter, bar),
         " %s %s %s"
@@ -961,7 +966,7 @@ public final class HumanText {
   private String notCoveredLine(String where, long count) {
     return "   %s %s %s\n"
         .formatted(
-            style.amber("○"),
+            style.amber(Glyphs.OPEN),
             where,
             style.dim("(%d mutant%s)".formatted(count, count == 1 ? "" : "s")));
   }
@@ -1279,14 +1284,17 @@ public final class HumanText {
     return String.join(
             style.dim(" · "),
             Stream.of(
-                    style.green("✓ " + style.bold(caught + " " + words.detected)),
+                    style.green(Glyphs.PASS + " " + style.bold(caught + " " + words.detected)),
                     missed == 0
                         ? null
-                        : style.red("✗ " + style.bold(missed + " " + words.undetected)),
-                    timedOut == 0 ? null : style.amber("⏱ " + timedOut + " timed out"),
+                        : style.red(
+                            Glyphs.FAIL + " " + style.bold(missed + " " + words.undetected)),
+                    timedOut == 0
+                        ? null
+                        : style.amber(Glyphs.TIMER + " " + timedOut + " timed out"),
                     notCovered == 0
                         ? null
-                        : style.amber("○ " + notCovered + " " + words.notCovered),
+                        : style.amber(Glyphs.OPEN + " " + notCovered + " " + words.notCovered),
                     report.count(Status.SKIPPED) == 0 ? null : style.dim(skippedByKind(report)))
                 .filter(java.util.Objects::nonNull)
                 .toList())
@@ -1586,7 +1594,9 @@ public final class HumanText {
               if (change == 0) {
                 return style.dim("  = vs last run") + sameness;
               }
-              var text = "%s %.1f vs last run".formatted(change > 0 ? "▲" : "▼", Math.abs(change));
+              var text =
+                  "%s %.1f vs last run"
+                      .formatted(change > 0 ? Glyphs.UP : Glyphs.DOWN, Math.abs(change));
               return "  " + (change > 0 ? style.green(text) : style.red(text)) + sameness;
             })
         .orElse("");
@@ -1605,7 +1615,7 @@ public final class HumanText {
     return byMethod.entrySet().stream()
         .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder()))
         .limit(3)
-        .map(entry -> "%s %d ✗".formatted(entry.getKey(), entry.getValue()))
+        .map(entry -> "%s %d %s".formatted(entry.getKey(), entry.getValue(), Glyphs.FAIL))
         .collect(Collectors.joining(" · "));
   }
 
