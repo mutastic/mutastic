@@ -570,6 +570,8 @@ A share keeps everything that run needs in one folder, `shares/N-of-M/` in the m
 
 A share keeps everything that run needs in one folder, `target/mutastic/shares/N-of-M/`: its results, as the [events](/rust/reference/events/) `--format=jsonl` writes, whatever format it shows, and its own report files, so neither `explain` nor the next run takes a share for the whole run.
 
+It writes those events as it goes, so a share a job's time limit or Ctrl-C stops part way keeps what it finished. With no `run-finished`, `--from-shards` refuses it as a share that didn't finish, and says how many mutants it holds: rerun that job.
+
 </div>
 </EditionTabs>
 

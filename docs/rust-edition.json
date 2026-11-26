@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/mutastic/mutastic-rs.git",
-  "version": "1.3.1",
-  "commit": "4d62c44a14e1eae0c8ce0b9980e662b2383a941f",
+  "version": "1.4.0",
+  "commit": "02b7f85032fc370d17f86d0a46273b380ec7b908",
   "publish": true
 }
