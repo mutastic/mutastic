@@ -228,18 +228,20 @@ published the release:
   A failed `tested` needs no fix but a CI run that passes: run it again once one has.
 - **Central publishing, or repo1 not serving it yet:** `scripts/central.sh` says which. Run the
   `publish` job again: a deployment already published isn't published twice, and it waits for
-  repo1 again.
+  repo1 again, for the components in `stage`'s `central.json` (Central lists them only while the
+  deployment is VALIDATED). Once Central has published it, `drop` is skipped.
 - **After Central published it** (the Plugin Portal, the GitHub release, the docs or the hold):
   the version is out and can't be changed, so don't delete anything. Run the failed job again
-  (*Re-run failed jobs*), or do its part by hand:
+  (*Re-run failed jobs*), or do its part by hand, as 1.4.1 was finished:
   ```sh
   gh workflow run portal.yml --ref vX.Y.Z                # just release-portal X.Y.Z; approve it
-  gh release edit vX.Y.Z --draft=false                   # the GitHub release
+  gh release edit vX.Y.Z --draft=false --latest          # the GitHub release; --latest=false for an older line
+  gh workflow run release-verify.yml --ref main -f version=X.Y.Z   # just release-verify X.Y.Z
   gh workflow run docs.yml --ref main -f release=true    # just docs-redeploy: every release line
   scripts/hold-release.sh X.Y.Z                          # just release-hold X.Y.Z, from main
   ```
-  If what was published is wrong, card it, fix the cause and release `X.Y.Z+1`. `drop` fails here,
-  saying Central has published the deployment: that's expected.
+  If what was published is wrong, card it, fix the cause and release `X.Y.Z+1`. Should `drop` run
+  here, it fails, saying the deployment is already published: that's expected.
 
 A deployment left behind (a run cancelled before `drop`, or one the upload named no id for) is
 dropped with `scripts/central.sh drop <id>`, with `MAVEN_CENTRAL_USERNAME` and

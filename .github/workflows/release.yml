@@ -293,24 +293,35 @@ jobs:
     environment: release
     permissions:
       contents: read
+    # Set once Central has published it, even when a later step fails, so drop doesn't try.
+    outputs:
+      published: ${{ steps.central.outputs.published }}
     env:
       VERSION: ${{ needs.tested.outputs.version }}
       DEPLOYMENT: ${{ needs.stage.outputs.deployment }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # stage's central.json, the deployment's status while VALIDATED: the only one that lists
+      # its components, which served waits for.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
       - name: Central publishes it
+        id: central
         env:
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
         run: |
           sh scripts/central.sh publish "$DEPLOYMENT"
           sh scripts/central.sh wait "$DEPLOYMENT" PUBLISHED 60
+          echo "published=true" >> "$GITHUB_OUTPUT"
       # Published isn't served: the Plugin Portal and everyone else download from repo1.
       - name: repo1 serves it
         env:
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
-        run: sh scripts/central.sh served "$DEPLOYMENT" 45
+        run: sh scripts/central.sh served "$DEPLOYMENT" "$RUNNER_TEMP/release/central.json" 45
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
@@ -442,11 +453,14 @@ jobs:
           }
 
   # Rejected, or failed anywhere before Central published it: the deployment is dropped, and
-  # nothing was published. Once Central has published it, drop refuses and says to fix forward.
+  # nothing was published. Once Central has published it, as 1.4.1's run 45879952796 had when
+  # repo1's check failed, this doesn't run; were it to, drop refuses and says to fix forward.
   # A failure in stage drops its own deployment there.
   drop:
     needs: [stage, docs, draft, publish]
-    if: always() && needs.stage.result == 'success' && needs.publish.result != 'success'
+    if: >-
+      always() && needs.stage.result == 'success' && needs.publish.result != 'success'
+      && needs.publish.outputs.published != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: stage

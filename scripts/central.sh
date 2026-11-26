@@ -8,7 +8,10 @@
 #   scripts/central.sh wait ID STATE [MINUTES]  waits for VALIDATED or PUBLISHED (default 30)
 #   scripts/central.sh publish ID               publishes a VALIDATED deployment, once
 #   scripts/central.sh drop ID                  drops a VALIDATED or FAILED deployment
-#   scripts/central.sh served ID [MINUTES]      waits for repo1 to serve each of its jars
+#   scripts/central.sh served ID FILE [MINUTES] waits for repo1 to serve each of its jars
+#
+# served's FILE is the deployment's status as `status` printed it while VALIDATED: Central lists a
+# deployment's purls then, and none once it's PUBLISHED (1.4.1's release, run 45879952796).
 #
 # The token is the Central Portal user token, MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD,
 # joined by a colon and base64 encoded, as the API's docs say. CENTRAL_URL, REPO1_URL and
@@ -138,7 +141,7 @@ drop() {
   status_json "$1"
   state=$(state_of)
   case $state in
-    PUBLISHING | PUBLISHED) fail "deployment $1 is $state, and Central can't drop it: fix forward, in the next patch" ;;
+    PUBLISHING | PUBLISHED) fail "deployment $1 is already $state, and Central can't drop it: the release is out, so fix forward (RELEASING.md, When a step fails)" ;;
     VALIDATED | FAILED) ;;
     *) fail "deployment $1 is $state: only a VALIDATED or FAILED deployment can be dropped; wait, then drop it" ;;
   esac
@@ -147,17 +150,24 @@ drop() {
   say "dropped deployment $1, which was $state"
 }
 
-# Each component's POM, from the purls a PUBLISHED status lists, and its jar when it has one,
-# served by repo1: what Maven and Gradle download, which can be some minutes after Central says
-# PUBLISHED.
+# Each component's POM, from the purls the VALIDATED status in FILE lists, and its jar when it has
+# one, served by repo1: what Maven and Gradle download, which can be some minutes after Central
+# says PUBLISHED. The purls come from FILE, as Central's status of a PUBLISHED deployment lists
+# none.
 served() {
   id=$1
-  minutes=${2:-30}
+  file=$2
+  minutes=${3:-30}
+  [ -r "$file" ] || fail "no status of deployment $id at $file: served reads the one saved while it was VALIDATED"
+  saved=$(jq -r '.deploymentId // empty' "$file" 2> /dev/null) ||
+    fail "$file isn't a deployment's status: $(head -c 2000 "$file")"
+  [ "$saved" = "$id" ] || fail "$file is the status of deployment ${saved:-(none)}, not $id"
+  jq -r '.purls[]? | capture("^pkg:maven/(?<group>[^/]+)/(?<name>[^@]+)@(?<version>[^?#]+)")
+    | "\(.group | gsub("\\."; "/"))/\(.name)/\(.version)/\(.name)-\(.version).pom"' "$file" | sort -u > "$tmp/poms"
+  [ -s "$tmp/poms" ] ||
+    fail "$file lists no Maven components for deployment $id: save its status while it's VALIDATED, as Central lists none once it's PUBLISHED"
   status_json "$id"
   [ "$(state_of)" = PUBLISHED ] || fail "deployment $id is $(state_of), not PUBLISHED"
-  jq -r '.purls[]? | capture("^pkg:maven/(?<group>[^/]+)/(?<name>[^@]+)@(?<version>[^?#]+)")
-    | "\(.group | gsub("\\."; "/"))/\(.name)/\(.version)/\(.name)-\(.version).pom"' "$tmp/status" > "$tmp/poms"
-  [ -s "$tmp/poms" ] || fail "deployment $id lists no Maven components"
   deadline=$(($(date +%s) + minutes * 60))
   while :; do
     : > "$tmp/missing"
@@ -200,6 +210,6 @@ case $command in
   wait) [ "$#" -ge 1 ] && [ "$#" -le 2 ] || usage && wait_for "$id" "$@" ;;
   publish) [ "$#" -eq 0 ] || usage && publish "$id" ;;
   drop) [ "$#" -eq 0 ] || usage && drop "$id" ;;
-  served) [ "$#" -le 1 ] || usage && served "$id" "$@" ;;
+  served) [ "$#" -ge 1 ] && [ "$#" -le 2 ] || usage && served "$id" "$@" ;;
   *) usage ;;
 esac

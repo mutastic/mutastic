@@ -220,25 +220,52 @@ expect "no token" 1 "MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD must be s
 expect "an id that isn't one" 1 "isn't a deployment id" central status "../../etc"
 expect "a command it doesn't have" 2 "" central promote "$id"
 
+# Central lists a deployment's purls while it's VALIDATED, and none once it's PUBLISHED: 1.4.1's
+# release (run 45879952796) saved 15 purls in stage's central.json, and served, reading them from
+# the PUBLISHED status, failed with "lists no Maven components". So the stand-in's PUBLISHED status
+# has no purls, and served reads them from the VALIDATED status saved as stage saves it.
 api=io/mutastic/mutastic-api/1.4.0/mutastic-api-1.4.0
 cli=io/mutastic/mutastic-cli/1.4.0/mutastic-cli-1.4.0
 marker=io/mutastic/gradle/io.mutastic.gradle.gradle.plugin/1.4.0/io.mutastic.gradle.gradle.plugin-1.4.0
 poms="\"poms\": {\"$marker.pom\": \"<project><packaging>pom</packaging></project>\"}"
-load "{\"status\": [$(st PUBLISHED "$purls")], $poms, \"repo1\": {\"$api.pom\": [200], \"$api.jar\": [200],
+validated=$tmp/central.json
+load "{\"status\": [$(st VALIDATED "$purls")]}"
+central status "$id" > "$validated"
+
+load "{\"status\": [$(st PUBLISHED)], $poms, \"repo1\": {\"$api.pom\": [200], \"$api.jar\": [200],
   \"$cli.pom\": [404, 404, 200], \"$cli.jar\": [200], \"$marker.pom\": [200]}}"
-expect "served: waits for every component's POM and jar" 0 "repo1 serves all 3 of deployment $id's components" central served "$id" 1
+expect "served: waits for every component's POM and jar" 0 "repo1 serves all 3 of deployment $id's components" central served "$id" "$validated" 1
 requested "served: asks again for what's missing" 3 "GET /repo1/$cli.pom"
 requested "served: a jar beside a jar's POM" 1 "HEAD /repo1/$cli.jar"
 requested "served: no jar beside a plugin marker's POM" 0 "HEAD /repo1/$marker.jar"
 
-load "{\"status\": [$(st PUBLISHED "$purls")], $poms, \"repo1\": {\"$api.pom\": [200], \"$api.jar\": [200], \"$marker.pom\": [200]}}"
-expect "served: names a POM repo1 doesn't have" 1 "$base/repo1/$cli.pom" central served "$id" 0
+# 1.4.1's purls: a POM listed twice, as a plugin marker's and a Maven plugin's are, is fetched once.
+twice=$tmp/twice.json
+jq '.purls = ["pkg:maven/io.mutastic/mutastic-api@1.4.0?type=pom", "pkg:maven/io.mutastic/mutastic-api@1.4.0"]' "$validated" > "$twice"
+load "{\"status\": [$(st PUBLISHED)], \"repo1\": {\"$api.pom\": [200], \"$api.jar\": [200]}}"
+expect "served: a component listed twice is one" 0 "repo1 serves all 1 of deployment $id's components" central served "$id" "$twice" 1
+requested "served: its POM fetched once" 1 "GET /repo1/$api.pom"
 
-load "{\"status\": [$(st PUBLISHED "$purls")], $poms, \"repo1\": {\"$api.pom\": [200], \"$cli.pom\": [200], \"$cli.jar\": [200], \"$marker.pom\": [200]}}"
-expect "served: names a jar repo1 doesn't have" 1 "$base/repo1/$api.jar" central served "$id" 0
+load "{\"status\": [$(st PUBLISHED)], $poms, \"repo1\": {\"$api.pom\": [200], \"$api.jar\": [200], \"$marker.pom\": [200]}}"
+expect "served: names a POM repo1 doesn't have" 1 "$base/repo1/$cli.pom" central served "$id" "$validated" 0
 
-load "{\"status\": [$(st PUBLISHING "$purls")]}"
-expect "served: only once it's published" 1 "is PUBLISHING, not PUBLISHED" central served "$id" 1
+load "{\"status\": [$(st PUBLISHED)], $poms, \"repo1\": {\"$api.pom\": [200], \"$cli.pom\": [200], \"$cli.jar\": [200], \"$marker.pom\": [200]}}"
+expect "served: names a jar repo1 doesn't have" 1 "$base/repo1/$api.jar" central served "$id" "$validated" 0
+
+load "{\"status\": [$(st PUBLISHING)]}"
+expect "served: only once it's published" 1 "is PUBLISHING, not PUBLISHED" central served "$id" "$validated" 1
+
+# What 1.4.1 did: the components taken from the PUBLISHED status, which lists none.
+published=$tmp/published.json
+load "{\"status\": [$(st PUBLISHED)]}"
+central status "$id" > "$published"
+expect "served: a PUBLISHED status, without purls, is refused" 1 "save its status while it's VALIDATED" central served "$id" "$published" 1
+requested "served: and nothing asked of repo1" 0 "GET /repo1/"
+
+expect "served: needs the saved status" 2 "" central served "$id"
+expect "served: a saved status that isn't there" 1 "no status of deployment $id" central served "$id" "$tmp/none.json" 1
+jq '.deploymentId = "00000000-0000-0000-0000-000000000000"' "$validated" > "$tmp/other.json"
+expect "served: another deployment's status" 1 "not $id" central served "$id" "$tmp/other.json" 1
 
 echo "test-central: $passed passed, $failures failed"
 [ "$failures" -eq 0 ]
