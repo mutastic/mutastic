@@ -569,6 +569,47 @@
             },
             {
               "kind": "method",
+              "name": "noToolchain",
+              "anchor": "notoolchain",
+              "signature": "static String noToolchain(String tool, BuildErrors.Missing missing, String remedy, String run, BuildArguments arguments, Path log)",
+              "doc": "A build that stopped for want of the JDK its toolchain asks for: that, in a line; what to do;\nthe run again with the argument that tells the tool where one is; and how to give it to every\nrun. A run whose arguments came from `MUTASTIC_BUILD_ARGS` or `mutastic.yaml` loses them after\n`--`, which replaces them, so it's said to add it there.",
+              "params": [
+                {
+                  "name": "missing",
+                  "doc": "what the tool said it found none of, and where it looked, said after \"found none\": empty, or ` in ~/.m2/toolchains.xml`"
+                },
+                {
+                  "name": "remedy",
+                  "doc": "what to do, ending in a colon: `Install one, or tell Gradle where it is:`"
+                },
+                {
+                  "name": "run",
+                  "doc": "the run, as [`run(String, String, BuildArguments, String)`](#run) has it"
+                },
+                {
+                  "name": "arguments",
+                  "doc": "the build's arguments, which the run was given"
+                },
+                {
+                  "name": "log",
+                  "doc": "the file the tool's output went to"
+                }
+              ],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "run",
+              "anchor": "run",
+              "signature": "static String run(String typed, String module, BuildArguments arguments, String argument)",
+              "doc": "`mutastic run app :core -- -Pci <argument>`: the run on the module, `typed` as the person\nwould type its directory (empty where they are), with the arguments typed after `--` and then\n`argument`, which may have a `<…>` to fill in.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
               "name": "command",
               "anchor": "command",
               "signature": "static String command(String tool, Path build, String flag, List<String> rest)",
@@ -625,6 +666,46 @@
             }
           ],
           "members": []
+        },
+        {
+          "name": "BuildErrors.Missing",
+          "slug": "builderrors-missing",
+          "kind": "record",
+          "signature": "record Missing(BuildErrors.Toolchain jdk, String where)",
+          "summary": "The JDK a toolchain asks for, and where the tool looked for it, said after \"found none\": empty, or ` in ~/.m2/toolchains.xml`.",
+          "doc": "The JDK a toolchain asks for, and where the tool looked for it, said after \"found none\":\nempty, or ` in ~/.m2/toolchains.xml`.",
+          "params": [],
+          "members": []
+        },
+        {
+          "name": "BuildErrors.Toolchain",
+          "slug": "builderrors-toolchain",
+          "kind": "record",
+          "signature": "record Toolchain(String version, Optional<String> vendor)",
+          "summary": "The JDK a build's toolchain asks for, in the build's own words.",
+          "doc": "The JDK a build's toolchain asks for, in the build's own words.",
+          "params": [
+            {
+              "name": "version",
+              "doc": "`21`, or a range such as Maven's `[17,)`"
+            },
+            {
+              "name": "vendor",
+              "doc": "the vendor asked for, `Eclipse Temurin`: empty for any"
+            }
+          ],
+          "members": [
+            {
+              "kind": "method",
+              "name": "named",
+              "anchor": "named",
+              "signature": "String named()",
+              "doc": "`JDK 21`, `JDK 21 (Eclipse Temurin)`, or for a range `a JDK of version [17,)`.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            }
+          ]
         },
         {
           "name": "BuildJava",
