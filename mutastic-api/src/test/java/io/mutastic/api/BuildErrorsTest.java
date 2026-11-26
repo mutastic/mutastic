@@ -211,4 +211,54 @@ class BuildErrorsTest {
                 java.util.Optional.of("It ran with Gradle 8.2.1 from the PATH.")))
         .doesNotContain("It ran with");
   }
+
+  /// A JDK the toolchain asks for that the tool found none of: which, what to do, the run again
+  /// with the argument that says where one is, after any typed after `--`, and how to give it to
+  /// every run.
+  @Test
+  void aMissingToolchainIsSaidWithTheRunThatTellsTheToolWhereOneIs() {
+    var log = Path.of(HERE, "build/mutastic/gradle.log");
+    var jdk = new BuildErrors.Toolchain("21", java.util.Optional.empty());
+    var typed = BuildArguments.typed(List.of("--offline"));
+    var run = BuildErrors.run("app", ":core", typed, "-Dpaths=<path/to/jdk-21>");
+
+    assertThat(run).isEqualTo("mutastic run app :core -- --offline -Dpaths=<path/to/jdk-21>");
+    assertThat(BuildErrors.run("", ":", BuildArguments.NONE, "-Dx"))
+        .isEqualTo("mutastic run -- -Dx");
+    assertThat(
+            BuildErrors.noToolchain(
+                new BuildErrors.Missing(
+                    "Gradle", jdk, "", "Install one, or tell Gradle where it is:"),
+                run,
+                typed,
+                log))
+        .isEqualTo(
+            """
+            the build needs JDK 21 for its toolchain, and Gradle found none.
+            Install one, or tell Gradle where it is:
+              mutastic run app :core -- --offline -Dpaths=<path/to/jdk-21>
+            For every run, add it to build: args: in mutastic.yaml, or to MUTASTIC_BUILD_ARGS.\
+             Gradle's output is in build/mutastic/gradle.log.""");
+  }
+
+  /// Arguments from the variable or the file are replaced by any after `--`, so the message says to
+  /// add it there.
+  @Test
+  void aRunWhoseArgumentsCameFromTheVariableIsToldToAddItThere() {
+    var jdk = new BuildErrors.Toolchain("[17,)", java.util.Optional.of("temurin"));
+
+    assertThat(jdk.named()).isEqualTo("a JDK of version [17,) (temurin)");
+    assertThat(
+            BuildErrors.noToolchain(
+                new BuildErrors.Missing("Maven", jdk, " in ~/.m2/toolchains.xml", "Add it:"),
+                "mutastic run -- -t <file>",
+                BuildArguments.quiet(List.of("-Pci")),
+                Path.of(HERE, "target/mutastic/maven.log")))
+        .startsWith(
+            "the build needs a JDK of version [17,) (temurin) for its toolchain, and Maven found"
+                + " none in ~/.m2/toolchains.xml.\n")
+        .contains(
+            "\nAfter --, it replaces the arguments in MUTASTIC_BUILD_ARGS or mutastic.yaml: add it"
+                + " there instead. Maven's output is in target/mutastic/maven.log.");
+  }
 }

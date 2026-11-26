@@ -8,6 +8,7 @@ import io.mutastic.api.CoveragePass;
 import io.mutastic.api.FlakyTest;
 import io.mutastic.api.Ghost;
 import io.mutastic.api.Ignore;
+import io.mutastic.api.LikelyFlaky;
 import io.mutastic.api.Listener;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantCost;
@@ -18,6 +19,8 @@ import io.mutastic.api.Project;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
 import io.mutastic.api.Suggestion;
+import io.mutastic.engine.tests.StartFailure;
+import io.mutastic.engine.tests.TestFrameworks;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.classfile.ClassFile;
@@ -93,6 +96,15 @@ public final class Engine {
     }
   }
 
+  /// Mutants in classes compiled without line numbers: see [LineNumbers].
+  public static final class NoLineNumbers extends CantRun {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    NoLineNumbers(String message) {
+      super(message);
+    }
+  }
+
   /// A plugin's filter skipped a mutant without saying why: every skip is shown with its reason, so
   /// one without isn't a skip anyone could check.
   public static final class SkipWithoutReason extends CantRun {
@@ -149,6 +161,49 @@ public final class Engine {
                   + " the build's test task picks them")
               .formatted(project.name()));
     }
+
+    /// The tests couldn't start: the platform found no engine for them, or an engine failed to find
+    /// them. The worker's exception is the headline, then what the framework says to change.
+    NoTestsRan(Project project, StartFailure failure, Path log) {
+      super(
+          "the tests in %s can't start on the JUnit Platform: %s\n%sThe worker's output is in %s."
+              .formatted(
+                  project.name(),
+                  failure.said(),
+                  TestFrameworks.of(project.dependencies())
+                      .unstarted(failure)
+                      .map(said -> said + " ")
+                      .orElse(""),
+                  BaselineFailed.shown(log)));
+    }
+  }
+
+  /// The tests run on a JDK older than 17, the oldest mutastic's test workers run on: said before
+  /// one starts, naming the JDK, where a worker on JDK 8 stopped on an option it doesn't know and
+  /// one on 11 on its class files, both read as mutastic's own failure.
+  public static final class TestsJdkTooOld extends CantRun {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    /// The oldest JDK mutastic's test workers run on: the worker is built for it.
+    static final int OLDEST = 17;
+
+    TestsJdkTooOld(Project project, int jdk) {
+      super(
+          ("%s's tests run on JDK %d, %s, and mutastic's test workers run on JDK %d or later."
+                  + " Give the tests a JDK %d or later for mutastic's run: the test task's"
+                  + " toolchain in Gradle (java.toolchain, or the test task's javaLauncher), or"
+                  + " Surefire's jvm in Maven.")
+              .formatted(project.name(), jdk, project.java(), OLDEST, OLDEST));
+    }
+  }
+
+  /// A worker can't run the tests as their classpath is: a framework says what to add or change.
+  public static final class TestsCantRun extends CantRun {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    TestsCantRun(Project project, String said) {
+      super("mutastic can't run the tests in %s. %s".formatted(project.name(), said));
+    }
   }
 
   /// The tests ran and passed, but the coverage pass recorded no line of any class with a mutant:
@@ -199,7 +254,7 @@ public final class Engine {
     }
 
     private static String framework(Project project) {
-      return TestFrameworks.loadsTheApp(project.dependencies())
+      return TestFrameworks.of(project.dependencies()).loadsTheApp()
           ? "here: Quarkus, whose copies of the classes such an agent rewrites first"
           : "none known here";
     }
@@ -413,6 +468,8 @@ public final class Engine {
   ///   `PricingTest#bigOrders`, the workers leave out of each class they run
   /// @param forceCoverage run the coverage pass even when no mutant is there to run
   ///   (`--force-coverage`), to check or time the tests; with none to run, otherwise, no test runs
+  /// @param history what earlier runs say of the tests' catches: the last run's results when
+  ///   nothing has changed, and the tests watched since one was named likely flaky
   public record Options(
       List<String> only,
       boolean confirmCatches,
@@ -426,7 +483,59 @@ public final class Engine {
       boolean killMatrix,
       Shard shard,
       List<String> testsLeftOut,
-      boolean forceCoverage) {
+      boolean forceCoverage,
+      FlakyHistory history) {
+    /// Options that know nothing of earlier runs' flaky tests.
+    public Options(
+        List<String> only,
+        boolean confirmCatches,
+        int workers,
+        boolean suggestions,
+        boolean auditArid,
+        java.util.Set<String> among,
+        Policy policy,
+        Optional<ChangedLines> changed,
+        boolean ghosts,
+        boolean killMatrix,
+        Shard shard,
+        List<String> testsLeftOut,
+        boolean forceCoverage) {
+      this(
+          only,
+          confirmCatches,
+          workers,
+          suggestions,
+          auditArid,
+          among,
+          policy,
+          changed,
+          ghosts,
+          killMatrix,
+          shard,
+          testsLeftOut,
+          forceCoverage,
+          FlakyHistory.NONE);
+    }
+
+    /// The same options, with what earlier runs say of the tests' catches (decision 27).
+    public Options withHistory(FlakyHistory known) {
+      return new Options(
+          only,
+          confirmCatches,
+          workers,
+          suggestions,
+          auditArid,
+          among,
+          policy,
+          changed,
+          ghosts,
+          killMatrix,
+          shard,
+          testsLeftOut,
+          forceCoverage,
+          known);
+    }
+
     /// Options that stop at a mutant's first catch.
     public Options(
         List<String> only,
@@ -470,7 +579,8 @@ public final class Engine {
           every,
           shard,
           testsLeftOut,
-          forceCoverage);
+          forceCoverage,
+          history);
     }
 
     /// The same options, for one share of the mutants (`--shard`).
@@ -488,7 +598,8 @@ public final class Engine {
           killMatrix,
           share,
           testsLeftOut,
-          forceCoverage);
+          forceCoverage,
+          history);
     }
 
     /// The same options, leaving out these tests the build runs (`--exclude-tests`).
@@ -506,7 +617,8 @@ public final class Engine {
           killMatrix,
           shard,
           leftOut,
-          forceCoverage);
+          forceCoverage,
+          history);
     }
 
     /// The same options, running the coverage pass even with no mutant to run, or not
@@ -525,7 +637,8 @@ public final class Engine {
           killMatrix,
           shard,
           testsLeftOut,
-          force);
+          force,
+          history);
     }
 
     /// Options without ghosts.
@@ -556,7 +669,8 @@ public final class Engine {
           killMatrix,
           shard,
           testsLeftOut,
-          forceCoverage);
+          forceCoverage,
+          history);
     }
 
     public Options {
@@ -669,19 +783,33 @@ public final class Engine {
   static int jdkOf(Path java) {
     var bin = java.toAbsolutePath().getParent();
     var home = bin == null ? null : bin.getParent();
-    return home == null ? Runtime.version().feature() : releaseOf(home.resolve("release"));
+    if (home == null) {
+      return Runtime.version().feature();
+    }
+    // JDK 8's `java` may be its JRE's, `jre/bin/java`, with the release file a directory up.
+    var jdk =
+        home.getFileName() != null
+                && home.getFileName().toString().equals("jre")
+                && !Files.exists(home.resolve("release"))
+                && home.getParent() != null
+            ? home.getParent()
+            : home;
+    return releaseOf(jdk.resolve("release"));
   }
+
+  /// `JAVA_VERSION="25.0.1"` in a JDK's release file, or `"1.8.0_392"` for JDK 8, whose version
+  /// `Runtime.Version` can't read.
+  private static final java.util.regex.Pattern RELEASE =
+      java.util.regex.Pattern.compile("(?m)^JAVA_VERSION=\"(?:1\\.)?(?<feature>\\d+)");
 
   /// The feature version a JDK's `release` file names; this JVM's when it names none.
   private static int releaseOf(Path release) {
     try {
-      for (String line : Files.readAllLines(release)) {
-        if (line.startsWith("JAVA_VERSION=")) {
-          var version = line.substring("JAVA_VERSION=".length()).replace("\"", "");
-          return Runtime.Version.parse(version).feature();
-        }
+      var matcher = RELEASE.matcher(Files.readString(release));
+      if (matcher.find()) {
+        return Integer.parseInt(matcher.group("feature"));
       }
-    } catch (IOException | IllegalArgumentException e) {
+    } catch (IOException e) {
       // no release file to read: this JVM's version stands in
     }
     return Runtime.version().feature();
@@ -696,7 +824,8 @@ public final class Engine {
       List<FlakyTest> flaky,
       List<Ghost> ghosts,
       Duration checking,
-      List<TestWorker> workers) {
+      List<TestWorker> workers,
+      List<LikelyFlaky> likelyFlaky) {
     /// The run's report, the whole of it having taken `took`.
     Report report(Project project, Plan plan, Options options, Duration took) {
       return new Report(
@@ -714,12 +843,17 @@ public final class Engine {
           plan.stale(),
           flaky,
           options.ghosts() ? Optional.of(ghosts) : Optional.empty(),
-          checking);
+          checking,
+          likelyFlaky,
+          List.of(),
+          pass.unmatched());
     }
   }
 
   /// Each mutant, then each catch checked on the unmutated code ([FalseCatchGuard]), once the
-  /// workers that ran them have gone with what their tests started (a server on a fixed port).
+  /// workers that ran them have gone with what their tests started (a server on a fixed port); then
+  /// each test the run names likely flaky left out, and what it reached run again
+  /// ([LikelyFlakyGuard]).
   private Ran ran(Project project, Plan plan, List<TestWorker> workers, Listener listener) {
     listener.mutantsFound(plan.mutants().size());
     var pass = coveragePass(project, plan, workers.getFirst(), listener);
@@ -730,13 +864,15 @@ public final class Engine {
     workers.forEach(TestWorker::close);
     listener.checking(FalseCatchGuard.STEP, 0, 0);
     var guarded = guard(plan, workers.getFirst()).check(results, listener);
+    var named = likelyFlakyGuard(plan, workers.getFirst()).check(guarded, listener);
     return new Ran(
         pass,
-        guarded.results(),
+        named.results(),
         flakyBoth(pass, plan.mutantRun(), project, guarded),
         ghosts,
         Duration.ofNanos(System.nanoTime() - checkingStart),
-        workers);
+        workers,
+        named.likelyFlaky());
   }
 
   /// What progress calls running the ghosts, after the mutants.
@@ -773,6 +909,17 @@ public final class Engine {
         (mutant, worker) -> mutantRun.run(mutant, worker).result());
   }
 
+  /// What leaves out each test the run names likely flaky, once the mutants have run, and runs what
+  /// it reached again in a worker like `first` but new.
+  private LikelyFlakyGuard likelyFlakyGuard(Plan plan, TestWorker first) {
+    var mutantRun = plan.mutantRun();
+    return new LikelyFlakyGuard(
+        mutantRun.coverage(),
+        mutantRun.confirming().history(),
+        () -> first.another(named(log, "flaky")),
+        (mutant, worker) -> mutantRun.run(mutant, worker).result());
+  }
+
   /// A run's mutants and what running them needs, before any test has run.
   ///
   /// @param instrumented each class with a mutant to run, instrumented for the coverage pass
@@ -787,7 +934,26 @@ public final class Engine {
       Map<String, byte[]> instrumented,
       List<Ignore> stale,
       List<Ghosts.Found> ghosts,
-      boolean whole) {}
+      boolean whole,
+      Exclusions exclusions) {
+    /// The plan for a run with `options`: whole or not, and the tests it leaves out.
+    Plan(
+        List<Mutant> mutants,
+        MutantRun mutantRun,
+        Map<String, byte[]> instrumented,
+        List<Ignore> stale,
+        List<Ghosts.Found> ghosts,
+        Options options) {
+      this(
+          mutants,
+          mutantRun,
+          instrumented,
+          stale,
+          ghosts,
+          Engine.whole(options),
+          new Exclusions(options.testsLeftOut()));
+    }
+  }
 
   /// A project's mutants as a run would have them, and the ignores that no longer hold.
   public record Mutants(List<Mutant> all, List<Ignore> stale) {}
@@ -811,6 +977,7 @@ public final class Engine {
     mutations.prepareFor(project);
     var all = models.values().stream().flatMap(model -> mutations.find(model).stream()).toList();
     var mutants = chosen(all, project, options, models);
+    LineNumbers.require(mutants, models);
     var ignored = new Ignored(options.policy().ignores(), models, project, all);
     boolean complete =
         options.only().isEmpty() && options.among().isEmpty() && options.changed().isEmpty();
@@ -857,8 +1024,7 @@ public final class Engine {
     var mutants = found.mutants();
     var mutations = found.mutations();
     var coverage = new Coverage(context);
-    var ghosts =
-        options.ghosts() ? ghostsIn(models, mutations, options.shard()) : List.<Ghosts.Found>of();
+    var ghosts = ghostsFor(options, models, mutations);
     var instrumented =
         instrumentMutated(models, withGhosts(mutants, ghosts), coverage, options.auditArid());
     var mutantRun =
@@ -866,14 +1032,21 @@ public final class Engine {
             models,
             mutations,
             coverage,
-            options.confirmCatches(),
+            new Confirming(options.confirmCatches(), options.history()),
             options.suggestions(),
             options.auditArid(),
             java.util.Collections.synchronizedList(new ArrayList<>()),
             project,
             options.killMatrix(),
-            !options.only().isEmpty());
-    return new Plan(mutants, mutantRun, instrumented, found.stale(), ghosts, whole(options));
+            !options.only().isEmpty(),
+            StaleState.in(project.testClasses()));
+    return new Plan(mutants, mutantRun, instrumented, found.stale(), ghosts, options);
+  }
+
+  /// The ghosts of `options`' share of the classes, if it asks for them.
+  private static List<Ghosts.Found> ghostsFor(
+      Options options, Map<String, ClassModel> models, Mutations mutations) {
+    return options.ghosts() ? ghostsIn(models, mutations, options.shard()) : List.of();
   }
 
   /// The mutants to run, then the ghosts.
@@ -1000,10 +1173,10 @@ public final class Engine {
     return workers;
   }
 
-  /// The single test methods the run leaves out, `PricingTest#bigOrders`: a class left out whole
-  /// isn't in the project's test selection, so it never reaches a worker.
+  /// The tests the run leaves out, for the workers' filter: a method, `PricingTest#bigOrders`, or a
+  /// class nested in a test class. A top-level class left out whole never reaches a worker.
   private static List<String> methods(Options options) {
-    return options.testsLeftOut().stream().filter(test -> test.contains("#")).toList();
+    return options.testsLeftOut();
   }
 
   /// Every test once, on `first`, with coverage; flaky tests are left out of what it recorded. A
@@ -1012,7 +1185,13 @@ public final class Engine {
   /// runs none: every mutant is not covered there too.
   private CoveragePass coveragePass(
       Project project, Plan plan, TestWorker first, Listener listener) {
-    var testClasses = testClassesToRun(project);
+    return measuredPass(project, plan, first, listener).withUnmatched(unmatched(project, plan));
+  }
+
+  /// The coverage pass, before it's checked for names that left out nothing.
+  private CoveragePass measuredPass(
+      Project project, Plan plan, TestWorker first, Listener listener) {
+    var testClasses = testClassesToRun(project, plan.exclusions());
     if (testClasses.isEmpty()) {
       return noTests(plan);
     }
@@ -1037,9 +1216,20 @@ public final class Engine {
         .withSeparateJvms(separate);
   }
 
-  /// The module's test classes that the build's selection runs, by binary name.
-  private static List<String> testClassesToRun(Project project) {
-    return testClassesIn(project.testClasses()).stream().filter(project.tests()::runs).toList();
+  /// Each test the run was told to leave out that names none of the module's tests (decision 28).
+  private static List<io.mutastic.api.UnmatchedExclusion> unmatched(Project project, Plan plan) {
+    var coverage = plan.mutantRun().coverage();
+    return plan.exclusions()
+        .unmatched(testClassesIn(project.testClasses()), coverage.leftOut(), coverage.testsRun());
+  }
+
+  /// The module's test classes that the build's selection runs, by binary name, but those the run
+  /// leaves out whole.
+  private static List<String> testClassesToRun(Project project, Exclusions exclusions) {
+    return testClassesIn(project.testClasses()).stream()
+        .filter(project.tests()::runs)
+        .filter(name -> !exclusions.leaveOutClass(name))
+        .toList();
   }
 
   /// What each flaky test reached, taken before they're left out of what the pass recorded.
@@ -1339,23 +1529,27 @@ public final class Engine {
   /// mutant share the ClassFile context's caches, so they take turns; only the tests run side by
   /// side. Coverage is only read once the coverage pass is over.
   ///
+  /// @param confirming how many more times a catch is run against its mutant before it counts
   /// @param audited each arid mutant's result when run anyway, in an audit
   /// @param killMatrix whether a caught mutant runs its other covering tests too, to name each that
   ///   catches it
   /// @param shrinkOnce whether the input a property catches a mutant with is shrunk, by running
   ///   that test once more with shrinking on: in a run of mutants named by id, whose cards are read
   ///   one by one
+  /// @param staleState the tests whose catch is run again in a fresh loader before it counts, as
+  ///   their run can see state an earlier run left
   private record MutantRun(
       Map<String, ClassModel> models,
       Mutations mutations,
       Coverage coverage,
-      boolean confirmCatches,
+      Confirming confirming,
       boolean suggestions,
       boolean auditArid,
       List<MutantResult> audited,
       Project project,
       boolean killMatrix,
-      boolean shrinkOnce) {
+      boolean shrinkOnce,
+      StaleState staleState) {
     /// At most this many sets of arguments to try per mutant.
     static final int CANDIDATES = 400;
 
@@ -1374,10 +1568,44 @@ public final class Engine {
         return new Outcome(MutantResult.skipped(mutant), false);
       }
       var covering = coverage.coveringTests(mutant);
-      if (covering.isEmpty()) {
-        return new Outcome(uncovered(mutant, worker), false);
+      if (covering.isEmpty() && !suggestsFor(mutant)) {
+        return new Outcome(unreached(mutant), false);
       }
-      return tested(mutant, worker, covering);
+      Mutations.Applied applied;
+      synchronized (mutations) {
+        applied = mutations.applied(model(mutant), mutant);
+      }
+      return switch (applied) {
+        case Mutations.Applied.Unviable unviable ->
+            new Outcome(withdrawn(mutant, unviable.why()), false);
+        case Mutations.Applied.Loads loads ->
+            covering.isEmpty()
+                ? new Outcome(uncovered(mutant, loads.bytes(), worker), false)
+                : tested(mutant, loads.bytes(), worker, covering);
+      };
+    }
+
+    /// A mutant no test reaches, and none is suggested for: its class isn't needed, only whether it
+    /// would load.
+    private MutantResult unreached(Mutant mutant) {
+      Optional<String> unviable;
+      synchronized (mutations) {
+        unviable = mutations.unviableToRun(model(mutant), mutant);
+      }
+      return unviable
+          .map(why -> withdrawn(mutant, why))
+          .orElseGet(() -> MutantResult.notCovered(mutant));
+    }
+
+    /// A mutant whose class wouldn't load, skipped: it proves nothing. Counted as caught it would
+    /// flatter the score, and as missed or not covered it would ask for a test no test can be.
+    private static MutantResult withdrawn(Mutant mutant, String why) {
+      return MutantResult.skipped(mutant.skippedFor("unviable: " + why));
+    }
+
+    /// Whether a mutant no test reaches gets a first test to write.
+    private boolean suggestsFor(Mutant mutant) {
+      return suggestions && isOnAnInstruction(mutant);
     }
 
     /// What `mutant` should take: the time its covering tests took in the coverage pass, every
@@ -1401,13 +1629,15 @@ public final class Engine {
     }
 
     /// The mutant run against the tests that reach it.
-    private Outcome tested(Mutant mutant, TestWorker worker, List<String> covering) {
-      var trial = new Trial(worker, mutant, verifiedMutation(mutant), coverage);
+    private Outcome tested(Mutant mutant, byte[] bytes, TestWorker worker, List<String> covering) {
+      var trial = new Trial(worker, mutant, bytes, coverage);
       var tested = shrunk(trial, testConfirmed(trial, covering));
       var inputs = coverage.inputs(mutant, covering);
-      var result = resultOf(trial, covering, tested, inputs);
+      var result =
+          resultOf(trial, covering, tested, inputs)
+              .withDuplicateClass(tested.run().unjudged().stream().findFirst());
       if (killMatrix && tested.run().status() == Status.CAUGHT) {
-        result = result.withCaughtByAll(everyCatcher(trial, covering, tested.run()));
+        result = result.withCaughtByAll(everyCatcher(trial, covering, tested.run(), staleState));
       }
       if (suggestions && isOnAnInstruction(mutant) && tested.run().status() == Status.MISSED) {
         var receiver = receiverFor(mutant, result.coveredBy().getFirst());
@@ -1427,14 +1657,18 @@ public final class Engine {
     /// Every covering test that catches the mutant, from the one that did first: each run picks up
     /// after the last test that failed, until the rest pass or one doesn't finish in time. A test
     /// that failed but isn't among `covering` (a class failing as a whole) ends it there.
+    ///
+    /// A catcher whose catch is stale ([#isStale]) isn't one, and the tests after it go on.
     private static List<String> everyCatcher(
-        Trial trial, List<String> covering, TestWorker.Run first) {
+        Trial trial, List<String> covering, TestWorker.Run first, StaleState staleState) {
       var catchers = new ArrayList<String>();
       var run = first;
       var rest = covering;
       while (run.status() == Status.CAUGHT && run.failedTest().isPresent()) {
         var catcher = run.failedTest().get();
-        catchers.add(catcher);
+        if (!isStale(trial, catcher, staleState)) {
+          catchers.add(catcher);
+        }
         int at = rest.indexOf(catcher);
         if (at < 0 || at == rest.size() - 1) {
           break;
@@ -1453,21 +1687,6 @@ public final class Engine {
           && !(mutant.operator() instanceof MissingNotification);
     }
 
-    /// The mutant's class, mutated and checked to load.
-    private byte[] verifiedMutation(Mutant mutant) {
-      synchronized (mutations) {
-        var bytes = mutations.apply(model(mutant), mutant);
-        var errors = mutations.verify(bytes);
-        if (!errors.isEmpty()) {
-          // A mutant that won't load proves nothing, and counting it as caught would flatter the
-          // score: this is mutastic's bug, not the user's.
-          throw new IllegalStateException(
-              "mutant " + mutant.id() + " doesn't verify: " + errors.getFirst().getMessage());
-        }
-        return bytes;
-      }
-    }
-
     /// The covering tests' run, and the catcher whose catch didn't repeat, if one didn't.
     private record Tested(TestWorker.Run run, Optional<String> unconfirmed) {}
 
@@ -1477,10 +1696,23 @@ public final class Engine {
         return new Tested(run, Optional.empty());
       }
       var catcher = run.failedTest().orElseThrow();
-      if (confirmCatches && trial.run(List.of(catcher)).status() == Status.MISSED) {
+      if (!confirming.repeats(run, () -> trial.run(List.of(catcher)))) {
         return testedAfter(trial, covering, run, Optional.of(catcher));
       }
-      return new Tested(run, Optional.empty());
+      return isStale(trial, catcher, staleState)
+          ? testedAfter(trial, covering, run, Optional.empty())
+          : new Tested(run, Optional.empty());
+    }
+
+    /// Whether `catcher`, a test whose run can see state an earlier run left ([StaleState]), passes
+    /// against the mutant in a fresh loader, where every static starts clean as in one run of the
+    /// build: then what it failed on was that state, not the mutant, and it's no catch. Not a sign
+    /// of a flaky test either, so it names no test likely flaky.
+    private static boolean isStale(Trial trial, String catcher, StaleState staleState) {
+      return FalseCatchGuard.runnable(catcher)
+          .filter(staleState::reaches)
+          .map(runnable -> trial.runFresh(List.of(runnable)).status() == Status.MISSED)
+          .orElse(false);
     }
 
     /// With [#shrinkOnce], the input a property caught the mutant with, shrunk: its test runs once
@@ -1542,17 +1774,14 @@ public final class Engine {
           .withCaughtInput(run.input().map(TestWorker.CaughtInput::text));
     }
 
-    /// A mutant no test reaches, with the first test to write for it when suggestions are on.
-    private MutantResult uncovered(Mutant mutant, TestWorker worker) {
-      var result = MutantResult.notCovered(mutant);
-      return suggestions && isOnAnInstruction(mutant)
-          ? result.withSuggestion(startingPoint(mutant, worker))
-          : result;
+    /// A mutant no test reaches, with the first test to write for it.
+    private MutantResult uncovered(Mutant mutant, byte[] bytes, TestWorker worker) {
+      return MutantResult.notCovered(mutant).withSuggestion(startingPoint(mutant, bytes, worker));
     }
 
     /// For a mutant no test reaches, the first test to write: a call a test in the class's own
     /// package could make, and its result, where the mutant changes it.
-    private Optional<Suggestion> startingPoint(Mutant mutant, TestWorker worker) {
+    private Optional<Suggestion> startingPoint(Mutant mutant, byte[] bytes, TestWorker worker) {
       Optional<String> receiver;
       synchronized (mutations) {
         receiver = Access.receiver(models, mutant, mutant.binaryName() + "Test");
@@ -1560,7 +1789,7 @@ public final class Engine {
       if (receiver.isEmpty()) {
         return Optional.empty();
       }
-      var trial = new Trial(worker, mutant, verifiedMutation(mutant), coverage);
+      var trial = new Trial(worker, mutant, bytes, coverage);
       return suggest(
           receiver.get(), trial, Map.of(), new Tests(mutant.binaryName() + "Test", List.of()));
     }
@@ -1589,7 +1818,7 @@ public final class Engine {
         String receiver, Trial trial, Map<String, List<Long>> inputs, Tests tests) {
       var mutant = trial.mutant();
       var shape = CallShape.of(mutant, receiver);
-      if (!shape.takesWholeNumbers()) {
+      if (!shape.takesWholeNumbers() || !writtenAsDeclared(shape)) {
         return Optional.empty();
       }
       var kotlin = isKotlin(mutant) ? kotlinCall(mutant) : Optional.<KotlinCall>empty();
@@ -1603,6 +1832,17 @@ public final class Engine {
           .worker()
           .suggest(mutant, receiver, trial.bytes(), candidates)
           .map(found -> suggestion(shape, found, kotlin, target));
+    }
+
+    /// Whether the call names each class it's on as the source declares it: not a top-level class
+    /// whose name holds a `$`, such as a framework's `$Cache$Definition`, which it would write as
+    /// nested, in a test that wouldn't compile.
+    private boolean writtenAsDeclared(CallShape shape) {
+      var named = new ArrayList<String>(List.of(shape.mutant().className()));
+      shape.receiver().forEach(made -> named.add(made.className()));
+      synchronized (mutations) {
+        return JavaNames.writtenAsDeclared(named, models);
+      }
     }
 
     /// The test class a suggestion goes in, and the tests that reach the mutant, first listed
@@ -1784,13 +2024,13 @@ public final class Engine {
 
         /// `Shipping(10)`, or `.Parcel(30)` for an inner class.
         String kotlin(List<Long> arguments) {
-          var nested = className.substring(className.lastIndexOf('/') + 1).replace('$', '.');
+          var nested = JavaNames.nestedOf(className);
           return (inner ? ".%s(%s)" : "%s(%s)")
               .formatted(inner ? simpleName() : nested, literals(parameters(), arguments));
         }
 
         String written(List<Long> arguments, Map<Integer, String> instead) {
-          var nested = className.substring(className.lastIndexOf('/') + 1).replace('$', '.');
+          var nested = JavaNames.nestedOf(className);
           return (inner ? ".new %s(%s)" : "new %s(%s)")
               .formatted(
                   inner ? simpleName() : nested,
@@ -1886,7 +2126,7 @@ public final class Engine {
         var on = new StringBuilder();
         if (call.kind() == KotlinCall.Kind.ON_THE_CLASS) {
           var className = mutant.className();
-          on.append(className.substring(className.lastIndexOf('/') + 1).replace('$', '.'));
+          on.append(JavaNames.nestedOf(className));
         }
         var each = eachArguments(receiverArguments);
         for (int index = 0; index < receiver.size(); index++) {
@@ -1903,7 +2143,7 @@ public final class Engine {
         var on = new StringBuilder();
         if (receiver.isEmpty()) {
           var className = mutant.className();
-          on.append(className.substring(className.lastIndexOf('/') + 1).replace('$', '.'));
+          on.append(JavaNames.nestedOf(className));
         }
         var each = eachArguments(receiverArguments);
         for (int index = 0; index < receiver.size(); index++) {
@@ -2001,6 +2241,16 @@ public final class Engine {
       return worker;
     }
 
+    /// `tests` against the mutant in a fresh loader, each allowed what it's allowed in [#run].
+    TestWorker.Run runFresh(List<String> tests) {
+      var timeout =
+          timeoutFor(
+              mutant.operator() instanceof ClassMutator
+                  ? coverage.timeOfEveryTest()
+                  : coverage.timeOf(tests));
+      return worker.runFresh(mutant.binaryName(), bytes, tests, timeout);
+    }
+
     Mutant mutant() {
       return mutant;
     }
@@ -2014,12 +2264,20 @@ public final class Engine {
     }
   }
 
-  /// Every class in the directories, by binary name, in a stable order.
+  /// Every class in the directories, by binary name, in a stable order: the class each name loads,
+  /// as the test classpath has them. That's a directory's file at the class's own path, the first
+  /// directory's of a name: so not a multi-release layout's `META-INF/versions/11`, which no class
+  /// loader reads from a directory, unless the build puts that directory on the classpath itself.
   private static Map<String, ClassModel> classesIn(List<Path> roots, ClassFile context) {
     var models = new java.util.TreeMap<String, ClassModel>();
-    for (Path file : classFiles(roots)) {
-      var model = ClassFileVersion.parse(context, file);
-      models.put(model.thisClass().asInternalName().replace('/', '.'), model);
+    for (Path root : roots) {
+      for (Path file : classFiles(List.of(root))) {
+        var model = ClassFileVersion.parse(context, file);
+        var name = model.thisClass().asInternalName();
+        if (root.resolve(name + ".class").equals(file)) {
+          models.putIfAbsent(name.replace('/', '.'), model);
+        }
+      }
     }
     return models;
   }

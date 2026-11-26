@@ -230,42 +230,55 @@ That holds everywhere a test is named or counted:
 
 ## Property tests
 
-A property test draws its inputs at random. Drawn afresh in each run, a mutant only some inputs
-catch would be caught in one run and missed in the next, and a property that fails for a rare input
-would look like a flaky test. So mutastic gives every test JVM of a run one seed, the coverage
-pass's and each mutant's, and every run the same one: a property catches a mutant in every run or
-in none.
+You run mutastic twice on the same code, and a mutant that was caught is now missed. Nothing
+changed but the luck of the draw: a property test picks its inputs at random, and only some of them
+catch that mutant. You can't tell whether your tests got weaker, and a property that fails only on a
+rare input looks like a flaky test.
 
-| Framework | Its seed | Its shrinking, on a mutant's run |
+So mutastic gives a run's property tests the same seed every time, where their framework takes one
+from outside the test. A mutant is then caught in every run or in none, and you don't have to set
+anything up.
+
+### The input that caught a mutant
+
+A property's name alone doesn't say what went wrong, so a caught mutant names the input too:
+``ListsTest#reversesTwice with `[0]` ``.
+
+- **In a run of every mutant,** it's the first input that failed. Shrinking it to a smaller one is
+  often the slow part, and one failing input is enough to catch a mutant, so mutastic turns
+  shrinking off where the framework lets it.
+- **With `run --only`, `verify` or `explain`,** the property runs once more with shrinking on, and
+  the smallest input is named.
+
+It's on one line, as the framework says it (Kotest's is `Arg 0: -1`), cut at 300 characters. The
+events and `mutation.json` have it as `caughtInput`
+([Schemas](/reference/schemas/)).
+
+### Try another seed
+
+Another seed draws other inputs, and can catch what this one missed. The seed is `0` until you give
+the test task the framework's own system property, such as `systemProperty("QT_SEED", "2")` in
+Gradle, or `<systemPropertyVariables>` in Surefire. It's then the seed for every framework in the
+run. A test that sets its own in code (`withFixedSeed`, `PropTestConfig(seed = …)`) keeps it.
+
+| Framework | Its seed | Shrinking turned off by |
 |---|---|---|
-| QuickTheories | `QT_SEED`, a system property | Off: `QT_SHRINKS=0` |
-| Kotest's property tests (`forAll`, `checkAll`) | `kotest.proptest.default.seed`, a system property; its saved failures are off (`kotest.proptest.seed.write-failed=false`) | Off: `PropertyTesting.defaultShrinkingMode` |
-| junit-quickcheck | Can't be set: it seeds a parameter only from its own `@When(seed = …)` | As its `@Property(shrink = …)` says |
-| jqwik | Not set: its tests run as ordinary tests, and nothing is read from them | As it does |
+| QuickTheories | `QT_SEED` | `QT_SHRINKS=0` |
+| Kotest (`forAll`, `checkAll`) | `kotest.proptest.default.seed`, with saved failures off (`kotest.proptest.seed.write-failed=false`) | `PropertyTesting.defaultShrinkingMode` |
+| junit-quickcheck | Only in the test, `@When(seed = …)` | Only in the test, `@Property(shrink = …)` |
 
-- **The seed is `0`,** unless you set one: give the test task the framework's system property,
-  `systemProperty("QT_SEED", "2")` in Gradle or `<systemPropertyVariables>` in Surefire, and it's
-  the run's seed, for every framework. A test that names its own in code (`withFixedSeed`,
-  `PropTestConfig(seed = …)`) keeps it. `run-started` records the seed in `propertyTests`:
-  `{"frameworks": ["junit-quickcheck", "quicktheories"], "seed": "0", "seeded": ["quicktheories"],
-  "unseeded": ["junit-quickcheck"]}`. Another seed is another draw, and can catch what this one
-  missed.
-- **A caught mutant names the input that caught it,** after the test, ``ListsTest#reversesTwice
-  with `[0]` `` in `verify`, `explain` and its card, `caughtInput` in `mutant-finished`, and
-  `mutastic.caughtInput` in `mutation.json`: on one line as the framework says it (Kotest's is
-  `Arg 0: -1`), cut at 300 characters. One counterexample is enough to catch a mutant, so a run of
-  every mutant turns shrinking off where the framework lets it, often the costly part of a failing
-  property, and names the first input that failed. A run of mutants named by id, `run --only`,
-  `verify` or `explain`, runs the catching property once more with shrinking on, and names the
-  smallest.
-- **A framework mutastic can't seed is named,** not guessed at. A run whose tests use one ends with
-  a note on stderr, in every format, and `propertyTests` lists it in `unseeded`:
+### When a seed can't be set
 
-  ```text
-  note: property tests in junit-quickcheck run with their own seeds, which mutastic can't set: a mutant only some of their inputs catch can be caught in one run and missed in the next
-  ```
+Some frameworks take no seed from outside the test, so their results can still change between runs.
+The run says which, in every format, on stderr:
 
-  To keep such a mutant's result steady, check its edge in a test of its own.
+```text
+note: property tests in junit-quickcheck run with their own seeds, which mutastic can't set: a mutant only some of their inputs catch can be caught in one run and missed in the next
+```
+
+To keep such a mutant's result steady, check its edge in a test of its own. `run-started` lists
+those frameworks as `unseeded` in `propertyTests`, beside the seed and the frameworks that drew from
+it.
 
 </EditionOnly>
 
@@ -288,7 +301,10 @@ table is written:
   which row failed. Put the row in the assertion's message,
   `assert_eq!(subtract(a, b), difference, "subtract({a}, {b})")`, so the test's own output does.
 - **A proptest property draws the same cases every run,** as mutastic seeds it, so it catches a
-  mutant in every run or in none. A card's `inputs seen` shows its smallest and largest few values.
+  mutant in every run or in none. A card's `inputs seen` shows its smallest and largest few values,
+  and a caught mutant's card names the input that caught it, ``with `xs = [0]` ``, as
+  `mutant-finished`'s `caughtInput` does. quickcheck, arbtest and bolero seed themselves, and a run
+  of a package that uses them says so.
 
 </EditionOnly>
 
@@ -382,6 +398,15 @@ count`).
 The run doesn't pass while such a test is there, whatever the score, and exits with status 3, as
 for tests that fail before any mutant: see [Troubleshooting](/guides/troubleshooting/).
 
+A test that fails against a mutant only because the JVM refused a class as defined twice
+(`LinkageError: … attempted duplicate class definition`) judged nothing, so that's no catch either:
+the mutant's other covering tests decide it, and its card names the test (`… failed against it, but
+only on a class mutastic's worker defined twice, which the build never does: that catch doesn't
+count`), as `duplicateClassBy` does in the events and `mutastic.duplicateClassBy` in mutation.json.
+mutastic's worker runs tests in class loaders of its own, and a library that keeps what it
+generated by the thread's context class loader, as Spring 5 keeps its CGLIB proxies, can define a
+class again there; the build runs every test under one loader, so it never sees this.
+
 </div>
 <div slot="rust">
 
@@ -401,6 +426,12 @@ event with its final result, which replaces its `mutant-finished` one, and one w
 count names the test as `falseCatchBy`.
 
 When every catch holds, nothing changes but the time: one run of each test that caught something.
+
+A test named [likely flaky](/concepts/flaky-tests/#when-a-test-is-named-likely-flaky), because a
+mutant it caught changed result since the last run with the same code or because a catch of it
+didn't repeat, is dealt with the same way: none of its catches count, and each mutant it reached
+runs again without it. Its card says so (`… failed against it, but it's likely flaky: that catch
+doesn't count`), and later runs confirm each catch it makes 3 times until it has held for 3 runs.
 
 <EditionOnly edition="java">
 
@@ -439,7 +470,7 @@ first, and the summary counts them by kind (`2 skipped (1 arid, 1 unviable)`):
 | `arid:` | Code a test could check, but none should have to ([why](/concepts/arid/)) | A removed log call or `System.out.println`, a trivial getter or setter, `toString()`, a list's starting size (`new ArrayList<>(n * 2)`), a removed `Thread.sleep`, a thread's name, an exception's message, a value worked out only for a log line: [every rule](/reference/arid/), with what it can hide |
 | `generated:` | Code the compiler or a tool wrote, not you | The close javac or ECJ writes for a try-with-resources (a `close()` you write yourself runs, beside one or not), the hashing in a `switch` on a `String`, anything marked `@Generated` (in the class file, or [in the source](/guides/configuration/#annotations) for the JDK's own), [what Lombok writes](#lombok), Kotlin's null checks, a data class's `copy` and `equals`, a coroutine's state machine ([experimental](/guides/operator-plugins/#kotlin-projects)) |
 | `equivalent:` | The change does nothing ([what that means](/concepts/equivalence/)) | An assignment nothing reads (`x = 1; x = 2;`); a call's arguments swapped where it can't tell (`Math.max(a, b)`, `f(x, x)`); a search only tested for being there, swapped for the one from the other end (`name.indexOf('.') >= 0`); a whole number rounded down instead of up (`Math.floor((double) count)`); A return that already gives the value it would be changed to (`return List.of();`, `return null;`); a boundary where both sides give the same value at the edge (`if (x > max) max = x;`, `a < b ? a : b`, `x < 10 ? 10 : x`); a comparison of a length changed only where it would be negative (`name.length() == 0` to `name.length() <= 0`, on a `String` or an array); an anchor on a regular expression that has to match all of the text (`s.matches("^a+$")`); an arm of a `switch` with no code of its own that goes where the default goes (`case 1: break;`); a test of an `\|\|` whose case the next test already covers (`inCredit(balance) \|\| balance > -1000`, where `inCredit` is `balance >= 1`); a pool's largest size beside a queue with no limit (`new ThreadPoolExecutor(2, 4, …, new LinkedBlockingQueue<>())`) |
-| `unviable:` | The change wouldn't load, can't reach what it's for, or would never finish | `limit` removed from a stream only it ends, a plugin's rewrite that doesn't fit the call it met, a `throw` removed with nothing after it to run, `isEmpty` in a class for a Java older than 11, [a proposed rewrite](/guides/operator-plugins/#proposed-rewrites) that doesn't compile, an annotation removed where a framework loads the app itself |
+| `unviable:` | The change wouldn't load, can't reach what it's for, or would never finish | A change that makes a class the JVM rejects, with the verifier's reason (`unviable: Bad type on operand stack in …`), `limit` removed from a stream only it ends, a plugin's rewrite that doesn't fit the call it met, a `throw` removed with nothing after it to run, `isEmpty` in a class for a Java older than 11, [a proposed rewrite](/guides/operator-plugins/#proposed-rewrites) that doesn't compile, an annotation removed where a framework loads the app itself |
 | `user:` | Your decision | `@DoNotMutate`, a rule in `mutastic.yaml`, or `mutastic ignore` |
 | `twin:` | It always does what another mutant at its place does, and that one runs for it ([Twins](#twins)) | `twin: same as m911a2864`, for a lambda's `return total >= 100;` made `return true`, the same as its test made always true |
 
@@ -546,10 +577,12 @@ how it went:
 |---|---|---|
 | `is caught by tests::discount_at_the_total_edge` | a test failed | yes |
 | `is caught by run::totals, through a panic: attempt to subtract with overflow` | a test failed through a panic the language raised | yes |
+| ``is caught by props::reverses_twice with `xs = [0]` `` | a property test failed, on the input named | yes |
 | `is caught only because the test process crashed (SIGABRT): no test's check caught it` | no test failed: the process died, in safe code | yes |
 | `is caught by a timeout` | the tests ran out of time | yes |
 | `is still missed` | every test that reaches it passed | no |
 | `isn't reached by any test` | no test reaches it | no |
+| `isn't covered: only tests::restocking_works reached it, and it's likely flaky: its catch didn't count` | the only test that reached it was named [likely flaky](/concepts/flaky-tests/#when-a-test-is-named-likely-flaky), and its catch was dropped | no |
 | `is skipped (unviable: …), so it isn't run and needs no test` | it doesn't compile | yes |
 | `crashes, and no test can be said to catch it (…)` | it crashed where a crash proves nothing | yes |
 | `is the same as m2e329a72, which is still missed` | a twin: the one it's the same as ran for it, and its fate follows | as that one |

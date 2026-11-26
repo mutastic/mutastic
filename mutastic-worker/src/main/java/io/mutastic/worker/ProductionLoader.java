@@ -43,7 +43,7 @@ final class ProductionLoader extends RootsLoader implements MutantInPlace.Classe
       List<Path> testRoots,
       TestSplit splitTests,
       ClassLoader parent) {
-    super("mutastic-production", roots, concat(testRoots, roots), parent);
+    super(roots, concat(testRoots, roots), parent);
     this.replacements = new HashMap<>(replacements);
     this.testRoots = List.copyOf(testRoots);
     this.splitTests = splitTests;

@@ -17,6 +17,7 @@ import java.util.List;
 ///   when not counted
 /// @param separateJvms a note for each test class that runs one of the project's `main` classes in
 ///   a JVM of its own, which neither mutants nor coverage reach
+/// @param unmatched each test the run was told to leave out that names none of its tests
 @Internal
 public record CoveragePass(
     int jdk,
@@ -27,11 +28,37 @@ public record CoveragePass(
     List<FlakyTest> flakyEvidence,
     int cases,
     int skippedCases,
-    List<String> separateJvms) {
+    List<String> separateJvms,
+    List<UnmatchedExclusion> unmatched) {
   public CoveragePass {
+    unmatched = List.copyOf(unmatched);
     flaky = List.copyOf(flaky);
     flakyEvidence = List.copyOf(flakyEvidence);
     separateJvms = List.copyOf(separateJvms);
+  }
+
+  /// A pass where every test the run was told to leave out named one of its tests.
+  public CoveragePass(
+      int jdk,
+      int tests,
+      Duration took,
+      int mutants,
+      List<String> flaky,
+      List<FlakyTest> flakyEvidence,
+      int cases,
+      int skippedCases,
+      List<String> separateJvms) {
+    this(
+        jdk,
+        tests,
+        took,
+        mutants,
+        flaky,
+        flakyEvidence,
+        cases,
+        skippedCases,
+        separateJvms,
+        List.of());
   }
 
   /// A pass that found no test running the project in a JVM of its own.
@@ -50,13 +77,19 @@ public record CoveragePass(
   /// This pass, with the cases it counted.
   public CoveragePass withCases(int ran, int skipped) {
     return new CoveragePass(
-        jdk, tests, took, mutants, flaky, flakyEvidence, ran, skipped, separateJvms);
+        jdk, tests, took, mutants, flaky, flakyEvidence, ran, skipped, separateJvms, unmatched);
   }
 
   /// This pass, with a note for each test class that runs the project in a JVM of its own.
   public CoveragePass withSeparateJvms(List<String> notes) {
     return new CoveragePass(
-        jdk, tests, took, mutants, flaky, flakyEvidence, cases, skippedCases, notes);
+        jdk, tests, took, mutants, flaky, flakyEvidence, cases, skippedCases, notes, unmatched);
+  }
+
+  /// This pass, with each test the run was told to leave out that names none of its tests.
+  public CoveragePass withUnmatched(List<UnmatchedExclusion> none) {
+    return new CoveragePass(
+        jdk, tests, took, mutants, flaky, flakyEvidence, cases, skippedCases, separateJvms, none);
   }
 
   /// A pass whose cases weren't counted.

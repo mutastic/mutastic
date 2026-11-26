@@ -6,6 +6,7 @@ import io.mutastic.api.BuiltIn;
 import io.mutastic.api.ClassMutator;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.Status;
+import io.mutastic.output.Style;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;

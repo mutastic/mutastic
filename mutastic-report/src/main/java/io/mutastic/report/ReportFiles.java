@@ -4,6 +4,7 @@ import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
+import io.mutastic.output.Json;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -270,7 +271,7 @@ public final class ReportFiles {
           files.computeIfAbsent(
               sources.file(mutant),
               path -> new SourceFile(sources.text(mutant).orElse(""), new ArrayList<>()));
-      file.mutants().add(withCard(mutant(result), result));
+      file.mutants().add(withCard(mutant(report, result), result));
     }
     var fileEntries = new TreeMap<String, Map<String, Object>>();
     files.forEach((path, file) -> fileEntries.put(path, file.json()));
@@ -375,7 +376,7 @@ public final class ReportFiles {
     return performance;
   }
 
-  private Map<String, Object> mutant(MutantResult result) {
+  private Map<String, Object> mutant(Report report, MutantResult result) {
     var mutant = result.mutant();
     var advice = sources.advice(mutant);
     var entry = new LinkedHashMap<String, Object>();
@@ -389,7 +390,8 @@ public final class ReportFiles {
     entry.put("description", advice.change());
     entry.put("location", location(change, sources.place(mutant)));
     entry.put("status", result.status().schemaName());
-    var reason = statusReason(result, advice);
+    var reason =
+        AgentText.onlyLikelyFlaky(report, result).orElseGet(() -> statusReason(result, advice));
     if (!reason.isEmpty()) {
       entry.put("statusReason", reason);
     }
@@ -424,6 +426,8 @@ public final class ReportFiles {
         .ifPresent(test -> fields.put("suggestedTest", suggestedTest(test, result)));
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
     result.caughtInput().ifPresent(input -> fields.put("caughtInput", input));
+    result.flakyCatchBy().ifPresent(test -> fields.put("flakyCatchBy", test));
+    result.duplicateClassBy().ifPresent(test -> fields.put("duplicateClassBy", test));
     Explanation.arid(result.mutant(), docs)
         .ifPresent(
             arid -> {

@@ -1,5 +1,6 @@
 package io.mutastic.gradle;
 
+import io.mutastic.api.BuildArguments;
 import io.mutastic.api.BuildErrors;
 import io.mutastic.api.BuildJava;
 import io.mutastic.api.BuildTool;
@@ -26,12 +27,13 @@ final class GradleSetup {
 
   /// The request's module is a Gradle project path, `:` for the root project; its suite the `Test`
   /// task to read.
-  static Project read(BuildTool.Request request) {
+  static Project read(BuildTool.Request request, BuildArguments arguments) {
     var build =
         new Build(
             request.directory(),
             request.workDirectory().resolve("mutastic.init.gradle.kts"),
-            request.suite());
+            request.suite(),
+            arguments);
     try {
       return setUp(build, request);
     } catch (IOException e) {
@@ -102,9 +104,9 @@ final class GradleSetup {
   }
 
   /// A build to run, mutastic's init script to run it with, and the `Test` task it reads.
-  private record Build(Path directory, Path init, String suite) {
-    Build(Path directory, Path init) {
-      this(directory, init, BuildTool.DEFAULT_SUITE);
+  private record Build(Path directory, Path init, String suite, BuildArguments arguments) {
+    Build(Path directory, Path init, BuildArguments arguments) {
+      this(directory, init, BuildTool.DEFAULT_SUITE, arguments);
     }
   }
 
@@ -122,14 +124,15 @@ final class GradleSetup {
     if (exit != 0 || !Files.exists(out)) {
       // A Gradle too old for the build's JDK stops before it reads the build, in words that don't
       // say why.
-      var tooOld = tooOldFor(build.directory(), request);
+      var tooOld = tooOldFor(build, request);
       throw tooOld.isPresent() ? tooOld.get() : failed(build, request);
     }
     return ProjectSetup.read(name(build.directory(), module), out);
   }
 
   /// Why the build failed, from its log: a module with no Java code, a module the build hasn't got,
-  /// a suite the module hasn't, else Gradle's own output.
+  /// a JDK its toolchain asks for that Gradle found none of, a suite the module hasn't, else
+  /// Gradle's own output.
   private static SetupFailed failed(Build build, BuildTool.Request request)
       throws IOException, InterruptedException {
     var module = request.module();
@@ -143,7 +146,27 @@ final class GradleSetup {
       return new SetupFailed(
           "module-missing", Modules.missing(module, javaModules(build, workDirectory), typed));
     }
+    var toolchain = GradleToolchain.missing(output);
+    if (toolchain.isPresent()) {
+      return noToolchain(build, request, toolchain.get());
+    }
     return SetupFailed.noSuite(output.lines()).orElseGet(() -> buildFailed(build, request, output));
+  }
+
+  /// The build's toolchain asks for a JDK Gradle found none of: the run again, telling Gradle where
+  /// one is.
+  private static SetupFailed noToolchain(
+      Build build, BuildTool.Request request, BuildErrors.Toolchain jdk) {
+    var run =
+        BuildErrors.run(
+            request.typed(), request.module(), build.arguments(), GradleToolchain.argument(jdk));
+    return new SetupFailed(
+        "build-jdk",
+        BuildErrors.noToolchain(
+            new BuildErrors.Missing("Gradle", jdk, "", "Install one, or tell Gradle where it is:"),
+            run,
+            build.arguments(),
+            log(request.workDirectory())));
   }
 
   /// The build failed: Gradle's errors, and the Gradle on the PATH when that's likely why.
@@ -155,7 +178,7 @@ final class GradleSetup {
                 "Gradle",
                 name(build.directory(), request.module()),
                 log(request.workDirectory()),
-                built(build.directory(), request)),
+                built(build.directory(), request) + build.arguments().buildEnding()),
             output.lines().toList(),
             likely(build.directory(), path())));
   }
@@ -177,18 +200,19 @@ final class GradleSetup {
   }
 
   /// Said when the build's Gradle can't run on its JDK: which is why it failed.
-  private static Optional<SetupFailed> tooOldFor(Path directory, BuildTool.Request request) {
+  private static Optional<SetupFailed> tooOldFor(Build build, BuildTool.Request request) {
+    var directory = build.directory();
     return tooOld(directory, BuildJava.environment(), path())
         .map(
             tooOld -> {
               var tool = gradle(directory, path());
-              var build =
+              var failed =
                   new BuildErrors.Build(
                       "Gradle",
                       name(directory, request.module()),
                       log(request.workDirectory()),
                       GradleJdks.upgrade(tooOld, tool.command(), directory));
-              return new SetupFailed("build-jdk", GradleJdks.said(tooOld, build, tool.onPath()));
+              return new SetupFailed("build-jdk", GradleJdks.said(tooOld, failed, tool.onPath()));
             });
   }
 
@@ -212,13 +236,17 @@ final class GradleSetup {
 
   /// `./gradlew :core:test --tests 'com.example.PricingTest.bigOrders'`: the suite's task, filtered
   /// to the test, which Gradle names by its class and method, without parameters.
-  static String testCommand(BuildTool.Request request, String test) {
+  static String testCommand(BuildTool.Request request, String test, BuildArguments arguments) {
     var directory = request.directory();
     var program = gradle(directory, path()).command();
     var module = request.module().equals(":") ? "" : request.module() + ":";
     var filter = test.replaceFirst("\\(.*$", "").replace('#', '.');
     return BuildErrors.command(
-        program, directory, "-p", List.of(module + request.suite(), "--tests", "'" + filter + "'"));
+            program,
+            directory,
+            "-p",
+            List.of(module + request.suite(), "--tests", "'" + filter + "'"))
+        + arguments.buildEnding();
   }
 
   /// The command that builds what mutastic built, as the person would type it: `./gradlew
@@ -286,8 +314,9 @@ final class GradleSetup {
   }
 
   /// The modules that depend on `module`, as its `mutasticDependents` task lists them.
-  static List<String> dependents(Path directory, String module, Path workDirectory) {
-    var build = new Build(directory, workDirectory.resolve("mutastic.init.gradle.kts"));
+  static List<String> dependents(
+      Path directory, String module, Path workDirectory, BuildArguments arguments) {
+    var build = new Build(directory, workDirectory.resolve("mutastic.init.gradle.kts"), arguments);
     try {
       Files.createDirectories(workDirectory);
       writeInitScript(build.init());
@@ -335,6 +364,8 @@ final class GradleSetup {
 
   private static List<String> gradleCommand(Build build, Path out, String task) {
     var command = new java.util.ArrayList<>(gradle(build.directory(), path()).command());
+    // First, so mutastic's own, which read the last of two, win.
+    command.addAll(build.arguments().words());
     command.addAll(
         List.of(
             "--console=plain",

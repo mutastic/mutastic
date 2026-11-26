@@ -84,7 +84,8 @@ repositories {
 ./gradlew mutasticRun
 ```
 
-mutastic runs on a JDK 25 Gradle toolchain, which Gradle finds or downloads.
+mutastic runs on a JDK 25 Gradle toolchain, which Gradle finds or downloads. The plugin needs
+Gradle 8.0 or later; on Gradle 7, run the `mutastic` command instead.
 
 </TabItem>
 <TabItem label="Maven">
@@ -119,7 +120,7 @@ two apart.
 | What | Runs on |
 |---|---|
 | Your build: Gradle or Maven, compiling the code and tests | `JAVA_HOME`, or the `java` on the `PATH`, as you gave them |
-| Your tests, in mutastic's test workers | The JDK your build's `test` task, or Surefire, uses: its toolchain, else the build's own JDK |
+| Your tests, in mutastic's test workers | The JDK your build's `test` task, or Surefire, uses: its toolchain, else the build's own JDK. It must be JDK 17 or later |
 | mutastic itself, from the command line | `MUTASTIC_JAVA_HOME` when it's set; else the newest JDK 25 or later of `JAVA_HOME` and those installed |
 | mutastic itself, from the Gradle plugin | A JDK 25 toolchain, or the project's own JDK when it's newer (`javaLauncher`) |
 | mutastic itself, from the Maven plugin | A JDK 25 toolchain, else Maven's JDK if it's new enough, else `-Dmutastic.jdk` |
@@ -145,10 +146,16 @@ A build is made for one Gradle or Maven, the one its wrapper downloads. Another 
 build file that calls something only newer Gradle has fails before anything is built. So mutastic
 runs the wrapper whenever there is one.
 
+mutastic reads builds on Maven 3.6.3 or later, the oldest Maven the current compiler and Surefire
+plugins run on.
+
 It looks for `gradlew` or `mvnw` in the directory you run it on, then in each directory above, up
 to the top of the repository. A module with settings of its own still finds the wrapper at the
 top, and that wrapper builds the module. A wrapper that has lost its executable bit, as a checkout
 can leave it, runs with `sh`. On Windows, it's `gradlew.bat` or `mvnw.cmd`.
+
+mutastic reads builds on Gradle 7.3 or later, the first Gradle that runs on JDK 17. On an older
+one it says which JDK that Gradle runs on at most. The Gradle plugin needs Gradle 8.0 or later.
 
 With no wrapper, mutastic runs the `gradle` or `mvn` on your `PATH`, and says so before it builds,
 with that tool's path and version:

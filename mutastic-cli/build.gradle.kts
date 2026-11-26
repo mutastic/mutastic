@@ -24,8 +24,9 @@ dependencies {
     // Found at run time as BuildTools: the CLI names none of them.
     runtimeOnly(project(":mutastic-gradle"))
     runtimeOnly(project(":mutastic-maven"))
-    // Not called, but shipped: the engine starts it as its own process, as a Java agent.
-    runtimeOnly(project(":mutastic-worker"))
+    // Shipped: the engine starts it as its own process, as a Java agent. Compiled against for its
+    // rule for test names (TestNames), which `--exclude-tests` is split by.
+    implementation(project(":mutastic-worker"))
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
@@ -157,6 +158,15 @@ tasks.test {
     doFirst { timeoutDumps.get().asFile.deleteRecursively() }
     // The end-to-end tests run mutastic against the sample projects, each its own Gradle build.
     systemProperty("mutastic.samples", rootDir.resolve("samples").absolutePath)
+    // A JDK 17 for the samples on a Gradle that can't run on 25 (gradle-no-launcher's 8.6): its
+    // copy's gradle.properties names it as the daemon's JDK.
+    systemProperty(
+        "mutastic.jdk17",
+        javaToolchains
+            .launcherFor { languageVersion = JavaLanguageVersion.of(17) }
+            .get()
+            .metadata.installationPath.asFile.absolutePath,
+    )
     // DocsCommandsTest parses every command the docs show.
     systemProperty("mutastic.docs", rootDir.resolve("docs/src/content/docs").absolutePath)
     // An input, so a change to the docs alone runs it again.

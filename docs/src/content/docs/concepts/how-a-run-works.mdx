@@ -18,7 +18,9 @@ changed.
 mutastic runs your build with its own code loaded, which compiles your code and tests and records
 what the tests would run with: their JDK, JVM arguments, working directory and classpath. For
 Gradle that's an init script reading the `test` task; for Maven, an extension reading Surefire's
-settings after `mvn test-compile`. The build plugins read the same from inside the build.
+settings after `mvn test-compile`. The build plugins read the same from inside the build. The
+tests run with assertions on (`-ea`) when the build runs them so: Gradle's `test` task and Surefire
+both do unless they're told not to.
 
 ## Mutants in the class files
 
@@ -134,7 +136,10 @@ Each worker is a JVM of its own, as Gradle's parallel test forks are, and runs t
 the mutant fastest first. Classes load once per worker, and each mutant is swapped in by class
 redefinition, so nothing restarts between mutants. Redefinition never reruns a static initialiser,
 so a mutant on a line the tests only ran while its class was loading runs in a fresh class loader,
-against every test that reaches its class. A worker that runs out of time is killed and replaced.
+against every test that reaches its class. A test that keeps state in a static (a count of its
+runs, a result it remembers) could carry it from one mutant's run to the next, so its catch runs
+again in a fresh class loader, where every static starts clean, and counts only if it fails there
+too. A worker that runs out of time is killed and replaced.
 
 Workers side by side can get in each other's way: tests that use a fixed port collide, and tests
 that share a lock, a database or a slow start run slower than they did alone. So neither a catch
@@ -151,7 +156,10 @@ there.
 <div slot="rust">
 
 Each mutant runs in the test binary mutastic built, with `MUTASTIC_ACTIVE` naming it, one process
-each. The time limit is set from how long its tests took in the coverage pass.
+each. The time limit is set from how long each of its tests takes on its own, and no mutant's tests
+run past the ceiling, which `timeout-ceiling:` in `mutastic.yaml` sets: ten minutes, or twenty times
+the suite's own time, when it isn't set. A mutant stopped there is timed out with a note that says
+so.
 
 Each test process gets an empty temporary directory of its own, deleted once it ends: `TMPDIR`, and
 `TMP` and `TEMP` on Windows, which `std::env::temp_dir()` and the `tempfile` crate read. A file one
@@ -278,6 +286,10 @@ then runs only its own mutants.
 
 Each share makes the one build, with only its share's mutants in, and runs every test once to see
 which sites each reaches, then runs only its own mutants.
+
+A share writes its `events.jsonl` as it goes. One stopped part way, by Ctrl-C, a job's time limit
+or the machine running out of memory, keeps what it finished but has no `run-finished`, so
+`--from-shards` refuses it as a share that didn't finish, and says how many mutants it holds.
 
 </div>
 </EditionTabs>

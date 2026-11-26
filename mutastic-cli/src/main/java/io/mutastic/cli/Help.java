@@ -1,8 +1,8 @@
 package io.mutastic.cli;
 
 import io.mutastic.cli.Option.Group;
+import io.mutastic.output.HelpLayout;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /// What `mutastic --help`, `mutastic <command> --help` and a usage error print, written from
@@ -27,8 +27,7 @@ final class Help {
         : DOCS;
   }
 
-  private static final int WIDTH = 100;
-  private static final int COLUMN = 26;
+  private static final int WIDTH = HelpLayout.WIDTH;
 
   /// A name and what it means: an exit status, an environment variable.
   ///
@@ -110,6 +109,13 @@ final class Help {
                   + " SDKMAN, asdf, mise, Gradle, IntelliJ, Homebrew, macOS and Linux keep them."
                   + " Your build and its tests keep the `JAVA_HOME` and `PATH` you gave them."),
           new Entry(
+              "MUTASTIC_BUILD_ARGS",
+              "Arguments for the build tool, unless the command line gives some",
+              "Split at spaces, with quotes around an argument that has some: `--offline -Pci`. The"
+                  + " tests don't get them, and no command mutastic offers repeats them, so a secret"
+                  + " goes here rather than after `--`. It replaces `build:`'s `args:` in"
+                  + " `mutastic.yaml`."),
+          new Entry(
               "MUTASTIC_PROGRESS",
               "auto, bar, counter or none, when --progress isn't given",
               "For a Gradle or Maven build, or a CI job, that always wants the same. Any other"
@@ -175,8 +181,8 @@ final class Help {
     out.add("");
     out.add("Usage:");
     for (Main.Subcommand command : Main.Subcommand.values()) {
-      var first = "  " + padded("mutastic " + command.synopsis, 49);
-      var lines = wrapped(command.summary, WIDTH - first.length());
+      var first = "  " + HelpLayout.padded("mutastic " + command.synopsis, 49);
+      var lines = HelpLayout.wrapped(command.summary, WIDTH - first.length());
       out.add(first + lines.getFirst());
       lines.stream().skip(1).forEach(line -> out.add(" ".repeat(first.length()) + line));
     }
@@ -194,9 +200,9 @@ final class Help {
     var out = new ArrayList<String>();
     out.add("Usage: mutastic " + command.synopsis);
     out.add("");
-    out.addAll(wrapped(command.summary + ". " + command.detail, WIDTH));
+    out.addAll(HelpLayout.wrapped(command.summary + ". " + command.detail, WIDTH));
     out.add("");
-    out.addAll(wrapped("Exits " + command.exits, WIDTH));
+    out.addAll(HelpLayout.wrapped("Exits " + command.exits, WIDTH));
     out.add("");
     out.add("Examples:");
     command.examples.forEach(example -> out.addAll(example(example)));
@@ -222,72 +228,18 @@ final class Help {
     if (!option.environment().isEmpty()) {
       text.append(". Also: ").append(option.environment());
     }
-    var lines = wrapped(text.toString(), WIDTH - COLUMN);
-    var out = new ArrayList<String>();
-    var first = "  " + option.synopsis();
-    if (first.length() >= COLUMN) {
-      out.add(first);
-      first = "";
-    }
-    for (String line : lines) {
-      out.add(padded(first, COLUMN) + line);
-      first = "";
-    }
-    return out;
+    return HelpLayout.option(option.synopsis(), text.toString());
   }
 
-  /// An example, broken before an option where it's wider than help: each line but the last ends in
-  /// ` \`, and the rest is indented under it, as a shell takes it.
+  /// An example, broken before an option where it's wider than help: [HelpLayout#example].
   static List<String> example(String example) {
-    var out = new ArrayList<String>();
-    var line = new StringBuilder("  ");
-    boolean empty = true;
-    for (String part : example.split(" (?=--)", -1)) {
-      if (!empty && line.length() + 1 + part.length() + 2 > WIDTH) {
-        out.add(line.append(" \\").toString());
-        line.setLength(0);
-        line.append("      ");
-      } else if (!empty) {
-        line.append(' ');
-      }
-      line.append(part);
-      empty = false;
-    }
-    out.add(line.toString());
-    return out;
+    return HelpLayout.example(example);
   }
 
   /// A heading and its entries, each meaning wrapped under its first line.
   private static List<String> section(String heading, List<Entry> entries) {
-    int width = entries.stream().mapToInt(entry -> entry.name().length()).max().orElse(0) + 2;
-    var indent = " ".repeat(2 + width);
-    var out = new ArrayList<String>();
-    out.add("");
-    out.add(heading);
-    for (Entry entry : entries) {
-      var lines = wrapped(entry.meaning(), WIDTH - indent.length());
-      out.add("  " + padded(entry.name(), width) + lines.getFirst());
-      lines.stream().skip(1).forEach(line -> out.add(indent + line));
-    }
-    return out;
-  }
-
-  /// `text` in lines of at most `width` characters, broken between words.
-  static List<String> wrapped(String text, int width) {
-    var lines = new ArrayList<String>();
-    var line = new StringBuilder();
-    for (String word : Arrays.asList(text.split(" ", -1))) {
-      if (line.length() > 0 && line.length() + 1 + word.length() > width) {
-        lines.add(line.toString());
-        line.setLength(0);
-      }
-      line.append(line.length() > 0 ? " " : "").append(word);
-    }
-    lines.add(line.toString());
-    return lines;
-  }
-
-  private static String padded(String text, int width) {
-    return text.length() >= width ? text + " " : text + " ".repeat(width - text.length());
+    return HelpLayout.section(
+        heading,
+        entries.stream().map(entry -> new HelpLayout.Term(entry.name(), entry.meaning())).toList());
   }
 }

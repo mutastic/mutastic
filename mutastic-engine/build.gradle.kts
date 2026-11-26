@@ -14,6 +14,10 @@ java {
 
 dependencies {
     api(project(":mutastic-api"))
+    // The worker's own rule for which tests a name leaves out (TestNames), so the engine's choice
+    // of test classes and the flaky watch match names exactly as the worker's filter does. The
+    // worker depends on nothing, so nothing else of it comes along.
+    implementation(project(":mutastic-worker"))
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
@@ -22,6 +26,8 @@ dependencies {
     testImplementation(project(":mutastic-annotations"))
     // The cards' truth check reads a mutant's card as a person would, from the report.
     testImplementation(project(":mutastic-report"))
+    // TruthTestRulesTest holds the truth tests to the helpers that keep what they compile and run.
+    testImplementation(libs.archunit)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
@@ -47,11 +53,11 @@ dependencies {
 
 tasks.processResources {
     from(testngEngine) {
-        into("io/mutastic/engine")
+        into("io/mutastic/engine/tests")
         rename { "testng-engine.jar" }
     }
     from(vintageEngine) {
-        into("io/mutastic/engine")
+        into("io/mutastic/engine/tests")
         rename { "vintage-engine.jar" }
     }
 }

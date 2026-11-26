@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.mutastic.api.Status;
 import io.mutastic.cli.Snapshot.Estimate;
 import io.mutastic.cli.Snapshot.Worker;
+import io.mutastic.output.Fit;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;

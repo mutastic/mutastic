@@ -1,5 +1,6 @@
 package io.mutastic.gradle;
 
+import io.mutastic.api.BuildArguments;
 import io.mutastic.api.BuildTool;
 import io.mutastic.api.Project;
 import java.nio.file.Files;
@@ -8,6 +9,31 @@ import java.util.List;
 
 /// Gradle builds, read by running the build with mutastic's init script (see [GradleSetup]).
 public final class Gradle implements BuildTool {
+  private final BuildArguments arguments;
+
+  public Gradle() {
+    this(BuildArguments.NONE);
+  }
+
+  private Gradle(BuildArguments arguments) {
+    this.arguments = arguments;
+  }
+
+  @Override
+  public BuildTool withArguments(BuildArguments given) {
+    return new Gradle(given);
+  }
+
+  @Override
+  public BuildArguments arguments() {
+    return arguments;
+  }
+
+  @Override
+  public java.util.Optional<BuildArguments.Refused> refused(List<String> given, String suite) {
+    return GradleArguments.refused(given, suite);
+  }
+
   @Override
   public String name() {
     return "Gradle";
@@ -33,7 +59,7 @@ public final class Gradle implements BuildTool {
 
   @Override
   public List<String> dependents(Path directory, String module, Path workDirectory) {
-    return GradleSetup.dependents(directory, module, workDirectory);
+    return GradleSetup.dependents(directory, module, workDirectory, arguments);
   }
 
   @Override
@@ -44,12 +70,12 @@ public final class Gradle implements BuildTool {
   /// The suite is a `Test` task: `test`, or `integrationTest` say.
   @Override
   public Project read(Request request) {
-    return GradleSetup.read(request);
+    return GradleSetup.read(request, arguments);
   }
 
   @Override
   public java.util.Optional<String> testCommand(Request request, String test) {
-    return java.util.Optional.of(GradleSetup.testCommand(request, test));
+    return java.util.Optional.of(GradleSetup.testCommand(request, test, arguments));
   }
 
   @Override

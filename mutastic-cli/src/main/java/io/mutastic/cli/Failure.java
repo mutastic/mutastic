@@ -1,12 +1,16 @@
 package io.mutastic.cli;
 
+import io.mutastic.api.BuildArguments;
 import io.mutastic.api.BuildTool;
 import io.mutastic.engine.Engine;
+import io.mutastic.output.Correction;
+import io.mutastic.output.Remedies;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
@@ -61,7 +65,33 @@ record Failure(int exit, String code, String said) {
           "internal");
 
   /// What `failure`, thrown running the command line `args`, says, and its exit status.
-  static Failure of(RuntimeException failure, List<String> args, Map<String, String> env) {
+  static Failure of(RuntimeException failure, List<String> typed, Map<String, String> env) {
+    var own = of(failure, env, BuildArgs.own(typed));
+    var ending = BuildArgs.typed(typed).map(BuildArguments::ending).orElse("");
+    return ending.isEmpty()
+        ? own
+        : new Failure(own.exit(), own.code(), withEnding(own.said(), ending));
+  }
+
+  /// A command that takes the build tool's arguments, on a line of its own, to copy.
+  private static final Pattern ON_ITS_LINE =
+      Pattern.compile(
+          "(?m)^  mutastic (?:run|verify|explain|ignore|next|baseline|gate|mutants)\\b"
+              + "(?!.* --help$).*$");
+
+  /// Each command offered, ending in the build tool's arguments as they were typed.
+  static String withEnding(String said, String ending) {
+    return ON_ITS_LINE
+        .matcher(said)
+        .replaceAll(line -> Matcher.quoteReplacement(ended(line.group(), ending)));
+  }
+
+  /// Once: some are offered with it already, or with it and an argument more after it.
+  private static String ended(String command, String ending) {
+    return command.endsWith(ending) || command.contains(ending + " ") ? command : command + ending;
+  }
+
+  private static Failure of(RuntimeException failure, Map<String, String> env, List<String> args) {
     var message = String.valueOf(failure.getMessage());
     var headline = "mutastic: " + message + "\n";
     return switch (failure) {
@@ -71,6 +101,7 @@ record Failure(int exit, String code, String said) {
           new Failure(Main.USAGE, "unknown-id", headline + closeId(unknown, args));
       case BuildTool.SetupFailed setup -> setup(setup, message, args, env);
       case Engine.NoTestsRan none -> withHint("no-tests", message, none, env);
+      case Engine.TestsJdkTooOld old -> withHint("build-jdk", message, old, env);
       case Engine.NothingCovered nothing -> withHint("nothing-covered", message, nothing, env);
       case Engine.CantRun cantRun -> withHint(OTHER, message, cantRun, env);
       case Shares.Refused refused -> withHint("shards", message, refused, env);
@@ -249,54 +280,15 @@ record Failure(int exit, String code, String said) {
           "^  (?:mutastic |(?:sh )?(?:\\S*|'[^']*|\"[^\"]*)"
               + "(?:gradlew(?:\\.bat)?|mvnw(?:\\.cmd)?)['\"]? |gradle |mvn |tail )");
 
-  /// A close name the message offers: `There's one called --format.`
-  private static final Pattern OFFERED =
-      Pattern.compile("There's one called (?<name>\\S+?)[.,]?(?=\\s|$)");
-
   /// What went wrong, as the first line says it, without `mutastic: `.
   String message() {
     return said.lines().findFirst().orElse("").replaceFirst("^mutastic: ", "");
   }
 
   /// The commands the message ends in, each on a line of its own, set in by two spaces, with how
-  /// sure mutastic is of each, as rustc grades a suggestion: `exact` runs as it is; `placeholders`
-  /// has a part in `<…>` to fill in first; `maybe` is a close name, a guess at what was meant, to
-  /// check before running it.
+  /// sure mutastic is of each: [Remedies].
   List<Map<String, Object>> help() {
-    var offered = new ArrayList<String>();
-    var names = OFFERED.matcher(said);
-    while (names.find()) {
-      offered.add(names.group("name").replaceFirst(":$", ""));
-    }
-    var commands = new ArrayList<Map<String, Object>>();
-    for (String line : said.lines().toList()) {
-      if (COMMAND.matcher(line).find()) {
-        var command = line.strip();
-        var help = new LinkedHashMap<String, Object>();
-        help.put("applicability", applicability(command, offered));
-        help.put("command", command);
-        commands.add(help);
-      }
-    }
-    return commands;
-  }
-
-  private static String applicability(String command, List<String> offered) {
-    if (command.contains("<") || command.contains("…")) {
-      return "placeholders";
-    }
-    var words = List.of(command.split(" ", -1));
-    return words.stream().anyMatch(word -> offered.stream().anyMatch(name -> names(word, name)))
-        ? "maybe"
-        : "exact";
-  }
-
-  /// Whether `word` of a command is `name`, or gives it as an option's value or in a list.
-  private static boolean names(String word, String name) {
-    return word.equals(name)
-        || word.startsWith(name + "=")
-        || word.endsWith("=" + name)
-        || word.contains("," + name);
+    return Remedies.in(said, COMMAND);
   }
 
   /// The `run-failed` event's fields, after its schema, edition and reason, for a command run on

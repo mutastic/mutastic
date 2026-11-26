@@ -29,7 +29,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
+import org.junit.platform.commons.JUnitException;
 import org.junit.platform.engine.TestExecutionResult;
+import org.junit.platform.engine.discovery.MethodSelector;
 import org.junit.platform.engine.support.descriptor.ClassSource;
 import org.junit.platform.engine.support.descriptor.MethodSource;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
@@ -61,6 +63,7 @@ import org.junit.platform.launcher.core.LauncherFactory;
 /// | `SHRINK`: the next `RUN` or `FRESH` shrinks a failing property's input, as the framework would, leaving the mutant in place | nothing |
 /// | `FRESH <test>...`: the same, with every class loaded anew, so static initialisers run with the staged classes | as for `RUN` |
 /// | `SUGGEST <class> <method> <descriptor> <base64> <inputs> <receiver>`: find inputs where a mutant changes the result; inputs are `1;2\|3;4`, `-` for none; the receiver is `-` for a static method, else a constructor descriptor whose arguments start each input, or for an inner class its outer class's receiver, `>`, then its own | `SUGGESTED <inputs> <today> <with mutant> <stuck or ->`, or `SUGGESTED -` |
+/// | `COVER` answers `UNSTARTED <exception> <message> <cause> <cause's message>` in place of `DONE` when the tests can't start: no engine runs them, or an engine fails to find them | |
 /// | `EXIT` | nothing; the worker exits |
 /// | a test ends the JVM (`System.exit`) during `RUN` or `FRESH` | `EXITED <test>` as it goes, in place of `RESULT`; the engine reads the status from the process |
 ///
@@ -78,6 +81,10 @@ public final class Worker {
   private final TestSplit splitTests;
   private final Set<String> testClassNames;
   private final PrintStream protocol;
+
+  /// The context class loader of every run, for the worker's life ([ContextLoader]).
+  private final ContextLoader context = new ContextLoader(ClassLoader.getSystemClassLoader());
+
   private final Map<String, byte[]> staged = new HashMap<>();
   private final MutantInPlace inPlace = new MutantInPlace();
   private final Aging aging = new Aging(WORTH_A_NEW_WORKER);
@@ -129,7 +136,16 @@ public final class Worker {
       return new Tags(
           values(args, "--include-tags="),
           values(args, "--exclude-tags="),
-          new LeftOutMethods(values(args, "--exclude-methods=")));
+          new LeftOutMethods(methods(args, "--exclude-methods=")));
+    }
+
+    /// The methods after `flag`, split as [TestNames#split] splits them: an overload's parameter
+    /// types have commas of their own.
+    private static List<String> methods(String[] args, String flag) {
+      return Arrays.stream(args)
+          .filter(arg -> arg.startsWith(flag))
+          .flatMap(arg -> TestNames.split(arg.substring(flag.length())).stream())
+          .toList();
     }
 
     void filter(LauncherDiscoveryRequestBuilder request) {
@@ -165,7 +181,7 @@ public final class Worker {
     this.tags = tags;
     this.protocol = protocol;
     var allRoots = concat(testRoots, productionRoots);
-    var scanned = new Scannable(Scannable.SPRING, allRoots, getClass().getClassLoader());
+    var scanned = new Scannable(Scannable.SPRING, allRoots, ClassLoader.getSystemClassLoader());
     this.splitTests =
         TestSplit.of(
             splitTests(productionRoots, testRoots), TestSplit.providersIn(allRoots), scanned);
@@ -277,7 +293,7 @@ public final class Worker {
     }
     var instrumented =
         new ProductionLoader(
-            productionRoots, staged, testRoots, splitTests, getClass().getClassLoader());
+            productionRoots, staged, testRoots, splitTests, ClassLoader.getSystemClassLoader());
     production = instrumented;
     SystemLoader.project(instrumented);
     cover(tests);
@@ -335,9 +351,16 @@ public final class Worker {
     }
     var fresh =
         new ProductionLoader(
-            productionRoots, staged, testRoots, splitTests, getClass().getClassLoader());
+            productionRoots, staged, testRoots, splitTests, ClassLoader.getSystemClassLoader());
     staged.clear();
-    run(tests, fresh);
+    // A library finds the project's classes by name through the system loader: it must find this
+    // run's, or a proxy it makes of one won't be the class the test asks for.
+    SystemLoader.project(fresh);
+    try {
+      run(tests, fresh);
+    } finally {
+      SystemLoader.project(production);
+    }
   }
 
   /// The same, with the staged classes swapped into the framework's copies of them.
@@ -402,7 +425,7 @@ public final class Worker {
     if (production == null) {
       production =
           new ProductionLoader(
-              productionRoots, Map.of(), testRoots, splitTests, getClass().getClassLoader());
+              productionRoots, Map.of(), testRoots, splitTests, ClassLoader.getSystemClassLoader());
       SystemLoader.project(production);
     }
     return production;
@@ -418,7 +441,18 @@ public final class Worker {
     var planned = new PlannedTests(Worker::id, count -> protocol.println("TESTS\t" + count));
     var starting = new TestsStarting(Worker::id, test -> protocol.println("STARTED\t" + test));
     var cases = new TestCases();
-    var failing = execute(tests, production(), planned, starting, timingTests(), scopes, cases);
+    List<String> failing;
+    try {
+      failing = execute(tests, production(), planned, starting, timingTests(), scopes, cases);
+    } catch (RuntimeException | LinkageError e) {
+      unstarted(e);
+      return;
+    }
+    reportCoverage(scopes, cases, failing);
+  }
+
+  /// What the coverage pass recorded, ending in `DONE` and the tests that failed.
+  private void reportCoverage(TestScopes scopes, TestCases cases, List<String> failing) {
     Probes.flush();
     scopes.credit();
     reportLines();
@@ -426,9 +460,34 @@ public final class Worker {
     reportValues();
     reportLoaded();
     reportFailures();
+    reportLeftOut();
     protocol.println("CASES\t" + cases.ran() + "\t" + cases.skipped());
     protocol.println(
         "DONE\t" + (failing.isEmpty() ? "PASSED" : "FAILED\t" + String.join("\t", failing)));
+  }
+
+  /// The tests couldn't start: the platform found no engine for them, or an engine failed to find
+  /// them, as TestNG's does on a TestNG older than it runs. Said as `UNSTARTED`, the exception, its
+  /// message, and its first cause's class and message (`-` for none), so the engine names the cause
+  /// rather than a JVM that stopped.
+  private void unstarted(Throwable thrown) {
+    thrown.printStackTrace(System.err);
+    var cause = thrown.getCause();
+    protocol.println(
+        "UNSTARTED\t"
+            + thrown.getClass().getName()
+            + "\t"
+            + message(thrown)
+            + "\t"
+            + (cause == null ? "-" : cause.getClass().getName())
+            + "\t"
+            + (cause == null ? "-" : message(cause)));
+  }
+
+  /// `LEFT-OUT`, each test the run's names left out of the coverage pass, as [TestNames#id] names
+  /// it: so the engine can say of a name that left out none.
+  private void reportLeftOut() {
+    tags.leftOut().leftOut().forEach(test -> protocol.println("LEFT-OUT\t" + test));
   }
 
   /// `FAILURE`, each failing test, its exception's chain, its message and its case.
@@ -504,28 +563,36 @@ public final class Worker {
     int ran = 0;
     for (String test : tests) {
       ran++;
-      var started = new StartedTests();
-      List<String> failing;
-      try {
-        failing = executeSaid(test, loader, started);
-      } catch (RuntimeException e) {
-        // Finding the tests failed: TestNG makes the test classes as it finds them, so a mutant
-        // that breaks a test class's constructor breaks it here, before any test can fail.
-        remember(e);
-        protocol.println(failedResult(ran, test));
-        return;
-      }
-      // A selector that matches nothing runs nothing and fails nothing: that's not a pass.
-      if (started.count == 0 && failing.isEmpty()) {
-        protocol.println("RESULT\tERROR\tno test ran for " + test);
-        return;
-      }
-      if (!failing.isEmpty()) {
-        protocol.println(failedResult(ran, test));
+      var ending = runOne(test, ran, loader);
+      if (ending != null) {
+        protocol.println(ending);
         return;
       }
     }
     protocol.println("RESULT\tPASSED\t" + ran);
+  }
+
+  /// The `RESULT` line that ends a `RUN` at `test`, the `ran`th of its tests: a failure, or a
+  /// selector that ran nothing; null if it passed.
+  private @Nullable String runOne(String test, int ran, ProductionLoader loader) {
+    var started = new StartedTests();
+    List<String> failing;
+    try {
+      failing = executeSaid(test, loader, started);
+    } catch (Unselectable e) {
+      e.printStackTrace(System.err);
+      return "RESULT\tERROR\t" + e.getMessage();
+    } catch (RuntimeException e) {
+      // Finding the tests failed: TestNG makes the test classes as it finds them, so a mutant
+      // that breaks a test class's constructor breaks it here, before any test can fail.
+      remember(e);
+      return failedResult(ran, test);
+    }
+    // A selector that matches nothing runs nothing and fails nothing: that's not a pass.
+    if (started.count == 0 && failing.isEmpty()) {
+      return "RESULT\tERROR\tmutastic selected " + test + ", and no test ran";
+    }
+    return failing.isEmpty() ? null : failedResult(ran, test);
   }
 
   /// Property tests unshrunk for this run, unless `SHRINK` asked for it once.
@@ -588,7 +655,8 @@ public final class Worker {
     var loader = new TestLoader(testRoots, production, ++runs);
     var thread = Thread.currentThread();
     var previous = thread.getContextClassLoader();
-    thread.setContextClassLoader(loader);
+    context.runWith(loader);
+    thread.setContextClassLoader(context);
     try {
       var request = request(loader, tests);
       var failing = new ArrayList<String>();
@@ -626,12 +694,36 @@ public final class Worker {
       request.selectors(
           hash < 0
               ? selectClass(loader.loadClass(loader.copyOf(test)))
-              : selectMethod(
-                  loader.loadClass(loader.copyOf(test.substring(0, hash))),
-                  method(test),
-                  parameters(test)));
+              : methodOfCopy(loader, test, hash));
     }
     return request.build();
+  }
+
+  /// The method `test` names, on this run's copy of its class, by the types it takes as the copy
+  /// declares them. It's looked up here, so a selector that finds no method is said as what it is:
+  /// mutastic's own error, not a failure of the test.
+  private static MethodSelector methodOfCopy(TestLoader loader, String test, int hash)
+      throws ClassNotFoundException {
+    var selector =
+        selectMethod(
+            loader.loadClass(loader.copyOf(test.substring(0, hash))),
+            method(test),
+            loader.parametersOfCopy(parameters(test)));
+    try {
+      selector.getJavaMethod();
+    } catch (JUnitException e) {
+      throw new Unselectable(test, e);
+    }
+    return selector;
+  }
+
+  /// A test mutastic couldn't select again by the id it recorded: its own error, never the test's.
+  private static final class Unselectable extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
+    Unselectable(String test, Throwable cause) {
+      super("mutastic couldn't select " + test + ": " + message(cause), cause);
+    }
   }
 
   /// Adds each failure's id to `failing` and keeps the last one's exception, origin and port clash
@@ -644,26 +736,42 @@ public final class Worker {
         // Containers too: a mutant that breaks a test class's set-up (a static initialiser,
         // `@BeforeAll`) fails the class, and its tests never start. A case an assumption aborts
         // didn't fail: it checked nothing, and is counted as skipped ([TestCases]).
-        if (result.getStatus() == TestExecutionResult.Status.FAILED) {
-          var failedCase = FailedCase.of(test);
-          if (failing.isEmpty()) {
-            firstFailure(failedCase, result);
-          }
-          failing.add(id(test));
-          lastFailure = "unknown";
-          lastOrigin = "unknown";
-          lastPortClash = false;
-          result.getThrowable().ifPresent(Worker.this::remember);
-          failedCases.putIfAbsent(id(test), failedCase);
-          result.getThrowable().ifPresent(thrown -> failures.put(id(test), causes(thrown)));
-          result
-              .getThrowable()
-              .ifPresent(thrown -> messages.putIfAbsent(id(test), message(thrown)));
-          System.err.println("FAILED\t" + id(test));
-          result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
+        if (result.getStatus() != TestExecutionResult.Status.FAILED) {
+          return;
+        }
+        if (result.getThrowable().filter(DuplicateClass::in).isPresent()) {
+          unjudged(test, result);
+        } else {
+          failed(test, result, failing);
         }
       }
     };
+  }
+
+  /// Records a failure of `test`: in `failing`, and what the `RESULT` line and the log say of it.
+  private void failed(TestIdentifier test, TestExecutionResult result, List<String> failing) {
+    var failedCase = FailedCase.of(test);
+    if (failing.isEmpty()) {
+      firstFailure(failedCase, result);
+    }
+    failing.add(id(test));
+    lastFailure = "unknown";
+    lastOrigin = "unknown";
+    lastPortClash = false;
+    result.getThrowable().ifPresent(this::remember);
+    failedCases.putIfAbsent(id(test), failedCase);
+    result.getThrowable().ifPresent(thrown -> failures.put(id(test), causes(thrown)));
+    result.getThrowable().ifPresent(thrown -> messages.putIfAbsent(id(test), message(thrown)));
+    System.err.println("FAILED\t" + id(test));
+    result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
+  }
+
+  /// A test that failed only on a class the JVM refused as defined twice ([DuplicateClass]): not a
+  /// failure, so the run goes on to the next test, and said to the engine, which names it.
+  private void unjudged(TestIdentifier test, TestExecutionResult result) {
+    protocol.println("UNJUDGED\t" + id(test));
+    System.err.println("UNJUDGED\t" + id(test));
+    result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
   }
 
   /// The case and the input the first failure of a test names, for its `RESULT` line.
@@ -770,20 +878,20 @@ public final class Worker {
             .map(MethodSource.class::cast)
             .map(
                 method ->
-                    method.getClassName()
-                        + "#"
-                        + method.getMethodName()
-                        + (method.getMethodParameterTypes().isEmpty()
-                            ? ""
-                            : "(" + method.getMethodParameterTypes() + ")"))
+                    TestNames.id(
+                        method.getClassName(),
+                        method.getMethodName(),
+                        method.getMethodParameterTypes()))
             .or(() -> runnerClass(test))
             .orElse(test.getUniqueId()));
   }
 
   /// `[runner:com.example.FooTest]`, the vintage engine's runner for a JUnit 4 class, in the unique
-  /// id of a test with no source: the class it runs, unless the test has a source of its own.
+  /// id of a test with no method: the class it runs, unless the test has a method of its own. JUnit
+  /// 4 finds the class by name with its own loader, so the source is the class when that loader
+  /// sees the project's and none when it doesn't.
   private static java.util.Optional<String> runnerClass(TestIdentifier test) {
-    if (test.getSource().isPresent()) {
+    if (test.getSource().filter(source -> !(source instanceof ClassSource)).isPresent()) {
       return java.util.Optional.empty();
     }
     var matcher = RUNNER.matcher(test.getUniqueId());
@@ -884,13 +992,15 @@ public final class Worker {
   }
 
   /// A directory as it is; a jar as the root of what's in it, as another module of the build
-  /// reaches a module's tests.
+  /// reaches a module's tests. A multi-release jar's classes are the ones this JDK would load from
+  /// it, `META-INF/versions/11`'s over the base on 11 and later, as the JVM's own class path does;
+  /// a directory is never read that way, on the class path or here.
   static Path root(Path entry) {
     if (!entry.toString().endsWith(".jar") || !Files.isRegularFile(entry)) {
       return entry;
     }
     try {
-      return FileSystems.newFileSystem(entry).getPath("/");
+      return FileSystems.newFileSystem(entry, Map.of("releaseVersion", "runtime")).getPath("/");
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }

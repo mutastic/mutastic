@@ -1,0 +1,82 @@
+package io.mutastic.output;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.jspecify.annotations.Nullable;
+
+/// Just enough JSON for an event stream: maps, lists, strings, numbers, booleans. Keys keep the
+/// map's order, so events read the same every run.
+public final class Json {
+  private Json() {}
+
+  /// `value` as JSON, on one line.
+  public static String write(Object value) {
+    var out = new StringBuilder();
+    write(value, out);
+    return out.toString();
+  }
+
+  private static void write(@Nullable Object value, StringBuilder out) {
+    switch (value) {
+      case null -> out.append("null");
+      case Optional<?> optional -> write(optional.orElse(null), out);
+      case String text -> string(text, out);
+      case Number number -> out.append(number);
+      case Boolean flag -> out.append(flag);
+      case Map<?, ?> map -> object(map, out);
+      case java.util.Collection<?> collection when !(collection instanceof List<?>) ->
+          write(List.copyOf(collection), out);
+      case List<?> list -> array(list, out);
+      default -> string(value.toString(), out);
+    }
+  }
+
+  private static void object(Map<?, ?> map, StringBuilder out) {
+    out.append('{');
+    boolean first = true;
+    for (var entry : map.entrySet()) {
+      if (!first) {
+        out.append(',');
+      }
+      first = false;
+      string(String.valueOf(entry.getKey()), out);
+      out.append(':');
+      write(entry.getValue(), out);
+    }
+    out.append('}');
+  }
+
+  private static void array(List<?> list, StringBuilder out) {
+    out.append('[');
+    for (int i = 0; i < list.size(); i++) {
+      if (i > 0) {
+        out.append(',');
+      }
+      write(list.get(i), out);
+    }
+    out.append(']');
+  }
+
+  private static void string(String text, StringBuilder out) {
+    out.append('"');
+    for (int at = 0; at < text.length(); at++) {
+      char character = text.charAt(at);
+      switch (character) {
+        case '"' -> out.append("\\\"");
+        case '\\' -> out.append("\\\\");
+        case '\n' -> out.append("\\n");
+        case '\r' -> out.append("\\r");
+        case '\t' -> out.append("\\t");
+        default -> {
+          if (character < 0x20) {
+            out.append("\\u%04x".formatted((int) character));
+          } else {
+            out.append(character);
+          }
+        }
+      }
+    }
+    out.append('"');
+  }
+}

@@ -3,6 +3,7 @@ package io.mutastic.gradle;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.mutastic.api.BuildArguments;
 import io.mutastic.api.BuildErrors;
 import io.mutastic.api.BuildTool;
 import io.mutastic.api.BuildTool.SetupFailed;
@@ -174,7 +175,8 @@ class GradleTest {
     assertThat(
             GradleSetup.testCommand(
                 new BuildTool.Request(directory, ":", directory.resolve("build"), ".", "test"),
-                "com.example.PricingTest#bigOrders"))
+                "com.example.PricingTest#bigOrders",
+                BuildArguments.NONE))
         .startsWith("sh ")
         .endsWith(
             "gradlew -p %s test --tests 'com.example.PricingTest.bigOrders'"
@@ -195,14 +197,18 @@ class GradleTest {
     var real = directory.toRealPath().toString();
     var filter = List.of("-p", real, "test", "--tests", "com.example.PricingTest.bigOrders");
 
-    var command = GradleSetup.testCommand(request, "com.example.PricingTest#bigOrders");
+    var command =
+        GradleSetup.testCommand(request, "com.example.PricingTest#bigOrders", BuildArguments.NONE);
 
     assertThat(command).startsWith("'" + wrapper.toRealPath() + "' -p '" + real + "' test");
     assertThat(argv(command)).isEqualTo(concat(List.of(wrapper.toRealPath().toString()), filter));
 
     assertThat(wrapper.toFile().setExecutable(false)).isTrue();
 
-    assertThat(argv(GradleSetup.testCommand(request, "com.example.PricingTest#bigOrders")))
+    assertThat(
+            argv(
+                GradleSetup.testCommand(
+                    request, "com.example.PricingTest#bigOrders", BuildArguments.NONE)))
         .isEqualTo(concat(List.of("sh", wrapper.toRealPath().toString()), filter));
 
     Files.delete(wrapper);

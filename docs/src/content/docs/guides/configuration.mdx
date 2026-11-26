@@ -168,9 +168,15 @@ exclude-tests:
     reason: expects the old discount until the pricing change lands
 ```
 
-A test is named as [`--exclude-tests`](/reference/run/#exclude-tests) takes it: a test class by its
-name or full name, which leaves out every test in it, or one method, `Class#method`, with every
-overload and every row of it. A test without a `reason:` is an error. The summary's `Left out` row
+A test is named as [`--exclude-tests`](/reference/run/#exclude-tests) takes it, in any form a run
+prints it: a test class by its name or full name, which leaves out every test in it; one method,
+`Class#method`, with every overload and every row of it; or one overload with its parameter types,
+by their names or full names, `PricingTest#bigOrders(Cart, int)` or
+`com.example.PricingTest#bigOrders(com.example.Cart, int)`. A test without a `reason:` is an error.
+A name that matches none of the module's tests leaves nothing out, and the run says so: `! left out
+nothing: PricingTest#bigOrder names no test of pricing. There's one called PricingTest#bigOrders.`,
+and `matched: false` in `run-finished`. It's a warning, not an error, so a test removed or renamed
+since doesn't stop every run, nor does a name given to every module of a build. The summary's `Left out` row
 names each test with its reason, the Score row ends in `· 1 test left out`, and `run-finished`
 lists them as `testsLeftOut`. A left-out test can't make a mutant look caught: what only it reaches
 counts as not covered, so the score can only fall. A run with other tests left out is other code
@@ -237,6 +243,49 @@ them. None are output until a rule says so, since some teams test their metrics.
 `arid: only calls audit::record (…)`. The path in the code may be shorter, `audit::record` or
 `record` after a `use`: its segments are matched against the end of the rule's.
 </EditionOnly>
+
+## Arguments for the build
+
+A build that needs an argument to run at all, where its JDKs are, say, or a feature to turn on, needs
+it when mutastic builds it too. Put it after `--`:
+
+```sh
+mutastic run :app -- -Dorg.gradle.java.installations.paths=/opt/jdk-21 --offline
+```
+
+Everything after the first `--` goes to the build tool, word for word, on each build call mutastic
+makes: reading the build, and compiling the code and the tests. The tests don't get it. Every command
+takes it, and each command a run offers to copy ends in it.
+
+To give the same to every run, name it in `mutastic.yaml`, or set `MUTASTIC_BUILD_ARGS`, split at
+spaces, with quotes around an argument that has some:
+
+```yaml title="mutastic.yaml"
+build:
+  args:
+    - --offline
+    - -Pci
+```
+
+The first given is used whole, in place of the others: the command line, the variable, the file. A
+bare `--` gives none. The file is the nearest at or above the module's directory, as its path names
+it; a Gradle module kept in a directory of another name uses the run's.
+
+**A secret goes in `MUTASTIC_BUILD_ARGS`, or the build tool's own settings.** What you type after
+`--` is in the commands mutastic prints, and so in reports and CI logs that show them. The variable's
+and the file's are never repeated.
+
+**For the gate, use the variable or the file.** `gate open -- …` gives its arguments to its own build
+and its count of the tests, and keeps them nowhere, so a hooked `gate check` doesn't have them.
+
+mutastic refuses an argument that fights how it drives the build, and says why: one that chooses the
+tests, tasks, modules or directory, that stops the build or never ends it, or that changes the output
+it reads. It also refuses one that leaves out part of the build mutastic runs, as the tests would judge old
+classes: Gradle's `-x compileJava` or `-x classes`, Maven's `-Dmaven.test.skip`, `-Dmaven.main.skip`
+and `--fail-never`. `-x spotlessCheck` is fine.
+
+A run with other arguments than the last is never compared as the same code. In CI, [keep one more
+file](/guides/ci/#keep-the-run-record-between-runs) with the run record for that.
 
 ## Ignoring one mutant
 

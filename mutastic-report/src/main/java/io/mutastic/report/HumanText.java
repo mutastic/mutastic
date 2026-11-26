@@ -2,10 +2,14 @@ package io.mutastic.report;
 
 import io.mutastic.api.ClassMutator;
 import io.mutastic.api.Comparison;
+import io.mutastic.api.LikelyFlaky;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
+import io.mutastic.api.WatchedTest;
+import io.mutastic.output.Glyphs;
+import io.mutastic.output.Style;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalTime;
@@ -229,7 +233,7 @@ public final class HumanText {
     if (GhostCards.any(report)) {
       out.append('\n').append(new GhostCards(sources).render(report));
     }
-    warnings(report, comparison, out);
+    warnings(report, out);
     summary(report, comparison, run, out);
     // Each id opens the HTML report on its mutant.
     return run.pages()
@@ -368,7 +372,9 @@ public final class HumanText {
     }
     return "%s %s %s %s %s"
         .formatted(
-            missed.isEmpty() && uncovered.isEmpty() ? style.green("✓") : style.red("❯"),
+            missed.isEmpty() && uncovered.isEmpty()
+                ? style.green(Glyphs.PASS)
+                : style.red(Glyphs.POINTER),
             style.label(project, Style.CYAN),
             sources.file(results.getFirst().mutant()),
             style.dim("(") + String.join(style.dim(" | "), counts) + style.dim(")"),
@@ -414,7 +420,7 @@ public final class HumanText {
     int colon = where.lastIndexOf(" :");
     return "   %s %s %s %s"
         .formatted(
-            style.amber("○"),
+            style.amber(Glyphs.OPEN),
             where.substring(0, colon),
             style.dim(where.substring(colon + 1)),
             style.dim(
@@ -425,7 +431,7 @@ public final class HumanText {
   private String heading() {
     return "\n"
         + style.red(style.bold(" " + words.heading + " "))
-        + style.dim("─".repeat(60))
+        + style.dim(Glyphs.RULE.repeat(60))
         + "\n";
   }
 
@@ -434,7 +440,7 @@ public final class HumanText {
     var mutant = result.mutant();
     return " %s %s %s %s"
         .formatted(
-            style.red("✗"),
+            style.red(Glyphs.FAIL),
             location(mutant),
             code(sources.advice(result).headline()),
             style.dim(mutant.id()));
@@ -479,7 +485,7 @@ public final class HumanText {
           "     %s %s %s %s\n"
               .formatted(
                   style.dim("%-7s".formatted(place.line() + ":" + place.start())),
-                  style.red("✗"),
+                  style.red(Glyphs.FAIL),
                   code(sources.advice(result).headline()),
                   style.dim(result.mutant().id())));
     }
@@ -521,7 +527,7 @@ public final class HumanText {
     var linked = sources.path(mutant).map(path -> style.link(path, file)).orElse(file);
     return " %s %s  %s"
         .formatted(
-            style.blue("❯"),
+            style.blue(Glyphs.POINTER),
             style.bold(linked),
             style.dim(
                 "%d %s in %d method%s"
@@ -543,9 +549,7 @@ public final class HumanText {
 
   /// The class a source file is named for: nested classes share their outer class's file.
   private static String outerClass(Mutant mutant) {
-    var name = mutant.className();
-    int dollar = name.indexOf('$', name.lastIndexOf('/') + 1);
-    return dollar < 0 ? name : name.substring(0, dollar);
+    return SourceNames.outerClass(mutant.className());
   }
 
   /// A missed mutant in full: the label and the gap, the code with the change marked, the mutant as
@@ -609,7 +613,7 @@ public final class HumanText {
     var lines = new ArrayList<String>();
     lines.add("");
     lines.add(" %s %s".formatted(outcomeLabel(result), style.bold(code(outcome(result)))));
-    lines.add(" %s %s %s".formatted(gutter, style.dim("┌─"), location(mutant)));
+    lines.add(" %s %s %s".formatted(gutter, style.dim(Glyphs.CORNER), location(mutant)));
     lines.addAll(frame(mutant, advice, place, width));
     addBeforeAndAfter(lines, mutant, advice, gutter);
     var notes = explainedNotes(result, advice);
@@ -628,14 +632,16 @@ public final class HumanText {
       notes.add(AgentText.testsRun(result, " "));
     }
     result.falseCatchBy().ifPresent(test -> notes.add(AgentText.falseCatch(test)));
+    result.flakyCatchBy().ifPresent(test -> notes.add(AgentText.flakyCatch(test)));
+    result.duplicateClassBy().ifPresent(test -> notes.add(AgentText.duplicateClass(test)));
     return notes;
   }
 
   private String outcomeLabel(MutantResult result) {
     return switch (result.status()) {
       case CAUGHT, TIMED_OUT ->
-          style.label("✓ " + words.detected.toUpperCase(Locale.ROOT), Style.GREEN);
-      case NOT_COVERED -> style.label("○ NOT COVERED", Style.CYAN);
+          style.label(Glyphs.PASS + " " + words.detected.toUpperCase(Locale.ROOT), Style.GREEN);
+      case NOT_COVERED -> style.label(Glyphs.OPEN + " NOT COVERED", Style.CYAN);
       default -> style.label("SKIPPED", Style.CYAN);
     };
   }
@@ -695,10 +701,11 @@ public final class HumanText {
     lines.add(
         " %s %s%s"
             .formatted(
-                style.label("✗ " + words.undetected.toUpperCase(Locale.ROOT), Style.RED),
+                style.label(
+                    Glyphs.FAIL + " " + words.undetected.toUpperCase(Locale.ROOT), Style.RED),
                 code(advice.headline()),
                 finding.mutants().size() > 1 ? style.dim(" · " + mutant.id()) : ""));
-    lines.add(" %s %s %s".formatted(gutter, style.dim("┌─"), location(mutant)));
+    lines.add(" %s %s %s".formatted(gutter, style.dim(Glyphs.CORNER), location(mutant)));
   }
 
   /// The changed line between the lines either side, the change marked under it; nothing when the
@@ -710,7 +717,7 @@ public final class HumanText {
     }
     var source = file.get();
     var gutter = " ".repeat(width);
-    var bar = style.dim("│");
+    var bar = style.dim(Glyphs.GUTTER);
     var lines = new ArrayList<String>();
     lines.add(" %s %s".formatted(gutter, bar));
     for (int number = Math.max(1, place.line() - 1);
@@ -741,7 +748,7 @@ public final class HumanText {
     return " %s %s %s"
         .formatted(
             gutter,
-            style.dim("│"),
+            style.dim(Glyphs.GUTTER),
             " ".repeat(place.start() - 1)
                 + operatorDocs.map(url -> style.link(url, marked)).orElse(marked));
   }
@@ -776,6 +783,8 @@ public final class HumanText {
                         "; %s failed once, then passed: flaky".formatted(AgentText.shortName(test)))
                 .orElse(""));
     result.falseCatchBy().ifPresent(test -> notes.add(AgentText.falseCatch(test)));
+    result.flakyCatchBy().ifPresent(test -> notes.add(AgentText.flakyCatch(test)));
+    result.duplicateClassBy().ifPresent(test -> notes.add(AgentText.duplicateClass(test)));
     return notes;
   }
 
@@ -866,7 +875,7 @@ public final class HumanText {
   private String alsoMissed(MutantResult other) {
     return "also    %s %s %s"
         .formatted(
-            style.red("✗"),
+            style.red(Glyphs.FAIL),
             code(sources.advice(other).headline()),
             style.dim("· " + other.mutant().id()));
   }
@@ -885,7 +894,7 @@ public final class HumanText {
   /// Just the changed line, the change marked under it.
   private List<String> changedLine(
       List<String> source, SourceView.Place place, Advice advice, String gutter) {
-    var bar = style.dim("│");
+    var bar = style.dim(Glyphs.GUTTER);
     return List.of(
         " %s %s".formatted(gutter, bar),
         " %s %s %s"
@@ -921,9 +930,9 @@ public final class HumanText {
         .append(
             style.dim(
                 "(no test reaches these lines%s)"
-                    .formatted(report.flaky().isEmpty() ? "" : ", or only a flaky one does")))
+                    .formatted(AgentText.anyFlaky(report) ? ", or only a flaky one does" : "")))
         .append('\n');
-    appendNotCoveredLines(out, byLine);
+    appendNotCoveredLines(out, report, byLine);
     var uncovered =
         report.results().stream().filter(result -> result.status() == Status.NOT_COVERED).toList();
     SuggestedTest.startingPoints(uncovered, sources, 1)
@@ -934,12 +943,15 @@ public final class HumanText {
 
   /// The first [#CARDS] places no test reaches, and how many more there are; under a place in a
   /// `main`, what to do about it.
-  private void appendNotCoveredLines(StringBuilder out, Map<String, List<Mutant>> byLine) {
+  private void appendNotCoveredLines(
+      StringBuilder out, Report report, Map<String, List<Mutant>> byLine) {
     byLine.entrySet().stream()
         .limit(CARDS)
         .forEach(
             entry -> {
               out.append(notCoveredLine(entry.getKey(), entry.getValue().size()));
+              AgentText.onlyLikelyFlaky(report, entry.getValue())
+                  .ifPresent(only -> out.append("     %s\n".formatted(style.dim(only))));
               OnlyFromMain.advice(entry.getValue(), sources)
                   .ifPresent(advice -> out.append("     %s\n".formatted(code(advice))));
             });
@@ -954,7 +966,7 @@ public final class HumanText {
   private String notCoveredLine(String where, long count) {
     return "   %s %s %s\n"
         .formatted(
-            style.amber("○"),
+            style.amber(Glyphs.OPEN),
             where,
             style.dim("(%d mutant%s)".formatted(count, count == 1 ? "" : "s")));
   }
@@ -968,16 +980,15 @@ public final class HumanText {
         uncovered, sources, eachMutant, mutant -> plain(Advice.method(mutant)));
   }
 
-  private void warnings(Report report, Optional<Comparison> comparison, StringBuilder out) {
+  private void warnings(Report report, StringBuilder out) {
     var lines = new ArrayList<String>();
     report.flaky().forEach(test -> lines.add(flakyWarning(test, report.whyFlaky(test))));
-    Suspects.changedBetweenRuns(comparison)
-        .forEach(suspect -> lines.add(changedBetweenRunsWarning(suspect)));
-    Suspects.unconfirmed(report).forEach(suspect -> lines.add(unconfirmedWarning(suspect)));
+    lines.addAll(likelyFlakyWarnings(report));
     Suspects.unrelatedCatches(report).forEach(note -> lines.add(unrelatedCatchesNote(note)));
     if (!report.staleIgnores().isEmpty()) {
       lines.add(staleIgnoresWarning(report));
     }
+    report.unmatched().forEach(none -> lines.add(unmatchedWarning(none, report)));
     RepeatedIgnores.in(report)
         .forEach(
             repeated ->
@@ -987,6 +998,28 @@ public final class HumanText {
       out.append('\n');
       lines.forEach(line -> out.append(line).append('\n'));
     }
+  }
+
+  /// A test the run was told to leave out that named none of its tests (decision 28).
+  private String unmatchedWarning(io.mutastic.api.UnmatchedExclusion none, Report report) {
+    return " %s %s"
+        .formatted(style.amber("! left out nothing:"), AgentText.unmatched(none, report));
+  }
+
+  /// A line for each reason a test was named likely flaky, the strongest first, then one for each
+  /// test watched since an earlier run named it.
+  private List<String> likelyFlakyWarnings(Report report) {
+    var lines = new ArrayList<String>();
+    for (var named : report.likelyFlaky()) {
+      if (!named.mutants(LikelyFlaky.CHANGED).isEmpty()) {
+        lines.add(changedBetweenRunsWarning(named));
+      }
+      if (!named.mutants(LikelyFlaky.NOT_REPEATED).isEmpty()) {
+        lines.add(unconfirmedWarning(named));
+      }
+    }
+    report.watched().forEach(watched -> lines.add(watchedWarning(watched)));
+    return lines;
   }
 
   private String staleIgnoresWarning(Report report) {
@@ -1041,21 +1074,28 @@ public final class HumanText {
         : "; it reaches %s".formatted(Untrusted.values(why.get().reaches()));
   }
 
-  private String changedBetweenRunsWarning(Suspects.Suspect suspect) {
-    return " %s %s; with the code unchanged, whether it catches %s changed since the last run"
+  private String changedBetweenRunsWarning(LikelyFlaky named) {
+    return " %s %s; with the code unchanged, whether it catches %s changed since the last run. %s"
         .formatted(
             style.amber("! likely flaky:"),
-            AgentText.shortName(suspect.test()),
-            Untrusted.values(suspect.mutants()));
+            AgentText.shortName(named.test()),
+            Untrusted.values(named.mutants(LikelyFlaky.CHANGED)),
+            AgentText.noneCount(named));
   }
 
-  private String unconfirmedWarning(Suspects.Suspect suspect) {
-    return " %s %s; its %s of %s didn't repeat when run again"
+  private String unconfirmedWarning(LikelyFlaky named) {
+    var unconfirmed = named.mutants(LikelyFlaky.NOT_REPEATED);
+    return " %s %s; its %s of %s didn't repeat when run again. %s"
         .formatted(
             style.amber("! likely flaky:"),
-            AgentText.shortName(suspect.test()),
-            suspect.mutants().size() == 1 ? "catch" : "catches",
-            Untrusted.values(suspect.mutants()));
+            AgentText.shortName(named.test()),
+            unconfirmed.size() == 1 ? "catch" : "catches",
+            Untrusted.values(unconfirmed),
+            AgentText.noneCount(named));
+  }
+
+  private String watchedWarning(WatchedTest watched) {
+    return " %s %s".formatted(style.amber("! watched:"), AgentText.watchedLine(watched));
   }
 
   private String unrelatedCatchesNote(Suspects.UnrelatedCatches note) {
@@ -1142,9 +1182,10 @@ public final class HumanText {
   }
 
   /// ` · 2 tests left out`, after a score over fewer tests than the build runs: their mutants can
-  /// only count as not covered, so it can only be lower, and it's said where it's read.
+  /// only count as not covered, so it can only be lower, and it's said where it's read. A name that
+  /// left out nothing isn't counted: its line says so.
   private String testsLeftOut(Report report, Run run) {
-    int count = run.leftOut().size();
+    int count = run.leftOut().size() - report.unmatched().size();
     return count == 0 || report.score().isEmpty()
         ? ""
         : style.dim("  · %s left out".formatted(count(count, "test")));
@@ -1243,14 +1284,17 @@ public final class HumanText {
     return String.join(
             style.dim(" · "),
             Stream.of(
-                    style.green("✓ " + style.bold(caught + " " + words.detected)),
+                    style.green(Glyphs.PASS + " " + style.bold(caught + " " + words.detected)),
                     missed == 0
                         ? null
-                        : style.red("✗ " + style.bold(missed + " " + words.undetected)),
-                    timedOut == 0 ? null : style.amber("⏱ " + timedOut + " timed out"),
+                        : style.red(
+                            Glyphs.FAIL + " " + style.bold(missed + " " + words.undetected)),
+                    timedOut == 0
+                        ? null
+                        : style.amber(Glyphs.TIMER + " " + timedOut + " timed out"),
                     notCovered == 0
                         ? null
-                        : style.amber("○ " + notCovered + " " + words.notCovered),
+                        : style.amber(Glyphs.OPEN + " " + notCovered + " " + words.notCovered),
                     report.count(Status.SKIPPED) == 0 ? null : style.dim(skippedByKind(report)))
                 .filter(java.util.Objects::nonNull)
                 .toList())
@@ -1413,7 +1457,7 @@ public final class HumanText {
   /// Each mutant's fate, one a line, when they were asked for by id.
   private String fates(Report report) {
     return report.results().stream()
-        .map(result -> " %s\n".formatted(fate(result)))
+        .map(result -> " %s\n".formatted(fate(report, result)))
         .collect(Collectors.joining());
   }
 
@@ -1435,7 +1479,7 @@ public final class HumanText {
   }
 
   /// `[MISSED] m855c8e3c is still missed`: one mutant's verdict, for a run that asked for it.
-  private String fate(MutantResult result) {
+  private String fate(Report report, MutantResult result) {
     var id = result.mutant().id();
     return switch (result.status()) {
       case CAUGHT ->
@@ -1450,13 +1494,19 @@ public final class HumanText {
           detectedFate(
               "%s is %s: its tests stopped finishing in time".formatted(id, words.detected));
       case MISSED -> missedFate(id);
-      case NOT_COVERED -> redFate(words.notCovered, "%s: no test reaches its line".formatted(id));
+      case NOT_COVERED -> notCoveredFate(report, result);
       case SKIPPED ->
           style.label("SKIPPED", Style.CYAN)
               + " "
               + "%s is skipped: %s"
                   .formatted(id, Untrusted.value(result.mutant().skipped().orElse("")));
     };
+  }
+
+  /// `m855c8e3c: no test reaches its line`, or which likely flaky test alone did.
+  private String notCoveredFate(Report report, MutantResult result) {
+    var why = AgentText.onlyLikelyFlaky(report, result).orElse("no test reaches its line");
+    return redFate(words.notCovered, "%s: %s".formatted(result.mutant().id(), why));
   }
 
   /// `m855c8e3c is still missed · done when mutastic verify m855c8e3c passes`.
@@ -1544,7 +1594,9 @@ public final class HumanText {
               if (change == 0) {
                 return style.dim("  = vs last run") + sameness;
               }
-              var text = "%s %.1f vs last run".formatted(change > 0 ? "▲" : "▼", Math.abs(change));
+              var text =
+                  "%s %.1f vs last run"
+                      .formatted(change > 0 ? Glyphs.UP : Glyphs.DOWN, Math.abs(change));
               return "  " + (change > 0 ? style.green(text) : style.red(text)) + sameness;
             })
         .orElse("");
@@ -1563,7 +1615,7 @@ public final class HumanText {
     return byMethod.entrySet().stream()
         .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder()))
         .limit(3)
-        .map(entry -> "%s %d ✗".formatted(entry.getKey(), entry.getValue()))
+        .map(entry -> "%s %d %s".formatted(entry.getKey(), entry.getValue(), Glyphs.FAIL))
         .collect(Collectors.joining(" · "));
   }
 

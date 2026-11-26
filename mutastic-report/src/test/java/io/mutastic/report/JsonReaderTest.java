@@ -3,6 +3,7 @@ package io.mutastic.report;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.mutastic.output.Json;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

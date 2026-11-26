@@ -54,6 +54,42 @@ class ShardTest {
     shares = Path.of(project, "build", "mutastic", "shares");
   }
 
+  /// Shares of separate CI jobs, in work directories of their own whose keys differ, merge when
+  /// their builds got the same arguments.
+  @Test
+  void sharesBuiltWithArgumentsInSeparateJobsMerge() throws IOException {
+    var together = work.resolve("with-arguments");
+    var keys = new ArrayList<byte[]>();
+    for (int number = 1; number <= 2; number++) {
+      var job = Samples.copy(SAMPLE, work.resolve("job-" + number).resolve("pricing"));
+      var run =
+          mutastic(
+              "run", job.toString(), "--threshold=0", "--shard=" + number + "/2", "--", "-Pci=x");
+      assertThat(run.exit()).as(run.err()).isZero();
+      var kept = job.resolve("build/mutastic");
+      keys.add(Files.readAllBytes(kept.resolve("build-args.key")));
+      var named = number + "-of-2";
+      Files.createDirectories(together.resolve(named));
+      Files.copy(
+          kept.resolve("shares").resolve(named).resolve("events.jsonl"),
+          together.resolve(named).resolve("events.jsonl"));
+    }
+    assertThat(keys.get(0)).isNotEqualTo(keys.get(1));
+
+    var whole = Samples.copy(SAMPLE, work.resolve("merge").resolve("pricing"));
+    var merged =
+        mutastic(
+            "run",
+            whole.toString(),
+            "--from-shards=" + together,
+            "--format=jsonl",
+            "--threshold=0",
+            "--",
+            "-Pci=x");
+    assertThat(merged.exit()).as(merged.err()).isZero();
+    assertThat(statuses(results(merged.out()))).isEqualTo(statuses(ShardTest.whole));
+  }
+
   @Test
   void theSharesTogetherAreTheWholeRun() throws IOException {
     var first = sharesResults(1);

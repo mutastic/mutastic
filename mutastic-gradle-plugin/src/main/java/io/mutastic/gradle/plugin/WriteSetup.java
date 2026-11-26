@@ -91,6 +91,11 @@ public abstract class WriteSetup extends DefaultTask {
   @Internal
   public abstract ConfigurableFileCollection getClasspath();
 
+  /// The JUnit Platform launcher the worker needs, when the test task's classpath has the platform
+  /// and none ([PlatformLauncher]).
+  @Internal
+  public abstract ConfigurableFileCollection getLauncher();
+
   /// What another module sees of this one: its classes, resources and jar.
   @Internal
   public abstract ConfigurableFileCollection getModuleOutputs();
@@ -185,6 +190,10 @@ public abstract class WriteSetup extends DefaultTask {
   private static void fromTheTestTask(
       WriteSetup task, Project project, Provider<Test> suite, String built) {
     task.getClasspath().from(suite.map(Test::getClasspath));
+    task.getLauncher()
+        .from(
+            project.provider(
+                () -> PlatformLauncher.missingFrom(project, suite.get().getClasspath())));
     task.getValues().putAll(suite.map(WriteSetup::values));
     task.getJvmArgs().set(suite.map(Test::getAllJvmArgs));
     task.getProjectPath().set(project.getPath());
@@ -224,10 +233,27 @@ public abstract class WriteSetup extends DefaultTask {
     }
   }
 
+  /// The java the test task runs its tests with, as the init script finds it: its launcher, which a
+  /// build can clear; else its `executable`, the JDK Gradle runs on unless the build set another;
+  /// and last, Gradle's own.
+  private static String testJava(Test test) {
+    var launcher = test.getJavaLauncher();
+    if (launcher.isPresent()) {
+      return launcher.get().getExecutablePath().toString();
+    }
+    String executable = test.getExecutable();
+    return executable != null
+        ? executable
+        : new File(
+                System.getProperty("java.home"),
+                File.separatorChar == '\\' ? "bin/java.exe" : "bin/java")
+            .getAbsolutePath();
+  }
+
   /// The single values the setup file holds, read from the test task.
   private static Map<String, String> values(Test test) {
     var values = new java.util.TreeMap<String, String>();
-    values.put("java", test.getJavaLauncher().get().getExecutablePath().toString());
+    values.put("java", testJava(test));
     values.put("workingDirectory", test.getWorkingDir().getAbsolutePath());
     values.put("testIncludes", String.join("\n", test.getIncludes()));
     values.put("testExcludes", String.join("\n", test.getExcludes()));
@@ -249,10 +275,22 @@ public abstract class WriteSetup extends DefaultTask {
     setup.setProperty("testSources", paths(getTestSources().getFiles()));
     var modules =
         getModules().getFiles().stream().map(File::getAbsolutePath).collect(Collectors.toSet());
-    setup.setProperty("dependencies", classpath(path -> !modules.contains(path)));
+    setup.setProperty("dependencies", dependencies(modules));
     setup.setProperty("alongside", classpath(modules::contains));
     setup.setProperty("outputs", paths(getModuleOutputs().getFiles()));
     store(setup, getProjectPath().get());
+  }
+
+  /// The test classpath's libraries, without the build's `modules`, and the launcher the worker
+  /// needs when it has none.
+  private String dependencies(Set<String> modules) {
+    var dependencies = new ArrayList<String>();
+    var libraries = classpath(path -> !modules.contains(path));
+    if (!libraries.isEmpty()) {
+      dependencies.add(libraries);
+    }
+    getLauncher().getFiles().forEach(launcher -> dependencies.add(launcher.getAbsolutePath()));
+    return String.join(SEPARATOR, dependencies);
   }
 
   /// The source set whose classes the test task runs: `test` for `test`, `integrationTest` for a

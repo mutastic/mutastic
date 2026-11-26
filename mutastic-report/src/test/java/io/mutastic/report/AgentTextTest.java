@@ -6,10 +6,13 @@ import io.mutastic.api.BuiltIn;
 import io.mutastic.api.Comparison;
 import io.mutastic.api.FlakyTest;
 import io.mutastic.api.Ignore;
+import io.mutastic.api.LikelyFlaky;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
+import io.mutastic.api.WatchedTest;
+import io.mutastic.output.Style;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -412,7 +415,7 @@ class AgentTextTest {
   }
 
   @Test
-  void theLastRunIsComparedAndFlipsPointAtTheirTest() {
+  void theLastRunIsComparedAndAFlipsTestIsNamedWithNoneOfItsCatchesCounting() {
     var comparison =
         new Comparison(
             OptionalDouble.of(25),
@@ -421,15 +424,61 @@ class AgentTextTest {
             List.of(
                 new Comparison.Flip(
                     "m1", Status.CAUGHT, Status.MISSED, Optional.of("com.example.PricingTest#a"))));
+    var named =
+        new LikelyFlaky(
+            "com.example.PricingTest#a", Map.of(LikelyFlaky.CHANGED, List.of("m1")), List.of("m1"));
 
     var output =
         text.render(
-            report(List.of(result(boundary(0), Status.CAUGHT)), List.of(), List.of()),
+            report(List.of(result(boundary(0), Status.MISSED)), List.of(), List.of())
+                .withLikelyFlaky(List.of(named)),
             Optional.of(comparison));
 
     assertThat(output)
-        .contains("vs last run: 25.0% → 100.0% (same code)")
-        .contains("likely flaky: PricingTest#a; with the code unchanged, whether it catches m1");
+        .contains("vs last run: 25.0% → 0.0% (same code)")
+        .contains(
+            "likely flaky: PricingTest#a; with the code unchanged, whether it catches m1 changed"
+                + " since the last run. Its catches can't be trusted until it's fixed. None of its"
+                + " catches count: 1 mutant it reached ran again without it, and the next runs"
+                + " confirm each catch it makes 3 times.");
+  }
+
+  /// A test's name is the project's text: in a likely-flaky line and a watched one alike, an escape
+  /// in it is shown, never sent.
+  @Test
+  void aLikelyFlakyOrWatchedTestsNameIsEscaped() {
+    var test = "a.PricingTest#a\u001b[2J";
+    var report =
+        report(List.of(result(boundary(0), Status.MISSED)), List.of(), List.of())
+            .withLikelyFlaky(
+                List.of(
+                    new LikelyFlaky(
+                        test, Map.of(LikelyFlaky.NOT_REPEATED, List.of("m1")), List.of("m1"))))
+            .withWatched(List.of(new WatchedTest(test, 3, true)));
+
+    var agent = text.render(report, Optional.empty());
+    var human =
+        new HumanText(
+                new SourceView(project, List.of(project.resolve("src/main/java"))),
+                80,
+                Style.PLAIN,
+                HumanText.Detail.FULL,
+                Vocabulary.PLAIN)
+            .render(
+                report,
+                Optional.empty(),
+                new HumanText.Run(
+                    java.time.LocalTime.of(9, 30, 5), Duration.ofMillis(500), List.of()));
+
+    assertThat(agent + human).doesNotContain("\u001b");
+    assertThat(agent)
+        .contains("likely flaky: PricingTest#a\\x1b[2J; its catch of m1 didn't repeat")
+        .contains(
+            "watched: PricingTest#a\\x1b[2J, likely flaky in an earlier run: each catch it made"
+                + " had to repeat 3 times; 3 of 3 runs held, so it's no longer watched");
+    assertThat(human)
+        .contains("! likely flaky: PricingTest#a\\x1b[2J; its catch of m1 didn't repeat")
+        .contains("! watched: PricingTest#a\\x1b[2J, likely flaky in an earlier run");
   }
 
   @Test

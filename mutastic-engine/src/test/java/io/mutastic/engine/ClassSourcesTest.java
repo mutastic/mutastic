@@ -29,6 +29,37 @@ class ClassSourcesTest {
     assertThat(sources.apply("com/example/Missing")).isEmpty();
   }
 
+  /// Without a `SourceFile` (`-g:lines`, or bytecode a tool wrote), the file is the top-level
+  /// class's, as the nesting attributes say: never one cut from the name at its first `$`.
+  @Test
+  void withoutOneTheTopLevelClassNamesIt() throws Exception {
+    var compiled =
+        Javac.compile(
+            List.of(
+                new Javac.Source(
+                    "cache.$Cache",
+                    """
+                    package cache;
+                    public final class $Cache {
+                      public static final class Entry {}
+                      Runnable task() { return new Runnable() { public void run() {} }; }
+                    }
+                    """)),
+            List.of(),
+            "-g:lines");
+    for (var each : compiled.entrySet()) {
+      var file = classes.resolve(each.getKey().replace('.', '/') + ".class");
+      Files.createDirectories(file.getParent());
+      Files.write(file, each.getValue());
+    }
+
+    var sources = new ClassSources(List.of(classes));
+
+    assertThat(sources.apply("cache/$Cache")).contains("cache/$Cache.java");
+    assertThat(sources.apply("cache/$Cache$Entry")).contains("cache/$Cache.java");
+    assertThat(sources.apply("cache/$Cache$1")).contains("cache/$Cache.java");
+  }
+
   private void write(String internalName, String sourceFile) throws Exception {
     var bytes =
         ClassFile.of()

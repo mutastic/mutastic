@@ -113,6 +113,50 @@ JDK:
 ./gradlew wrapper --gradle-version 9.1.0
 ```
 
+### The build's JDK toolchain isn't there
+
+Your build asks for a JDK by its toolchain, JDK 21 say, and this machine hasn't got one where Gradle
+or Maven looks: Gradle can't download one, as auto-provisioning is off or the download failed, or
+Maven's `~/.m2/toolchains.xml` doesn't list it. The build stops before it compiles, and mutastic
+says which JDK it needs (`build-jdk`), in the build's own words:
+
+```text
+mutastic: the build needs JDK 21 for its toolchain, and Gradle found none.
+Install one, or tell Gradle where it is:
+  mutastic run :app -- -Dorg.gradle.java.installations.paths=<path/to/jdk-21>
+```
+
+Install that JDK, or fill in where one is and run the command. For Maven, add the JDK to
+`~/.m2/toolchains.xml`, or name a toolchains file that has it:
+
+```xml title="~/.m2/toolchains.xml"
+<toolchains>
+  <toolchain>
+    <type>jdk</type>
+    <provides><version>21</version></provides>
+    <configuration><jdkHome>/path/to/jdk-21</jdkHome></configuration>
+  </toolchain>
+</toolchains>
+```
+
+```sh
+mutastic run :core -- --toolchains /path/to/toolchains.xml
+```
+
+For every run, put the argument in `mutastic.yaml` or `MUTASTIC_BUILD_ARGS`, as below.
+
+### The build needs an argument
+
+Your build works with `-Pci`, `--offline` or the directory of a JDK, and stops without it, so
+mutastic's run of it stops too. Give mutastic what you give the build, after `--`:
+
+```sh
+mutastic run :app -- -Pci --offline
+```
+
+For every run, put it in `mutastic.yaml` or `MUTASTIC_BUILD_ARGS`. See [Arguments for the
+build](/guides/configuration/#arguments-for-the-build).
+
 ### The build fails with the Gradle on the PATH
 
 A build is made for the Gradle its wrapper names. When mutastic finds no wrapper, from the

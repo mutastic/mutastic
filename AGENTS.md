@@ -9,6 +9,10 @@ Use `just <verb>`: `just --list` shows them. Run `just check` before a pull requ
 what CI runs, each job a recipe in the `ci` group. Call `./gradlew` directly only when no recipe
 exists. The words are the same in mutastic-rs, so a command learned here works there.
 
+Releases go through the `release` recipes, in [RELEASING.md](RELEASING.md)'s order. An agent may
+run `release-prepare`, `release-check`, `release-verify`, `release-hold` and `candidate`;
+`release`, `release-portal` and `docs-redeploy` publish, and are Brian's alone.
+
 ## Build
 
 ```sh

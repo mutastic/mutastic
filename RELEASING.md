@@ -16,7 +16,66 @@ waits for repo1 to serve it, publishes the Gradle plugin, publishes the GitHub r
 the docs and opens the pull request that holds the next release to this one. Rejecting it drops
 the deployment. The calls to Central are `scripts/central.sh`, curl over the Central Portal's
 [Publisher API](https://central.sonatype.org/publish/publish-portal-api/), so they don't depend on
-Gradle.
+Gradle. A tag with anything after `X.Y.Z`, such as a release candidate's `vX.Y.0-rc1`, starts
+neither the release nor a deploy of the docs.
+
+## The release train
+
+From 1.4.0, a minor release leaves every second Tuesday, both editions together for `X.Y.0`, this
+one first, then the Rust edition's, whose
+[RELEASING.md](https://github.com/mutastic/mutastic-rs/blob/main/RELEASING.md#the-release-train)
+has this same section. Tuesday is a proposal: the day is Brian's to change. A change that misses a
+train waits for the next one.
+
+- **The cut-off.** A train takes the `changes/` entries merged by the day before it.
+- **The gates.** It leaves only when both editions' nightly corpus (`corpus.yml`) is green, and
+  this one's run on the candidate too (`gh workflow run corpus.yml -f version=vX.Y.0-rc1`);
+  `scripts/release-check.sh X.Y.0` passes in both editions
+  ([Before the release commit](#before-the-release-commit)); and the candidate run passes
+  (`candidate-run.yml`, [Before tagging](#before-tagging)).
+- **A release candidate,** `vX.Y.0-rc1`, is a GitHub pre-release only, never a Central release:
+  each one costs about 244 files of Central's monthly budget. The native `mutastic` already skips
+  `-rc` tags, as they aren't plain versions (mutastic-rs's RELEASING.md,
+  [A bad Java patch](https://github.com/mutastic/mutastic-rs/blob/main/RELEASING.md#a-bad-java-patch)),
+  so nobody is moved onto one. Its tag starts neither `release.yml` nor docs.mutastic.io's
+  deploy: both take only a `vX.Y.Z` tag (1.4.0's `-rc1` matched the `v*` they once took).
+- **Patches,** between trains, only for a regression or a security fix, never a feature.
+- **Central's budget.** Before a second release in a month, check the
+  [Usage Center](https://central.sonatype.com/publishing/usage). Before an urgent release that
+  would go over a limit, write to central-support first.
+- **Who decides.** Brian decides a patch. Agents never cut a release on their own: when asked,
+  they prepare the release commit.
+
+## The release, in order
+
+Each step is a recipe in `just --list`'s `release` group. **Brian's** publish, so only Brian runs
+them; an agent may run the rest. The sections below say what each does.
+
+1. `just release-prepare X.Y.Z`, from `main`: the release commit on `release-X.Y.Z` and its pull
+   request, `chore(release): version X.Y.Z`. For `X.Y.0`, `just release-prepare X.Y.0 <commit>`
+   names the Rust edition's release commit on its `main`, and moves the docs' Rust pin to it.
+   Read the section, and bring up to date any shared page it says it stamped.
+2. `just release-check X.Y.Z` on that branch: ready, or a list of what isn't.
+3. `just candidate`: the CLI from the release commit over every sample. Then merge the pull
+   request (`just merge`).
+4. **Brian's:** `just release X.Y.Z`, the tag `vX.Y.Z` at `main`'s head, pushed. The release
+   workflow builds, uploads and validates it, and makes the draft release, publishing nothing.
+5. **Brian's:** read the run's summary, then approve the `release` job once. It publishes
+   everything, in order, and opens the hold's pull request.
+
+`release-verify.yml` then checks the release by itself, started by the release workflow (`just
+release-verify X.Y.Z` runs it again). From 1.0.0 the hold's pull request, `build: hold the next
+release to X.Y.Z`, holds the next release to this one: read it and merge it
+([Holding the next release](#holding-the-next-release)). For `X.Y.0`, the Rust edition's `vX.Y.0`
+is tagged once the GitHub release is published. Should a step after Central's fail, `just
+release-portal X.Y.Z` and `just docs-redeploy` (both **Brian's**) and `just release-hold X.Y.Z` do
+the Plugin Portal, docs.mutastic.io and the hold by hand ([When a step fails](#when-a-step-fails)).
+
+Brian's recipes ask before they run (`[confirm]`), but that isn't a safety boundary: `just --yes`
+or `JUST_YES` skips the question, and an agent's permission rules match only a command's text.
+What stands between a recipe and a published release is the `release` environment's required
+reviewer: its jobs hold the publishing secrets, and run only once approved. A tag reaches Central
+before that, unpublished, so the tag ruleset ([Once](#once), step 8) keeps others from pushing one.
 
 ## Once
 
@@ -25,11 +84,13 @@ Gradle.
    record on `mutastic.io` (its DNS is at Cloudflare), then press *Verify*.
 2. **A token.** In the Central Portal, open *View Account*, then *Generate User Token*. Keep the
    username and password it shows for step 4.
-3. **A signing key,** used only for mutastic's releases:
+3. **A signing key,** used only for mutastic's releases, and only by the `stage` environment,
+   which signs before the approval ([Signing keys](#signing-keys) says which key signed which
+   release):
    ```sh
    brew install gnupg
    # Give it a passphrase when asked: it protects the private key wherever a copy of it sits.
-   gpg --quick-gen-key "mutastic releases <your email>" rsa4096 sign 3y
+   gpg --quick-gen-key "mutastic releases (stage) <your email>" rsa4096 sign 3y
    gpg --list-secret-keys   # the 40 hex digits under `sec` are its fingerprint
    FPR=<fingerprint>
    # Gradle takes only the short id, the fingerprint's last 8 digits: a full one is refused
@@ -53,7 +114,7 @@ Gradle.
    done
    ```
    Then add yourself under *Settings → Environments → release → Required reviewers*. The signing
-   key is needed only to upload, so only `stage` has it; both have the Central token, which
+   key is needed only to upload, so only `stage`'s is used; both have the Central token, which
    uploads and validates in one and publishes in the other:
    ```sh
    # The private key goes straight from gpg to GitHub: it's never printed.
@@ -66,11 +127,12 @@ Gradle.
      gh secret set MAVEN_CENTRAL_PASSWORD --env $env --repo mutastic/mutastic  # the token's password, from step 2
    done
    ```
-   The token is not your Central Portal login, and the portal shows it once. Tokens belong to the
-   account, not the namespace, and generating a new one may retire the old. Central's tokens can't
-   be limited to uploading, so `stage`'s could publish too: what keeps a tag from reaching it
-   unreviewed is that only a commit `main` has and CI passed is staged, and the tag ruleset in step
-   8.
+   `release` still has the `SIGNING_KEY` secrets of the key that signed up to 1.4.0, when it
+   uploaded after the approval; no job reads them now. The token is not your Central Portal
+   login, and the portal shows it once. Tokens belong to the account, not the namespace, and
+   generating a new one may retire the old. Central's tokens can't be limited to uploading, so
+   `stage`'s could publish too: what keeps a tag from reaching it unreviewed is that only a commit
+   `main` has and CI passed is staged, and the tag ruleset in step 8.
 5. **The Gradle Plugin Portal.** Sign in at [plugins.gradle.org](https://plugins.gradle.org), and
    on your profile's *API Keys* tab generate a key and secret. Both environments have it: the
    portal checks a plugin (`publishPlugins --validate-only`) with the same key it publishes with.
@@ -100,7 +162,7 @@ Gradle.
    ```
 8. **Tags.** A `v*` tag starts a release, so only you should be able to push one: a ruleset on
    tags `v*` that restricts creating, updating and deleting them, with you able to bypass it
-   (*Settings → Rules → Rulesets → New tag ruleset*).
+   (*Settings → Rules → Rulesets → New tag ruleset*), and its enforcement *Active*.
 9. **Releases that can't change.** *Settings → General → Releases → Enable release immutability*:
    once a release is published, its assets and tag are locked, and GitHub attests them. The
    workflow attaches every asset to the draft, before it's published, as that requires.
@@ -109,22 +171,28 @@ Gradle.
 
 ## Each release
 
-1. **The release commit.** With `main` green, gather the notes and check the release
-   ([Before the release commit](#before-the-release-commit) says what's checked):
+1. **The release commit.** With `main` green, `just release-prepare X.Y.Z`
+   (`scripts/release-prepare.sh`) gathers the notes into `CHANGELOG.md`, commits it as
+   `chore(release): version X.Y.Z` on a branch, checks it with `release-check --no-build` and
+   opens the pull request; `--dry-run` does it all here and stops before the push. By hand, that's:
    ```sh
    scripts/changelog.sh preview X.Y.Z   # the section, as it will read: read it
    scripts/changelog.sh release X.Y.Z   # writes it into CHANGELOG.md, deletes the entries
    scripts/release-check.sh X.Y.Z       # says it's ready, or lists what isn't
    ```
-   Commit it as `chore(release): version X.Y.Z` in a pull request of its own, and merge it. Run
-   the [candidate](#before-tagging) on it first.
-2. **The tag,** on that commit once it's on `main` and CI passed on it:
+   [Before the release commit](#before-the-release-commit) says what's checked. Run the
+   [candidate](#before-tagging) on it, then merge it with `just merge`.
+2. **The tag,** on that commit once it's on `main` and CI passed on it. `just release X.Y.Z`,
+   Brian's, tags `main`'s head and pushes it:
    ```sh
    git fetch origin && git tag vX.Y.Z <the release commit> && git push origin vX.Y.Z
    ```
    The release workflow starts. In a few minutes it has uploaded the release to Central, had it
    validated, and made a draft release with its assets; it stops before publishing anything if CI
-   didn't pass on the commit, the changelog has no `X.Y.Z` section, or a check fails.
+   didn't pass on the commit, the changelog has no `X.Y.Z` section, or a check fails. The tests
+   aren't run again, as the merge queue ran them on that very tree: the workflow builds what
+   ships and checks what only a release can (the plugin API, the ids, the files on Central and the
+   plugin for the portal).
 3. **Read the summary** at the top of the run (`gh run watch`, or *Actions → Release*): the
    version and commit, the Central deployment, its components and files against Central's monthly
    limits, the notes, and links to the draft release and the Central Portal. Look at the draft's
@@ -139,6 +207,10 @@ Gradle.
    checks the release as a person gets it ([After a release](#after-a-release)). For `X.Y.0`, tag
    the Rust edition's `vX.Y.0` once the GitHub release is published, not before: its release
    workflow builds nothing until this release has its CLI.
+6. **Check [docs.mutastic.io](https://docs.mutastic.io).** The root and `/vX.Y/` should both be
+   the new release, with no banner saying the docs describe `main`. `mutastic --help` links to
+   `/vX.Y/`, so it has to exist. Check the schemas are served at their `$id`s too:
+   [/schemas/events/v1.json](https://docs.mutastic.io/schemas/events/v1.json).
 
 ## When a step fails
 
@@ -161,10 +233,10 @@ published the release:
   the version is out and can't be changed, so don't delete anything. Run the failed job again
   (*Re-run failed jobs*), or do its part by hand:
   ```sh
-  gh workflow run portal.yml --ref vX.Y.Z                    # the Gradle plugin; approve it
-  gh release edit vX.Y.Z --draft=false                       # the GitHub release
-  gh workflow run docs.yml --ref main -f release=true        # docs.mutastic.io, every release line
-  scripts/hold-release.sh X.Y.Z                              # the hold, on a branch from main
+  gh workflow run portal.yml --ref vX.Y.Z                # just release-portal X.Y.Z; approve it
+  gh release edit vX.Y.Z --draft=false                   # the GitHub release
+  gh workflow run docs.yml --ref main -f release=true    # just docs-redeploy: every release line
+  scripts/hold-release.sh X.Y.Z                          # just release-hold X.Y.Z, from main
   ```
   If what was published is wrong, card it, fix the cause and release `X.Y.Z+1`. `drop` fails here,
   saying Central has published the deployment: that's expected.
@@ -177,12 +249,12 @@ dropped with `scripts/central.sh drop <id>`, with `MAVEN_CENTRAL_USERNAME` and
 
 The build already fails on a moved mutant id, a break in the plugin API and a break in the events
 format ([Compatibility](docs/src/content/docs/reference/compatibility.mdx)).
-`scripts/release-check.sh X.Y.Z` checks what a release needs beyond that, all at once, and lists
-what's wrong: the changelog's rules, the ids, the Rust docs pin and the shared pages' stamps, and
-the files on Central. It writes nothing tracked and publishes nothing, so run it as often as you
-like; CI runs it on the release pull request too, the part that needs no build in Commits and the
-ids and Central in CI's merge queue run, and the release workflow runs the ids and Central again on
-the tag. What it can't judge is left to you:
+`scripts/release-check.sh X.Y.Z` (`just release-check X.Y.Z`) checks what a release needs beyond
+that, all at once, and lists what's wrong: the changelog's rules, the ids, the Rust docs pin and
+the shared pages' stamps, and the files on Central. It writes nothing tracked and publishes
+nothing, so run it as often as you like; CI runs it on the release pull request too, the part
+that needs no build in Commits and the ids and Central in CI's merge queue run, and the release
+workflow runs the ids and Central again on the tag. What it can't judge is left to you:
 
 - **Scores.** Read the *Scoring changes* and *Score corrections* that
   `scripts/changelog.sh preview` prints, the entries waiting in `changes/`. A patch release
@@ -209,16 +281,19 @@ the tag. What it can't judge is left to you:
   ```sh
   scripts/docs-pin-rust.sh <commit>   # the release commit's hash, or a mutastic-rs branch or tag
   ```
+  `just release-prepare X.Y.0 <commit>` runs it in the release commit, and `just docs-pin-rust
+  <commit>` on its own.
   It sets `commit` to that commit's full hash and `version` to what its `Cargo.toml` says (its
   tag comes after this release is published, so the pin names the commit, and the docs build
   checks the two agree). Then it stamps again each shared page whose mutastic-rs source changed
   since its stamp, the pages `scripts/check-editions.mjs` names, which would otherwise stop the
-  release's docs build. A stamp says the page is up to date, so bring each page it lists up to date
-  with the Rust edition, from the diff it prints, before you commit. Commit the pin, the stamps
-  and the pages with `main` green; `release-check` fails while the pin isn't an `X.Y.*` or a
-  stamp is stale. The Rust edition's
-  `vX.Y.0` is tagged only once this release's GitHub release is published: its release workflow
-  builds nothing until then, as the native `mutastic X.Y.0` would find nothing to run.
+  release's docs build (`just docs-stamp <page>…` stamps one again by hand, and `just
+  docs-compare` lists where the editions' captured output differs). A stamp says the page is up
+  to date, so bring each page it lists up to date with the Rust edition, from the diff it prints,
+  before you commit. Commit the pin, the stamps and the pages with `main` green; `release-check`
+  fails while the pin isn't an `X.Y.*` or a stamp is stale. The Rust edition's `vX.Y.0` is tagged
+  only once this release's GitHub release is published: its release workflow builds nothing until
+  then, as the native `mutastic X.Y.0` would find nothing to run.
 - **Files on Central.** Central counts every file against a monthly limit
   ([Usage](https://central.sonatype.com/publishing/usage)). `checkCentralFiles` keeps a release
   small enough for four a month, and `release-check` runs it. The summary you approve from says
@@ -230,7 +305,8 @@ file in `changes/` ([changes/README.md](changes/README.md)), so pull requests do
 `CHANGELOG.md`; `scripts/changelog.sh release X.Y.Z` gathers them as `## X.Y.Z (D Mon YYYY)`,
 dated today, and deletes the files. Edit the section if it needs it, a paragraph above a section's
 entries or one at the top: only a commit with the `release` scope may edit `CHANGELOG.md`. The
-release workflow gives the GitHub release the same section (`scripts/changelog.sh notes X.Y.Z`).
+release workflow gives the GitHub release the same section (`scripts/changelog.sh notes X.Y.Z`),
+and a tag whose commit has none stops before anything is uploaded.
 
 ## Holding the next release
 
@@ -240,7 +316,7 @@ branch from `main`, `scripts/hold-release.sh X.Y.Z` (which refuses until X.Y.Z's
 is on Central), and opens its pull request, `build: hold the next release to X.Y.Z`. To run it by
 hand, on a branch from `main`:
 ```sh
-scripts/hold-release.sh X.Y.Z
+scripts/hold-release.sh X.Y.Z   # just release-hold X.Y.Z
 ```
 It sets `lastStableRelease` in `gradle.properties` to X.Y.Z, so `checkApiCompatibility`
 compares the plugin API with its jar, and keeps its schemas, rules files, `mutastic.yaml` files
@@ -268,6 +344,8 @@ the release's branch, or locally:
 gh workflow run candidate-run.yml --ref <branch>
 scripts/candidate-run.sh             # --of=N for a smaller share, or name samples to run
 ```
+`just candidate` runs the script here, with the same arguments: the machine that prepared the
+release commit checks it, and `gh workflow run` covers a branch from anywhere.
 Don't tag a candidate that fails: its run's summary and artifact say which sample, and how.
 
 ## After a release
@@ -281,7 +359,7 @@ to an hour for Central's mirrors and the Plugin Portal; a release published by h
 waiting up to four hours. Look at it in *Actions*; to check a release again, or once a wait ran
 out:
 ```sh
-gh workflow run release-verify.yml -f version=X.Y.Z
+gh workflow run release-verify.yml -f version=X.Y.Z   # just release-verify X.Y.Z
 ```
 A failure's summary says what failed and where. Central can't change or remove a version, so fix
 forward: card it, fix the cause, release `X.Y.Z+1`.
@@ -299,3 +377,20 @@ gh attestation verify mutastic-X.Y.Z.zip --repo mutastic/mutastic
 holds it to that workflow and tag, as `release-verify.yml` does, and `--predicate-type
 https://cyclonedx.org/bom` checks the archive's SBOM attestation instead: the SBOM says what the
 release is made of.
+
+### Signing keys
+
+Every file on Central has a signature beside it (`.asc`), made by one of two keys, both RSA 4096
+and named *mutastic releases*:
+
+| Releases | Key | Fingerprint |
+| --- | --- | --- |
+| Up to 1.4.0, signed in the `release` environment, after the approval | `6C90C775` | `82C8 2AD0 4E45 4401 57C9 A2D3 006D 7D63 6C90 C775` |
+| From the release after 1.4.0, signed in the `stage` environment, before it | `0E561074` (*stage*) | `EF11 63F9 50BC 135D B832 65A7 AB5A 3DE4 0E56 1074` |
+
+The stage key's public part is on [keyserver.ubuntu.com](https://keyserver.ubuntu.com) and
+[keys.openpgp.org](https://keys.openpgp.org), where Central checks it. To check a file:
+```sh
+gpg --keyserver keyserver.ubuntu.com --recv-keys EF1163F950BC135DB83265A7AB5A3DE40E561074
+gpg --verify mutastic-api-X.Y.Z.jar.asc mutastic-api-X.Y.Z.jar
+```

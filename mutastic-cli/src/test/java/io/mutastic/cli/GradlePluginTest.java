@@ -65,6 +65,34 @@ class GradlePluginTest {
     sameSetupAsTheCommand(project);
   }
 
+  /// A test task with no launcher, as Gradle 7 leaves it without a toolchain, runs on the JDK
+  /// Gradle gives it. The setup asked the launcher alone, so `mutasticWriteSetup` failed.
+  @Test
+  void aTestTaskWithNoLauncherRunsOnTheJdkGradleGivesIt() throws Exception {
+    var project = withPlugin(Samples.copy(SAMPLE, work.resolve("modules")));
+    var build = project.resolve("build.gradle.kts");
+    Files.writeString(
+        build,
+        Files.readString(build)
+            + """
+
+            subprojects {
+                tasks.withType<Test>().configureEach {
+                    javaLauncher.convention(null as JavaLauncher?)
+                    javaLauncher.set(null as JavaLauncher?)
+                }
+            }
+            """);
+
+    var run =
+        gradlew(project, ":core:mutasticRun", "-Pmutastic.format=jsonl", "-Pmutastic.threshold=0");
+
+    assertThat(run.exit()).as(run.out() + run.err()).isZero();
+    assertThat(run.out() + run.err()).doesNotContain("javaLauncher");
+    // The same setup as the command's, whose init script falls back the same way.
+    sameSetupAsTheCommand(project);
+  }
+
   /// A Kotlin Multiplatform module never applies the java plugin: the plugin reads its one JVM
   /// target instead, as the init script does, and the target's tests run on its code, its common
   /// code included.

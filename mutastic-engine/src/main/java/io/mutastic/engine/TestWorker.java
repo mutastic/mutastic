@@ -8,12 +8,15 @@ import io.mutastic.api.Project;
 import io.mutastic.api.PropertyTests;
 import io.mutastic.api.Status;
 import io.mutastic.api.TestCase;
+import io.mutastic.engine.tests.StartFailure;
+import io.mutastic.engine.tests.TestFrameworks;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -55,7 +58,14 @@ final class TestWorker implements AutoCloseable {
   /// Said by a worker as a test's code ends its JVM, with the test, in place of an answer.
   private static final String EXITED = "EXITED\t";
 
+  /// Said for each test that failed only on a class the JVM refused as defined twice.
+  private static final String UNJUDGED = "UNJUDGED\t";
+
   private final Project project;
+
+  /// What the project's tests need to run, and how the worker runs them.
+  private final TestFrameworks frameworks;
+
   private final Path workerJar;
   private final Path log;
   private final ClassesToWarm toWarm;
@@ -75,6 +85,9 @@ final class TestWorker implements AutoCloseable {
   /// The test whose code ended the worker's JVM, if the worker said one did since the last command.
   private @Nullable String exitedDuring;
 
+  /// The tests the current run's worker said were [#UNJUDGED].
+  private final List<String> unjudged = new ArrayList<>();
+
   /// The single test methods it leaves out of each class it runs, `PricingTest#bigOrders` or
   /// `com.example.PricingTest#bigOrders`: every overload and row of each.
   private List<String> methodsLeftOut = List.of();
@@ -83,6 +96,7 @@ final class TestWorker implements AutoCloseable {
   /// output explains.
   TestWorker(Project project, Path workerJar, Path log, ClassesToWarm toWarm, Path resources) {
     this.project = project;
+    this.frameworks = TestFrameworks.of(project.dependencies());
     this.workerJar = workerJar;
     this.log = log;
     this.toWarm = toWarm;
@@ -147,14 +161,36 @@ final class TestWorker implements AutoCloseable {
     }
   }
 
+  /// Sends the coverage pass, with every class in `instrumented` staged; first stops a run whose
+  /// tests a worker can't run, before one starts: on a JDK older than the worker runs on
+  /// ([Engine.TestsJdkTooOld]), or with a classpath a framework says what to add to or change in
+  /// ([TestFrameworks#refusal]).
+  private void startCovering(Map<String, byte[]> instrumented, List<String> testClasses) {
+    int testsJdk = Engine.jdkOf(project.java());
+    if (testsJdk < Engine.TestsJdkTooOld.OLDEST) {
+      throw new Engine.TestsJdkTooOld(project, testsJdk);
+    }
+    var refusal = frameworks.refusal();
+    if (refusal.isPresent()) {
+      throw new Engine.TestsCantRun(project, refusal.get());
+    }
+    instrumented.forEach(this::stage);
+    send("COVER\t" + String.join("\t", testClasses));
+  }
+
+  /// The tests couldn't start in the coverage pass: the worker said why ([StartFailure]).
+  private Engine.NoTestsRan unstarted(String[] parts) {
+    var failure = StartFailure.of(parts[1], parts[2], parts[3], parts[4]);
+    return new Engine.NoTestsRan(project, failure, log);
+  }
+
   /// @param listener hears how many tests have run of how many there are, as they run
   Baseline cover(
       Map<String, byte[]> instrumented,
       List<String> testClasses,
       Coverage coverage,
       io.mutastic.api.Listener listener) {
-    instrumented.forEach(this::stage);
-    send("COVER\t" + String.join("\t", testClasses));
+    startCovering(instrumented, testClasses);
     var failed = new Failed();
     var counted = new TestsCounted(coverage, listener);
     while (true) {
@@ -168,10 +204,12 @@ final class TestWorker implements AutoCloseable {
             coverage.recordValues(
                 parts[1], Integer.parseInt(parts[2]), commaSeparated(parts[3], Long::valueOf));
         case "FAILURE" -> failed.heard(parts);
+        case "LEFT-OUT" -> coverage.recordLeftOut(parts[1]);
         case "LOADED" -> toWarm.coverageLoaded(Arrays.asList(parts).subList(1, parts.length));
         case "DONE" -> {
           return failed.baseline(parts);
         }
+        case "UNSTARTED" -> throw unstarted(parts);
         default -> throw new IllegalStateException("the worker said: " + answer);
       }
     }
@@ -281,6 +319,8 @@ final class TestWorker implements AutoCloseable {
   ///   be another worker's doing
   /// @param failedCase the case of `failedTest` that failed, when it runs a table of them
   /// @param input the input `failedTest` failed on, when it's a property test that names one
+  /// @param unjudged the tests that failed only on a class the JVM refused as defined twice, which
+  ///   the worker's loaders, not the mutant, can cause: none of them is a catch
   record Run(
       Status status,
       Optional<String> failedTest,
@@ -289,7 +329,24 @@ final class TestWorker implements AutoCloseable {
       int testsRun,
       boolean portClash,
       Optional<TestCase> failedCase,
-      Optional<CaughtInput> input) {
+      Optional<CaughtInput> input,
+      List<String> unjudged) {
+
+    Run {
+      unjudged = List.copyOf(unjudged);
+    }
+
+    Run(
+        Status status,
+        Optional<String> failedTest,
+        Optional<String> failure,
+        Optional<String> origin,
+        int testsRun,
+        boolean portClash,
+        Optional<TestCase> failedCase,
+        Optional<CaughtInput> input) {
+      this(status, failedTest, failure, origin, testsRun, portClash, failedCase, input, List.of());
+    }
 
     Run(
         Status status,
@@ -329,7 +386,16 @@ final class TestWorker implements AutoCloseable {
 
     /// The same run, its failing test having named `named` as its input.
     Run withInput(Optional<CaughtInput> named) {
-      return new Run(status, failedTest, failure, origin, testsRun, portClash, failedCase, named);
+      return new Run(
+          status, failedTest, failure, origin, testsRun, portClash, failedCase, named, unjudged);
+    }
+
+    /// The same run, with `tests` among those that failed only on a class defined twice.
+    Run withUnjudged(List<String> tests) {
+      var all = new ArrayList<>(unjudged);
+      all.addAll(tests);
+      return new Run(
+          status, failedTest, failure, origin, testsRun, portClash, failedCase, input, all);
     }
 
     /// Whether a test's code ended the JVM with status 0, which the build reads as a pass.
@@ -359,24 +425,27 @@ final class TestWorker implements AutoCloseable {
     var rest = tests.subList(run.testsRun(), tests.size());
     var after = rest.isEmpty() ? new Run(Status.MISSED, 0) : staged(command, stage, rest, timeout);
     return new Run(
-        after.status(),
-        after.failedTest(),
-        after.failure(),
-        after.origin(),
-        run.testsRun() + after.testsRun(),
-        after.portClash(),
-        after.failedCase(),
-        after.input());
+            after.status(),
+            after.failedTest(),
+            after.failure(),
+            after.origin(),
+            run.testsRun() + after.testsRun(),
+            after.portClash(),
+            after.failedCase(),
+            after.input(),
+            run.unjudged())
+        .withUnjudged(after.unjudged());
   }
 
   private Run result(String command, List<String> tests, Duration timeout) {
     exitedDuring = null;
+    unjudged.clear();
     var answer = testsRun(command + "	" + String.join("	", tests), timeout);
     if (answer.isEmpty()) {
-      return ended(tests);
+      return ended(tests).withUnjudged(unjudged);
     }
     replaceIfAged();
-    return parsed(answer.get());
+    return parsed(answer.get()).withUnjudged(unjudged);
   }
 
   /// No answer: the worker ran out of time and is killed, which counts as a timeout, or a test's
@@ -411,6 +480,8 @@ final class TestWorker implements AutoCloseable {
               parts[6].equals("port-clash"),
               failedCase(parts, 7),
               input(parts, 9));
+      // A selector that finds nothing: mutastic's own error, which the worker says.
+      case "ERROR" -> throw new IllegalStateException(parts.length > 2 ? parts[2] : answer);
       default -> throw new IllegalStateException("the worker said: " + answer);
     };
   }
@@ -438,18 +509,31 @@ final class TestWorker implements AutoCloseable {
   }
 
   /// How `test` fares on its own with no mutant in, within `timeout`: missed if it passes, caught
-  /// with what it failed with if it fails, timed out if it doesn't finish. Empty if no test ran for
-  /// it, as for a selector that matches nothing.
-  Optional<Run> unmutated(String test, Duration timeout) {
+  /// with what it failed with if it fails, timed out if it doesn't finish.
+  Run unmutated(String test, Duration timeout) {
     var answer = testsRun("RUN\t" + test, timeout);
     if (answer.isEmpty()) {
       kill();
-      return Optional.of(new Run(Status.TIMED_OUT, 1));
+      return new Run(Status.TIMED_OUT, 1);
     }
     replaceIfAged();
-    return answer.get().startsWith("RESULT\tERROR")
-        ? Optional.empty()
-        : Optional.of(parsed(answer.get()));
+    return alone(test, parsed(answer.get()));
+  }
+
+  /// How JUnit says it couldn't discover what a selector names (since 5.13).
+  private static final String DISCOVERY_ISSUE =
+      "org.junit.platform.launcher.core.DiscoveryIssueException";
+
+  /// `run`, of `test` alone, with no mutant in or confirming a catch, unless finding it failed.
+  /// Every test already ran once, so a selector that finds nothing, or that JUnit can't discover,
+  /// is mutastic's own error: never the test failing on its own, a catch that didn't repeat, nor a
+  /// reason to drop its catches.
+  static Run alone(String test, Run run) {
+    if (run.failure().filter(DISCOVERY_ISSUE::equals).isPresent()) {
+      throw new IllegalStateException(
+          "mutastic couldn't select " + test + " to run it on its own: JUnit couldn't discover it");
+    }
+    return run;
   }
 
   /// The first of `candidates` (one value per constructor parameter of `receiver`, then per method
@@ -508,7 +592,7 @@ final class TestWorker implements AutoCloseable {
       return false;
     }
     replaceIfAged();
-    return answer.get().startsWith("RESULT\tPASSED");
+    return alone(test, parsed(answer.get())).status() == Status.MISSED;
   }
 
   /// The answer to `command`, which runs tests, or empty if none came in time. What the tests left
@@ -605,6 +689,10 @@ final class TestWorker implements AutoCloseable {
         exitedDuring = answer.substring(EXITED.length());
         return await(timeout);
       }
+      if (answer != null && answer.startsWith(UNJUDGED)) {
+        unjudged.add(answer.substring(UNJUDGED.length()));
+        return await(timeout);
+      }
       return Optional.ofNullable(answer).filter(line -> !line.equals(STOPPED));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
@@ -672,17 +760,71 @@ final class TestWorker implements AutoCloseable {
             new AtomicBoolean());
     running = started;
     forwardAnswers(started);
+    var answer = await(STARTUP);
     var ready =
-        await(STARTUP)
+        answer
             .filter(line -> line.startsWith("READY\t"))
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "the test worker didn't start; its output is in " + log));
+            .orElseThrow(() -> didntStart(started.process(), answer));
     jdk = Integer.parseInt(ready.substring("READY\t".length()));
     workersStarted++;
     return warmed(started);
   }
+
+  /// Why a worker didn't say it was ready: it said something else, it ended and its log's last
+  /// lines say why, or it was still starting when [#STARTUP] ran out. A busy machine can do that,
+  /// and it's neither mutastic's failure nor the tests'.
+  private Engine.TestsCantRun didntStart(Process process, Optional<String> answer) {
+    var ended = exitOf(process, answer.isEmpty() ? ENDING : Duration.ZERO);
+    var why =
+        answer.isPresent()
+            ? "Its test worker said `%s` where it should have said it was ready"
+                .formatted(answer.get())
+            : ended
+                .map(
+                    status ->
+                        "Its test worker ended with status %d before it was ready%s"
+                            .formatted(status, lastLines()))
+                .orElseGet(
+                    () ->
+                        ("Its test worker wasn't ready after %d seconds, which a busy machine can"
+                                + " cause, as can many runs starting workers at once: run it again,"
+                                + " or with fewer workers (`--workers=2`)")
+                            .formatted(STARTUP.toSeconds()));
+    kill();
+    var said = why.endsWith(".") ? why : why + ".";
+    return new Engine.TestsCantRun(project, said + " Its output is in " + log + ".");
+  }
+
+  /// How `process` ended, if it has within `wait`: its output can close a moment before it's gone.
+  private static Optional<Integer> exitOf(Process process, Duration wait) {
+    try {
+      return process.waitFor(wait.toMillis(), TimeUnit.MILLISECONDS)
+          ? Optional.of(process.exitValue())
+          : Optional.empty();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      return Optional.empty();
+    }
+  }
+
+  /// How long a worker whose output has closed has to be gone.
+  private static final Duration ENDING = Duration.ofSeconds(2);
+
+  /// `: <what the worker's log ends with>`, its last lines on one, or nothing if it said nothing.
+  private String lastLines() {
+    try {
+      var lines =
+          Files.readAllLines(log).stream().map(String::strip).filter(line -> !line.isEmpty());
+      var all = lines.toList();
+      var last = all.subList(Math.max(0, all.size() - LAST_LINES), all.size());
+      return last.isEmpty() ? "" : ": " + String.join(" / ", last);
+    } catch (IOException e) {
+      return "";
+    }
+  }
+
+  /// How many of a log's last lines a worker that ended says.
+  private static final int LAST_LINES = 3;
 
   /// The worker, with the classes the coverage pass loaded initialised; if it can't do that, a new
   /// one that doesn't try, as a class that can't be initialised stays that way ([ClassesToWarm]).
@@ -705,8 +847,8 @@ final class TestWorker implements AutoCloseable {
   /// ([ResourceCopy]), then the project's test classpath, then what mutastic brings for its tests
   /// to run on the JUnit Platform, when they need it ([TestFrameworks]); for a framework that loads
   /// the app itself, the project's own directories last, where it finds them, and no copy.
-  private String classpath() {
-    boolean framework = TestFrameworks.loadsTheApp(project.dependencies());
+  private List<Path> classpath() {
+    boolean framework = frameworks.loadsTheApp();
     var own =
         framework
             ? Stream.of(
@@ -717,14 +859,35 @@ final class TestWorker implements AutoCloseable {
                     project.testResources())
                 .flatMap(List::stream)
             : Stream.<Path>empty();
-    return join(
-        Stream.of(
-                Stream.of(workerJar),
-                framework ? Stream.<Path>empty() : Stream.of(resources),
-                project.dependencies().stream(),
-                TestFrameworks.support(project.dependencies()).stream(),
-                own)
-            .flatMap(each -> each));
+    return Stream.of(
+            Stream.of(workerJar),
+            framework ? Stream.<Path>empty() : Stream.of(resources),
+            project.dependencies().stream(),
+            frameworks.support().stream(),
+            own)
+        .flatMap(each -> each)
+        .toList();
+  }
+
+  /// `-cp` and the main class, and the libraries the worker's system class loader defines: all of
+  /// the class path but the worker and the JUnit Platform ([PlatformJars]). A framework that loads
+  /// the app itself finds everything on the JDK's class path, as before.
+  private List<String> classpathArguments() {
+    var all = classpath();
+    if (frameworks.loadsTheApp()) {
+      return List.of("-cp", join(all.stream()), "io.mutastic.worker.Worker");
+    }
+    var onTheJdks =
+        all.stream()
+            .filter(entry -> entry.equals(workerJar) || PlatformJars.holdsThePlatform(entry));
+    var libraries =
+        all.stream()
+            .filter(entry -> !entry.equals(workerJar) && !PlatformJars.holdsThePlatform(entry));
+    return List.of(
+        "-Dmutastic.libraries=" + join(libraries),
+        "-cp",
+        join(onTheJdks),
+        "io.mutastic.worker.Worker");
   }
 
   /// For mutastic's own tests: the coverage agent its build measures the worker with, as the worker
@@ -740,7 +903,7 @@ final class TestWorker implements AutoCloseable {
   /// The worker's system class loader, so the JDK's own service lookups find the project as they do
   /// in the build; not in framework mode, where the framework loads the app.
   private List<String> systemLoader() {
-    return TestFrameworks.loadsTheApp(project.dependencies())
+    return frameworks.loadsTheApp()
         ? List.of()
         : List.of(
             "-Djava.system.class.loader=io.mutastic.worker.SystemLoader",
@@ -751,7 +914,7 @@ final class TestWorker implements AutoCloseable {
 
   /// Framework mode, for tests run in a framework that loads the app itself.
   private List<String> mode() {
-    return TestFrameworks.loadsTheApp(project.dependencies()) ? List.of("--framework") : List.of();
+    return frameworks.loadsTheApp() ? List.of("--framework") : List.of();
   }
 
   /// However the engine exits, its worker goes too, and what the worker leaves.
@@ -777,7 +940,7 @@ final class TestWorker implements AutoCloseable {
     command.addAll(measured());
     command.addAll(systemLoader());
     command.add("-javaagent:" + workerJar);
-    command.addAll(List.of("-cp", classpath(), "io.mutastic.worker.Worker"));
+    command.addAll(classpathArguments());
     command.addAll(workerArgs());
     command.addAll(mode());
     return command;

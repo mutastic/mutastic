@@ -526,9 +526,7 @@ public final class SourceView {
     if (mutant.inlinedFrom().isPresent()) {
       return mutant.inlinedFrom().get();
     }
-    var name = withoutComposableSingletons(mutant.className());
-    int dollar = name.indexOf('$', name.lastIndexOf('/') + 1);
-    return (dollar < 0 ? name : name.substring(0, dollar)) + ".java";
+    return SourceNames.outerClass(withoutComposableSingletons(mutant.className())) + ".java";
   }
 
   private static final String SINGLETONS = "ComposableSingletons$";

@@ -98,7 +98,23 @@ class RunRecordsTest {
   }
 
   /// An older mutastic's record has no operators, or no project: it's never compared, and never set
-  /// aside as if it were of a set.
+  /// aside as if it were of a set. The watch of likely flaky tests lives beside the records, so a
+  /// cache that keeps one keeps both: it's neither read as a record nor dropped as the oldest of
+  /// them.
+  @Test
+  void theFlakyWatchBesideTheRecordsIsNoRecordAndStays() throws IOException {
+    var records = new RunRecords(work);
+    var watch = new FlakyWatch(work);
+    watch.write(Map.of("com.example.PricingTest#a", 1));
+    for (int set = 0; set < RunRecords.KEPT_BESIDE_THE_LATEST + 3; set++) {
+      records.keep(run("set" + set, set));
+    }
+
+    assertThat(watch.read()).containsExactly(Map.entry("com.example.PricingTest#a", 1));
+    assertThat(filesAside()).isEqualTo(RunRecords.KEPT_BESIDE_THE_LATEST + 1);
+    assertThat(records.newestFirst()).hasSize(RunRecords.KEPT_BESIDE_THE_LATEST + 1);
+  }
+
   @Test
   void aRecordFromBeforeOperatorsWereKeptIsComparedWithNothing() throws IOException {
     Files.writeString(

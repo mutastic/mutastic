@@ -7,6 +7,7 @@ import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Operator;
 import io.mutastic.api.Status;
+import io.mutastic.output.Style;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;

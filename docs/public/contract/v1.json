@@ -362,6 +362,7 @@
     "MUTASTIC_GATE_BUDGET",
     "MUTASTIC_GATE_COUNT_WAIT",
     "MUTASTIC_JAVA_HOME",
+    "MUTASTIC_BUILD_ARGS",
     "MUTASTIC_PROGRESS",
     "MUTASTIC_TERM_PROGRESS",
     "MUTASTIC_HEARTBEAT",
@@ -1000,13 +1001,13 @@
         {
           "label": "Left out",
           "optional": true,
-          "note": "Each test the run leaves out on a line of its own: mutastic.yaml's `exclude-tests:` first, as `<test>: <reason>`, then those `--exclude-tests` adds, as `<test> (--exclude-tests)`; a test in both is named once, with its reason"
+          "note": "Each test the run leaves out on a line of its own: mutastic.yaml's `exclude-tests:` first, as `<test>: <reason>`, then those `--exclude-tests` adds, as `<test> (--exclude-tests)`; a test in both is named once, with its reason; a name that matches no test is named too, and said on its own `! left out nothing:` line (decision 28)"
         },
         {
           "label": "Score",
           "optional": true,
           "shape": "^\\d+(\\.\\d)?%  \\[(PASS|FAIL)\\] .+$",
-          "note": "Ends in `  · 1 test left out` or `  · N tests left out` when the run leaves tests out: their mutants can only count as not covered, so the score can only fall, and a score over fewer tests says so where it's read"
+          "note": "Ends in `  · 1 test left out` or `  · N tests left out` when the run leaves tests out: their mutants can only count as not covered, so the score can only fall, and a score over fewer tests says so where it's read; a name that left out nothing isn't counted (decision 28)"
         }
       ]
     },
@@ -1123,7 +1124,7 @@
     "events": {
       "id": "mutastic.events/v1",
       "url": "https://docs.mutastic.io/schemas/events/v1.json",
-      "sha256": "eb7ec115dd7b2cd1491d999b55d3abd58aced2dcc4fd0c8a4be09f193091e3c1"
+      "sha256": "18958c565a86d2a9ea284ac0b35cf0e25ed21e15ad5dd601bb89852191b97e73"
     },
     "report": {
       "id": "mutation-testing-report-schema v2",
@@ -1138,7 +1139,7 @@
     "reportAdditions": {
       "id": "mutastic.report/v1",
       "url": "https://docs.mutastic.io/schemas/report/v1.json",
-      "sha256": "4c348fb257d087dc5d106d7c9b10c09847bb35eb754f4ae7830e74e54be45138"
+      "sha256": "fb3f8aeae0defbcdc625a445f450d9d886a26baf981a3f44e01a7d6f9615688c"
     }
   },
   "events": {
@@ -1772,6 +1773,10 @@
       "rule": "A mutant one of mutastic's own arid rules skipped names the rule: `skipRule` in `mutant-finished`, `mutastic.skipRule` in mutation.json, and in `explain` and the HTML report with its docs section (decision 20) and the `mutastic.yaml` rule that runs it, `- mutate: <its method>` with `arid: [<id>]` and `reason: <why a test should check it>`. A `mutate:` rule's optional `arid:` list, of known ids only (an unknown one is refused, with a close one when there is one), brings back only those rules' skips; without it, every arid skip in the code it covers."
     },
     {
+      "id": 28,
+      "rule": "A name given to `--exclude-tests` or under mutastic.yaml's `exclude-tests:` is matched to the tests by one rule wherever a run leaves tests out (the coverage pass, each mutant's tests, the flaky watch, `verify`, `explain`, `next`, `baseline` and the gate), and it takes every form the edition prints a test in. Java: a test class by its name or full name, every test in it; `Class#method`, with every overload and every row; or `Class#method(types)`, the one overload with those parameter types, each type by its name or full name, so the test as `caughtBy`, `likelyFlaky` and the summary name it is a name it takes (`com.example.PricingTest#bigOrders(com.example.Cart, int)`, `PricingTest#bigOrders(Cart, int)`); a comma inside the parentheses doesn't split `--exclude-tests`. A parameterized test's rows have no name of their own. Rust: a test by its name as a run shows it, or a module of tests by its path (difference N50). A name that matches none of the module's tests, run or ignored, leaves nothing out, and a run whose tests ran says so. It's a warning, not an error: a test removed or renamed since it was listed, or one name given to every module of a build through a build plugin, mustn't stop every run, and a refusal could only come once the build and the tests' discovery have run. The human formats add a line among the warnings, ` ! left out nothing: <name> names no test of <project>.`, ending in ` There's one called <test>.` when a test is close to it by the close-name rule, compared with every form a run names the module's tests in: offered, never acted on. The agent format has the same line without `! `, among its head lines; `verify` prints it after the fates, `mutastic: left out nothing: …`. Each `testsLeftOut` entry of `run-finished` has `matched`, false for such a name, and `maybe`, the close test or null. The summary's `Left out` row still names it, and the Score row's `· N tests left out` doesn't count it. A run in which no test ran (no mutant to run, no tests) says nothing of it."
+    },
+    {
       "id": 70,
       "rule": "Each edition keeps its own test identity for a table of cases: Java's test is the method, its parameterized, repeated and dynamic invocations its cases; Rust's is each case as libtest lists it, rstest's `#[case]` and test-case's `#[test_case]` rows. When the test that catches a mutant is one case of such a table, the case is named as evidence of this run, keyed by the test it's written as, its position among that test's cases in this run (from 1) and what it's called (Java: its display name; Rust: its row as written): `caughtCase` `{test, index, name}` in `mutant-finished`, and ` (case <name>)` after the catching test wherever a line names it (`verify`, `explain`, the agent format). A test that fails with no mutant in names its case the same way. The index moves when a case is added before it, so nothing keys on it across runs."
     },
@@ -1794,6 +1799,18 @@
     {
       "id": 26,
       "rule": "A mutant's time limit comes from each test that reaches it, by its own time: how long it takes run plainly, with no mutant in and nothing recorded. Where the coverage pass's recording makes a test far slower than it runs plainly (Rust: one that made 100,000 calls on a thread and took 50 ms or more there), the test runs once more plainly to time it; any other is counted at its time in the coverage pass. Each test may take five times its own time and a second. Tests that run side by side, as a Rust binary's do, share their limits out rather than add them up: the run's limit is the longest test's limit, plus the others' added up and divided by how many tests run at once in one worker's share of the machine (one at a time, their sum). No run of a mutant's tests is stopped sooner than 10 s. Above them all is the ceiling, the most one mutant's tests may take in all: `mutastic.yaml`'s `timeout-ceiling:`, a whole number above 0 with its unit (`s`, `m` or `h`: `30m`, `90s`, `2h`), else ten minutes or twenty times the whole suite's own time, whichever is longer. A mutant stopped at the ceiling is timed out with a note that says so, `ran for the most a mutant's tests may, <time> (timeout-ceiling:)` (`<time>` as `10m00s`): its card says `its tests ran for the most a mutant's tests may, 10m00s (timeout-ceiling:)`."
+    },
+    {
+      "id": 27,
+      "rule": "A test named likely flaky in a run has none of its catches count in that run, whatever named it: with the code and mutastic unchanged, a mutant it caught changed result since the last run (`changed-since-last-run`); a catch of it didn't repeat when confirmed (`catch-not-repeated`); or, run again after the mutants on its own with no mutant in, it failed (`fails-alone`). Once the mutants have run and before anything is reported, each test so named is left out of coverage, and each mutant it reached, caught or missed, runs again without it, where the other covering tests decide; a test those runs newly name is handled the same way. The revised result is sent as `mutant-revised` with `flakyCatchBy` naming the test when it had caught the mutant (`falseCatchBy` when it failed on its own), and as `mutastic.flakyCatchBy` in mutation.json. So no score, threshold, gate or `--fail-on-new` passes on its catches. The run remembers it: `last-runs/flaky-watch.tsv` in the module's work directory, beside the run records, so whatever keeps those between runs (a CI cache) keeps it too; one test per line, `<test>\\t<runs held>`, sorted by test, written when it changes and removed when it's empty. Only a full run, or the `--from-shards` merge, writes it: a test named there is written with 0 runs held, or set back to 0. A share reads it and confirms against it but never writes it, as shares may run side by side on one work directory and each sees only part of a test's catches; the merge names the tests any share named, and counts a run held from the shares together. In every later run, each catch a watched test makes is confirmed by running that test against the mutant 3 more times: it counts only if it fails all 3, else the test is named again (`catch-not-repeated`). A full run (or a merge) in which a watched test caught a mutant and every catch held adds 1 to its runs held, and at 3 it's forgotten; a run in which it caught nothing leaves it as it was, as does a share or a run of some mutants (`--only`, `--at`, `--since`, `verify`, `explain`), which confirms its catches all the same. The cost falls on the watched test's catches alone. Why 3: a test that fails 1 time in 3 on its own, as persistasaurus's did, makes a false catch that counts 1 time in 3 unchecked, 1 in 9 with one confirmation (`--confirm-catches`), and 1 in 81 watched; and a false catch holds 3 confirmations 1 time in 27, so 3 runs held by false catches alone is luck of 1 in about 20,000. Every format says it. `run-finished` lists each named test in `likelyFlaky` (`reasons` can now be `fails-alone` too, and `rerun` lists the mutants run again without it) and each test watched from an earlier run in `watched` (`{test, held, needed: 3, confirmations: 3}`, and `released: true` in the run that forgets it). The human formats add a sentence to each likely-flaky line, `None of its catches count: <n> mutants it reached ran again without it, and the next runs confirm each catch it makes 3 times.` (`1 mutant`), and say each watched test once: `! watched: <test>, likely flaky in an earlier run: each catch it made had to repeat 3 times; <held> of 3 runs held` (`…; 3 of 3 runs held, so it's no longer watched`). The agent format has the same lines without `! `, among its head lines where the likely-flaky lines are now."
+    },
+    {
+      "id": 29,
+      "rule": "Everything after the first `--` on the command line goes, word for word, to the project's build tool on each build call mutastic makes: Gradle or Maven reading the setup, the modules and the dependents, and compiling the code and the tests; Cargo checking and building them. It never goes to the tests or the JVM or process they run in. One syntax for every build tool, `mutastic run DIR -- ARG...`, where nothing after the `--` is read as mutastic's own option, directory or id. Every command takes it, `gate close` and `ignore` among them, since an edition may read the build for any; one that happens to build nothing has no use for it. `MUTASTIC_BUILD_ARGS` gives the same, split at spaces, with single or double quotes around a word that has some, a backslash kept as it is and nothing expanded; mutastic.yaml's `build:` has it as `args:`, a list, from the nearest file at or above the module's directory (found before the build is read, by the module's path; where no such directory is, as for a Gradle module with a `projectDir` of its own, the run's directory), and of a file and the one it `extends:` the nearer that has `args:`. The first of the three that's given is used whole, in place of the others, never added to them: the command line, the variable (blank is not given), the file. A bare `--` at the end gives none, so it turns the others off. An argument that fights how mutastic drives the build is refused before anything is built, named without its value and with the reason, as `option-value` from the command line, `environment` from the variable and `config`, with its line, from the file: one that chooses tests, what's built or where (a task, goal or target, the project's or module's directory, the profile), one that stops the build from running or never ends it (a dry run, a continuous build, help), and one that changes output mutastic reads. Each command mutastic offers to copy ends in the `--` and the arguments typed after it, each word quoted for a shell, as does a mistyped line corrected; arguments from the variable or the file apply by themselves and are never repeated, so a secret belongs in the build tool's own settings or the variable. Their values are in no event, report or record except as part of such a command. A run built with other arguments is never `same code` as the last, and `next` starts its queue again: an HMAC of the arguments, in order, under a random key is part of the code's hash in the run record and of the queue's key, and with none each is as it was. The key is a file of the module's work directory only its owner reads, in no record, share or report, so a short secret can't be guessed from a hash. Shares and `--from-shards` never use the key, which differs between jobs: shares are matched by their code, the compiled classes' in Java, and in Rust the sources' with the features the arguments turn on, so shares built with other features are refused. A word that isn't an option is refused without being said, as it may be a value. `gate check` doesn't use what `gate open` was given, which goes only to its count of the task's start and into no file: a hooked check gets the variable's or the file's. Gradle's `-x` is refused for a task that builds classes or resources (a compile task, `classes`, `testClasses`, `jar`, by path or written short) and taken for any other; Maven's `-Dmaven.main.skip`, `-Dmaven.test.skip`, `-Dmaven.resources.skip` and `--fail-never` are refused for the same reason. Where features choose code, Cargo's `--features`, `--all-features` and `--no-default-features` decide which code is mutated too."
+    },
+    {
+      "id": 30,
+      "rule": "A test that fails against a mutant only because the JVM refused a class as defined twice in one loader (`LinkageError: ... attempted duplicate class definition`, anywhere in its causes or what they suppressed) has judged nothing, so it isn't a catch: the run goes on to the mutant's other covering tests, which decide it, and the result names the test as `duplicateClassBy` in `mutant-finished` and as `mutastic.duplicateClassBy` in mutation.json. A card says it: `<test> failed against it, but only on a class mutastic's worker defined twice, which the build never does: that catch doesn't count`. Only an edition whose tests run in loaders of its own can see such a failure: the build runs every test under one loader, and a library that keeps what it generated by the thread's context class loader (Spring 5's CGLIB proxies) defines it again under each run's."
     }
   ],
   "differences": [
@@ -2353,6 +2370,16 @@
       "reason": "A JVM a test starts loads the classes as built, so neither the worker's mutants nor its coverage reach it. A Rust binary a test runs has every mutant built in and takes the one to run, and where to record coverage, from the environment the test process passes on."
     },
     {
+      "id": "N88",
+      "kind": "engine",
+      "editions": [
+        "java"
+      ],
+      "surface": "errors",
+      "summary": "A refusal, code `other`, naming the classes with mutants that were compiled without line numbers (`-g:none`), and how to compile them with",
+      "reason": "Java's coverage is recorded by the class file's line numbers, which javac can leave out, and without them every mutant would read as reached by no test. rustc's spans are always there, so the Rust edition always knows a mutant's line."
+    },
+    {
       "id": "N51",
       "kind": "engine",
       "editions": [
@@ -2370,8 +2397,9 @@
         "rust"
       ],
       "surface": "command line",
-      "summary": "`--exclude-tests=TEST` and `exclude-tests:` take a class or `Class#method` in Java, a test or a module of tests in Rust",
-      "reason": "Java leaves out a test class, by its name or full name, or one method of it, `PricingTest#bigOrders`, with every overload and row. Rust has no test classes: it leaves out a test by its name as libtest lists it, or a module of tests by its path."
+      "summary": "`--exclude-tests=TEST` and `exclude-tests:` take a class, `Class#method` or `Class#method(types)` in Java, a test or a module of tests in Rust",
+      "reason": "Java leaves out a test class, by its name or full name, or one method of it, `PricingTest#bigOrders`, with every overload and row, or one overload by its parameter types, `PricingTest#bigOrders(Cart, int)`, as a run names a test. Rust has no test classes or overloads: it leaves out a test by its name as libtest lists it, or a module of tests by its path.",
+      "decision": 28
     },
     {
       "id": "A6",
@@ -2481,6 +2509,16 @@
       "reason": "Java's `mapConcurrent` runs its calls on virtual threads and keeps their order, so how many run at once changes only how long they take. Rust has no gatherers, so nothing to skip."
     },
     {
+      "id": "N89",
+      "kind": "engine",
+      "editions": [
+        "java"
+      ],
+      "surface": "human output",
+      "summary": "`mutants` leaves out, and doesn't count, the mutants a run skips as generated: classes marked `@Generated` (Micronaut's `$Bean$Definition`), and code javac, kotlinc or Lombok wrote",
+      "reason": "The Java edition reads class files, which hold what tools wrote beside the code's own, and a run skips it by what the class file says. The Rust edition reads the source a person wrote."
+    },
+    {
       "id": "N80",
       "kind": "pending",
       "editions": [
@@ -2490,6 +2528,16 @@
       "summary": "mutastic.yaml's `timeout-ceiling:` and a mutant's limit taken from each covering test's own time, side by side, not their summed coverage time: the Rust edition has them first",
       "issue": "https://github.com/mutastic/mutastic/issues/207",
       "decision": 26
+    },
+    {
+      "id": "N83",
+      "kind": "engine",
+      "editions": [
+        "java"
+      ],
+      "surface": "events",
+      "summary": "`duplicateClassBy`: a test that failed only on a class defined twice, which isn't a catch (decision 30)",
+      "reason": "The Java edition runs each mutant's tests in class loaders of its own, so a library can define a class twice there. Rust's tests have no class loaders, so nothing fails that way."
     }
   ]
 }

@@ -12,6 +12,7 @@ import unknownId from '../../../data/output/errors-unknown-id.ansi?raw';
 import noMutantAt from '../../../data/output/errors-no-mutant-at.ansi?raw';
 import config from '../../../data/output/errors-config.ansi?raw';
 import buildFailed from '../../../data/output/errors-build-failed.ansi?raw';
+import buildJdk from '../../../data/output/errors-build-jdk.ansi?raw';
 import testsStopped from '../../../data/output/errors-tests-stopped.ansi?raw';
 import moduleMissing from '../../../data/output/module-missing.ansi?raw';
 import moduleRoot from '../../../data/output/module-root.ansi?raw';
@@ -230,12 +231,38 @@ another version fails this way.
 
 ### `build-jdk`
 
+The build needs a JDK it hasn't got: one its toolchain asks for that Gradle or Maven finds none of,
+one newer than its Gradle runs on, or one too old for mutastic's test workers.
+
+A toolchain's JDK that isn't there stops the build before it compiles. Gradle says `Cannot find a
+Java installation on your machine matching`, whether it may download one or not; Maven's toolchains
+plugin says `Cannot find matching toolchain definitions`. mutastic names the JDK as the build asked
+for it, its version and any vendor, and offers the run again with the argument that tells the build
+tool where one is, after `--`: fill in the `<…>`. For every run, add the argument to `build: args:` in
+`mutastic.yaml`, or to `MUTASTIC_BUILD_ARGS`. See [Troubleshooting](/guides/troubleshooting/#the-builds-jdk-toolchain-isnt-there).
+
+<Code code={buildJdk} lang="ansi" />
+
+For Maven, the JDK goes in `~/.m2/toolchains.xml`, or in a toolchains file you name:
+
+```text
+mutastic: the build needs JDK 21 (temurin) for its toolchain, and Maven found none in ~/.m2/toolchains.xml.
+Add it to ~/.m2/toolchains.xml, or tell Maven which toolchains file has it:
+  mutastic run :core -- --toolchains <path/to/toolchains.xml>
+For every run, add it to build: args: in mutastic.yaml, or to MUTASTIC_BUILD_ARGS. Maven's output is in core/target/mutastic/maven.log.
+```
+
 The build runs on a JDK newer than its Gradle can run on, so it stopped before it read the build:
 Gradle 8.10 runs on JDK 23 at most. mutastic names the build's JDK, its Gradle and the newest JDK
 that Gradle runs on, and the two ways out: set `JAVA_HOME` to that JDK or an older one, as mutastic
 finds a JDK 25 for itself; or upgrade the wrapper to a Gradle that runs on the build's JDK, with the
 command that does it. A Gradle on the `PATH`, for a build with no wrapper, is checked the same way,
 and the way out is a wrapper. See [Troubleshooting](/guides/troubleshooting/#the-builds-gradle-cant-run-on-its-jdk).
+
+The tests' JDK is `build-jdk` too: tests that run on a JDK older than 17, such as a JDK 8 or 11
+toolchain, can't run in mutastic's test workers, which run on 17 or later. mutastic names the JDK,
+before any test runs. Give the tests a JDK 17 or later for mutastic's run: the test task's
+toolchain in Gradle, or Surefire's `jvm` in Maven.
 
 ```
 mutastic: shop's build runs on JDK 25, and its Gradle, 8.10.2, runs on JDK 23 at most.
@@ -274,7 +301,11 @@ The module has tests, but none ran on the JUnit Platform: JUnit 4 tests with no 
 them, a runner mutastic doesn't run, every test disabled, or filters that leave out every test.
 Scored, that would be a 0% that blames the tests, when it's mutastic that didn't run them. A
 module with no tests at all isn't an error: its mutants are not covered. The same goes for test
-classes that hold no test, such as a module's test fixtures alone. Exits with 2.
+classes that hold no test, such as a module's test fixtures alone.
+
+Tests the platform can't start at all are `no-tests` too, with the exception that stopped them as
+the headline and what to change after it: TestNG older than 6.14.3, the oldest TestNG's engine
+runs, or JUnit 3 alone, which runs on the platform only with JUnit 4's runner. Exits with 2.
 
 ### `nothing-covered`
 

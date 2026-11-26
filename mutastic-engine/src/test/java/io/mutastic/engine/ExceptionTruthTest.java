@@ -41,6 +41,14 @@ class ExceptionTruthTest {
     assertThat(thrown.changesIn("exhaustive")).isEmpty();
   }
 
+  /// A throw a local guards is counted: only the jump past it on `$assertionsDisabled` is an
+  /// assert's.
+  @Test
+  void aThrowALocalGuardsIsCounted() {
+    assertThat(thrown.changesIn("aLocalGuard"))
+        .containsExactly("remove throw IllegalArgumentException");
+  }
+
   @Test
   void anAssertIsArid() {
     assertThat(thrown.changesIn("anAssert"))

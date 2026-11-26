@@ -1,5 +1,6 @@
 package io.mutastic.report;
 
+import io.mutastic.output.Envelope;
 import java.io.PrintStream;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -44,12 +45,7 @@ public final class LiveEvents {
 
   /// One line, whole, so another thread's event never lands inside it.
   private void emit(String reason, Map<String, Object> fields) {
-    var event = new LinkedHashMap<String, Object>();
-    event.put("schema", JsonEvents.SCHEMA);
-    event.put("edition", JsonEvents.EDITION);
-    event.put("reason", reason);
-    event.putAll(fields);
-    out.print(Json.write(event) + "\n");
+    out.print(Envelope.line(JsonEvents.SCHEMA, JsonEvents.EDITION, reason, fields));
     out.flush();
   }
 }

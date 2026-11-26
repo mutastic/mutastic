@@ -10,10 +10,12 @@ import io.mutastic.api.ChangedLines;
 import io.mutastic.api.Comparison;
 import io.mutastic.api.FlakyTest;
 import io.mutastic.api.Ignore;
+import io.mutastic.api.LikelyFlaky;
 import io.mutastic.api.Mutant;
 import io.mutastic.api.MutantResult;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
+import io.mutastic.api.WatchedTest;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -327,28 +329,40 @@ class JsonEventsTest {
             .failingAlone();
     var report =
         new Report(
-            "pricing",
-            17,
-            List.of(
-                thrownByTheTest("now", true),
-                thrownByTheTest("code", false),
-                thrownByTheTest("rate", false)),
-            2,
-            List.of(flaky.test()),
-            Duration.ofMillis(100),
-            1,
-            1,
-            Duration.ofMillis(300),
-            List.of(result(boundary(2), Status.CAUGHT)),
-            Optional.empty(),
-            List.of(),
-            List.of(flaky));
+                "pricing",
+                17,
+                List.of(
+                    thrownByTheTest("now", true),
+                    thrownByTheTest("code", false),
+                    thrownByTheTest("rate", false)),
+                2,
+                List.of(flaky.test()),
+                Duration.ofMillis(100),
+                1,
+                1,
+                Duration.ofMillis(300),
+                List.of(result(boundary(2), Status.CAUGHT)),
+                Optional.empty(),
+                List.of(),
+                List.of(flaky))
+            .withLikelyFlaky(
+                List.of(
+                    new LikelyFlaky(
+                        "com.example.PricingTest#a",
+                        Map.of(LikelyFlaky.NOT_REPEATED, List.of("m11111111")),
+                        List.of("m11111111"))))
+            .withWatched(List.of(new WatchedTest("com.example.PricingTest#w", 1, false)));
 
     events.runFinished(report);
 
     assertThat(lines().getFirst())
         .contains("\"failsAlone\":true,\"outside\":true")
-        .contains("\"reasons\":[\"catch-not-repeated\"]")
+        .contains(
+            "\"likelyFlaky\":[{\"test\":\"com.example.PricingTest#a\",\"mutants\":[\"m11111111\"],"
+                + "\"reasons\":[\"catch-not-repeated\"],\"rerun\":[\"m11111111\"]}]")
+        .contains(
+            "\"watched\":[{\"test\":\"com.example.PricingTest#w\",\"held\":1,\"needed\":3,"
+                + "\"confirmations\":3}]")
         .contains("\"unrelatedCatches\":[{\"test\":\"com.example.PricingTest#a\"")
         .contains("\"aridAudit\":{\"ran\":1,\"caught\":1,\"caughtByAssertion\":1");
   }

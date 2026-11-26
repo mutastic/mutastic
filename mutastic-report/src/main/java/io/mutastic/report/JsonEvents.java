@@ -7,6 +7,8 @@ import io.mutastic.api.MutantResult;
 import io.mutastic.api.PropertyTests;
 import io.mutastic.api.Report;
 import io.mutastic.api.Status;
+import io.mutastic.output.Envelope;
+import io.mutastic.output.Style;
 import java.io.PrintStream;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -263,6 +265,8 @@ public final class JsonEvents {
     result.failureOrigin().ifPresent(origin -> fields.put("failureOrigin", origin));
     result.unconfirmed().ifPresent(test -> fields.put("unconfirmedCatchBy", test));
     result.falseCatchBy().ifPresent(test -> fields.put("falseCatchBy", test));
+    result.flakyCatchBy().ifPresent(test -> fields.put("flakyCatchBy", test));
+    result.duplicateClassBy().ifPresent(test -> fields.put("duplicateClassBy", test));
   }
 
   /// `{"test": "a.BTest#adds(int, int, int)", "index": 2, "name": "[2] 2, 3, 5"}`: the case of the
@@ -468,8 +472,7 @@ public final class JsonEvents {
     // Under other operators, nothing was compared: the event has no comparison, as with no last
     // run.
     comparison.filter(Comparison::compared).ifPresent(found -> putComparison(fields, found));
-    fields.put("likelyFlaky", Suspects.json(comparison, report));
-    fields.put("unrelatedCatches", unrelatedCatches(report));
+    putSuspects(fields, report);
     fields.put("reports", reports);
     putAudit(fields, AridAudit.of(report));
     if (GhostCards.lookedFor(report)) {
@@ -483,20 +486,36 @@ public final class JsonEvents {
     emit("run-finished", fields);
   }
 
+  /// The tests whose catches can't be trusted: those named likely flaky, those watched since an
+  /// earlier run named them, and those that fail the same way whatever changes.
+  private static void putSuspects(Map<String, Object> fields, Report report) {
+    fields.put("likelyFlaky", Suspects.json(report));
+    if (!report.watched().isEmpty()) {
+      fields.put("watched", Suspects.watched(report));
+    }
+    fields.put("unrelatedCatches", unrelatedCatches(report));
+  }
+
   /// The tests the run left out: those it found flaky, why, and those it was told to leave out.
   private void putTestsLeftOut(Map<String, Object> fields, Report report) {
     fields.put("flaky", report.flaky());
     fields.put("flakyEvidence", flakyEvidence(report));
-    fields.put("testsLeftOut", testsLeftOut());
+    fields.put("testsLeftOut", testsLeftOut(report));
   }
 
   /// Each test the run left out, and why: `reason` is null for one `--exclude-tests` gave.
-  private List<Map<String, Object>> testsLeftOut() {
+  /// `matched` is false for one that names none of the run's tests, so it left nothing out, and
+  /// `maybe` the test it's close to, if any (decision 28).
+  private List<Map<String, Object>> testsLeftOut(Report report) {
     var all = new java.util.ArrayList<Map<String, Object>>();
     for (var test : leftOut) {
+      var unmatched =
+          report.unmatched().stream().filter(none -> none.test().equals(test.test())).findFirst();
       var fields = new LinkedHashMap<String, Object>();
       fields.put("test", test.test());
       fields.put("reason", test.reason());
+      fields.put("matched", unmatched.isEmpty());
+      fields.put("maybe", unmatched.flatMap(io.mutastic.api.UnmatchedExclusion::closest));
       all.add(fields);
     }
     return all;
@@ -698,12 +717,7 @@ public final class JsonEvents {
   }
 
   private void emit(String reason, Map<String, Object> fields) {
-    var event = new LinkedHashMap<String, Object>();
-    event.put("schema", SCHEMA);
-    event.put("edition", EDITION);
-    event.put("reason", reason);
-    event.putAll(fields);
-    out.print(Json.write(event) + "\n");
+    out.print(Envelope.line(SCHEMA, EDITION, reason, fields));
     out.flush();
   }
 }

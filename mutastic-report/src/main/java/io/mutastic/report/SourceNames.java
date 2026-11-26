@@ -2,6 +2,7 @@ package io.mutastic.report;
 
 import io.mutastic.api.Mutant;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -60,7 +61,7 @@ final class SourceNames {
   private record Named(String className, Optional<String> kind) {}
 
   private static Named named(String internal) {
-    var parts = internal.substring(internal.lastIndexOf('/') + 1).split("\\$", -1);
+    var parts = nameParts(internal.substring(internal.lastIndexOf('/') + 1));
     var named = new ArrayList<String>();
     Optional<String> kind = Optional.empty();
     for (String part : parts) {
@@ -76,6 +77,30 @@ final class SourceNames {
       named.add(part);
     }
     return new Named(String.join(".", named), kind);
+  }
+
+  /// The class whose file a class is in, by its name: `com/example/Pricing` for
+  /// `com/example/Pricing$Tier`, and `com/example/$Cache` for itself.
+  static String outerClass(String internal) {
+    int simple = internal.lastIndexOf('/') + 1;
+    return internal.substring(0, simple) + nameParts(internal.substring(simple)).getFirst();
+  }
+
+  /// The names a binary name's `$`s divide: `Shipping$Zone` is `Shipping` and `Zone`. A `$` divides
+  /// only between two other characters, as a name can start or end with one: `$Cache` is one name.
+  static List<String> nameParts(String simple) {
+    var parts = new ArrayList<String>();
+    int start = 0;
+    for (int at = 1; at < simple.length() - 1; at++) {
+      if (simple.charAt(at) == '$'
+          && simple.charAt(at - 1) != '$'
+          && simple.charAt(at + 1) != '$') {
+        parts.add(simple.substring(start, at));
+        start = at + 1;
+      }
+    }
+    parts.add(simple.substring(start));
+    return parts;
   }
 
   private static Optional<Where> composableLambda(String internal) {

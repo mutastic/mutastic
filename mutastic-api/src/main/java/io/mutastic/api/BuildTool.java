@@ -17,6 +17,25 @@ public interface BuildTool {
   /// Whether `directory` is one of its builds.
   boolean recognises(Path directory);
 
+  /// The same tool, giving its build these arguments on each call: reading the setup, the modules
+  /// and the dependents. They never reach the tests.
+  default BuildTool withArguments(BuildArguments arguments) {
+    return this;
+  }
+
+  /// The arguments its build gets.
+  default BuildArguments arguments() {
+    return BuildArguments.NONE;
+  }
+
+  /// The first of `arguments` that fights how mutastic drives the build, and why: empty when
+  /// there's none.
+  ///
+  /// @param suite the test suite the run is of
+  default java.util.Optional<BuildArguments.Refused> refused(List<String> arguments, String suite) {
+    return java.util.Optional.empty();
+  }
+
   /// Where a module keeps mutastic's run record, logs and reports, so each module keeps its own:
   /// `build/mutastic` for the build in `directory`, `build/mutastic/data` for `:data`.
   Path workDirectory(Path directory, String module);

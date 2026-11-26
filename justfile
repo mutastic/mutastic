@@ -120,6 +120,73 @@ changelog-check *args:
 merge N *body:
     sh .githooks/merge-pr "$@"
 
+# Moves the docs' Rust pin to a mutastic-rs commit and stamps the shared pages it changed: read them
+[group('docs')]
+docs-pin-rust COMMIT:
+    sh scripts/docs-pin-rust.sh "$@"
+
+# Stamps shared pages once they say what the Rust docs do: just docs-stamp concepts/results
+[group('docs')]
+[working-directory('docs')]
+docs-stamp +PAGES:
+    npm run --silent stamp-shared -- "$@"
+
+# Lists where the editions' captured output differs in shape, against a mutastic-rs docs folder
+[group('docs')]
+docs-compare *RUST_DOCS:
+    node docs/scripts/compare-captures.mjs "$@"
+
+# The release, in RELEASING.md's order. Agents may run release-prepare, release-check,
+# release-verify, release-hold and candidate; release, release-portal and docs-redeploy are
+# Brian's. [confirm] only asks: `--yes` skips it, so the `release` environment's approval in CI is
+# what stands between a recipe and Central.
+
+# Runs the release candidate, the CLI from here over a share of every sample: just candidate --of=8
+[group('release')]
+candidate *args:
+    bash scripts/candidate-run.sh "$@"
+
+# Makes the release commit on a branch and opens its pull request: just release-prepare 1.4.0 <rust commit>
+[group('release')]
+release-prepare VERSION *RUST_COMMIT:
+    sh scripts/release-prepare.sh "$@"
+
+# Checks what a release needs, all at once, writing nothing tracked: just release-check 1.4.0
+[group('release')]
+release-check VERSION:
+    sh scripts/release-check.sh "$@"
+
+# TODO(#211): its one approval starts a release with a tag push; if it merges, change this recipe.
+
+# Brian's: publishes the GitHub release vVERSION at main's head, which uploads it to Central
+[confirm("Publish the GitHub release and tag at main's head? release.yml then uploads it to Central, waiting on the release environment's approval")]
+[group('release')]
+[script('bash')]
+release VERSION:
+    head=$(gh api 'repos/{owner}/{repo}/commits/main' --jq .sha) && sh scripts/changelog.sh notes "$1" > /dev/null && gh release create "v$1" --target "$head" --notes-file <(sh scripts/changelog.sh notes "$1")
+
+# Brian's: sends the Gradle plugin of vVERSION, once it's on Central, to the Plugin Portal
+[confirm("Publish the Gradle plugin to the Gradle Plugin Portal? portal.yml runs on the tag, waiting on the release environment's approval")]
+[group('release')]
+release-portal VERSION:
+    gh workflow run portal.yml --ref "v$1"
+
+# Checks a release as a person gets it, on Linux, macOS and Windows: just release-verify 1.4.0
+[group('release')]
+release-verify VERSION:
+    gh workflow run release-verify.yml -f version="$1"
+
+# Holds the next release to VERSION, once it's on Central, on a branch from main: commit the diff
+[group('release')]
+release-hold VERSION:
+    sh scripts/hold-release.sh "$@"
+
+# Brian's: deploys docs.mutastic.io again, every release line's docs from its own tag
+[confirm("Deploy docs.mutastic.io again, every release line rebuilt from its tag?")]
+[group('release')]
+docs-redeploy:
+    gh workflow run docs.yml --ref main -f release=true
+
 # CI's jobs, each a part of what `just ci` runs, so a job can be run here as CI runs it.
 
 # The build without the CLI's end-to-end tests and the coverage floor, which have jobs of their own
@@ -159,6 +226,11 @@ coverage-merge DIR:
       done
     done
     {{ gradle }} coverageReport coverageCheck -x test
+
+# Runs one project of the corpus as the nightly does, in GitHub Actions only: just corpus NAME
+[group('ci')]
+corpus *args:
+    bash scripts/corpus-run.sh "$@"
 
 # Runs mutastic on a share of one of its modules, no threshold: just self-shard mutastic-engine 1/4
 [group('ci')]

@@ -436,6 +436,14 @@ last run under each other set of [operators](/concepts/operators/) you use; a su
 `test` keeps its own under `suites/<name>/`, and a share of a split run its own under
 `shares/N-of-M/`.
 
+**With arguments for the build, keep `build-args.key` too.** A job that passes [arguments to the
+build tool](/guides/configuration/#arguments-for-the-build) and doesn't keep that file, in the work
+directory beside the record, is compared as `code changed` every time, so its likely flaky tests
+aren't found between runs. The file is a random key the record stands the arguments by. Whoever has
+both it and the record can try guesses at a short secret among the arguments, so where others can
+read the cache, leave it out, or keep secrets out of the arguments. Shares of a split run don't need
+it.
+
 Restore the record before the run and save it after, even when the run fails, since a failing run
 is the one the next wants to compare with.
 
@@ -561,6 +569,8 @@ A share keeps everything that run needs in one folder, `shares/N-of-M/` in the m
 <div slot="rust">
 
 A share keeps everything that run needs in one folder, `target/mutastic/shares/N-of-M/`: its results, as the [events](/rust/reference/events/) `--format=jsonl` writes, whatever format it shows, and its own report files, so neither `explain` nor the next run takes a share for the whole run.
+
+It writes those events as it goes, so a share a job's time limit or Ctrl-C stops part way keeps what it finished. With no `run-finished`, `--from-shards` refuses it as a share that didn't finish, and says how many mutants it holds: rerun that job.
 
 </div>
 </EditionTabs>

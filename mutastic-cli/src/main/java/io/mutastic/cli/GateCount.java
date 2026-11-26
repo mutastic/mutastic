@@ -42,7 +42,21 @@ final class GateCount {
   private GateCount() {}
 
   /// The module counted, as the gate's command names it.
-  record Module(String name, String suite) {}
+  ///
+  /// @param buildArguments what `gate open` was given after `--`, for this count alone: kept in no
+  ///   file
+  record Module(String name, String suite, Optional<List<String>> buildArguments) {
+    /// As the count's process takes them.
+    List<String> words() {
+      var words = new java.util.ArrayList<>(List.of(name, suite));
+      buildArguments.ifPresent(
+          given -> {
+            words.add(BuildArgs.START);
+            words.addAll(given);
+          });
+      return words;
+    }
+  }
 
   /// What the count found at the task's start.
   ///
@@ -70,15 +84,15 @@ final class GateCount {
       var copy = Files.createTempDirectory(COPY);
       var token = UUID.randomUUID().toString();
       var arguments =
-          List.of(
-              work.toAbsolutePath().toString(),
-              top.toString(),
-              tree,
-              project.isEmpty() ? "." : project,
-              copy.toString(),
-              token,
-              module.name(),
-              module.suite());
+          new java.util.ArrayList<>(
+              List.of(
+                  work.toAbsolutePath().toString(),
+                  top.toString(),
+                  tree,
+                  project.isEmpty() ? "." : project,
+                  copy.toString(),
+                  token));
+      arguments.addAll(module.words());
       started(work, spawn(work, arguments), copy, token);
     } catch (IOException | RuntimeException e) {
       var failed = new Properties();
@@ -271,7 +285,9 @@ final class GateCount {
     try {
       write(copy.resolve(OWNER), owner(ProcessHandle.current()));
       var root = copied(Path.of(args[1]), args[2], copy);
-      var counted = Main.countCases(root.resolve(args[3]).normalize(), args[6], args[7]);
+      var counted =
+          Main.countCases(
+              root.resolve(args[3]).normalize(), args[6], args[7], BuildArgs.typed(List.of(args)));
       result.setProperty("cases", String.valueOf(counted[0]));
       result.setProperty("skipped", String.valueOf(counted[1]));
     } catch (io.mutastic.engine.Engine.BaselineFailed e) {
