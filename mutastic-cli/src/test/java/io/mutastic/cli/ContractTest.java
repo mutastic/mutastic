@@ -70,7 +70,7 @@ class ContractTest {
     assertThat(Schemas.yamlProblems("contract/v1.json", text)).isEmpty();
     var ids = strings(ids());
     assertThat(ids).doesNotHaveDuplicates();
-    assertThat(strings(CONTRACT.get("editions"))).contains(EditionContract.EDITION);
+    assertThat(CONTRACT.editions()).contains(EditionContract.EDITION);
   }
 
   private static JsonNode ids() {
@@ -155,8 +155,9 @@ class ContractTest {
   private static void command(List<Found> found, JsonNode command, JsonNode mine) {
     var name = command.get("name").asString();
     var synopsis = mine.get("synopsis").asString();
-    for (var slot : CONTRACT.get("engineSlots").values()) {
-      synopsis = synopsis.replace(" " + slot.get("slot").asString(), "");
+    var slot = CONTRACT.binding().path("selector").path("slot");
+    if (slot.isString()) {
+      synopsis = synopsis.replace(" " + slot.asString(), "");
     }
     var shared = command.get("synopsis").asString();
     if (!synopsis.equals(shared)) {

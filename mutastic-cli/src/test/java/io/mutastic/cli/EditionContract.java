@@ -35,6 +35,16 @@ final class EditionContract {
     return contract.get(field);
   }
 
+  /// This edition's binding block, `editions.java`: what is its language's own.
+  JsonNode binding() {
+    return contract.get("editions").get(EDITION);
+  }
+
+  /// The editions the contract has a binding for, in its order.
+  List<String> editions() {
+    return List.copyOf(contract.get("editions").propertyNames());
+  }
+
   /// One thing found to differ from the contract: its item, `option:--report:choice:xml`, and what
   /// was seen.
   record Found(String item, String what) {}
@@ -63,10 +73,15 @@ final class EditionContract {
     return failures;
   }
 
-  /// The differences this edition has.
+  /// The differences this edition has: every slot (`each`), which each edition fills its own way,
+  /// and each deviation that names it. A deviation that doesn't name it is one it follows the
+  /// shared text of.
   private List<JsonNode> mine() {
     return StreamSupport.stream(contract.get("differences").values().spliterator(), false)
-        .filter(difference -> strings(difference.get("editions")).contains(EDITION))
+        .filter(
+            difference ->
+                difference.path("each").asBoolean(false)
+                    || difference.path("editions").has(EDITION))
         .toList();
   }
 

@@ -2,21 +2,22 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://docs.mutastic.io/schemas/contract/v1.json",
   "title": "mutastic.contract/v1",
-  "description": "What every edition of mutastic must agree on, and each known difference with its kind. Each edition's CI runs its own binary on its own pricing fixture and checks what it does against this file: a difference that isn't recorded fails, and so does a recorded one that has gone. CONTRIBUTING.md says how to use it.",
+  "description": "What every edition of mutastic must agree on, each edition's binding (what is its language's own), and each known difference. The shared entries state the behaviour once; a difference names only the editions that deviate from it and what each does, and an edition it doesn't name follows the shared text. Each edition's CI runs its own binary on its own pricing fixture and checks what it does against this file: a difference that isn't recorded fails, and so does a recorded one that has gone. docs/scripts/contract.mjs checks what this schema can't. CONTRIBUTING.md says how to use it.",
   "type": "object",
-  "required": ["schema", "version", "editions", "reference", "engineSlots", "commands", "options", "environment", "exitCodes", "errors", "errorPairs", "errorCases", "help", "output", "schemas", "events", "report", "twins", "arid", "decisions", "differences"],
+  "required": ["schema", "version", "editions", "reference", "commands", "options", "environment", "exitCodes", "errors", "errorPairs", "errorCases", "help", "output", "schemas", "events", "report", "twins", "arid", "decisions", "differences"],
   "additionalProperties": false,
   "properties": {
     "$schema": { "type": "string" },
     "schema": { "const": "mutastic.contract/v1" },
     "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "The editions' shared version this contract describes." },
-    "editions": { "type": "array", "items": { "$ref": "#/$defs/edition" }, "minItems": 1, "uniqueItems": true },
-    "reference": { "$ref": "#/$defs/edition", "description": "The edition the cross-edition capture comparison measures the others against." },
-    "engineSlots": {
-      "type": "array",
-      "description": "Synopsis words an edition may add for its own project unit, each with the difference that says why.",
-      "items": { "type": "object", "required": ["slot", "difference"], "additionalProperties": false, "properties": { "slot": { "type": "string" }, "difference": { "type": "string" } } }
+    "editions": {
+      "type": "object",
+      "description": "Each edition's binding block, by edition: what is its language's own. A new edition adds its block, its fixture, a pin and its differences, and edits no shared entry.",
+      "propertyNames": { "$ref": "#/$defs/edition" },
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/binding" }
     },
+    "reference": { "$ref": "#/$defs/edition", "description": "The edition whose captures the cross-edition capture comparison measures the others against. The reference behaviour itself is the shared entries' text." },
     "commands": {
       "type": "array",
       "items": {
@@ -55,12 +56,12 @@
     },
     "errorPairs": {
       "type": "array",
-      "description": "Codes that mean the same thing under each edition's name (decision 12).",
+      "description": "Codes that mean the same thing under each edition's name (decision 12): each binding's `errorNames` gives its name for each, and a new edition uses the generic code.",
       "items": {
         "type": "object",
-        "required": ["code", "names", "why"],
+        "required": ["code", "why"],
         "additionalProperties": false,
-        "properties": { "code": { "type": "string" }, "names": { "type": "object", "additionalProperties": { "type": "string" } }, "why": { "type": "string" } }
+        "properties": { "code": { "type": "string" }, "why": { "type": "string" } }
       }
     },
     "errorCases": {
@@ -160,7 +161,7 @@
     "twins": {
       "type": "object",
       "description": "Mutants at one place that always do the same, which run once: how both editions say so. A pattern's named groups are ids.",
-      "required": ["rule", "runs", "skip", "events", "report", "summary", "verify", "verifyNote", "explain", "ignore", "shapes"],
+      "required": ["rule", "runs", "skip", "events", "report", "summary", "verify", "verifyNote", "explain", "ignore"],
       "additionalProperties": false,
       "properties": {
         "rule": { "type": "string" },
@@ -172,24 +173,20 @@
         "verify": { "type": "string", "description": "A pattern verify's line for a twin matches." },
         "verifyNote": { "type": "string" },
         "explain": { "type": "string", "description": "A pattern the first line of explain for a twin matches." },
-        "ignore": { "type": "string", "description": "A pattern the first line of ignore for a twin matches." },
-        "shapes": { "type": "object", "description": "Where each edition finds twins, by edition.", "additionalProperties": { "type": "array", "items": { "type": "string" } } }
+        "ignore": { "type": "string", "description": "A pattern the first line of ignore for a twin matches." }
       }
     },
     "arid": {
       "type": "array",
-      "description": "mutastic's own arid rules, by id (decision 20): what each skips, the reasons it gives as a skipped mutant shows them, a name in the code as `<field>`, and the editions that have it. A rule's id never changes once shipped.",
+      "description": "mutastic's own arid rules, by id (decision 20): what each skips. An edition has a rule when its binding's `arid` gives the rule's reasons and example. A rule's id never changes once shipped.",
       "items": {
         "type": "object",
-        "required": ["id", "editions", "scope", "description", "reasons", "examples"],
+        "required": ["id", "scope", "description"],
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string", "pattern": "^mutastic:[a-z]+(-[a-z]+)*$" },
-          "editions": { "type": "array", "items": { "$ref": "#/$defs/edition" }, "minItems": 1, "uniqueItems": true },
           "scope": { "enum": ["method", "site"], "description": "`method`: it skips every mutant of a whole method; `site`: one call or value." },
-          "description": { "type": "string" },
-          "reasons": { "type": "object", "propertyNames": { "$ref": "#/$defs/edition" }, "additionalProperties": { "type": "array", "items": { "type": "string", "pattern": "^arid: " }, "minItems": 1 }, "description": "Each edition's reasons, by edition: one for each edition in `editions`." },
-          "examples": { "type": "object", "propertyNames": { "$ref": "#/$defs/edition" }, "additionalProperties": { "type": "string" }, "description": "A line of each edition's code that the rule skips a mutant of." }
+          "description": { "type": "string" }
         }
       }
     },
@@ -199,36 +196,141 @@
     },
     "differences": {
       "type": "array",
+      "description": "Every known way an edition differs. A deviation names, in `editions`, only the editions that deviate from the shared text, each with its kind and what it does instead; an edition it doesn't name follows the shared text, so adding an edition adds nothing to it. A slot (`each`) is a place every edition fills its own way, the unit row's word or how a function is named: each binding's `says` gives its way.",
       "items": {
         "type": "object",
-        "required": ["id", "kind", "editions", "surface", "summary"],
+        "required": ["id", "surface", "summary"],
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string", "pattern": "^[A-Z]+[0-9]*$" },
-          "kind": { "enum": ["engine", "dated", "pending"] },
-          "editions": { "type": "array", "items": { "$ref": "#/$defs/edition" }, "minItems": 1, "uniqueItems": true, "description": "The editions that differ from the contract." },
+          "each": { "const": true, "description": "A slot every edition fills, each in its binding's `says`; it has no `editions`." },
+          "editions": {
+            "type": "object",
+            "description": "The editions that deviate, by edition: each one's kind, and what it does when the summary doesn't say.",
+            "propertyNames": { "$ref": "#/$defs/edition" },
+            "minProperties": 1,
+            "additionalProperties": { "$ref": "#/$defs/deviation" }
+          },
           "surface": { "type": "string" },
-          "summary": { "type": "string" },
+          "summary": { "type": "string", "description": "What the difference is about: for a deviation with one edition and no `does`, what that edition does." },
           "reason": { "type": "string" },
-          "until": { "type": "string", "description": "The edition and release the difference ends at: `rust 2.0.0`." },
-          "issue": { "type": "string", "format": "uri" },
           "decision": { "type": "integer" },
           "items": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "The check items it accounts for, `*` matching anything. A difference with items fails once none of them is found: it now matches."
+            "description": "The check items it accounts for, `*` matching anything. A difference with items fails, for an edition it names, once none of them is found: it now matches."
           }
         },
-        "allOf": [
-          { "if": { "properties": { "kind": { "const": "engine" } } }, "then": { "required": ["reason"] } },
-          { "if": { "properties": { "kind": { "const": "dated" } } }, "then": { "required": ["reason", "until"] } },
-          { "if": { "properties": { "kind": { "const": "pending" } } }, "then": { "required": ["issue"] } }
+        "oneOf": [
+          { "required": ["each", "reason"], "not": { "required": ["editions"] } },
+          { "required": ["editions"], "not": { "required": ["each"] } }
         ]
       }
     }
   },
   "$defs": {
     "edition": { "type": "string", "pattern": "^[a-z]+$" },
+    "deviation": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["engine", "dated", "pending"], "description": "`engine`: for good, for a reason of the engine or the language; `dated`: until a release; `pending`: a change this edition hasn't made yet." },
+        "does": { "type": "string", "description": "What this edition does instead, when the summary doesn't say." },
+        "until": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "dated: the edition's release the difference ends at." },
+        "issue": { "type": "string", "format": "uri", "description": "pending: the card or issue that tracks it." },
+        "target": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "pending: the edition's release it is planned for. No edition releases with a pending entry that has no issue or target, or whose target is an earlier release (docs/scripts/contract.mjs release)." }
+      },
+      "allOf": [
+        { "if": { "properties": { "kind": { "const": "dated" } } }, "then": { "required": ["until"] } },
+        { "if": { "properties": { "kind": { "const": "pending" } } }, "then": { "required": ["issue", "target"] } }
+      ]
+    },
+    "binding": {
+      "type": "object",
+      "description": "What is an edition's own: everything the shared entries leave to the language.",
+      "required": ["name", "repository", "contract", "selector", "buildTools", "sources", "testLibraries", "fixture", "captures", "masks", "errorNames", "arid", "twins", "says"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "description": "As the docs name it: Java, Rust." },
+        "repository": { "type": "string", "format": "uri" },
+        "contract": {
+          "type": "object",
+          "required": ["reads"],
+          "additionalProperties": false,
+          "properties": {
+            "reads": { "enum": ["working copy", "pin"], "description": "The Java edition reads this file as it is in its own repository; any other pins it by commit." },
+            "pins": { "type": "string", "description": "pin: the directory of pins in the edition's repository, one file to a pull request, the newest read." }
+          }
+        },
+        "selector": {
+          "type": "object",
+          "description": "How a run names one unit of a build of several: a Gradle or Maven module, a Cargo package, a SwiftPM product or an Xcode scheme.",
+          "required": ["unit", "difference"],
+          "additionalProperties": false,
+          "properties": {
+            "unit": { "type": "string" },
+            "slot": { "type": "string", "description": "The synopsis word it adds after DIR, `[:MODULE]`, which the check leaves out before comparing synopses. None when DIR is the unit." },
+            "difference": { "type": "string", "description": "The difference that says why." }
+          }
+        },
+        "buildTools": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "sources": {
+          "type": "object",
+          "required": ["languages", "extensions"],
+          "additionalProperties": false,
+          "properties": {
+            "languages": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+            "extensions": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9]+$" }, "minItems": 1, "description": "Source files' extensions, without the dot; the capture comparison masks a path with one." }
+          }
+        },
+        "testLibraries": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "fixture": { "type": "string", "description": "The pricing fixture its checks run on, in its repository." },
+        "captures": { "type": "string", "description": "Where its docs' captured output lives, in its repository." },
+        "masks": {
+          "type": "object",
+          "description": "What the capture comparison masks as the edition's own words. Each is a regular expression but `code`.",
+          "required": ["toolchain", "work", "unit", "level", "tests", "failed", "function", "code"],
+          "additionalProperties": false,
+          "properties": {
+            "toolchain": { "type": "string", "description": "After `on ` in the Tests row: `JDK \\d+`." },
+            "work": { "type": "string", "description": "The work directory: `build/mutastic`." },
+            "unit": { "type": "string", "description": "The summary's unit row's label." },
+            "level": { "type": "string", "description": "explain's level word after `= `." },
+            "tests": { "type": "string", "description": "Where a test is added, after `in `." },
+            "failed": { "type": "string", "description": "The verb in `It failed:`." },
+            "function": { "type": "string", "description": "The word for a function: method." },
+            "code": { "type": "array", "items": { "type": "string" }, "description": "What a line of the language's code starts with, as typed." }
+          }
+        },
+        "errorNames": {
+          "type": "object",
+          "description": "The edition's error code for each code in `errorPairs`.",
+          "additionalProperties": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+        },
+        "arid": {
+          "type": "object",
+          "description": "The arid rules it has, by id, in the order of the contract's `arid`: the reasons it gives, as a skipped mutant shows them, a name in the code as `<field>`, and a line of its code the rule skips a mutant of.",
+          "propertyNames": { "pattern": "^mutastic:[a-z]+(-[a-z]+)*$" },
+          "additionalProperties": {
+            "type": "object",
+            "required": ["reasons", "example"],
+            "additionalProperties": false,
+            "properties": {
+              "reasons": { "type": "array", "items": { "type": "string", "pattern": "^arid: " }, "minItems": 1 },
+              "example": { "type": "string" }
+            }
+          }
+        },
+        "twins": { "type": "array", "items": { "type": "string" }, "description": "Where it finds twins." },
+        "says": {
+          "type": "object",
+          "description": "Its way, by difference id, for each slot (a difference with `each`).",
+          "propertyNames": { "pattern": "^[A-Z]+[0-9]*$" },
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
     "shapes": {
       "type": "array",
       "items": {

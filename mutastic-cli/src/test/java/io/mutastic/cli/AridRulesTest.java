@@ -42,16 +42,18 @@ class AridRulesTest {
               rule.example()));
     }
     var theirs = new ArrayList<String>();
+    var mineInContract = contract.binding().get("arid");
     for (var rule : rules()) {
-      if (strings(rule.get("editions")).contains(EditionContract.EDITION)) {
+      var bound = mineInContract.get(rule.get("id").asString());
+      if (bound != null) {
         theirs.add(
             String.join(
                 " | ",
                 rule.get("id").asString(),
                 rule.get("scope").asString(),
                 rule.get("description").asString(),
-                String.join(" / ", strings(rule.get("reasons").get(EditionContract.EDITION))),
-                rule.get("examples").get(EditionContract.EDITION).asString()));
+                String.join(" / ", strings(bound.get("reasons"))),
+                bound.get("example").asString()));
       }
     }
 
@@ -60,22 +62,28 @@ class AridRulesTest {
         .containsExactlyElementsOf(theirs);
   }
 
-  /// An edition has a rule when it gives one of its reasons, and shows a line it skips.
+  /// An edition has a rule when its binding gives the rule's reasons and a line it skips; every
+  /// rule has an edition, and a binding names only the contract's rules.
   @Test
   void eachRuleHasReasonsForItsEditions() {
-    var editions = strings(contract.get("editions"));
     assertThat(rules()).isNotEmpty();
-    for (var rule : rules()) {
-      var id = rule.get("id").asString();
-      assertThat(editions).as(id).containsAll(strings(rule.get("editions")));
-      assertThat(rule.get("reasons").propertyNames())
-          .as(id)
-          .containsExactlyInAnyOrderElementsOf(strings(rule.get("editions")));
-      assertThat(rule.get("examples").propertyNames())
-          .as(id)
-          .containsExactlyInAnyOrderElementsOf(strings(rule.get("editions")));
+    var ids = rules().stream().map(rule -> rule.get("id").asString()).toList();
+    for (var id : ids) {
+      assertThat(editionsWith(id)).as(id).isNotEmpty();
     }
-    assertThat(rules().stream().map(rule -> rule.get("id").asString())).doesNotHaveDuplicates();
+    for (var edition : contract.editions()) {
+      assertThat(contract.get("editions").get(edition).get("arid").propertyNames())
+          .as(edition)
+          .isSubsetOf(ids);
+    }
+    assertThat(ids).doesNotHaveDuplicates();
+  }
+
+  /// The editions whose binding has the rule, in the contract's order of editions.
+  private List<String> editionsWith(String id) {
+    return contract.editions().stream()
+        .filter(edition -> contract.get("editions").get(edition).get("arid").has(id))
+        .toList();
   }
 
   @Test
@@ -122,11 +130,18 @@ class AridRulesTest {
       each.put("anchor", id.substring(id.indexOf(':') + 1));
       each.put(
           "url", OperatorDocs.LATEST.base() + AridRule.PAGE + "#" + each.get("anchor").asString());
-      each.set("editions", rule.get("editions"));
+      // The shared entry, and each edition's reasons and example from its binding.
+      var editions = each.putArray("editions");
+      editionsWith(id).forEach(editions::add);
       each.set("scope", rule.get("scope"));
       each.set("description", rule.get("description"));
-      each.set("reasons", rule.get("reasons"));
-      each.set("examples", rule.get("examples"));
+      var reasons = each.putObject("reasons");
+      var examples = each.putObject("examples");
+      for (var edition : editionsWith(id)) {
+        var bound = contract.get("editions").get(edition).get("arid").get(id);
+        reasons.set(edition, bound.get("reasons"));
+        examples.set(edition, bound.get("example"));
+      }
       // What brings the rule's skips back, as a `mutate:` rule's line and as the annotation.
       each.put("mutate", "arid: [" + id + "]");
       each.put("annotation", "@DoMutate(arid = \"" + id + "\")");
