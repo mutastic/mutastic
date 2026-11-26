@@ -26,6 +26,8 @@ dependencies {
     testImplementation(project(":mutastic-annotations"))
     // The cards' truth check reads a mutant's card as a person would, from the report.
     testImplementation(project(":mutastic-report"))
+    // TruthTestRulesTest holds the truth tests to the helpers that keep what they compile and run.
+    testImplementation(libs.archunit)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
