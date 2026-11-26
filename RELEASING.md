@@ -386,7 +386,7 @@ and named *mutastic releases*:
 | Releases | Key | Fingerprint |
 | --- | --- | --- |
 | Up to 1.4.0, signed in the `release` environment, after the approval | `6C90C775` | `82C8 2AD0 4E45 4401 57C9 A2D3 006D 7D63 6C90 C775` |
-| From the release after 1.4.0, signed in the `stage` environment, before it | `0E561074` (*stage*) | `EF11 63F9 50BC 135D B832 65A7 AB5A 3DE4 0E56 1074` |
+| From the release after 1.4.0, signed in the `stage` environment, before the approval | `0E561074` (*stage*) | `EF11 63F9 50BC 135D B832 65A7 AB5A 3DE4 0E56 1074` |
 
 The stage key's public part is on [keyserver.ubuntu.com](https://keyserver.ubuntu.com) and
 [keys.openpgp.org](https://keys.openpgp.org), where Central checks it. To check a file:
