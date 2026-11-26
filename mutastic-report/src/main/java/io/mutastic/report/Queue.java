@@ -77,7 +77,7 @@ public record Queue(List<Finding> findings, Set<String> legacy, int waiting) {
       }
       var mutant = finding.lead().mutant();
       var method = mutant.className() + "#" + mutant.methodName() + mutant.descriptor();
-      var file = mutant.className().replaceFirst("\\$.*", "");
+      var file = SourceNames.outerClass(mutant.className());
       if (byMethod.getOrDefault(method, 0) < PER_METHOD
           && byFile.getOrDefault(file, 0) < PER_FILE) {
         shown.add(finding);

@@ -24,6 +24,19 @@ class SourceNamesTest {
     assertThat(SourceNames.sourceName("ShippingTest$Zones")).isEqualTo("ShippingTest.Zones");
   }
 
+  /// A name can start with `$`, as a generated class's often does: `$Cache` is a class, not an
+  /// unnamed one with `Cache` in it.
+  @Test
+  void aDollarStartingANameIsTheNames() {
+    assertThat(where("com/acme/$Cache", "size"))
+        .isEqualTo(new SourceNames.Where("$Cache", "size", Optional.empty()));
+    assertThat(where("com/acme/$Cache$Entry", "size"))
+        .isEqualTo(new SourceNames.Where("$Cache.Entry", "size", Optional.empty()));
+    assertThat(SourceNames.outerClass("com/acme/$Cache$Entry")).isEqualTo("com/acme/$Cache");
+    assertThat(SourceNames.outerClass("com/acme/Shipping$1")).isEqualTo("com/acme/Shipping");
+    assertThat(SourceNames.outerClass("Root")).isEqualTo("Root");
+  }
+
   private static SourceNames.Where where(String className, String method) {
     return SourceNames.of(
         new Mutant(
