@@ -16,6 +16,20 @@ class Throws {
     return a.length();
   }
 
+  /// Jumps past its throw on a local, as an assert jumps on `$assertionsDisabled`: no assert.
+  static int aLocalGuard(String a, String b) {
+    boolean same = a.equals(b);
+    if (!same) {
+      throw new IllegalArgumentException("not the same");
+    }
+    return a.length();
+  }
+
+  static int aLocalGuardClaim(String a, String b) {
+    boolean same = a.equals(b);
+    return a.length();
+  }
+
   static String anElse(String a, String b) {
     String result;
     if (a.equals(b)) {
