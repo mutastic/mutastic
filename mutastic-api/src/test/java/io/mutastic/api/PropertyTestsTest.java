@@ -131,7 +131,7 @@ class PropertyTestsTest {
   }
 
   /// proptastic reads only `0x` and hex digits, so the run's seed is given it so; it's given no
-  /// saved failures, events or corpus to read or write, and the seed is said decimal.
+  /// saved failures, events, corpus or colour, and the seed is said decimal.
   @Test
   void proptasticIsSeededInHexAndWritesNothing() throws IOException {
     var proptastic = jar("p.jar", "io/proptastic/Proptastic.class");
@@ -146,7 +146,8 @@ class PropertyTestsTest {
             "-Dproptastic.seed=0xff",
             "-Dproptastic.replay=false",
             "-Dproptastic.events=false",
-            "-Dproptastic.corpus=off");
+            "-Dproptastic.corpus=off",
+            "-Dproptastic.color=never");
     assertThat(PropertyTests.of(List.of(proptastic), List.of()).orElseThrow().jvmArgs())
         .startsWith("-Dproptastic.seed=0x0");
   }

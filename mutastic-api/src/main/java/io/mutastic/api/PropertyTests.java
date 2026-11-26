@@ -60,10 +60,15 @@ public record PropertyTests(
   /// What every test JVM gives proptastic besides its seed, so a run's inputs hang on the code and
   /// the seed alone, and it writes none of the person's files: no saved failures replayed first or
   /// saved (a mutant's failure would decide the runs after it), no events (a mutant's would
-  /// overwrite the person's), and no corpus, read or written (one that grew between two runs would
-  /// make them draw differently with the code unchanged).
+  /// overwrite the person's), no corpus, read or written (one that grew between two runs would make
+  /// them draw differently with the code unchanged), and no colour, so its report reads as text
+  /// whatever the person set.
   static final List<String> PROPTASTIC_OFF =
-      List.of("-Dproptastic.replay=false", "-Dproptastic.events=false", "-Dproptastic.corpus=off");
+      List.of(
+          "-Dproptastic.replay=false",
+          "-Dproptastic.events=false",
+          "-Dproptastic.corpus=off",
+          "-Dproptastic.color=never");
 
   /// The class proptastic is found by: its entry point, `forAll`'s.
   static final String PROPTASTIC_ENTRY = "io/proptastic/Proptastic.class";
@@ -220,7 +225,7 @@ public record PropertyTests(
 
   /// What every test JVM of the run is given, after the project's own arguments so it's the one
   /// seed: each seeded framework's seed property, Kotest's saved failures off, and proptastic's
-  /// saved failures, events and corpus off.
+  /// saved failures, events, corpus and colour off.
   public List<String> jvmArgs() {
     var args = new ArrayList<String>();
     for (var framework : Framework.values()) {

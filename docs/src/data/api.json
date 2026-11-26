@@ -3538,7 +3538,7 @@
           "kind": "record",
           "signature": "@Internal record PropertyTests(\n    List<String> frameworks,\n    Optional<String> seed,\n    List<String> seeded,\n    List<String> unseeded)",
           "summary": "The property-testing frameworks a module's tests use, and the seed a run draws their inputs from.",
-          "doc": "The property-testing frameworks a module's tests use, and the seed a run draws their inputs\nfrom.\n\nA property draws its inputs at random. Drawn afresh in each JVM, a mutant only some inputs catch\nis caught in one run and missed in the next, and a property that fails for a rare input looks\nlike a flaky test. So where a framework takes its seed from outside the test, every test JVM of\na run, the coverage pass's and each mutant's, gets the same one, and every run the same one\nunless the person sets it: caught then means caught, every time. A framework that can't be\nseeded from outside is named, never guessed at.\n\n- QuickTheories reads the system property `QT_SEED` for each theory, unless the test calls\n  `withFixedSeed`.\n- Kotest's property tests read `kotest.proptest.default.seed`, unless a test's own\n  `PropTestConfig` names a seed.\n- junit-quickcheck seeds a parameter only from its `@When(seed=…)`, in the source.\n- jqwik is only detected, never seeded or read from: its tests run as ordinary tests.",
+          "doc": "The property-testing frameworks a module's tests use, and the seed a run draws their inputs\nfrom.\n\nA property draws its inputs at random. Drawn afresh in each JVM, a mutant only some inputs catch\nis caught in one run and missed in the next, and a property that fails for a rare input looks\nlike a flaky test. So where a framework takes its seed from outside the test, every test JVM of\na run, the coverage pass's and each mutant's, gets the same one, and every run the same one\nunless the person sets it: caught then means caught, every time. A framework that can't be\nseeded from outside is named, never guessed at.\n\n- QuickTheories reads the system property `QT_SEED` for each theory, unless the test calls\n  `withFixedSeed`.\n- Kotest's property tests read `kotest.proptest.default.seed`, unless a test's own\n  `PropTestConfig` names a seed.\n- junit-quickcheck seeds a parameter only from its `@When(seed=…)`, in the source.\n- proptastic reads `proptastic.seed` as each property starts, over the environment's\n  `PROPTASTIC_SEED`, unless the chain says `.seed(n)`: `0x` and hex digits only, as its failures\n  print seeds. It's found by its entry point's class on the test classpath, whatever its jar is\n  called, and its random stream is keyed on the test method's signature, never its class, so a\n  renamed copy of a test class draws what the class does.\n- jqwik is only detected, never seeded or read from: its tests run as ordinary tests.",
           "params": [
             {
               "name": "frameworks",
@@ -3546,7 +3546,7 @@
             },
             {
               "name": "seed",
-              "doc": "the seed every test JVM is given, decimal: the person's, else `0`; empty when no framework the tests use takes one"
+              "doc": "the seed every test JVM is given, decimal: the person's, else `0`; empty when no framework the tests use takes one. proptastic is given it as `0x` and hex digits"
             },
             {
               "name": "seeded",
@@ -3583,7 +3583,7 @@
               "name": "jvmArgs",
               "anchor": "jvmargs",
               "signature": "List<String> jvmArgs()",
-              "doc": "What every test JVM of the run is given, after the project's own arguments so it's the one\nseed: each seeded framework's seed property, and Kotest's saved failures off.",
+              "doc": "What every test JVM of the run is given, after the project's own arguments so it's the one\nseed: each seeded framework's seed property, Kotest's saved failures off, and proptastic's\nsaved failures, events, corpus and colour off.",
               "params": [],
               "returns": "",
               "throws": []
