@@ -34,14 +34,30 @@ forget() {
 }
 unresolved='could not be resolved|Could not (find|transfer|resolve)|Failed to read artifact descriptor'
 
+# maven-toolchain-missing asks for a JDK 99 toolchain, which stops its build: this file has one, the
+# JDK this runs on, so its build goes on to fetch the rest.
+toolchains="$work/toolchains.xml"
+java_home=${JAVA_HOME:-}
+if command -v cygpath > /dev/null && [ -n "$java_home" ]; then
+  java_home=$(cygpath -m "$java_home")
+  toolchains=$(cygpath -m "$toolchains")
+fi
+mkdir -p "$work"
+printf '%s\n' '<toolchains>' '  <toolchain>' '    <type>jdk</type>' \
+  '    <provides><version>99</version><vendor>temurin</vendor></provides>' \
+  "    <configuration><jdkHome>$java_home</jdkHome></configuration>" \
+  '  </toolchain>' '</toolchains>' > "$work/toolchains.xml"
+
 forget
 for attempt in 1 2 3 4; do
   failed=""
-  for sample in maven-modules maven-suites maven-by-name maven-selection maven-assertions; do
+  for sample in maven-modules maven-suites maven-by-name maven-selection maven-assertions \
+    maven-toolchain-missing; do
     rm -rf "${work:?}/$sample"
     mkdir -p "$work"
     cp -R "samples/$sample" "$work/$sample"
     mvn -B -ntp -U -Dmaven.repo.local="$local_repository" -Dmaven.test.failure.ignore=true \
+      --toolchains "$toolchains" \
       -f "$work/$sample/pom.xml" verify > "$work/$sample.log" 2>&1
     if ! grep -q 'BUILD SUCCESS' "$work/$sample.log"; then
       failed="$failed $sample"

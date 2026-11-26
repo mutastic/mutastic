@@ -1,0 +1,4 @@
+mutastic: the build needs JDK 99 for its toolchain, and Gradle found none.
+Install one, or tell Gradle where it is:
+  mutastic run samples/toolchain-missing -- -Dorg.gradle.java.installations.paths=<path/to/jdk-99>
+For every run, add it to build: args: in mutastic.yaml, or to MUTASTIC_BUILD_ARGS. Gradle's output is in samples/toolchain-missing/build/mutastic/gradle.log.

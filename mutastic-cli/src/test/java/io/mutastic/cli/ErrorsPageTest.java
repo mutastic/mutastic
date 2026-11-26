@@ -90,6 +90,15 @@ class ErrorsPageTest {
     shown("tests-stopped", project, "run", project.toString());
   }
 
+  /// A JDK toolchain the build tool finds none of.
+  @Test
+  void theBuildsJdk() throws Exception {
+    var project =
+        Samples.copy(SAMPLES.resolve("toolchain-missing"), work.resolve("toolchain-missing"));
+
+    shown("build-jdk", project, "run", project.toString());
+  }
+
   /// The event an agent reads for one of them, whole.
   @Test
   void theEvent() throws Exception {

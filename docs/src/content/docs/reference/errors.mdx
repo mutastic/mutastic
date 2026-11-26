@@ -12,6 +12,7 @@ import unknownId from '../../../data/output/errors-unknown-id.ansi?raw';
 import noMutantAt from '../../../data/output/errors-no-mutant-at.ansi?raw';
 import config from '../../../data/output/errors-config.ansi?raw';
 import buildFailed from '../../../data/output/errors-build-failed.ansi?raw';
+import buildJdk from '../../../data/output/errors-build-jdk.ansi?raw';
 import testsStopped from '../../../data/output/errors-tests-stopped.ansi?raw';
 import moduleMissing from '../../../data/output/module-missing.ansi?raw';
 import moduleRoot from '../../../data/output/module-root.ansi?raw';
@@ -229,6 +230,27 @@ another version fails this way.
 <Code code={buildFailed} lang="ansi" />
 
 ### `build-jdk`
+
+The build needs a JDK it hasn't got: one its toolchain asks for that Gradle or Maven finds none of,
+one newer than its Gradle runs on, or one too old for mutastic's test workers.
+
+A toolchain's JDK that isn't there stops the build before it compiles. Gradle says `Cannot find a
+Java installation on your machine matching`, whether it may download one or not; Maven's toolchains
+plugin says `Cannot find matching toolchain definitions`. mutastic names the JDK as the build asked
+for it, its version and any vendor, and offers the run again with the argument that tells the build
+tool where one is, after `--`: fill in the `<…>`. For every run, add the argument to `build: args:` in
+`mutastic.yaml`, or to `MUTASTIC_BUILD_ARGS`. See [Troubleshooting](/guides/troubleshooting/#the-builds-jdk-toolchain-isnt-there).
+
+<Code code={buildJdk} lang="ansi" />
+
+For Maven, the JDK goes in `~/.m2/toolchains.xml`, or in a toolchains file you name:
+
+```text
+mutastic: the build needs JDK 21 (temurin) for its toolchain, and Maven found none in ~/.m2/toolchains.xml.
+Add it to ~/.m2/toolchains.xml, or tell Maven which toolchains file has it:
+  mutastic run :core -- --toolchains <path/to/toolchains.xml>
+For every run, add it to build: args: in mutastic.yaml, or to MUTASTIC_BUILD_ARGS. Maven's output is in core/target/mutastic/maven.log.
+```
 
 The build runs on a JDK newer than its Gradle can run on, so it stopped before it read the build:
 Gradle 8.10 runs on JDK 23 at most. mutastic names the build's JDK, its Gradle and the newest JDK

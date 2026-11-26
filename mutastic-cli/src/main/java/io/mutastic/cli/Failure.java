@@ -86,9 +86,9 @@ record Failure(int exit, String code, String said) {
         .replaceAll(line -> Matcher.quoteReplacement(ended(line.group(), ending)));
   }
 
-  /// Once: some are offered with it already.
+  /// Once: some are offered with it already, or with it and an argument more after it.
   private static String ended(String command, String ending) {
-    return command.endsWith(ending) ? command : command + ending;
+    return command.endsWith(ending) || command.contains(ending + " ") ? command : command + ending;
   }
 
   private static Failure of(RuntimeException failure, Map<String, String> env, List<String> args) {

@@ -118,8 +118,8 @@ final class MavenSetup {
     }
   }
 
-  /// Why the build failed, from its log: a module the reactor hasn't got, a suite the module
-  /// hasn't, else the log to read.
+  /// Why the build failed, from its log: a module the reactor hasn't got, a JDK its toolchain asks
+  /// for that `~/.m2/toolchains.xml` hasn't, a suite the module hasn't, else the log to read.
   private static SetupFailed failed(BuildTool.Request request, Path log, BuildArguments arguments)
       throws IOException, InterruptedException {
     var directory = request.directory();
@@ -129,6 +129,10 @@ final class MavenSetup {
       return new SetupFailed(
           "module-missing",
           Modules.missing(module, javaModules(directory, arguments), request.typed()));
+    }
+    var toolchain = MavenToolchain.missing(output);
+    if (toolchain.isPresent()) {
+      return noToolchain(request, arguments, toolchain.get(), log);
     }
     var built = built(request, arguments);
     return SetupFailed.noSuite(output.stream())
@@ -140,6 +144,25 @@ final class MavenSetup {
                         new BuildErrors.Build("Maven", name(directory, module), log, built),
                         output,
                         likely(directory))));
+  }
+
+  /// The build's toolchain asks for a JDK `~/.m2/toolchains.xml` has none of: the run again, with a
+  /// toolchains file that has one.
+  private static SetupFailed noToolchain(
+      BuildTool.Request request, BuildArguments arguments, BuildErrors.Toolchain jdk, Path log) {
+    var run =
+        BuildErrors.run(request.typed(), request.module(), arguments, MavenToolchain.ARGUMENT);
+    return new SetupFailed(
+        "build-jdk",
+        BuildErrors.noToolchain(
+            new BuildErrors.Missing(
+                "Maven",
+                jdk,
+                MavenToolchain.WHERE,
+                "Add it to ~/.m2/toolchains.xml, or tell Maven which toolchains file has it:"),
+            run,
+            arguments,
+            log));
   }
 
   /// The command that builds what mutastic built, as the person would type it.
