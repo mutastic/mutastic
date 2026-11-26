@@ -99,6 +99,15 @@
       "type": "string",
       "description": "A test, as the edition names it: in Java its class and method, `com.example.PricingTest#bigOrdersGetTenPercentOff`; in Rust its path in its target, `tests::small_orders_pay_full_price`, after the target's name for an integration test, `pricing::big_orders_get_ten_percent_off`."
     },
+    "at": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^.+:[0-9]+(-[0-9]+)?$"
+      },
+      "minItems": 1,
+      "description": "Lines of the module's source files, each as `--at` took it, its path from the project with `/` between its parts: `src/main/java/com/example/pricing/Pricing.java:17`, or `:17-20` for lines 17 to 20."
+    },
     "mutantId": {
       "type": "string",
       "pattern": "^m[0-9a-f]{8}$",
@@ -122,6 +131,10 @@
         "decline": {
           "type": "string",
           "description": "When not to write a test, for an agent: a mutant whose case can't happen is proposed for a person to ignore instead."
+        },
+        "at": {
+          "$ref": "#/$defs/at",
+          "description": "For a run of the mutants on some lines of a source file (`--at`), the lines asked for. Only for such a run."
         },
         "edition": { "$ref": "#/$defs/edition" },
         "profile": {
@@ -148,6 +161,17 @@
         "unsafe": {
           "enum": ["skip", "enclosing", "all"],
           "description": "The Rust edition only: which code near `unsafe` was mutated. `skip`: neither unsafe code nor a safe function holding an `unsafe` block; `enclosing`: those functions too, but not the code inside the block; `all`: everything. See `nearUnsafe`, and `run-finished`'s `notMutated`."
+        },
+        "propertyTests": {
+          "type": "object",
+          "description": "For a project whose tests use a property-testing framework (decision 25): which, and the seed the run drew their inputs from, so runs can be compared: a run with another seed is another draw.",
+          "required": ["frameworks"],
+          "properties": {
+            "frameworks": { "type": "array", "items": { "type": "string" }, "description": "The frameworks the project's tests use, by name: in Rust `proptest`, `quickcheck`, `arbtest`, `bolero`; in Java `junit-quickcheck`, `quicktheories`, `kotest`, `jqwik`." },
+            "seed": { "type": "string", "pattern": "^[0-9]+$", "description": "The seed every test process of the run was given, in decimal: the person's, else `0`. Only when a framework took it." },
+            "seeded": { "type": "array", "items": { "type": "string" }, "description": "The frameworks that drew from `seed`." },
+            "unseeded": { "type": "array", "items": { "type": "string" }, "description": "The frameworks whose seed can't be set from outside the test: their inputs are their own draw's, and the run's note on stderr names them." }
+          }
         }
       }
     },
@@ -295,6 +319,10 @@
             "name": { "type": "string", "description": "What it's called: in Java its display name, `[2] 2, 3, 5` by default; in Rust its row as written, `#[case(2, 3, 5)]`." }
           }
         },
+        "caughtInput": {
+          "type": "string",
+          "description": "The input the property test that caught it failed on, on one line as its framework prints it, `xs = [0, 0]`, at most 300 characters then `…` (decision 25): as evidence of this run. In a run of every mutant the first that failed, as shrinking is off; in a run of mutants named by id, the one the framework shrinks it to. Only when a property caught it and its framework names an input."
+        },
         "nearUnsafe": {
           "type": "string",
           "description": "The Rust edition only: why the mutant is near unsafe code, when it is (`called from unsafe code`, `in a module with unsafe code`, `in a function with an unsafe block`, `inside unsafe code`). It ran on its own, and a crash isn't counted as caught (`RuntimeError`)."
@@ -305,7 +333,15 @@
         },
         "unconfirmedCatchBy": {
           "$ref": "#/$defs/test",
-          "description": "A test whose catch didn't repeat when run again (`--confirm-catches`): likely flaky, and its catch doesn't count."
+          "description": "A test whose catch didn't repeat when run again (`--confirm-catches`, or 3 more times while it's watched): likely flaky, and its catch doesn't count."
+        },
+        "flakyCatchBy": {
+          "$ref": "#/$defs/test",
+          "description": "A test named likely flaky in this run that had caught the mutant, so its catch doesn't count (decision 27): the mutant ran again without it, and this result is what the other covering tests made of it. In `mutant-revised`; `falseCatchBy` instead when the test failed on its own."
+        },
+        "duplicateClassBy": {
+          "$ref": "#/$defs/test",
+          "description": "A test that failed against the mutant only because the JVM refused a class as defined twice, which the Java edition's class loaders cause and the build never sees: that failure judged nothing, so it isn't a catch, and the mutant's other covering tests decided this result (decision 30)."
         },
         "falseCatchBy": {
           "$ref": "#/$defs/test",
@@ -506,7 +542,7 @@
     },
     "likelyFlaky": {
       "type": "object",
-      "description": "A test that's likely flaky, the mutants whose results it changed, and what named it.",
+      "description": "A test that's likely flaky, the mutants whose results it changed, and what named it. None of its catches count in the run that names it (decision 27): each mutant it reached ran again without it.",
       "required": ["test", "mutants", "reasons"],
       "properties": {
         "test": { "$ref": "#/$defs/test" },
@@ -516,9 +552,26 @@
         },
         "reasons": {
           "type": "array",
-          "items": { "enum": ["changed-since-last-run", "catch-not-repeated"] },
-          "description": "`changed-since-last-run`: with the same code and mutastic, a mutant it caught changed result. `catch-not-repeated`: its catch didn't repeat under `--confirm-catches`."
+          "items": { "enum": ["changed-since-last-run", "catch-not-repeated", "fails-alone"] },
+          "description": "`changed-since-last-run`: with the same code and mutastic, a mutant it caught changed result. `catch-not-repeated`: its catch didn't repeat when confirmed, under `--confirm-catches` or while it's watched. `fails-alone`: run again after the mutants on its own with no mutant in, it failed."
+        },
+        "rerun": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/mutantId" },
+          "description": "The mutants it reached that ran again without it, so that none of its catches count (decision 27)."
         }
+      }
+    },
+    "watched": {
+      "type": "object",
+      "description": "A test named likely flaky in an earlier run and remembered in `last-runs/flaky-watch.tsv` (decision 27): each catch it makes counts only if it repeats `confirmations` more times.",
+      "required": ["test", "held", "needed", "confirmations"],
+      "properties": {
+        "test": { "$ref": "#/$defs/test" },
+        "held": { "type": "integer", "minimum": 0, "description": "Full runs (or `--from-shards` merges) in a row, this one included, in which it caught mutants and every catch held. A share never adds to it." },
+        "needed": { "const": 3, "description": "How many such runs before it's forgotten." },
+        "confirmations": { "const": 3, "description": "How many more times each of its catches is run." },
+        "released": { "const": true, "description": "It held for `needed` runs, so it's forgotten after this run. Only there when it was." }
       }
     },
     "unrelatedCatch": {
@@ -631,6 +684,10 @@
           "type": ["string", "null"],
           "description": "For a run of mutants asked for by id (`--only`), the first one found; null when none was. Only for such a run."
         },
+        "at": {
+          "$ref": "#/$defs/at",
+          "description": "For a run of the mutants on some lines of a source file (`--at`), the lines asked for: `passed` says whether each mutant on them is caught or skipped. Only for such a run."
+        },
         "coveredScore": {
           "$ref": "#/$defs/score",
           "description": "The score of the code some test reaches: how well the tests check what they run."
@@ -652,7 +709,9 @@
             "additionalProperties": false,
             "properties": {
               "test": { "type": "string", "minLength": 1, "description": "The test as it was given: in Java a class by its name or full name, or `PricingTest#bigOrders`; in Rust a test's name or a module of tests by its path." },
-              "reason": { "type": ["string", "null"], "description": "Why, from its `reason:` under mutastic.yaml's `exclude-tests:`; null for one `--exclude-tests` added for this run." }
+              "reason": { "type": ["string", "null"], "description": "Why, from its `reason:` under mutastic.yaml's `exclude-tests:`; null for one `--exclude-tests` added for this run." },
+              "matched": { "type": "boolean", "description": "False when it names none of the run's tests, so it left nothing out (decision 28): the human and agent formats say so on a `left out nothing:` line." },
+              "maybe": { "type": ["string", "null"], "description": "For one that matched no test, the test a run names that it's close to, a guess to check, never acted on; else null." }
             }
           },
           "description": "The tests the run was told to leave out, none of which ran: mutastic.yaml's `exclude-tests:`, then those `--exclude-tests` added, each once. A run with other tests left out is other code to compare with, never the same code."
@@ -682,7 +741,12 @@
         "likelyFlaky": {
           "type": "array",
           "items": { "$ref": "#/$defs/likelyFlaky" },
-          "description": "Tests that are likely flaky, and why."
+          "description": "Tests that are likely flaky, and why: none of their catches count."
+        },
+        "watched": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/watched" },
+          "description": "Tests named likely flaky in an earlier run, whose catches this run confirmed 3 more times each (decision 27). Only when there are any."
         },
         "unrelatedCatches": {
           "type": "array",
