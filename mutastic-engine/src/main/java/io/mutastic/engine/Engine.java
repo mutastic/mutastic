@@ -96,6 +96,15 @@ public final class Engine {
     }
   }
 
+  /// Mutants in classes compiled without line numbers: see [LineNumbers].
+  public static final class NoLineNumbers extends CantRun {
+    @java.io.Serial private static final long serialVersionUID = 1L;
+
+    NoLineNumbers(String message) {
+      super(message);
+    }
+  }
+
   /// A plugin's filter skipped a mutant without saying why: every skip is shown with its reason, so
   /// one without isn't a skip anyone could check.
   public static final class SkipWithoutReason extends CantRun {
@@ -968,6 +977,7 @@ public final class Engine {
     mutations.prepareFor(project);
     var all = models.values().stream().flatMap(model -> mutations.find(model).stream()).toList();
     var mutants = chosen(all, project, options, models);
+    LineNumbers.require(mutants, models);
     var ignored = new Ignored(options.policy().ignores(), models, project, all);
     boolean complete =
         options.only().isEmpty() && options.among().isEmpty() && options.changed().isEmpty();

@@ -2370,6 +2370,16 @@
       "reason": "A JVM a test starts loads the classes as built, so neither the worker's mutants nor its coverage reach it. A Rust binary a test runs has every mutant built in and takes the one to run, and where to record coverage, from the environment the test process passes on."
     },
     {
+      "id": "N88",
+      "kind": "engine",
+      "editions": [
+        "java"
+      ],
+      "surface": "errors",
+      "summary": "A refusal, code `other`, naming the classes with mutants that were compiled without line numbers (`-g:none`), and how to compile them with",
+      "reason": "Java's coverage is recorded by the class file's line numbers, which javac can leave out, and without them every mutant would read as reached by no test. rustc's spans are always there, so the Rust edition always knows a mutant's line."
+    },
+    {
       "id": "N51",
       "kind": "engine",
       "editions": [
