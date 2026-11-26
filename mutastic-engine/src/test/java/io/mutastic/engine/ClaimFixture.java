@@ -456,6 +456,35 @@ final class ClaimFixture {
         });
   }
 
+  /// What the mutant's method gives for each pair of `values`, `a` then `b`, in order: its class
+  /// loaded once for all of them, and what it gives kept, as every class's outcome is.
+  List<String> outcomesOf(Mutant mutant, List<?> values) throws ReflectiveOperationException {
+    return pairOutcomes(mutatedBytes(mutant), sourceMethod(mutant), values);
+  }
+
+  /// The same, for the fixture as it's written.
+  List<String> outcomesOfOriginal(String method, List<?> values)
+      throws ReflectiveOperationException {
+    return pairOutcomes(originalBytes(), method, values);
+  }
+
+  private List<String> pairOutcomes(byte[] bytes, String method, List<?> values)
+      throws ReflectiveOperationException {
+    return Kept.outcomes(
+        keyFor(bytes, method, "each pair of " + values),
+        () -> {
+          var outcomes = new ArrayList<String>();
+          var called = load(bytes).getDeclaredMethod(method, inputs.type(), inputs.type());
+          called.setAccessible(true);
+          for (Object a : values) {
+            for (Object b : values) {
+              outcomes.add(outcome(called, a, b));
+            }
+          }
+          return outcomes;
+        });
+  }
+
   String outcomeOfOriginal(String method, Object a, Object b) throws ReflectiveOperationException {
     var called = load(originalBytes()).getDeclaredMethod(method, inputs.type(), inputs.type());
     called.setAccessible(true);
