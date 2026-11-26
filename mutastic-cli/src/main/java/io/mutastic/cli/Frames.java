@@ -342,14 +342,7 @@ final class Frames {
     int uncovered = snapshot.count(Status.NOT_COVERED);
     int timedOut = snapshot.count(Status.TIMED_OUT);
     if (tier >= TIERS - 1) {
-      return paint(colour, GREEN, Glyphs.PASS + caught)
-          + " "
-          + paint(colour, RED, Glyphs.FAIL + missed)
-          + " "
-          + Glyphs.OPEN
-          + uncovered
-          + " "
-          + paint(colour, AMBER, Glyphs.TIMER + timedOut);
+      return glyphsOnly(snapshot, colour);
     }
     var worded =
         paint(colour, GREEN, Glyphs.PASS + " " + caught + " caught")
@@ -364,6 +357,18 @@ final class Frames {
             + " not covered · "
             + paint(colour, AMBER, Glyphs.TIMER + " " + timedOut + " timed out")
         : worded + " · " + paint(colour, AMBER, Glyphs.TIMER + " " + timedOut);
+  }
+
+  /// The fates with no words: `✓2610 ✗41 ○214 ⏱6`.
+  private static String glyphsOnly(Snapshot snapshot, boolean colour) {
+    return paint(colour, GREEN, Glyphs.PASS + snapshot.count(Status.CAUGHT))
+        + " "
+        + paint(colour, RED, Glyphs.FAIL + snapshot.count(Status.MISSED))
+        + " "
+        + Glyphs.OPEN
+        + snapshot.count(Status.NOT_COVERED)
+        + " "
+        + paint(colour, AMBER, Glyphs.TIMER + snapshot.count(Status.TIMED_OUT));
   }
 
   /// `built 55 mutants in 3.5s`: the build, and the mutants found in what it built.
