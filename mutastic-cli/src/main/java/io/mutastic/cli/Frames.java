@@ -2,6 +2,10 @@ package io.mutastic.cli;
 
 import io.mutastic.api.Status;
 import io.mutastic.cli.Snapshot.Worker;
+import io.mutastic.output.Bar;
+import io.mutastic.output.Fit;
+import io.mutastic.output.Glyphs;
+import io.mutastic.output.Paint;
 import io.mutastic.report.HumanText;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -15,16 +19,16 @@ final class Frames {
   private Frames() {}
 
   /// One frame per redraw.
-  static final String SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
+  static final String SPINNER = Glyphs.SPINNER;
 
-  private static final String GREEN = "32";
-  private static final String RED = "1;31";
-  private static final String AMBER = "33";
-  private static final String BOLD = "1";
-  private static final String DIM = "2";
-  private static final String SLOW = "1;33";
-  private static final String HEADING = "1;34";
-  private static final String ID = "36";
+  private static final String GREEN = Paint.GREEN;
+  private static final String RED = Paint.RED;
+  private static final String AMBER = Paint.AMBER;
+  private static final String BOLD = Paint.BOLD;
+  private static final String DIM = Paint.DIM;
+  private static final String SLOW = Paint.SLOW;
+  private static final String HEADING = Paint.BLUE;
+  private static final String ID = Paint.CYAN;
 
   /// The spinner, a space and the phase's column: what comes before a live line's fields.
   private static final int LEAD = 2 + Phase.COLUMN;
@@ -50,7 +54,10 @@ final class Frames {
     lines.add(Fit.cut(lead + status(snapshot, columns, colour), columns));
     snapshot
         .below()
-        .ifPresent(below -> lines.add(Fit.cut(paint(colour, DIM, "   └ " + below), columns)));
+        .ifPresent(
+            below ->
+                lines.add(
+                    Fit.cut(paint(colour, DIM, "   " + Glyphs.UNDER + " " + below), columns)));
     if (showsWorkers(snapshot)) {
       lines.addAll(workerLines(snapshot, columns, colour));
     }
@@ -136,10 +143,9 @@ final class Frames {
         + (snapshot.total() == 0 ? "" : ", " + snapshot.done() + "/" + snapshot.total());
   }
 
-  /// A bar `columns` wide, green `━` filled to `fraction` on dim `─`.
+  /// A bar `columns` wide, filled to `fraction`: [Bar].
   private static String bar(double fraction, int columns, boolean colour) {
-    var full = (int) Math.min(columns, Math.round(Math.clamp(fraction, 0.0, 1.0) * columns));
-    return paint(colour, GREEN, "━".repeat(full)) + paint(colour, DIM, "─".repeat(columns - full));
+    return Bar.of(fraction, columns, colour);
   }
 
   /// A line for each worker, up to eight (four below 100 columns), then how many more are running
@@ -336,23 +342,33 @@ final class Frames {
     int uncovered = snapshot.count(Status.NOT_COVERED);
     int timedOut = snapshot.count(Status.TIMED_OUT);
     if (tier >= TIERS - 1) {
-      return paint(colour, GREEN, "✓" + caught)
-          + " "
-          + paint(colour, RED, "✗" + missed)
-          + " ○"
-          + uncovered
-          + " "
-          + paint(colour, AMBER, "⏱" + timedOut);
+      return glyphsOnly(snapshot, colour);
     }
     var worded =
-        paint(colour, GREEN, "✓ " + caught + " caught")
+        paint(colour, GREEN, Glyphs.PASS + " " + caught + " caught")
             + " · "
-            + paint(colour, RED, "✗ " + missed + " missed")
-            + " · ○ "
+            + paint(colour, RED, Glyphs.FAIL + " " + missed + " missed")
+            + " · "
+            + Glyphs.OPEN
+            + " "
             + uncovered;
     return tier == 0
-        ? worded + " not covered · " + paint(colour, AMBER, "⏱ " + timedOut + " timed out")
-        : worded + " · " + paint(colour, AMBER, "⏱ " + timedOut);
+        ? worded
+            + " not covered · "
+            + paint(colour, AMBER, Glyphs.TIMER + " " + timedOut + " timed out")
+        : worded + " · " + paint(colour, AMBER, Glyphs.TIMER + " " + timedOut);
+  }
+
+  /// The fates with no words: `✓2610 ✗41 ○214 ⏱6`.
+  private static String glyphsOnly(Snapshot snapshot, boolean colour) {
+    return paint(colour, GREEN, Glyphs.PASS + snapshot.count(Status.CAUGHT))
+        + " "
+        + paint(colour, RED, Glyphs.FAIL + snapshot.count(Status.MISSED))
+        + " "
+        + Glyphs.OPEN
+        + snapshot.count(Status.NOT_COVERED)
+        + " "
+        + paint(colour, AMBER, Glyphs.TIMER + snapshot.count(Status.TIMED_OUT));
   }
 
   /// `built 55 mutants in 3.5s`: the build, and the mutants found in what it built.
@@ -431,6 +447,6 @@ final class Frames {
   }
 
   private static String paint(boolean colour, String code, String text) {
-    return colour ? "\u001b[" + code + "m" + text + "\u001b[0m" : text;
+    return Paint.paint(colour, code, text);
   }
 }

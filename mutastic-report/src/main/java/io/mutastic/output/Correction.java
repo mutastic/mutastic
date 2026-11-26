@@ -1,4 +1,4 @@
-package io.mutastic.cli;
+package io.mutastic.output;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,22 +10,22 @@ import java.util.regex.Pattern;
 ///
 /// @param typed the arguments as typed: one, or an option and the value after it
 /// @param instead the one argument to write in their place
-record Correction(List<String> typed, String instead) {
-  Correction {
+public record Correction(List<String> typed, String instead) {
+  public Correction {
     typed = List.copyOf(typed);
   }
 
   /// `typed`, one argument, as `instead`.
-  static Correction of(String typed, String instead) {
+  public static Correction of(String typed, String instead) {
     return new Correction(List.of(typed), instead);
   }
 
   /// A word that needs no quotes in a shell.
   private static final Pattern PLAIN = Pattern.compile("[\\w./:=,@%+-]+");
 
-  /// `args`, the command line after `mutastic`, corrected: empty when what was typed isn't in it,
-  /// as when a build plugin passed the arguments.
-  Optional<String> in(List<String> args) {
+  /// `args`, the command line after the tool's name, corrected: empty when what was typed isn't in
+  /// it, as when a build plugin passed the arguments.
+  public Optional<String> in(List<String> args) {
     var corrected = new ArrayList<>(args);
     int at = java.util.Collections.indexOfSubList(args, typed);
     if (at >= 0) {
@@ -61,7 +61,7 @@ record Correction(List<String> typed, String instead) {
   private static final Pattern PLACEHOLDER = Pattern.compile("[\\w./:=,@%+-]*<[\\w ]+>");
 
   /// `word` as a shell reads it back: in single quotes unless it needs none, or is to be filled in.
-  static String quoted(String word) {
+  public static String quoted(String word) {
     return PLAIN.matcher(word).matches() || PLACEHOLDER.matcher(word).matches()
         ? word
         : "'" + word.replace("'", "'\\''") + "'";
