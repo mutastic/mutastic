@@ -731,26 +731,42 @@ public final class Worker {
         // Containers too: a mutant that breaks a test class's set-up (a static initialiser,
         // `@BeforeAll`) fails the class, and its tests never start. A case an assumption aborts
         // didn't fail: it checked nothing, and is counted as skipped ([TestCases]).
-        if (result.getStatus() == TestExecutionResult.Status.FAILED) {
-          var failedCase = FailedCase.of(test);
-          if (failing.isEmpty()) {
-            firstFailure(failedCase, result);
-          }
-          failing.add(id(test));
-          lastFailure = "unknown";
-          lastOrigin = "unknown";
-          lastPortClash = false;
-          result.getThrowable().ifPresent(Worker.this::remember);
-          failedCases.putIfAbsent(id(test), failedCase);
-          result.getThrowable().ifPresent(thrown -> failures.put(id(test), causes(thrown)));
-          result
-              .getThrowable()
-              .ifPresent(thrown -> messages.putIfAbsent(id(test), message(thrown)));
-          System.err.println("FAILED\t" + id(test));
-          result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
+        if (result.getStatus() != TestExecutionResult.Status.FAILED) {
+          return;
+        }
+        if (result.getThrowable().filter(DuplicateClass::in).isPresent()) {
+          unjudged(test, result);
+        } else {
+          failed(test, result, failing);
         }
       }
     };
+  }
+
+  /// Records a failure of `test`: in `failing`, and what the `RESULT` line and the log say of it.
+  private void failed(TestIdentifier test, TestExecutionResult result, List<String> failing) {
+    var failedCase = FailedCase.of(test);
+    if (failing.isEmpty()) {
+      firstFailure(failedCase, result);
+    }
+    failing.add(id(test));
+    lastFailure = "unknown";
+    lastOrigin = "unknown";
+    lastPortClash = false;
+    result.getThrowable().ifPresent(this::remember);
+    failedCases.putIfAbsent(id(test), failedCase);
+    result.getThrowable().ifPresent(thrown -> failures.put(id(test), causes(thrown)));
+    result.getThrowable().ifPresent(thrown -> messages.putIfAbsent(id(test), message(thrown)));
+    System.err.println("FAILED\t" + id(test));
+    result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
+  }
+
+  /// A test that failed only on a class the JVM refused as defined twice ([DuplicateClass]): not a
+  /// failure, so the run goes on to the next test, and said to the engine, which names it.
+  private void unjudged(TestIdentifier test, TestExecutionResult result) {
+    protocol.println("UNJUDGED\t" + id(test));
+    System.err.println("UNJUDGED\t" + id(test));
+    result.getThrowable().ifPresent(thrown -> thrown.printStackTrace(System.err));
   }
 
   /// The case and the input the first failure of a test names, for its `RESULT` line.

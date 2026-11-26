@@ -2704,7 +2704,7 @@
           "name": "MutantResult",
           "slug": "mutantresult",
           "kind": "record",
-          "signature": "@Internal record MutantResult(\n    Mutant mutant,\n    Status status,\n    List<String> coveredBy,\n    Optional<String> caughtBy,\n    Optional<String> failure,\n    Optional<String> failureOrigin,\n    int testsRun,\n    Optional<String> unconfirmed,\n    Map<String, List<Long>> inputs,\n    Optional<Suggestion> suggestion,\n    Duration took,\n    Optional<String> falseCatchBy,\n    List<String> caughtByAll,\n    Optional<TestCase> caughtCase,\n    Optional<String> caughtInput,\n    Optional<String> flakyCatchBy)",
+          "signature": "@Internal record MutantResult(\n    Mutant mutant,\n    Status status,\n    List<String> coveredBy,\n    Optional<String> caughtBy,\n    Optional<String> failure,\n    Optional<String> failureOrigin,\n    int testsRun,\n    Optional<String> unconfirmed,\n    Map<String, List<Long>> inputs,\n    Optional<Suggestion> suggestion,\n    Duration took,\n    Optional<String> falseCatchBy,\n    List<String> caughtByAll,\n    Optional<TestCase> caughtCase,\n    Optional<String> caughtInput,\n    Optional<String> flakyCatchBy,\n    Optional<String> duplicateClassBy)",
           "summary": "One mutant's outcome.",
           "doc": "One mutant's outcome.",
           "params": [
@@ -2759,6 +2759,10 @@
             {
               "name": "flakyCatchBy",
               "doc": "a test the run named likely flaky that had caught the mutant, so its catch doesn't count: the mutant ran again without it, and this result is what the other covering tests made of it (decision 27). [`falseCatchBy`](#falsecatchby) instead when the test failed on its own."
+            },
+            {
+              "name": "duplicateClassBy",
+              "doc": "a test that failed against the mutant only on a class the JVM refused as defined twice, which the worker's class loaders cause and the build never sees: that failure judged nothing, so it isn't a catch, and the mutant's other covering tests decide it (decision 30)"
             }
           ],
           "members": [
@@ -2766,6 +2770,16 @@
               "kind": "constructor",
               "name": "MutantResult",
               "anchor": "mutantresult",
+              "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy, List<String> caughtByAll, Optional<TestCase> caughtCase, Optional<String> caughtInput, Optional<String> flakyCatchBy)",
+              "doc": "A result no test failed against only on a class defined twice.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "constructor",
+              "name": "MutantResult",
+              "anchor": "mutantresult-2",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy, List<String> caughtByAll, Optional<TestCase> caughtCase, Optional<String> caughtInput)",
               "doc": "A result whose catch no test named likely flaky took away.",
               "params": [],
@@ -2775,7 +2789,7 @@
             {
               "kind": "constructor",
               "name": "MutantResult",
-              "anchor": "mutantresult-2",
+              "anchor": "mutantresult-3",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy, List<String> caughtByAll, Optional<TestCase> caughtCase)",
               "doc": "A result that names no input: no property caught it, or its framework named none.",
               "params": [],
@@ -2785,7 +2799,7 @@
             {
               "kind": "constructor",
               "name": "MutantResult",
-              "anchor": "mutantresult-3",
+              "anchor": "mutantresult-4",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy, List<String> caughtByAll)",
               "doc": "A result that names no case: its catcher, if it has one, runs no table of them.",
               "params": [],
@@ -2795,7 +2809,7 @@
             {
               "kind": "constructor",
               "name": "MutantResult",
-              "anchor": "mutantresult-4",
+              "anchor": "mutantresult-5",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took, Optional<String> falseCatchBy)",
               "doc": "A result without every catcher: the run stopped at the first.",
               "params": [],
@@ -2805,7 +2819,7 @@
             {
               "kind": "constructor",
               "name": "MutantResult",
-              "anchor": "mutantresult-5",
+              "anchor": "mutantresult-6",
               "signature": "MutantResult(Mutant mutant, Status status, List<String> coveredBy, Optional<String> caughtBy, Optional<String> failure, Optional<String> failureOrigin, int testsRun, Optional<String> unconfirmed, Map<String, List<Long>> inputs, Optional<Suggestion> suggestion, Duration took)",
               "doc": "A result whose catch, if it has one, stands.",
               "params": [],
@@ -2908,6 +2922,16 @@
               "anchor": "withflakycatchby",
               "signature": "MutantResult withFlakyCatchBy(String test)",
               "doc": "The same result, its catch by `test`, a test named likely flaky, not counted: the mutant's\nresult without that test.",
+              "params": [],
+              "returns": "",
+              "throws": []
+            },
+            {
+              "kind": "method",
+              "name": "withDuplicateClass",
+              "anchor": "withduplicateclass",
+              "signature": "MutantResult withDuplicateClass(Optional<String> test)",
+              "doc": "The same result, naming `test` as having failed against it only on a class defined twice, if a\ntest is given: as a share's events say, or a run found.",
               "params": [],
               "returns": "",
               "throws": []

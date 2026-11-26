@@ -635,6 +635,7 @@ public final class HumanText {
     }
     result.falseCatchBy().ifPresent(test -> notes.add(AgentText.falseCatch(test)));
     result.flakyCatchBy().ifPresent(test -> notes.add(AgentText.flakyCatch(test)));
+    result.duplicateClassBy().ifPresent(test -> notes.add(AgentText.duplicateClass(test)));
     return notes;
   }
 
@@ -785,6 +786,7 @@ public final class HumanText {
                 .orElse(""));
     result.falseCatchBy().ifPresent(test -> notes.add(AgentText.falseCatch(test)));
     result.flakyCatchBy().ifPresent(test -> notes.add(AgentText.flakyCatch(test)));
+    result.duplicateClassBy().ifPresent(test -> notes.add(AgentText.duplicateClass(test)));
     return notes;
   }
 

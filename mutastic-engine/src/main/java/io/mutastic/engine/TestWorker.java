@@ -57,6 +57,9 @@ final class TestWorker implements AutoCloseable {
   /// Said by a worker as a test's code ends its JVM, with the test, in place of an answer.
   private static final String EXITED = "EXITED\t";
 
+  /// Said for each test that failed only on a class the JVM refused as defined twice.
+  private static final String UNJUDGED = "UNJUDGED\t";
+
   private final Project project;
 
   /// What the project's tests need to run, and how the worker runs them.
@@ -80,6 +83,9 @@ final class TestWorker implements AutoCloseable {
 
   /// The test whose code ended the worker's JVM, if the worker said one did since the last command.
   private @Nullable String exitedDuring;
+
+  /// The tests the current run's worker said were [#UNJUDGED].
+  private final List<String> unjudged = new ArrayList<>();
 
   /// The single test methods it leaves out of each class it runs, `PricingTest#bigOrders` or
   /// `com.example.PricingTest#bigOrders`: every overload and row of each.
@@ -312,6 +318,8 @@ final class TestWorker implements AutoCloseable {
   ///   be another worker's doing
   /// @param failedCase the case of `failedTest` that failed, when it runs a table of them
   /// @param input the input `failedTest` failed on, when it's a property test that names one
+  /// @param unjudged the tests that failed only on a class the JVM refused as defined twice, which
+  ///   the worker's loaders, not the mutant, can cause: none of them is a catch
   record Run(
       Status status,
       Optional<String> failedTest,
@@ -320,7 +328,24 @@ final class TestWorker implements AutoCloseable {
       int testsRun,
       boolean portClash,
       Optional<TestCase> failedCase,
-      Optional<CaughtInput> input) {
+      Optional<CaughtInput> input,
+      List<String> unjudged) {
+
+    Run {
+      unjudged = List.copyOf(unjudged);
+    }
+
+    Run(
+        Status status,
+        Optional<String> failedTest,
+        Optional<String> failure,
+        Optional<String> origin,
+        int testsRun,
+        boolean portClash,
+        Optional<TestCase> failedCase,
+        Optional<CaughtInput> input) {
+      this(status, failedTest, failure, origin, testsRun, portClash, failedCase, input, List.of());
+    }
 
     Run(
         Status status,
@@ -360,7 +385,16 @@ final class TestWorker implements AutoCloseable {
 
     /// The same run, its failing test having named `named` as its input.
     Run withInput(Optional<CaughtInput> named) {
-      return new Run(status, failedTest, failure, origin, testsRun, portClash, failedCase, named);
+      return new Run(
+          status, failedTest, failure, origin, testsRun, portClash, failedCase, named, unjudged);
+    }
+
+    /// The same run, with `tests` among those that failed only on a class defined twice.
+    Run withUnjudged(List<String> tests) {
+      var all = new ArrayList<>(unjudged);
+      all.addAll(tests);
+      return new Run(
+          status, failedTest, failure, origin, testsRun, portClash, failedCase, input, all);
     }
 
     /// Whether a test's code ended the JVM with status 0, which the build reads as a pass.
@@ -390,24 +424,27 @@ final class TestWorker implements AutoCloseable {
     var rest = tests.subList(run.testsRun(), tests.size());
     var after = rest.isEmpty() ? new Run(Status.MISSED, 0) : staged(command, stage, rest, timeout);
     return new Run(
-        after.status(),
-        after.failedTest(),
-        after.failure(),
-        after.origin(),
-        run.testsRun() + after.testsRun(),
-        after.portClash(),
-        after.failedCase(),
-        after.input());
+            after.status(),
+            after.failedTest(),
+            after.failure(),
+            after.origin(),
+            run.testsRun() + after.testsRun(),
+            after.portClash(),
+            after.failedCase(),
+            after.input(),
+            run.unjudged())
+        .withUnjudged(after.unjudged());
   }
 
   private Run result(String command, List<String> tests, Duration timeout) {
     exitedDuring = null;
+    unjudged.clear();
     var answer = testsRun(command + "	" + String.join("	", tests), timeout);
     if (answer.isEmpty()) {
-      return ended(tests);
+      return ended(tests).withUnjudged(unjudged);
     }
     replaceIfAged();
-    return parsed(answer.get());
+    return parsed(answer.get()).withUnjudged(unjudged);
   }
 
   /// No answer: the worker ran out of time and is killed, which counts as a timeout, or a test's
@@ -649,6 +686,10 @@ final class TestWorker implements AutoCloseable {
       }
       if (answer != null && answer.startsWith(EXITED)) {
         exitedDuring = answer.substring(EXITED.length());
+        return await(timeout);
+      }
+      if (answer != null && answer.startsWith(UNJUDGED)) {
+        unjudged.add(answer.substring(UNJUDGED.length()));
         return await(timeout);
       }
       return Optional.ofNullable(answer).filter(line -> !line.equals(STOPPED));
