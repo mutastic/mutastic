@@ -1976,8 +1976,8 @@
         }
       },
       "surface": "command line",
-      "summary": "`--edition=rust|java`",
-      "reason": "Rust's binary is the native front door that routes by build file: it belongs to the front door, not an engine.",
+      "summary": "`--edition=rust|java|swift`",
+      "reason": "Rust's binary is the native front door that routes by build file: it belongs to the front door, not an engine. `Cargo.toml` is Rust's; `pom.xml` or a Gradle build Java's; `Package.swift`, an `.xcodeproj` or an `.xcworkspace` Swift's, refused as `swift-edition` until a Swift edition is released. A directory with the build files of more than one edition, `Cargo.toml` beside `Package.swift` say, is refused as `both-editions` until `--edition` names one; a directory with none is decided by the nearest above it that has one.",
       "items": [
         "option:--edition",
         "takes:*:--edition"
@@ -2042,8 +2042,8 @@
         }
       },
       "surface": "configuration",
-      "summary": "Environment: CARGO, RUSTC, MUTASTIC_VERSION, MUTASTIC_HOME, MUTASTIC_JAVA_ENGINE, MUTASTIC_JAVA_RELEASES, MUTASTIC_STDERR_TTY, MUTASTIC_COLUMNS, JAVA_HOME",
-      "reason": "Toolchain, plus the front door's JDK fetch.",
+      "summary": "Environment: CARGO, RUSTC, MUTASTIC_VERSION, MUTASTIC_HOME, MUTASTIC_JAVA_ENGINE, MUTASTIC_JAVA_RELEASES, MUTASTIC_SWIFT_ENGINE, MUTASTIC_STDERR_TTY, MUTASTIC_COLUMNS, JAVA_HOME",
+      "reason": "Toolchain, plus the front door's JDK fetch and its Swift edition built from source.",
       "items": [
         "env:CARGO",
         "env:RUSTC",
@@ -2051,6 +2051,7 @@
         "env:MUTASTIC_HOME",
         "env:MUTASTIC_JAVA_ENGINE",
         "env:MUTASTIC_JAVA_RELEASES",
+        "env:MUTASTIC_SWIFT_ENGINE",
         "env:MUTASTIC_STDERR_TTY",
         "env:MUTASTIC_COLUMNS",
         "env:JAVA_HOME"
@@ -2224,7 +2225,7 @@
         },
         "rust": {
           "kind": "engine",
-          "does": "`no-cargo`, `workspace-root`, `proc-macro`, `copy-build-failed`, `java-edition`, `both-editions`"
+          "does": "`no-cargo`, `workspace-root`, `proc-macro`, `copy-build-failed`, `java-edition`, `swift-edition`, `both-editions`"
         }
       },
       "surface": "errors",
