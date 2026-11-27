@@ -95,74 +95,107 @@ noticing. The editions' contract makes each one a test failure instead.
 **The contract** is [`docs/public/contract/v1.json`](docs/public/contract/v1.json)
 (`mutastic.contract/v1`), described by the JSON Schema
 [`docs/public/schemas/contract/v1.json`](docs/public/schemas/contract/v1.json) and published with
-it on docs.mutastic.io. It holds what the editions must agree on:
+it on docs.mutastic.io. Its shared entries state each behaviour once, and are the reference every
+edition is held to:
 
 - the command line: commands, synopses, the options each takes and in what order, kinds, value
   names, choices, defaults, environment variables and exit codes;
-- every error code with its exit code, the pairs that mean the same thing (`errorPairs`), and a
-  table of error cases (`errorCases`) with the code and exit code each must end with, and the
-  first line each says, word for word, where both editions say it alike;
+- every error code with its exit code, the codes that mean the same thing under each edition's
+  name (`errorPairs`), and a table of error cases (`errorCases`) with the code and exit code each
+  must end with, and the first line each says, word for word;
 - help's layout, the human summary's rows and their order, and the agent format's line shapes
   (its head, each entry, and the tail that closes the fence around the project's text);
 - the events' key paths per event type and their order, and mutation.json's key paths;
 - the events, report and SARIF schemas, by sha256;
-- mutastic's own arid rules (`arid`): each id, the editions that have it, whether it judges a
-  whole method or one site, the reasons it gives as each edition prints them, and a line of code
-  it skips; the docs' list of them (`docs/src/data/arid.json`) is written from it;
-- the decisions taken since 13 Nov 2026 (`decisions`), each a shared rule;
-- `differences`: every known way an edition differs, each one of three kinds:
-  - `engine`: permanent, with a `reason` another edition would share (Gradle modules, `unsafe`);
-  - `dated`: with an `until` (`rust 2.0.0`);
-  - `pending`: a gap, a drift or a decision not yet carried out, with an `issue`.
+- mutastic's own arid rules (`arid`): each id, and whether it judges a whole method or one site;
+  the docs' list of them (`docs/src/data/arid.json`) is written from it and the bindings;
+- the decisions taken since 13 Nov 2026 (`decisions`), each a shared rule.
+
+**`editions`** holds a binding block per edition, everything that's its language's own: its
+`selector` (the project unit, and the synopsis slot it adds, Java's `[:MODULE]`), `buildTools`,
+`sources`, `testLibraries`, its `fixture` and `captures`, its `errorNames` for each pair, the
+`arid` rules it has with its reasons and example, where it finds `twins`, the capture `masks`, and
+what it `says` for each slot.
+
+**`differences`** lists every known way an edition differs, in one of two shapes:
+
+- a **deviation** names, in `editions`, only the editions that deviate from the shared text, each
+  with its `kind` and, when the summary doesn't say, what it `does`. An edition it doesn't name
+  follows the shared text. The kinds: `engine`, for good, with a `reason` (Gradle modules,
+  `unsafe`); `dated`, with an `until` release; `pending`, a change the edition hasn't made yet,
+  with an `issue` and a `target` release;
+- a **slot** (`"each": true`) is a place every edition fills its own way, such as the unit row's
+  word or how a function is named; each binding's `says` gives its way.
+
+[`docs/scripts/contract.mjs`](docs/scripts/contract.mjs) is the contract's shared tooling, one
+implementation every edition calls: `check` (what the schema can't say: each slot has every
+binding's `says`, each name a deviation uses has a binding, a pending entry has an issue and a
+target), `release <edition> <X.Y.Z>`, and `pin`, `prune` and `newest` for an edition that pins the
+contract. `just contract-check` runs `check` and its tests.
 
 **The checks.** Each edition runs its own binary on its own pricing fixture, as a person does, and
 compares what it does with the contract: its `commands.json`, `--help` and each command's help,
 the error cases, a full run's summary, `--format=agent` and `--format=jsonl`, and mutation.json.
 Here that's `ContractTest` (in `mutastic-cli`); in mutastic-rs it's `tests/contract.rs`. Each
 difference is found as an item, such as `takes:baseline:--operators` or `error:gate:code`. An item
-no difference for that edition names fails, saying what to do. A difference whose `items` name
-nothing that was found fails too, as it now matches: take the edition out of its `editions`, or
-the entry out. So the list only shrinks when the editions really meet. A difference without
-`items` describes something no check reaches yet, and stays until someone removes it.
+no difference for that edition names (a slot, or a deviation naming it) fails, saying what to do.
+A deviation whose `items` name nothing that was found fails too, as it now matches: take the
+edition out of its `editions`, or the entry out. So the list only shrinks when the editions really
+meet. A difference without `items` describes something no check reaches yet, and stays until
+someone removes it. The judge itself (found items against the differences) is a few lines in each
+edition's tests, beside the binary it checks, so no test harness needs another language's runtime.
 
-**Adding an option to both editions:**
+**Adoption per edition.** A contract change lands once. An edition that hasn't made it yet is
+named as `pending`, with its issue and target; every edition not named has made it. Each edition
+reads the contract where it lives (Java its working copy, the others the newest pin) and checks
+only what it claims. **No edition releases with a pending entry it hasn't registered**: one with
+no issue or target, or whose target has gone by, fails its release-check
+(`node docs/scripts/contract.mjs release <edition> <X.Y.Z>`), as does a dated one at its `until`.
+
+**Adding an option to every edition:**
 
 1. Add it to the contract: to `options`, and to each command's `options` in the order help lists
-   them. If one edition will have it first, add a `pending` difference for the other, with items
-   `option:--name` and `takes:*:--name` and an issue.
+   them. For each edition that will have it later, add a `pending` deviation naming it, with items
+   `option:--name` and `takes:*:--name`, an issue and a target.
 2. Add it here, run `just docs-output`, and `ContractTest` passes.
-3. mutastic-rs pins the contract by commit, one file to a pull request in `contract/pins`, and
-   reads it at the newest. When the Rust side is written, its contract check fails with "now
-   matches". Take `rust` out of the pending entry in a mutastic PR, merge it, then pin that merge
-   commit in the Rust PR (`scripts/pin-contract.sh <slug>` there). A pin to a mutastic PR's head,
-   not yet merged, holds only until a later pin lands. Its weekly drift job, against mutastic
-   main, says when the two are out of step.
+3. An edition that pins the contract (mutastic-rs: one file to a pull request in `contract/pins`,
+   the newest read) moves its pin when it writes its side. Its contract check fails with "now
+   matches" until its name is out of the pending entry: take it out in a mutastic PR, merge it,
+   then pin that merge commit in the edition's PR (`scripts/pin-contract.sh <slug>` there). A pin
+   to a mutastic PR's head, not yet merged, holds only until a later pin lands. Its weekly drift
+   job, against mutastic main, says when the two are out of step.
 
-An option only one edition will ever have, for a reason of its engine, is an `engine` difference
+An option only one edition will ever have, for a reason of its engine, is an `engine` deviation
 with its reason. A change to shared output (a summary row, an agent line) goes the same way: the
 contract first, then each edition.
 
 **Adding an arid rule:** give it an id in `AridRule` (`mutastic-api`), short and as people say
-it, `mutastic:` and a plural noun where one fits; add it to the contract's `arid` with the edition
-that has it, and its example to the engine's `truth/arid/Examples.java` in a method named for it.
-`just docs-output` writes the docs' list. Another edition joins the rule
-by adding itself to the rule's `editions`, `reasons` and `examples`, in a mutastic PR merged
-back to back with its own. An id never changes once released.
+it, `mutastic:` and a plural noun where one fits; add it to the contract's `arid`, its reasons and
+example to Java's binding (`editions.java.arid`), and its example to the engine's
+`truth/arid/Examples.java` in a method named for it. `just docs-output` writes the docs' list.
+Another edition joins the rule by adding it to its own binding's `arid`. An id never changes once
+released.
 
-**A new edition** (Swift, say) adopts the contract on its first day:
+**A new edition** (Swift, say) joins without editing a shared entry
+(`docs/scripts/contract.test.mjs` proves it with a dummy Swift block):
 
-1. Add it to `editions`.
+1. Add its binding block to `editions`, with its `says` for every slot; `contract.mjs check` names
+   any it leaves out. It uses the generic error names (decision 12).
 2. Port the pricing fixture, and write its checks from mutastic-rs's `tests/contract.rs`: they
    read only the contract, the edition's `commands.json` and what its binary prints.
-3. Every failure becomes a `pending` difference with an issue, or an `engine` one with a reason,
-   reviewed in one pull request. Its engine slots are already named: the summary's unit row, the
-   `Build` row, the toolchain in `Tests`, and `mutation.applied.level`.
+3. Pin the contract from its repository, with `contract/source.json` and `contract/pins` as
+   mutastic-rs has them, through `contract.mjs pin`.
+4. Every failure becomes a deviation naming only the new edition: `pending` with an issue and a
+   target, or `engine` with a reason, reviewed in one pull request. Its first release has no
+   pending entry.
 
-**The docs' captures, compared.** The docs build pairs each edition's captured output by scenario
-([`captures.json`](docs/public/contract/captures.json) maps Java's flat names to Rust's
-folders), masks ids, paths, timings, names and code, and warns where the shapes differ
-(`docs/scripts/compare-captures.mjs`; `node docs/scripts/compare-captures.mjs <mutastic-rs docs>`
-lists them). Warnings for now, while the masks settle.
+**The docs' captures, compared.** The docs build pairs each edition's captured output with the
+reference edition's by scenario ([`captures.json`](docs/public/contract/captures.json) maps Java's
+flat names to Rust's folders; an edition with no name there names its capture by the scenario),
+masks ids, paths, timings, names and code with the bindings' `masks`, and **fails** where the
+shapes differ and no difference naming that edition has the item `capture:<scenario>`, or where a
+recorded one now matches (`docs/scripts/compare-captures.mjs`;
+`node docs/scripts/compare-captures.mjs <mutastic-rs docs>` lists them).
 
 ## The corpus
 

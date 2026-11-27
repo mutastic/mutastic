@@ -2,17 +2,374 @@
   "$schema": "https://docs.mutastic.io/schemas/contract/v1.json",
   "schema": "mutastic.contract/v1",
   "version": "1.1.0",
-  "editions": [
-    "java",
-    "rust"
-  ],
-  "reference": "java",
-  "engineSlots": [
-    {
-      "slot": "[:MODULE]",
-      "difference": "N1"
+  "editions": {
+    "java": {
+      "name": "Java",
+      "repository": "https://github.com/mutastic/mutastic",
+      "contract": {
+        "reads": "working copy"
+      },
+      "selector": {
+        "unit": "a Gradle or Maven module",
+        "slot": "[:MODULE]",
+        "difference": "N1"
+      },
+      "buildTools": [
+        "Gradle",
+        "Maven"
+      ],
+      "sources": {
+        "languages": [
+          "Java",
+          "Kotlin"
+        ],
+        "extensions": [
+          "java",
+          "kt"
+        ]
+      },
+      "testLibraries": [
+        "JUnit 5 (Jupiter) and other JUnit Platform engines",
+        "JUnit 4",
+        "TestNG"
+      ],
+      "fixture": "samples/pricing",
+      "captures": "docs/src/data/output",
+      "masks": {
+        "toolchain": "JDK \\d+",
+        "work": "build/mutastic",
+        "unit": "Classes",
+        "level": "bytecode",
+        "tests": "\\w+Test",
+        "failed": "failed",
+        "function": "method",
+        "code": [
+          "@Test",
+          "void ",
+          "public ",
+          "var ",
+          "int ",
+          "import "
+        ]
+      },
+      "errorNames": {
+        "no-build-tool": "no-build-tool",
+        "build-root": "module-without-java"
+      },
+      "arid": {
+        "mutastic:trivial-accessors": {
+          "reasons": [
+            "arid: trivial getter of <field>",
+            "arid: trivial setter of <field>"
+          ],
+          "example": "String getName() { return name; }"
+        },
+        "mutastic:debug-representations": {
+          "reasons": [
+            "arid: `toString()` is a debug representation",
+            "arid: `hashCode()` may return any value consistent with `equals()`",
+            "arid: a lambda in `<method>()`",
+            "arid: `<helper>()` only serves `<method>()`"
+          ],
+          "example": "public String toString() { return \"Order \" + id; }"
+        },
+        "mutastic:output": {
+          "reasons": [
+            "arid: only writes output",
+            "arid: only feeds a log line",
+            "arid: only decides whether output is written",
+            "arid: only calls <call> (<reason>)",
+            "arid: only feeds <call> (<reason>)"
+          ],
+          "example": "System.out.println(\"Saved \" + id);"
+        },
+        "mutastic:messages": {
+          "reasons": [
+            "arid: only an exception's message",
+            "arid: only a failed check's message"
+          ],
+          "example": "throw new IllegalArgumentException(\"amount must be positive\");"
+        },
+        "mutastic:failed-asserts": {
+          "reasons": [
+            "arid: only says an assert failed"
+          ],
+          "example": "assert total >= 0 : \"negative total\";"
+        },
+        "mutastic:capacity": {
+          "reasons": [
+            "arid: only sizes a collection's first allocation",
+            "arid: only sets when a hash table grows"
+          ],
+          "example": "new ArrayList<>(orders.size() * 2)"
+        },
+        "mutastic:wait-times": {
+          "reasons": [
+            "arid: only sets how long to wait"
+          ],
+          "example": "Thread.sleep(seconds * 1000L);"
+        },
+        "mutastic:waits": {
+          "reasons": [
+            "arid: only waits"
+          ],
+          "example": "Thread.sleep(100);"
+        },
+        "mutastic:null-checks": {
+          "reasons": [
+            "arid: only checks the value isn't null"
+          ],
+          "example": "Objects.requireNonNull(order);"
+        },
+        "mutastic:array-sizes": {
+          "reasons": [
+            "arid: only sizes an array"
+          ],
+          "example": "byte[] buffer = new byte[8192];"
+        },
+        "mutastic:split-limits": {
+          "reasons": [
+            "arid: only limits a split"
+          ],
+          "example": "line.split(\",\", 2)"
+        },
+        "mutastic:thread-names": {
+          "reasons": [
+            "arid: only names a thread"
+          ],
+          "example": "thread.setName(\"background-task\");"
+        },
+        "mutastic:thread-priorities": {
+          "reasons": [
+            "arid: only sets a priority hint"
+          ],
+          "example": "thread.setPriority(Thread.MAX_PRIORITY);"
+        },
+        "mutastic:keep-alive": {
+          "reasons": [
+            "arid: only sets how long idle threads live"
+          ],
+          "example": "pool.setKeepAliveTime(30, TimeUnit.SECONDS);"
+        },
+        "mutastic:stack-sizes": {
+          "reasons": [
+            "arid: only sizes a thread's stack"
+          ],
+          "example": "Thread.ofPlatform().stackSize(1 << 20).unstarted(task);"
+        },
+        "mutastic:gatherer-sizes": {
+          "reasons": [
+            "arid: only sets how many run at once"
+          ],
+          "example": "items.stream().gather(Gatherers.mapConcurrent(4, this::price)).toList();"
+        }
+      },
+      "twins": [
+        "A for-each loop's test over an array, whose index javac counts up from 0 by one: `<` made `<=` and the test always true; `<` made `>=` and `!=`; the test always false and `<` made `>`.",
+        "A comparison returned as it is, `return a > b;`: the test always true and `return true`; always false and `return false`."
+      ],
+      "says": {
+        "N1": "`[:MODULE]` after DIR, a Gradle or Maven module",
+        "N8": "Gradle `-Pmutastic.*` and Maven `-Dmutastic.*` properties and plugin goals",
+        "N10": "a build, and :MODULE",
+        "N12": "`Classes`",
+        "N14": "`Tests  3 on JDK 17`",
+        "N15": "under build/mutastic; worker.log",
+        "N16": "`Pricing.discount()`",
+        "N17": "`= bytecode` and the instruction site",
+        "N18": "a test class with its annotations, and test ids as `PricingTest#bigOrders`",
+        "N19": "`test to add in PricingTest:`, with Java code",
+        "N22": "`bytecode`",
+        "N23": "JVM names",
+        "N24": "an exception class",
+        "N25": "the exception chain",
+        "N26": "`meanings` and `note`",
+        "N27": "`projectRoot` is the module",
+        "N28": "the exception class",
+        "N32": "the JVM test's failure, and a Gradle or Maven command",
+        "N33": "gradlew, gradle, mvnw, mvn, tail",
+        "N35": "`com.x.**`, `Class#method`",
+        "N40": "a JVM name",
+        "N41": "by class and method",
+        "N42": "build/mutastic",
+        "N43": "`disabled`",
+        "N44": "assert, expect, should or verify(",
+        "N45": "swaps `compareTo`'s operands and leaves out `reversed()` and `reverseOrder`",
+        "N46": "swaps `getFirst`, `peekFirst`, `pollFirst`, `first`, `firstKey` and `firstEntry` with their last",
+        "N47": "makes `Math.floorDiv` and `floorMod` `/` and `%`, skipping a JDK length or count by a constant that isn't negative",
+        "N48": "an argument, a field or a local `boolean`, outside constructors, skipping a variable nothing reads",
+        "N51": "a test that ends the tests' JVM, a coverage pass past its 10 minutes, test classes that declare tests, none of which ran on the JUnit Platform",
+        "N50": "a class, `Class#method` or `Class#method(types)`",
+        "A6": "`a size`",
+        "G39": "has `omit last argument`; `ARGS` are the JVM's parameter types",
+        "N90": "by its entry point's class on the test classpath",
+        "N91": "as system properties of each test JVM (`-Dproptastic.seed=0x0`)",
+        "N92": "the test task's `proptastic.seed`, and one proptastic can't read gives way to the run's",
+        "N93": "only from its `PropertyFailure` or a cause"
+      }
+    },
+    "rust": {
+      "name": "Rust",
+      "repository": "https://github.com/mutastic/mutastic-rs",
+      "contract": {
+        "reads": "pin",
+        "pins": "contract/pins"
+      },
+      "selector": {
+        "unit": "a Cargo package, a workspace member's directory",
+        "difference": "N1"
+      },
+      "buildTools": [
+        "Cargo"
+      ],
+      "sources": {
+        "languages": [
+          "Rust"
+        ],
+        "extensions": [
+          "rs"
+        ]
+      },
+      "testLibraries": [
+        "libtest: `#[test]` and the attributes that expand to it (`#[tokio::test]`, `#[rstest]`, `#[test_case(..)]`); doc tests don't run"
+      ],
+      "fixture": "fixtures/pricing",
+      "captures": "docs/output",
+      "masks": {
+        "toolchain": "rustc [\\d.]+",
+        "work": "target/mutastic",
+        "unit": "Files",
+        "level": "change",
+        "tests": "mod tests",
+        "failed": "panicked",
+        "function": "function",
+        "code": [
+          "#[test]",
+          "fn ",
+          "pub ",
+          "let ",
+          "use ",
+          "mod ",
+          "#[cfg"
+        ]
+      },
+      "errorNames": {
+        "no-build-tool": "no-cargo",
+        "build-root": "workspace-root"
+      },
+      "arid": {
+        "mutastic:debug-representations": {
+          "reasons": [
+            "arid: `Debug::fmt` is a debug representation",
+            "arid: `Hash::hash` may give any value consistent with `Eq`"
+          ],
+          "example": "impl fmt::Debug for Order { fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { f.write_str(\"Order\") } }"
+        },
+        "mutastic:output": {
+          "reasons": [
+            "arid: only writes output",
+            "arid: only feeds a log line",
+            "arid: only decides whether output is written",
+            "arid: only calls <call> (<reason>)"
+          ],
+          "example": "println!(\"saved {id}\");"
+        },
+        "mutastic:messages": {
+          "reasons": [
+            "arid: only an error's message",
+            "arid: only a failed check's message"
+          ],
+          "example": "let order = order.expect(\"an order to ship\");"
+        },
+        "mutastic:capacity": {
+          "reasons": [
+            "arid: only sizes a collection's first allocation"
+          ],
+          "example": "let mut names = Vec::with_capacity(orders.len() * 2);"
+        },
+        "mutastic:wait-times": {
+          "reasons": [
+            "arid: only sets how long to wait"
+          ],
+          "example": "std::thread::sleep(Duration::from_millis(attempt * 100));"
+        },
+        "mutastic:waits": {
+          "reasons": [
+            "arid: only waits"
+          ],
+          "example": "std::thread::sleep(pause);"
+        },
+        "mutastic:null-checks": {
+          "reasons": [
+            "arid: only checks the value is there"
+          ],
+          "example": "order.unwrap();"
+        },
+        "mutastic:thread-names": {
+          "reasons": [
+            "arid: only names a thread"
+          ],
+          "example": "let builder = thread::Builder::new().name(\"squarer\".into());"
+        },
+        "mutastic:keep-alive": {
+          "reasons": [
+            "arid: only sets how long idle threads live"
+          ],
+          "example": "let runtime = Builder::new_multi_thread().thread_keep_alive(Duration::from_secs(5 * 60));"
+        },
+        "mutastic:stack-sizes": {
+          "reasons": [
+            "arid: only sizes a thread's stack"
+          ],
+          "example": "let builder = thread::Builder::new().stack_size(64 * 1024);"
+        }
+      },
+      "twins": [
+        "The same code: a returned comparison, `n > 0` as a function's last expression, made `true` or `false` by mutastic/return-value and by mutastic/remove-conditional.",
+        "A comparison of a value the code proves unsigned with 0: changes that agree for 0 and above, `n > 0` made `n >= 0` and always true, `n != 0` made `n < 0` and always false."
+      ],
+      "says": {
+        "N1": "DIR itself, a Cargo package or a workspace member's directory",
+        "N8": "`cargo mutastic`",
+        "N10": "a package or workspace member",
+        "N12": "`Files`",
+        "N14": "`on rustc 1.94.0`",
+        "N15": "under target/mutastic; tests.log",
+        "N16": "`Pricing::discount()`",
+        "N17": "`= change` and the source site",
+        "N18": "a `mod tests` with its attributes, and test ids as libtest names them",
+        "N19": "`test to add in mod tests:`, with Rust code",
+        "N22": "`source`",
+        "N23": "Rust paths",
+        "N24": "`panic` or `crash: SIGABRT`",
+        "N25": "`[]` with `outside: false`",
+        "N26": "`description`",
+        "N27": "`projectRoot` is the workspace root",
+        "N28": "`panic`",
+        "N32": "libtest's output, and a `cargo test` command",
+        "N33": "cargo, git",
+        "N35": "`crate::mod::**`, `Type::fn`",
+        "N40": "a Rust path",
+        "N41": "by function path",
+        "N42": "target/mutastic, honouring CARGO_TARGET_DIR",
+        "N43": "`ignored`",
+        "N44": "assert, but not debug_assert",
+        "N45": "swaps `cmp`'s and `partial_cmp`'s operands and leaves out an ordering's `.reverse()`",
+        "N46": "swaps `first`, `front`, `first_key_value`, `first_entry` and `pop_first` with theirs, and leaves an iterator's `last` alone",
+        "N47": "makes `div_euclid` and `rem_euclid` `/` and `%`, skipping an unsigned value",
+        "N48": "an argument, a `let`, an assignment or a struct field's value",
+        "N51": "a test that ends its own test process, a test past its 5 minutes, tests that are all `#[ignore]`d",
+        "N50": "a test, or a module of tests",
+        "A6": "`a length`",
+        "G39": "refuses `omit last argument`; `ARGS` are Rust's, which it reads and doesn't check",
+        "N90": "by the `proptastic` package in Cargo.lock's graph from the package, wrapper crates included",
+        "N91": "as environment variables of each test process (`PROPTASTIC_SEED=0x0`)",
+        "N92": "their `PROPTASTIC_SEED`, inherited as it is, and one proptastic can't read names proptastic unseeded",
+        "N93": "only under its header naming the failing test"
+      }
     }
-  ],
+  },
+  "reference": "java",
   "commands": [
     {
       "name": "run",
@@ -492,18 +849,10 @@
   "errorPairs": [
     {
       "code": "no-build-tool",
-      "names": {
-        "java": "no-build-tool",
-        "rust": "no-cargo"
-      },
       "why": "Decision 12: the same failure under two names; renaming either breaks 1.x. A new edition uses the generic name."
     },
     {
       "code": "build-root",
-      "names": {
-        "java": "module-without-java",
-        "rust": "workspace-root"
-      },
       "why": "Decision 12: mutastic was pointed at a multi-module build's root. Java's code also covers a module with no Java in it; only its root case pairs."
     }
   ],
@@ -1352,339 +1701,88 @@
     "verify": "^mutastic: (?<twin>m[0-9a-f]{8}) is the same as (?<runs>m[0-9a-f]{8}), which (?<fate>.+)$",
     "verifyNote": "`fate` is what `verify` says of the one that runs, after its id; verify passes or fails on that one. Its own line comes too only when it was named.",
     "explain": "^mutastic: (?<twin>m[0-9a-f]{8}) is the same as (?<runs>m[0-9a-f]{8}), which runs for it: what follows is that one's$",
-    "ignore": "^mutastic: (?<twin>m[0-9a-f]{8}) is the same as (?<runs>m[0-9a-f]{8}), which runs for it: the decision is recorded for that one$",
-    "shapes": {
-      "java": [
-        "A for-each loop's test over an array, whose index javac counts up from 0 by one: `<` made `<=` and the test always true; `<` made `>=` and `!=`; the test always false and `<` made `>`.",
-        "A comparison returned as it is, `return a > b;`: the test always true and `return true`; always false and `return false`."
-      ],
-      "rust": [
-        "The same code: a returned comparison, `n > 0` as a function's last expression, made `true` or `false` by mutastic/return-value and by mutastic/remove-conditional.",
-        "A comparison of a value the code proves unsigned with 0: changes that agree for 0 and above, `n > 0` made `n >= 0` and always true, `n != 0` made `n < 0` and always false."
-      ]
-    }
+    "ignore": "^mutastic: (?<twin>m[0-9a-f]{8}) is the same as (?<runs>m[0-9a-f]{8}), which runs for it: the decision is recorded for that one$"
   },
   "arid": [
     {
       "id": "mutastic:trivial-accessors",
-      "editions": [
-        "java"
-      ],
       "scope": "method",
-      "description": "A getter or setter that only reads or writes one of its class's fields.",
-      "reasons": {
-        "java": [
-          "arid: trivial getter of <field>",
-          "arid: trivial setter of <field>"
-        ]
-      },
-      "examples": {
-        "java": "String getName() { return name; }"
-      }
+      "description": "A getter or setter that only reads or writes one of its class's fields."
     },
     {
       "id": "mutastic:debug-representations",
-      "editions": [
-        "java",
-        "rust"
-      ],
       "scope": "method",
-      "description": "`toString()` and `hashCode()`, the lambdas they define and the helpers only they call; in Rust, a `Debug` or a `Hash` impl.",
-      "reasons": {
-        "java": [
-          "arid: `toString()` is a debug representation",
-          "arid: `hashCode()` may return any value consistent with `equals()`",
-          "arid: a lambda in `<method>()`",
-          "arid: `<helper>()` only serves `<method>()`"
-        ],
-        "rust": [
-          "arid: `Debug::fmt` is a debug representation",
-          "arid: `Hash::hash` may give any value consistent with `Eq`"
-        ]
-      },
-      "examples": {
-        "java": "public String toString() { return \"Order \" + id; }",
-        "rust": "impl fmt::Debug for Order { fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { f.write_str(\"Order\") } }"
-      }
+      "description": "`toString()` and `hashCode()`, the lambdas they define and the helpers only they call; in Rust, a `Debug` or a `Hash` impl."
     },
     {
       "id": "mutastic:output",
-      "editions": [
-        "java",
-        "rust"
-      ],
       "scope": "site",
-      "description": "Code that only writes output: a log line, or text printed to the console, and a value worked out for nothing else.",
-      "reasons": {
-        "java": [
-          "arid: only writes output",
-          "arid: only feeds a log line",
-          "arid: only decides whether output is written",
-          "arid: only calls <call> (<reason>)",
-          "arid: only feeds <call> (<reason>)"
-        ],
-        "rust": [
-          "arid: only writes output",
-          "arid: only feeds a log line",
-          "arid: only decides whether output is written",
-          "arid: only calls <call> (<reason>)"
-        ]
-      },
-      "examples": {
-        "java": "System.out.println(\"Saved \" + id);",
-        "rust": "println!(\"saved {id}\");"
-      }
+      "description": "Code that only writes output: a log line, or text printed to the console, and a value worked out for nothing else."
     },
     {
       "id": "mutastic:messages",
-      "editions": [
-        "java",
-        "rust"
-      ],
       "scope": "site",
-      "description": "The text of an exception's or an error's message, or of a failed check's.",
-      "reasons": {
-        "java": [
-          "arid: only an exception's message",
-          "arid: only a failed check's message"
-        ],
-        "rust": [
-          "arid: only an error's message",
-          "arid: only a failed check's message"
-        ]
-      },
-      "examples": {
-        "java": "throw new IllegalArgumentException(\"amount must be positive\");",
-        "rust": "let order = order.expect(\"an order to ship\");"
-      }
+      "description": "The text of an exception's or an error's message, or of a failed check's."
     },
     {
       "id": "mutastic:failed-asserts",
-      "editions": [
-        "java"
-      ],
       "scope": "site",
-      "description": "The `throw` of an `assert` that fails.",
-      "reasons": {
-        "java": [
-          "arid: only says an assert failed"
-        ]
-      },
-      "examples": {
-        "java": "assert total >= 0 : \"negative total\";"
-      }
+      "description": "The `throw` of an `assert` that fails."
     },
     {
       "id": "mutastic:capacity",
-      "editions": [
-        "java",
-        "rust"
-      ],
       "scope": "site",
-      "description": "The room a collection or a buffer starts with or makes, and how full a hash table gets before it grows, while it stays above zero.",
-      "reasons": {
-        "java": [
-          "arid: only sizes a collection's first allocation",
-          "arid: only sets when a hash table grows"
-        ],
-        "rust": [
-          "arid: only sizes a collection's first allocation"
-        ]
-      },
-      "examples": {
-        "java": "new ArrayList<>(orders.size() * 2)",
-        "rust": "let mut names = Vec::with_capacity(orders.len() * 2);"
-      }
+      "description": "The room a collection or a buffer starts with or makes, and how full a hash table gets before it grows, while it stays above zero."
     },
     {
       "id": "mutastic:wait-times",
-      "editions": [
-        "java",
-        "rust"
-      ],
       "scope": "site",
-      "description": "How long a sleep waits, where the time goes only into the sleep. A timeout's, a deadline's or a backoff's stays counted.",
-      "reasons": {
-        "java": [
-          "arid: only sets how long to wait"
-        ],
-        "rust": [
-          "arid: only sets how long to wait"
-        ]
-      },
-      "examples": {
-        "java": "Thread.sleep(seconds * 1000L);",
-        "rust": "std::thread::sleep(Duration::from_millis(attempt * 100));"
-      }
+      "description": "How long a sleep waits, where the time goes only into the sleep. A timeout's, a deadline's or a backoff's stays counted."
     },
     {
       "id": "mutastic:waits",
-      "editions": [
-        "java",
-        "rust"
-      ],
       "scope": "site",
-      "description": "A sleep removed: `Thread.sleep` or `TimeUnit.sleep` in Java, `thread::sleep` or an awaited `sleep` in Rust.",
-      "reasons": {
-        "java": [
-          "arid: only waits"
-        ],
-        "rust": [
-          "arid: only waits"
-        ]
-      },
-      "examples": {
-        "java": "Thread.sleep(100);",
-        "rust": "std::thread::sleep(pause);"
-      }
+      "description": "A sleep removed: `Thread.sleep` or `TimeUnit.sleep` in Java, `thread::sleep` or an awaited `sleep` in Rust."
     },
     {
       "id": "mutastic:null-checks",
-      "editions": [
-        "java",
-        "rust"
-      ],
       "scope": "site",
-      "description": "A call that only checks a value is there, its result unused, removed: `Objects.requireNonNull(x)` or `x.getClass()` in Java, `x.unwrap()` or `x.expect(…)` in Rust.",
-      "reasons": {
-        "java": [
-          "arid: only checks the value isn't null"
-        ],
-        "rust": [
-          "arid: only checks the value is there"
-        ]
-      },
-      "examples": {
-        "java": "Objects.requireNonNull(order);",
-        "rust": "order.unwrap();"
-      }
+      "description": "A call that only checks a value is there, its result unused, removed: `Objects.requireNonNull(x)` or `x.getClass()` in Java, `x.unwrap()` or `x.expect(…)` in Rust."
     },
     {
       "id": "mutastic:array-sizes",
-      "editions": [
-        "java"
-      ],
       "scope": "site",
-      "description": "The size of a new array, written as a number.",
-      "reasons": {
-        "java": [
-          "arid: only sizes an array"
-        ]
-      },
-      "examples": {
-        "java": "byte[] buffer = new byte[8192];"
-      }
+      "description": "The size of a new array, written as a number."
     },
     {
       "id": "mutastic:split-limits",
-      "editions": [
-        "java"
-      ],
       "scope": "site",
-      "description": "The limit of a `String.split`.",
-      "reasons": {
-        "java": [
-          "arid: only limits a split"
-        ]
-      },
-      "examples": {
-        "java": "line.split(\",\", 2)"
-      }
+      "description": "The limit of a `String.split`."
     },
     {
       "id": "mutastic:thread-names",
-      "editions": [
-        "java",
-        "rust"
-      ],
       "scope": "site",
-      "description": "A thread's or a pool's name, which only people and their tools read: a thread dump, a profiler, a log pattern.",
-      "reasons": {
-        "java": [
-          "arid: only names a thread"
-        ],
-        "rust": [
-          "arid: only names a thread"
-        ]
-      },
-      "examples": {
-        "java": "thread.setName(\"background-task\");",
-        "rust": "let builder = thread::Builder::new().name(\"squarer\".into());"
-      }
+      "description": "A thread's or a pool's name, which only people and their tools read: a thread dump, a profiler, a log pattern."
     },
     {
       "id": "mutastic:thread-priorities",
-      "editions": [
-        "java"
-      ],
       "scope": "site",
-      "description": "A thread's priority from 1 to 10: a hint, which Linux ignores by default and a virtual thread always does.",
-      "reasons": {
-        "java": [
-          "arid: only sets a priority hint"
-        ]
-      },
-      "examples": {
-        "java": "thread.setPriority(Thread.MAX_PRIORITY);"
-      }
+      "description": "A thread's priority from 1 to 10: a hint, which Linux ignores by default and a virtual thread always does."
     },
     {
       "id": "mutastic:keep-alive",
-      "editions": [
-        "java",
-        "rust"
-      ],
       "scope": "site",
-      "description": "How long a pool's idle threads live before they stop, while it stays above zero.",
-      "reasons": {
-        "java": [
-          "arid: only sets how long idle threads live"
-        ],
-        "rust": [
-          "arid: only sets how long idle threads live"
-        ]
-      },
-      "examples": {
-        "java": "pool.setKeepAliveTime(30, TimeUnit.SECONDS);",
-        "rust": "let runtime = Builder::new_multi_thread().thread_keep_alive(Duration::from_secs(5 * 60));"
-      }
+      "description": "How long a pool's idle threads live before they stop, while it stays above zero."
     },
     {
       "id": "mutastic:stack-sizes",
-      "editions": [
-        "java",
-        "rust"
-      ],
       "scope": "site",
-      "description": "The size of a thread's stack, while it stays above zero.",
-      "reasons": {
-        "java": [
-          "arid: only sizes a thread's stack"
-        ],
-        "rust": [
-          "arid: only sizes a thread's stack"
-        ]
-      },
-      "examples": {
-        "java": "Thread.ofPlatform().stackSize(1 << 20).unstarted(task);",
-        "rust": "let builder = thread::Builder::new().stack_size(64 * 1024);"
-      }
+      "description": "The size of a thread's stack, while it stays above zero."
     },
     {
       "id": "mutastic:gatherer-sizes",
-      "editions": [
-        "java"
-      ],
       "scope": "site",
-      "description": "How many calls `Gatherers.mapConcurrent` runs at once, while it stays above zero.",
-      "reasons": {
-        "java": [
-          "arid: only sets how many run at once"
-        ]
-      },
-      "examples": {
-        "java": "items.stream().gather(Gatherers.mapConcurrent(4, this::price)).toList();"
-      }
+      "description": "How many calls `Gatherers.mapConcurrent` runs at once, while it stays above zero."
     }
   ],
   "decisions": [
@@ -1734,7 +1832,7 @@
     },
     {
       "id": 12,
-      "rule": "Codes that mean the same thing are listed as pairs (`errorPairs`); a new edition uses the generic name."
+      "rule": "Codes that mean the same thing are listed as pairs (`errorPairs`), each edition's name for one in its `errorNames`; a new edition uses the generic name."
     },
     {
       "id": 13,
@@ -1820,20 +1918,18 @@
   "differences": [
     {
       "id": "N1",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "each": true,
       "surface": "command line",
-      "summary": "Java's `[:MODULE]` argument; Rust's DIR is a workspace member",
-      "reason": "Gradle and Maven name modules; Cargo uses directories. The slot is in `engineSlots`."
+      "summary": "The target selector: how a run names one unit of a build of several",
+      "reason": "Gradle and Maven name modules; Cargo uses directories. The synopsis slot is in each edition's `selector`."
     },
     {
       "id": "N2",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "command line",
       "summary": "`--tests-from=MODULE`",
       "reason": "Other modules' tests run in separate JVM passes; Cargo runs a package's own tests.",
@@ -1844,10 +1940,11 @@
     },
     {
       "id": "N3",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "command line",
       "summary": "`--suite`",
       "reason": "Gradle Test tasks and Failsafe.",
@@ -1858,10 +1955,11 @@
     },
     {
       "id": "N4",
-      "kind": "engine",
-      "editions": [
-        "rust"
-      ],
+      "editions": {
+        "rust": {
+          "kind": "engine"
+        }
+      },
       "surface": "command line",
       "summary": "`--unsafe=skip|enclosing|all`",
       "reason": "Rust's unsafe code.",
@@ -1872,10 +1970,11 @@
     },
     {
       "id": "N5",
-      "kind": "engine",
-      "editions": [
-        "rust"
-      ],
+      "editions": {
+        "rust": {
+          "kind": "engine"
+        }
+      },
       "surface": "command line",
       "summary": "`--edition=rust|java`",
       "reason": "Rust's binary is the native front door that routes by build file: it belongs to the front door, not an engine.",
@@ -1886,20 +1985,22 @@
     },
     {
       "id": "N6",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "command line",
       "summary": "`--report=xml`",
       "reason": "PIT-style XML for readers that key on JVM mutator names."
     },
     {
       "id": "N7",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "command line",
       "summary": "`--experimental=ghosts`",
       "reason": "Ghosts are built on JVM call sites. The option's shape becomes shared once another edition has an experiment.",
@@ -1910,42 +2011,36 @@
     },
     {
       "id": "N8",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "command line",
-      "summary": "Gradle `-Pmutastic.*` and Maven `-Dmutastic.*` properties and plugin goals; `cargo mutastic`",
+      "summary": "The build tool's own way in: its properties and tasks",
       "reason": "Build-tool integration."
     },
     {
       "id": "N9",
-      "kind": "engine",
-      "editions": [
-        "rust"
-      ],
+      "editions": {
+        "rust": {
+          "kind": "engine"
+        }
+      },
       "surface": "command line",
       "summary": "`--version` prints three lines: front door, Rust edition, Java edition",
       "reason": "The front door."
     },
     {
       "id": "N10",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "help",
-      "summary": "The detail's sentence on what DIR is (a build and :MODULE; a package or workspace member)",
+      "summary": "The detail's sentence on what DIR is",
       "reason": "The project unit."
     },
     {
       "id": "N11",
-      "kind": "engine",
-      "editions": [
-        "rust"
-      ],
+      "editions": {
+        "rust": {
+          "kind": "engine"
+        }
+      },
       "surface": "configuration",
       "summary": "Environment: CARGO, RUSTC, MUTASTIC_VERSION, MUTASTIC_HOME, MUTASTIC_JAVA_ENGINE, MUTASTIC_JAVA_RELEASES, MUTASTIC_STDERR_TTY, MUTASTIC_COLUMNS, JAVA_HOME",
       "reason": "Toolchain, plus the front door's JDK fetch.",
@@ -1963,100 +2058,81 @@
     },
     {
       "id": "N12",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "human output",
-      "summary": "The summary's unit row: `Classes` or `Files`",
+      "summary": "The summary's unit row",
       "reason": "The unit of code. The contract pins the row's place (`@unit`), not its word."
     },
     {
       "id": "N13",
-      "kind": "engine",
-      "editions": [
-        "rust"
-      ],
+      "editions": {
+        "rust": {
+          "kind": "engine"
+        }
+      },
       "surface": "human output",
       "summary": "The summary's `Build` row",
       "reason": "A source-schemata engine builds every mutant at once; a Swift edition would have it too. The row is optional in the contract."
     },
     {
       "id": "N14",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "human output",
-      "summary": "`Tests  3 on JDK 17` or `on rustc 1.94.0`",
+      "summary": "The toolchain in the summary's `Tests` row",
       "reason": "Toolchain."
     },
     {
       "id": "N15",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "human output",
-      "summary": "`Reports` under build/mutastic or target/mutastic; worker.log or tests.log",
+      "summary": "`Reports`: the work directory and the log beside the reports",
       "reason": "Each build tool's output directory."
     },
     {
       "id": "N16",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "human output",
-      "summary": "`Pricing.discount()` or `Pricing::discount()`",
+      "summary": "How a function is named",
       "reason": "Language path syntax."
     },
     {
       "id": "N17",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "human output",
-      "summary": "explain's `= bytecode` and instruction site, or `= change` and source site",
-      "reason": "The mutation level (`mutation.applied.level`)."
+      "summary": "explain's level line and site",
+      "reason": "The mutation level (`mutation.applied.level`).",
+      "items": [
+        "capture:explain"
+      ]
     },
     {
       "id": "N18",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "human output",
       "summary": "The suggested test's class and annotations, and test ids",
       "reason": "Language and test framework."
     },
     {
       "id": "N19",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "agent format",
-      "summary": "`test to add in PricingTest:` or `in mod tests:`, with code in the language",
+      "summary": "The agent format's test-to-add line, with code in the language",
       "reason": "Language. The contract masks the test's code lines."
     },
     {
       "id": "N21",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine",
+          "does": "`jdk` on run-finished (legacy)"
+        },
+        "rust": {
+          "kind": "engine",
+          "does": "`profile{…}` and `unsafe` on run-started, `location.column` on mutant-finished, and `build{…}`, `notMutated{…}` and `runtimeError` on run-finished"
+        }
+      },
       "surface": "events",
-      "summary": "Java's `jdk` (legacy); Rust's `profile{…}`, `unsafe`, `location.column`, `build{…}`, `notMutated{…}`, `runtimeError`",
+      "summary": "Event keys of an edition's own",
       "reason": "Toolchain and engine concepts.",
       "items": [
         "event:run-finished:jdk",
@@ -2070,388 +2146,319 @@
     },
     {
       "id": "N22",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "events",
-      "summary": "`mutation.applied.level`: bytecode or source",
+      "summary": "`mutation.applied.level`",
       "reason": "Decided 9 Nov: an open string."
     },
     {
       "id": "N23",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "events",
-      "summary": "`location.class` and `method`: JVM names or Rust paths",
+      "summary": "`location.class` and `method`",
       "reason": "JVM names against Rust paths."
     },
     {
       "id": "N24",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "events",
-      "summary": "`caughtWith`: an exception class, or `panic` or `crash: SIGABRT`; `exit: 2` in both",
+      "summary": "`caughtWith`; `exit: 2` in every edition",
       "reason": "How a test fails."
     },
     {
       "id": "N25",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "events",
-      "summary": "`flakyEvidence.failure`: the exception chain, or `[]` with `outside: false`",
+      "summary": "`flakyEvidence.failure`",
       "reason": "A panic has no chain."
     },
     {
       "id": "N26",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "events",
-      "summary": "`mutant-explained.applied`: `meanings` and `note`, or `description`",
+      "summary": "`mutant-explained.applied`",
       "reason": "The level's own explanation."
     },
     {
       "id": "N27",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "reports",
-      "summary": "mutation.json `language` and `projectRoot` (the module or the workspace root)",
+      "summary": "mutation.json `language` and `projectRoot`",
       "reason": "Project unit."
     },
     {
       "id": "N28",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "reports",
-      "summary": "Killed `statusReason`: the exception class or `panic`",
+      "summary": "Killed `statusReason`",
       "reason": "As N24."
     },
     {
       "id": "N29",
-      "kind": "engine",
-      "editions": [
-        "rust"
-      ],
+      "editions": {
+        "rust": {
+          "kind": "engine"
+        }
+      },
       "surface": "reports",
       "summary": "`location` and SARIF `endLine` can span lines",
       "reason": "Source claims."
     },
     {
       "id": "N30",
-      "kind": "engine",
-      "editions": [
-        "rust"
-      ],
+      "editions": {
+        "rust": {
+          "kind": "engine"
+        }
+      },
       "surface": "reports",
       "summary": "The `RuntimeError` status",
       "reason": "A crash that proves nothing is a Rust (and Swift) concept."
     },
     {
       "id": "N31",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine",
+          "does": "`module-missing`, `module-without-java`, `unknown-suite`, `build-jdk`"
+        },
+        "rust": {
+          "kind": "engine",
+          "does": "`no-cargo`, `workspace-root`, `proc-macro`, `copy-build-failed`, `java-edition`, `both-editions`"
+        }
+      },
       "surface": "errors",
-      "summary": "Codes `module-missing`, `module-without-java`, `unknown-suite`, `build-jdk` (Java); `no-cargo`, `workspace-root`, `proc-macro`, `copy-build-failed`, `java-edition`, `both-editions` (Rust)",
-      "reason": "Build tool and test runner. See `errorPairs` for the codes that pair."
+      "summary": "Error codes of an edition's own",
+      "reason": "Build tool and test runner. See `errorPairs`, and each edition's `errorNames`, for the codes that pair."
     },
     {
       "id": "N32",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "errors",
       "summary": "A red baseline's failure text and the command to run the test",
       "reason": "How a test fails, and the build tool's command."
     },
     {
       "id": "N33",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "errors",
-      "summary": "Commands counted as help: gradlew, gradle, mvnw, mvn, tail; or cargo, git",
+      "summary": "Commands counted as help",
       "reason": "Build tool."
     },
     {
       "id": "N34",
-      "kind": "dated",
-      "editions": [
-        "rust"
-      ],
+      "editions": {
+        "rust": {
+          "kind": "dated",
+          "until": "2.0.0"
+        }
+      },
       "surface": "exit codes",
       "summary": "Exit 4: Rust exits 2 for every other failure",
       "reason": "2 for every failure in Rust 1.x but the tests failing without any mutant, which exit 3 from 1.3.0 as in Java, so a way past a failing test is told from a usage error; the rest moves to Java's 2/4 at 2.0 (decision 2).",
-      "until": "rust 2.0.0",
       "items": [
         "exit:4"
       ]
     },
     {
       "id": "N35",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "configuration",
-      "summary": "Patterns `com.x.**`, `Class#method`, or `crate::mod::**`, `Type::fn`",
+      "summary": "Patterns that name code",
       "reason": "Language paths."
     },
     {
       "id": "N36",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine",
+          "does": "reads `descriptors` and `since`"
+        },
+        "rust": {
+          "kind": "engine",
+          "does": "doesn't check `owners`"
+        }
+      },
       "surface": "configuration",
-      "summary": "Rules files' `descriptors` and `since`; Rust doesn't check `owners`",
+      "summary": "A rules file's `descriptors`, `since` and `owners`",
       "reason": "JVM types."
     },
     {
       "id": "N37",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "configuration",
       "summary": "Gradle and Maven settings",
       "reason": "Build tool."
     },
     {
       "id": "N38",
-      "kind": "engine",
-      "editions": [
-        "rust"
-      ],
+      "editions": {
+        "rust": {
+          "kind": "engine"
+        }
+      },
       "surface": "configuration",
       "summary": "Toolchain variables: CARGO_BUILD_TARGET, RUSTFLAGS, CARGO_TERM_PROGRESS_TERM_INTEGRATION",
       "reason": "Toolchain."
     },
     {
       "id": "N39",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "configuration",
       "summary": "`@DoNotMutate` and Checker Framework annotations",
       "reason": "Language annotations."
     },
     {
       "id": "N40",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "files",
-      "summary": "`at:` in ignores.yaml: a JVM name or a Rust path",
+      "summary": "`at:` in ignores.yaml",
       "reason": "Language paths."
     },
     {
       "id": "N41",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "files",
-      "summary": "baseline.yaml's order: by class and method, or by function path",
+      "summary": "baseline.yaml's order",
       "reason": "As N40."
     },
     {
       "id": "N42",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "files",
-      "summary": "The work directory: build/mutastic or target/mutastic (honouring CARGO_TARGET_DIR)",
+      "summary": "The work directory",
       "reason": "Build tool."
     },
     {
       "id": "N43",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "gate",
-      "summary": "The fewer-tests block says `disabled` or `ignored`",
+      "summary": "The fewer-tests block's word for a test turned off",
       "reason": "`@Disabled` against `#[ignore]`."
     },
     {
       "id": "N44",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "gate",
-      "summary": "A removed expectation is found by assert, expect, should or verify(, or by assert but not debug_assert",
+      "summary": "What finds a removed expectation",
       "reason": "Assertion idioms."
     },
     {
       "id": "N45",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "operators",
-      "summary": "`library/reverse-ordering` swaps `compareTo`'s operands and leaves out `reversed()` and `reverseOrder`; or swaps `cmp`'s and `partial_cmp`'s and leaves out an ordering's `.reverse()`",
+      "summary": "`library/reverse-ordering`'s calls",
       "reason": "Each language's ways of ordering."
     },
     {
       "id": "N46",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "operators",
-      "summary": "`library/swap-ends` swaps `getFirst`, `peekFirst`, `pollFirst`, `first`, `firstKey` and `firstEntry` with their last; or `first`, `front`, `first_key_value`, `first_entry` and `pop_first` with theirs, and leaves an iterator's `last` alone",
+      "summary": "`library/swap-ends`'s calls",
       "reason": "Each language's collections."
     },
     {
       "id": "N47",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "operators",
-      "summary": "`library/plain-division` makes `Math.floorDiv` and `floorMod` `/` and `%`, skipping a JDK length or count by a constant that isn't negative; or `div_euclid` and `rem_euclid`, skipping an unsigned value",
+      "summary": "`library/plain-division`'s calls, and what it skips",
       "reason": "Each language's rounding-down division, and what each can prove isn't negative."
     },
     {
       "id": "N48",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "operators",
-      "summary": "`mutastic/boolean-constant` changes an argument, a field or a local `boolean`, outside constructors, skipping a variable nothing reads; or an argument, a `let`, an assignment or a struct field's value",
+      "summary": "Where `mutastic/boolean-constant` changes a value",
       "reason": "What the bytecode or the syntax shows of where a value goes."
     },
     {
       "id": "N49",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "human output",
       "summary": "A `note` line after `coverage`, and the cause in `nothing-covered`, for each test class that runs a `main` class in a JVM of its own",
       "reason": "A JVM a test starts loads the classes as built, so neither the worker's mutants nor its coverage reach it. A Rust binary a test runs has every mutant built in and takes the one to run, and where to record coverage, from the environment the test process passes on."
     },
     {
       "id": "N88",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "errors",
       "summary": "A refusal, code `other`, naming the classes with mutants that were compiled without line numbers (`-g:none`), and how to compile them with",
       "reason": "Java's coverage is recorded by the class file's line numbers, which javac can leave out, and without them every mutant would read as reached by no test. rustc's spans are always there, so the Rust edition always knows a mutant's line."
     },
     {
       "id": "N51",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "errors",
-      "summary": "What raises `tests-stopped`, `tests-timed-out` and `no-tests`: a test that ends the tests' JVM, a coverage pass past its 10 minutes, test classes that declare tests, none of which ran on the JUnit Platform (Java); a test that ends its own test process, a test past its 5 minutes, tests that are all `#[ignore]`d (Rust)",
+      "summary": "What raises `tests-stopped`, `tests-timed-out` and `no-tests`",
       "reason": "Test runner: Java's tests share a JVM, and Rust runs each test in a process of its own, as `cargo test` lists them."
     },
     {
       "id": "N50",
-      "kind": "engine",
-      "editions": [
-        "rust"
-      ],
+      "each": true,
       "surface": "command line",
-      "summary": "`--exclude-tests=TEST` and `exclude-tests:` take a class, `Class#method` or `Class#method(types)` in Java, a test or a module of tests in Rust",
+      "summary": "What `--exclude-tests=TEST` and `exclude-tests:` take",
       "reason": "Java leaves out a test class, by its name or full name, or one method of it, `PricingTest#bigOrders`, with every overload and row, or one overload by its parameter types, `PricingTest#bigOrders(Cart, int)`, as a run names a test. Rust has no test classes or overloads: it leaves out a test by its name as libtest lists it, or a module of tests by its path.",
       "decision": 28
     },
     {
       "id": "A6",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "gate",
-      "summary": "The reason template's word: `a size` or `a length`",
+      "summary": "The reason template's word for a count",
       "reason": "Each language's own word."
     },
     {
       "id": "G22",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "events",
       "summary": "`MUTASTIC_EVENTS`: a file a run writes its live events to, every second, for the Gradle plugin",
       "reason": "The Gradle plugin reads the run's live events from this file to draw its own progress line. `cargo mutastic` runs the binary itself, which draws its own."
     },
     {
       "id": "G38",
-      "kind": "engine",
-      "editions": [
-        "rust"
-      ],
+      "editions": {
+        "rust": {
+          "kind": "engine"
+        }
+      },
       "surface": "configuration",
       "summary": "No compiled plugins: mutastic.yaml's `filters:` errors",
       "reason": "A compiled plugin is a class the JVM loads beside the engine. A Rust binary has no such loader, so the Rust edition takes call operators from a rules file; a WebAssembly host for plugins may follow."
     },
     {
       "id": "G39",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "each": true,
       "surface": "configuration",
-      "summary": "A rules file's `omit last argument` rewrite; a `call` rewrite's `ARGS` are the JVM's parameter types, or Rust's, which Rust reads and doesn't check",
+      "summary": "A rules file's `omit last argument` rewrite, and a `call` rewrite's `ARGS`",
       "reason": "`omit last argument` calls a method's shorter overload, and a Rust method has one count of arguments, so the shorter call never compiles: Rust refuses the rewrite and says so. A `call` rewrite finds its method by the JVM's descriptor; Rust reads source without types, so it matches by name, as it does `owners` (N36)."
     },
     {
       "id": "G43",
-      "kind": "engine",
-      "editions": [
-        "rust"
-      ],
+      "editions": {
+        "rust": {
+          "kind": "engine"
+        }
+      },
       "surface": "configuration",
       "summary": "`MUTASTIC_INCREMENTAL`: Cargo's incremental compilation for the mutants' build",
       "reason": "Cargo's `CARGO_INCREMENTAL` for the mutants' build; Gradle and Maven keep their own build caches.",
@@ -2461,10 +2468,11 @@
     },
     {
       "id": "R1",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "command line",
       "summary": "`--report=xml`: Java writes `mutations.xml`",
       "reason": "`mutations.xml` is the format the JVM's build-server and code-quality plugins read; no Rust tool reads it.",
@@ -2474,118 +2482,218 @@
     },
     {
       "id": "K3",
-      "kind": "engine",
-      "editions": [
-        "rust"
-      ],
+      "editions": {
+        "rust": {
+          "kind": "engine"
+        }
+      },
       "surface": "human output",
       "summary": "Rust's `Left out` row, after Reports, names the code it doesn't mutate: unsafe, and what a `cfg` leaves out of the build",
       "reason": "Rust doesn't mutate unsafe code unless `--unsafe` says to, nor code a `cfg` leaves out of the build: the row names both. Java has no such code. In both, the row starts with the tests `--exclude-tests` leaves out."
     },
     {
       "id": "N75",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "operators",
       "summary": "`stream/swap-window`, in extended: Java 24's `Gatherers.windowFixed` and `windowSliding` swap",
       "reason": "Gatherers are Java's. Rust's nearest pair, a slice's `chunks` and `windows`, is a method of a slice rather than a stage of an iterator: an operator of its own for the Rust edition to decide on."
     },
     {
       "id": "N76",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "operators",
       "summary": "`stream/swap-fold-scan`, in extended: Java 24's `Gatherers.fold` and `scan` swap",
       "reason": "Gatherers are Java's. Rust's `Iterator::fold` and `scan` take different closures (`scan`'s holds its state by reference and gives an `Option`), and `fold` ends the chain, so neither can become the other."
     },
     {
       "id": "N77",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "operators",
       "summary": "The arid rule `mutastic:gatherer-sizes`: `Gatherers.mapConcurrent`'s number of calls at once, while it stays above zero",
       "reason": "Java's `mapConcurrent` runs its calls on virtual threads and keeps their order, so how many run at once changes only how long they take. Rust has no gatherers, so nothing to skip."
     },
     {
       "id": "N89",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "human output",
       "summary": "`mutants` leaves out, and doesn't count, the mutants a run skips as generated: classes marked `@Generated` (Micronaut's `$Bean$Definition`), and code javac, kotlinc or Lombok wrote",
       "reason": "The Java edition reads class files, which hold what tools wrote beside the code's own, and a run skips it by what the class file says. The Rust edition reads the source a person wrote."
     },
     {
       "id": "N80",
-      "kind": "pending",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "pending",
+          "does": "not yet: a mutant's limit comes from its covering tests' summed coverage time, and mutastic.yaml has no `timeout-ceiling:`",
+          "issue": "https://github.com/mutastic/mutastic/issues/207",
+          "target": "1.5.0"
+        }
+      },
       "surface": "configuration",
-      "summary": "mutastic.yaml's `timeout-ceiling:` and a mutant's limit taken from each covering test's own time, side by side, not their summed coverage time: the Rust edition has them first",
-      "issue": "https://github.com/mutastic/mutastic/issues/207",
+      "summary": "mutastic.yaml's `timeout-ceiling:`, and a mutant's limit taken from each covering test's own time, side by side, not their summed coverage time",
       "decision": 26
     },
     {
       "id": "N83",
-      "kind": "engine",
-      "editions": [
-        "java"
-      ],
+      "editions": {
+        "java": {
+          "kind": "engine"
+        }
+      },
       "surface": "events",
       "summary": "`duplicateClassBy`: a test that failed only on a class defined twice, which isn't a catch (decision 30)",
       "reason": "The Java edition runs each mutant's tests in class loaders of its own, so a library can define a class twice there. Rust's tests have no class loaders, so nothing fails that way."
     },
     {
       "id": "N90",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "events",
-      "summary": "proptastic found by its entry point's class on the test classpath (Java); by the `proptastic` package in Cargo.lock's graph from the package, wrapper crates included (Rust)",
+      "summary": "How proptastic is found",
       "reason": "A JVM loads a class from wherever the classpath has it, so the class is there whatever its jar is called, shaded or renamed; Cargo resolves a crate by its package, and a crate that wraps proptastic links it all the same."
     },
     {
       "id": "N91",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "configuration",
-      "summary": "proptastic's settings as system properties of each test JVM (`-Dproptastic.seed=0x0`); as environment variables of each test process (`PROPTASTIC_SEED=0x0`)",
+      "summary": "How proptastic's settings reach the tests",
       "reason": "Java's proptastic reads its system properties first, and its `proptastic.seed` beats `PROPTASTIC_SEED`; a libtest process has only its environment."
     },
     {
       "id": "N92",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "configuration",
-      "summary": "The person's proptastic seed is the test task's `proptastic.seed`, and one proptastic can't read gives way to the run's (Java); their `PROPTASTIC_SEED`, inherited as it is, and one proptastic can't read names proptastic unseeded (Rust)",
+      "summary": "The person's own proptastic seed",
       "reason": "The Java edition reads the build's test settings, and the system property it gives every JVM beats both a bad one of the person's and any `PROPTASTIC_SEED`; the Rust edition leaves the environment as the person set it, as it does `PROPTEST_RNG_SEED`, and proptastic's own error then fails the tests with no mutant in."
     },
     {
       "id": "N93",
-      "kind": "engine",
-      "editions": [
-        "java",
-        "rust"
-      ],
+      "each": true,
       "surface": "events",
-      "summary": "proptastic's counterexample read only from its `PropertyFailure` or a cause (Java); only under its header naming the failing test (Rust)",
+      "summary": "Where proptastic's counterexample is read",
       "reason": "A JVM test's failure is an exception, with a class; libtest gives a failing test's output as text, where a test's own message could say `counterexample:` too."
+    },
+    {
+      "id": "C1",
+      "editions": {
+        "rust": {
+          "kind": "engine"
+        }
+      },
+      "surface": "errors",
+      "summary": "A red baseline says mutastic runs each test alone, and that a test that passes with the others but fails alone leans on one of them",
+      "reason": "Rust runs each test in a process of its own, as `cargo test` lists them, so a test can fail alone that passes with the others; Java's tests share a JVM.",
+      "items": [
+        "capture:test-first-red",
+        "capture:test-first-refactor-red-100",
+        "capture:test-first-refactor-red-250"
+      ]
+    },
+    {
+      "id": "C2",
+      "editions": {
+        "rust": {
+          "kind": "pending",
+          "does": "types `rnu`, `clasic`, `rulez:` and a missing directory under another parent",
+          "issue": "https://github.com/mutastic/mutastic-rs/issues/196",
+          "target": "1.5.0"
+        }
+      },
+      "surface": "docs",
+      "summary": "The docs' error captures type the mistakes the contract's errorCases type: `verfiy`, `agnt`, `strem`, `nosuch`",
+      "reason": "Not a difference in what the editions do: the Rust docs' captures were typed with other mistakes, so their lines can't be compared.",
+      "items": [
+        "capture:errors-unknown-command",
+        "capture:errors-option-value",
+        "capture:errors-no-directory",
+        "capture:errors-config"
+      ]
+    },
+    {
+      "id": "C3",
+      "editions": {
+        "rust": {
+          "kind": "pending",
+          "does": "names every covering test",
+          "issue": "https://github.com/mutastic/mutastic-rs/issues/196",
+          "target": "1.5.0"
+        }
+      },
+      "surface": "human output",
+      "summary": "`covered by` names three covering tests and says how many more",
+      "reason": "A wording drift found by the capture comparison; which edition's way stays is for the issue.",
+      "items": [
+        "capture:test-first-refactor-run-100",
+        "capture:test-first-refactor-run-250"
+      ]
+    },
+    {
+      "id": "C4",
+      "editions": {
+        "rust": {
+          "kind": "pending",
+          "does": "writes setup's `phase-finished` before `run-started`",
+          "issue": "https://github.com/mutastic/mutastic-rs/issues/196",
+          "target": "1.5.0"
+        }
+      },
+      "surface": "events",
+      "summary": "`run-started` comes before the first `phase-finished`",
+      "reason": "An order drift found by the capture comparison; which edition's way stays is for the issue.",
+      "items": [
+        "capture:format-jsonl"
+      ]
+    },
+    {
+      "id": "C5",
+      "editions": {
+        "rust": {
+          "kind": "pending",
+          "does": "orders a card's lines otherwise, and its refactor fixture has no arid mutant",
+          "issue": "https://github.com/mutastic/mutastic-rs/issues/196",
+          "target": "1.5.0"
+        }
+      },
+      "surface": "docs",
+      "summary": "The test-first walk-through's cards and summaries read alike",
+      "reason": "The walk-through's captures differ in a card's lines and in what the fixtures hold; the issue sorts the drift from the fixture.",
+      "items": [
+        "capture:test-first-run",
+        "capture:test-first-agent-run",
+        "capture:test-first-refactor-after"
+      ]
+    },
+    {
+      "id": "C6",
+      "editions": {
+        "rust": {
+          "kind": "pending",
+          "does": "lists them in another order",
+          "issue": "https://github.com/mutastic/mutastic-rs/issues/196",
+          "target": "1.5.0"
+        }
+      },
+      "surface": "human output",
+      "summary": "`mutants` lists the pricing fixture's mutants in one order",
+      "reason": "An order drift found by the capture comparison; which edition's way stays is for the issue.",
+      "items": [
+        "capture:mutants"
+      ]
     }
   ]
 }

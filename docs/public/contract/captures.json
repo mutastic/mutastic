@@ -1,9 +1,5 @@
 {
-  "description": "The docs' captured output, under one scenario name for every edition: Java's captures are flat (docs/src/data/output/<name>.ansi), Rust's are in folders (docs/output/<folder>/<name>.ansi in mutastic-rs). scripts/check-editions.mjs compares each pair, masked, as warnings. A capture under a folder in `samePath` pairs with the other edition's at the same path. Add a scenario here when both editions capture the same command.",
-  "editions": {
-    "java": "docs/src/data/output",
-    "rust": "docs/output"
-  },
+  "description": "The docs' captured output, under one scenario name for every edition. Each edition's binding in v1.json says where its captures are (`captures`): Java's are flat (docs/src/data/output/<name>.ansi), Rust's in folders (docs/output/<folder>/<name>.ansi in mutastic-rs). An edition with no name here for a scenario names its capture by the scenario. scripts/compare-captures.mjs compares each edition's with the reference's, masked, and fails on a difference v1.json doesn't record. A capture under a folder in `samePath` pairs with the other edition's at the same path. Add a scenario here when every edition captures the same command.",
   "samePath": [
     "operators"
   ],

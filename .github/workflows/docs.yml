@@ -55,6 +55,10 @@ jobs:
           cache: npm
           cache-dependency-path: docs/package-lock.json
       - run: npm ci
+      # The editions' contract: what its schema can't say, and its tooling's tests, including the
+      # proof that another edition joins with only its binding, fixture, pin and differences.
+      - run: node scripts/contract.mjs check
+      - run: node --test scripts/contract.test.mjs
       # A run by hand that asks: every published release line's docs, for docs.mutastic.io.
       # Anything else: this checkout's, as next. (Not `cond && '' || …`: an empty string counts as
       # false in an expression, and picks the other side.)

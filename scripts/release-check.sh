@@ -8,6 +8,8 @@
 # - the changelog: X.Y.Z has entries, and a patch has no scoring changes (changelog.sh check --for);
 # - the docs' Rust pin, docs/rust-edition.json: a commit of the Rust edition's X.Y, its Cargo.toml
 #   that version, and every shared page stamped from the Rust docs there (check-editions.mjs);
+# - the editions' contract: Java has no pending entry without an issue and a target, or with a
+#   target gone by, and no dated one at its end (docs/scripts/contract.mjs release);
 # - ids: ./gradlew :mutastic-cli:exportIds leaves src/test/ids as committed;
 # - Central: checkCentralFiles, the files a release uploads, within its share of the month's.
 #
@@ -106,6 +108,9 @@ if [ "$checks" != build ]; then
       *) problem "docs/rust-edition.json pins the Rust edition's $pinned, not a $line.*: move it to the Rust release commit with scripts/docs-pin-rust.sh <commit> (RELEASING.md)" ;;
     esac
     run '\[check-editions\]' sh -c 'cd docs && MUTASTIC_RS_DOCS=pinned node scripts/check-editions.mjs'
+    step "the editions' contract: no pending entry for java that isn't registered"
+    # Its problems are its "  - " lines; no line starts with the prefix, so its count isn't one.
+    run 'contract-release' node docs/scripts/contract.mjs release java "$version"
   else
     problem "node isn't on the PATH, and the docs' checks need it (Node 24)"
   fi
